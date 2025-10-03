@@ -81,12 +81,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/items/detail/:itemId', isAuthenticated, async (req, res) => {
+  app.get('/api/items/detail/:itemId', isAuthenticated, async (req: any, res) => {
     try {
       const { itemId } = req.params;
+      const userId = req.user.claims.sub;
+      
       const item = await storage.getItem(itemId);
       if (!item) {
         return res.status(404).json({ message: "Item not found" });
+      }
+      
+      // Verify user has access to this item's location
+      const locationId = await getUserLocationForHospital(userId, item.hospitalId);
+      if (!locationId || locationId !== item.locationId) {
+        return res.status(403).json({ message: "Access denied to this item" });
       }
       
       const lots = await storage.getLots(itemId);
@@ -200,7 +208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Missing required fields" });
       }
       
-      // Get the item to find its hospital
+      // Get the item to find its hospital and location
       const item = await storage.getItem(itemId);
       if (!item) {
         return res.status(404).json({ message: "Item not found" });
@@ -210,6 +218,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const locationId = await getUserLocationForHospital(userId, item.hospitalId);
       if (!locationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Verify item belongs to user's location
+      if (item.locationId !== locationId) {
+        return res.status(403).json({ message: "Access denied to this item's location" });
       }
       
       // Update stock level
@@ -280,7 +293,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create activity for each dispensed item
       const activities = await Promise.all(
         items.map(async (item: any) => {
-          // Get the item to find its hospital
+          // Get the item to find its hospital and location
           const itemData = await storage.getItem(item.itemId);
           if (!itemData) {
             throw new Error(`Item ${item.itemId} not found`);
@@ -290,6 +303,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const locationId = await getUserLocationForHospital(userId, itemData.hospitalId);
           if (!locationId) {
             throw new Error("Access denied to this hospital");
+          }
+          
+          // Verify item belongs to user's location
+          if (itemData.locationId !== locationId) {
+            throw new Error(`Access denied to item ${item.itemId}'s location`);
           }
           
           return await storage.createActivity({
@@ -308,8 +326,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       
       res.status(201).json(activities);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error recording controlled substance:", error);
+      
+      // Return 403 for access control errors
+      if (error.message?.includes("Access denied") || error.message?.includes("not found")) {
+        return res.status(403).json({ message: error.message });
+      }
+      
       res.status(500).json({ message: "Failed to record controlled substance" });
     }
   });
