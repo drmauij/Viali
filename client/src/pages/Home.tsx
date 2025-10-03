@@ -203,32 +203,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Usage Trend */}
-      <div className="kpi-card">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-foreground">7-Day Usage Trend</h3>
-          <span className="text-xs text-muted-foreground">Items dispensed</span>
-        </div>
-        <div className="sparkline">
-          {[40, 65, 50, 85, 70, 60, 90].map((height, index) => (
-            <div
-              key={index}
-              className="sparkline-bar"
-              style={{ height: `${height}%` }}
-            ></div>
-          ))}
-        </div>
-        <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-          <span>Mon</span>
-          <span>Tue</span>
-          <span>Wed</span>
-          <span>Thu</span>
-          <span>Fri</span>
-          <span>Sat</span>
-          <span>Sun</span>
-        </div>
-      </div>
-
       {/* Quick Actions */}
       <div>
         <h3 className="font-semibold text-foreground mb-3">Quick Actions</h3>

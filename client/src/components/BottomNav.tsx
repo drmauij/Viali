@@ -9,7 +9,6 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { id: "home", icon: "fas fa-home", label: "Home", path: "/" },
-  { id: "scan", icon: "fas fa-barcode", label: "Scan", path: "/scan" },
   { id: "items", icon: "fas fa-boxes", label: "Items", path: "/items" },
   { id: "orders", icon: "fas fa-file-invoice", label: "Orders", path: "/orders" },
   { id: "alerts", icon: "fas fa-bell", label: "Alerts", path: "/alerts" },
