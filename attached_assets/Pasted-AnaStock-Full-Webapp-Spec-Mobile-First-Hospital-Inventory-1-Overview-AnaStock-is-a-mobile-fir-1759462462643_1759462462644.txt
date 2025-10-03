@@ -1,0 +1,312 @@
+AnaStock — Full Webapp Spec (Mobile-First, Hospital Inventory)
+1. Overview
+
+AnaStock is a mobile-first web app to manage anesthesia drugs and general consumables across one or more hospitals.
+Goals:
+
+Prevent stockouts of critical drugs.
+
+Minimize waste from expiry.
+
+Automate reordering via Min–Max rules.
+
+Ensure compliance for controlled substances.
+
+Allow multi-hospital management with per-hospital users and roles.
+
+Support both Google authentication and local password login.
+
+2. Authentication & User Management
+Hybrid Authentication
+
+Google Authentication (OAuth 2.0 / OIDC):
+
+One-click login with Google.
+
+Optional domain restriction (e.g., @hospital.org).
+
+Profile auto-created on first login.
+
+Local Authentication:
+
+Standard email + password (hashed with bcrypt/argon2).
+
+Password reset with email token.
+
+Configurable complexity rules.
+
+Login Screen:
+
+Option 1: “Continue with Google”
+
+Option 2: “Login with Email & Password”
+
+Admin Controls:
+
+Each hospital can enable/disable Google or Local login.
+
+Users can link Google account to existing local account.
+
+User Roles (per hospital)
+
+Anesthesia Tech (AT): counts, scans, draft orders.
+
+Pharmacy (PH): approves/submits orders, receives deliveries.
+
+Admin (AD): manages items, vendors, users, Min/Max.
+
+Auditor (AU): read-only access to logs and reports.
+
+3. Multi-Hospital (Multicentric) Support
+
+Hospital Entity:
+
+Owns Items, Locations, Orders, Vendors, Alerts.
+
+Has independent configuration (Min/Max templates, expiry thresholds).
+
+User-Hospital Mapping:
+
+Table UserHospitalRole(user_id, hospital_id, role).
+
+Users may belong to multiple hospitals with different roles.
+
+Hospital Switcher (UI):
+
+Dropdown in top bar if >1 hospital.
+
+All screens (Items, Orders, Reports) scoped to active hospital.
+
+Super Admin (optional):
+
+Cross-hospital dashboard for usage, wastage, compliance.
+
+4. Navigation (Mobile-First, Bottom Tab Bar)
+
+Home
+
+Scan
+
+Items
+
+Orders
+
+Alerts
+
+Top bar: hospital switcher, search, profile, theme toggle.
+
+5. Core Screens
+A) Home (Today Dashboard)
+
+KPI Cards:
+
+Below Min (count)
+
+Expiring Soon (≤30/60/90 days)
+
+Pending Orders (Draft, Sent)
+
+Controlled Audit Due
+
+7-day usage sparkline
+
+Quick Actions: Start Daily Count, Receive Delivery, New Transfer
+
+Banner: if Critical item ≤ Min → red alert + acknowledge
+
+B) Scan
+
+Camera with torch + auto-focus
+
+Accepts GS1/EAN/QR; fallback manual entry
+
+Item Quick Panel:
+
+Name, photo, on-hand vs Min/Max
+
+Status chips: Critical, Controlled
+
+Actions: +1, −1, Set Count, Add Lot (Expiry), Mark Expired, Report Damage, Move Stock
+
+If ≤Min → auto add to Draft PO
+
+If Critical ≤Min → red confirm dialog
+
+C) Items
+
+Filters/chips: All, Critical, Controlled, Expiring, Below Min
+
+Sort: name, expiry, usage rate
+
+Row: name, on-hand vs Min/Max, soonest expiry
+
+Item detail tabs:
+
+Overview → photo, description, Min/Max, usage stats
+
+Lots & Expiry → table of lots with expiry dates, FIFO hint
+
+Activity Log → counts, receipts, moves, adjustments
+
+Settings (Admin only) → thresholds, vendors, critical flag
+
+D) Orders
+
+Kanban board: Draft → Sent → Receiving → Closed
+
+PO detail: vendor, items, qty suggested (Max − On-hand), pack sizes
+
+Actions: Submit, Export PDF, Email Vendor, Receive Delivery
+
+Receiving flow: scan item → add lot + expiry → assign to location
+
+E) Alerts
+
+Grouped: Below Min, Expiring, Audit Due, Recall
+
+Swipe to acknowledge or snooze
+
+Tap → open item detail
+
+6. Core Flows
+Daily Count (2-tap speed)
+
+Start count → scan item → enter qty → save
+
+If ≤Min → Draft PO line created
+
+If Critical ≤Min → force acknowledgement
+
+Expiry Rotation
+
+View lots by soonest expiry
+
+Mark as consumed, expired, or moved
+
+Color coding: ≤30 days red, ≤60 orange, ≤90 yellow
+
+Receiving Delivery
+
+Open PO → Receive → scan → enter qty + lot + expiry → assign location
+
+Warn if expiry too soon
+
+Controlled Substances
+
+Adjustments require two e-signatures (distinct users)
+
+Immutable log
+
+Blind counts scheduled monthly
+
+Discrepancy workflow
+
+Replenishment Planning
+
+Algorithm:
+
+Suggest reorder = (Max − On-hand) rounded to pack size
+
+Adjust for usage trends & lead time
+
+One-tap create Draft PO per vendor
+
+7. Data Model (Key Entities)
+
+Hospital(id, name, address, timezone)
+
+User(id, google_uid?, email, password_hash?, name, photo, default_hospital_id)
+
+UserHospitalRole(user_id, hospital_id, role)
+
+Item(id, hospital_id, name, unit, pack_size, critical, controlled, vendor_id)
+
+Location(id, hospital_id, name, type, parent_id)
+
+StockLevel(item_id, location_id, qty_on_hand)
+
+Lot(id, item_id, lot_no, expiry, location_id, qty)
+
+Order(id, hospital_id, vendor_id, status, created_by)
+
+OrderLine(order_id, item_id, qty, pack_size, price)
+
+Activity(id, ts, user_id, action, item_id, lot_id?, delta, notes, signatures[])
+
+Vendor(id, hospital_id, name, contact, lead_time)
+
+8. Offline & Sync
+
+Full scan/count offline → queued Activities
+
+Local cache of items, locations
+
+Background sync with conflict resolution
+
+9. Accessibility & UI/UX
+
+WCAG AA compliant, large tap targets
+
+Numeric keypad for qty
+
+Haptic feedback on scans
+
+Dark/light theme
+
+Multilingual (EN/DE/IT)
+
+10. Security & Compliance
+
+HTTPS/TLS encryption
+
+Passwords hashed (argon2/bcrypt)
+
+Role-based permissions
+
+Immutable audit logs
+
+Export audit trails (CSV/PDF)
+
+11. Notifications
+
+In-app + email:
+
+Critical Below Min (instant)
+
+Expiry Warnings (weekly)
+
+Order Status (on update)
+
+Audit Due (scheduled)
+
+12. Reports
+
+Stockouts over time
+
+Expiry wastage analysis
+
+Usage trends (7/30/90 days)
+
+Compliance with daily/weekly counts
+
+Export: CSV, PDF
+
+13. Settings
+
+Per hospital: Min/Max templates, expiry thresholds, vendors, locations, users
+
+Super Admin: cross-hospital dashboard
+
+✅ This master spec now includes:
+
+Inventory workflows
+
+Expiry + Min/Max logic
+
+Replenishment + ordering
+
+Hybrid authentication (Google + local)
+
+Multi-hospital support
+
+Compliance & reporting
