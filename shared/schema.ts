@@ -55,11 +55,13 @@ export const userHospitalRoles = pgTable("user_hospital_roles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  locationId: varchar("location_id").notNull().references(() => locations.id),
   role: varchar("role").notNull(), // AT, PH, AD, AU
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_user_hospital_roles_user").on(table.userId),
   index("idx_user_hospital_roles_hospital").on(table.hospitalId),
+  index("idx_user_hospital_roles_location").on(table.locationId),
 ]);
 
 // Vendors
@@ -91,6 +93,7 @@ export const locations: any = pgTable("locations", {
 export const items = pgTable("items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  locationId: varchar("location_id").notNull().references(() => locations.id),
   name: varchar("name").notNull(),
   description: text("description"),
   unit: varchar("unit").notNull(), // vial, amp, ml, etc.
@@ -106,6 +109,7 @@ export const items = pgTable("items", {
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_items_hospital").on(table.hospitalId),
+  index("idx_items_location").on(table.locationId),
   index("idx_items_vendor").on(table.vendorId),
 ]);
 
