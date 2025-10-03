@@ -1,0 +1,460 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --radius: 0.75rem;
+  
+  /* Light theme colors from design reference */
+  --background: hsl(210, 40%, 98%);
+  --foreground: hsl(215, 25%, 15%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(215, 25%, 15%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(215, 25%, 15%);
+  --primary: hsl(215, 70%, 50%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(215, 20%, 25%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --muted: hsl(215, 20%, 94%);
+  --muted-foreground: hsl(215, 15%, 45%);
+  --accent: hsl(25, 95%, 53%);
+  --accent-foreground: hsl(0, 0%, 100%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --success: hsl(142, 71%, 45%);
+  --success-foreground: hsl(0, 0%, 100%);
+  --warning: hsl(38, 92%, 50%);
+  --warning-foreground: hsl(0, 0%, 100%);
+  --border: hsl(215, 20%, 88%);
+  --input: hsl(215, 20%, 88%);
+  --ring: hsl(215, 70%, 50%);
+  --chart-1: hsl(215, 70%, 50%);
+  --chart-2: hsl(142, 71%, 45%);
+  --chart-3: hsl(38, 92%, 50%);
+  --chart-4: hsl(25, 95%, 53%);
+  --chart-5: hsl(0, 84%, 60%);
+}
+
+[data-theme="dark"] {
+  --background: hsl(215, 28%, 12%);
+  --foreground: hsl(210, 20%, 92%);
+  --card: hsl(215, 25%, 16%);
+  --card-foreground: hsl(210, 20%, 92%);
+  --popover: hsl(215, 25%, 16%);
+  --popover-foreground: hsl(210, 20%, 92%);
+  --primary: hsl(215, 65%, 55%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(215, 20%, 30%);
+  --secondary-foreground: hsl(210, 20%, 92%);
+  --muted: hsl(215, 25%, 20%);
+  --muted-foreground: hsl(215, 15%, 65%);
+  --accent: hsl(25, 90%, 55%);
+  --accent-foreground: hsl(0, 0%, 100%);
+  --destructive: hsl(0, 80%, 55%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --success: hsl(142, 65%, 50%);
+  --success-foreground: hsl(0, 0%, 100%);
+  --warning: hsl(38, 85%, 55%);
+  --warning-foreground: hsl(0, 0%, 100%);
+  --border: hsl(215, 25%, 24%);
+  --input: hsl(215, 25%, 24%);
+  --ring: hsl(215, 65%, 55%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Poppins', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Custom AnaStock Components */
+.screen-container {
+  min-height: 100vh;
+  padding-bottom: 80px;
+  background: var(--background);
+}
+
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  z-index: 50;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--muted-foreground);
+  min-width: 60px;
+}
+
+.nav-item.active {
+  color: var(--primary);
+}
+
+.nav-item i {
+  font-size: 24px;
+}
+
+.nav-item span {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.kpi-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  transition: all 0.2s;
+}
+
+.kpi-card:active {
+  transform: scale(0.98);
+}
+
+.sparkline {
+  height: 40px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.sparkline-bar {
+  flex: 1;
+  background: var(--primary);
+  opacity: 0.6;
+  border-radius: 2px 2px 0 0;
+  transition: opacity 0.2s;
+}
+
+.sparkline-bar:hover {
+  opacity: 1;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.chip-critical {
+  background: hsl(var(--destructive) / 0.1);
+  color: var(--destructive);
+}
+
+.chip-controlled {
+  background: hsl(var(--accent) / 0.1);
+  color: var(--accent);
+}
+
+.chip-warning {
+  background: hsl(var(--warning) / 0.1);
+  color: var(--warning);
+}
+
+.chip-success {
+  background: hsl(var(--success) / 0.1);
+  color: var(--success);
+}
+
+.chip-primary {
+  background: hsl(var(--primary) / 0.1);
+  color: var(--primary);
+}
+
+.chip-muted {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.scanner-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+}
+
+.scanner-frame {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scanner-box {
+  width: 280px;
+  height: 280px;
+  border: 3px solid var(--primary);
+  border-radius: var(--radius);
+  position: relative;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+}
+
+.scanner-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--primary);
+  animation: scan 2s linear infinite;
+}
+
+@keyframes scan {
+  0%, 100% { top: 0; }
+  50% { top: calc(100% - 3px); }
+}
+
+.quick-panel {
+  background: var(--card);
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: 24px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.action-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: var(--radius);
+  font-weight: 500;
+  transition: all 0.2s;
+  cursor: pointer;
+  border: none;
+  font-size: 15px;
+  font-family: 'Poppins', system-ui, sans-serif;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.btn-secondary {
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--foreground);
+  border: 1px solid var(--border);
+}
+
+.btn-destructive {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+}
+
+.btn-success {
+  background: var(--success);
+  color: var(--success-foreground);
+}
+
+.action-button:active {
+  transform: scale(0.95);
+}
+
+.item-row {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: all 0.2s;
+}
+
+.item-row:active {
+  transform: scale(0.98);
+}
+
+.progress-bar {
+  height: 8px;
+  background: var(--muted);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--primary);
+  transition: width 0.3s;
+}
+
+.kanban-column {
+  background: var(--muted);
+  border-radius: var(--radius);
+  padding: 16px;
+  min-width: 280px;
+}
+
+.kanban-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.modal-content {
+  background: var(--card);
+  border-radius: var(--radius) var(--radius) 0 0;
+  width: 100%;
+  max-width: 600px;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 24px;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.signature-pad {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  height: 150px;
+  background: var(--background);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+
+.camera-preview {
+  width: 100%;
+  aspect-ratio: 4/3;
+  background: var(--muted);
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.controlled-log-fab {
+  position: fixed;
+  bottom: 100px;
+  right: 20px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  z-index: 40;
+  transition: all 0.2s;
+}
+
+.controlled-log-fab:active {
+  transform: scale(0.9);
+}
+
+.top-bar {
+  position: sticky;
+  top: 0;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 16px;
+  z-index: 10;
+}
+
+.expiry-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.expiry-red {
+  background: var(--destructive);
+}
+
+.expiry-orange {
+  background: var(--warning);
+}
+
+.expiry-yellow {
+  background: hsl(38, 92%, 70%);
+}
+
+.expiry-green {
+  background: var(--success);
+}
+
+@media (min-width: 768px) {
+  .screen-container {
+    max-width: 480px;
+    margin: 0 auto;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.1);
+  }
+  
+  .modal-content {
+    border-radius: var(--radius);
+  }
+  
+  .modal-overlay {
+    align-items: center;
+  }
+}

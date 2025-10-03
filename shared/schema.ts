@@ -1,0 +1,346 @@
+import { sql } from 'drizzle-orm';
+import {
+  index,
+  jsonb,
+  pgTable,
+  timestamp,
+  varchar,
+  text,
+  integer,
+  decimal,
+  boolean,
+  primaryKey,
+} from "drizzle-orm/pg-core";
+import { relations } from 'drizzle-orm';
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod";
+
+// Session storage table (mandatory for Replit Auth)
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
+
+// User storage table (mandatory for Replit Auth)
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Hospital table
+export const hospitals = pgTable("hospitals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  address: text("address"),
+  timezone: varchar("timezone").default("UTC"),
+  googleAuthEnabled: boolean("google_auth_enabled").default(true),
+  localAuthEnabled: boolean("local_auth_enabled").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// User-Hospital-Role mapping
+export const userHospitalRoles = pgTable("user_hospital_roles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  role: varchar("role").notNull(), // AT, PH, AD, AU
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_user_hospital_roles_user").on(table.userId),
+  index("idx_user_hospital_roles_hospital").on(table.hospitalId),
+]);
+
+// Vendors
+export const vendors = pgTable("vendors", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  name: varchar("name").notNull(),
+  contact: text("contact"),
+  leadTime: integer("lead_time").default(7), // days
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_vendors_hospital").on(table.hospitalId),
+]);
+
+// Locations
+export const locations: any = pgTable("locations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  name: varchar("name").notNull(),
+  type: varchar("type"), // OR, ICU, Storage, etc.
+  parentId: varchar("parent_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_locations_hospital").on(table.hospitalId),
+  index("idx_locations_parent").on(table.parentId),
+]);
+
+// Items
+export const items = pgTable("items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  unit: varchar("unit").notNull(), // vial, amp, ml, etc.
+  packSize: integer("pack_size").default(1),
+  minThreshold: integer("min_threshold"),
+  maxThreshold: integer("max_threshold"),
+  critical: boolean("critical").default(false),
+  controlled: boolean("controlled").default(false),
+  vendorId: varchar("vendor_id").references(() => vendors.id),
+  barcodes: text("barcodes").array(), // Multiple barcodes per item
+  imageUrl: varchar("image_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_items_hospital").on(table.hospitalId),
+  index("idx_items_vendor").on(table.vendorId),
+]);
+
+// Stock Levels
+export const stockLevels = pgTable("stock_levels", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  itemId: varchar("item_id").notNull().references(() => items.id),
+  locationId: varchar("location_id").notNull().references(() => locations.id),
+  qtyOnHand: integer("qty_on_hand").default(0),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_stock_levels_item").on(table.itemId),
+  index("idx_stock_levels_location").on(table.locationId),
+]);
+
+// Lots (for expiry tracking)
+export const lots = pgTable("lots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  itemId: varchar("item_id").notNull().references(() => items.id),
+  lotNumber: varchar("lot_number").notNull(),
+  expiryDate: timestamp("expiry_date"),
+  locationId: varchar("location_id").notNull().references(() => locations.id),
+  qty: integer("qty").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_lots_item").on(table.itemId),
+  index("idx_lots_expiry").on(table.expiryDate),
+]);
+
+// Orders
+export const orders = pgTable("orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  vendorId: varchar("vendor_id").notNull().references(() => vendors.id),
+  status: varchar("status").notNull().default("draft"), // draft, sent, receiving, closed
+  createdBy: varchar("created_by").notNull().references(() => users.id),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_orders_hospital").on(table.hospitalId),
+  index("idx_orders_vendor").on(table.vendorId),
+  index("idx_orders_status").on(table.status),
+]);
+
+// Order Lines
+export const orderLines = pgTable("order_lines", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull().references(() => orders.id),
+  itemId: varchar("item_id").notNull().references(() => items.id),
+  qty: integer("qty").notNull(),
+  packSize: integer("pack_size").default(1),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }),
+  totalPrice: decimal("total_price", { precision: 10, scale: 2 }),
+}, (table) => [
+  index("idx_order_lines_order").on(table.orderId),
+  index("idx_order_lines_item").on(table.itemId),
+]);
+
+// Activity Log (immutable audit trail)
+export const activities = pgTable("activities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  timestamp: timestamp("timestamp").defaultNow(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  action: varchar("action").notNull(), // count, receive, dispense, adjust, etc.
+  itemId: varchar("item_id").references(() => items.id),
+  lotId: varchar("lot_id").references(() => lots.id),
+  locationId: varchar("location_id").references(() => locations.id),
+  delta: integer("delta"), // quantity change
+  notes: text("notes"),
+  patientId: varchar("patient_id"), // for controlled substances
+  patientPhoto: varchar("patient_photo"), // photo URL
+  signatures: jsonb("signatures"), // array of e-signatures
+  controlledVerified: boolean("controlled_verified").default(false),
+  metadata: jsonb("metadata"), // additional data
+}, (table) => [
+  index("idx_activities_timestamp").on(table.timestamp),
+  index("idx_activities_user").on(table.userId),
+  index("idx_activities_item").on(table.itemId),
+  index("idx_activities_controlled").on(table.controlledVerified),
+]);
+
+// Alerts
+export const alerts = pgTable("alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  type: varchar("type").notNull(), // below_min, expiring, audit_due, recall
+  itemId: varchar("item_id").references(() => items.id),
+  lotId: varchar("lot_id").references(() => lots.id),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  severity: varchar("severity").default("medium"), // low, medium, high, critical
+  acknowledged: boolean("acknowledged").default(false),
+  acknowledgedBy: varchar("acknowledged_by").references(() => users.id),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  snoozedUntil: timestamp("snoozed_until"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_alerts_hospital").on(table.hospitalId),
+  index("idx_alerts_type").on(table.type),
+  index("idx_alerts_acknowledged").on(table.acknowledged),
+]);
+
+// Relations
+export const usersRelations = relations(users, ({ many }) => ({
+  userHospitalRoles: many(userHospitalRoles),
+  activities: many(activities),
+}));
+
+export const hospitalsRelations = relations(hospitals, ({ many }) => ({
+  userHospitalRoles: many(userHospitalRoles),
+  vendors: many(vendors),
+  locations: many(locations),
+  items: many(items),
+  orders: many(orders),
+  alerts: many(alerts),
+}));
+
+export const userHospitalRolesRelations = relations(userHospitalRoles, ({ one }) => ({
+  user: one(users, { fields: [userHospitalRoles.userId], references: [users.id] }),
+  hospital: one(hospitals, { fields: [userHospitalRoles.hospitalId], references: [hospitals.id] }),
+}));
+
+export const vendorsRelations = relations(vendors, ({ one, many }) => ({
+  hospital: one(hospitals, { fields: [vendors.hospitalId], references: [hospitals.id] }),
+  items: many(items),
+  orders: many(orders),
+}));
+
+export const locationsRelations = relations(locations, ({ one, many }) => ({
+  hospital: one(hospitals, { fields: [locations.hospitalId], references: [hospitals.id] }),
+  parent: one(locations, { fields: [locations.parentId], references: [locations.id] }),
+  children: many(locations),
+  stockLevels: many(stockLevels),
+  lots: many(lots),
+}));
+
+export const itemsRelations = relations(items, ({ one, many }) => ({
+  hospital: one(hospitals, { fields: [items.hospitalId], references: [hospitals.id] }),
+  vendor: one(vendors, { fields: [items.vendorId], references: [vendors.id] }),
+  stockLevels: many(stockLevels),
+  lots: many(lots),
+  orderLines: many(orderLines),
+  activities: many(activities),
+  alerts: many(alerts),
+}));
+
+export const stockLevelsRelations = relations(stockLevels, ({ one }) => ({
+  item: one(items, { fields: [stockLevels.itemId], references: [items.id] }),
+  location: one(locations, { fields: [stockLevels.locationId], references: [locations.id] }),
+}));
+
+export const lotsRelations = relations(lots, ({ one, many }) => ({
+  item: one(items, { fields: [lots.itemId], references: [items.id] }),
+  location: one(locations, { fields: [lots.locationId], references: [locations.id] }),
+  activities: many(activities),
+  alerts: many(alerts),
+}));
+
+export const ordersRelations = relations(orders, ({ one, many }) => ({
+  hospital: one(hospitals, { fields: [orders.hospitalId], references: [hospitals.id] }),
+  vendor: one(vendors, { fields: [orders.vendorId], references: [vendors.id] }),
+  createdByUser: one(users, { fields: [orders.createdBy], references: [users.id] }),
+  orderLines: many(orderLines),
+}));
+
+export const orderLinesRelations = relations(orderLines, ({ one }) => ({
+  order: one(orders, { fields: [orderLines.orderId], references: [orders.id] }),
+  item: one(items, { fields: [orderLines.itemId], references: [items.id] }),
+}));
+
+export const activitiesRelations = relations(activities, ({ one }) => ({
+  user: one(users, { fields: [activities.userId], references: [users.id] }),
+  item: one(items, { fields: [activities.itemId], references: [items.id] }),
+  lot: one(lots, { fields: [activities.lotId], references: [lots.id] }),
+  location: one(locations, { fields: [activities.locationId], references: [locations.id] }),
+}));
+
+export const alertsRelations = relations(alerts, ({ one }) => ({
+  hospital: one(hospitals, { fields: [alerts.hospitalId], references: [hospitals.id] }),
+  item: one(items, { fields: [alerts.itemId], references: [items.id] }),
+  lot: one(lots, { fields: [alerts.lotId], references: [lots.id] }),
+  acknowledgedByUser: one(users, { fields: [alerts.acknowledgedBy], references: [users.id] }),
+}));
+
+// Insert schemas
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertHospitalSchema = createInsertSchema(hospitals).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUserHospitalRoleSchema = createInsertSchema(userHospitalRoles).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertItemSchema = createInsertSchema(items).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertOrderSchema = createInsertSchema(orders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertActivitySchema = createInsertSchema(activities).omit({
+  id: true,
+  timestamp: true,
+});
+
+// Types
+export type UpsertUser = typeof users.$inferInsert;
+export type User = typeof users.$inferSelect;
+export type Hospital = typeof hospitals.$inferSelect;
+export type UserHospitalRole = typeof userHospitalRoles.$inferSelect;
+export type Item = typeof items.$inferSelect;
+export type StockLevel = typeof stockLevels.$inferSelect;
+export type Lot = typeof lots.$inferSelect;
+export type Order = typeof orders.$inferSelect;
+export type OrderLine = typeof orderLines.$inferSelect;
+export type Activity = typeof activities.$inferSelect;
+export type Alert = typeof alerts.$inferSelect;
+export type Vendor = typeof vendors.$inferSelect;
+export type Location = typeof locations.$inferSelect;
+
+export type InsertItem = z.infer<typeof insertItemSchema>;
+export type InsertOrder = z.infer<typeof insertOrderSchema>;
+export type InsertActivity = z.infer<typeof insertActivitySchema>;
+export type InsertUserHospitalRole = z.infer<typeof insertUserHospitalRoleSchema>;
