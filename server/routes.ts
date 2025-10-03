@@ -1,9 +1,15 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { insertItemSchema, insertActivitySchema } from "@shared/schema";
 import { z } from "zod";
+
+async function getUserLocationForHospital(userId: string, hospitalId: string): Promise<string | null> {
+  const hospitals = await storage.getUserHospitals(userId);
+  const hospital = hospitals.find(h => h.id === hospitalId);
+  return hospital?.locationId || null;
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -44,13 +50,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Items routes
-  app.get('/api/items/:hospitalId', isAuthenticated, async (req, res) => {
+  app.get('/api/items/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
-      const { critical, controlled, belowMin, expiring, locationId } = req.query;
+      const { critical, controlled, belowMin, expiring } = req.query;
+      const userId = req.user.claims.sub;
       
-      if (!locationId || typeof locationId !== 'string') {
-        return res.status(400).json({ message: "locationId is required" });
+      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      if (!locationId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
       const filters = {
@@ -101,11 +109,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Barcode scanning
-  app.post('/api/scan/barcode', isAuthenticated, async (req, res) => {
+  app.post('/api/scan/barcode', isAuthenticated, async (req: any, res) => {
     try {
-      const { barcode, hospitalId, locationId } = req.body;
+      const { barcode, hospitalId } = req.body;
       if (!barcode || !hospitalId) {
         return res.status(400).json({ message: "Barcode and hospitalId are required" });
+      }
+      
+      const userId = req.user.claims.sub;
+      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      if (!locationId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
       const item = await storage.findItemByBarcode(barcode, hospitalId, locationId);
@@ -179,11 +193,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Stock operations
   app.post('/api/stock/update', isAuthenticated, async (req: any, res) => {
     try {
-      const { itemId, locationId, qty, delta, notes } = req.body;
+      const { itemId, qty, delta, notes } = req.body;
       const userId = req.user.claims.sub;
       
-      if (!itemId || !locationId || qty === undefined) {
+      if (!itemId || qty === undefined) {
         return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      // Get the item to find its hospital
+      const item = await storage.getItem(itemId);
+      if (!item) {
+        return res.status(404).json({ message: "Item not found" });
+      }
+      
+      // Get user's locationId for this hospital
+      const locationId = await getUserLocationForHospital(userId, item.hospitalId);
+      if (!locationId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
       // Update stock level
@@ -254,11 +280,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create activity for each dispensed item
       const activities = await Promise.all(
         items.map(async (item: any) => {
+          // Get the item to find its hospital
+          const itemData = await storage.getItem(item.itemId);
+          if (!itemData) {
+            throw new Error(`Item ${item.itemId} not found`);
+          }
+          
+          // Get user's locationId for this hospital
+          const locationId = await getUserLocationForHospital(userId, itemData.hospitalId);
+          if (!locationId) {
+            throw new Error("Access denied to this hospital");
+          }
+          
           return await storage.createActivity({
             userId,
             action: 'dispense',
             itemId: item.itemId,
-            locationId: item.locationId,
+            locationId,
             delta: -item.qty, // Negative for dispensing
             notes,
             patientId,
@@ -276,11 +314,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/controlled/log/:hospitalId', isAuthenticated, async (req, res) => {
+  app.get('/api/controlled/log/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
+      const userId = req.user.claims.sub;
+      
+      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      if (!locationId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
       const activities = await storage.getActivities({
         hospitalId,
+        locationId,
         controlled: true,
         limit: 50,
       });
@@ -337,13 +383,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Recent activities
-  app.get('/api/activities/:hospitalId', isAuthenticated, async (req, res) => {
+  app.get('/api/activities/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
-      const { locationId } = req.query;
+      const userId = req.user.claims.sub;
       
-      if (!locationId || typeof locationId !== 'string') {
-        return res.status(400).json({ message: "locationId is required" });
+      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      if (!locationId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
       const activities = await storage.getActivities({

@@ -43,16 +43,7 @@ export default function Home() {
   });
 
   const { data: activities = [] } = useQuery<Activity[]>({
-    queryKey: ["/api/activities", activeHospital?.id, activeHospital?.locationId],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (activeHospital?.locationId) {
-        params.append("locationId", activeHospital.locationId);
-      }
-      const response = await fetch(`/api/activities/${activeHospital?.id}?${params}`);
-      if (!response.ok) throw new Error("Failed to fetch activities");
-      return response.json();
-    },
+    queryKey: ["/api/activities", activeHospital?.id],
     enabled: !!activeHospital?.id,
   });
 

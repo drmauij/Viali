@@ -54,7 +54,7 @@ export default function ControlledLog() {
 
   const dispenseMutation = useMutation({
     mutationFn: async (data: {
-      items: Array<{ itemId: string; qty: number; locationId: string }>;
+      items: Array<{ itemId: string; qty: number }>;
       patientId: string;
       patientPhoto?: string;
       notes: string;
@@ -152,7 +152,6 @@ export default function ControlledLog() {
     const items = selectedItems.map(drug => ({
       itemId: drug.itemId,
       qty: drug.qty,
-      locationId: "default-location", // Would be selected by user in real app
     }));
 
     dispenseMutation.mutate({

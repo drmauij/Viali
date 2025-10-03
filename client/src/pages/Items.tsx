@@ -29,16 +29,8 @@ export default function Items() {
   const { toast } = useToast();
 
   const { data: items = [], isLoading } = useQuery<ItemWithStock[]>({
-    queryKey: ["/api/items", activeHospital?.id, activeHospital?.locationId],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        locationId: activeHospital?.locationId || "",
-      });
-      const response = await fetch(`/api/items/${activeHospital?.id}?${params}`);
-      if (!response.ok) throw new Error("Failed to fetch items");
-      return response.json();
-    },
-    enabled: !!activeHospital?.id && !!activeHospital?.locationId,
+    queryKey: ["/api/items", activeHospital?.id],
+    enabled: !!activeHospital?.id,
   });
 
   const createItemMutation = useMutation({

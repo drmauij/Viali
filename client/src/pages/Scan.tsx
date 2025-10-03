@@ -145,7 +145,6 @@ export default function Scan() {
       
       const response = await apiRequest("POST", "/api/stock/update", {
         itemId,
-        locationId: scannedItem?.stockLevel?.locationId || "location-or", // Use existing location or default to OR
         qty: newQty,
         delta,
         notes: "Updated via scan interface",
