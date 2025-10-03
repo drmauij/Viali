@@ -116,6 +116,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // External barcode lookup
+  app.post('/api/scan/lookup', isAuthenticated, async (req, res) => {
+    try {
+      const { barcode } = req.body;
+      if (!barcode) {
+        return res.status(400).json({ message: "Barcode is required" });
+      }
+
+      const apiKey = process.env.EAN_SEARCH_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ message: "External lookup service not configured" });
+      }
+
+      const url = `https://api.ean-search.org/api?token=${apiKey}&op=barcode-lookup&format=json&ean=${barcode}`;
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        return res.status(404).json({ message: "Product not found in external database" });
+      }
+
+      const data = await response.json();
+      
+      // Check for API errors
+      if (data.error) {
+        return res.status(404).json({ message: data.error || "Product not found in external database" });
+      }
+
+      // EAN-Search returns { result: [...] }
+      if (!data.result || !Array.isArray(data.result) || data.result.length === 0) {
+        return res.status(404).json({ message: "Product not found in external database" });
+      }
+
+      const product = data.result[0];
+      
+      res.json({
+        name: product.name || '',
+        manufacturer: product.issuing_country || product.brand || '',
+        category: product.category || '',
+        barcode: barcode,
+        found: true,
+      });
+    } catch (error) {
+      console.error("Error looking up barcode:", error);
+      res.status(500).json({ message: "Failed to lookup barcode" });
+    }
+  });
+
   // Stock operations
   app.post('/api/stock/update', isAuthenticated, async (req: any, res) => {
     try {

@@ -8,7 +8,22 @@ import BarcodeScanner from "@/components/BarcodeScanner";
 import ItemQuickPanel from "@/components/ItemQuickPanel";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import type { Item } from "@shared/schema";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import type { Item, StockLevel, InsertItem } from "@shared/schema";
+
+interface ItemWithStock extends Item {
+  stockLevel?: StockLevel;
+}
+
+interface ExternalProduct {
+  name: string;
+  manufacturer: string;
+  category: string;
+  barcode: string;
+  found: boolean;
+}
 
 export default function Scan() {
   const { user } = useAuth();
@@ -17,11 +32,13 @@ export default function Scan() {
   
   const [showScanner, setShowScanner] = useState(false);
   const [showQuickPanel, setShowQuickPanel] = useState(false);
+  const [showAddDialog, setShowAddDialog] = useState(false);
   const [manualBarcode, setManualBarcode] = useState("");
-  const [scannedItem, setScannedItem] = useState<Item | null>(null);
+  const [scannedItem, setScannedItem] = useState<ItemWithStock | null>(null);
+  const [externalProduct, setExternalProduct] = useState<ExternalProduct | null>(null);
   const [activeHospital] = useState(() => (user as any)?.hospitals?.[0]);
 
-  // Barcode scan mutation
+  // Barcode scan mutation - first try to find in local database
   const scanMutation = useMutation({
     mutationFn: async (barcode: string) => {
       const response = await apiRequest("POST", "/api/scan/barcode", {
@@ -39,7 +56,7 @@ export default function Scan() {
         description: `${item.name} has been scanned successfully.`,
       });
     },
-    onError: (error) => {
+    onError: async (error: any, barcode) => {
       if (isUnauthorizedError(error)) {
         toast({
           title: "Unauthorized",
@@ -52,12 +69,10 @@ export default function Scan() {
         return;
       }
       
-      if (error.message.includes("404")) {
-        toast({
-          title: "Item Not Found",
-          description: "This barcode is not recognized in your inventory.",
-          variant: "destructive",
-        });
+      // Check if it's a 404 error (error message format: "404: Not found")
+      if (error?.message?.startsWith("404")) {
+        // Item not found locally, try external lookup
+        externalLookupMutation.mutate(barcode);
       } else {
         toast({
           title: "Scan Error",
@@ -65,6 +80,59 @@ export default function Scan() {
           variant: "destructive",
         });
       }
+    },
+  });
+
+  // External barcode lookup mutation
+  const externalLookupMutation = useMutation({
+    mutationFn: async (barcode: string) => {
+      const response = await apiRequest("POST", "/api/scan/lookup", {
+        barcode,
+      });
+      return response.json();
+    },
+    onSuccess: (product: ExternalProduct) => {
+      setExternalProduct(product);
+      setShowScanner(false);
+      setShowAddDialog(true);
+      toast({
+        title: "Product Found",
+        description: `${product.name} found in external database.`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Item Not Found",
+        description: "This barcode is not in your inventory or external databases.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Create item mutation
+  const createItemMutation = useMutation({
+    mutationFn: async (data: Partial<InsertItem>) => {
+      const response = await apiRequest("POST", "/api/items", {
+        ...data,
+        hospitalId: activeHospital?.id,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      setShowAddDialog(false);
+      setExternalProduct(null);
+      toast({
+        title: "Success",
+        description: "Item created successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create item",
+        variant: "destructive",
+      });
     },
   });
 
@@ -145,12 +213,33 @@ export default function Scan() {
     updateStockMutation.mutate({ itemId, newQty });
   };
 
-  const handleControlledDispense = (item: Item) => {
+  const handleControlledDispense = (item: ItemWithStock) => {
     // Navigate to controlled substances page or open modal
     toast({
       title: "Feature Coming Soon",
       description: "Controlled substance recording will open controlled log.",
     });
+  };
+
+  const handleAddExternalItem = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    const minValue = formData.get("minThreshold") as string;
+    const maxValue = formData.get("maxThreshold") as string;
+    
+    const itemData = {
+      name: formData.get("name") as string,
+      description: formData.get("description") as string,
+      unit: formData.get("unit") as string,
+      barcodes: externalProduct?.barcode ? [externalProduct.barcode] : [],
+      minThreshold: minValue ? parseInt(minValue, 10) : 0,
+      maxThreshold: maxValue ? parseInt(maxValue, 10) : 0,
+      critical: formData.get("critical") === "on",
+      controlled: formData.get("controlled") === "on",
+    };
+
+    createItemMutation.mutate(itemData);
   };
 
   if (!activeHospital) {
@@ -263,10 +352,129 @@ export default function Scan() {
       <ItemQuickPanel
         isOpen={showQuickPanel}
         onClose={() => setShowQuickPanel(false)}
-        item={scannedItem}
+        item={scannedItem ? {
+          ...scannedItem,
+          stockLevel: scannedItem.stockLevel ? {
+            qtyOnHand: scannedItem.stockLevel.qtyOnHand || 0
+          } : undefined
+        } : null}
         onStockUpdate={handleStockUpdate}
         onControlledDispense={handleControlledDispense}
       />
+
+      {/* Add Item from External Lookup Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add New Item</DialogTitle>
+            <DialogDescription>
+              Product found in external database. Review and complete the details below.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form onSubmit={handleAddExternalItem} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Name *</Label>
+              <Input
+                id="name"
+                name="name"
+                defaultValue={externalProduct?.name || ""}
+                required
+                data-testid="add-item-name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Input
+                id="description"
+                name="description"
+                defaultValue={`${externalProduct?.manufacturer || ""} - ${externalProduct?.category || ""}`.trim()}
+                data-testid="add-item-description"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="barcode">Barcode</Label>
+              <Input
+                id="barcode"
+                name="barcode"
+                value={externalProduct?.barcode || ""}
+                readOnly
+                disabled
+                className="bg-muted"
+                data-testid="add-item-barcode"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="unit">Unit *</Label>
+              <Input
+                id="unit"
+                name="unit"
+                placeholder="e.g., mg, ml, box"
+                required
+                data-testid="add-item-unit"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="minThreshold">Min Threshold</Label>
+                <Input
+                  id="minThreshold"
+                  name="minThreshold"
+                  type="number"
+                  defaultValue="0"
+                  data-testid="add-item-min"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="maxThreshold">Max Threshold</Label>
+                <Input
+                  id="maxThreshold"
+                  name="maxThreshold"
+                  type="number"
+                  defaultValue="0"
+                  data-testid="add-item-max"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox id="critical" name="critical" data-testid="add-item-critical" />
+                <Label htmlFor="critical" className="font-normal cursor-pointer">Critical Item</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox id="controlled" name="controlled" data-testid="add-item-controlled" />
+                <Label htmlFor="controlled" className="font-normal cursor-pointer">Controlled Substance</Label>
+              </div>
+            </div>
+
+            <div className="flex gap-3 justify-end pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowAddDialog(false);
+                  setExternalProduct(null);
+                }}
+                data-testid="cancel-add-item"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={createItemMutation.isPending}
+                data-testid="submit-add-item"
+              >
+                {createItemMutation.isPending ? "Adding..." : "Add Item"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
