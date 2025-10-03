@@ -6,6 +6,8 @@ interface Hospital {
   id: string;
   name: string;
   role: string;
+  locationId: string;
+  locationName: string;
 }
 
 interface TopBarProps {
@@ -49,7 +51,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
                   <i className="fas fa-chevron-down text-xs text-muted-foreground"></i>
                 </div>
                 <span className="text-xs text-muted-foreground">
-                  {activeHospital?.role || "No Role"}
+                  {activeHospital?.locationName || "No Location"} • {activeHospital?.role || "No Role"}
                 </span>
               </div>
             </button>
@@ -67,7 +69,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
                     data-testid={`hospital-option-${hospital.id}`}
                   >
                     <div className="font-medium">{hospital.name}</div>
-                    <div className="text-xs text-muted-foreground">{hospital.role}</div>
+                    <div className="text-xs text-muted-foreground">{hospital.locationName} • {hospital.role}</div>
                   </button>
                 ))}
               </div>

@@ -340,8 +340,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/activities/:hospitalId', isAuthenticated, async (req, res) => {
     try {
       const { hospitalId } = req.params;
+      const { locationId } = req.query;
+      
+      if (!locationId || typeof locationId !== 'string') {
+        return res.status(400).json({ message: "locationId is required" });
+      }
+      
       const activities = await storage.getActivities({
         hospitalId,
+        locationId,
         limit: 10,
       });
       res.json(activities);

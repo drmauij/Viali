@@ -9,6 +9,8 @@ interface Hospital {
   id: string;
   name: string;
   role: string;
+  locationId: string;
+  locationName: string;
 }
 
 interface LayoutProps {

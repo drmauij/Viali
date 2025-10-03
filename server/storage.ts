@@ -66,6 +66,7 @@ export interface IStorage {
   createActivity(activity: InsertActivity): Promise<Activity>;
   getActivities(filters: {
     hospitalId?: string;
+    locationId?: string;
     itemId?: string;
     userId?: string;
     controlled?: boolean;
@@ -277,6 +278,7 @@ export class DatabaseStorage implements IStorage {
 
   async getActivities(filters: {
     hospitalId?: string;
+    locationId?: string;
     itemId?: string;
     userId?: string;
     controlled?: boolean;
@@ -309,7 +311,15 @@ export class DatabaseStorage implements IStorage {
     }
 
     if (filters.hospitalId) {
-      query = query.where(eq(items.hospitalId, filters.hospitalId));
+      conditions.push(eq(items.hospitalId, filters.hospitalId));
+    }
+
+    if (filters.locationId) {
+      conditions.push(eq(items.locationId, filters.locationId));
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
     }
 
     query = query.orderBy(desc(activities.timestamp));
