@@ -1,9 +1,14 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import type { Item, StockLevel } from "@shared/schema";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { Item, StockLevel, InsertItem } from "@shared/schema";
 
 type FilterType = "all" | "critical" | "controlled" | "expiring" | "belowMin";
 
@@ -18,11 +23,64 @@ export default function Items() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [sortBy, setSortBy] = useState("name");
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<ItemWithStock | null>(null);
+  const { toast } = useToast();
 
   const { data: items = [], isLoading } = useQuery<ItemWithStock[]>({
     queryKey: ["/api/items", activeHospital?.id],
     enabled: !!activeHospital?.id,
   });
+
+  const createItemMutation = useMutation({
+    mutationFn: async (data: Partial<InsertItem>) => {
+      return await apiRequest(`/api/items`, "POST", {
+        ...data,
+        hospitalId: activeHospital?.id,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      setAddDialogOpen(false);
+      toast({
+        title: "Success",
+        description: "Item created successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create item",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleViewItem = (item: ItemWithStock) => {
+    setSelectedItem(item);
+    setViewDialogOpen(true);
+  };
+
+  const handleAddItem = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    const barcodeValue = formData.get("barcode") as string;
+    
+    const itemData = {
+      name: formData.get("name") as string,
+      description: formData.get("description") as string,
+      unit: formData.get("unit") as string,
+      barcodes: barcodeValue ? [barcodeValue] : undefined,
+      minThreshold: parseInt(formData.get("minThreshold") as string) || 0,
+      maxThreshold: parseInt(formData.get("maxThreshold") as string) || 0,
+      critical: formData.get("critical") === "on",
+      controlled: formData.get("controlled") === "on",
+    };
+
+    createItemMutation.mutate(itemData);
+  };
 
   const filteredItems = useMemo(() => {
     let filtered = items;
@@ -132,7 +190,7 @@ export default function Items() {
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Items</h1>
-        <Button size="sm" data-testid="add-item-button">
+        <Button size="sm" onClick={() => setAddDialogOpen(true)} data-testid="add-item-button">
           <i className="fas fa-plus mr-2"></i>
           Add Item
         </Button>
@@ -269,7 +327,7 @@ export default function Items() {
                       / Min: {item.minThreshold || 0} / Max: {item.maxThreshold || 0}
                     </span>
                   </div>
-                  <Button variant="outline" size="sm" data-testid={`view-item-${item.id}`}>
+                  <Button variant="outline" size="sm" onClick={() => handleViewItem(item)} data-testid={`view-item-${item.id}`}>
                     View
                   </Button>
                 </div>
@@ -278,6 +336,139 @@ export default function Items() {
           })
         )}
       </div>
+
+      {/* Add Item Dialog */}
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Item</DialogTitle>
+            <DialogDescription>Create a new inventory item</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddItem} className="space-y-4">
+            <div>
+              <Label htmlFor="name">Item Name *</Label>
+              <Input id="name" name="name" required data-testid="input-item-name" />
+            </div>
+            
+            <div>
+              <Label htmlFor="description">Description</Label>
+              <Input id="description" name="description" data-testid="input-item-description" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="unit">Unit *</Label>
+                <Input id="unit" name="unit" required placeholder="e.g., vial, box" data-testid="input-item-unit" />
+              </div>
+              <div>
+                <Label htmlFor="barcode">Barcode</Label>
+                <Input id="barcode" name="barcode" data-testid="input-item-barcode" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="minThreshold">Min Threshold</Label>
+                <Input id="minThreshold" name="minThreshold" type="number" defaultValue="0" data-testid="input-item-min" />
+              </div>
+              <div>
+                <Label htmlFor="maxThreshold">Max Threshold</Label>
+                <Input id="maxThreshold" name="maxThreshold" type="number" defaultValue="0" data-testid="input-item-max" />
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox id="critical" name="critical" data-testid="checkbox-item-critical" />
+                <Label htmlFor="critical" className="cursor-pointer">Critical Item</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox id="controlled" name="controlled" data-testid="checkbox-item-controlled" />
+                <Label htmlFor="controlled" className="cursor-pointer">Controlled Substance</Label>
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button type="button" variant="outline" onClick={() => setAddDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createItemMutation.isPending} data-testid="button-save-item">
+                {createItemMutation.isPending ? "Creating..." : "Create Item"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Item Dialog */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{selectedItem?.name}</DialogTitle>
+            <DialogDescription>{selectedItem?.description || "Item details"}</DialogDescription>
+          </DialogHeader>
+          {selectedItem && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Unit</Label>
+                  <p className="font-medium">{selectedItem.unit}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Barcode</Label>
+                  <p className="font-medium">{selectedItem.barcodes?.[0] || "N/A"}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Current Stock</Label>
+                  <p className="text-2xl font-bold text-primary">{selectedItem.stockLevel?.qtyOnHand || 0}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Min</Label>
+                  <p className="text-lg font-semibold">{selectedItem.minThreshold || 0}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Max</Label>
+                  <p className="text-lg font-semibold">{selectedItem.maxThreshold || 0}</p>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                {selectedItem.critical && (
+                  <span className="status-chip chip-critical">
+                    <i className="fas fa-exclamation-circle mr-1"></i>
+                    Critical
+                  </span>
+                )}
+                {selectedItem.controlled && (
+                  <span className="status-chip chip-controlled">
+                    <i className="fas fa-shield-halved mr-1"></i>
+                    Controlled
+                  </span>
+                )}
+              </div>
+
+              {selectedItem.soonestExpiry && (
+                <div>
+                  <Label className="text-muted-foreground">Soonest Expiry</Label>
+                  <p className="font-medium">
+                    {new Date(selectedItem.soonestExpiry).toLocaleDateString()} 
+                    ({getDaysUntilExpiry(selectedItem.soonestExpiry)} days)
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-2 justify-end pt-4">
+                <Button variant="outline" onClick={() => setViewDialogOpen(false)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
