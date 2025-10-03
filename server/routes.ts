@@ -99,12 +99,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Barcode scanning
   app.post('/api/scan/barcode', isAuthenticated, async (req, res) => {
     try {
-      const { barcode, hospitalId } = req.body;
+      const { barcode, hospitalId, locationId } = req.body;
       if (!barcode || !hospitalId) {
         return res.status(400).json({ message: "Barcode and hospitalId are required" });
       }
       
-      const item = await storage.findItemByBarcode(barcode, hospitalId);
+      const item = await storage.findItemByBarcode(barcode, hospitalId, locationId);
       if (!item) {
         return res.status(404).json({ message: "Item not found" });
       }

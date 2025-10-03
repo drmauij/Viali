@@ -77,19 +77,29 @@ export default function Scan() {
       
       const response = await apiRequest("POST", "/api/stock/update", {
         itemId,
-        locationId: "default-location", // Would be selected by user in real app
+        locationId: scannedItem?.stockLevel?.locationId || "location-or", // Use existing location or default to OR
         qty: newQty,
         delta,
         notes: "Updated via scan interface",
       });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (updatedStock) => {
       toast({
         title: "Stock Updated",
         description: "Stock level has been updated successfully.",
       });
+      
+      // Update the scanned item with new stock level
+      if (scannedItem && updatedStock) {
+        setScannedItem({
+          ...scannedItem,
+          stockLevel: updatedStock,
+        });
+      }
+      
       queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/kpis"] });
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {

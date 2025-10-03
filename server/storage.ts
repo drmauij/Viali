@@ -86,7 +86,7 @@ export interface IStorage {
   }>;
   
   // Barcode lookup
-  findItemByBarcode(barcode: string, hospitalId: string): Promise<Item | undefined>;
+  findItemByBarcode(barcode: string, hospitalId: string, locationId?: string): Promise<(Item & { stockLevel?: StockLevel }) | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -420,17 +420,34 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async findItemByBarcode(barcode: string, hospitalId: string): Promise<Item | undefined> {
-    const [item] = await db
+  async findItemByBarcode(barcode: string, hospitalId: string, locationId?: string): Promise<(Item & { stockLevel?: StockLevel }) | undefined> {
+    // Note: If locationId is not provided and item has stock in multiple locations,
+    // this will return the first stock level found. For multi-location support,
+    // locationId should be specified or UI should allow location selection.
+    const conditions = [
+      eq(items.hospitalId, hospitalId),
+      sql`${barcode} = ANY(${items.barcodes})`
+    ];
+    
+    const [result] = await db
       .select()
       .from(items)
-      .where(
+      .leftJoin(
+        stockLevels, 
         and(
-          eq(items.hospitalId, hospitalId),
-          sql`${barcode} = ANY(${items.barcodes})`
+          eq(items.id, stockLevels.itemId),
+          locationId ? eq(stockLevels.locationId, locationId) : undefined
         )
-      );
-    return item;
+      )
+      .where(and(...conditions))
+      .limit(1);
+    
+    if (!result) return undefined;
+    
+    return {
+      ...result.items,
+      stockLevel: result.stock_levels || undefined,
+    };
   }
 }
 

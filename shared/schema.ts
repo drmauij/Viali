@@ -10,6 +10,7 @@ import {
   decimal,
   boolean,
   primaryKey,
+  unique,
 } from "drizzle-orm/pg-core";
 import { relations } from 'drizzle-orm';
 import { createInsertSchema } from "drizzle-zod";
@@ -118,6 +119,7 @@ export const stockLevels = pgTable("stock_levels", {
 }, (table) => [
   index("idx_stock_levels_item").on(table.itemId),
   index("idx_stock_levels_location").on(table.locationId),
+  unique("unique_item_location").on(table.itemId, table.locationId),
 ]);
 
 // Lots (for expiry tracking)
