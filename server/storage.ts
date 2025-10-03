@@ -36,10 +36,10 @@ export interface IStorage {
   
   // Hospital operations
   getHospital(id: string): Promise<Hospital | undefined>;
-  getUserHospitals(userId: string): Promise<(Hospital & { role: string })[]>;
+  getUserHospitals(userId: string): Promise<(Hospital & { role: string; locationId: string; locationName: string })[]>;
   
   // Item operations
-  getItems(hospitalId: string, filters?: {
+  getItems(hospitalId: string, locationId: string, filters?: {
     critical?: boolean;
     controlled?: boolean;
     belowMin?: boolean;
@@ -115,20 +115,23 @@ export class DatabaseStorage implements IStorage {
     return hospital;
   }
 
-  async getUserHospitals(userId: string): Promise<(Hospital & { role: string })[]> {
+  async getUserHospitals(userId: string): Promise<(Hospital & { role: string; locationId: string; locationName: string })[]> {
     const result = await db
       .select()
       .from(hospitals)
       .innerJoin(userHospitalRoles, eq(hospitals.id, userHospitalRoles.hospitalId))
+      .innerJoin(locations, eq(userHospitalRoles.locationId, locations.id))
       .where(eq(userHospitalRoles.userId, userId));
     
     return result.map(row => ({
       ...row.hospitals,
       role: row.user_hospital_roles.role,
-    })) as (Hospital & { role: string })[];
+      locationId: row.user_hospital_roles.locationId,
+      locationName: row.locations.name,
+    })) as (Hospital & { role: string; locationId: string; locationName: string })[];
   }
 
-  async getItems(hospitalId: string, filters?: {
+  async getItems(hospitalId: string, locationId: string, filters?: {
     critical?: boolean;
     controlled?: boolean;
     belowMin?: boolean;
@@ -143,15 +146,15 @@ export class DatabaseStorage implements IStorage {
       .from(items)
       .leftJoin(stockLevels, eq(items.id, stockLevels.itemId))
       .leftJoin(lots, eq(items.id, lots.itemId))
-      .where(eq(items.hospitalId, hospitalId))
+      .where(and(eq(items.hospitalId, hospitalId), eq(items.locationId, locationId)))
       .groupBy(items.id, stockLevels.id);
 
     // Apply filters
     if (filters?.critical) {
-      query = query.where(and(eq(items.hospitalId, hospitalId), eq(items.critical, true)));
+      query = query.where(and(eq(items.hospitalId, hospitalId), eq(items.locationId, locationId), eq(items.critical, true)));
     }
     if (filters?.controlled) {
-      query = query.where(and(eq(items.hospitalId, hospitalId), eq(items.controlled, true)));
+      query = query.where(and(eq(items.hospitalId, hospitalId), eq(items.locationId, locationId), eq(items.controlled, true)));
     }
 
     const result = await query;
@@ -421,13 +424,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async findItemByBarcode(barcode: string, hospitalId: string, locationId?: string): Promise<(Item & { stockLevel?: StockLevel }) | undefined> {
-    // Note: If locationId is not provided and item has stock in multiple locations,
-    // this will return the first stock level found. For multi-location support,
-    // locationId should be specified or UI should allow location selection.
     const conditions = [
       eq(items.hospitalId, hospitalId),
       sql`${barcode} = ANY(${items.barcodes})`
     ];
+    
+    // If locationId is provided, filter items by location
+    if (locationId) {
+      conditions.push(eq(items.locationId, locationId));
+    }
     
     const [result] = await db
       .select()
