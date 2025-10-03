@@ -47,7 +47,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/items/:hospitalId', isAuthenticated, async (req, res) => {
     try {
       const { hospitalId } = req.params;
-      const { critical, controlled, belowMin, expiring } = req.query;
+      const { critical, controlled, belowMin, expiring, locationId } = req.query;
+      
+      if (!locationId || typeof locationId !== 'string') {
+        return res.status(400).json({ message: "locationId is required" });
+      }
       
       const filters = {
         critical: critical === 'true',
@@ -61,7 +65,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         Object.entries(filters).filter(([_, value]) => value)
       );
       
-      const items = await storage.getItems(hospitalId, Object.keys(activeFilters).length > 0 ? activeFilters : undefined);
+      const items = await storage.getItems(hospitalId, locationId, Object.keys(activeFilters).length > 0 ? activeFilters : undefined);
       res.json(items);
     } catch (error) {
       console.error("Error fetching items:", error);
