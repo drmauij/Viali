@@ -126,29 +126,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const apiKey = process.env.EAN_SEARCH_API_KEY;
       if (!apiKey) {
+        console.error("EAN_SEARCH_API_KEY not configured");
         return res.status(503).json({ message: "External lookup service not configured" });
       }
 
       const url = `https://api.ean-search.org/api?token=${apiKey}&op=barcode-lookup&format=json&ean=${barcode}`;
+      console.log(`[External Lookup] Calling EAN-Search API for barcode: ${barcode}`);
+      
       const response = await fetch(url);
+      console.log(`[External Lookup] API response status: ${response.status}`);
       
       if (!response.ok) {
+        console.error(`[External Lookup] API returned ${response.status}: ${response.statusText}`);
         return res.status(404).json({ message: "Product not found in external database" });
       }
 
       const data = await response.json();
+      console.log(`[External Lookup] API response data:`, JSON.stringify(data));
       
       // Check for API errors
       if (data.error) {
+        console.error(`[External Lookup] API error: ${data.error}`);
         return res.status(404).json({ message: data.error || "Product not found in external database" });
       }
 
       // EAN-Search returns { result: [...] }
       if (!data.result || !Array.isArray(data.result) || data.result.length === 0) {
+        console.error(`[External Lookup] No results found in API response`);
         return res.status(404).json({ message: "Product not found in external database" });
       }
 
       const product = data.result[0];
+      console.log(`[External Lookup] Found product:`, product.name);
       
       res.json({
         name: product.name || '',
@@ -158,7 +167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         found: true,
       });
     } catch (error) {
-      console.error("Error looking up barcode:", error);
+      console.error("[External Lookup] Error:", error);
       res.status(500).json({ message: "Failed to lookup barcode" });
     }
   });
