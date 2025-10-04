@@ -727,7 +727,7 @@ export default function Items() {
               />
             </div>
             
-            {/* <div>
+            <div>
               <Label htmlFor="description">Description</Label>
               <Input 
                 id="description" 
@@ -736,7 +736,7 @@ export default function Items() {
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 data-testid="input-item-description" 
               />
-            </div> */}
+            </div>
 
             {/* Visual Unit Selector */}
             <div>
@@ -894,7 +894,7 @@ export default function Items() {
               />
             </div>
 
-            {/* <div>
+            <div>
               <Label htmlFor="edit-description">Description</Label>
               <Input 
                 id="edit-description" 
@@ -903,7 +903,7 @@ export default function Items() {
                 onChange={(e) => setEditFormData(prev => ({ ...prev, description: e.target.value }))}
                 data-testid="input-edit-description" 
               />
-            </div> */}
+            </div>
 
             <div>
               <Label>Unit Type *</Label>
