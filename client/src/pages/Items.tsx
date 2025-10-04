@@ -776,6 +776,23 @@ export default function Items() {
               </div>
             </div>
 
+            {selectedUnit === "single item" && formData.controlled && (
+              <div>
+                <Label htmlFor="packSize">Pack Size (pieces per pack) *</Label>
+                <Input 
+                  id="packSize" 
+                  name="packSize" 
+                  type="number" 
+                  min="1"
+                  value={formData.packSize}
+                  onChange={(e) => setFormData(prev => ({ ...prev, packSize: e.target.value }))}
+                  data-testid="input-item-pack-size" 
+                  required
+                />
+                <p className="text-xs text-muted-foreground mt-1">Required to allow placing new orders in packs</p>
+              </div>
+            )}
+
             {/* <div>
               <Label htmlFor="barcode">Barcode</Label>
               <Input 
@@ -850,22 +867,6 @@ export default function Items() {
                 <Label htmlFor="controlled" className="cursor-pointer">Controlled Substance</Label>
               </div>
             </div>
-
-            {selectedUnit === "single item" && formData.controlled && (
-              <div>
-                <Label htmlFor="packSize">Pack Size (pieces per pack) *</Label>
-                <Input 
-                  id="packSize" 
-                  name="packSize" 
-                  type="number" 
-                  min="1"
-                  value={formData.packSize}
-                  onChange={(e) => setFormData(prev => ({ ...prev, packSize: e.target.value }))}
-                  data-testid="input-item-pack-size" 
-                  required
-                />
-              </div>
-            )}
 
             <div className="flex gap-3 pt-4 justify-end">
               <Button type="button" variant="outline" onClick={() => { setAddDialogOpen(false); resetForm(); }}>
@@ -942,6 +943,23 @@ export default function Items() {
               </div>
             </div>
 
+            {selectedUnit === "single item" && editFormData.controlled && (
+              <div>
+                <Label htmlFor="edit-packSize">Pack Size (pieces per pack) *</Label>
+                <Input 
+                  id="edit-packSize" 
+                  name="packSize" 
+                  type="number" 
+                  min="1"
+                  value={editFormData.packSize}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, packSize: e.target.value }))}
+                  data-testid="input-edit-pack-size" 
+                  required
+                />
+                <p className="text-xs text-muted-foreground mt-1">Required to allow placing new orders in packs</p>
+              </div>
+            )}
+
             {/* <div>
               <Label htmlFor="edit-barcode">Barcode</Label>
               <Input 
@@ -1017,22 +1035,6 @@ export default function Items() {
                 <Label htmlFor="edit-controlled" className="cursor-pointer">Controlled Substance</Label>
               </div>
             </div>
-
-            {selectedUnit === "single item" && editFormData.controlled && (
-              <div>
-                <Label htmlFor="edit-packSize">Pack Size (pieces per pack) *</Label>
-                <Input 
-                  id="edit-packSize" 
-                  name="packSize" 
-                  type="number" 
-                  min="1"
-                  value={editFormData.packSize}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, packSize: e.target.value }))}
-                  data-testid="input-edit-pack-size" 
-                  required
-                />
-              </div>
-            )}
 
             <div className="flex gap-2 justify-between">
               <Button 
