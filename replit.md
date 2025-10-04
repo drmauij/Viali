@@ -1,8 +1,8 @@
-# AnaStock - Hospital Inventory Management System
+# Viali - Hospital Inventory Management System
 
 ## Overview
 
-AnaStock is a mobile-first web application designed to manage anesthesia drugs and general consumables across one or more hospitals. The system focuses on preventing stockouts of critical drugs, minimizing waste from expiry, automating reordering via Min-Max rules, ensuring compliance for controlled substances, and supporting multi-hospital management with per-hospital users and roles.
+Viali is a mobile-first web application designed to manage anesthesia drugs and general consumables across one or more hospitals. The system focuses on preventing stockouts of critical drugs, minimizing waste from expiry, automating reordering via Min-Max rules, ensuring compliance for controlled substances, and supporting multi-hospital management with per-hospital users and roles.
 
 ## Recent Changes
 

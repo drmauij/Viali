@@ -26,7 +26,7 @@ export default function Landing() {
           <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-primary flex items-center justify-center">
             <i className="fas fa-prescription-bottle-medical text-3xl text-primary-foreground"></i>
           </div>
-          <h1 className="text-3xl font-bold text-foreground">AnaStock</h1>
+          <h1 className="text-3xl font-bold text-foreground">Viali</h1>
           <p className="text-muted-foreground mt-2">Hospital Inventory Management</p>
         </div>
         
