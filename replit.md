@@ -6,6 +6,29 @@ AnaStock is a mobile-first web application designed to manage anesthesia drugs a
 
 ## Recent Changes
 
+### October 4, 2025 - Comprehensive User Management System
+- Implemented complete user creation system with email/password authentication (local auth)
+- Added "Create New User" workflow that creates users with bcrypt-hashed passwords stored in passwordHash column
+- Implemented password change functionality for existing users with secure bcrypt hashing
+- Added permanent user deletion capability (deleteUser) separate from removing hospital assignment
+- Enhanced Admin panel with dual user workflows:
+  - "Create New User" button for creating email/password users
+  - "Assign Existing" button for assigning OIDC users to hospital
+- Added four action buttons per user:
+  - Edit (fa-edit icon) - Update role and location assignment
+  - Change Password (fa-key icon) - Update user password with validation
+  - Remove from Hospital (fa-user-minus icon, warning color) - Remove hospital assignment only
+  - Delete User Permanently (fa-trash icon, destructive color) - Delete user entirely from system
+- Implemented comprehensive security measures:
+  - All admin endpoints verify AD role authorization
+  - Password hashes sanitized from all API responses (never sent to client)
+  - Passwords hashed with bcrypt using 10 rounds
+  - Multiple admin authorization checks for sensitive operations
+- Fixed middleware issues: removed duplicate isAdmin middleware from endpoints without hospitalId in route params
+- Full e2e test coverage confirms all user management workflows functioning correctly
+
+**Security Note**: passwordHash column added to users table. All password responses are sanitized before being sent to clients. Password updates and user creation use bcrypt hashing exclusively.
+
 ### October 4, 2025 - Order Card UX Improvements
 - Made all order cards clickable to open Edit Order dialog (removed separate edit button)
 - Added confirmation AlertDialog when removing items from orders to prevent accidental deletion
