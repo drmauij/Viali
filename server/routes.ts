@@ -27,8 +27,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get user hospitals
       const hospitals = await storage.getUserHospitals(userId);
       
+      // Sanitize user object - remove passwordHash
+      const { passwordHash, ...sanitizedUser } = user;
+      
       res.json({
-        ...user,
+        ...sanitizedUser,
         hospitals,
       });
     } catch (error) {
@@ -789,14 +792,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { hospitalId } = req.params;
       const users = await storage.getHospitalUsers(hospitalId);
-      res.json(users);
+      
+      // Sanitize user objects - remove passwordHash from all users
+      const sanitizedUsers = users.map(u => ({
+        ...u,
+        user: {
+          id: u.user.id,
+          email: u.user.email,
+          firstName: u.user.firstName,
+          lastName: u.user.lastName,
+          profileImageUrl: u.user.profileImageUrl,
+          createdAt: u.user.createdAt,
+          updatedAt: u.user.updatedAt,
+        }
+      }));
+      
+      res.json(sanitizedUsers);
     } catch (error) {
       console.error("Error fetching hospital users:", error);
       res.status(500).json({ message: "Failed to fetch users" });
     }
   });
 
-  app.get('/api/admin/users/search', isAuthenticated, async (req, res) => {
+  app.get('/api/admin/users/search', isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { email } = req.query;
       
@@ -809,7 +827,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
       
-      res.json(user);
+      // Sanitize user object - remove passwordHash
+      const { passwordHash, ...sanitizedUser } = user;
+      res.json(sanitizedUser);
     } catch (error) {
       console.error("Error searching user:", error);
       res.status(500).json({ message: "Failed to search user" });
@@ -911,7 +931,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role,
       });
 
-      res.status(201).json(newUser);
+      // Sanitize user object - remove passwordHash
+      const { passwordHash: _, ...sanitizedUser } = newUser;
+      res.status(201).json(sanitizedUser);
     } catch (error) {
       console.error("Error creating user:", error);
       res.status(500).json({ message: "Failed to create user" });

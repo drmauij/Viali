@@ -741,7 +741,7 @@ export class DatabaseStorage implements IStorage {
       .values({
         id: nanoid(),
         email,
-        password: hashedPassword,
+        passwordHash: hashedPassword,
         firstName,
         lastName,
         profileImageUrl: null,
@@ -756,7 +756,7 @@ export class DatabaseStorage implements IStorage {
     
     await db
       .update(users)
-      .set({ password: hashedPassword, updatedAt: new Date() })
+      .set({ passwordHash: hashedPassword, updatedAt: new Date() })
       .where(eq(users.id, userId));
   }
 
