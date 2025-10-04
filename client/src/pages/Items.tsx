@@ -37,6 +37,7 @@ export default function Items() {
     barcode: "",
     minThreshold: "0",
     maxThreshold: "0",
+    defaultOrderQty: "0",
     packSize: "1",
     initialStock: "0",
     critical: false,
@@ -207,6 +208,7 @@ export default function Items() {
       barcodes: formData.barcode ? [formData.barcode] : undefined,
       minThreshold: parseInt(formData.minThreshold) || 0,
       maxThreshold: parseInt(formData.maxThreshold) || 0,
+      defaultOrderQty: parseInt(formData.defaultOrderQty) || 0,
       packSize: selectedUnit === "box" ? parseInt(formData.packSize) || 1 : 1,
       critical: formData.critical,
       controlled: formData.controlled,
@@ -223,6 +225,7 @@ export default function Items() {
       barcode: "",
       minThreshold: "0",
       maxThreshold: "0",
+      defaultOrderQty: "0",
       packSize: "1",
       initialStock: "0",
       critical: false,
@@ -645,6 +648,19 @@ export default function Items() {
                   data-testid="input-item-max" 
                 />
               </div>
+            </div>
+
+            <div>
+              <Label htmlFor="defaultOrderQty">Default Order Quantity</Label>
+              <Input 
+                id="defaultOrderQty" 
+                name="defaultOrderQty" 
+                type="number" 
+                min="0"
+                value={formData.defaultOrderQty}
+                onChange={(e) => setFormData(prev => ({ ...prev, defaultOrderQty: e.target.value }))}
+                data-testid="input-default-order-qty" 
+              />
             </div>
 
             <div className="flex gap-4">

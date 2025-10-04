@@ -100,6 +100,7 @@ export const items = pgTable("items", {
   packSize: integer("pack_size").default(1),
   minThreshold: integer("min_threshold"),
   maxThreshold: integer("max_threshold"),
+  defaultOrderQty: integer("default_order_qty").default(0),
   critical: boolean("critical").default(false),
   controlled: boolean("controlled").default(false),
   vendorId: varchar("vendor_id").references(() => vendors.id),
