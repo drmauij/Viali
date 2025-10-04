@@ -19,6 +19,7 @@ import {
   type StockLevel,
   type Lot,
   type Order,
+  type OrderLine,
   type Activity,
   type Alert,
   type Vendor,
@@ -61,6 +62,9 @@ export interface IStorage {
   getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor; orderLines: (OrderLine & { item: Item })[] })[]>;
   createOrder(order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order>;
+  findOrCreateDraftOrder(hospitalId: string, vendorId: string, createdBy: string): Promise<Order>;
+  addItemToOrder(orderId: string, itemId: string, qty: number, packSize: number): Promise<OrderLine>;
+  getVendors(hospitalId: string): Promise<Vendor[]>;
   
   // Activity operations
   createActivity(activity: InsertActivity): Promise<Activity>;
@@ -269,6 +273,82 @@ export class DatabaseStorage implements IStorage {
       .where(eq(orders.id, id))
       .returning();
     return updated;
+  }
+
+  async findOrCreateDraftOrder(hospitalId: string, vendorId: string, createdBy: string): Promise<Order> {
+    const [existingDraft] = await db
+      .select()
+      .from(orders)
+      .where(
+        and(
+          eq(orders.hospitalId, hospitalId),
+          eq(orders.vendorId, vendorId),
+          eq(orders.status, 'draft')
+        )
+      )
+      .limit(1);
+
+    if (existingDraft) {
+      return existingDraft;
+    }
+
+    const [newOrder] = await db
+      .insert(orders)
+      .values({
+        hospitalId,
+        vendorId,
+        status: 'draft',
+        createdBy,
+        totalAmount: '0',
+      })
+      .returning();
+
+    return newOrder;
+  }
+
+  async addItemToOrder(orderId: string, itemId: string, qty: number, packSize: number): Promise<OrderLine> {
+    const [existingLine] = await db
+      .select()
+      .from(orderLines)
+      .where(
+        and(
+          eq(orderLines.orderId, orderId),
+          eq(orderLines.itemId, itemId)
+        )
+      )
+      .limit(1);
+
+    if (existingLine) {
+      const newQty = existingLine.qty + qty;
+      const [updated] = await db
+        .update(orderLines)
+        .set({ qty: newQty })
+        .where(eq(orderLines.id, existingLine.id))
+        .returning();
+      return updated;
+    }
+
+    const [created] = await db
+      .insert(orderLines)
+      .values({
+        orderId,
+        itemId,
+        qty,
+        packSize,
+        unitPrice: '0',
+        totalPrice: '0',
+      })
+      .returning();
+
+    return created;
+  }
+
+  async getVendors(hospitalId: string): Promise<Vendor[]> {
+    const result = await db
+      .select()
+      .from(vendors)
+      .where(eq(vendors.hospitalId, hospitalId));
+    return result;
   }
 
   async createActivity(activity: InsertActivity): Promise<Activity> {
