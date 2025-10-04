@@ -5,11 +5,17 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import type { Order, Vendor, OrderLine, Item } from "@shared/schema";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import type { Order, Vendor, OrderLine, Item, StockLevel } from "@shared/schema";
 
 interface OrderWithDetails extends Order {
   vendor: Vendor;
   orderLines: (OrderLine & { item: Item })[];
+}
+
+interface ItemWithStock extends Item {
+  stockLevel?: StockLevel;
 }
 
 type OrderStatus = "draft" | "sent" | "receiving" | "closed";
@@ -19,10 +25,48 @@ export default function Orders() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeHospital] = useState(() => (user as any)?.hospitals?.[0]);
+  const [newOrderDialogOpen, setNewOrderDialogOpen] = useState(false);
+  const [selectedVendorId, setSelectedVendorId] = useState<string>("");
 
   const { data: orders = [], isLoading } = useQuery<OrderWithDetails[]>({
     queryKey: ["/api/orders", activeHospital?.id],
     enabled: !!activeHospital?.id,
+  });
+
+  const { data: vendors = [] } = useQuery<Vendor[]>({
+    queryKey: ["/api/vendors", activeHospital?.id],
+    enabled: !!activeHospital?.id,
+  });
+
+  const { data: items = [] } = useQuery<ItemWithStock[]>({
+    queryKey: ["/api/items", activeHospital?.id],
+    enabled: !!activeHospital?.id,
+  });
+
+  const createOrderMutation = useMutation({
+    mutationFn: async (data: { vendorId: string; orderLines: { itemId: string; qty: number; packSize: number }[] }) => {
+      const response = await apiRequest("POST", "/api/orders", {
+        hospitalId: activeHospital?.id,
+        vendorId: data.vendorId,
+        orderLines: data.orderLines,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      setNewOrderDialogOpen(false);
+      toast({
+        title: "Order Created",
+        description: "Draft order has been created successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create order",
+        variant: "destructive",
+      });
+    },
   });
 
   const updateOrderStatusMutation = useMutation({
@@ -76,6 +120,15 @@ export default function Orders() {
     return grouped;
   }, [orders]);
 
+  const itemsNeedingOrder = useMemo(() => {
+    return items
+      .map(item => ({
+        ...item,
+        qtyToOrder: Math.max(0, (item.maxThreshold || 10) - (item.stockLevel?.qtyOnHand || 0))
+      }))
+      .filter(item => item.qtyToOrder > 0);
+  }, [items]);
+
   const getStatusChip = (status: string) => {
     switch (status) {
       case "draft":
@@ -110,6 +163,47 @@ export default function Orders() {
     updateOrderStatusMutation.mutate({ orderId, status: newStatus });
   };
 
+  const handleNewOrder = () => {
+    if (vendors.length === 0) {
+      toast({
+        title: "No Vendor",
+        description: "Please add a vendor first before creating orders",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (itemsNeedingOrder.length === 0) {
+      toast({
+        title: "No Items to Order",
+        description: "All items are at or above their max threshold",
+      });
+      return;
+    }
+
+    setSelectedVendorId(vendors[0].id);
+    setNewOrderDialogOpen(true);
+  };
+
+  const handleCreateOrder = () => {
+    if (!selectedVendorId) {
+      toast({
+        title: "No Vendor Selected",
+        description: "Please select a vendor",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const orderLines = itemsNeedingOrder.map(item => ({
+      itemId: item.id,
+      qty: item.qtyToOrder,
+      packSize: item.packSize || 1,
+    }));
+
+    createOrderMutation.mutate({ vendorId: selectedVendorId, orderLines });
+  };
+
   if (!activeHospital) {
     return (
       <div className="p-4">
@@ -126,7 +220,7 @@ export default function Orders() {
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Purchase Orders</h1>
-        <Button size="sm" data-testid="add-order-button">
+        <Button size="sm" onClick={handleNewOrder} data-testid="add-order-button">
           <i className="fas fa-plus mr-2"></i>
           New Order
         </Button>
@@ -334,6 +428,87 @@ export default function Orders() {
           </div>
         </div>
       )}
+
+      {/* New Order Dialog */}
+      <Dialog open={newOrderDialogOpen} onOpenChange={setNewOrderDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create New Order</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="vendor">Vendor</Label>
+              <select
+                id="vendor"
+                value={selectedVendorId}
+                onChange={(e) => setSelectedVendorId(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring mt-1"
+                data-testid="select-vendor"
+              >
+                {vendors.map(vendor => (
+                  <option key={vendor.id} value={vendor.id}>
+                    {vendor.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-2">Items to Order ({itemsNeedingOrder.length})</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Items below max threshold that need restocking
+              </p>
+              
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {itemsNeedingOrder.map(item => (
+                  <div key={item.id} className="flex items-center justify-between p-3 border border-border rounded-lg bg-muted/30" data-testid={`order-item-${item.id}`}>
+                    <div className="flex-1">
+                      <p className="font-medium text-foreground">{item.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Current: {item.stockLevel?.qtyOnHand || 0} / Max: {item.maxThreshold || 10}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-semibold text-primary">
+                        {item.qtyToOrder} {item.unit}
+                      </p>
+                      <p className="text-xs text-muted-foreground">to order</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setNewOrderDialogOpen(false)}
+                data-testid="cancel-order-button"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCreateOrder}
+                disabled={createOrderMutation.isPending}
+                data-testid="confirm-order-button"
+              >
+                {createOrderMutation.isPending ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin mr-2"></i>
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-check mr-2"></i>
+                    Create Draft Order
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
