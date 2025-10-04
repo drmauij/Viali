@@ -1,11 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import type { Order, Vendor, OrderLine, Item, StockLevel, Location } from "@shared/schema";
 
@@ -46,6 +46,15 @@ export default function Orders() {
     queryKey: ["/api/items", activeHospital?.id],
     enabled: !!activeHospital?.id,
   });
+
+  useEffect(() => {
+    if (selectedOrder && orders.length > 0) {
+      const updatedOrder = orders.find(o => o.id === selectedOrder.id);
+      if (updatedOrder) {
+        setSelectedOrder(updatedOrder);
+      }
+    }
+  }, [orders, selectedOrder?.id]);
 
   const createOrderMutation = useMutation({
     mutationFn: async (data: { vendorId: string; orderLines: { itemId: string; qty: number; packSize: number }[] }) => {
@@ -558,6 +567,7 @@ export default function Orders() {
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Order</DialogTitle>
+            <DialogDescription>Create a draft order for items that need restocking</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -622,6 +632,7 @@ export default function Orders() {
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Order - PO-{selectedOrder?.id.slice(-4)}</DialogTitle>
+            <DialogDescription>Edit order items, quantities, and status</DialogDescription>
           </DialogHeader>
 
           {selectedOrder && (
