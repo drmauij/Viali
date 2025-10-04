@@ -581,7 +581,7 @@ export default function Items() {
                     </span>
                   </div>
                   <Button variant="outline" size="sm" onClick={(e) => handleQuickOrder(e, item)} data-testid={`quick-order-${item.id}`}>
-                    <i className="fas fa-shopping-cart mr-1"></i>
+                    <i className="fas fa-bolt mr-1"></i>
                     Quick Order
                   </Button>
                 </div>
