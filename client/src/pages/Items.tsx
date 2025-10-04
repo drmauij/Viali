@@ -539,6 +539,14 @@ export default function Items() {
           All Items ({filterCounts.all})
         </button>
         <button
+          className={`status-chip whitespace-nowrap ${activeFilter === "belowMin" ? "chip-warning" : "chip-muted"}`}
+          onClick={() => setActiveFilter("belowMin")}
+          data-testid="filter-below-min"
+        >
+          <i className="fas fa-arrow-down text-xs mr-1"></i>
+          Below Min ({filterCounts.belowMin})
+        </button>
+        <button
           className={`status-chip whitespace-nowrap ${activeFilter === "critical" ? "chip-critical" : "chip-muted"}`}
           onClick={() => setActiveFilter("critical")}
           data-testid="filter-critical"
@@ -553,14 +561,6 @@ export default function Items() {
         >
           <i className="fas fa-shield-halved text-xs mr-1"></i>
           Controlled ({filterCounts.controlled})
-        </button>
-        <button
-          className={`status-chip whitespace-nowrap ${activeFilter === "belowMin" ? "chip-warning" : "chip-muted"}`}
-          onClick={() => setActiveFilter("belowMin")}
-          data-testid="filter-below-min"
-        >
-          <i className="fas fa-arrow-down text-xs mr-1"></i>
-          Below Min ({filterCounts.belowMin})
         </button>
       </div>
 
