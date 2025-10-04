@@ -391,6 +391,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch('/api/order-lines/:lineId', isAuthenticated, async (req, res) => {
+    try {
+      const { lineId } = req.params;
+      const { qty } = req.body;
+      
+      if (!qty || qty < 1) {
+        return res.status(400).json({ message: "Valid quantity is required" });
+      }
+      
+      const orderLine = await storage.updateOrderLine(lineId, qty);
+      res.json(orderLine);
+    } catch (error) {
+      console.error("Error updating order line:", error);
+      res.status(500).json({ message: "Failed to update order line" });
+    }
+  });
+
+  app.delete('/api/order-lines/:lineId', isAuthenticated, async (req, res) => {
+    try {
+      const { lineId } = req.params;
+      await storage.removeOrderLine(lineId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing order line:", error);
+      res.status(500).json({ message: "Failed to remove order line" });
+    }
+  });
+
+  app.delete('/api/orders/:orderId', isAuthenticated, async (req, res) => {
+    try {
+      const { orderId } = req.params;
+      await storage.deleteOrder(orderId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting order:", error);
+      res.status(500).json({ message: "Failed to delete order" });
+    }
+  });
+
   app.get('/api/vendors/:hospitalId', isAuthenticated, async (req, res) => {
     try {
       const { hospitalId } = req.params;

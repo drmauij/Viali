@@ -59,11 +59,14 @@ export interface IStorage {
   createLot(lot: Omit<Lot, 'id' | 'createdAt'>): Promise<Lot>;
   
   // Order operations
-  getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor; orderLines: (OrderLine & { item: Item })[] })[]>;
+  getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor; orderLines: (OrderLine & { item: Item & { location: Location } })[] })[]>;
   createOrder(order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order>;
   findOrCreateDraftOrder(hospitalId: string, vendorId: string, createdBy: string): Promise<Order>;
   addItemToOrder(orderId: string, itemId: string, qty: number, packSize: number): Promise<OrderLine>;
+  updateOrderLine(lineId: string, qty: number): Promise<OrderLine>;
+  removeOrderLine(lineId: string): Promise<void>;
+  deleteOrder(orderId: string): Promise<void>;
   getVendors(hospitalId: string): Promise<Vendor[]>;
   
   // Activity operations
@@ -228,7 +231,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor; orderLines: (OrderLine & { item: Item })[] })[]> {
+  async getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor; orderLines: (OrderLine & { item: Item & { location: Location } })[] })[]> {
     let query = db
       .select()
       .from(orders)
@@ -246,17 +249,37 @@ export class DatabaseStorage implements IStorage {
         const [vendor] = await db.select().from(vendors).where(eq(vendors.id, order.vendorId));
         const lines = await db
           .select({
-            ...orderLines,
+            id: orderLines.id,
+            orderId: orderLines.orderId,
+            itemId: orderLines.itemId,
+            qty: orderLines.qty,
+            packSize: orderLines.packSize,
+            unitPrice: orderLines.unitPrice,
+            totalPrice: orderLines.totalPrice,
             item: items,
+            location: locations,
           })
           .from(orderLines)
           .innerJoin(items, eq(orderLines.itemId, items.id))
+          .innerJoin(locations, eq(items.locationId, locations.id))
           .where(eq(orderLines.orderId, order.id));
 
         return {
           ...order,
           vendor,
-          orderLines: lines,
+          orderLines: lines.map(line => ({
+            id: line.id,
+            orderId: line.orderId,
+            itemId: line.itemId,
+            qty: line.qty,
+            packSize: line.packSize,
+            unitPrice: line.unitPrice,
+            totalPrice: line.totalPrice,
+            item: {
+              ...line.item,
+              location: line.location,
+            },
+          })),
         };
       })
     );
@@ -344,6 +367,26 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return created;
+  }
+
+  async updateOrderLine(lineId: string, qty: number): Promise<OrderLine> {
+    const [updated] = await db
+      .update(orderLines)
+      .set({ qty })
+      .where(eq(orderLines.id, lineId))
+      .returning();
+    return updated;
+  }
+
+  async removeOrderLine(lineId: string): Promise<void> {
+    await db
+      .delete(orderLines)
+      .where(eq(orderLines.id, lineId));
+  }
+
+  async deleteOrder(orderId: string): Promise<void> {
+    await db.delete(orderLines).where(eq(orderLines.orderId, orderId));
+    await db.delete(orders).where(eq(orders.id, orderId));
   }
 
   async getVendors(hospitalId: string): Promise<Vendor[]> {
