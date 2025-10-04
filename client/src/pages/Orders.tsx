@@ -39,6 +39,16 @@ const normalizeUnit = (unit: string): UnitType => {
   return "single item";
 };
 
+const getStockStatus = (item: Item & { stockLevel?: StockLevel }) => {
+  const currentQty = item.stockLevel?.qtyOnHand || 0;
+  const minThreshold = item.minThreshold || 0;
+  
+  if (currentQty <= minThreshold) {
+    return { color: "text-warning", status: "Below Min" };
+  }
+  return { color: "text-success", status: "Good" };
+};
+
 export default function Orders() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -724,13 +734,28 @@ export default function Orders() {
               <div>
                 <h3 className="font-semibold mb-2">Order Items ({selectedOrder.orderLines.length})</h3>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {selectedOrder.orderLines.map(line => (
+                  {selectedOrder.orderLines.map(line => {
+                    const stockStatus = getStockStatus(line.item);
+                    const currentQty = line.item.stockLevel?.qtyOnHand ?? 0;
+                    const normalizedUnit = normalizeUnit(line.item.unit);
+                    const isControlledSingleItem = line.item.controlled && normalizedUnit === "single item";
+                    
+                    const displayQty = line.qty;
+                    const displayUnit = isControlledSingleItem ? "pack" : line.item.unit;
+                    
+                    return (
                     <div key={line.id} className="flex items-center gap-3 p-3 border border-border rounded-lg" data-testid={`order-line-${line.id}`}>
                       <div className="flex-1">
                         <p className="font-medium text-foreground">{line.item.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Stock: {line.item.stockLevel?.qtyOnHand ?? 0} • Min: {line.item.minThreshold ?? 0} • Max: {line.item.maxThreshold ?? 0}
-                        </p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className={`text-base font-semibold ${stockStatus.color}`}>
+                            {currentQty}
+                          </span>
+                          <i className={`fas ${normalizedUnit === "pack" ? "fa-box" : "fa-vial"} text-sm ${stockStatus.color}`}></i>
+                          <span className="text-xs text-muted-foreground">
+                            / Min: {line.item.minThreshold ?? 0} / Max: {line.item.maxThreshold ?? 0}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         {editingLineId === line.id ? (
@@ -767,8 +792,8 @@ export default function Orders() {
                         ) : (
                           <>
                             <div className="text-right min-w-[80px]">
-                              <p className="text-lg font-semibold text-foreground">{line.qty}</p>
-                              <p className="text-xs text-muted-foreground">{line.item.unit}</p>
+                              <p className="text-lg font-semibold text-foreground">{displayQty}</p>
+                              <p className="text-xs text-muted-foreground">{displayUnit}</p>
                             </div>
                             <Button
                               size="sm"
@@ -794,7 +819,8 @@ export default function Orders() {
                         )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
