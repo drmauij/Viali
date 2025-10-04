@@ -814,12 +814,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/admin/users/search', isAuthenticated, isAdmin, async (req, res) => {
+  app.get('/api/admin/users/search', isAuthenticated, async (req: any, res) => {
     try {
       const { email } = req.query;
       
       if (!email || typeof email !== 'string') {
         return res.status(400).json({ message: "Email parameter is required" });
+      }
+      
+      // Check if user is admin of at least one hospital
+      const userId = req.user.claims.sub;
+      const hospitals = await storage.getUserHospitals(userId);
+      const isAdmin = hospitals.some(h => h.role === 'AD');
+      if (!isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
       }
       
       const user = await storage.searchUserByEmail(email);
@@ -941,7 +949,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update user password
-  app.patch('/api/admin/users/:userId/password', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.patch('/api/admin/users/:userId/password', isAuthenticated, async (req: any, res) => {
     try {
       const { userId } = req.params;
       const { password, hospitalId } = req.body;
@@ -967,7 +975,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete user entirely
-  app.delete('/api/admin/users/:userId/delete', isAuthenticated, isAdmin, async (req: any, res) => {
+  app.delete('/api/admin/users/:userId/delete', isAuthenticated, async (req: any, res) => {
     try {
       const { userId } = req.params;
       const { hospitalId } = req.query;
