@@ -253,7 +253,6 @@ export default function Orders() {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
-                        <p className="text-sm text-muted-foreground">{order.vendor.name}</p>
                       </div>
                       <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
                         Draft
@@ -302,7 +301,6 @@ export default function Orders() {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
-                        <p className="text-sm text-muted-foreground">{order.vendor.name}</p>
                       </div>
                       <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
                         Sent
@@ -354,7 +352,6 @@ export default function Orders() {
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
-                          <p className="text-sm text-muted-foreground">{order.vendor.name}</p>
                         </div>
                         <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
                           Receiving
@@ -406,7 +403,6 @@ export default function Orders() {
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
-                        <p className="text-sm text-muted-foreground">{order.vendor.name}</p>
                       </div>
                       <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
                         Closed
@@ -437,23 +433,6 @@ export default function Orders() {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="vendor">Vendor</Label>
-              <select
-                id="vendor"
-                value={selectedVendorId}
-                onChange={(e) => setSelectedVendorId(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring mt-1"
-                data-testid="select-vendor"
-              >
-                {vendors.map(vendor => (
-                  <option key={vendor.id} value={vendor.id}>
-                    {vendor.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <div>
               <h3 className="font-semibold mb-2">Items to Order ({itemsNeedingOrder.length})</h3>
               <p className="text-sm text-muted-foreground mb-3">

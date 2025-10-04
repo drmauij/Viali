@@ -325,10 +325,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/orders', isAuthenticated, async (req, res) => {
+  app.post('/api/orders', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId, vendorId, orderLines: lines } = req.body;
-      const userId = req.user!.id;
+      const userId = req.user.claims.sub;
       
       if (!hospitalId || !vendorId) {
         return res.status(400).json({ message: "Hospital ID and Vendor ID are required" });
@@ -355,10 +355,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/orders/quick-add', isAuthenticated, async (req, res) => {
+  app.post('/api/orders/quick-add', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId, itemId, vendorId, qty, packSize } = req.body;
-      const userId = req.user!.id;
+      const userId = req.user.claims.sub;
       
       if (!hospitalId || !itemId || !vendorId) {
         return res.status(400).json({ message: "Hospital ID, Item ID, and Vendor ID are required" });
