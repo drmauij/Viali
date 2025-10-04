@@ -149,10 +149,10 @@ export default function Items() {
           if (i === 0 || !formData.name) {
             setFormData(prev => ({
               ...prev,
-              name: result.name || prev.name,
-              description: result.concentration 
-                ? `${result.description || ''} ${result.concentration}`.trim() 
-                : result.description || prev.description,
+              name: result.concentration 
+                ? `${result.name || ''} ${result.concentration}`.trim() 
+                : result.name || prev.name,
+              description: result.description || prev.description,
               barcode: result.barcode || prev.barcode,
             }));
             
