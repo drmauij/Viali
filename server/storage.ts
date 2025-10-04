@@ -342,10 +342,12 @@ export class DatabaseStorage implements IStorage {
             totalPrice: orderLines.totalPrice,
             item: items,
             location: locations,
+            stockLevel: stockLevels,
           })
           .from(orderLines)
           .innerJoin(items, eq(orderLines.itemId, items.id))
           .innerJoin(locations, eq(items.locationId, locations.id))
+          .leftJoin(stockLevels, and(eq(stockLevels.itemId, items.id), eq(stockLevels.locationId, items.locationId)))
           .where(eq(orderLines.orderId, order.id));
 
         return {
@@ -362,6 +364,7 @@ export class DatabaseStorage implements IStorage {
             item: {
               ...line.item,
               location: line.location,
+              stockLevel: line.stockLevel,
             },
           })),
         };

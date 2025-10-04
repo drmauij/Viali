@@ -21,7 +21,7 @@ import type { Order, Vendor, OrderLine, Item, StockLevel, Location } from "@shar
 
 interface OrderWithDetails extends Order {
   vendor: Vendor;
-  orderLines: (OrderLine & { item: Item & { location: Location } })[];
+  orderLines: (OrderLine & { item: Item & { location: Location; stockLevel?: StockLevel } })[];
 }
 
 interface ItemWithStock extends Item {
@@ -419,7 +419,7 @@ export default function Orders() {
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground mb-3">
-                      {order.orderLines.length} items • {formatCurrency(order.totalAmount || 0)}
+                      {order.orderLines.length} items
                     </p>
                     <div className="flex gap-2">
                       <Button
@@ -710,7 +710,7 @@ export default function Orders() {
                       <div className="flex-1">
                         <p className="font-medium text-foreground">{line.item.name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {line.item.location.name} • Pack size: {line.packSize}
+                          Stock: {line.item.stockLevel?.qtyOnHand ?? 0} • Min: {line.item.minThreshold ?? 0} • Max: {line.item.maxThreshold ?? 0}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
