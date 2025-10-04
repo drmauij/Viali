@@ -134,6 +134,28 @@ export default function Items() {
     },
   });
 
+  const deleteItemMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      const response = await apiRequest("DELETE", `/api/items/${itemId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id] });
+      setEditDialogOpen(false);
+      toast({
+        title: "Item Deleted",
+        description: "Item has been deleted successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete item",
+        variant: "destructive",
+      });
+    },
+  });
+
   const normalizeUnit = (unit: string): UnitType => {
     const normalized = unit.toLowerCase();
     if (normalized === "pack" || normalized === "box") {
@@ -1007,13 +1029,28 @@ export default function Items() {
               </div>
             )}
 
-            <div className="flex gap-2 justify-end">
-              <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
-                Cancel
+            <div className="flex gap-2 justify-between">
+              <Button 
+                type="button" 
+                variant="destructive" 
+                onClick={() => {
+                  if (selectedItem && window.confirm(`Are you sure you want to delete "${selectedItem.name}"? This action cannot be undone.`)) {
+                    deleteItemMutation.mutate(selectedItem.id);
+                  }
+                }}
+                disabled={deleteItemMutation.isPending}
+                data-testid="button-delete-item"
+              >
+                {deleteItemMutation.isPending ? "Deleting..." : "Delete"}
               </Button>
-              <Button type="submit" disabled={updateItemMutation.isPending} data-testid="button-update-item">
-                {updateItemMutation.isPending ? "Saving..." : "Save Changes"}
-              </Button>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updateItemMutation.isPending} data-testid="button-update-item">
+                  {updateItemMutation.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
             </div>
           </form>
         </DialogContent>

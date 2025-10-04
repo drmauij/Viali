@@ -51,6 +51,7 @@ export interface IStorage {
   getItem(id: string): Promise<Item | undefined>;
   createItem(item: InsertItem): Promise<Item>;
   updateItem(id: string, updates: Partial<Item>): Promise<Item>;
+  deleteItem(id: string): Promise<void>;
   
   // Stock operations
   getStockLevel(itemId: string, locationId: string): Promise<StockLevel | undefined>;
@@ -244,6 +245,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(items.id, id))
       .returning();
     return updated;
+  }
+
+  async deleteItem(id: string): Promise<void> {
+    await db.delete(items).where(eq(items.id, id));
   }
 
   async getStockLevel(itemId: string, locationId: string): Promise<StockLevel | undefined> {
