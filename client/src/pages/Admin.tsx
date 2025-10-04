@@ -89,7 +89,7 @@ export default function Admin() {
 
   const deleteLocationMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest("DELETE", `/api/admin/locations/${id}?hospitalId=${activeHospital?.id}`, {});
+      const response = await apiRequest("DELETE", `/api/admin/locations/${id}?hospitalId=${activeHospital?.id}`);
       return await response.json();
     },
     onSuccess: () => {
@@ -104,7 +104,7 @@ export default function Admin() {
   // User mutations
   const searchUserMutation = useMutation({
     mutationFn: async (email: string) => {
-      const response = await apiRequest("GET", `/api/admin/users/search?email=${encodeURIComponent(email)}`, {});
+      const response = await apiRequest("GET", `/api/admin/users/search?email=${encodeURIComponent(email)}`);
       return await response.json();
     },
     onSuccess: (data) => {
@@ -150,7 +150,7 @@ export default function Admin() {
 
   const deleteUserRoleMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest("DELETE", `/api/admin/users/${id}?hospitalId=${activeHospital?.id}`, {});
+      const response = await apiRequest("DELETE", `/api/admin/users/${id}?hospitalId=${activeHospital?.id}`);
       return await response.json();
     },
     onSuccess: () => {
