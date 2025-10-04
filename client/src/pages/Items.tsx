@@ -533,23 +533,6 @@ export default function Items() {
               </div>
             </div>
 
-            {/* Items per Box (conditional) */}
-            {selectedUnit === "box" && (
-              <div>
-                <Label htmlFor="packSize">Items per Box *</Label>
-                <Input 
-                  id="packSize" 
-                  name="packSize" 
-                  type="number" 
-                  min="1"
-                  value={formData.packSize}
-                  onChange={(e) => setFormData(prev => ({ ...prev, packSize: e.target.value }))}
-                  placeholder="e.g., 10"
-                  data-testid="input-pack-size" 
-                />
-              </div>
-            )}
-
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="barcode">Barcode</Label>
