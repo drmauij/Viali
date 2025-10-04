@@ -39,6 +39,7 @@ export default function Items() {
     maxThreshold: "0",
     defaultOrderQty: "0",
     packSize: "1",
+    actualStock: "0",
     critical: false,
     controlled: false,
   });
@@ -91,8 +92,25 @@ export default function Items() {
 
   const updateItemMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("PATCH", `/api/items/${selectedItem?.id}`, data);
-      return await response.json();
+      // Update item details
+      const response = await apiRequest("PATCH", `/api/items/${selectedItem?.id}`, data.itemData);
+      const updatedItem = await response.json();
+      
+      // Update stock level if provided
+      if (data.actualStock !== undefined && selectedItem) {
+        const currentStock = selectedItem.stockLevel?.qtyOnHand || 0;
+        const newStock = parseInt(data.actualStock);
+        const delta = newStock - currentStock;
+        
+        await apiRequest("POST", "/api/stock/update", {
+          itemId: selectedItem.id,
+          qty: newStock,
+          delta: delta,
+          notes: "Stock updated via item edit",
+        });
+      }
+      
+      return updatedItem;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id] });
@@ -121,6 +139,7 @@ export default function Items() {
       maxThreshold: String(item.maxThreshold || 0),
       defaultOrderQty: String(item.defaultOrderQty || 0),
       packSize: String(item.packSize || 1),
+      actualStock: String(item.stockLevel?.qtyOnHand || 0),
       critical: item.critical || false,
       controlled: item.controlled || false,
     });
@@ -153,7 +172,10 @@ export default function Items() {
       controlled: editFormData.controlled,
     };
 
-    updateItemMutation.mutate(itemData);
+    updateItemMutation.mutate({
+      itemData,
+      actualStock: editFormData.actualStock,
+    });
   };
 
   const compressImage = (file: File): Promise<string> => {
@@ -688,31 +710,18 @@ export default function Items() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="initialStock">Actual Stock</Label>
-                <Input 
-                  id="initialStock" 
-                  name="initialStock" 
-                  type="number" 
-                  min="0"
-                  value={formData.initialStock}
-                  onChange={(e) => setFormData(prev => ({ ...prev, initialStock: e.target.value }))}
-                  data-testid="input-initial-stock" 
-                />
-              </div>
-              <div>
-                <Label htmlFor="defaultOrderQty">Default Order Quantity</Label>
-                <Input 
-                  id="defaultOrderQty" 
-                  name="defaultOrderQty" 
-                  type="number" 
-                  min="0"
-                  value={formData.defaultOrderQty}
-                  onChange={(e) => setFormData(prev => ({ ...prev, defaultOrderQty: e.target.value }))}
-                  data-testid="input-default-order-qty" 
-                />
-              </div>
+            <div className="p-4 bg-primary/10 dark:bg-primary/20 rounded-lg border-2 border-primary/30">
+              <Label htmlFor="initialStock" className="text-base font-semibold">Actual Stock</Label>
+              <Input 
+                id="initialStock" 
+                name="initialStock" 
+                type="number" 
+                min="0"
+                value={formData.initialStock}
+                onChange={(e) => setFormData(prev => ({ ...prev, initialStock: e.target.value }))}
+                data-testid="input-initial-stock"
+                className="mt-2 text-lg font-medium"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -864,6 +873,20 @@ export default function Items() {
               />
             </div>
 
+            <div className="p-4 bg-primary/10 dark:bg-primary/20 rounded-lg border-2 border-primary/30">
+              <Label htmlFor="edit-actualStock" className="text-base font-semibold">Actual Stock</Label>
+              <Input 
+                id="edit-actualStock" 
+                name="actualStock" 
+                type="number" 
+                min="0"
+                value={editFormData.actualStock}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, actualStock: e.target.value }))}
+                data-testid="input-edit-actual-stock"
+                className="mt-2 text-lg font-medium"
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="edit-minThreshold">Min Threshold</Label>
@@ -889,19 +912,6 @@ export default function Items() {
                   data-testid="input-edit-max" 
                 />
               </div>
-            </div>
-
-            <div>
-              <Label htmlFor="edit-defaultOrderQty">Default Order Quantity</Label>
-              <Input 
-                id="edit-defaultOrderQty" 
-                name="defaultOrderQty" 
-                type="number" 
-                min="0"
-                value={editFormData.defaultOrderQty}
-                onChange={(e) => setEditFormData(prev => ({ ...prev, defaultOrderQty: e.target.value }))}
-                data-testid="input-edit-default-order-qty" 
-              />
             </div>
 
             <div className="flex gap-4">
