@@ -121,6 +121,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to create item" });
     }
   });
+
+  app.patch('/api/items/:itemId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { itemId } = req.params;
+      const userId = req.user.claims.sub;
+      
+      // Get the item to verify access
+      const item = await storage.getItem(itemId);
+      if (!item) {
+        return res.status(404).json({ message: "Item not found" });
+      }
+      
+      // Verify user has access to this item's location
+      const locationId = await getUserLocationForHospital(userId, item.hospitalId);
+      if (!locationId || locationId !== item.locationId) {
+        return res.status(403).json({ message: "Access denied to this item" });
+      }
+      
+      // Update the item
+      const updates = {
+        name: req.body.name,
+        description: req.body.description,
+        unit: req.body.unit,
+        barcodes: req.body.barcodes,
+        minThreshold: req.body.minThreshold,
+        maxThreshold: req.body.maxThreshold,
+        defaultOrderQty: req.body.defaultOrderQty,
+        packSize: req.body.packSize,
+        critical: req.body.critical,
+        controlled: req.body.controlled,
+      };
+      
+      const updatedItem = await storage.updateItem(itemId, updates);
+      res.json(updatedItem);
+    } catch (error) {
+      console.error("Error updating item:", error);
+      res.status(500).json({ message: "Failed to update item" });
+    }
+  });
   
   // AI image analysis for item data extraction
   app.post('/api/items/analyze-image', isAuthenticated, async (req: any, res) => {

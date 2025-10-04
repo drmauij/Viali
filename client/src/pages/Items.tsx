@@ -26,11 +26,22 @@ export default function Items() {
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [sortBy, setSortBy] = useState("name");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ItemWithStock | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<UnitType>("box");
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    description: "",
+    barcode: "",
+    minThreshold: "0",
+    maxThreshold: "0",
+    defaultOrderQty: "0",
+    packSize: "1",
+    critical: false,
+    controlled: false,
+  });
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -78,9 +89,71 @@ export default function Items() {
     },
   });
 
-  const handleViewItem = (item: ItemWithStock) => {
+  const updateItemMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("PATCH", `/api/items/${selectedItem?.id}`, data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id] });
+      setEditDialogOpen(false);
+      toast({
+        title: "Success",
+        description: "Item updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update item",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEditItem = (item: ItemWithStock) => {
     setSelectedItem(item);
-    setViewDialogOpen(true);
+    setEditFormData({
+      name: item.name,
+      description: item.description || "",
+      barcode: item.barcodes?.[0] || "",
+      minThreshold: String(item.minThreshold || 0),
+      maxThreshold: String(item.maxThreshold || 0),
+      defaultOrderQty: String(item.defaultOrderQty || 0),
+      packSize: String(item.packSize || 1),
+      critical: item.critical || false,
+      controlled: item.controlled || false,
+    });
+    setSelectedUnit(item.unit as UnitType);
+    setEditDialogOpen(true);
+  };
+
+  const handleQuickOrder = (e: React.MouseEvent, item: ItemWithStock) => {
+    e.stopPropagation();
+    // Quick order functionality to be implemented
+    toast({
+      title: "Quick Order",
+      description: `Quick order for ${item.name} - Coming soon!`,
+    });
+  };
+
+  const handleUpdateItem = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    
+    const itemData = {
+      name: editFormData.name,
+      description: editFormData.description,
+      unit: selectedUnit,
+      barcodes: editFormData.barcode ? [editFormData.barcode] : undefined,
+      minThreshold: parseInt(editFormData.minThreshold) || 0,
+      maxThreshold: parseInt(editFormData.maxThreshold) || 0,
+      defaultOrderQty: parseInt(editFormData.defaultOrderQty) || 0,
+      packSize: selectedUnit === "box" ? parseInt(editFormData.packSize) || 1 : 1,
+      critical: editFormData.critical,
+      controlled: editFormData.controlled,
+    };
+
+    updateItemMutation.mutate(itemData);
   };
 
   const compressImage = (file: File): Promise<string> => {
@@ -442,7 +515,12 @@ export default function Items() {
             const currentQty = item.stockLevel?.qtyOnHand || 0;
 
             return (
-              <div key={item.id} className="item-row" data-testid={`item-${item.id}`}>
+              <div 
+                key={item.id} 
+                className="item-row cursor-pointer hover:bg-accent/50 transition-colors" 
+                onClick={() => handleEditItem(item)}
+                data-testid={`item-${item.id}`}
+              >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 min-w-0 pr-3">
                     <h3 className="font-semibold text-foreground">{item.name}</h3>
@@ -480,8 +558,9 @@ export default function Items() {
                       / Min: {item.minThreshold || 0} / Max: {item.maxThreshold || 0}
                     </span>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => handleViewItem(item)} data-testid={`view-item-${item.id}`}>
-                    View
+                  <Button variant="outline" size="sm" onClick={(e) => handleQuickOrder(e, item)} data-testid={`quick-order-${item.id}`}>
+                    <i className="fas fa-shopping-cart mr-1"></i>
+                    Quick Order
                   </Button>
                 </div>
               </div>
@@ -698,73 +777,165 @@ export default function Items() {
         </DialogContent>
       </Dialog>
 
-      {/* View Item Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-md">
+      {/* Edit Item Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{selectedItem?.name}</DialogTitle>
-            <DialogDescription>{selectedItem?.description || "Item details"}</DialogDescription>
+            <DialogTitle>Edit Item</DialogTitle>
+            <DialogDescription>Update item details</DialogDescription>
           </DialogHeader>
-          {selectedItem && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-muted-foreground">Unit</Label>
-                  <p className="font-medium">{selectedItem.unit}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Barcode</Label>
-                  <p className="font-medium">{selectedItem.barcodes?.[0] || "N/A"}</p>
-                </div>
-              </div>
+          <form onSubmit={handleUpdateItem} className="space-y-4">
+            <div>
+              <Label htmlFor="edit-name">Item Name *</Label>
+              <Input 
+                id="edit-name" 
+                name="name" 
+                value={editFormData.name}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, name: e.target.value }))}
+                required
+                data-testid="input-edit-name" 
+              />
+            </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label className="text-muted-foreground">Current Stock</Label>
-                  <p className="text-2xl font-bold text-primary">{selectedItem.stockLevel?.qtyOnHand || 0}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Min</Label>
-                  <p className="text-lg font-semibold">{selectedItem.minThreshold || 0}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Max</Label>
-                  <p className="text-lg font-semibold">{selectedItem.maxThreshold || 0}</p>
-                </div>
-              </div>
+            <div>
+              <Label htmlFor="edit-description">Description</Label>
+              <Input 
+                id="edit-description" 
+                name="description" 
+                value={editFormData.description}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, description: e.target.value }))}
+                data-testid="input-edit-description" 
+              />
+            </div>
 
-              <div className="flex gap-2">
-                {selectedItem.critical && (
-                  <span className="status-chip chip-critical">
-                    <i className="fas fa-exclamation-circle mr-1"></i>
-                    Critical
-                  </span>
-                )}
-                {selectedItem.controlled && (
-                  <span className="status-chip chip-controlled">
-                    <i className="fas fa-shield-halved mr-1"></i>
-                    Controlled
-                  </span>
-                )}
-              </div>
-
-              {selectedItem.soonestExpiry && (
-                <div>
-                  <Label className="text-muted-foreground">Soonest Expiry</Label>
-                  <p className="font-medium">
-                    {new Date(selectedItem.soonestExpiry).toLocaleDateString()} 
-                    ({getDaysUntilExpiry(selectedItem.soonestExpiry)} days)
-                  </p>
-                </div>
-              )}
-
-              <div className="flex gap-2 justify-end pt-4">
-                <Button variant="outline" onClick={() => setViewDialogOpen(false)}>
-                  Close
-                </Button>
+            <div>
+              <Label>Unit Type *</Label>
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedUnit("box")}
+                  className={`flex flex-col items-center py-3 px-2 rounded-lg border-2 transition-all ${
+                    selectedUnit === "box" 
+                      ? "border-primary bg-primary/10" 
+                      : "border-border bg-background"
+                  }`}
+                  data-testid="edit-unit-box"
+                >
+                  <i className="fas fa-box text-xl mb-1"></i>
+                  <div className="text-xs font-medium">Box</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedUnit("vial")}
+                  className={`flex flex-col items-center py-3 px-2 rounded-lg border-2 transition-all ${
+                    selectedUnit === "vial" 
+                      ? "border-primary bg-primary/10" 
+                      : "border-border bg-background"
+                  }`}
+                  data-testid="edit-unit-vial"
+                >
+                  <i className="fas fa-prescription-bottle text-xl mb-1"></i>
+                  <div className="text-xs font-medium">Vial</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedUnit("single item")}
+                  className={`flex flex-col items-center py-3 px-2 rounded-lg border-2 transition-all ${
+                    selectedUnit === "single item" 
+                      ? "border-primary bg-primary/10" 
+                      : "border-border bg-background"
+                  }`}
+                  data-testid="edit-unit-single"
+                >
+                  <i className="fas fa-pills text-xl mb-1"></i>
+                  <div className="text-xs font-medium">Single Item</div>
+                </button>
               </div>
             </div>
-          )}
+
+            <div>
+              <Label htmlFor="edit-barcode">Barcode</Label>
+              <Input 
+                id="edit-barcode" 
+                name="barcode" 
+                value={editFormData.barcode}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, barcode: e.target.value }))}
+                data-testid="input-edit-barcode" 
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="edit-minThreshold">Min Threshold</Label>
+                <Input 
+                  id="edit-minThreshold" 
+                  name="minThreshold" 
+                  type="number" 
+                  min="0"
+                  value={editFormData.minThreshold}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, minThreshold: e.target.value }))}
+                  data-testid="input-edit-min" 
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-maxThreshold">Max Threshold</Label>
+                <Input 
+                  id="edit-maxThreshold" 
+                  name="maxThreshold" 
+                  type="number" 
+                  min="0"
+                  value={editFormData.maxThreshold}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, maxThreshold: e.target.value }))}
+                  data-testid="input-edit-max" 
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="edit-defaultOrderQty">Default Order Quantity</Label>
+              <Input 
+                id="edit-defaultOrderQty" 
+                name="defaultOrderQty" 
+                type="number" 
+                min="0"
+                value={editFormData.defaultOrderQty}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, defaultOrderQty: e.target.value }))}
+                data-testid="input-edit-default-order-qty" 
+              />
+            </div>
+
+            <div className="flex gap-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="edit-critical" 
+                  name="critical" 
+                  checked={editFormData.critical}
+                  onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, critical: checked === true }))}
+                  data-testid="checkbox-edit-critical" 
+                />
+                <Label htmlFor="edit-critical" className="cursor-pointer">Critical Item</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="edit-controlled" 
+                  name="controlled"
+                  checked={editFormData.controlled}
+                  onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, controlled: checked === true }))}
+                  data-testid="checkbox-edit-controlled" 
+                />
+                <Label htmlFor="edit-controlled" className="cursor-pointer">Controlled Substance</Label>
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updateItemMutation.isPending} data-testid="button-update-item">
+                {updateItemMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
