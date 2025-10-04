@@ -555,14 +555,6 @@ export default function Items() {
           Controlled ({filterCounts.controlled})
         </button>
         <button
-          className={`status-chip whitespace-nowrap ${activeFilter === "expiring" ? "chip-warning" : "chip-muted"}`}
-          onClick={() => setActiveFilter("expiring")}
-          data-testid="filter-expiring"
-        >
-          <i className="fas fa-clock text-xs mr-1"></i>
-          Expiring ({filterCounts.expiring})
-        </button>
-        <button
           className={`status-chip whitespace-nowrap ${activeFilter === "belowMin" ? "chip-warning" : "chip-muted"}`}
           onClick={() => setActiveFilter("belowMin")}
           data-testid="filter-below-min"
