@@ -687,7 +687,7 @@ export default function Items() {
                       <span className={`text-2xl font-bold ${stockStatus.color}`}>
                         {currentQty}
                       </span>
-                      <i className={`fas ${normalizeUnit(item.unit) === "pack" ? "fa-box" : "fa-vial"} text-sm text-muted-foreground`}></i>
+                      <i className={`fas ${normalizeUnit(item.unit) === "pack" ? "fa-box" : "fa-vial"} text-2xl ${stockStatus.color}`}></i>
                     </div>
                     <span className="text-sm text-muted-foreground">
                       / Min: {item.minThreshold || 0} / Max: {item.maxThreshold || 0}
