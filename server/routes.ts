@@ -37,6 +37,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/signup', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { hospitalName } = req.body;
+
+      if (!hospitalName) {
+        return res.status(400).json({ message: "Hospital name is required" });
+      }
+
+      // Create new hospital
+      const hospital = await storage.createHospital(hospitalName);
+
+      // Create default location
+      const location = await storage.createLocation({
+        hospitalId: hospital.id,
+        name: "Main Location",
+        type: null,
+        parentId: null,
+      });
+
+      // Assign user as admin
+      await storage.createUserHospitalRole({
+        userId,
+        hospitalId: hospital.id,
+        locationId: location.id,
+        role: "AD",
+      });
+
+      res.status(201).json({ 
+        message: "Hospital created successfully",
+        hospital,
+      });
+    } catch (error) {
+      console.error("Error during signup:", error);
+      res.status(500).json({ message: "Failed to create hospital" });
+    }
+  });
+
   // Dashboard KPIs
   app.get('/api/dashboard/kpis/:hospitalId', isAuthenticated, async (req, res) => {
     try {
@@ -613,6 +651,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to verify admin access" });
     }
   }
+
+  // Admin - Hospital routes
+  app.patch('/api/admin/:hospitalId', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const { name } = req.body;
+
+      if (!name) {
+        return res.status(400).json({ message: "Hospital name is required" });
+      }
+
+      const updated = await storage.updateHospital(hospitalId, { name });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating hospital:", error);
+      res.status(500).json({ message: "Failed to update hospital" });
+    }
+  });
 
   // Admin - Location routes
   app.get('/api/admin/:hospitalId/locations', isAuthenticated, isAdmin, async (req, res) => {

@@ -87,6 +87,16 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
             <i className={`fas ${theme === "dark" ? "fa-sun" : "fa-moon"}`}></i>
           </button>
           
+          {/* Logout Button */}
+          <button
+            className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => window.location.href = "/api/logout"}
+            data-testid="button-logout"
+            title="Logout"
+          >
+            <i className="fas fa-sign-out-alt"></i>
+          </button>
+          
           {/* Profile */}
           <div
             className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-semibold text-sm"

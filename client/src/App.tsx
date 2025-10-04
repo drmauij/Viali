@@ -15,6 +15,7 @@ import Orders from "@/pages/Orders";
 import Alerts from "@/pages/Alerts";
 import ControlledLog from "@/pages/ControlledLog";
 import Admin from "@/pages/Admin";
+import Signup from "@/pages/Signup";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -32,6 +33,7 @@ function Router() {
           <Route path="/alerts" component={Alerts} />
           <Route path="/controlled" component={ControlledLog} />
           <Route path="/admin" component={Admin} />
+          <Route path="/signup" component={Signup} />
         </>
       )}
       <Route component={NotFound} />

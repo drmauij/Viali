@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -5,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export default function Landing() {
+  const [showSignup, setShowSignup] = useState(false);
+
   const handleGoogleLogin = () => {
     window.location.href = "/api/login";
   };
@@ -27,79 +30,111 @@ export default function Landing() {
           <p className="text-muted-foreground mt-2">Hospital Inventory Management</p>
         </div>
         
-        {/* Login Card */}
+        {/* Login/Signup Card */}
         <Card className="shadow-lg">
           <CardContent className="p-6">
-            {/* Google OAuth Login */}
-            <Button 
-              className="w-full mb-4" 
-              size="lg"
-              onClick={handleGoogleLogin}
-              data-testid="google-login-button"
-            >
-              <i className="fab fa-google mr-2"></i>
-              Continue with Google
-            </Button>
-            
-            {/* Divider */}
-            <div className="flex items-center gap-4 my-6">
-              <div className="flex-1 h-px bg-border"></div>
-              <span className="text-sm text-muted-foreground">or</span>
-              <div className="flex-1 h-px bg-border"></div>
-            </div>
-            
-            {/* Email/Password Form */}
-            <form className="space-y-4" onSubmit={handleLocalLogin}>
-              <div>
-                <Label htmlFor="email" className="block text-sm font-medium mb-2">
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@hospital.org"
-                  className="w-full"
-                  data-testid="email-input"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="password" className="block text-sm font-medium mb-2">
-                  Password
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  className="w-full"
-                  data-testid="password-input"
-                />
-              </div>
-              
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <Checkbox id="remember" />
-                  <Label htmlFor="remember" className="cursor-pointer">
-                    Remember me
-                  </Label>
+            {!showSignup ? (
+              <>
+                {/* Google OAuth Login */}
+                <Button 
+                  className="w-full mb-4" 
+                  size="lg"
+                  onClick={handleGoogleLogin}
+                  data-testid="login-btn"
+                >
+                  <i className="fab fa-google mr-2"></i>
+                  Sign in with Google
+                </Button>
+                
+                {/* Divider */}
+                <div className="flex items-center gap-4 my-6">
+                  <div className="flex-1 h-px bg-border"></div>
+                  <span className="text-sm text-muted-foreground">or</span>
+                  <div className="flex-1 h-px bg-border"></div>
                 </div>
-                <a href="#" className="text-primary hover:underline">
-                  Forgot password?
-                </a>
-              </div>
-              
-              <Button type="submit" className="w-full" size="lg" data-testid="local-login-button">
-                Sign In
-              </Button>
-            </form>
+                
+                {/* Email/Password Form */}
+                <form className="space-y-4" onSubmit={handleLocalLogin}>
+                  <div>
+                    <Label htmlFor="email" className="block text-sm font-medium mb-2">
+                      Email
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="you@hospital.org"
+                      className="w-full"
+                      data-testid="email-input"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="password" className="block text-sm font-medium mb-2">
+                      Password
+                    </Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="••••••••"
+                      className="w-full"
+                      data-testid="password-input"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <Checkbox id="remember" />
+                      <Label htmlFor="remember" className="cursor-pointer">
+                        Remember me
+                      </Label>
+                    </div>
+                    <a href="#" className="text-primary hover:underline">
+                      Forgot password?
+                    </a>
+                  </div>
+                  
+                  <Button type="submit" className="w-full" size="lg" data-testid="local-login-button">
+                    Sign In
+                  </Button>
+                </form>
+              </>
+            ) : (
+              <>
+                {/* Signup Mode */}
+                <h2 className="text-xl font-semibold text-foreground mb-4">Create Your Hospital</h2>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Sign up with Google to create a new hospital account. You'll be assigned as the admin automatically.
+                </p>
+                <Button 
+                  className="w-full" 
+                  size="lg"
+                  onClick={handleGoogleLogin}
+                  data-testid="signup-btn"
+                >
+                  <i className="fab fa-google mr-2"></i>
+                  Sign up with Google
+                </Button>
+              </>
+            )}
           </CardContent>
         </Card>
         
         <p className="text-center text-sm text-muted-foreground mt-6">
-          Don't have an account?{" "}
-          <a href="#" className="text-primary hover:underline">
-            Contact your administrator
-          </a>
+          {!showSignup ? (
+            <>
+              Don't have a hospital?{" "}
+              <button onClick={() => setShowSignup(true)} className="text-primary hover:underline" data-testid="show-signup-button">
+                Sign up to create one
+              </button>
+            </>
+          ) : (
+            <>
+              Already have an account?{" "}
+              <button onClick={() => setShowSignup(false)} className="text-primary hover:underline" data-testid="show-login-button">
+                Sign in
+              </button>
+            </>
+          )}
         </p>
       </div>
     </div>

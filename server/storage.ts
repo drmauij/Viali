@@ -38,6 +38,8 @@ export interface IStorage {
   // Hospital operations
   getHospital(id: string): Promise<Hospital | undefined>;
   getUserHospitals(userId: string): Promise<(Hospital & { role: string; locationId: string; locationName: string })[]>;
+  createHospital(name: string): Promise<Hospital>;
+  updateHospital(id: string, updates: Partial<Hospital>): Promise<Hospital>;
   
   // Item operations
   getItems(hospitalId: string, locationId: string, filters?: {
@@ -176,6 +178,23 @@ export class DatabaseStorage implements IStorage {
       locationId: row.user_hospital_roles.locationId,
       locationName: row.locations.name,
     })) as (Hospital & { role: string; locationId: string; locationName: string })[];
+  }
+
+  async createHospital(name: string): Promise<Hospital> {
+    const [hospital] = await db
+      .insert(hospitals)
+      .values({ name })
+      .returning();
+    return hospital;
+  }
+
+  async updateHospital(id: string, updates: Partial<Hospital>): Promise<Hospital> {
+    const [updated] = await db
+      .update(hospitals)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(hospitals.id, id))
+      .returning();
+    return updated;
   }
 
   async getItems(hospitalId: string, locationId: string, filters?: {

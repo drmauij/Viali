@@ -21,6 +21,10 @@ export default function Admin() {
   const [activeTab, setActiveTab] = useState<"locations" | "users">("locations");
   const { toast } = useToast();
 
+  // Hospital name states
+  const [hospitalDialogOpen, setHospitalDialogOpen] = useState(false);
+  const [hospitalName, setHospitalName] = useState(activeHospital?.name || "");
+
   // Location states
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
@@ -162,6 +166,22 @@ export default function Admin() {
     },
   });
 
+  // Hospital mutations
+  const updateHospitalMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const response = await apiRequest("PATCH", `/api/admin/${activeHospital?.id}`, { name });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      setHospitalDialogOpen(false);
+      toast({ title: "Success", description: "Hospital name updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to update hospital name", variant: "destructive" });
+    },
+  });
+
   const resetLocationForm = () => {
     setLocationForm({ name: "", type: "" });
     setEditingLocation(null);
@@ -286,10 +306,42 @@ export default function Admin() {
     );
   }
 
+  const handleEditHospitalName = () => {
+    setHospitalName(activeHospital?.name || "");
+    setHospitalDialogOpen(true);
+  };
+
+  const handleSaveHospitalName = () => {
+    if (!hospitalName.trim()) {
+      toast({ title: "Error", description: "Hospital name is required", variant: "destructive" });
+      return;
+    }
+    updateHospitalMutation.mutate(hospitalName);
+  };
+
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Admin Panel</h1>
+      </div>
+
+      {/* Hospital Info Card */}
+      <div className="bg-card border border-border rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-foreground text-lg">{activeHospital?.name}</h3>
+            <p className="text-sm text-muted-foreground">Hospital Name</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleEditHospitalName}
+            data-testid="button-edit-hospital"
+          >
+            <i className="fas fa-edit mr-2"></i>
+            Edit Name
+          </Button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -581,6 +633,39 @@ export default function Admin() {
                 data-testid="button-save-user"
               >
                 {editingUser ? "Update" : "Assign"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Hospital Name Dialog */}
+      <Dialog open={hospitalDialogOpen} onOpenChange={setHospitalDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Hospital Name</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="hospital-name">Hospital Name *</Label>
+              <Input
+                id="hospital-name"
+                value={hospitalName}
+                onChange={(e) => setHospitalName(e.target.value)}
+                placeholder="e.g., City General Hospital"
+                data-testid="input-hospital-name"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setHospitalDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveHospitalName}
+                disabled={updateHospitalMutation.isPending}
+                data-testid="button-save-hospital"
+              >
+                Update
               </Button>
             </div>
           </div>
