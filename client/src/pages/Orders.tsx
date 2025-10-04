@@ -716,14 +716,17 @@ export default function Orders() {
                       <div className="flex items-center gap-2">
                         {editingLineId === line.id ? (
                           <>
-                            <input
-                              type="number"
-                              min="1"
-                              value={editQty}
-                              onChange={(e) => setEditQty(Number(e.target.value))}
-                              className="w-20 px-2 py-1 border border-border rounded text-center"
-                              data-testid={`qty-input-${line.id}`}
-                            />
+                            <div className="text-right">
+                              <input
+                                type="number"
+                                min="1"
+                                value={editQty}
+                                onChange={(e) => setEditQty(Number(e.target.value))}
+                                className="w-20 px-2 py-1 border border-border rounded text-center"
+                                data-testid={`qty-input-${line.id}`}
+                              />
+                              <p className="text-xs text-muted-foreground mt-1">{line.item.unit}</p>
+                            </div>
                             <Button
                               size="sm"
                               onClick={() => {
