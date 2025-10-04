@@ -3,7 +3,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
 import TopBar from "./TopBar";
 import BottomNav from "./BottomNav";
-import ControlledLogFab from "./ControlledLogFab";
 
 interface Hospital {
   id: string;
@@ -44,7 +43,6 @@ export default function Layout({ children }: LayoutProps) {
         onHospitalChange={setActiveHospital}
       />
       {children}
-      <ControlledLogFab />
       <BottomNav />
     </div>
   );
