@@ -774,8 +774,7 @@ export default function Items() {
               </div>
             </div>
 
-            {selectedUnit === "box" && formData.controlled && (
-              <div>
+            <div className="flex gap-3 pt-4 justify-end">
               <Button type="button" variant="outline" onClick={() => { setAddDialogOpen(false); resetForm(); }}>
                 Cancel
               </Button>
