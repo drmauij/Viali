@@ -9,10 +9,12 @@ AnaStock is a mobile-first web application designed to manage anesthesia drugs a
 ### October 4, 2025 - Order Creation System
 - Implemented complete order creation system with API endpoints and storage methods
 - Added Quick Order button functionality that automatically calculates order quantities based on stock deficits (max threshold - actual stock)
-- Created New Order dialog showing items needing reordering with vendor selection
+- Created New Order dialog showing items needing reordering
 - Orders use two-part structure: order header (orders table) and order lines (order_lines table)
 - Only items with positive stock deficits (max > actual) generate order lines
-- Order creation pipeline is production-ready with correct quantity logic and cache invalidation
+- Fixed quick order error by using correct user ID extraction (req.user.claims.sub)
+- Hidden vendor field from order cards and new order dialog (vendor is auto-selected)
+- Order creation pipeline is production-ready and fully tested
 
 **Known Issue**: upsertUser email conflict handling needs refinement - currently doesn't handle case where OIDC login uses different sub but same email (would require detecting existing user by email and merging accounts)
 
