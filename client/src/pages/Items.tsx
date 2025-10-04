@@ -146,11 +146,18 @@ export default function Items() {
           
           // Update form with the first valid result
           if (i === 0 || !formData.name) {
+            // Build name by appending concentration and size if available
+            let itemName = result.name || '';
+            if (result.concentration) {
+              itemName += ` ${result.concentration}`;
+            }
+            if (result.size) {
+              itemName += ` ${result.size}`;
+            }
+            
             setFormData(prev => ({
               ...prev,
-              name: result.concentration 
-                ? `${result.name || ''} ${result.concentration}`.trim() 
-                : result.name || prev.name,
+              name: itemName.trim() || prev.name,
               description: result.description || prev.description,
               barcode: result.barcode || prev.barcode,
             }));
