@@ -93,8 +93,8 @@ export default function Items() {
           let width = img.width;
           let height = img.height;
           
-          // Resize if image is too large (max 1200px on longest side)
-          const maxSize = 1200;
+          // Resize if image is too large (max 800px on longest side for better compression)
+          const maxSize = 800;
           if (width > maxSize || height > maxSize) {
             if (width > height) {
               height = (height / width) * maxSize;
@@ -110,8 +110,8 @@ export default function Items() {
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
           
-          // Compress to JPEG with 0.8 quality
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+          // Compress to JPEG with 0.7 quality for better size reduction
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
           resolve(compressedBase64);
         };
         img.onerror = reject;
