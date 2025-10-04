@@ -83,55 +83,112 @@ export default function Items() {
     setViewDialogOpen(true);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          // Resize if image is too large (max 1200px on longest side)
+          const maxSize = 1200;
+          if (width > maxSize || height > maxSize) {
+            if (width > height) {
+              height = (height / width) * maxSize;
+              width = maxSize;
+            } else {
+              width = (width / height) * maxSize;
+              height = maxSize;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Compress to JPEG with 0.8 quality
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+          resolve(compressedBase64);
+        };
+        img.onerror = reject;
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const file = files[0];
-    const reader = new FileReader();
+    setIsAnalyzing(true);
+    const allResults: any[] = [];
     
-    reader.onload = async (event) => {
-      const base64Image = event.target?.result as string;
-      setUploadedImages([...uploadedImages, base64Image]);
-      
-      // Analyze image with AI
-      setIsAnalyzing(true);
-      try {
-        const response = await apiRequest('POST', '/api/items/analyze-image', {
-          image: base64Image
-        });
-        const result: any = await response.json();
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
         
-        // Update form with extracted data
-        setFormData(prev => ({
-          ...prev,
-          name: result.name || prev.name,
-          description: result.concentration 
-            ? `${result.description || ''} ${result.concentration}`.trim() 
-            : result.description || prev.description,
-          barcode: result.barcode || prev.barcode,
-        }));
+        // Compress image before sending
+        const compressedImage = await compressImage(file);
+        setUploadedImages(prev => [...prev, compressedImage]);
         
-        if (result.unit) {
-          setSelectedUnit(result.unit as UnitType);
+        // Analyze image with AI
+        try {
+          const response = await apiRequest('POST', '/api/items/analyze-image', {
+            image: compressedImage
+          });
+          const result: any = await response.json();
+          allResults.push(result);
+          
+          // Update form with the first valid result
+          if (i === 0 || !formData.name) {
+            setFormData(prev => ({
+              ...prev,
+              name: result.name || prev.name,
+              description: result.concentration 
+                ? `${result.description || ''} ${result.concentration}`.trim() 
+                : result.description || prev.description,
+              barcode: result.barcode || prev.barcode,
+            }));
+            
+            if (result.unit) {
+              setSelectedUnit(result.unit as UnitType);
+            }
+          }
+        } catch (error: any) {
+          console.error(`Failed to analyze image ${i + 1}:`, error);
         }
-        
+      }
+      
+      if (allResults.length > 0) {
+        const avgConfidence = allResults.reduce((sum, r) => sum + (r.confidence || 0), 0) / allResults.length;
         toast({
-          title: "Image analyzed",
-          description: `Extracted data with ${Math.round((result.confidence || 0) * 100)}% confidence`,
+          title: "Images analyzed",
+          description: `Processed ${allResults.length} image(s) with ${Math.round(avgConfidence * 100)}% avg confidence`,
         });
-      } catch (error: any) {
+      } else {
         toast({
           title: "Analysis failed",
-          description: error.message || "Failed to analyze image",
+          description: "Could not extract data from images",
           variant: "destructive",
         });
-      } finally {
-        setIsAnalyzing(false);
       }
-    };
-    
-    reader.readAsDataURL(file);
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description: error.message || "Failed to process images",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+      // Reset input
+      e.target.value = '';
+    }
   };
 
   const handleAddItem = (e: React.FormEvent<HTMLFormElement>) => {
@@ -447,6 +504,7 @@ export default function Items() {
                 type="file"
                 ref={galleryInputRef}
                 accept="image/*"
+                multiple
                 onChange={handleImageUpload}
                 className="hidden"
               />
