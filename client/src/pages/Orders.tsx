@@ -400,7 +400,12 @@ export default function Orders() {
                 </div>
               ) : (
                 ordersByStatus.draft.map((order) => (
-                  <div key={order.id} className="kanban-card" data-testid={`draft-order-${order.id}`}>
+                  <div 
+                    key={order.id} 
+                    className="kanban-card cursor-pointer" 
+                    onClick={() => handleEditOrder(order)}
+                    data-testid={`draft-order-${order.id}`}
+                  >
                     <div className="flex items-start justify-between mb-2">
                       <div>
                         <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
@@ -420,14 +425,14 @@ export default function Orders() {
                       <Button
                         size="sm"
                         className="flex-1"
-                        onClick={() => handleStatusUpdate(order.id, "sent")}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStatusUpdate(order.id, "sent");
+                        }}
                         disabled={updateOrderStatusMutation.isPending}
                         data-testid={`submit-order-${order.id}`}
                       >
                         Submit
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleEditOrder(order)} data-testid={`edit-order-${order.id}`}>
-                        <i className="fas fa-edit"></i>
                       </Button>
                     </div>
                   </div>
@@ -452,7 +457,12 @@ export default function Orders() {
                 </div>
               ) : (
                 ordersByStatus.sent.map((order) => (
-                  <div key={order.id} className="kanban-card" data-testid={`sent-order-${order.id}`}>
+                  <div 
+                    key={order.id} 
+                    className="kanban-card cursor-pointer" 
+                    onClick={() => handleEditOrder(order)}
+                    data-testid={`sent-order-${order.id}`}
+                  >
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
@@ -468,11 +478,22 @@ export default function Orders() {
                       Sent {formatDate((order.updatedAt || order.createdAt) as any)}
                     </p>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="flex-1" data-testid={`pdf-order-${order.id}`}>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1" 
+                        onClick={(e) => e.stopPropagation()}
+                        data-testid={`pdf-order-${order.id}`}
+                      >
                         <i className="fas fa-file-pdf mr-1"></i>
                         PDF
                       </Button>
-                      <Button variant="outline" size="sm" data-testid={`email-order-${order.id}`}>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={(e) => e.stopPropagation()}
+                        data-testid={`email-order-${order.id}`}
+                      >
                         <i className="fas fa-envelope"></i>
                       </Button>
                     </div>
@@ -503,7 +524,12 @@ export default function Orders() {
                   const progressPercentage = (receivedItems / totalItems) * 100;
 
                   return (
-                    <div key={order.id} className="kanban-card" data-testid={`receiving-order-${order.id}`}>
+                    <div 
+                      key={order.id} 
+                      className="kanban-card cursor-pointer" 
+                      onClick={() => handleEditOrder(order)}
+                      data-testid={`receiving-order-${order.id}`}
+                    >
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
@@ -524,7 +550,10 @@ export default function Orders() {
                       <Button
                         size="sm"
                         className="w-full"
-                        onClick={() => handleStatusUpdate(order.id, "closed")}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStatusUpdate(order.id, "closed");
+                        }}
                         disabled={updateOrderStatusMutation.isPending}
                         data-testid={`continue-receiving-${order.id}`}
                       >
@@ -554,7 +583,12 @@ export default function Orders() {
                 </div>
               ) : (
                 ordersByStatus.closed.map((order) => (
-                  <div key={order.id} className="kanban-card" data-testid={`closed-order-${order.id}`}>
+                  <div 
+                    key={order.id} 
+                    className="kanban-card cursor-pointer" 
+                    onClick={() => handleEditOrder(order)}
+                    data-testid={`closed-order-${order.id}`}
+                  >
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
@@ -566,12 +600,9 @@ export default function Orders() {
                     <p className="text-sm text-muted-foreground mb-2">
                       {order.orderLines.length} items • {formatCurrency(order.totalAmount || 0)}
                     </p>
-                    <p className="text-xs text-muted-foreground mb-3">
+                    <p className="text-xs text-muted-foreground">
                       Completed {formatDate((order.updatedAt || order.createdAt) as any)}
                     </p>
-                    <Button variant="outline" size="sm" className="w-full" data-testid={`view-details-${order.id}`}>
-                      View Details
-                    </Button>
                   </div>
                 ))
               )}
