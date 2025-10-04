@@ -134,6 +134,14 @@ export default function Items() {
     },
   });
 
+  const normalizeUnit = (unit: string): UnitType => {
+    const normalized = unit.toLowerCase();
+    if (normalized === "pack" || normalized === "box") {
+      return "pack";
+    }
+    return "single item";
+  };
+
   const handleEditItem = (item: ItemWithStock) => {
     setSelectedItem(item);
     setEditFormData({
@@ -148,7 +156,7 @@ export default function Items() {
       critical: item.critical || false,
       controlled: item.controlled || false,
     });
-    setSelectedUnit(item.unit as UnitType);
+    setSelectedUnit(normalizeUnit(item.unit));
     setEditDialogOpen(true);
   };
 
