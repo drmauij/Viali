@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
@@ -56,6 +56,8 @@ export default function Items() {
     controlled: false,
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const packSizeInputRef = useRef<HTMLInputElement>(null);
+  const editPackSizeInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const { data: items = [], isLoading } = useQuery<ItemWithStock[]>({
@@ -163,6 +165,24 @@ export default function Items() {
     }
     return "single item";
   };
+
+  // Auto-focus pack size field in Add Item dialog when it becomes visible
+  useEffect(() => {
+    if (selectedUnit === "single item" && formData.controlled && addDialogOpen) {
+      setTimeout(() => {
+        packSizeInputRef.current?.focus();
+      }, 100);
+    }
+  }, [selectedUnit, formData.controlled, addDialogOpen]);
+
+  // Auto-focus pack size field in Edit Item dialog when it becomes visible
+  useEffect(() => {
+    if (selectedUnit === "single item" && editFormData.controlled && editDialogOpen) {
+      setTimeout(() => {
+        editPackSizeInputRef.current?.focus();
+      }, 100);
+    }
+  }, [selectedUnit, editFormData.controlled, editDialogOpen]);
 
   const handleEditItem = (item: ItemWithStock) => {
     setSelectedItem(item);
@@ -780,6 +800,7 @@ export default function Items() {
               <div>
                 <Label htmlFor="packSize">Pack Size (pieces per pack) *</Label>
                 <Input 
+                  ref={packSizeInputRef}
                   id="packSize" 
                   name="packSize" 
                   type="number" 
@@ -947,6 +968,7 @@ export default function Items() {
               <div>
                 <Label htmlFor="edit-packSize">Pack Size (pieces per pack) *</Label>
                 <Input 
+                  ref={editPackSizeInputRef}
                   id="edit-packSize" 
                   name="packSize" 
                   type="number" 
