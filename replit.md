@@ -6,11 +6,18 @@ AnaStock is a mobile-first web application designed to manage anesthesia drugs a
 
 ## Recent Changes
 
+### October 4, 2025 - Order Card UX Improvements
+- Made all order cards clickable to open Edit Order dialog (removed separate edit button)
+- Added confirmation AlertDialog when removing items from orders to prevent accidental deletion
+- Improved event handling with proper stopPropagation for buttons within clickable cards
+- Enhanced user experience with clear visual affordances (cursor-pointer on cards)
+- Full e2e test coverage confirms all interaction patterns working correctly
+
 ### October 4, 2025 - Order Editing System
 - Implemented comprehensive order editing functionality with full CRUD capabilities
 - Added Edit Order dialog for draft orders with:
   - Inline quantity editing for order line items
-  - Remove item functionality to delete individual order lines
+  - Remove item functionality to delete individual order lines (with confirmation)
   - Delete entire order capability
   - Submit order directly from edit dialog
 - Added location display to all order cards showing originating location(s) (derived from order items)
