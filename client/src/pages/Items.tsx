@@ -642,7 +642,7 @@ export default function Items() {
               />
             </div>
             
-            <div>
+            {/* <div>
               <Label htmlFor="description">Description</Label>
               <Input 
                 id="description" 
@@ -651,7 +651,7 @@ export default function Items() {
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 data-testid="input-item-description" 
               />
-            </div>
+            </div> */}
 
             {/* Visual Unit Selector */}
             <div>
@@ -686,7 +686,7 @@ export default function Items() {
               </div>
             </div>
 
-            <div>
+            {/* <div>
               <Label htmlFor="barcode">Barcode</Label>
               <Input 
                 id="barcode" 
@@ -695,7 +695,7 @@ export default function Items() {
                 onChange={(e) => setFormData(prev => ({ ...prev, barcode: e.target.value }))}
                 data-testid="input-item-barcode" 
               />
-            </div>
+            </div> */}
 
             <div className="p-4 bg-primary/10 dark:bg-primary/20 rounded-lg border-2 border-primary/30">
               <Label htmlFor="initialStock" className="text-base font-semibold">Actual Stock</Label>
@@ -809,7 +809,7 @@ export default function Items() {
               />
             </div>
 
-            <div>
+            {/* <div>
               <Label htmlFor="edit-description">Description</Label>
               <Input 
                 id="edit-description" 
@@ -818,7 +818,7 @@ export default function Items() {
                 onChange={(e) => setEditFormData(prev => ({ ...prev, description: e.target.value }))}
                 data-testid="input-edit-description" 
               />
-            </div>
+            </div> */}
 
             <div>
               <Label>Unit Type *</Label>
@@ -852,7 +852,7 @@ export default function Items() {
               </div>
             </div>
 
-            <div>
+            {/* <div>
               <Label htmlFor="edit-barcode">Barcode</Label>
               <Input 
                 id="edit-barcode" 
@@ -861,7 +861,7 @@ export default function Items() {
                 onChange={(e) => setEditFormData(prev => ({ ...prev, barcode: e.target.value }))}
                 data-testid="input-edit-barcode" 
               />
-            </div>
+            </div> */}
 
             <div className="p-4 bg-primary/10 dark:bg-primary/20 rounded-lg border-2 border-primary/30">
               <Label htmlFor="edit-actualStock" className="text-base font-semibold">Actual Stock</Label>
