@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Item, StockLevel, InsertItem } from "@shared/schema";
+import type { Item, StockLevel, InsertItem, Vendor } from "@shared/schema";
 
 type FilterType = "all" | "critical" | "controlled" | "expiring" | "belowMin";
 
@@ -60,6 +60,11 @@ export default function Items() {
 
   const { data: items = [], isLoading } = useQuery<ItemWithStock[]>({
     queryKey: ["/api/items", activeHospital?.id],
+    enabled: !!activeHospital?.id,
+  });
+
+  const { data: vendors = [] } = useQuery<Vendor[]>({
+    queryKey: ["/api/vendors", activeHospital?.id],
     enabled: !!activeHospital?.id,
   });
 
@@ -147,12 +152,72 @@ export default function Items() {
     setEditDialogOpen(true);
   };
 
+  const quickOrderMutation = useMutation({
+    mutationFn: async (data: { itemId: string; qty: number; packSize: number; vendorId: string }) => {
+      const response = await apiRequest("POST", "/api/orders/quick-add", {
+        hospitalId: activeHospital?.id,
+        itemId: data.itemId,
+        qty: data.qty,
+        packSize: data.packSize,
+        vendorId: data.vendorId,
+      });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({
+        title: "Added to Order",
+        description: "Item has been added to draft order",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add item to order",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleQuickOrder = (e: React.MouseEvent, item: ItemWithStock) => {
     e.stopPropagation();
-    // Quick order functionality to be implemented
-    toast({
-      title: "Quick Order",
-      description: `Quick order for ${item.name} - Coming soon!`,
+    
+    if (vendors.length === 0) {
+      toast({
+        title: "No Vendor",
+        description: "Please add a vendor first before creating orders",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const defaultVendor = item.vendorId ? vendors.find(v => v.id === item.vendorId) : vendors[0];
+    if (!defaultVendor) {
+      toast({
+        title: "No Vendor",
+        description: "No vendor available for this item",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const currentStock = item.stockLevel?.qtyOnHand || 0;
+    const maxThreshold = item.maxThreshold || 10;
+    const qtyToOrder = Math.max(0, maxThreshold - currentStock);
+
+    if (qtyToOrder <= 0) {
+      toast({
+        title: "Stock Sufficient",
+        description: "Item stock is already at or above max threshold",
+      });
+      return;
+    }
+
+    quickOrderMutation.mutate({
+      itemId: item.id,
+      qty: qtyToOrder,
+      packSize: item.packSize || 1,
+      vendorId: defaultVendor.id,
     });
   };
 
