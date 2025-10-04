@@ -617,6 +617,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/controlled/checks', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { hospitalId, locationId, signature, checkItems, notes } = req.body;
+      
+      if (!hospitalId || !locationId || !signature || !checkItems) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      const userLocationId = await getUserLocationForHospital(userId, hospitalId);
+      if (!userLocationId || userLocationId !== locationId) {
+        return res.status(403).json({ message: "Access denied to this location" });
+      }
+      
+      const allMatch = checkItems.every((item: any) => item.match);
+      
+      const check = await storage.createControlledCheck({
+        hospitalId,
+        locationId,
+        userId,
+        signature,
+        checkItems,
+        allMatch,
+        notes: notes || null,
+      });
+      
+      res.status(201).json(check);
+    } catch (error: any) {
+      console.error("Error creating controlled check:", error);
+      res.status(500).json({ message: "Failed to create controlled check" });
+    }
+  });
+  
+  app.get('/api/controlled/checks/:hospitalId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const userId = req.user.claims.sub;
+      
+      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      if (!locationId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      const checks = await storage.getControlledChecks(hospitalId, locationId);
+      res.json(checks);
+    } catch (error) {
+      console.error("Error fetching controlled checks:", error);
+      res.status(500).json({ message: "Failed to fetch controlled checks" });
+    }
+  });
+
   // Alerts routes
   app.get('/api/alerts/:hospitalId', isAuthenticated, async (req, res) => {
     try {
