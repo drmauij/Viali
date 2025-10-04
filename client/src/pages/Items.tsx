@@ -770,7 +770,7 @@ export default function Items() {
                   }`}
                   data-testid="unit-single"
                 >
-                  <i className="fas fa-pills text-xl mb-1"></i>
+                  <i className="fas fa-vial text-xl mb-1"></i>
                   <div className="text-xs font-medium">Single Item</div>
                 </button>
               </div>
@@ -937,7 +937,7 @@ export default function Items() {
                   }`}
                   data-testid="edit-unit-single"
                 >
-                  <i className="fas fa-pills text-xl mb-1"></i>
+                  <i className="fas fa-vial text-xl mb-1"></i>
                   <div className="text-xs font-medium">Single Item</div>
                 </button>
               </div>
