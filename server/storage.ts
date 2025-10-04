@@ -11,6 +11,7 @@ import {
   orderLines,
   activities,
   alerts,
+  controlledChecks,
   type User,
   type UpsertUser,
   type Hospital,
@@ -26,6 +27,8 @@ import {
   type Location,
   type InsertItem,
   type InsertActivity,
+  type ControlledCheck,
+  type InsertControlledCheck,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, lte, gte } from "drizzle-orm";
@@ -114,6 +117,10 @@ export interface IStorage {
   createUserWithPassword(email: string, password: string, firstName: string, lastName: string): Promise<User>;
   updateUserPassword(userId: string, newPassword: string): Promise<void>;
   deleteUser(userId: string): Promise<void>;
+  
+  // Controlled Checks
+  createControlledCheck(check: InsertControlledCheck): Promise<ControlledCheck>;
+  getControlledChecks(hospitalId: string, locationId: string, limit?: number): Promise<(ControlledCheck & { user: User })[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -763,6 +770,29 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(userId: string): Promise<void> {
     await db.delete(users).where(eq(users.id, userId));
+  }
+  
+  async createControlledCheck(check: InsertControlledCheck): Promise<ControlledCheck> {
+    const [created] = await db.insert(controlledChecks).values(check).returning();
+    return created;
+  }
+  
+  async getControlledChecks(hospitalId: string, locationId: string, limit: number = 50): Promise<(ControlledCheck & { user: User })[]> {
+    const checks = await db
+      .select({
+        ...controlledChecks,
+        user: users,
+      })
+      .from(controlledChecks)
+      .leftJoin(users, eq(controlledChecks.userId, users.id))
+      .where(and(
+        eq(controlledChecks.hospitalId, hospitalId),
+        eq(controlledChecks.locationId, locationId)
+      ))
+      .orderBy(desc(controlledChecks.timestamp))
+      .limit(limit);
+    
+    return checks as (ControlledCheck & { user: User })[];
   }
 }
 
