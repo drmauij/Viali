@@ -6,6 +6,21 @@ AnaStock is a mobile-first web application designed to manage anesthesia drugs a
 
 ## Recent Changes
 
+### October 4, 2025 - Item Deletion Fix (Transactional Cascade)
+- Fixed item deletion failure (500 error) caused by foreign key constraints
+- Implemented transactional cascade deletion for data integrity
+- Items are now deleted atomically along with all related records:
+  - Alerts referencing the item
+  - Activities tracking item movements
+  - Order lines containing the item
+  - Lots associated with the item
+  - Stock levels for the item
+- Wrapped entire cascade in db.transaction to ensure all-or-nothing deletion
+- Critical for controlled-substance inventory to prevent orphaned data and maintain audit integrity
+- Full e2e test coverage confirms deletion works correctly with transaction safety
+
+**Technical Implementation**: The deleteItem method now uses Drizzle's transaction API to wrap all cascading deletes, ensuring that if any step fails, the entire operation rolls back and no partial state occurs.
+
 ### October 4, 2025 - Comprehensive User Management System
 - Implemented complete user creation system with email/password authentication (local auth)
 - Added "Create New User" workflow that creates users with bcrypt-hashed passwords stored in passwordHash column
