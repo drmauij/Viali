@@ -6,6 +6,16 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import type { Order, Vendor, OrderLine, Item, StockLevel, Location } from "@shared/schema";
 
@@ -31,6 +41,7 @@ export default function Orders() {
   const [selectedVendorId, setSelectedVendorId] = useState<string>("");
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState<number>(1);
+  const [lineToRemove, setLineToRemove] = useState<string | null>(null);
 
   const { data: orders = [], isLoading } = useQuery<OrderWithDetails[]>({
     queryKey: ["/api/orders", activeHospital?.id],
@@ -323,7 +334,14 @@ export default function Orders() {
   };
 
   const handleRemoveItem = (lineId: string) => {
-    removeOrderLineMutation.mutate(lineId);
+    setLineToRemove(lineId);
+  };
+
+  const confirmRemoveItem = () => {
+    if (lineToRemove) {
+      removeOrderLineMutation.mutate(lineToRemove);
+      setLineToRemove(null);
+    }
   };
 
   const handleDeleteOrder = () => {
@@ -772,6 +790,28 @@ export default function Orders() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Remove Item Confirmation Dialog */}
+      <AlertDialog open={!!lineToRemove} onOpenChange={(open) => !open && setLineToRemove(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Item from Order?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove the item from this order. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="cancel-remove-item">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmRemoveItem}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="confirm-remove-item"
+            >
+              Remove Item
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
