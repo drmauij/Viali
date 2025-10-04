@@ -774,6 +774,22 @@ export default function Items() {
               </div>
             </div>
 
+            {selectedUnit === "box" && formData.controlled && (
+              <div>
+                <Label htmlFor="packSize">Pack Size (pieces per box) *</Label>
+                <Input 
+                  id="packSize" 
+                  name="packSize" 
+                  type="number" 
+                  min="1"
+                  value={formData.packSize}
+                  onChange={(e) => setFormData(prev => ({ ...prev, packSize: e.target.value }))}
+                  data-testid="input-item-pack-size" 
+                  required
+                />
+              </div>
+            )}
+
             <div className="flex gap-3 pt-4 justify-end">
               <Button type="button" variant="outline" onClick={() => { setAddDialogOpen(false); resetForm(); }}>
                 Cancel
@@ -936,6 +952,22 @@ export default function Items() {
                 <Label htmlFor="edit-controlled" className="cursor-pointer">Controlled Substance</Label>
               </div>
             </div>
+
+            {selectedUnit === "box" && editFormData.controlled && (
+              <div>
+                <Label htmlFor="edit-packSize">Pack Size (pieces per box) *</Label>
+                <Input 
+                  id="edit-packSize" 
+                  name="packSize" 
+                  type="number" 
+                  min="1"
+                  value={editFormData.packSize}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, packSize: e.target.value }))}
+                  data-testid="input-edit-pack-size" 
+                  required
+                />
+              </div>
+            )}
 
             <div className="flex gap-2 justify-end">
               <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
