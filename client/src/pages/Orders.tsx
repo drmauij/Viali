@@ -769,7 +769,7 @@ export default function Orders() {
                                 className="w-20 px-2 py-1 border border-border rounded text-center bg-background text-foreground"
                                 data-testid={`qty-input-${line.id}`}
                               />
-                              <p className="text-xs text-muted-foreground mt-1">{line.item.unit}</p>
+                              <p className="text-xs text-muted-foreground mt-1">{displayUnit}</p>
                             </div>
                             <Button
                               size="sm"
