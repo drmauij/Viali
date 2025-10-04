@@ -216,6 +216,23 @@ export const alerts = pgTable("alerts", {
   index("idx_alerts_acknowledged").on(table.acknowledged),
 ]);
 
+// Controlled Checks (routine inventory verification)
+export const controlledChecks = pgTable("controlled_checks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  locationId: varchar("location_id").notNull().references(() => locations.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  timestamp: timestamp("timestamp").defaultNow(),
+  signature: text("signature").notNull(),
+  checkItems: jsonb("check_items").notNull(), // array of { itemId, itemName, qtyInApp, qtyActual, match }
+  allMatch: boolean("all_match").notNull(),
+  notes: text("notes"),
+}, (table) => [
+  index("idx_controlled_checks_hospital").on(table.hospitalId),
+  index("idx_controlled_checks_location").on(table.locationId),
+  index("idx_controlled_checks_timestamp").on(table.timestamp),
+]);
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   userHospitalRoles: many(userHospitalRoles),
@@ -298,6 +315,12 @@ export const alertsRelations = relations(alerts, ({ one }) => ({
   acknowledgedByUser: one(users, { fields: [alerts.acknowledgedBy], references: [users.id] }),
 }));
 
+export const controlledChecksRelations = relations(controlledChecks, ({ one }) => ({
+  hospital: one(hospitals, { fields: [controlledChecks.hospitalId], references: [hospitals.id] }),
+  location: one(locations, { fields: [controlledChecks.locationId], references: [locations.id] }),
+  user: one(users, { fields: [controlledChecks.userId], references: [users.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -333,6 +356,11 @@ export const insertActivitySchema = createInsertSchema(activities).omit({
   timestamp: true,
 });
 
+export const insertControlledCheckSchema = createInsertSchema(controlledChecks).omit({
+  id: true,
+  timestamp: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -352,3 +380,5 @@ export type InsertItem = z.infer<typeof insertItemSchema>;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
 export type InsertUserHospitalRole = z.infer<typeof insertUserHospitalRoleSchema>;
+export type ControlledCheck = typeof controlledChecks.$inferSelect;
+export type InsertControlledCheck = z.infer<typeof insertControlledCheckSchema>;
