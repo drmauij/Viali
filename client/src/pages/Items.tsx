@@ -818,7 +818,7 @@ export default function Items() {
                 value={editFormData.name}
                 onChange={(e) => setEditFormData(prev => ({ ...prev, name: e.target.value }))}
                 required
-                data-testid="input-edit-name" 
+                data-testid="input-edit-name"
               />
             </div>
 
@@ -900,6 +900,7 @@ export default function Items() {
                 onChange={(e) => setEditFormData(prev => ({ ...prev, actualStock: e.target.value }))}
                 data-testid="input-edit-actual-stock"
                 className="mt-2 text-lg font-medium"
+                autoFocus
               />
             </div>
 
