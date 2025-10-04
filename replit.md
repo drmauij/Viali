@@ -6,6 +6,24 @@ Viali is a mobile-first web application designed to manage anesthesia drugs and 
 
 ## Recent Changes
 
+### October 4, 2025 - Controlled Items Pack Size Feature
+- Implemented controlled items workflow that tracks individual vials/ampullas while ordering in packs
+- Pack size field now appears for items with unit="single item" AND controlled=true
+- Stock tracking at single-unit level (qtyOnHand represents individual vials/ampullas)
+- Order conversion logic: Math.ceil(deficit / packSize) automatically calculates pack quantities
+- Example: 35 vials needed with packSize=10 → orders 4 packs
+- Added unit normalization to handle legacy data (vial/each/ampoule → single item, pack/box → pack)
+- Backend validation ensures controlled single-item entries must have packSize > 0
+- Quick order functionality works from both Items and Orders pages with proper pack conversion
+- Form handlers correctly persist pack size for controlled single items
+- PATCH validation checks final state (merges request with existing item) to prevent invalid updates
+
+**Technical Implementation**: 
+- normalizeUnit() function handles legacy unit values across edit and order flows
+- Pack conversion applied in: quick order (Items.tsx), quick order (Orders.tsx), and order creation
+- Validation at both POST /api/items and PATCH /api/items/:itemId endpoints
+- Order lines store packSize snapshot for historical accuracy if pack size changes
+
 ### October 4, 2025 - Item Deletion Fix (Transactional Cascade)
 - Fixed item deletion failure (500 error) caused by foreign key constraints
 - Implemented transactional cascade deletion for data integrity

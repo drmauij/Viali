@@ -29,6 +29,15 @@ interface ItemWithStock extends Item {
 }
 
 type OrderStatus = "draft" | "sent" | "receiving" | "closed";
+type UnitType = "pack" | "single item";
+
+const normalizeUnit = (unit: string): UnitType => {
+  const normalized = unit.toLowerCase();
+  if (normalized === "pack" || normalized === "box") {
+    return "pack";
+  }
+  return "single item";
+};
 
 export default function Orders() {
   const { user } = useAuth();
@@ -315,11 +324,21 @@ export default function Orders() {
       return;
     }
 
-    const orderLines = itemsNeedingOrder.map(item => ({
-      itemId: item.id,
-      qty: item.qtyToOrder,
-      packSize: item.packSize || 1,
-    }));
+    const orderLines = itemsNeedingOrder.map(item => {
+      const packSize = item.packSize || 1;
+      const normalizedUnit = normalizeUnit(item.unit);
+      const isControlledSingleItem = item.controlled && normalizedUnit === "single item";
+      
+      const qty = isControlledSingleItem 
+        ? Math.ceil(item.qtyToOrder / packSize)
+        : item.qtyToOrder;
+      
+      return {
+        itemId: item.id,
+        qty,
+        packSize,
+      };
+    });
 
     createOrderMutation.mutate({ vendorId: selectedVendorId, orderLines });
   };

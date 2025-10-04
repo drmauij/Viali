@@ -243,10 +243,15 @@ export default function Items() {
       return;
     }
 
+    const packSize = item.packSize || 1;
+    const normalizedUnit = normalizeUnit(item.unit);
+    const isControlledSingleItem = item.controlled && normalizedUnit === "single item";
+    const qty = isControlledSingleItem ? Math.ceil(qtyToOrder / packSize) : qtyToOrder;
+
     quickOrderMutation.mutate({
       itemId: item.id,
-      qty: qtyToOrder,
-      packSize: item.packSize || 1,
+      qty,
+      packSize,
       vendorId: defaultVendor.id,
     });
   };
@@ -262,7 +267,7 @@ export default function Items() {
       minThreshold: parseInt(editFormData.minThreshold) || 0,
       maxThreshold: parseInt(editFormData.maxThreshold) || 0,
       defaultOrderQty: parseInt(editFormData.defaultOrderQty) || 0,
-      packSize: selectedUnit === "pack" ? parseInt(editFormData.packSize) || 1 : 1,
+      packSize: (selectedUnit === "single item" && editFormData.controlled) ? parseInt(editFormData.packSize) || 1 : 1,
       critical: editFormData.critical,
       controlled: editFormData.controlled,
     };
@@ -399,7 +404,7 @@ export default function Items() {
       minThreshold: parseInt(formData.minThreshold) || 0,
       maxThreshold: parseInt(formData.maxThreshold) || 0,
       defaultOrderQty: parseInt(formData.defaultOrderQty) || 0,
-      packSize: selectedUnit === "pack" ? parseInt(formData.packSize) || 1 : 1,
+      packSize: (selectedUnit === "single item" && formData.controlled) ? parseInt(formData.packSize) || 1 : 1,
       critical: formData.critical,
       controlled: formData.controlled,
       initialStock: parseInt(formData.initialStock) || 0,
@@ -846,7 +851,7 @@ export default function Items() {
               </div>
             </div>
 
-            {selectedUnit === "pack" && formData.controlled && (
+            {selectedUnit === "single item" && formData.controlled && (
               <div>
                 <Label htmlFor="packSize">Pack Size (pieces per pack) *</Label>
                 <Input 
@@ -1013,7 +1018,7 @@ export default function Items() {
               </div>
             </div>
 
-            {selectedUnit === "pack" && editFormData.controlled && (
+            {selectedUnit === "single item" && editFormData.controlled && (
               <div>
                 <Label htmlFor="edit-packSize">Pack Size (pieces per pack) *</Label>
                 <Input 

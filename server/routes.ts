@@ -149,6 +149,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/items', isAuthenticated, async (req: any, res) => {
     try {
       const itemData = insertItemSchema.parse(req.body);
+      
+      // Validate controlled single items have pack size
+      if (itemData.controlled && itemData.unit === "single item") {
+        if (!itemData.packSize || itemData.packSize <= 0) {
+          return res.status(400).json({ 
+            message: "Controlled items with 'single item' unit type must have a pack size greater than 0" 
+          });
+        }
+      }
+      
       const item = await storage.createItem(itemData);
       
       // If initialStock is provided, create stock level
@@ -178,6 +188,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const locationId = await getUserLocationForHospital(userId, item.hospitalId);
       if (!locationId || locationId !== item.locationId) {
         return res.status(403).json({ message: "Access denied to this item" });
+      }
+      
+      // Validate controlled single items have pack size
+      // Check final state (req.body value or existing item value if not provided)
+      const finalControlled = req.body.controlled !== undefined ? req.body.controlled : item.controlled;
+      const finalUnit = req.body.unit !== undefined ? req.body.unit : item.unit;
+      const finalPackSize = req.body.packSize !== undefined ? req.body.packSize : item.packSize;
+      
+      if (finalControlled && finalUnit === "single item") {
+        if (!finalPackSize || finalPackSize <= 0) {
+          return res.status(400).json({ 
+            message: "Controlled items with 'single item' unit type must have a pack size greater than 0" 
+          });
+        }
       }
       
       // Update the item
