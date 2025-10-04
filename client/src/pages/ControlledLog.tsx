@@ -303,11 +303,14 @@ export default function ControlledLog() {
       return;
     }
 
+    const allMatch = routineCheckItems.every(item => item.match);
+
     routineCheckMutation.mutate({
       hospitalId: activeHospital.id,
       locationId: activeHospital.locationId,
       signature: checkSignature,
       checkItems: routineCheckItems,
+      allMatch,
       notes: checkNotes || undefined,
     });
   };
