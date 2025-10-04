@@ -36,12 +36,19 @@ export default function Admin() {
   // User states
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<HospitalUser | null>(null);
+  const [userMode, setUserMode] = useState<"search" | "create">("search");
   const [userForm, setUserForm] = useState({
     email: "",
+    password: "",
+    firstName: "",
+    lastName: "",
     locationId: "",
     role: "",
   });
   const [searchedUser, setSearchedUser] = useState<User | null>(null);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [selectedUserForPassword, setSelectedUserForPassword] = useState<HospitalUser | null>(null);
+  const [newPassword, setNewPassword] = useState("");
 
   // Check if user is admin
   const isAdmin = activeHospital?.role === "AD";
@@ -166,6 +173,55 @@ export default function Admin() {
     },
   });
 
+  const createUserMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", `/api/admin/${activeHospital?.id}/users/create`, data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "users"] });
+      setUserDialogOpen(false);
+      resetUserForm();
+      toast({ title: "Success", description: "User created successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to create user", variant: "destructive" });
+    },
+  });
+
+  const updatePasswordMutation = useMutation({
+    mutationFn: async ({ userId, password }: { userId: string; password: string }) => {
+      const response = await apiRequest("PATCH", `/api/admin/users/${userId}/password`, { 
+        password, 
+        hospitalId: activeHospital?.id 
+      });
+      return await response.json();
+    },
+    onSuccess: () => {
+      setPasswordDialogOpen(false);
+      setNewPassword("");
+      setSelectedUserForPassword(null);
+      toast({ title: "Success", description: "Password updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to update password", variant: "destructive" });
+    },
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await apiRequest("DELETE", `/api/admin/users/${userId}/delete?hospitalId=${activeHospital?.id}`);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "users"] });
+      toast({ title: "Success", description: "User deleted successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to delete user", variant: "destructive" });
+    },
+  });
+
   // Hospital mutations
   const updateHospitalMutation = useMutation({
     mutationFn: async (name: string) => {
@@ -188,9 +244,10 @@ export default function Admin() {
   };
 
   const resetUserForm = () => {
-    setUserForm({ email: "", locationId: "", role: "" });
+    setUserForm({ email: "", password: "", firstName: "", lastName: "", locationId: "", role: "" });
     setEditingUser(null);
     setSearchedUser(null);
+    setUserMode("search");
   };
 
   const handleAddLocation = () => {
@@ -227,18 +284,53 @@ export default function Admin() {
 
   const handleAddUser = () => {
     resetUserForm();
+    setUserMode("search");
+    setUserDialogOpen(true);
+  };
+
+  const handleCreateUser = () => {
+    resetUserForm();
+    setUserMode("create");
     setUserDialogOpen(true);
   };
 
   const handleEditUser = (user: HospitalUser) => {
     setEditingUser(user);
     setSearchedUser(user.user);
+    setUserMode("search");
     setUserForm({
       email: user.user.email || "",
+      password: "",
+      firstName: "",
+      lastName: "",
       locationId: user.locationId,
       role: user.role,
     });
     setUserDialogOpen(true);
+  };
+
+  const handleChangePassword = (user: HospitalUser) => {
+    setSelectedUserForPassword(user);
+    setPasswordDialogOpen(true);
+  };
+
+  const handleSavePassword = () => {
+    if (!newPassword || newPassword.length < 6) {
+      toast({ title: "Error", description: "Password must be at least 6 characters", variant: "destructive" });
+      return;
+    }
+    if (selectedUserForPassword) {
+      updatePasswordMutation.mutate({ 
+        userId: selectedUserForPassword.user.id, 
+        password: newPassword 
+      });
+    }
+  };
+
+  const handleDeleteUser = (user: HospitalUser) => {
+    if (window.confirm(`Are you sure you want to permanently delete ${user.user.firstName} ${user.user.lastName}? This cannot be undone.`)) {
+      deleteUserMutation.mutate(user.user.id);
+    }
   };
 
   const handleSearchUser = () => {
@@ -250,25 +342,37 @@ export default function Admin() {
   };
 
   const handleSaveUser = () => {
-    if (!searchedUser) {
-      toast({ title: "Error", description: "Please search for a user first", variant: "destructive" });
-      return;
-    }
-    if (!userForm.locationId || !userForm.role) {
-      toast({ title: "Error", description: "Location and role are required", variant: "destructive" });
-      return;
-    }
-
-    const data = {
-      userId: searchedUser.id,
-      locationId: userForm.locationId,
-      role: userForm.role,
-    };
-
-    if (editingUser) {
-      updateUserRoleMutation.mutate({ id: editingUser.id, data });
+    if (userMode === "create") {
+      if (!userForm.email || !userForm.password || !userForm.firstName || !userForm.lastName || !userForm.locationId || !userForm.role) {
+        toast({ title: "Error", description: "All fields are required", variant: "destructive" });
+        return;
+      }
+      if (userForm.password.length < 6) {
+        toast({ title: "Error", description: "Password must be at least 6 characters", variant: "destructive" });
+        return;
+      }
+      createUserMutation.mutate(userForm);
     } else {
-      createUserRoleMutation.mutate(data);
+      if (!searchedUser) {
+        toast({ title: "Error", description: "Please search for a user first", variant: "destructive" });
+        return;
+      }
+      if (!userForm.locationId || !userForm.role) {
+        toast({ title: "Error", description: "Location and role are required", variant: "destructive" });
+        return;
+      }
+
+      const data = {
+        userId: searchedUser.id,
+        locationId: userForm.locationId,
+        role: userForm.role,
+      };
+
+      if (editingUser) {
+        updateUserRoleMutation.mutate({ id: editingUser.id, data });
+      } else {
+        createUserRoleMutation.mutate(data);
+      }
     }
   };
 
@@ -443,10 +547,16 @@ export default function Admin() {
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold text-foreground">Users & Roles</h2>
-            <Button onClick={handleAddUser} size="sm" data-testid="button-add-user">
-              <i className="fas fa-plus mr-2"></i>
-              Assign User
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={handleCreateUser} size="sm" data-testid="button-create-user">
+                <i className="fas fa-user-plus mr-2"></i>
+                Create New User
+              </Button>
+              <Button onClick={handleAddUser} size="sm" variant="outline" data-testid="button-add-user">
+                <i className="fas fa-plus mr-2"></i>
+                Assign Existing
+              </Button>
+            </div>
           </div>
 
           {usersLoading ? (
@@ -484,8 +594,18 @@ export default function Admin() {
                         size="sm"
                         onClick={() => handleEditUser(user)}
                         data-testid={`button-edit-user-${user.id}`}
+                        title="Edit role and location"
                       >
                         <i className="fas fa-edit"></i>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleChangePassword(user)}
+                        data-testid={`button-change-password-${user.id}`}
+                        title="Change password"
+                      >
+                        <i className="fas fa-key"></i>
                       </Button>
                       <Button
                         variant="outline"
@@ -495,7 +615,17 @@ export default function Admin() {
                             deleteUserRoleMutation.mutate(user.id);
                           }
                         }}
+                        data-testid={`button-remove-user-${user.id}`}
+                        title="Remove from hospital"
+                      >
+                        <i className="fas fa-user-minus text-warning"></i>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteUser(user)}
                         data-testid={`button-delete-user-${user.id}`}
+                        title="Delete user permanently"
                       >
                         <i className="fas fa-trash text-destructive"></i>
                       </Button>
@@ -553,12 +683,61 @@ export default function Admin() {
 
       {/* User Dialog */}
       <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingUser ? "Edit User Assignment" : "Assign User"}</DialogTitle>
+            <DialogTitle>
+              {editingUser ? "Edit User Assignment" : userMode === "create" ? "Create New User" : "Assign Existing User"}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {!editingUser && (
+            {userMode === "create" && !editingUser ? (
+              <>
+                <div>
+                  <Label htmlFor="user-email">Email *</Label>
+                  <Input
+                    id="user-email"
+                    type="email"
+                    value={userForm.email}
+                    onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                    placeholder="user@example.com"
+                    data-testid="input-user-email"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="user-password">Password *</Label>
+                  <Input
+                    id="user-password"
+                    type="password"
+                    value={userForm.password}
+                    onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                    placeholder="Minimum 6 characters"
+                    data-testid="input-user-password"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label htmlFor="user-first-name">First Name *</Label>
+                    <Input
+                      id="user-first-name"
+                      value={userForm.firstName}
+                      onChange={(e) => setUserForm({ ...userForm, firstName: e.target.value })}
+                      placeholder="John"
+                      data-testid="input-user-first-name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="user-last-name">Last Name *</Label>
+                    <Input
+                      id="user-last-name"
+                      value={userForm.lastName}
+                      onChange={(e) => setUserForm({ ...userForm, lastName: e.target.value })}
+                      placeholder="Doe"
+                      data-testid="input-user-last-name"
+                    />
+                  </div>
+                </div>
+              </>
+            ) : !editingUser ? (
               <div>
                 <Label htmlFor="user-email">User Email *</Label>
                 <div className="flex gap-2">
@@ -583,8 +762,8 @@ export default function Admin() {
                   </p>
                 )}
               </div>
-            )}
-            {(editingUser || searchedUser) && (
+            ) : null}
+            {(editingUser || searchedUser || userMode === "create") && (
               <>
                 <div>
                   <Label htmlFor="user-location">Location *</Label>
@@ -629,10 +808,52 @@ export default function Admin() {
               </Button>
               <Button
                 onClick={handleSaveUser}
-                disabled={createUserRoleMutation.isPending || updateUserRoleMutation.isPending}
+                disabled={createUserRoleMutation.isPending || updateUserRoleMutation.isPending || createUserMutation.isPending}
                 data-testid="button-save-user"
               >
-                {editingUser ? "Update" : "Assign"}
+                {editingUser ? "Update" : userMode === "create" ? "Create" : "Assign"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Password Dialog */}
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Password</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedUserForPassword && (
+              <p className="text-sm text-muted-foreground">
+                Changing password for: {selectedUserForPassword.user.firstName} {selectedUserForPassword.user.lastName}
+              </p>
+            )}
+            <div>
+              <Label htmlFor="new-password">New Password *</Label>
+              <Input
+                id="new-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Minimum 6 characters"
+                data-testid="input-new-password"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => {
+                setPasswordDialogOpen(false);
+                setNewPassword("");
+              }}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSavePassword}
+                disabled={updatePasswordMutation.isPending}
+                data-testid="button-save-password"
+              >
+                {updatePasswordMutation.isPending ? "Updating..." : "Update Password"}
               </Button>
             </div>
           </div>

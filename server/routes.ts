@@ -884,6 +884,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create user with email/password
+  app.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const { email, password, firstName, lastName, locationId, role } = req.body;
+      
+      if (!email || !password || !firstName || !lastName || !locationId || !role) {
+        return res.status(400).json({ message: "All fields are required" });
+      }
+
+      // Check if user already exists
+      const existingUser = await storage.searchUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ message: "User with this email already exists" });
+      }
+
+      // Create user
+      const newUser = await storage.createUserWithPassword(email, password, firstName, lastName);
+
+      // Assign user to hospital
+      await storage.createUserHospitalRole({
+        userId: newUser.id,
+        hospitalId,
+        locationId,
+        role,
+      });
+
+      res.status(201).json(newUser);
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  // Update user password
+  app.patch('/api/admin/users/:userId/password', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { password, hospitalId } = req.body;
+      
+      if (!password) {
+        return res.status(400).json({ message: "Password is required" });
+      }
+
+      // Check admin access
+      const currentUserId = req.user.claims.sub;
+      const hospitals = await storage.getUserHospitals(currentUserId);
+      const hospital = hospitals.find(h => h.id === hospitalId);
+      if (!hospital || hospital.role !== 'AD') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      await storage.updateUserPassword(userId, password);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating password:", error);
+      res.status(500).json({ message: "Failed to update password" });
+    }
+  });
+
+  // Delete user entirely
+  app.delete('/api/admin/users/:userId/delete', isAuthenticated, isAdmin, async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { hospitalId } = req.query;
+      
+      // Check admin access
+      const currentUserId = req.user.claims.sub;
+      const hospitals = await storage.getUserHospitals(currentUserId);
+      const hospital = hospitals.find(h => h.id === hospitalId);
+      if (!hospital || hospital.role !== 'AD') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      await storage.deleteUser(userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

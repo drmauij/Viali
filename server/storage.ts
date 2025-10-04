@@ -111,6 +111,9 @@ export interface IStorage {
   updateUserHospitalRole(id: string, updates: Partial<UserHospitalRole>): Promise<UserHospitalRole>;
   deleteUserHospitalRole(id: string): Promise<void>;
   searchUserByEmail(email: string): Promise<User | undefined>;
+  createUserWithPassword(email: string, password: string, firstName: string, lastName: string): Promise<User>;
+  updateUserPassword(userId: string, newPassword: string): Promise<void>;
+  deleteUser(userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -726,6 +729,39 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.email, email))
       .limit(1);
     return user;
+  }
+
+  async createUserWithPassword(email: string, password: string, firstName: string, lastName: string): Promise<User> {
+    const bcrypt = await import('bcrypt');
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const nanoid = (await import('nanoid')).nanoid;
+    
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        id: nanoid(),
+        email,
+        password: hashedPassword,
+        firstName,
+        lastName,
+        profileImageUrl: null,
+      })
+      .returning();
+    return newUser;
+  }
+
+  async updateUserPassword(userId: string, newPassword: string): Promise<void> {
+    const bcrypt = await import('bcrypt');
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    
+    await db
+      .update(users)
+      .set({ password: hashedPassword, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, userId));
   }
 }
 
