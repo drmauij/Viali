@@ -574,8 +574,6 @@ export default function Items() {
           data-testid="items-sort"
         >
           <option value="name">Sort: Name A-Z</option>
-          <option value="expiry">Sort: Expiry (Soon first)</option>
-          <option value="usage">Sort: Usage Rate</option>
           <option value="stock">Sort: Stock Level</option>
         </select>
       </div>
