@@ -109,10 +109,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const itemData = insertItemSchema.parse(req.body);
       const item = await storage.createItem(itemData);
+      
+      // If initialStock is provided, create stock level
+      if (req.body.initialStock !== undefined && req.body.initialStock > 0) {
+        await storage.updateStockLevel(item.id, item.locationId, req.body.initialStock);
+      }
+      
       res.status(201).json(item);
     } catch (error) {
       console.error("Error creating item:", error);
       res.status(500).json({ message: "Failed to create item" });
+    }
+  });
+  
+  // AI image analysis for item data extraction
+  app.post('/api/items/analyze-image', isAuthenticated, async (req: any, res) => {
+    try {
+      const { image } = req.body;
+      if (!image) {
+        return res.status(400).json({ message: "Image data is required" });
+      }
+
+      // Remove data URL prefix if present
+      const base64Image = image.replace(/^data:image\/\w+;base64,/, '');
+      
+      const { analyzeItemImage } = await import('./openai');
+      const extractedData = await analyzeItemImage(base64Image);
+      
+      res.json(extractedData);
+    } catch (error: any) {
+      console.error("Error analyzing image:", error);
+      res.status(500).json({ message: error.message || "Failed to analyze image" });
     }
   });
 
