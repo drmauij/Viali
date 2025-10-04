@@ -43,6 +43,7 @@ export default function Items() {
     controlled: false,
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const { data: items = [], isLoading } = useQuery<ItemWithStock[]>({
@@ -442,17 +443,35 @@ export default function Items() {
                 onChange={handleImageUpload}
                 className="hidden"
               />
+              <input
+                type="file"
+                ref={galleryInputRef}
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
               <div className="flex gap-2">
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full"
+                  className="flex-1"
                   onClick={() => fileInputRef.current?.click()}
+                  disabled={isAnalyzing}
+                  data-testid="button-camera-image"
+                >
+                  <i className={`fas ${isAnalyzing ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
+                  {isAnalyzing ? "Analyzing..." : "Camera"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => galleryInputRef.current?.click()}
                   disabled={isAnalyzing}
                   data-testid="button-upload-image"
                 >
-                  <i className={`fas ${isAnalyzing ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
-                  {isAnalyzing ? "Analyzing..." : "Take/Upload Photo"}
+                  <i className={`fas ${isAnalyzing ? 'fa-spinner fa-spin' : 'fa-image'} mr-2`}></i>
+                  {isAnalyzing ? "Analyzing..." : "Upload"}
                 </Button>
               </div>
               {uploadedImages.length > 0 && (
