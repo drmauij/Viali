@@ -39,6 +39,8 @@ export default function Items() {
     maxThreshold: "0",
     packSize: "1",
     initialStock: "0",
+    critical: false,
+    controlled: false,
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -50,11 +52,12 @@ export default function Items() {
 
   const createItemMutation = useMutation({
     mutationFn: async (data: any) => {
-      return await apiRequest(`/api/items`, "POST", {
+      const response = await apiRequest("POST", `/api/items`, {
         ...data,
         hospitalId: activeHospital?.id,
         locationId: activeHospital?.locationId,
       });
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/items"] });
@@ -93,9 +96,10 @@ export default function Items() {
       // Analyze image with AI
       setIsAnalyzing(true);
       try {
-        const result = await apiRequest('/api/items/analyze-image', 'POST', {
+        const response = await apiRequest('POST', '/api/items/analyze-image', {
           image: base64Image
         });
+        const result: any = await response.json();
         
         // Update form with extracted data
         setFormData(prev => ({
@@ -113,7 +117,7 @@ export default function Items() {
         
         toast({
           title: "Image analyzed",
-          description: `Extracted data with ${Math.round(result.confidence * 100)}% confidence`,
+          description: `Extracted data with ${Math.round((result.confidence || 0) * 100)}% confidence`,
         });
       } catch (error: any) {
         toast({
@@ -140,8 +144,8 @@ export default function Items() {
       minThreshold: parseInt(formData.minThreshold) || 0,
       maxThreshold: parseInt(formData.maxThreshold) || 0,
       packSize: selectedUnit === "box" ? parseInt(formData.packSize) || 1 : 1,
-      critical: (e.currentTarget.elements.namedItem("critical") as HTMLInputElement)?.checked || false,
-      controlled: (e.currentTarget.elements.namedItem("controlled") as HTMLInputElement)?.checked || false,
+      critical: formData.critical,
+      controlled: formData.controlled,
       initialStock: parseInt(formData.initialStock) || 0,
     };
 
@@ -157,6 +161,8 @@ export default function Items() {
       maxThreshold: "0",
       packSize: "1",
       initialStock: "0",
+      critical: false,
+      controlled: false,
     });
     setSelectedUnit("box");
     setUploadedImages([]);
@@ -598,11 +604,23 @@ export default function Items() {
 
             <div className="flex gap-4">
               <div className="flex items-center space-x-2">
-                <Checkbox id="critical" name="critical" data-testid="checkbox-item-critical" />
+                <Checkbox 
+                  id="critical" 
+                  name="critical" 
+                  checked={formData.critical}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, critical: checked === true }))}
+                  data-testid="checkbox-item-critical" 
+                />
                 <Label htmlFor="critical" className="cursor-pointer">Critical Item</Label>
               </div>
               <div className="flex items-center space-x-2">
-                <Checkbox id="controlled" name="controlled" data-testid="checkbox-item-controlled" />
+                <Checkbox 
+                  id="controlled" 
+                  name="controlled"
+                  checked={formData.controlled}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, controlled: checked === true }))}
+                  data-testid="checkbox-item-controlled" 
+                />
                 <Label htmlFor="controlled" className="cursor-pointer">Controlled Substance</Label>
               </div>
             </div>
