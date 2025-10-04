@@ -748,7 +748,27 @@ export default function Items() {
                   onChange={(e) => setFormData(prev => ({ ...prev, maxThreshold: e.target.value }))}
                   data-testid="input-item-max" 
                 />
--controlled" 
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="critical" 
+                  name="critical" 
+                  checked={formData.critical}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, critical: checked === true }))}
+                  data-testid="checkbox-item-critical" 
+                />
+                <Label htmlFor="critical" className="cursor-pointer">Critical Item</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="controlled" 
+                  name="controlled"
+                  checked={formData.controlled}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, controlled: checked === true }))}
+                  data-testid="checkbox-item-controlled" 
                 />
                 <Label htmlFor="controlled" className="cursor-pointer">Controlled Substance</Label>
               </div>
