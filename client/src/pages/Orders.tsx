@@ -7,11 +7,11 @@ import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import type { Order, Vendor, OrderLine, Item, StockLevel } from "@shared/schema";
+import type { Order, Vendor, OrderLine, Item, StockLevel, Location } from "@shared/schema";
 
 interface OrderWithDetails extends Order {
   vendor: Vendor;
-  orderLines: (OrderLine & { item: Item })[];
+  orderLines: (OrderLine & { item: Item & { location: Location } })[];
 }
 
 interface ItemWithStock extends Item {
@@ -26,7 +26,11 @@ export default function Orders() {
   const queryClient = useQueryClient();
   const [activeHospital] = useState(() => (user as any)?.hospitals?.[0]);
   const [newOrderDialogOpen, setNewOrderDialogOpen] = useState(false);
+  const [editOrderDialogOpen, setEditOrderDialogOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<OrderWithDetails | null>(null);
   const [selectedVendorId, setSelectedVendorId] = useState<string>("");
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  const [editQty, setEditQty] = useState<number>(1);
 
   const { data: orders = [], isLoading } = useQuery<OrderWithDetails[]>({
     queryKey: ["/api/orders", activeHospital?.id],
@@ -97,6 +101,102 @@ export default function Orders() {
       toast({
         title: "Update Failed",
         description: "Failed to update order status.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateOrderLineMutation = useMutation({
+    mutationFn: async ({ lineId, qty }: { lineId: string; qty: number }) => {
+      const response = await apiRequest("PATCH", `/api/order-lines/${lineId}`, { qty });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      setEditingLineId(null);
+      toast({
+        title: "Order Updated",
+        description: "Item quantity updated successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update item quantity.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const removeOrderLineMutation = useMutation({
+    mutationFn: async (lineId: string) => {
+      const response = await apiRequest("DELETE", `/api/order-lines/${lineId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({
+        title: "Item Removed",
+        description: "Item removed from order successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to remove item.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteOrderMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      const response = await apiRequest("DELETE", `/api/orders/${orderId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      setEditOrderDialogOpen(false);
+      setSelectedOrder(null);
+      toast({
+        title: "Order Deleted",
+        description: "Order has been deleted successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete order.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const addItemToOrderMutation = useMutation({
+    mutationFn: async ({ orderId, itemId }: { orderId: string; itemId: string }) => {
+      const item = items.find(i => i.id === itemId);
+      if (!item) throw new Error("Item not found");
+      
+      const response = await apiRequest("POST", "/api/orders/quick-add", {
+        hospitalId: activeHospital?.id,
+        itemId,
+        vendorId: item.vendorId,
+        qty: 1,
+        packSize: item.packSize || 1,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      toast({
+        title: "Item Added",
+        description: "Item added to order successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to add item to order.",
         variant: "destructive",
       });
     },
@@ -204,6 +304,30 @@ export default function Orders() {
     createOrderMutation.mutate({ vendorId: selectedVendorId, orderLines });
   };
 
+  const handleEditOrder = (order: OrderWithDetails) => {
+    setSelectedOrder(order);
+    setEditOrderDialogOpen(true);
+  };
+
+  const handleUpdateQuantity = (lineId: string, qty: number) => {
+    updateOrderLineMutation.mutate({ lineId, qty });
+  };
+
+  const handleRemoveItem = (lineId: string) => {
+    removeOrderLineMutation.mutate(lineId);
+  };
+
+  const handleDeleteOrder = () => {
+    if (selectedOrder) {
+      deleteOrderMutation.mutate(selectedOrder.id);
+    }
+  };
+
+  const getOrderLocation = (order: OrderWithDetails) => {
+    const locations = new Set(order.orderLines.map(line => line.item.location.name));
+    return Array.from(locations).join(", ");
+  };
+
   if (!activeHospital) {
     return (
       <div className="p-4">
@@ -250,9 +374,13 @@ export default function Orders() {
               ) : (
                 ordersByStatus.draft.map((order) => (
                   <div key={order.id} className="kanban-card" data-testid={`draft-order-${order.id}`}>
-                    <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start justify-between mb-2">
                       <div>
                         <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
+                        <p className="text-xs text-muted-foreground">
+                          <i className="fas fa-map-marker-alt mr-1"></i>
+                          {getOrderLocation(order)}
+                        </p>
                       </div>
                       <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
                         Draft
@@ -271,7 +399,7 @@ export default function Orders() {
                       >
                         Submit
                       </Button>
-                      <Button variant="outline" size="sm" data-testid={`edit-order-${order.id}`}>
+                      <Button variant="outline" size="sm" onClick={() => handleEditOrder(order)} data-testid={`edit-order-${order.id}`}>
                         <i className="fas fa-edit"></i>
                       </Button>
                     </div>
@@ -486,6 +614,151 @@ export default function Orders() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Order Dialog */}
+      <Dialog open={editOrderDialogOpen} onOpenChange={setEditOrderDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Order - PO-{selectedOrder?.id.slice(-4)}</DialogTitle>
+          </DialogHeader>
+
+          {selectedOrder && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                <div>
+                  <p className="text-sm text-muted-foreground">Location</p>
+                  <p className="font-medium text-foreground">
+                    <i className="fas fa-map-marker-alt mr-1"></i>
+                    {getOrderLocation(selectedOrder)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <span className={`status-chip ${getStatusChip(selectedOrder.status)} text-xs`}>
+                    {selectedOrder.status}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="font-semibold mb-2">Order Items ({selectedOrder.orderLines.length})</h3>
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {selectedOrder.orderLines.map(line => (
+                    <div key={line.id} className="flex items-center gap-3 p-3 border border-border rounded-lg" data-testid={`order-line-${line.id}`}>
+                      <div className="flex-1">
+                        <p className="font-medium text-foreground">{line.item.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {line.item.location.name} • Pack size: {line.packSize}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {editingLineId === line.id ? (
+                          <>
+                            <input
+                              type="number"
+                              min="1"
+                              value={editQty}
+                              onChange={(e) => setEditQty(Number(e.target.value))}
+                              className="w-20 px-2 py-1 border border-border rounded text-center"
+                              data-testid={`qty-input-${line.id}`}
+                            />
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                handleUpdateQuantity(line.id, editQty);
+                              }}
+                              data-testid={`save-qty-${line.id}`}
+                            >
+                              <i className="fas fa-check"></i>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setEditingLineId(null)}
+                              data-testid={`cancel-qty-${line.id}`}
+                            >
+                              <i className="fas fa-times"></i>
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-right min-w-[80px]">
+                              <p className="text-lg font-semibold text-foreground">{line.qty}</p>
+                              <p className="text-xs text-muted-foreground">{line.item.unit}</p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditingLineId(line.id);
+                                setEditQty(line.qty);
+                              }}
+                              data-testid={`edit-qty-${line.id}`}
+                            >
+                              <i className="fas fa-edit"></i>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleRemoveItem(line.id)}
+                              disabled={removeOrderLineMutation.isPending}
+                              data-testid={`remove-item-${line.id}`}
+                            >
+                              <i className="fas fa-trash"></i>
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-between gap-2 pt-4 border-t border-border">
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteOrder}
+                  disabled={deleteOrderMutation.isPending}
+                  data-testid="delete-order-button"
+                >
+                  {deleteOrderMutation.isPending ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin mr-2"></i>
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-trash mr-2"></i>
+                      Delete Order
+                    </>
+                  )}
+                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setEditOrderDialogOpen(false)}
+                    data-testid="close-edit-dialog"
+                  >
+                    Close
+                  </Button>
+                  {selectedOrder.status === 'draft' && (
+                    <Button
+                      onClick={() => {
+                        handleStatusUpdate(selectedOrder.id, "sent");
+                        setEditOrderDialogOpen(false);
+                      }}
+                      data-testid="submit-from-edit"
+                    >
+                      <i className="fas fa-paper-plane mr-2"></i>
+                      Submit Order
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
