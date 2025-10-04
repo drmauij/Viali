@@ -594,6 +594,214 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin middleware - check if user has AD role
+  async function isAdmin(req: any, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user.claims.sub;
+      const { hospitalId } = req.params;
+      
+      const hospitals = await storage.getUserHospitals(userId);
+      const hospital = hospitals.find(h => h.id === hospitalId);
+      
+      if (!hospital || hospital.role !== 'AD') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      next();
+    } catch (error) {
+      console.error("Error checking admin:", error);
+      res.status(500).json({ message: "Failed to verify admin access" });
+    }
+  }
+
+  // Admin - Location routes
+  app.get('/api/admin/:hospitalId/locations', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const locations = await storage.getLocations(hospitalId);
+      res.json(locations);
+    } catch (error) {
+      console.error("Error fetching locations:", error);
+      res.status(500).json({ message: "Failed to fetch locations" });
+    }
+  });
+
+  app.post('/api/admin/:hospitalId/locations', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const { name, type, parentId } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ message: "Location name is required" });
+      }
+      
+      const location = await storage.createLocation({
+        hospitalId,
+        name,
+        type: type || null,
+        parentId: parentId || null,
+      });
+      res.status(201).json(location);
+    } catch (error) {
+      console.error("Error creating location:", error);
+      res.status(500).json({ message: "Failed to create location" });
+    }
+  });
+
+  app.patch('/api/admin/locations/:locationId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { locationId } = req.params;
+      const { name, type, parentId } = req.body;
+      
+      // Get location to verify hospital access
+      const locations = await storage.getLocations(req.body.hospitalId);
+      const location = locations.find(l => l.id === locationId);
+      if (!location) {
+        return res.status(404).json({ message: "Location not found" });
+      }
+      
+      // Check admin access
+      const userId = req.user.claims.sub;
+      const hospitals = await storage.getUserHospitals(userId);
+      const hospital = hospitals.find(h => h.id === location.hospitalId);
+      if (!hospital || hospital.role !== 'AD') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const updates: any = {};
+      if (name !== undefined) updates.name = name;
+      if (type !== undefined) updates.type = type;
+      if (parentId !== undefined) updates.parentId = parentId;
+      
+      const updated = await storage.updateLocation(locationId, updates);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating location:", error);
+      res.status(500).json({ message: "Failed to update location" });
+    }
+  });
+
+  app.delete('/api/admin/locations/:locationId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { locationId } = req.params;
+      const { hospitalId } = req.query;
+      
+      // Check admin access
+      const userId = req.user.claims.sub;
+      const hospitals = await storage.getUserHospitals(userId);
+      const hospital = hospitals.find(h => h.id === hospitalId);
+      if (!hospital || hospital.role !== 'AD') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      await storage.deleteLocation(locationId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting location:", error);
+      res.status(500).json({ message: "Failed to delete location" });
+    }
+  });
+
+  // Admin - User management routes
+  app.get('/api/admin/:hospitalId/users', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const users = await storage.getHospitalUsers(hospitalId);
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching hospital users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.get('/api/admin/users/search', isAuthenticated, async (req, res) => {
+    try {
+      const { email } = req.query;
+      
+      if (!email || typeof email !== 'string') {
+        return res.status(400).json({ message: "Email parameter is required" });
+      }
+      
+      const user = await storage.searchUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json(user);
+    } catch (error) {
+      console.error("Error searching user:", error);
+      res.status(500).json({ message: "Failed to search user" });
+    }
+  });
+
+  app.post('/api/admin/:hospitalId/users', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const { userId, locationId, role } = req.body;
+      
+      if (!userId || !locationId || !role) {
+        return res.status(400).json({ message: "userId, locationId, and role are required" });
+      }
+      
+      const userRole = await storage.createUserHospitalRole({
+        userId,
+        hospitalId,
+        locationId,
+        role,
+      });
+      res.status(201).json(userRole);
+    } catch (error) {
+      console.error("Error creating user role:", error);
+      res.status(500).json({ message: "Failed to create user role" });
+    }
+  });
+
+  app.patch('/api/admin/users/:roleId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { roleId } = req.params;
+      const { locationId, role, hospitalId } = req.body;
+      
+      // Check admin access
+      const userId = req.user.claims.sub;
+      const hospitals = await storage.getUserHospitals(userId);
+      const hospital = hospitals.find(h => h.id === hospitalId);
+      if (!hospital || hospital.role !== 'AD') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const updates: any = {};
+      if (locationId !== undefined) updates.locationId = locationId;
+      if (role !== undefined) updates.role = role;
+      
+      const updated = await storage.updateUserHospitalRole(roleId, updates);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating user role:", error);
+      res.status(500).json({ message: "Failed to update user role" });
+    }
+  });
+
+  app.delete('/api/admin/users/:roleId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { roleId } = req.params;
+      const { hospitalId } = req.query;
+      
+      // Check admin access
+      const userId = req.user.claims.sub;
+      const hospitals = await storage.getUserHospitals(userId);
+      const hospital = hospitals.find(h => h.id === hospitalId);
+      if (!hospital || hospital.role !== 'AD') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      await storage.deleteUserHospitalRole(roleId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting user role:", error);
+      res.status(500).json({ message: "Failed to delete user role" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
