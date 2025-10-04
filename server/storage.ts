@@ -95,6 +95,19 @@ export interface IStorage {
   
   // Barcode lookup
   findItemByBarcode(barcode: string, hospitalId: string, locationId?: string): Promise<(Item & { stockLevel?: StockLevel }) | undefined>;
+  
+  // Admin - Location management
+  getLocations(hospitalId: string): Promise<Location[]>;
+  createLocation(location: Omit<Location, 'id' | 'createdAt'>): Promise<Location>;
+  updateLocation(id: string, updates: Partial<Location>): Promise<Location>;
+  deleteLocation(id: string): Promise<void>;
+  
+  // Admin - User management
+  getHospitalUsers(hospitalId: string): Promise<(UserHospitalRole & { user: User; location: Location })[]>;
+  createUserHospitalRole(data: Omit<UserHospitalRole, 'id' | 'createdAt'>): Promise<UserHospitalRole>;
+  updateUserHospitalRole(id: string, updates: Partial<UserHospitalRole>): Promise<UserHospitalRole>;
+  deleteUserHospitalRole(id: string): Promise<void>;
+  searchUserByEmail(email: string): Promise<User | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -612,6 +625,83 @@ export class DatabaseStorage implements IStorage {
       ...result.items,
       stockLevel: result.stock_levels || undefined,
     };
+  }
+
+  // Admin - Location management
+  async getLocations(hospitalId: string): Promise<Location[]> {
+    return await db
+      .select()
+      .from(locations)
+      .where(eq(locations.hospitalId, hospitalId))
+      .orderBy(asc(locations.name));
+  }
+
+  async createLocation(location: Omit<Location, 'id' | 'createdAt'>): Promise<Location> {
+    const [newLocation] = await db
+      .insert(locations)
+      .values(location)
+      .returning();
+    return newLocation;
+  }
+
+  async updateLocation(id: string, updates: Partial<Location>): Promise<Location> {
+    const [updated] = await db
+      .update(locations)
+      .set(updates)
+      .where(eq(locations.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteLocation(id: string): Promise<void> {
+    await db.delete(locations).where(eq(locations.id, id));
+  }
+
+  // Admin - User management
+  async getHospitalUsers(hospitalId: string): Promise<(UserHospitalRole & { user: User; location: Location })[]> {
+    const results = await db
+      .select()
+      .from(userHospitalRoles)
+      .innerJoin(users, eq(userHospitalRoles.userId, users.id))
+      .innerJoin(locations, eq(userHospitalRoles.locationId, locations.id))
+      .where(eq(userHospitalRoles.hospitalId, hospitalId))
+      .orderBy(asc(users.email));
+    
+    return results.map(row => ({
+      ...row.user_hospital_roles,
+      user: row.users,
+      location: row.locations,
+    }));
+  }
+
+  async createUserHospitalRole(data: Omit<UserHospitalRole, 'id' | 'createdAt'>): Promise<UserHospitalRole> {
+    const [newRole] = await db
+      .insert(userHospitalRoles)
+      .values(data)
+      .returning();
+    return newRole;
+  }
+
+  async updateUserHospitalRole(id: string, updates: Partial<UserHospitalRole>): Promise<UserHospitalRole> {
+    const [updated] = await db
+      .update(userHospitalRoles)
+      .set(updates)
+      .where(eq(userHospitalRoles.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteUserHospitalRole(id: string): Promise<void> {
+    await db.delete(userHospitalRoles).where(eq(userHospitalRoles.id, id));
+  }
+
+  async searchUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+    return user;
   }
 }
 
