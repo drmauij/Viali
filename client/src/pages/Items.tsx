@@ -17,7 +17,7 @@ interface ItemWithStock extends Item {
   soonestExpiry?: Date;
 }
 
-type UnitType = "box" | "vial" | "single item";
+type UnitType = "pack" | "single item";
 
 export default function Items() {
   const { user } = useAuth();
@@ -28,7 +28,7 @@ export default function Items() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ItemWithStock | null>(null);
-  const [selectedUnit, setSelectedUnit] = useState<UnitType>("box");
+  const [selectedUnit, setSelectedUnit] = useState<UnitType>("pack");
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [editFormData, setEditFormData] = useState({
@@ -167,7 +167,7 @@ export default function Items() {
       minThreshold: parseInt(editFormData.minThreshold) || 0,
       maxThreshold: parseInt(editFormData.maxThreshold) || 0,
       defaultOrderQty: parseInt(editFormData.defaultOrderQty) || 0,
-      packSize: selectedUnit === "box" ? parseInt(editFormData.packSize) || 1 : 1,
+      packSize: selectedUnit === "pack" ? parseInt(editFormData.packSize) || 1 : 1,
       critical: editFormData.critical,
       controlled: editFormData.controlled,
     };
@@ -304,7 +304,7 @@ export default function Items() {
       minThreshold: parseInt(formData.minThreshold) || 0,
       maxThreshold: parseInt(formData.maxThreshold) || 0,
       defaultOrderQty: parseInt(formData.defaultOrderQty) || 0,
-      packSize: selectedUnit === "box" ? parseInt(formData.packSize) || 1 : 1,
+      packSize: selectedUnit === "pack" ? parseInt(formData.packSize) || 1 : 1,
       critical: formData.critical,
       controlled: formData.controlled,
       initialStock: parseInt(formData.initialStock) || 0,
@@ -326,7 +326,7 @@ export default function Items() {
       critical: false,
       controlled: false,
     });
-    setSelectedUnit("box");
+    setSelectedUnit("pack");
     setUploadedImages([]);
   };
 
@@ -659,29 +659,16 @@ export default function Items() {
               <div className="flex gap-2 mt-2">
                 <button
                   type="button"
-                  onClick={() => setSelectedUnit("box")}
+                  onClick={() => setSelectedUnit("pack")}
                   className={`flex-1 py-3 px-2 rounded-lg border-2 transition-all ${
-                    selectedUnit === "box" 
+                    selectedUnit === "pack" 
                       ? "border-primary bg-primary/10" 
                       : "border-border bg-background"
                   }`}
-                  data-testid="unit-box"
+                  data-testid="unit-pack"
                 >
                   <i className="fas fa-box text-xl mb-1"></i>
-                  <div className="text-xs font-medium">Box</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedUnit("vial")}
-                  className={`flex-1 py-3 px-2 rounded-lg border-2 transition-all ${
-                    selectedUnit === "vial" 
-                      ? "border-primary bg-primary/10" 
-                      : "border-border bg-background"
-                  }`}
-                  data-testid="unit-vial"
-                >
-                  <i className="fas fa-prescription-bottle text-xl mb-1"></i>
-                  <div className="text-xs font-medium">Vial</div>
+                  <div className="text-xs font-medium">Pack</div>
                 </button>
                 <button
                   type="button"
@@ -774,9 +761,9 @@ export default function Items() {
               </div>
             </div>
 
-            {selectedUnit === "box" && formData.controlled && (
+            {selectedUnit === "pack" && formData.controlled && (
               <div>
-                <Label htmlFor="packSize">Pack Size (pieces per box) *</Label>
+                <Label htmlFor="packSize">Pack Size (pieces per pack) *</Label>
                 <Input 
                   id="packSize" 
                   name="packSize" 
@@ -835,32 +822,19 @@ export default function Items() {
 
             <div>
               <Label>Unit Type *</Label>
-              <div className="grid grid-cols-3 gap-2 mt-2">
+              <div className="grid grid-cols-2 gap-2 mt-2">
                 <button
                   type="button"
-                  onClick={() => setSelectedUnit("box")}
+                  onClick={() => setSelectedUnit("pack")}
                   className={`flex flex-col items-center py-3 px-2 rounded-lg border-2 transition-all ${
-                    selectedUnit === "box" 
+                    selectedUnit === "pack" 
                       ? "border-primary bg-primary/10" 
                       : "border-border bg-background"
                   }`}
-                  data-testid="edit-unit-box"
+                  data-testid="edit-unit-pack"
                 >
                   <i className="fas fa-box text-xl mb-1"></i>
-                  <div className="text-xs font-medium">Box</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedUnit("vial")}
-                  className={`flex flex-col items-center py-3 px-2 rounded-lg border-2 transition-all ${
-                    selectedUnit === "vial" 
-                      ? "border-primary bg-primary/10" 
-                      : "border-border bg-background"
-                  }`}
-                  data-testid="edit-unit-vial"
-                >
-                  <i className="fas fa-prescription-bottle text-xl mb-1"></i>
-                  <div className="text-xs font-medium">Vial</div>
+                  <div className="text-xs font-medium">Pack</div>
                 </button>
                 <button
                   type="button"
@@ -954,9 +928,9 @@ export default function Items() {
               </div>
             </div>
 
-            {selectedUnit === "box" && editFormData.controlled && (
+            {selectedUnit === "pack" && editFormData.controlled && (
               <div>
-                <Label htmlFor="edit-packSize">Pack Size (pieces per box) *</Label>
+                <Label htmlFor="edit-packSize">Pack Size (pieces per pack) *</Label>
                 <Input 
                   id="edit-packSize" 
                   name="packSize" 
