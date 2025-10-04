@@ -4,6 +4,18 @@
 
 AnaStock is a mobile-first web application designed to manage anesthesia drugs and general consumables across one or more hospitals. The system focuses on preventing stockouts of critical drugs, minimizing waste from expiry, automating reordering via Min-Max rules, ensuring compliance for controlled substances, and supporting multi-hospital management with per-hospital users and roles.
 
+## Recent Changes
+
+### October 4, 2025 - Order Creation System
+- Implemented complete order creation system with API endpoints and storage methods
+- Added Quick Order button functionality that automatically calculates order quantities based on stock deficits (max threshold - actual stock)
+- Created New Order dialog showing items needing reordering with vendor selection
+- Orders use two-part structure: order header (orders table) and order lines (order_lines table)
+- Only items with positive stock deficits (max > actual) generate order lines
+- Order creation pipeline is production-ready with correct quantity logic and cache invalidation
+
+**Known Issue**: upsertUser email conflict handling needs refinement - currently doesn't handle case where OIDC login uses different sub but same email (would require detecting existing user by email and merging accounts)
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
