@@ -6,6 +6,40 @@ Viali is a mobile-first web application designed to manage anesthesia drugs and 
 
 ## Recent Changes
 
+### October 4, 2025 - Controlled Substances Page Reorganization & Routine Checks
+- Reorganized Controlled Substances page with two-tab interface separating administrations from routine checks
+- Added `controlledChecks` table to database schema for storing routine verification records
+- Implemented complete routine check workflow:
+  - Bulk verification of all controlled substances at once
+  - Expected vs actual quantity comparison for each item
+  - Visual indicators for matches and discrepancies
+  - Electronic signature capture requirement
+  - Automatic computation of `allMatch` flag
+  - Notes field for documenting issues
+- Created two new API endpoints:
+  - POST `/api/controlled/checks` - Create new routine check with validation
+  - GET `/api/controlled/checks/:hospitalId` - Retrieve checks with user join
+- Replaced hardcoded drug list with real-time database queries for controlled items
+- Added shadcn Tabs component for intuitive UI organization:
+  - **Administrations tab**: Shows administration log + "Record Administration" button
+  - **Routine Checks tab**: Shows verification history + "Perform Routine Check" button
+- Shared signature pad component works seamlessly for both administration and routine check modals
+- Full e2e test coverage confirms tab navigation and routine check submission workflow
+
+**Technical Implementation**:
+- Storage methods: `createControlledCheck()`, `getControlledChecks()` with user join
+- Frontend fetches controlled items via `/api/items/:hospitalId?controlled=true`
+- Routine check modal iterates all controlled items, comparing expected (stock level) vs actual count
+- `allMatch` computed client-side before submission for explicit API contract
+- Both mutations properly invalidate react-query caches for real-time UI updates
+
+**UX Improvements**:
+- Clear visual separation between administration records and routine verification checks
+- Info box explains purpose of routine verification
+- Color-coded status chips: "All Match" (success) vs "Discrepancies" (destructive)
+- Empty states guide users to take first action
+- Mobile-first responsive design maintained throughout
+
 ### October 4, 2025 - Controlled Items Pack Size Feature
 - Implemented controlled items workflow that tracks individual vials/ampullas while ordering in packs
 - Pack size field now appears for items with unit="single item" AND controlled=true
