@@ -251,7 +251,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteItem(id: string): Promise<void> {
-    await db.delete(items).where(eq(items.id, id));
+    // Wrap entire cascade deletion in a transaction for atomicity
+    // This ensures either all deletions succeed or none do, preventing orphaned data
+    await db.transaction(async (tx) => {
+      // Delete in order to satisfy foreign key constraints
+      // 1. Delete alerts that reference this item
+      await tx.delete(alerts).where(eq(alerts.itemId, id));
+      
+      // 2. Delete activities that reference this item (and its lots)
+      await tx.delete(activities).where(eq(activities.itemId, id));
+      
+      // 3. Delete order lines that reference this item
+      await tx.delete(orderLines).where(eq(orderLines.itemId, id));
+      
+      // 4. Delete lots that belong to this item (must be before stock levels)
+      await tx.delete(lots).where(eq(lots.itemId, id));
+      
+      // 5. Delete stock levels for this item
+      await tx.delete(stockLevels).where(eq(stockLevels.itemId, id));
+      
+      // 6. Finally delete the item itself
+      await tx.delete(items).where(eq(items.id, id));
+    });
   }
 
   async getStockLevel(itemId: string, locationId: string): Promise<StockLevel | undefined> {
