@@ -14,7 +14,6 @@ const baseNavItems: NavItem[] = [
   { id: "items", icon: "fas fa-boxes", label: "Items", path: "/items" },
   { id: "orders", icon: "fas fa-file-invoice", label: "Orders", path: "/orders" },
   { id: "controlled", icon: "fas fa-shield-halved", label: "Controlled", path: "/controlled" },
-  { id: "alerts", icon: "fas fa-bell", label: "Alerts", path: "/alerts" },
   { id: "admin", icon: "fas fa-user-shield", label: "Admin", path: "/admin", adminOnly: true },
 ];
 

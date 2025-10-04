@@ -786,17 +786,7 @@ export default function Orders() {
                   disabled={deleteOrderMutation.isPending}
                   data-testid="delete-order-button"
                 >
-                  {deleteOrderMutation.isPending ? (
-                    <>
-                      <i className="fas fa-spinner fa-spin mr-2"></i>
-                      Deleting...
-                    </>
-                  ) : (
-                    <>
-                      <i className="fas fa-trash mr-2"></i>
-                      Delete Order
-                    </>
-                  )}
+                  {deleteOrderMutation.isPending ? "Deleting..." : "Delete"}
                 </Button>
                 <div className="flex gap-2">
                   <Button
