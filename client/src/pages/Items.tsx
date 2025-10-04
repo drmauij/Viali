@@ -683,9 +683,12 @@ export default function Items() {
 
                 <div className="flex items-center justify-between">
                   <div className="flex items-baseline gap-2">
-                    <span className={`text-2xl font-bold ${stockStatus.color}`}>
-                      {currentQty}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-2xl font-bold ${stockStatus.color}`}>
+                        {currentQty}
+                      </span>
+                      <i className={`fas ${normalizeUnit(item.unit) === "pack" ? "fa-box" : "fa-vial"} text-sm text-muted-foreground`}></i>
+                    </div>
                     <span className="text-sm text-muted-foreground">
                       / Min: {item.minThreshold || 0} / Max: {item.maxThreshold || 0}
                     </span>
