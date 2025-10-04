@@ -598,19 +598,20 @@ export default function Items() {
               </div>
             </div>
 
+            <div>
+              <Label htmlFor="barcode">Barcode</Label>
+              <Input 
+                id="barcode" 
+                name="barcode" 
+                value={formData.barcode}
+                onChange={(e) => setFormData(prev => ({ ...prev, barcode: e.target.value }))}
+                data-testid="input-item-barcode" 
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="barcode">Barcode</Label>
-                <Input 
-                  id="barcode" 
-                  name="barcode" 
-                  value={formData.barcode}
-                  onChange={(e) => setFormData(prev => ({ ...prev, barcode: e.target.value }))}
-                  data-testid="input-item-barcode" 
-                />
-              </div>
-              <div>
-                <Label htmlFor="initialStock">Initial Stock</Label>
+                <Label htmlFor="initialStock">Actual Stock</Label>
                 <Input 
                   id="initialStock" 
                   name="initialStock" 
@@ -619,6 +620,18 @@ export default function Items() {
                   value={formData.initialStock}
                   onChange={(e) => setFormData(prev => ({ ...prev, initialStock: e.target.value }))}
                   data-testid="input-initial-stock" 
+                />
+              </div>
+              <div>
+                <Label htmlFor="defaultOrderQty">Default Order Quantity</Label>
+                <Input 
+                  id="defaultOrderQty" 
+                  name="defaultOrderQty" 
+                  type="number" 
+                  min="0"
+                  value={formData.defaultOrderQty}
+                  onChange={(e) => setFormData(prev => ({ ...prev, defaultOrderQty: e.target.value }))}
+                  data-testid="input-default-order-qty" 
                 />
               </div>
             </div>
@@ -648,19 +661,6 @@ export default function Items() {
                   data-testid="input-item-max" 
                 />
               </div>
-            </div>
-
-            <div>
-              <Label htmlFor="defaultOrderQty">Default Order Quantity</Label>
-              <Input 
-                id="defaultOrderQty" 
-                name="defaultOrderQty" 
-                type="number" 
-                min="0"
-                value={formData.defaultOrderQty}
-                onChange={(e) => setFormData(prev => ({ ...prev, defaultOrderQty: e.target.value }))}
-                data-testid="input-default-order-qty" 
-              />
             </div>
 
             <div className="flex gap-4">
