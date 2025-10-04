@@ -325,6 +325,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/orders', isAuthenticated, async (req, res) => {
+    try {
+      const { hospitalId, vendorId, orderLines: lines } = req.body;
+      const userId = req.user!.id;
+      
+      if (!hospitalId || !vendorId) {
+        return res.status(400).json({ message: "Hospital ID and Vendor ID are required" });
+      }
+
+      const order = await storage.createOrder({
+        hospitalId,
+        vendorId,
+        status: 'draft',
+        createdBy: userId,
+        totalAmount: '0',
+      });
+
+      if (lines && Array.isArray(lines)) {
+        for (const line of lines) {
+          await storage.addItemToOrder(order.id, line.itemId, line.qty, line.packSize || 1);
+        }
+      }
+
+      res.status(201).json(order);
+    } catch (error) {
+      console.error("Error creating order:", error);
+      res.status(500).json({ message: "Failed to create order" });
+    }
+  });
+
+  app.post('/api/orders/quick-add', isAuthenticated, async (req, res) => {
+    try {
+      const { hospitalId, itemId, vendorId, qty, packSize } = req.body;
+      const userId = req.user!.id;
+      
+      if (!hospitalId || !itemId || !vendorId) {
+        return res.status(400).json({ message: "Hospital ID, Item ID, and Vendor ID are required" });
+      }
+
+      const order = await storage.findOrCreateDraftOrder(hospitalId, vendorId, userId);
+      const orderLine = await storage.addItemToOrder(order.id, itemId, qty || 1, packSize || 1);
+
+      res.json({ order, orderLine });
+    } catch (error) {
+      console.error("Error adding item to order:", error);
+      res.status(500).json({ message: "Failed to add item to order" });
+    }
+  });
+
   app.post('/api/orders/:orderId/status', isAuthenticated, async (req, res) => {
     try {
       const { orderId } = req.params;
@@ -339,6 +388,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating order status:", error);
       res.status(500).json({ message: "Failed to update order status" });
+    }
+  });
+
+  app.get('/api/vendors/:hospitalId', isAuthenticated, async (req, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const vendors = await storage.getVendors(hospitalId);
+      res.json(vendors);
+    } catch (error) {
+      console.error("Error fetching vendors:", error);
+      res.status(500).json({ message: "Failed to fetch vendors" });
     }
   });
 
