@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,8 @@ interface ItemWithStock extends Item {
   soonestExpiry?: Date;
 }
 
+type UnitType = "box" | "vial" | "single item";
+
 export default function Items() {
   const { user } = useAuth();
   const [activeHospital] = useState(() => (user as any)?.hospitals?.[0]);
@@ -26,6 +28,19 @@ export default function Items() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ItemWithStock | null>(null);
+  const [selectedUnit, setSelectedUnit] = useState<UnitType>("box");
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    barcode: "",
+    minThreshold: "0",
+    maxThreshold: "0",
+    packSize: "1",
+    initialStock: "0",
+  });
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const { data: items = [], isLoading } = useQuery<ItemWithStock[]>({
@@ -34,7 +49,7 @@ export default function Items() {
   });
 
   const createItemMutation = useMutation({
-    mutationFn: async (data: Partial<InsertItem>) => {
+    mutationFn: async (data: any) => {
       return await apiRequest(`/api/items`, "POST", {
         ...data,
         hospitalId: activeHospital?.id,
@@ -43,6 +58,7 @@ export default function Items() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      resetForm();
       setAddDialogOpen(false);
       toast({
         title: "Success",
@@ -63,24 +79,87 @@ export default function Items() {
     setViewDialogOpen(true);
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    const reader = new FileReader();
+    
+    reader.onload = async (event) => {
+      const base64Image = event.target?.result as string;
+      setUploadedImages([...uploadedImages, base64Image]);
+      
+      // Analyze image with AI
+      setIsAnalyzing(true);
+      try {
+        const result = await apiRequest('/api/items/analyze-image', 'POST', {
+          image: base64Image
+        });
+        
+        // Update form with extracted data
+        setFormData(prev => ({
+          ...prev,
+          name: result.name || prev.name,
+          description: result.concentration 
+            ? `${result.description || ''} ${result.concentration}`.trim() 
+            : result.description || prev.description,
+          barcode: result.barcode || prev.barcode,
+        }));
+        
+        if (result.unit) {
+          setSelectedUnit(result.unit as UnitType);
+        }
+        
+        toast({
+          title: "Image analyzed",
+          description: `Extracted data with ${Math.round(result.confidence * 100)}% confidence`,
+        });
+      } catch (error: any) {
+        toast({
+          title: "Analysis failed",
+          description: error.message || "Failed to analyze image",
+          variant: "destructive",
+        });
+      } finally {
+        setIsAnalyzing(false);
+      }
+    };
+    
+    reader.readAsDataURL(file);
+  };
+
   const handleAddItem = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    
-    const barcodeValue = formData.get("barcode") as string;
     
     const itemData = {
-      name: formData.get("name") as string,
-      description: formData.get("description") as string,
-      unit: formData.get("unit") as string,
-      barcodes: barcodeValue ? [barcodeValue] : undefined,
-      minThreshold: parseInt(formData.get("minThreshold") as string) || 0,
-      maxThreshold: parseInt(formData.get("maxThreshold") as string) || 0,
-      critical: formData.get("critical") === "on",
-      controlled: formData.get("controlled") === "on",
+      name: formData.name,
+      description: formData.description,
+      unit: selectedUnit,
+      barcodes: formData.barcode ? [formData.barcode] : undefined,
+      minThreshold: parseInt(formData.minThreshold) || 0,
+      maxThreshold: parseInt(formData.maxThreshold) || 0,
+      packSize: selectedUnit === "box" ? parseInt(formData.packSize) || 1 : 1,
+      critical: (e.currentTarget.elements.namedItem("critical") as HTMLInputElement)?.checked || false,
+      controlled: (e.currentTarget.elements.namedItem("controlled") as HTMLInputElement)?.checked || false,
+      initialStock: parseInt(formData.initialStock) || 0,
     };
 
     createItemMutation.mutate(itemData);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      description: "",
+      barcode: "",
+      minThreshold: "0",
+      maxThreshold: "0",
+      packSize: "1",
+      initialStock: "0",
+    });
+    setSelectedUnit("box");
+    setUploadedImages([]);
   };
 
   const filteredItems = useMemo(() => {
@@ -339,42 +418,181 @@ export default function Items() {
       </div>
 
       {/* Add Item Dialog */}
-      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent className="max-w-md">
+      <Dialog open={addDialogOpen} onOpenChange={(open) => { setAddDialogOpen(open); if (!open) resetForm(); }}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add New Item</DialogTitle>
             <DialogDescription>Create a new inventory item</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddItem} className="space-y-4">
+            {/* Image Upload */}
+            <div>
+              <Label>Item Photo (AI Analysis)</Label>
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                capture="environment"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isAnalyzing}
+                  data-testid="button-upload-image"
+                >
+                  <i className={`fas ${isAnalyzing ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
+                  {isAnalyzing ? "Analyzing..." : "Take/Upload Photo"}
+                </Button>
+              </div>
+              {uploadedImages.length > 0 && (
+                <div className="mt-2 flex gap-2 overflow-x-auto">
+                  {uploadedImages.map((img, idx) => (
+                    <img key={idx} src={img} alt={`Upload ${idx + 1}`} className="h-16 w-16 object-cover rounded border" />
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div>
               <Label htmlFor="name">Item Name *</Label>
-              <Input id="name" name="name" required data-testid="input-item-name" />
+              <Input 
+                id="name" 
+                name="name" 
+                required 
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                data-testid="input-item-name" 
+              />
             </div>
             
             <div>
               <Label htmlFor="description">Description</Label>
-              <Input id="description" name="description" data-testid="input-item-description" />
+              <Input 
+                id="description" 
+                name="description" 
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                data-testid="input-item-description" 
+              />
             </div>
+
+            {/* Visual Unit Selector */}
+            <div>
+              <Label>Unit Type *</Label>
+              <div className="flex gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedUnit("box")}
+                  className={`flex-1 py-3 px-2 rounded-lg border-2 transition-all ${
+                    selectedUnit === "box" 
+                      ? "border-primary bg-primary/10" 
+                      : "border-border bg-background"
+                  }`}
+                  data-testid="unit-box"
+                >
+                  <i className="fas fa-box text-xl mb-1"></i>
+                  <div className="text-xs font-medium">Box</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedUnit("vial")}
+                  className={`flex-1 py-3 px-2 rounded-lg border-2 transition-all ${
+                    selectedUnit === "vial" 
+                      ? "border-primary bg-primary/10" 
+                      : "border-border bg-background"
+                  }`}
+                  data-testid="unit-vial"
+                >
+                  <i className="fas fa-prescription-bottle text-xl mb-1"></i>
+                  <div className="text-xs font-medium">Vial</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedUnit("single item")}
+                  className={`flex-1 py-3 px-2 rounded-lg border-2 transition-all ${
+                    selectedUnit === "single item" 
+                      ? "border-primary bg-primary/10" 
+                      : "border-border bg-background"
+                  }`}
+                  data-testid="unit-single"
+                >
+                  <i className="fas fa-pills text-xl mb-1"></i>
+                  <div className="text-xs font-medium">Single Item</div>
+                </button>
+              </div>
+            </div>
+
+            {/* Items per Box (conditional) */}
+            {selectedUnit === "box" && (
+              <div>
+                <Label htmlFor="packSize">Items per Box *</Label>
+                <Input 
+                  id="packSize" 
+                  name="packSize" 
+                  type="number" 
+                  min="1"
+                  value={formData.packSize}
+                  onChange={(e) => setFormData(prev => ({ ...prev, packSize: e.target.value }))}
+                  placeholder="e.g., 10"
+                  data-testid="input-pack-size" 
+                />
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="unit">Unit *</Label>
-                <Input id="unit" name="unit" required placeholder="e.g., vial, box" data-testid="input-item-unit" />
+                <Label htmlFor="barcode">Barcode</Label>
+                <Input 
+                  id="barcode" 
+                  name="barcode" 
+                  value={formData.barcode}
+                  onChange={(e) => setFormData(prev => ({ ...prev, barcode: e.target.value }))}
+                  data-testid="input-item-barcode" 
+                />
               </div>
               <div>
-                <Label htmlFor="barcode">Barcode</Label>
-                <Input id="barcode" name="barcode" data-testid="input-item-barcode" />
+                <Label htmlFor="initialStock">Initial Stock</Label>
+                <Input 
+                  id="initialStock" 
+                  name="initialStock" 
+                  type="number" 
+                  min="0"
+                  value={formData.initialStock}
+                  onChange={(e) => setFormData(prev => ({ ...prev, initialStock: e.target.value }))}
+                  data-testid="input-initial-stock" 
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="minThreshold">Min Threshold</Label>
-                <Input id="minThreshold" name="minThreshold" type="number" defaultValue="0" data-testid="input-item-min" />
+                <Input 
+                  id="minThreshold" 
+                  name="minThreshold" 
+                  type="number" 
+                  min="0"
+                  value={formData.minThreshold}
+                  onChange={(e) => setFormData(prev => ({ ...prev, minThreshold: e.target.value }))}
+                  data-testid="input-item-min" 
+                />
               </div>
               <div>
                 <Label htmlFor="maxThreshold">Max Threshold</Label>
-                <Input id="maxThreshold" name="maxThreshold" type="number" defaultValue="0" data-testid="input-item-max" />
+                <Input 
+                  id="maxThreshold" 
+                  name="maxThreshold" 
+                  type="number" 
+                  min="0"
+                  value={formData.maxThreshold}
+                  onChange={(e) => setFormData(prev => ({ ...prev, maxThreshold: e.target.value }))}
+                  data-testid="input-item-max" 
+                />
               </div>
             </div>
 
@@ -390,10 +608,10 @@ export default function Items() {
             </div>
 
             <div className="flex gap-2 justify-end">
-              <Button type="button" variant="outline" onClick={() => setAddDialogOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => { setAddDialogOpen(false); resetForm(); }}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={createItemMutation.isPending} data-testid="button-save-item">
+              <Button type="submit" disabled={createItemMutation.isPending || isAnalyzing} data-testid="button-save-item">
                 {createItemMutation.isPending ? "Creating..." : "Create Item"}
               </Button>
             </div>
