@@ -26,8 +26,8 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
         const foregroundColor = getComputedStyle(document.documentElement)
           .getPropertyValue('--foreground').trim();
         
-        // Set drawing styles with proper color
-        ctx.strokeStyle = foregroundColor ? `hsl(${foregroundColor})` : '#ffffff';
+        // Set drawing styles with proper color (CSS var already includes hsl())
+        ctx.strokeStyle = foregroundColor || '#ffffff';
         ctx.lineWidth = 2;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
