@@ -516,6 +516,17 @@ export default function Orders() {
                       {order.orderLines.length} items
                     </p>
                     <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadOrderPDF(order);
+                        }}
+                        data-testid={`pdf-order-${order.id}`}
+                      >
+                        <i className="fas fa-file-pdf"></i>
+                      </Button>
                       <Button
                         size="sm"
                         className="flex-1"
@@ -644,19 +655,32 @@ export default function Orders() {
                       <p className="text-xs text-muted-foreground mb-3">
                         {receivedItems} of {totalItems} items received
                       </p>
-                      <Button
-                        size="sm"
-                        className="w-full"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStatusUpdate(order.id, "closed");
-                        }}
-                        disabled={updateOrderStatusMutation.isPending}
-                        data-testid={`continue-receiving-${order.id}`}
-                      >
-                        <i className="fas fa-truck-loading mr-2"></i>
-                        Continue Receiving
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            downloadOrderPDF(order);
+                          }}
+                          data-testid={`pdf-order-${order.id}`}
+                        >
+                          <i className="fas fa-file-pdf"></i>
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="flex-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStatusUpdate(order.id, "closed");
+                          }}
+                          disabled={updateOrderStatusMutation.isPending}
+                          data-testid={`continue-receiving-${order.id}`}
+                        >
+                          <i className="fas fa-truck-loading mr-2"></i>
+                          Continue Receiving
+                        </Button>
+                      </div>
                     </div>
                   );
                 })
@@ -697,9 +721,22 @@ export default function Orders() {
                     <p className="text-sm text-muted-foreground mb-2">
                       {order.orderLines.length} items • {formatCurrency(order.totalAmount || 0)}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground mb-3">
                       Completed {formatDate((order.updatedAt || order.createdAt) as any)}
                     </p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        downloadOrderPDF(order);
+                      }}
+                      data-testid={`pdf-order-${order.id}`}
+                    >
+                      <i className="fas fa-file-pdf mr-1"></i>
+                      PDF
+                    </Button>
                   </div>
                 ))
               )}
