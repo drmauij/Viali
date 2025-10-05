@@ -13,6 +13,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SignaturePad from "@/components/SignaturePad";
 import type { Activity, User, Item, ControlledCheck } from "@shared/schema";
 
+interface ItemWithStock extends Item {
+  stockLevel?: { qtyOnHand: number };
+}
+
 interface ControlledActivity extends Activity {
   user: User;
   item?: Item;
@@ -20,6 +24,13 @@ interface ControlledActivity extends Activity {
 
 interface ControlledCheckWithUser extends ControlledCheck {
   user: User;
+  checkItems: Array<{
+    itemId: string;
+    name: string;
+    expectedQty: number;
+    actualQty: number;
+    match: boolean;
+  }>;
 }
 
 interface DrugSelection {
@@ -63,8 +74,11 @@ export default function ControlledLog() {
   
   const [activityToVerify, setActivityToVerify] = useState<string | null>(null);
   const [verifySignature, setVerifySignature] = useState("");
+  
+  const [selectedActivity, setSelectedActivity] = useState<ControlledActivity | null>(null);
+  const [selectedCheck, setSelectedCheck] = useState<ControlledCheckWithUser | null>(null);
 
-  const { data: controlledItems = [] } = useQuery<Item[]>({
+  const { data: controlledItems = [] } = useQuery<ItemWithStock[]>({
     queryKey: ["/api/items", activeHospital?.id, { controlled: true }],
     queryFn: async () => {
       const response = await fetch(`/api/items/${activeHospital?.id}?controlled=true`);
@@ -132,6 +146,7 @@ export default function ControlledLog() {
       locationId: string;
       signature: string;
       checkItems: Array<{ itemId: string; name: string; expectedQty: number; actualQty: number; match: boolean }>;
+      allMatch?: boolean;
       notes?: string;
     }) => {
       const response = await apiRequest("POST", "/api/controlled/checks", data);
@@ -431,7 +446,7 @@ export default function ControlledLog() {
               <p className="text-3xl font-bold text-foreground" data-testid="todays-records">
                 {activities.filter(a => {
                   const today = new Date().toDateString();
-                  return new Date(a.timestamp).toDateString() === today;
+                  return a.timestamp ? new Date(a.timestamp).toDateString() === today : false;
                 }).length}
               </p>
             </div>
@@ -495,7 +510,7 @@ export default function ControlledLog() {
                     <div className="flex items-center gap-2">
                       <i className="fas fa-clock text-muted-foreground text-sm"></i>
                       <span className="text-sm text-muted-foreground">
-                        {formatTimeAgo(activity.timestamp)}
+                        {activity.timestamp ? formatTimeAgo(activity.timestamp) : 'Unknown'}
                       </span>
                     </div>
                   </div>
@@ -522,12 +537,23 @@ export default function ControlledLog() {
                         >
                           Sign & Verify
                         </Button>
-                        <Button variant="outline" size="sm" data-testid={`view-activity-${activity.id}`}>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => setSelectedActivity(activity)}
+                          data-testid={`view-activity-${activity.id}`}
+                        >
                           <i className="fas fa-eye"></i>
                         </Button>
                       </>
                     ) : (
-                      <Button variant="outline" size="sm" className="flex-1" data-testid={`view-details-${activity.id}`}>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="flex-1" 
+                        onClick={() => setSelectedActivity(activity)}
+                        data-testid={`view-details-${activity.id}`}
+                      >
                         View Details
                       </Button>
                     )}
@@ -609,7 +635,7 @@ export default function ControlledLog() {
                     <div className="flex items-center gap-2">
                       <i className="fas fa-clock text-muted-foreground text-sm"></i>
                       <span className="text-sm text-muted-foreground">
-                        {formatTimeAgo(check.timestamp)}
+                        {check.timestamp ? formatTimeAgo(check.timestamp) : 'Unknown'}
                       </span>
                     </div>
                     {check.notes && (
@@ -629,7 +655,13 @@ export default function ControlledLog() {
                   )}
 
                   <div className="flex gap-2 mt-3">
-                    <Button variant="outline" size="sm" className="flex-1" data-testid={`view-check-${check.id}`}>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1" 
+                      onClick={() => setSelectedCheck(check)}
+                      data-testid={`view-check-${check.id}`}
+                    >
                       View Details
                     </Button>
                   </div>
@@ -971,6 +1003,250 @@ export default function ControlledLog() {
         }}
         title="Verify with Second Signature"
       />
+
+      {/* Activity Detail Modal */}
+      {selectedActivity && (
+        <div className="modal-overlay" onClick={() => setSelectedActivity(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-foreground">Administration Details</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedActivity(null)}
+                data-testid="close-activity-detail"
+              >
+                <i className="fas fa-times"></i>
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-muted rounded-lg p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
+                    <i className="fas fa-syringe text-accent text-xl"></i>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground text-lg">
+                      {selectedActivity.item?.name || "Unknown Item"}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {Math.abs(selectedActivity.delta || 0)} units dispensed
+                    </p>
+                  </div>
+                </div>
+                {getStatusChip(selectedActivity)}
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 p-3 bg-card border border-border rounded-lg">
+                  <i className="fas fa-user-injured text-primary mt-1"></i>
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground mb-1">Patient ID</p>
+                    <p className="font-medium text-foreground">{selectedActivity.patientId || "Not provided"}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-card border border-border rounded-lg">
+                  <i className="fas fa-user-md text-primary mt-1"></i>
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground mb-1">Administered By</p>
+                    <p className="font-medium text-foreground">
+                      {selectedActivity.user.firstName} {selectedActivity.user.lastName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{selectedActivity.user.email}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-card border border-border rounded-lg">
+                  <i className="fas fa-clock text-primary mt-1"></i>
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground mb-1">Timestamp</p>
+                    <p className="font-medium text-foreground">
+                      {selectedActivity.timestamp ? new Date(selectedActivity.timestamp).toLocaleString() : 'Unknown'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{selectedActivity.timestamp ? formatTimeAgo(selectedActivity.timestamp) : 'Unknown'}</p>
+                  </div>
+                </div>
+
+                {selectedActivity.notes && (
+                  <div className="flex items-start gap-3 p-3 bg-card border border-border rounded-lg">
+                    <i className="fas fa-note-sticky text-primary mt-1"></i>
+                    <div className="flex-1">
+                      <p className="text-xs text-muted-foreground mb-1">Notes</p>
+                      <p className="text-sm text-foreground">{selectedActivity.notes}</p>
+                    </div>
+                  </div>
+                )}
+
+                {selectedActivity.signatures && Array.isArray(selectedActivity.signatures) && selectedActivity.signatures.length > 0 ? (
+                  <div className="p-3 bg-card border border-border rounded-lg">
+                    <div className="flex items-center gap-2 mb-3">
+                      <i className="fas fa-signature text-primary"></i>
+                      <p className="text-xs text-muted-foreground">Electronic Signatures ({selectedActivity.signatures.length})</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(selectedActivity.signatures as string[]).map((sig: string, idx: number) => (
+                        <div key={idx} className="border border-border rounded p-2">
+                          <img src={sig} alt={`Signature ${idx + 1}`} className="w-full h-16 object-contain" />
+                          <p className="text-xs text-center text-muted-foreground mt-1">
+                            {idx === 0 ? "Administrator" : "Verifier"}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setSelectedActivity(null)}
+                data-testid="close-activity-detail-button"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Routine Check Detail Modal */}
+      {selectedCheck && (
+        <div className="modal-overlay" onClick={() => setSelectedCheck(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-foreground">Routine Check Details</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedCheck(null)}
+                data-testid="close-check-detail"
+              >
+                <i className="fas fa-times"></i>
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-muted rounded-lg p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <i className="fas fa-clipboard-check text-primary text-xl"></i>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground text-lg">
+                      Routine Verification Check
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedCheck.checkItems.length} items verified
+                    </p>
+                  </div>
+                </div>
+                {getCheckStatusChip(selectedCheck)}
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 p-3 bg-card border border-border rounded-lg">
+                  <i className="fas fa-user text-primary mt-1"></i>
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground mb-1">Performed By</p>
+                    <p className="font-medium text-foreground">
+                      {selectedCheck.user.firstName} {selectedCheck.user.lastName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{selectedCheck.user.email}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-card border border-border rounded-lg">
+                  <i className="fas fa-clock text-primary mt-1"></i>
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground mb-1">Timestamp</p>
+                    <p className="font-medium text-foreground">
+                      {selectedCheck.timestamp ? new Date(selectedCheck.timestamp).toLocaleString() : 'Unknown'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{selectedCheck.timestamp ? formatTimeAgo(selectedCheck.timestamp) : 'Unknown'}</p>
+                  </div>
+                </div>
+
+                {selectedCheck.notes && (
+                  <div className="flex items-start gap-3 p-3 bg-card border border-border rounded-lg">
+                    <i className="fas fa-note-sticky text-primary mt-1"></i>
+                    <div className="flex-1">
+                      <p className="text-xs text-muted-foreground mb-1">Notes</p>
+                      <p className="text-sm text-foreground">{selectedCheck.notes}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-3 bg-card border border-border rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <i className="fas fa-list text-primary"></i>
+                    <p className="text-sm font-medium text-foreground">Items Checked</p>
+                  </div>
+                  <div className="space-y-2">
+                    {selectedCheck.checkItems?.map((item: any, idx: number) => (
+                      <div 
+                        key={idx} 
+                        className={`p-3 rounded-lg border ${
+                          item.match 
+                            ? 'bg-success/5 border-success/20' 
+                            : 'bg-destructive/5 border-destructive/20'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="font-medium text-foreground text-sm">{item.name}</p>
+                          {item.match ? (
+                            <i className="fas fa-check-circle text-success"></i>
+                          ) : (
+                            <i className="fas fa-exclamation-triangle text-destructive"></i>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <p className="text-muted-foreground">Expected</p>
+                            <p className="font-medium text-foreground">{item.expectedQty} units</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">Actual</p>
+                            <p className="font-medium text-foreground">{item.actualQty} units</p>
+                          </div>
+                        </div>
+                        {!item.match && (
+                          <p className="text-xs text-destructive mt-2">
+                            Discrepancy: {Math.abs(item.expectedQty - item.actualQty)} units
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {selectedCheck.signature && (
+                  <div className="p-3 bg-card border border-border rounded-lg">
+                    <div className="flex items-center gap-2 mb-3">
+                      <i className="fas fa-signature text-primary"></i>
+                      <p className="text-xs text-muted-foreground">Electronic Signature</p>
+                    </div>
+                    <div className="border border-border rounded p-2">
+                      <img src={selectedCheck.signature} alt="Signature" className="w-full h-16 object-contain" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setSelectedCheck(null)}
+                data-testid="close-check-detail-button"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
