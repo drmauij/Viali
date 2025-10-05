@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import UpgradeDialog from "@/components/UpgradeDialog";
 import type { Item, StockLevel, InsertItem, Vendor } from "@shared/schema";
 
 type FilterType = "all" | "critical" | "controlled" | "expiring" | "belowMin";
@@ -73,6 +74,14 @@ export default function Items() {
   
   // Onboarding state
   const [showOnboarding, setShowOnboarding] = useState(false);
+  
+  // Upgrade dialog state
+  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
+  const [licenseInfo, setLicenseInfo] = useState<{
+    currentCount: number;
+    limit: number;
+    licenseType: string;
+  } | null>(null);
 
   const { data: items = [], isLoading } = useQuery<ItemWithStock[]>({
     queryKey: ["/api/items", activeHospital?.id],
@@ -106,6 +115,21 @@ export default function Items() {
         hospitalId: activeHospital?.id,
         locationId: activeHospital?.locationId,
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (errorData.error === "LICENSE_LIMIT_REACHED") {
+          setLicenseInfo({
+            currentCount: errorData.currentCount,
+            limit: errorData.limit,
+            licenseType: errorData.licenseType,
+          });
+          setUpgradeDialogOpen(true);
+          throw new Error("LICENSE_LIMIT_REACHED");
+        }
+        throw new Error(errorData.message || "Failed to create item");
+      }
+      
       return await response.json();
     },
     onSuccess: () => {
@@ -118,6 +142,9 @@ export default function Items() {
       });
     },
     onError: (error: any) => {
+      if (error.message === "LICENSE_LIMIT_REACHED") {
+        return;
+      }
       toast({
         title: "Error",
         description: error.message || "Failed to create item",
@@ -286,6 +313,21 @@ export default function Items() {
         items,
         hospitalId: activeHospital?.id,
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (errorData.error === "LICENSE_LIMIT_REACHED") {
+          setLicenseInfo({
+            currentCount: errorData.currentCount,
+            limit: errorData.limit,
+            licenseType: errorData.licenseType,
+          });
+          setUpgradeDialogOpen(true);
+          throw new Error("LICENSE_LIMIT_REACHED");
+        }
+        throw new Error(errorData.message || "Failed to import items");
+      }
+      
       return await response.json();
     },
     onSuccess: () => {
@@ -299,6 +341,9 @@ export default function Items() {
       });
     },
     onError: (error: any) => {
+      if (error.message === "LICENSE_LIMIT_REACHED") {
+        return;
+      }
       toast({
         title: "Error",
         description: error.message || "Failed to import items",
@@ -1532,6 +1577,17 @@ export default function Items() {
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Upgrade Dialog */}
+      {licenseInfo && (
+        <UpgradeDialog
+          open={upgradeDialogOpen}
+          onOpenChange={setUpgradeDialogOpen}
+          currentCount={licenseInfo.currentCount}
+          limit={licenseInfo.limit}
+          licenseType={licenseInfo.licenseType}
+        />
+      )}
       </div>
     </div>
   );
