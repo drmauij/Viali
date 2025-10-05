@@ -70,6 +70,11 @@ export default function Items() {
     enabled: !!activeHospital?.id,
   });
 
+  const { data: openOrderItems = {} } = useQuery<Record<string, { totalQty: number }>>({
+    queryKey: ["/api/orders/open-items", activeHospital?.id],
+    enabled: !!activeHospital?.id,
+  });
+
   const createItemMutation = useMutation({
     mutationFn: async (data: any) => {
       const response = await apiRequest("POST", `/api/items`, {
@@ -215,6 +220,7 @@ export default function Items() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders/open-items", activeHospital?.id] });
       toast({
         title: "Added to Order",
         description: "Item has been added to draft order",
@@ -693,10 +699,17 @@ export default function Items() {
                       / Min: {item.minThreshold || 0} / Max: {item.maxThreshold || 0}
                     </span>
                   </div>
-                  <Button variant="outline" size="sm" onClick={(e) => handleQuickOrder(e, item)} data-testid={`quick-order-${item.id}`}>
-                    <i className="fas fa-bolt mr-1"></i>
-                    Quick Order
-                  </Button>
+                  {openOrderItems[item.id] ? (
+                    <Button variant="outline" size="sm" disabled data-testid={`quick-ordered-${item.id}`}>
+                      <i className="fas fa-check mr-1"></i>
+                      quick ordered {openOrderItems[item.id].totalQty} units
+                    </Button>
+                  ) : (
+                    <Button variant="outline" size="sm" onClick={(e) => handleQuickOrder(e, item)} data-testid={`quick-order-${item.id}`}>
+                      <i className="fas fa-bolt mr-1"></i>
+                      Quick Order
+                    </Button>
+                  )}
                 </div>
               </div>
             );
