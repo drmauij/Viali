@@ -513,19 +513,81 @@ export default function ControlledLog() {
           margin: { left: 25 },
         });
 
-        yPosition = (doc as any).lastAutoTable.finalY + 8;
+        yPosition = (doc as any).lastAutoTable.finalY + 5;
+
+        // Add signatures for each administration
+        dayActivities.forEach((activity, actIndex) => {
+          const signatures = activity.signatures as string[] | null;
+          if (signatures && signatures.length > 0) {
+            // Check if we need a new page
+            if (yPosition > 240) {
+              doc.addPage();
+              yPosition = 20;
+            }
+
+            // Activity reference
+            doc.setFontSize(8);
+            doc.setFont("helvetica", "italic");
+            const timeStr = activity.timestamp ? new Date(activity.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "N/A";
+            doc.text(`    ${timeStr} - Patient ${activity.patientId || "N/A"} - Signatures:`, 25, yPosition);
+            yPosition += 3;
+
+            let xPosition = 30;
+
+            // Administrator signature (first signature)
+            if (signatures[0]) {
+              doc.setFontSize(7);
+              doc.setFont("helvetica", "normal");
+              doc.text("Administrator:", xPosition, yPosition);
+              try {
+                doc.addImage(signatures[0], "PNG", xPosition, yPosition + 1, 35, 15);
+              } catch (e) {
+                console.error("Failed to add admin signature image", e);
+              }
+              xPosition += 40;
+            }
+
+            // Verifier signature (second signature, if verified)
+            if (signatures[1]) {
+              doc.setFontSize(7);
+              doc.setFont("helvetica", "normal");
+              doc.text("Verifier:", xPosition, yPosition);
+              try {
+                doc.addImage(signatures[1], "PNG", xPosition, yPosition + 1, 35, 15);
+              } catch (e) {
+                console.error("Failed to add verifier signature image", e);
+              }
+            }
+
+            yPosition += 18;
+          }
+        });
+
+        yPosition += 3;
       });
 
       yPosition += 5; // Space between drugs
     });
 
-    // Summary footer
-    const finalY = (doc as any).lastAutoTable.finalY || yPosition;
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Total Administrations: ${monthlyActivities.length}`, 20, finalY + 10);
-    doc.text(`Total Drugs: ${Object.keys(groupedByDrug).length}`, 20, finalY + 16);
-    doc.text(`Generated: ${new Date().toLocaleString("en-US")}`, 20, finalY + 22);
+    // Summary footer - use the maximum of yPosition and lastAutoTable.finalY
+    const tableEndY = (doc as any).lastAutoTable?.finalY ?? 0;
+    const footerY = Math.max(yPosition, tableEndY);
+    
+    // Check if footer will fit on current page, if not add new page
+    if (footerY + 30 > 280) {
+      doc.addPage();
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Total Administrations: ${monthlyActivities.length}`, 20, 20);
+      doc.text(`Total Drugs: ${Object.keys(groupedByDrug).length}`, 20, 26);
+      doc.text(`Generated: ${new Date().toLocaleString("en-US")}`, 20, 32);
+    } else {
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Total Administrations: ${monthlyActivities.length}`, 20, footerY + 10);
+      doc.text(`Total Drugs: ${Object.keys(groupedByDrug).length}`, 20, footerY + 16);
+      doc.text(`Generated: ${new Date().toLocaleString("en-US")}`, 20, footerY + 22);
+    }
 
     // Download
     doc.save(`Controlled_Report_${monthNames[month]}_${year}.pdf`);
