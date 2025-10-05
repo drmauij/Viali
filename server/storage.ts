@@ -65,7 +65,7 @@ export interface IStorage {
   createLot(lot: Omit<Lot, 'id' | 'createdAt'>): Promise<Lot>;
   
   // Order operations
-  getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor; orderLines: (OrderLine & { item: Item & { location: Location } })[] })[]>;
+  getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { location: Location } })[] })[]>;
   createOrder(order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order>;
   findOrCreateDraftOrder(hospitalId: string, vendorId: string | null, createdBy: string): Promise<Order>;
@@ -299,7 +299,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor; orderLines: (OrderLine & { item: Item & { location: Location } })[] })[]> {
+  async getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { location: Location } })[] })[]> {
     let query = db
       .select()
       .from(orders)
@@ -314,7 +314,9 @@ export class DatabaseStorage implements IStorage {
     // Fetch related data for each order
     const ordersWithDetails = await Promise.all(
       ordersResult.map(async (order) => {
-        const [vendor] = await db.select().from(vendors).where(eq(vendors.id, order.vendorId));
+        const vendor = order.vendorId 
+          ? (await db.select().from(vendors).where(eq(vendors.id, order.vendorId)))[0] || null
+          : null;
         const lines = await db
           .select({
             id: orderLines.id,

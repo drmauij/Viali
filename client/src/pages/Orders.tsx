@@ -22,7 +22,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 interface OrderWithDetails extends Order {
-  vendor: Vendor;
+  vendor: Vendor | null;
   orderLines: (OrderLine & { item: Item & { location: Location; stockLevel?: StockLevel } })[];
 }
 
@@ -315,12 +315,16 @@ export default function Orders() {
     doc.text(`Location: ${getOrderLocation(order)}`, 20, 58);
     
     // Vendor details
-    doc.text(`Vendor: ${order.vendor.name}`, 120, 40);
-    if (order.vendor.contact) {
-      doc.text(`Contact: ${order.vendor.contact}`, 120, 46);
-    }
-    if (order.vendor.leadTime) {
-      doc.text(`Lead Time: ${order.vendor.leadTime} days`, 120, 52);
+    if (order.vendor) {
+      doc.text(`Vendor: ${order.vendor.name}`, 120, 40);
+      if (order.vendor.contact) {
+        doc.text(`Contact: ${order.vendor.contact}`, 120, 46);
+      }
+      if (order.vendor.leadTime) {
+        doc.text(`Lead Time: ${order.vendor.leadTime} days`, 120, 52);
+      }
+    } else {
+      doc.text(`Vendor: Not Specified`, 120, 40);
     }
     
     // Items table
