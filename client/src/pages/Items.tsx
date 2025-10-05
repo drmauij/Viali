@@ -899,27 +899,6 @@ export default function Items() {
                           data-testid={`bulk-edit-name-${item.id}`}
                         />
                       </div>
-                      <div>
-                        <Label className="text-xs">Unit Type</Label>
-                        <Select
-                          value={bulkEditItems[item.id]?.unit !== undefined ? bulkEditItems[item.id].unit : item.unit}
-                          onValueChange={(value) => {
-                            setBulkEditItems(prev => ({
-                              ...prev,
-                              [item.id]: { ...prev[item.id], unit: value }
-                            }));
-                          }}
-                        >
-                          <SelectTrigger data-testid={`bulk-edit-unit-${item.id}`} onClick={(e) => e.stopPropagation()}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pack">Pack</SelectItem>
-                            <SelectItem value="vial">Vial</SelectItem>
-                            <SelectItem value="single item">Single Item</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
                     </div>
                   ) : (
                     <>
