@@ -441,6 +441,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk item update (must be before :itemId route to avoid conflict)
+  app.patch('/api/items/bulk-update', isAuthenticated, async (req: any, res) => {
+    try {
+      const { items: bulkItems } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!bulkItems || !Array.isArray(bulkItems) || bulkItems.length === 0) {
+        return res.status(400).json({ message: "Items array is required" });
+      }
+
+      const updatedItems = [];
+      for (const bulkItem of bulkItems) {
+        if (!bulkItem.id) {
+          continue;
+        }
+
+        // Get the item to verify access
+        const item = await storage.getItem(bulkItem.id);
+        if (!item) {
+          continue;
+        }
+        
+        // Verify user has access to this item's location
+        const locationId = await getUserLocationForHospital(userId, item.hospitalId);
+        if (!locationId || locationId !== item.locationId) {
+          continue;
+        }
+
+        const updates: any = {};
+        if (bulkItem.minThreshold !== undefined) updates.minThreshold = bulkItem.minThreshold;
+        if (bulkItem.maxThreshold !== undefined) updates.maxThreshold = bulkItem.maxThreshold;
+        if (bulkItem.name !== undefined) updates.name = bulkItem.name;
+        if (bulkItem.unit !== undefined) updates.unit = bulkItem.unit;
+        if (bulkItem.packSize !== undefined) updates.packSize = bulkItem.packSize;
+        if (bulkItem.controlled !== undefined) updates.controlled = bulkItem.controlled;
+        
+        // Validate controlled single items have pack size
+        const finalControlled = bulkItem.controlled !== undefined ? bulkItem.controlled : item.controlled;
+        const finalUnit = bulkItem.unit !== undefined ? bulkItem.unit : item.unit;
+        const finalPackSize = bulkItem.packSize !== undefined ? bulkItem.packSize : item.packSize;
+        
+        if (finalControlled && finalUnit === "single item") {
+          if (!finalPackSize || finalPackSize <= 0) {
+            return res.status(400).json({ 
+              message: `Item "${item.name}" is controlled with 'single item' unit type and must have a pack size greater than 0` 
+            });
+          }
+        }
+        
+        // Update item fields
+        if (Object.keys(updates).length > 0) {
+          await storage.updateItem(bulkItem.id, updates);
+        }
+        
+        // Update stock level if provided
+        if (bulkItem.actualStock !== undefined) {
+          await storage.updateStockLevel(bulkItem.id, item.locationId, bulkItem.actualStock);
+        }
+        
+        updatedItems.push({ id: bulkItem.id, ...updates });
+      }
+      
+      res.json({ items: updatedItems });
+    } catch (error: any) {
+      console.error("Error updating bulk items:", error);
+      res.status(500).json({ message: error.message || "Failed to update items" });
+    }
+  });
+
   app.patch('/api/items/:itemId', isAuthenticated, async (req: any, res) => {
     try {
       const { itemId } = req.params;
@@ -640,75 +709,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error creating bulk items:", error);
       res.status(500).json({ message: error.message || "Failed to create items" });
-    }
-  });
-
-  // Bulk item update
-  app.patch('/api/items/bulk-update', isAuthenticated, async (req: any, res) => {
-    try {
-      const { items: bulkItems } = req.body;
-      const userId = req.user.claims.sub;
-      
-      if (!bulkItems || !Array.isArray(bulkItems) || bulkItems.length === 0) {
-        return res.status(400).json({ message: "Items array is required" });
-      }
-
-      const updatedItems = [];
-      for (const bulkItem of bulkItems) {
-        if (!bulkItem.id) {
-          continue;
-        }
-
-        // Get the item to verify access
-        const item = await storage.getItem(bulkItem.id);
-        if (!item) {
-          continue;
-        }
-        
-        // Verify user has access to this item's location
-        const locationId = await getUserLocationForHospital(userId, item.hospitalId);
-        if (!locationId || locationId !== item.locationId) {
-          continue;
-        }
-
-        const updates: any = {};
-        if (bulkItem.minThreshold !== undefined) updates.minThreshold = bulkItem.minThreshold;
-        if (bulkItem.maxThreshold !== undefined) updates.maxThreshold = bulkItem.maxThreshold;
-        if (bulkItem.name !== undefined) updates.name = bulkItem.name;
-        if (bulkItem.unit !== undefined) updates.unit = bulkItem.unit;
-        if (bulkItem.packSize !== undefined) updates.packSize = bulkItem.packSize;
-        if (bulkItem.controlled !== undefined) updates.controlled = bulkItem.controlled;
-        
-        // Validate controlled single items have pack size
-        const finalControlled = bulkItem.controlled !== undefined ? bulkItem.controlled : item.controlled;
-        const finalUnit = bulkItem.unit !== undefined ? bulkItem.unit : item.unit;
-        const finalPackSize = bulkItem.packSize !== undefined ? bulkItem.packSize : item.packSize;
-        
-        if (finalControlled && finalUnit === "single item") {
-          if (!finalPackSize || finalPackSize <= 0) {
-            return res.status(400).json({ 
-              message: `Item "${item.name}" is controlled with 'single item' unit type and must have a pack size greater than 0` 
-            });
-          }
-        }
-        
-        // Update item fields
-        if (Object.keys(updates).length > 0) {
-          await storage.updateItem(bulkItem.id, updates);
-        }
-        
-        // Update stock level if provided
-        if (bulkItem.actualStock !== undefined) {
-          await storage.updateStockLevel(bulkItem.id, item.locationId, bulkItem.actualStock);
-        }
-        
-        updatedItems.push({ id: bulkItem.id, ...updates });
-      }
-      
-      res.json({ items: updatedItems });
-    } catch (error: any) {
-      console.error("Error updating bulk items:", error);
-      res.status(500).json({ message: error.message || "Failed to update items" });
     }
   });
 
