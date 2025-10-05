@@ -167,7 +167,7 @@ export default function ControlledLog() {
     setSelectedDrugs(controlledItems.map(item => ({
       itemId: item.id,
       name: item.name,
-      onHand: item.stockLevel?.onHand || 0,
+      onHand: item.stockLevel?.qtyOnHand || 0,
       qty: 0,
       selected: false,
     })));
@@ -181,7 +181,7 @@ export default function ControlledLog() {
     setRoutineCheckItems(controlledItems.map(item => ({
       itemId: item.id,
       name: item.name,
-      expectedQty: item.stockLevel?.onHand || 0,
+      expectedQty: item.stockLevel?.qtyOnHand || 0,
       actualQty: 0,
       match: false,
     })));
@@ -193,7 +193,7 @@ export default function ControlledLog() {
     setSelectedDrugs(controlledItems.map(item => ({
       itemId: item.id,
       name: item.name,
-      onHand: item.stockLevel?.onHand || 0,
+      onHand: item.stockLevel?.qtyOnHand || 0,
       qty: 0,
       selected: false,
     })));
@@ -204,7 +204,7 @@ export default function ControlledLog() {
     setRoutineCheckItems(controlledItems.map(item => ({
       itemId: item.id,
       name: item.name,
-      expectedQty: item.stockLevel?.onHand || 0,
+      expectedQty: item.stockLevel?.qtyOnHand || 0,
       actualQty: 0,
       match: false,
     })));
