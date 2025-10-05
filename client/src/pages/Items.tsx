@@ -698,38 +698,39 @@ export default function Items() {
   }
 
   return (
-    <div className="p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Items</h1>
-        <div className="flex gap-2">
-          {isBulkEditMode ? (
-            <>
-              <Button variant="outline" size="sm" onClick={() => { setIsBulkEditMode(false); setBulkEditItems({}); }} data-testid="cancel-bulk-edit">
-                Cancel
-              </Button>
-              <Button size="sm" onClick={handleBulkEditSave} disabled={bulkUpdateMutation.isPending} data-testid="save-bulk-edit">
-                <i className="fas fa-save mr-2"></i>
-                Save All
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button variant="outline" size="sm" onClick={() => { setIsBulkEditMode(true); setBulkEditItems({}); }} data-testid="bulk-edit-button">
-                <i className="fas fa-edit mr-2"></i>
-                Bulk Edit
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setBulkImportOpen(true)} data-testid="bulk-import-button">
-                <i className="fas fa-upload mr-2"></i>
-                Bulk Import
-              </Button>
-              <Button size="sm" onClick={() => setAddDialogOpen(true)} data-testid="add-item-button">
-                <i className="fas fa-plus mr-2"></i>
-                Add Item
-              </Button>
-            </>
-          )}
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-2xl font-bold text-foreground">Items</h1>
+          <div className="flex gap-2">
+            {isBulkEditMode ? (
+              <>
+                <Button variant="outline" size="sm" onClick={() => { setIsBulkEditMode(false); setBulkEditItems({}); }} data-testid="cancel-bulk-edit" className="flex-1 sm:flex-initial">
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={handleBulkEditSave} disabled={bulkUpdateMutation.isPending} data-testid="save-bulk-edit" className="flex-1 sm:flex-initial">
+                  <i className="fas fa-save mr-2"></i>
+                  Save All
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" size="sm" onClick={() => { setIsBulkEditMode(true); setBulkEditItems({}); }} data-testid="bulk-edit-button" className="flex-1 sm:flex-initial">
+                  <i className="fas fa-edit mr-2"></i>
+                  Bulk Edit
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setBulkImportOpen(true)} data-testid="bulk-import-button" className="flex-1 sm:flex-initial">
+                  <i className="fas fa-upload mr-2"></i>
+                  Bulk Import
+                </Button>
+                <Button size="sm" onClick={() => setAddDialogOpen(true)} data-testid="add-item-button" className="flex-1 sm:flex-initial">
+                  <i className="fas fa-plus mr-2"></i>
+                  Add Item
+                </Button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
 
       {/* Search */}
       <div className="relative">
@@ -1451,6 +1452,7 @@ export default function Items() {
           )}
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }
