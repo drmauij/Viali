@@ -59,7 +59,7 @@ export default function Orders() {
   const [newOrderDialogOpen, setNewOrderDialogOpen] = useState(false);
   const [editOrderDialogOpen, setEditOrderDialogOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrderWithDetails | null>(null);
-  const [selectedVendorId, setSelectedVendorId] = useState<string>("");
+  const [selectedVendorId, setSelectedVendorId] = useState<string | null>(null);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState<number>(1);
   const [lineToRemove, setLineToRemove] = useState<string | null>(null);
@@ -89,7 +89,7 @@ export default function Orders() {
   }, [orders, selectedOrder?.id]);
 
   const createOrderMutation = useMutation({
-    mutationFn: async (data: { vendorId: string; orderLines: { itemId: string; qty: number; packSize: number }[] }) => {
+    mutationFn: async (data: { vendorId: string | null; orderLines: { itemId: string; qty: number; packSize: number }[] }) => {
       const response = await apiRequest("POST", "/api/orders", {
         hospitalId: activeHospital?.id,
         vendorId: data.vendorId,
@@ -367,15 +367,6 @@ export default function Orders() {
   };
 
   const handleNewOrder = () => {
-    if (vendors.length === 0) {
-      toast({
-        title: "No Vendor",
-        description: "Please add a vendor first before creating orders",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     if (itemsNeedingOrder.length === 0) {
       toast({
         title: "No Items to Order",
@@ -384,20 +375,11 @@ export default function Orders() {
       return;
     }
 
-    setSelectedVendorId(vendors[0].id);
+    setSelectedVendorId(vendors.length > 0 ? vendors[0].id : null);
     setNewOrderDialogOpen(true);
   };
 
   const handleCreateOrder = () => {
-    if (!selectedVendorId) {
-      toast({
-        title: "No Vendor Selected",
-        description: "Please select a vendor",
-        variant: "destructive",
-      });
-      return;
-    }
-
     const orderLines = itemsNeedingOrder.map(item => {
       const packSize = item.packSize || 1;
       const normalizedUnit = normalizeUnit(item.unit);
