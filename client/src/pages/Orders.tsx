@@ -30,7 +30,7 @@ interface ItemWithStock extends Item {
   stockLevel?: StockLevel;
 }
 
-type OrderStatus = "draft" | "sent" | "receiving" | "closed";
+type OrderStatus = "draft" | "sent" | "received";
 type UnitType = "pack" | "single item";
 
 const normalizeUnit = (unit: string): UnitType => {
@@ -247,8 +247,7 @@ export default function Orders() {
     const grouped: Record<OrderStatus, OrderWithDetails[]> = {
       draft: [],
       sent: [],
-      receiving: [],
-      closed: [],
+      received: [],
     };
 
     orders.forEach((order) => {
@@ -276,9 +275,7 @@ export default function Orders() {
         return "chip-muted";
       case "sent":
         return "chip-warning";
-      case "receiving":
-        return "chip-primary";
-      case "closed":
+      case "received":
         return "chip-success";
       default:
         return "chip-muted";
@@ -586,23 +583,26 @@ export default function Orders() {
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        className="flex-1" 
                         onClick={(e) => {
                           e.stopPropagation();
                           downloadOrderPDF(order);
                         }}
                         data-testid={`pdf-order-${order.id}`}
                       >
-                        <i className="fas fa-file-pdf mr-1"></i>
-                        PDF
+                        <i className="fas fa-file-pdf"></i>
                       </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={(e) => e.stopPropagation()}
-                        data-testid={`email-order-${order.id}`}
+                      <Button
+                        size="sm"
+                        className="flex-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStatusUpdate(order.id, "received");
+                        }}
+                        disabled={updateOrderStatusMutation.isPending}
+                        data-testid={`mark-received-${order.id}`}
                       >
-                        <i className="fas fa-envelope"></i>
+                        <i className="fas fa-check mr-1"></i>
+                        Mark as Received
                       </Button>
                     </div>
                   </div>
@@ -611,118 +611,41 @@ export default function Orders() {
             </div>
           </div>
 
-          {/* Receiving Column */}
+          {/* Received Column */}
           <div className="kanban-column">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-foreground">Receiving</h3>
+              <h3 className="font-semibold text-foreground">Received</h3>
               <span className="w-6 h-6 rounded-full bg-muted text-foreground text-xs flex items-center justify-center font-semibold">
-                {ordersByStatus.receiving.length}
+                {ordersByStatus.received.length}
               </span>
             </div>
 
             <div className="space-y-3">
-              {ordersByStatus.receiving.length === 0 ? (
+              {ordersByStatus.received.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground text-sm">
-                  No orders receiving
+                  No received orders
                 </div>
               ) : (
-                ordersByStatus.receiving.map((order) => {
-                  const totalItems = order.orderLines.length;
-                  const receivedItems = Math.floor(totalItems * 0.6); // Mock received progress
-                  const progressPercentage = (receivedItems / totalItems) * 100;
-
-                  return (
-                    <div 
-                      key={order.id} 
-                      className="kanban-card cursor-pointer" 
-                      onClick={() => handleEditOrder(order)}
-                      data-testid={`receiving-order-${order.id}`}
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
-                        </div>
-                        <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
-                          Receiving
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        {totalItems} items • {formatCurrency(order.totalAmount || 0)}
-                      </p>
-                      <div className="progress-bar mb-2">
-                        <div className="progress-fill" style={{ width: `${progressPercentage}%` }}></div>
-                      </div>
-                      <p className="text-xs text-muted-foreground mb-3">
-                        {receivedItems} of {totalItems} items received
-                      </p>
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            downloadOrderPDF(order);
-                          }}
-                          data-testid={`pdf-order-${order.id}`}
-                        >
-                          <i className="fas fa-file-pdf"></i>
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="flex-1"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStatusUpdate(order.id, "closed");
-                          }}
-                          disabled={updateOrderStatusMutation.isPending}
-                          data-testid={`continue-receiving-${order.id}`}
-                        >
-                          <i className="fas fa-truck-loading mr-2"></i>
-                          Continue Receiving
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-          {/* Closed Column */}
-          <div className="kanban-column">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-foreground">Closed</h3>
-              <span className="w-6 h-6 rounded-full bg-muted text-foreground text-xs flex items-center justify-center font-semibold">
-                {ordersByStatus.closed.length}
-              </span>
-            </div>
-
-            <div className="space-y-3">
-              {ordersByStatus.closed.length === 0 ? (
-                <div className="text-center py-6 text-muted-foreground text-sm">
-                  No closed orders
-                </div>
-              ) : (
-                ordersByStatus.closed.map((order) => (
+                ordersByStatus.received.map((order) => (
                   <div 
                     key={order.id} 
                     className="kanban-card cursor-pointer" 
                     onClick={() => handleEditOrder(order)}
-                    data-testid={`closed-order-${order.id}`}
+                    data-testid={`received-order-${order.id}`}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
                       </div>
                       <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
-                        Closed
+                        Received
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground mb-2">
                       {order.orderLines.length} items • {formatCurrency(order.totalAmount || 0)}
                     </p>
                     <p className="text-xs text-muted-foreground mb-3">
-                      Completed {formatDate((order.updatedAt || order.createdAt) as any)}
+                      Received {formatDate((order.updatedAt || order.createdAt) as any)}
                     </p>
                     <Button 
                       variant="outline" 
