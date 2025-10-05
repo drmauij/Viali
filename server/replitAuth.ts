@@ -57,13 +57,64 @@ function updateUserSession(
 async function upsertUser(
   claims: any,
 ) {
+  const userId = claims["sub"];
+  
   await storage.upsertUser({
-    id: claims["sub"],
+    id: userId,
     email: claims["email"],
     firstName: claims["first_name"],
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
   });
+
+  // Check if user has any hospitals assigned
+  const userHospitals = await storage.getUserHospitals(userId);
+  
+  // If user has no hospitals, create one and assign them as admin (like signup flow)
+  if (userHospitals.length === 0) {
+    const firstName = claims["first_name"] || "User";
+    const hospitalName = `${firstName}'s Hospital`;
+    
+    // Create hospital
+    const hospital = await storage.createHospital(hospitalName);
+
+    // Create 4 default locations
+    const anesthesyLocation = await storage.createLocation({
+      hospitalId: hospital.id,
+      name: "Anesthesy",
+      type: "anesthesy",
+      parentId: null,
+    });
+    
+    await storage.createLocation({
+      hospitalId: hospital.id,
+      name: "Operating Room (OR)",
+      type: "or",
+      parentId: null,
+    });
+    
+    await storage.createLocation({
+      hospitalId: hospital.id,
+      name: "Emergency Room (ER)",
+      type: "er",
+      parentId: null,
+    });
+    
+    await storage.createLocation({
+      hospitalId: hospital.id,
+      name: "Intensive Care Unit (ICU)",
+      type: "icu",
+      parentId: null,
+    });
+
+    // Assign user as admin to the first location (Anesthesy)
+    await storage.createUserHospitalRole({
+      userId: userId,
+      hospitalId: hospital.id,
+      locationId: anesthesyLocation.id,
+      role: "admin",
+    });
+  }
 }
 
 export async function setupAuth(app: Express) {
