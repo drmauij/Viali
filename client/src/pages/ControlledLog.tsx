@@ -49,6 +49,7 @@ export default function ControlledLog() {
   const [showAdministrationModal, setShowAdministrationModal] = useState(false);
   const [showRoutineCheckModal, setShowRoutineCheckModal] = useState(false);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
+  const [showVerifySignaturePad, setShowVerifySignaturePad] = useState(false);
   const [patientMethod, setPatientMethod] = useState<PatientMethod>("text");
   
   const [selectedDrugs, setSelectedDrugs] = useState<DrugSelection[]>([]);
@@ -59,6 +60,9 @@ export default function ControlledLog() {
   const [routineCheckItems, setRoutineCheckItems] = useState<RoutineCheckItem[]>([]);
   const [checkNotes, setCheckNotes] = useState("");
   const [checkSignature, setCheckSignature] = useState("");
+  
+  const [activityToVerify, setActivityToVerify] = useState<string | null>(null);
+  const [verifySignature, setVerifySignature] = useState("");
 
   const { data: controlledItems = [] } = useQuery<Item[]>({
     queryKey: ["/api/items", activeHospital?.id, { controlled: true }],
@@ -158,6 +162,43 @@ export default function ControlledLog() {
       toast({
         title: "Check Failed",
         description: "Failed to record routine check.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const verifyMutation = useMutation({
+    mutationFn: async (data: { activityId: string; signature: string }) => {
+      const response = await apiRequest("POST", `/api/controlled/verify/${data.activityId}`, {
+        signature: data.signature,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/controlled/log"] });
+      toast({
+        title: "Verification Complete",
+        description: "Controlled substance administration has been verified.",
+      });
+      setActivityToVerify(null);
+      setVerifySignature("");
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      
+      toast({
+        title: "Verification Failed",
+        description: "Failed to verify controlled substance administration.",
         variant: "destructive",
       });
     },
@@ -470,7 +511,15 @@ export default function ControlledLog() {
                   <div className="flex gap-2 mt-3">
                     {!activity.controlledVerified ? (
                       <>
-                        <Button size="sm" className="flex-1" data-testid={`sign-verify-${activity.id}`}>
+                        <Button 
+                          size="sm" 
+                          className="flex-1" 
+                          onClick={() => {
+                            setActivityToVerify(activity.id);
+                            setShowVerifySignaturePad(true);
+                          }}
+                          data-testid={`sign-verify-${activity.id}`}
+                        >
                           Sign & Verify
                         </Button>
                         <Button variant="outline" size="sm" data-testid={`view-activity-${activity.id}`}>
@@ -902,6 +951,25 @@ export default function ControlledLog() {
           }
         }}
         title="Your E-Signature"
+      />
+
+      {/* Verification Signature Pad */}
+      <SignaturePad
+        isOpen={showVerifySignaturePad}
+        onClose={() => {
+          setShowVerifySignaturePad(false);
+          setActivityToVerify(null);
+        }}
+        onSave={(sig) => {
+          if (activityToVerify) {
+            verifyMutation.mutate({
+              activityId: activityToVerify,
+              signature: sig,
+            });
+          }
+          setShowVerifySignaturePad(false);
+        }}
+        title="Verify with Second Signature"
       />
     </div>
   );

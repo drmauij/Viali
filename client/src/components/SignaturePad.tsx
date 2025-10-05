@@ -22,8 +22,12 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
         canvas.height = canvas.offsetHeight * 2;
         ctx.scale(2, 2);
         
-        // Set drawing styles
-        ctx.strokeStyle = "hsl(var(--foreground))";
+        // Get foreground color from computed styles
+        const foregroundColor = getComputedStyle(document.documentElement)
+          .getPropertyValue('--foreground').trim();
+        
+        // Set drawing styles with proper color
+        ctx.strokeStyle = foregroundColor ? `hsl(${foregroundColor})` : '#ffffff';
         ctx.lineWidth = 2;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";

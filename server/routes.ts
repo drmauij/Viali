@@ -546,7 +546,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Patient ID is required for controlled substances" });
       }
       
-      // Create activity for each dispensed item
+      // Create activity for each dispensed item and update stock
       const activities = await Promise.all(
         items.map(async (item: any) => {
           // Get the item to find its hospital and location
@@ -565,6 +565,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (itemData.locationId !== locationId) {
             throw new Error(`Access denied to item ${item.itemId}'s location`);
           }
+          
+          // Get current stock level
+          const currentStock = await storage.getStockLevel(item.itemId, locationId);
+          const currentQty = currentStock?.qtyOnHand || 0;
+          const newQty = Math.max(0, currentQty - item.qty);
+          
+          // Update stock level
+          await storage.updateStockLevel(item.itemId, locationId, newQty);
           
           return await storage.createActivity({
             userId,
@@ -665,6 +673,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching controlled checks:", error);
       res.status(500).json({ message: "Failed to fetch controlled checks" });
+    }
+  });
+
+  app.post('/api/controlled/verify/:activityId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { activityId } = req.params;
+      const { signature } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!signature) {
+        return res.status(400).json({ message: "Signature is required" });
+      }
+      
+      // Get the activity to verify access
+      const activityData = await storage.getActivityById(activityId);
+      if (!activityData) {
+        return res.status(404).json({ message: "Activity not found" });
+      }
+      
+      // Get the item to find hospital and location
+      const item = await storage.getItem(activityData.itemId!);
+      if (!item) {
+        return res.status(404).json({ message: "Item not found" });
+      }
+      
+      // Verify user has access to this hospital/location
+      const userLocationId = await getUserLocationForHospital(userId, item.hospitalId);
+      if (!userLocationId || userLocationId !== item.locationId) {
+        return res.status(403).json({ message: "Access denied to this activity" });
+      }
+      
+      const activity = await storage.verifyControlledActivity(activityId, signature, userId);
+      res.json(activity);
+    } catch (error: any) {
+      console.error("Error verifying controlled activity:", error);
+      
+      if (error.message?.includes("Access denied") || error.message?.includes("not found")) {
+        return res.status(403).json({ message: error.message });
+      }
+      
+      res.status(500).json({ message: "Failed to verify controlled activity" });
     }
   });
 

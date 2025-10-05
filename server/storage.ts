@@ -473,6 +473,40 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async getActivityById(activityId: string): Promise<Activity | undefined> {
+    const [activity] = await db
+      .select()
+      .from(activities)
+      .where(eq(activities.id, activityId));
+    
+    return activity;
+  }
+
+  async verifyControlledActivity(activityId: string, signature: string, verifiedBy: string): Promise<Activity> {
+    const [activity] = await db
+      .select()
+      .from(activities)
+      .where(eq(activities.id, activityId));
+    
+    if (!activity) {
+      throw new Error("Activity not found");
+    }
+
+    const currentSignatures = (activity.signatures as string[]) || [];
+    const updatedSignatures = [...currentSignatures, signature];
+
+    const [updated] = await db
+      .update(activities)
+      .set({
+        signatures: updatedSignatures,
+        controlledVerified: true,
+      })
+      .where(eq(activities.id, activityId))
+      .returning();
+
+    return updated;
+  }
+
   async getActivities(filters: {
     hospitalId?: string;
     locationId?: string;
