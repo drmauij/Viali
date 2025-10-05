@@ -25,7 +25,7 @@ export default function BottomNav() {
     return (user as any)?.hospitals?.[0];
   }, [user]);
 
-  const isAdmin = activeHospital?.role === "AD";
+  const isAdmin = activeHospital?.role === "admin";
 
   const navItems = useMemo(() => {
     return baseNavItems.filter(item => !item.adminOnly || isAdmin);

@@ -70,11 +70,24 @@ export default function Items() {
   // Bulk edit state
   const [isBulkEditMode, setIsBulkEditMode] = useState(false);
   const [bulkEditItems, setBulkEditItems] = useState<Record<string, any>>({});
+  
+  // Onboarding state
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const { data: items = [], isLoading } = useQuery<ItemWithStock[]>({
     queryKey: ["/api/items", activeHospital?.id],
     enabled: !!activeHospital?.id,
   });
+  
+  // Show onboarding when there are no items
+  useEffect(() => {
+    if (!isLoading && items.length === 0 && activeHospital?.id) {
+      const hasSeenOnboarding = localStorage.getItem(`onboarding-seen-${activeHospital.id}`);
+      if (!hasSeenOnboarding) {
+        setShowOnboarding(true);
+      }
+    }
+  }, [items.length, isLoading, activeHospital?.id]);
 
   const { data: vendors = [] } = useQuery<Vendor[]>({
     queryKey: ["/api/vendors", activeHospital?.id],
@@ -683,6 +696,18 @@ export default function Items() {
       return { color: "text-warning", status: "Below Min" };
     }
     return { color: "text-success", status: "Good" };
+  };
+  
+  const handleDismissOnboarding = () => {
+    if (activeHospital?.id) {
+      localStorage.setItem(`onboarding-seen-${activeHospital.id}`, 'true');
+    }
+    setShowOnboarding(false);
+  };
+  
+  const handleStartBulkImport = () => {
+    handleDismissOnboarding();
+    setBulkImportOpen(true);
   };
 
   if (!activeHospital) {
@@ -1450,6 +1475,61 @@ export default function Items() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Onboarding Dialog */}
+      <Dialog open={showOnboarding} onOpenChange={setShowOnboarding}>
+        <DialogContent data-testid="onboarding-dialog">
+          <DialogHeader>
+            <DialogTitle>Welcome to Viali Inventory!</DialogTitle>
+            <DialogDescription>
+              Get started by adding your inventory items
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-muted/50 border border-border rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 text-primary rounded-full p-2 mt-1">
+                  <i className="fas fa-upload text-lg"></i>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-foreground mb-1">Bulk Import (Recommended)</h3>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Take photos of your drug vials and boxes, and our AI will automatically extract names, dosages, and barcodes. Perfect for setting up your inventory quickly!
+                  </p>
+                  <Button onClick={handleStartBulkImport} className="w-full" data-testid="onboarding-bulk-import">
+                    <i className="fas fa-upload mr-2"></i>
+                    Start Bulk Import
+                  </Button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-muted/50 border border-border rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <div className="bg-muted-foreground/10 text-muted-foreground rounded-full p-2 mt-1">
+                  <i className="fas fa-plus text-lg"></i>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-foreground mb-1">Add Items Manually</h3>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Prefer to add items one at a time? You can manually create items with all the details you need.
+                  </p>
+                  <Button variant="outline" onClick={() => { handleDismissOnboarding(); setAddDialogOpen(true); }} className="w-full" data-testid="onboarding-add-item">
+                    <i className="fas fa-plus mr-2"></i>
+                    Add First Item
+                  </Button>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end pt-2">
+              <Button variant="ghost" onClick={handleDismissOnboarding} data-testid="onboarding-dismiss">
+                I'll do this later
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
       </div>
