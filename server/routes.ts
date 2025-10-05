@@ -2,9 +2,9 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage, db } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertItemSchema, insertActivitySchema, orderLines, items, stockLevels } from "@shared/schema";
+import { insertItemSchema, insertActivitySchema, orderLines, items, stockLevels, orders } from "@shared/schema";
 import { z } from "zod";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 
 async function getUserLocationForHospital(userId: string, hospitalId: string): Promise<string | null> {
   const hospitals = await storage.getUserHospitals(userId);
@@ -414,6 +414,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching orders:", error);
       res.status(500).json({ message: "Failed to fetch orders" });
+    }
+  });
+
+  app.get('/api/orders/open-items/:hospitalId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const userId = req.user.claims.sub;
+      
+      // Verify user has access to this hospital
+      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      if (!locationId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Get items in draft or sent orders
+      const results = await db
+        .select({
+          itemId: orderLines.itemId,
+          totalQty: sql<number>`CAST(SUM(${orderLines.qty}) AS INTEGER)`,
+        })
+        .from(orders)
+        .innerJoin(orderLines, eq(orders.id, orderLines.orderId))
+        .where(
+          and(
+            eq(orders.hospitalId, hospitalId),
+            inArray(orders.status, ['draft', 'sent'])
+          )
+        )
+        .groupBy(orderLines.itemId);
+      
+      // Convert to map for easier frontend lookup
+      const itemsMap: Record<string, { totalQty: number }> = {};
+      for (const result of results) {
+        itemsMap[result.itemId] = { totalQty: result.totalQty };
+      }
+      
+      res.json(itemsMap);
+    } catch (error) {
+      console.error("Error fetching open order items:", error);
+      res.status(500).json({ message: "Failed to fetch open order items" });
     }
   });
 
