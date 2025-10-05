@@ -48,6 +48,7 @@ export const hospitals = pgTable("hospitals", {
   timezone: varchar("timezone").default("UTC"),
   googleAuthEnabled: boolean("google_auth_enabled").default(true),
   localAuthEnabled: boolean("local_auth_enabled").default(true),
+  licenseType: varchar("license_type", { enum: ["free", "basic"] }).default("free").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
