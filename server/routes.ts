@@ -883,13 +883,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { hospitalId, vendorId, orderLines: lines } = req.body;
       const userId = req.user.claims.sub;
       
-      if (!hospitalId || !vendorId) {
-        return res.status(400).json({ message: "Hospital ID and Vendor ID are required" });
+      if (!hospitalId) {
+        return res.status(400).json({ message: "Hospital ID is required" });
       }
 
       const order = await storage.createOrder({
         hospitalId,
-        vendorId,
+        vendorId: vendorId || null,
         status: 'draft',
         createdBy: userId,
         totalAmount: '0',
@@ -913,11 +913,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { hospitalId, itemId, vendorId, qty, packSize } = req.body;
       const userId = req.user.claims.sub;
       
-      if (!hospitalId || !itemId || !vendorId) {
-        return res.status(400).json({ message: "Hospital ID, Item ID, and Vendor ID are required" });
+      if (!hospitalId || !itemId) {
+        return res.status(400).json({ message: "Hospital ID and Item ID are required" });
       }
 
-      const order = await storage.findOrCreateDraftOrder(hospitalId, vendorId, userId);
+      const order = await storage.findOrCreateDraftOrder(hospitalId, vendorId || null, userId);
       const orderLine = await storage.addItemToOrder(order.id, itemId, qty || 1, packSize || 1);
 
       res.json({ order, orderLine });
