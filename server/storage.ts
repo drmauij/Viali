@@ -68,7 +68,7 @@ export interface IStorage {
   getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor; orderLines: (OrderLine & { item: Item & { location: Location } })[] })[]>;
   createOrder(order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order>;
-  findOrCreateDraftOrder(hospitalId: string, vendorId: string, createdBy: string): Promise<Order>;
+  findOrCreateDraftOrder(hospitalId: string, vendorId: string | null, createdBy: string): Promise<Order>;
   addItemToOrder(orderId: string, itemId: string, qty: number, packSize: number): Promise<OrderLine>;
   updateOrderLine(lineId: string, qty: number): Promise<OrderLine>;
   removeOrderLine(lineId: string): Promise<void>;
@@ -372,17 +372,23 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async findOrCreateDraftOrder(hospitalId: string, vendorId: string, createdBy: string): Promise<Order> {
-    const [existingDraft] = await db
-      .select()
-      .from(orders)
-      .where(
-        and(
+  async findOrCreateDraftOrder(hospitalId: string, vendorId: string | null, createdBy: string): Promise<Order> {
+    const whereConditions = vendorId 
+      ? and(
           eq(orders.hospitalId, hospitalId),
           eq(orders.vendorId, vendorId),
           eq(orders.status, 'draft')
         )
-      )
+      : and(
+          eq(orders.hospitalId, hospitalId),
+          sql`${orders.vendorId} IS NULL`,
+          eq(orders.status, 'draft')
+        );
+
+    const [existingDraft] = await db
+      .select()
+      .from(orders)
+      .where(whereConditions)
       .limit(1);
 
     if (existingDraft) {
