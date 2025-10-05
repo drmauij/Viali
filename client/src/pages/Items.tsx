@@ -110,10 +110,15 @@ export default function Items() {
 
   const createItemMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", `/api/items`, {
-        ...data,
-        hospitalId: activeHospital?.id,
-        locationId: activeHospital?.locationId,
+      const response = await fetch("/api/items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...data,
+          hospitalId: activeHospital?.id,
+          locationId: activeHospital?.locationId,
+        }),
+        credentials: "include",
       });
       
       if (!response.ok) {
@@ -307,9 +312,14 @@ export default function Items() {
 
   const bulkCreateMutation = useMutation({
     mutationFn: async (items: any[]) => {
-      const response = await apiRequest("POST", "/api/items/bulk", {
-        items,
-        hospitalId: activeHospital?.id,
+      const response = await fetch("/api/items/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items,
+          hospitalId: activeHospital?.id,
+        }),
+        credentials: "include",
       });
       
       if (!response.ok) {
