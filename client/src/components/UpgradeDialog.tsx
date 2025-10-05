@@ -44,15 +44,17 @@ export default function UpgradeDialog({
             <br />
             <br />
             {getUpgradeMessage()}
+            <br />
+            <br />
+            <span className="text-muted-foreground italic">
+              Upgrade payment integration coming soon
+            </span>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel data-testid="button-upgrade-cancel">
-            Maybe Later
+            OK
           </AlertDialogCancel>
-          <AlertDialogAction data-testid="button-upgrade-confirm">
-            Contact Sales
-          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

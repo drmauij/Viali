@@ -125,14 +125,15 @@ export default function Items() {
             licenseType: errorData.licenseType,
           });
           setUpgradeDialogOpen(true);
-          throw new Error("LICENSE_LIMIT_REACHED");
+          return null;
         }
         throw new Error(errorData.message || "Failed to create item");
       }
       
       return await response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (!data) return;
       queryClient.invalidateQueries({ queryKey: ["/api/items"] });
       resetForm();
       setAddDialogOpen(false);
@@ -142,9 +143,6 @@ export default function Items() {
       });
     },
     onError: (error: any) => {
-      if (error.message === "LICENSE_LIMIT_REACHED") {
-        return;
-      }
       toast({
         title: "Error",
         description: error.message || "Failed to create item",
@@ -323,14 +321,15 @@ export default function Items() {
             licenseType: errorData.licenseType,
           });
           setUpgradeDialogOpen(true);
-          throw new Error("LICENSE_LIMIT_REACHED");
+          return null;
         }
         throw new Error(errorData.message || "Failed to import items");
       }
       
       return await response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (!data) return;
       queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id] });
       setBulkImportOpen(false);
       setBulkImages([]);
@@ -341,9 +340,6 @@ export default function Items() {
       });
     },
     onError: (error: any) => {
-      if (error.message === "LICENSE_LIMIT_REACHED") {
-        return;
-      }
       toast({
         title: "Error",
         description: error.message || "Failed to import items",
