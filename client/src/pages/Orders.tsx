@@ -31,14 +31,14 @@ interface ItemWithStock extends Item {
 }
 
 type OrderStatus = "draft" | "sent" | "received";
-type UnitType = "pack" | "single item";
+type UnitType = "pack" | "ampulle";
 
 const normalizeUnit = (unit: string): UnitType => {
   const normalized = unit.toLowerCase();
   if (normalized === "pack" || normalized === "box") {
     return "pack";
   }
-  return "single item";
+  return "ampulle";
 };
 
 const getStockStatus = (item: Item & { stockLevel?: StockLevel }) => {
@@ -330,7 +330,7 @@ export default function Orders() {
     // Items table
     const tableData = order.orderLines.map((line) => {
       const normalizedUnit = normalizeUnit(line.item.unit);
-      const isControlledSingleItem = line.item.controlled && normalizedUnit === "single item";
+      const isControlledSingleItem = line.item.controlled && normalizedUnit === "ampulle";
       const displayUnit = isControlledSingleItem ? "pack" : line.item.unit;
       
       return [
@@ -387,7 +387,7 @@ export default function Orders() {
     const orderLines = itemsNeedingOrder.map(item => {
       const packSize = item.packSize || 1;
       const normalizedUnit = normalizeUnit(item.unit);
-      const isControlledSingleItem = item.controlled && normalizedUnit === "single item";
+      const isControlledSingleItem = item.controlled && normalizedUnit === "ampulle";
       
       const qty = isControlledSingleItem 
         ? Math.ceil(item.qtyToOrder / packSize)
@@ -754,7 +754,7 @@ export default function Orders() {
                     const stockStatus = getStockStatus(line.item);
                     const currentQty = line.item.stockLevel?.qtyOnHand ?? 0;
                     const normalizedUnit = normalizeUnit(line.item.unit);
-                    const isControlledSingleItem = line.item.controlled && normalizedUnit === "single item";
+                    const isControlledSingleItem = line.item.controlled && normalizedUnit === "ampulle";
                     
                     const displayQty = line.qty;
                     const displayUnit = isControlledSingleItem ? "pack" : line.item.unit;

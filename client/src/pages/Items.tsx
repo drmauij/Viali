@@ -19,7 +19,7 @@ interface ItemWithStock extends Item {
   soonestExpiry?: Date;
 }
 
-type UnitType = "pack" | "single item";
+type UnitType = "pack" | "ampulle";
 
 export default function Items() {
   const { user } = useAuth();
@@ -223,12 +223,12 @@ export default function Items() {
     if (normalized === "pack" || normalized === "box") {
       return "pack";
     }
-    return "single item";
+    return "ampulle";
   };
 
   // Auto-focus pack size field in Add Item dialog when it becomes visible
   useEffect(() => {
-    if (selectedUnit === "single item" && formData.controlled && addDialogOpen) {
+    if (selectedUnit === "ampulle" && formData.controlled && addDialogOpen) {
       setTimeout(() => {
         packSizeInputRef.current?.focus();
       }, 100);
@@ -237,7 +237,7 @@ export default function Items() {
 
   // Auto-focus pack size field in Edit Item dialog when it becomes visible
   useEffect(() => {
-    if (selectedUnit === "single item" && editFormData.controlled && editDialogOpen) {
+    if (selectedUnit === "ampulle" && editFormData.controlled && editDialogOpen) {
       setTimeout(() => {
         editPackSizeInputRef.current?.focus();
       }, 100);
@@ -399,7 +399,7 @@ export default function Items() {
 
     const packSize = item.packSize || 1;
     const normalizedUnit = normalizeUnit(item.unit);
-    const isControlledSingleItem = item.controlled && normalizedUnit === "single item";
+    const isControlledSingleItem = item.controlled && normalizedUnit === "ampulle";
     const qty = isControlledSingleItem ? Math.ceil(qtyToOrder / packSize) : qtyToOrder;
 
     // Use item's vendor if available, or first available vendor, or null
@@ -424,7 +424,7 @@ export default function Items() {
       minThreshold: parseInt(editFormData.minThreshold) || 0,
       maxThreshold: parseInt(editFormData.maxThreshold) || 0,
       defaultOrderQty: parseInt(editFormData.defaultOrderQty) || 0,
-      packSize: (selectedUnit === "single item" && editFormData.controlled) ? parseInt(editFormData.packSize) || 1 : 1,
+      packSize: (selectedUnit === "ampulle" && editFormData.controlled) ? parseInt(editFormData.packSize) || 1 : 1,
       critical: editFormData.critical,
       controlled: editFormData.controlled,
     };
@@ -561,7 +561,7 @@ export default function Items() {
       minThreshold: parseInt(formData.minThreshold) || 0,
       maxThreshold: parseInt(formData.maxThreshold) || 0,
       defaultOrderQty: parseInt(formData.defaultOrderQty) || 0,
-      packSize: (selectedUnit === "single item" && formData.controlled) ? parseInt(formData.packSize) || 1 : 1,
+      packSize: (selectedUnit === "ampulle" && formData.controlled) ? parseInt(formData.packSize) || 1 : 1,
       critical: formData.critical,
       controlled: formData.controlled,
       initialStock: parseInt(formData.initialStock) || 0,
@@ -1097,21 +1097,21 @@ export default function Items() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSelectedUnit("single item")}
+                  onClick={() => setSelectedUnit("ampulle")}
                   className={`flex-1 py-3 px-2 rounded-lg border-2 transition-all ${
-                    selectedUnit === "single item" 
+                    selectedUnit === "ampulle" 
                       ? "border-primary bg-primary/10" 
                       : "border-border bg-background"
                   }`}
-                  data-testid="unit-single"
+                  data-testid="unit-ampulle"
                 >
                   <i className="fas fa-vial text-xl mb-1"></i>
-                  <div className="text-xs font-medium">Single Item</div>
+                  <div className="text-xs font-medium">Ampulle</div>
                 </button>
               </div>
             </div>
 
-            {selectedUnit === "single item" && formData.controlled && (
+            {selectedUnit === "ampulle" && formData.controlled && (
               <div>
                 <Label htmlFor="packSize">Pack Size (pieces per pack) *</Label>
                 <Input 
@@ -1265,21 +1265,21 @@ export default function Items() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSelectedUnit("single item")}
+                  onClick={() => setSelectedUnit("ampulle")}
                   className={`flex flex-col items-center py-3 px-2 rounded-lg border-2 transition-all ${
-                    selectedUnit === "single item" 
+                    selectedUnit === "ampulle" 
                       ? "border-primary bg-primary/10" 
                       : "border-border bg-background"
                   }`}
-                  data-testid="edit-unit-single"
+                  data-testid="edit-unit-ampulle"
                 >
                   <i className="fas fa-vial text-xl mb-1"></i>
-                  <div className="text-xs font-medium">Single Item</div>
+                  <div className="text-xs font-medium">Ampulle</div>
                 </button>
               </div>
             </div>
 
-            {selectedUnit === "single item" && editFormData.controlled && (
+            {selectedUnit === "ampulle" && editFormData.controlled && (
               <div>
                 <Label htmlFor="edit-packSize">Pack Size (pieces per pack) *</Label>
                 <Input 
