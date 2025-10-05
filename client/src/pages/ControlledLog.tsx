@@ -10,8 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import SignaturePad from "@/components/SignaturePad";
 import type { Activity, User, Item, ControlledCheck } from "@shared/schema";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface ItemWithStock extends Item {
   stockLevel?: { qtyOnHand: number };
@@ -77,6 +80,9 @@ export default function ControlledLog() {
   
   const [selectedActivity, setSelectedActivity] = useState<ControlledActivity | null>(null);
   const [selectedCheck, setSelectedCheck] = useState<ControlledCheckWithUser | null>(null);
+  
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth().toString());
+  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear().toString());
 
   const { data: controlledItems = [] } = useQuery<ItemWithStock[]>({
     queryKey: ["/api/items", activeHospital?.id, { controlled: true }],
@@ -399,6 +405,137 @@ export default function ControlledLog() {
     return time.toLocaleDateString();
   };
 
+  const downloadMonthlyReport = () => {
+    const month = parseInt(selectedMonth);
+    const year = parseInt(selectedYear);
+    
+    // Filter activities for selected month/year
+    const monthlyActivities = activities.filter(activity => {
+      if (!activity.timestamp) return false;
+      const activityDate = new Date(activity.timestamp);
+      return activityDate.getMonth() === month && activityDate.getFullYear() === year;
+    });
+
+    if (monthlyActivities.length === 0) {
+      toast({
+        title: "No Data",
+        description: "No administrations found for the selected month.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Group by drug (itemId)
+    const groupedByDrug: Record<string, ControlledActivity[]> = {};
+    monthlyActivities.forEach(activity => {
+      const drugKey = activity.item?.name || "Unknown Drug";
+      if (!groupedByDrug[drugKey]) {
+        groupedByDrug[drugKey] = [];
+      }
+      groupedByDrug[drugKey].push(activity);
+    });
+
+    const doc = new jsPDF();
+    const monthNames = ["January", "February", "March", "April", "May", "June", 
+                        "July", "August", "September", "October", "November", "December"];
+    
+    // Header
+    doc.setFontSize(18);
+    doc.text("CONTROLLED SUBSTANCES MONTHLY REPORT", 105, 20, { align: "center" });
+    doc.setFontSize(12);
+    doc.text(`${monthNames[month]} ${year}`, 105, 28, { align: "center" });
+    doc.text(`Hospital: ${activeHospital?.name || "N/A"}`, 105, 35, { align: "center" });
+    
+    let yPosition = 45;
+
+    // Iterate through each drug
+    Object.entries(groupedByDrug).forEach(([drugName, drugActivities], index) => {
+      // Check if we need a new page
+      if (yPosition > 250) {
+        doc.addPage();
+        yPosition = 20;
+      }
+
+      // Drug header
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${drugName}`, 20, yPosition);
+      yPosition += 8;
+
+      // Group by day within this drug
+      const groupedByDay: Record<string, ControlledActivity[]> = {};
+      drugActivities.forEach(activity => {
+        if (!activity.timestamp) return;
+        const dayKey = new Date(activity.timestamp).toLocaleDateString("en-US", { 
+          year: "numeric", 
+          month: "short", 
+          day: "numeric" 
+        });
+        if (!groupedByDay[dayKey]) {
+          groupedByDay[dayKey] = [];
+        }
+        groupedByDay[dayKey].push(activity);
+      });
+
+      // Iterate through each day for this drug
+      Object.entries(groupedByDay).forEach(([day, dayActivities]) => {
+        // Day subheader
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.text(`  ${day}`, 20, yPosition);
+        yPosition += 5;
+
+        // Create table for this day's administrations
+        const tableData = dayActivities.map(activity => [
+          activity.timestamp ? new Date(activity.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "N/A",
+          Math.abs(activity.delta || 0).toString(),
+          activity.patientId || "N/A",
+          `${activity.user.firstName} ${activity.user.lastName}`,
+          activity.controlledVerified ? "Yes" : "No",
+          activity.notes || "-"
+        ]);
+
+        autoTable(doc, {
+          startY: yPosition,
+          head: [["Time", "Qty", "Patient ID", "Administrator", "Verified", "Notes"]],
+          body: tableData,
+          theme: "grid",
+          styles: { fontSize: 9, cellPadding: 2 },
+          headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+          columnStyles: {
+            0: { cellWidth: 25 },
+            1: { cellWidth: 15, halign: "center" },
+            2: { cellWidth: 30 },
+            3: { cellWidth: 40 },
+            4: { cellWidth: 20, halign: "center" },
+            5: { cellWidth: 50 },
+          },
+          margin: { left: 25 },
+        });
+
+        yPosition = (doc as any).lastAutoTable.finalY + 8;
+      });
+
+      yPosition += 5; // Space between drugs
+    });
+
+    // Summary footer
+    const finalY = (doc as any).lastAutoTable.finalY || yPosition;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Total Administrations: ${monthlyActivities.length}`, 20, finalY + 10);
+    doc.text(`Total Drugs: ${Object.keys(groupedByDrug).length}`, 20, finalY + 16);
+    doc.text(`Generated: ${new Date().toLocaleString("en-US")}`, 20, finalY + 22);
+
+    // Download
+    doc.save(`Controlled_Report_${monthNames[month]}_${year}.pdf`);
+    
+    toast({
+      title: "Report Downloaded",
+      description: `Monthly report for ${monthNames[month]} ${year} has been downloaded.`,
+    });
+  };
+
   if (!activeHospital) {
     return (
       <div className="p-4">
@@ -438,6 +575,56 @@ export default function ControlledLog() {
               <i className="fas fa-plus mr-2"></i>
               Record Administration
             </Button>
+          </div>
+
+          <div className="bg-card border border-border rounded-lg p-4">
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+              <div className="flex gap-2 items-center">
+                <Label className="text-sm font-medium">Monthly Report:</Label>
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                  <SelectTrigger className="w-32" data-testid="month-selector">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">January</SelectItem>
+                    <SelectItem value="1">February</SelectItem>
+                    <SelectItem value="2">March</SelectItem>
+                    <SelectItem value="3">April</SelectItem>
+                    <SelectItem value="4">May</SelectItem>
+                    <SelectItem value="5">June</SelectItem>
+                    <SelectItem value="6">July</SelectItem>
+                    <SelectItem value="7">August</SelectItem>
+                    <SelectItem value="8">September</SelectItem>
+                    <SelectItem value="9">October</SelectItem>
+                    <SelectItem value="10">November</SelectItem>
+                    <SelectItem value="11">December</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={selectedYear} onValueChange={setSelectedYear}>
+                  <SelectTrigger className="w-24" data-testid="year-selector">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[...Array(5)].map((_, i) => {
+                      const year = new Date().getFullYear() - i;
+                      return (
+                        <SelectItem key={year} value={year.toString()}>
+                          {year}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                variant="outline"
+                onClick={downloadMonthlyReport}
+                data-testid="download-monthly-report"
+              >
+                <i className="fas fa-file-pdf mr-2"></i>
+                Download PDF Report
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
