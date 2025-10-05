@@ -58,7 +58,18 @@ export default function Items() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const packSizeInputRef = useRef<HTMLInputElement>(null);
   const editPackSizeInputRef = useRef<HTMLInputElement>(null);
+  const bulkFileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  
+  // Bulk import state
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
+  const [bulkImages, setBulkImages] = useState<string[]>([]);
+  const [bulkItems, setBulkItems] = useState<any[]>([]);
+  const [isBulkAnalyzing, setIsBulkAnalyzing] = useState(false);
+  
+  // Bulk edit state
+  const [isBulkEditMode, setIsBulkEditMode] = useState(false);
+  const [bulkEditItems, setBulkEditItems] = useState<Record<string, any>>({});
 
   const { data: items = [], isLoading } = useQuery<ItemWithStock[]>({
     queryKey: ["/api/items", activeHospital?.id],
@@ -230,6 +241,77 @@ export default function Items() {
       toast({
         title: "Error",
         description: error.message || "Failed to add item to order",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const bulkAnalyzeMutation = useMutation({
+    mutationFn: async (images: string[]) => {
+      const response = await apiRequest("POST", "/api/items/analyze-images", { images });
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      setBulkItems(data.items || []);
+      toast({
+        title: "Analysis Complete",
+        description: `Extracted ${data.items?.length || 0} items from images`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Analysis Failed",
+        description: error.message || "Failed to analyze images",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const bulkCreateMutation = useMutation({
+    mutationFn: async (items: any[]) => {
+      const response = await apiRequest("POST", "/api/items/bulk", {
+        items,
+        hospitalId: activeHospital?.id,
+      });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      setBulkImportOpen(false);
+      setBulkImages([]);
+      setBulkItems([]);
+      toast({
+        title: "Success",
+        description: "Items imported successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to import items",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const bulkUpdateMutation = useMutation({
+    mutationFn: async (items: any[]) => {
+      const response = await apiRequest("PATCH", "/api/items/bulk-update", { items });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      setIsBulkEditMode(false);
+      setBulkEditItems({});
+      toast({
+        title: "Success",
+        description: "Items updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update items",
         variant: "destructive",
       });
     },
@@ -456,6 +538,61 @@ export default function Items() {
     setUploadedImages([]);
   };
 
+  const handleBulkImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    if (files.length > 10) {
+      toast({
+        title: "Too Many Images",
+        description: "Maximum 10 images allowed",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsBulkAnalyzing(true);
+    const images: string[] = [];
+    
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const compressedImage = await compressImage(files[i]);
+        images.push(compressedImage);
+      }
+      setBulkImages(images);
+      await bulkAnalyzeMutation.mutateAsync(images);
+    } catch (error: any) {
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Failed to process images",
+        variant: "destructive",
+      });
+    } finally {
+      setIsBulkAnalyzing(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleBulkImportSave = () => {
+    if (bulkItems.length === 0) {
+      toast({
+        title: "No Items",
+        description: "No items to import",
+        variant: "destructive",
+      });
+      return;
+    }
+    bulkCreateMutation.mutate(bulkItems);
+  };
+
+  const handleBulkEditSave = () => {
+    const updates = Object.entries(bulkEditItems).map(([id, data]) => ({ id, ...data }));
+    if (updates.length === 0) {
+      setIsBulkEditMode(false);
+      return;
+    }
+    bulkUpdateMutation.mutate(updates);
+  };
+
   const filteredItems = useMemo(() => {
     let filtered = items;
 
@@ -564,10 +701,34 @@ export default function Items() {
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Items</h1>
-        <Button size="sm" onClick={() => setAddDialogOpen(true)} data-testid="add-item-button">
-          <i className="fas fa-plus mr-2"></i>
-          Add Item
-        </Button>
+        <div className="flex gap-2">
+          {isBulkEditMode ? (
+            <>
+              <Button variant="outline" size="sm" onClick={() => { setIsBulkEditMode(false); setBulkEditItems({}); }} data-testid="cancel-bulk-edit">
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handleBulkEditSave} disabled={bulkUpdateMutation.isPending} data-testid="save-bulk-edit">
+                <i className="fas fa-save mr-2"></i>
+                Save All
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" onClick={() => { setIsBulkEditMode(true); setBulkEditItems({}); }} data-testid="bulk-edit-button">
+                <i className="fas fa-edit mr-2"></i>
+                Bulk Edit
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setBulkImportOpen(true)} data-testid="bulk-import-button">
+                <i className="fas fa-upload mr-2"></i>
+                Bulk Import
+              </Button>
+              <Button size="sm" onClick={() => setAddDialogOpen(true)} data-testid="add-item-button">
+                <i className="fas fa-plus mr-2"></i>
+                Add Item
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Search */}
@@ -688,27 +849,82 @@ export default function Items() {
                 )}
 
                 <div className="flex items-center justify-between">
-                  <div className="flex items-baseline gap-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className={`text-2xl font-bold ${stockStatus.color}`}>
-                        {currentQty}
-                      </span>
-                      <i className={`fas ${normalizeUnit(item.unit) === "pack" ? "fa-box" : "fa-vial"} text-lg ${stockStatus.color}`}></i>
+                  {isBulkEditMode ? (
+                    <div className="flex gap-2 flex-1">
+                      <div className="flex-1">
+                        <Label className="text-xs">Stock</Label>
+                        <Input
+                          type="number"
+                          value={bulkEditItems[item.id]?.actualStock !== undefined ? bulkEditItems[item.id].actualStock : currentQty}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
+                            setBulkEditItems(prev => ({
+                              ...prev,
+                              [item.id]: { ...prev[item.id], actualStock: val }
+                            }));
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          data-testid={`bulk-edit-stock-${item.id}`}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Label className="text-xs">Min</Label>
+                        <Input
+                          type="number"
+                          value={bulkEditItems[item.id]?.minThreshold !== undefined ? bulkEditItems[item.id].minThreshold : (item.minThreshold || 0)}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
+                            setBulkEditItems(prev => ({
+                              ...prev,
+                              [item.id]: { ...prev[item.id], minThreshold: val }
+                            }));
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          data-testid={`bulk-edit-min-${item.id}`}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Label className="text-xs">Max</Label>
+                        <Input
+                          type="number"
+                          value={bulkEditItems[item.id]?.maxThreshold !== undefined ? bulkEditItems[item.id].maxThreshold : (item.maxThreshold || 0)}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
+                            setBulkEditItems(prev => ({
+                              ...prev,
+                              [item.id]: { ...prev[item.id], maxThreshold: val }
+                            }));
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          data-testid={`bulk-edit-max-${item.id}`}
+                        />
+                      </div>
                     </div>
-                    <span className="text-sm text-muted-foreground">
-                      / Min: {item.minThreshold || 0} / Max: {item.maxThreshold || 0}
-                    </span>
-                  </div>
-                  {openOrderItems[item.id] ? (
-                    <Button variant="outline" size="sm" disabled data-testid={`quick-ordered-${item.id}`}>
-                      <i className="fas fa-check mr-1"></i>
-                      quick ordered {openOrderItems[item.id].totalQty} units
-                    </Button>
                   ) : (
-                    <Button variant="outline" size="sm" onClick={(e) => handleQuickOrder(e, item)} data-testid={`quick-order-${item.id}`}>
-                      <i className="fas fa-bolt mr-1"></i>
-                      Quick Order
-                    </Button>
+                    <>
+                      <div className="flex items-baseline gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-2xl font-bold ${stockStatus.color}`}>
+                            {currentQty}
+                          </span>
+                          <i className={`fas ${normalizeUnit(item.unit) === "pack" ? "fa-box" : "fa-vial"} text-lg ${stockStatus.color}`}></i>
+                        </div>
+                        <span className="text-sm text-muted-foreground">
+                          / Min: {item.minThreshold || 0} / Max: {item.maxThreshold || 0}
+                        </span>
+                      </div>
+                      {openOrderItems[item.id] ? (
+                        <Button variant="outline" size="sm" disabled data-testid={`quick-ordered-${item.id}`}>
+                          <i className="fas fa-check mr-1"></i>
+                          quick ordered {openOrderItems[item.id].totalQty} units
+                        </Button>
+                      ) : (
+                        <Button variant="outline" size="sm" onClick={(e) => handleQuickOrder(e, item)} data-testid={`quick-order-${item.id}`}>
+                          <i className="fas fa-bolt mr-1"></i>
+                          Quick Order
+                        </Button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -1098,6 +1314,141 @@ export default function Items() {
               </div>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Import Dialog */}
+      <Dialog open={bulkImportOpen} onOpenChange={setBulkImportOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Bulk Import Items</DialogTitle>
+            <DialogDescription>Upload multiple photos and review extracted items</DialogDescription>
+          </DialogHeader>
+
+          {bulkItems.length === 0 ? (
+            <div className="space-y-4">
+              <input
+                type="file"
+                ref={bulkFileInputRef}
+                accept="image/*"
+                multiple
+                onChange={handleBulkImageUpload}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-32"
+                onClick={() => bulkFileInputRef.current?.click()}
+                disabled={isBulkAnalyzing}
+                data-testid="button-bulk-upload"
+              >
+                <i className={`fas ${isBulkAnalyzing ? 'fa-spinner fa-spin' : 'fa-camera'} text-4xl mr-4`}></i>
+                <div>
+                  <div className="font-semibold">{isBulkAnalyzing ? "Analyzing..." : "Take/Upload Photos"}</div>
+                  <div className="text-sm text-muted-foreground">Upload up to 10 images</div>
+                </div>
+              </Button>
+              {bulkImages.length > 0 && (
+                <div className="grid grid-cols-5 gap-2">
+                  {bulkImages.map((img, idx) => (
+                    <img key={idx} src={img} alt={`Preview ${idx + 1}`} className="w-full h-20 object-cover rounded border" />
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                Review and edit {bulkItems.length} extracted items before importing
+              </div>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {bulkItems.map((item, idx) => (
+                  <div key={idx} className="p-3 border rounded-lg space-y-2" data-testid={`bulk-item-${idx}`}>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs">Name</Label>
+                        <Input
+                          value={item.name}
+                          onChange={(e) => {
+                            const updated = [...bulkItems];
+                            updated[idx].name = e.target.value;
+                            setBulkItems(updated);
+                          }}
+                          data-testid={`bulk-item-name-${idx}`}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Description</Label>
+                        <Input
+                          value={item.description || ""}
+                          onChange={(e) => {
+                            const updated = [...bulkItems];
+                            updated[idx].description = e.target.value;
+                            setBulkItems(updated);
+                          }}
+                          data-testid={`bulk-item-description-${idx}`}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      <div>
+                        <Label className="text-xs">Stock</Label>
+                        <Input
+                          type="number"
+                          value={item.initialStock}
+                          onChange={(e) => {
+                            const updated = [...bulkItems];
+                            updated[idx].initialStock = parseInt(e.target.value) || 0;
+                            setBulkItems(updated);
+                          }}
+                          data-testid={`bulk-item-stock-${idx}`}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Min</Label>
+                        <Input
+                          type="number"
+                          value={item.minThreshold}
+                          onChange={(e) => {
+                            const updated = [...bulkItems];
+                            updated[idx].minThreshold = parseInt(e.target.value) || 0;
+                            setBulkItems(updated);
+                          }}
+                          data-testid={`bulk-item-min-${idx}`}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Max</Label>
+                        <Input
+                          type="number"
+                          value={item.maxThreshold}
+                          onChange={(e) => {
+                            const updated = [...bulkItems];
+                            updated[idx].maxThreshold = parseInt(e.target.value) || 0;
+                            setBulkItems(updated);
+                          }}
+                          data-testid={`bulk-item-max-${idx}`}
+                        />
+                      </div>
+                      <div className="flex items-end gap-1">
+                        {item.critical && <span className="px-2 py-1 rounded bg-red-500/20 text-red-500 text-xs">Critical</span>}
+                        {item.controlled && <span className="px-2 py-1 rounded bg-orange-500/20 text-orange-500 text-xs">Controlled</span>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => { setBulkItems([]); setBulkImages([]); }}>
+                  Cancel
+                </Button>
+                <Button onClick={handleBulkImportSave} disabled={bulkCreateMutation.isPending} data-testid="button-save-bulk-import">
+                  {bulkCreateMutation.isPending ? "Importing..." : `Import ${bulkItems.length} Items`}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
