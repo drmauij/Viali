@@ -148,7 +148,7 @@ export const lots = pgTable("lots", {
 export const orders = pgTable("orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
-  vendorId: varchar("vendor_id").notNull().references(() => vendors.id),
+  vendorId: varchar("vendor_id").references(() => vendors.id),
   status: varchar("status").notNull().default("draft"), // draft, sent, received
   createdBy: varchar("created_by").notNull().references(() => users.id),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }),
