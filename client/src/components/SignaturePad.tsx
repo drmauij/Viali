@@ -12,6 +12,24 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
 
+  const initializeCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    
+    // Fill canvas with white background for print-ready signatures
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Use black stroke for signature (print-ready format)
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+  };
+
   useEffect(() => {
     if (isOpen) {
       // Prevent body scrolling when modal is open
@@ -26,11 +44,8 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
           canvas.height = canvas.offsetHeight * 2;
           ctx.scale(2, 2);
           
-          // Use consistent gray that works in both light and dark themes
-          ctx.strokeStyle = '#6b7280'; // Medium gray visible in both themes
-          ctx.lineWidth = 2;
-          ctx.lineCap = "round";
-          ctx.lineJoin = "round";
+          // Initialize canvas with white background and black stroke
+          initializeCanvas();
         }
       }
     }
@@ -90,6 +105,10 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Re-initialize canvas with white background and black stroke for next signature
+    initializeCanvas();
+    
     setHasSignature(false);
   };
 
@@ -121,7 +140,7 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
         <div className="mb-6">
           <canvas
             ref={canvasRef}
-            className="w-full h-48 border-2 border-dashed border-border rounded-lg bg-background cursor-crosshair"
+            className="w-full h-48 border-2 border-dashed border-border rounded-lg bg-white cursor-crosshair"
             onMouseDown={startDrawing}
             onMouseMove={draw}
             onMouseUp={stopDrawing}
