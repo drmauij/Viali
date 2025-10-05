@@ -136,6 +136,14 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
 
   const now = Math.floor(Date.now() / 1000);
   if (now <= user.expires_at) {
+    // Check if user must change password (except for password change endpoints)
+    const isPasswordChangeEndpoint = req.path === '/api/auth/change-password' || req.path === '/api/auth/user';
+    if (user.mustChangePassword && !isPasswordChangeEndpoint) {
+      return res.status(403).json({ 
+        message: "Password change required", 
+        mustChangePassword: true 
+      });
+    }
     return next();
   }
 

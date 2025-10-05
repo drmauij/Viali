@@ -63,8 +63,8 @@ export default function ChangePasswordDialog({ open, onOpenChange, required = fa
       setNewPassword("");
       setConfirmPassword("");
 
-      // Refresh the page to update user state
-      window.location.reload();
+      // Reload the page to refresh user state
+      window.location.href = "/";
     } catch (error: any) {
       toast({ 
         title: "Error", 

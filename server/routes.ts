@@ -1498,12 +1498,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role,
       });
 
-      // TODO: Send email with login credentials
-      // The email should include:
-      // - Login URL: process.env.REPLIT_DOMAINS?.split(',')?.[0] or window.location.origin
-      // - Email: newUser.email
-      // - Temporary password: password (from request body)
-      // - Message that they must change password on first login
+      // Get hospital name
+      const hospital = await storage.getHospital(hospitalId);
+      
+      // Send email with login credentials
+      const loginUrl = process.env.REPLIT_DOMAINS?.split(',')?.[0] 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}/` 
+        : 'your-app-url';
+      
+      try {
+        const { sendWelcomeEmail } = await import('./resend');
+        await sendWelcomeEmail(
+          newUser.email!,
+          newUser.firstName!,
+          hospital?.name || 'Your Hospital',
+          password,
+          loginUrl
+        );
+      } catch (emailError) {
+        console.error('Failed to send welcome email:', emailError);
+        // Continue even if email fails
+      }
 
       // Sanitize user object - remove passwordHash
       const { passwordHash: _, ...sanitizedUser } = newUser;
