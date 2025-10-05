@@ -382,3 +382,36 @@ export type InsertActivity = z.infer<typeof insertActivitySchema>;
 export type InsertUserHospitalRole = z.infer<typeof insertUserHospitalRoleSchema>;
 export type ControlledCheck = typeof controlledChecks.$inferSelect;
 export type InsertControlledCheck = z.infer<typeof insertControlledCheckSchema>;
+
+// Bulk operations schemas
+export const bulkImportItemSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  unit: z.string().default("pack"),
+  packSize: z.number().int().positive().default(1),
+  minThreshold: z.number().int().min(0).optional(),
+  maxThreshold: z.number().int().min(0).optional(),
+  initialStock: z.number().int().min(0).default(0),
+  critical: z.boolean().default(false),
+  controlled: z.boolean().default(false),
+});
+
+export const bulkImportSchema = z.object({
+  items: z.array(bulkImportItemSchema),
+});
+
+export const bulkUpdateItemSchema = z.object({
+  id: z.string(),
+  minThreshold: z.number().int().min(0).optional(),
+  maxThreshold: z.number().int().min(0).optional(),
+  actualStock: z.number().int().min(0).optional(),
+});
+
+export const bulkUpdateSchema = z.object({
+  items: z.array(bulkUpdateItemSchema),
+});
+
+export type BulkImportItem = z.infer<typeof bulkImportItemSchema>;
+export type BulkImport = z.infer<typeof bulkImportSchema>;
+export type BulkUpdateItem = z.infer<typeof bulkUpdateItemSchema>;
+export type BulkUpdate = z.infer<typeof bulkUpdateSchema>;
