@@ -418,11 +418,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Validate controlled single items have pack size
-      if (itemData.controlled && itemData.unit === "single item") {
+      // Validate controlled ampulle items have pack size
+      if (itemData.controlled && itemData.unit === "ampulle") {
         if (!itemData.packSize || itemData.packSize <= 0) {
           return res.status(400).json({ 
-            message: "Controlled items with 'single item' unit type must have a pack size greater than 0" 
+            message: "Controlled items with 'ampulle' unit type must have a pack size greater than 0" 
           });
         }
       }
@@ -477,15 +477,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (bulkItem.packSize !== undefined) updates.packSize = bulkItem.packSize;
         if (bulkItem.controlled !== undefined) updates.controlled = bulkItem.controlled;
         
-        // Validate controlled single items have pack size
+        // Validate controlled ampulle items have pack size
         const finalControlled = bulkItem.controlled !== undefined ? bulkItem.controlled : item.controlled;
         const finalUnit = bulkItem.unit !== undefined ? bulkItem.unit : item.unit;
         const finalPackSize = bulkItem.packSize !== undefined ? bulkItem.packSize : item.packSize;
         
-        if (finalControlled && finalUnit === "single item") {
+        if (finalControlled && finalUnit === "ampulle") {
           if (!finalPackSize || finalPackSize <= 0) {
             return res.status(400).json({ 
-              message: `Item "${item.name}" is controlled with 'single item' unit type and must have a pack size greater than 0` 
+              message: `Item "${item.name}" is controlled with 'ampulle' unit type and must have a pack size greater than 0` 
             });
           }
         }
@@ -527,16 +527,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied to this item" });
       }
       
-      // Validate controlled single items have pack size
+      // Validate controlled ampulle items have pack size
       // Check final state (req.body value or existing item value if not provided)
       const finalControlled = req.body.controlled !== undefined ? req.body.controlled : item.controlled;
       const finalUnit = req.body.unit !== undefined ? req.body.unit : item.unit;
       const finalPackSize = req.body.packSize !== undefined ? req.body.packSize : item.packSize;
       
-      if (finalControlled && finalUnit === "single item") {
+      if (finalControlled && finalUnit === "ampulle") {
         if (!finalPackSize || finalPackSize <= 0) {
           return res.status(400).json({ 
-            message: "Controlled items with 'single item' unit type must have a pack size greater than 0" 
+            message: "Controlled items with 'ampulle' unit type must have a pack size greater than 0" 
           });
         }
       }
@@ -973,14 +973,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const line of lines) {
           const item = line.item;
           const normalizedUnit = item.unit.toLowerCase();
-          const isPackUnit = normalizedUnit === 'pack' || normalizedUnit === 'box';
-          const isSingleItem = !isPackUnit;
-          const isControlledSingleItem = item.controlled && isSingleItem;
+          const isControlledAmpulle = item.controlled && normalizedUnit === 'ampulle';
           
           // Calculate quantity to add to stock
           let qtyToAdd = line.qty;
-          if (isControlledSingleItem) {
-            // For controlled single items: pack quantity × pack size
+          if (isControlledAmpulle) {
+            // For controlled ampulle items: pack quantity × pack size
             qtyToAdd = line.qty * (line.packSize || 1);
           }
           
