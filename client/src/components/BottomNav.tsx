@@ -32,6 +32,9 @@ export default function BottomNav() {
   }, [isAdmin]);
 
   const isActive = (path: string) => {
+    if (path === "/items") {
+      return location === "/" || location.startsWith("/items");
+    }
     if (path === "/") {
       return location === "/";
     }
