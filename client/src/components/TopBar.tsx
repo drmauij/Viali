@@ -1,6 +1,7 @@
 import { useTheme } from "./ThemeProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
+import ChangePasswordDialog from "./ChangePasswordDialog";
 
 interface Hospital {
   id: string;
@@ -21,6 +22,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
   const { user } = useAuth();
   const [showHospitalDropdown, setShowHospitalDropdown] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   const getInitials = (firstName?: string | null, lastName?: string | null) => {
     if (!firstName && !lastName) return "U";
@@ -112,6 +114,19 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
                 <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
               </button>
               
+              {/* Change Password */}
+              <button
+                className="w-full px-4 py-3 text-left hover:bg-accent hover:text-accent-foreground border-b border-border flex items-center gap-3"
+                onClick={() => {
+                  setShowChangePassword(true);
+                  setShowUserMenu(false);
+                }}
+                data-testid="button-change-password"
+              >
+                <i className="fas fa-key w-4"></i>
+                <span>Change Password</span>
+              </button>
+              
               {/* Logout */}
               <button
                 className="w-full px-4 py-3 text-left hover:bg-accent hover:text-accent-foreground flex items-center gap-3 text-destructive"
@@ -125,6 +140,11 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
           )}
         </div>
       </div>
+      
+      <ChangePasswordDialog 
+        open={showChangePassword} 
+        onOpenChange={setShowChangePassword}
+      />
     </div>
   );
 }
