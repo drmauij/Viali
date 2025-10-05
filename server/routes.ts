@@ -16,6 +16,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
 
+  // Email/Password Signup Route (before auth required)
+  app.post('/api/auth/signup', async (req, res) => {
+    try {
+      const { email, password, firstName, lastName, hospitalName } = req.body;
+
+      // Validate input
+      if (!email || !password || !firstName || !lastName || !hospitalName) {
+        return res.status(400).json({ 
+          message: "Email, password, first name, last name, and hospital name are required" 
+        });
+      }
+
+      // Check if user already exists
+      const existingUser = await storage.searchUserByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({ message: "User with this email already exists" });
+      }
+
+      // Create user
+      const user = await storage.createUserWithPassword(email, password, firstName, lastName);
+
+      // Create hospital
+      const hospital = await storage.createHospital(hospitalName);
+
+      // Create default location
+      const location = await storage.createLocation({
+        hospitalId: hospital.id,
+        name: "Main Location",
+        type: null,
+        parentId: null,
+      });
+
+      // Assign user as admin
+      await storage.createUserHospitalRole({
+        userId: user.id,
+        hospitalId: hospital.id,
+        locationId: location.id,
+        role: "AD",
+      });
+
+      // Log the user in by creating a session
+      req.login({ 
+        claims: { 
+          sub: user.id,
+          email: user.email,
+          first_name: user.firstName,
+          last_name: user.lastName,
+          profile_image_url: user.profileImageUrl
+        },
+        expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) // 1 week
+      }, (err) => {
+        if (err) {
+          console.error("Error logging in user:", err);
+          return res.status(500).json({ message: "Account created but login failed" });
+        }
+        res.status(201).json({ 
+          message: "Account created successfully",
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName
+          },
+          hospital
+        });
+      });
+    } catch (error: any) {
+      console.error("Error during signup:", error);
+      res.status(500).json({ message: error.message || "Failed to create account" });
+    }
+  });
+
+  // Email/Password Login Route
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password are required" });
+      }
+
+      // Find user
+      const user = await storage.searchUserByEmail(email);
+      if (!user || !user.passwordHash) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Verify password
+      const bcrypt = await import('bcrypt');
+      const isValid = await bcrypt.compare(password, user.passwordHash);
+      if (!isValid) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Log the user in
+      req.login({
+        claims: {
+          sub: user.id,
+          email: user.email,
+          first_name: user.firstName,
+          last_name: user.lastName,
+          profile_image_url: user.profileImageUrl
+        },
+        expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) // 1 week
+      }, (err) => {
+        if (err) {
+          console.error("Error logging in user:", err);
+          return res.status(500).json({ message: "Login failed" });
+        }
+        res.json({ 
+          message: "Login successful",
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName
+          }
+        });
+      });
+    } catch (error: any) {
+      console.error("Error during login:", error);
+      res.status(500).json({ message: error.message || "Login failed" });
+    }
+  });
+
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {

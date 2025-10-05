@@ -4,18 +4,84 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Landing() {
   const [showSignup, setShowSignup] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
   const handleGoogleLogin = () => {
     window.location.href = "/api/login";
   };
 
-  const handleLocalLogin = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleLocalLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // For now, redirect to Google login since local auth setup is complex
-    handleGoogleLogin();
+    setIsLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Login failed');
+      }
+
+      toast({ title: "Success", description: "Login successful!" });
+      window.location.href = "/";
+    } catch (error: any) {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Login failed", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEmailSignup = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const email = formData.get('signup-email') as string;
+    const password = formData.get('signup-password') as string;
+    const firstName = formData.get('firstName') as string;
+    const lastName = formData.get('lastName') as string;
+    const hospitalName = formData.get('hospitalName') as string;
+
+    try {
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, firstName, lastName, hospitalName })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Signup failed');
+      }
+
+      toast({ title: "Success", description: "Account created successfully!" });
+      window.location.href = "/";
+    } catch (error: any) {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Signup failed", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -61,9 +127,11 @@ export default function Landing() {
                     </Label>
                     <Input
                       id="email"
+                      name="email"
                       type="email"
                       placeholder="you@hospital.org"
                       className="w-full"
+                      required
                       data-testid="email-input"
                     />
                   </div>
@@ -74,9 +142,11 @@ export default function Landing() {
                     </Label>
                     <Input
                       id="password"
+                      name="password"
                       type="password"
                       placeholder="••••••••"
                       className="w-full"
+                      required
                       data-testid="password-input"
                     />
                   </div>
@@ -93,8 +163,14 @@ export default function Landing() {
                     </a>
                   </div>
                   
-                  <Button type="submit" className="w-full" size="lg" data-testid="local-login-button">
-                    Sign In
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    size="lg" 
+                    disabled={isLoading}
+                    data-testid="local-login-button"
+                  >
+                    {isLoading ? "Signing In..." : "Sign In"}
                   </Button>
                 </form>
               </>
@@ -103,17 +179,117 @@ export default function Landing() {
                 {/* Signup Mode */}
                 <h2 className="text-xl font-semibold text-foreground mb-4">Create Your Hospital</h2>
                 <p className="text-sm text-muted-foreground mb-6">
-                  Sign up with Google to create a new hospital account. You'll be assigned as the admin automatically.
+                  Sign up to create a new hospital account. You'll be assigned as the admin automatically.
                 </p>
+                
+                {/* Google OAuth Signup */}
                 <Button 
-                  className="w-full" 
+                  className="w-full mb-4" 
                   size="lg"
                   onClick={handleGoogleLogin}
-                  data-testid="signup-btn"
+                  data-testid="signup-google-btn"
+                  disabled={isLoading}
                 >
                   <i className="fab fa-google mr-2"></i>
                   Sign up with Google
                 </Button>
+                
+                {/* Divider */}
+                <div className="flex items-center gap-4 my-6">
+                  <div className="flex-1 h-px bg-border"></div>
+                  <span className="text-sm text-muted-foreground">or</span>
+                  <div className="flex-1 h-px bg-border"></div>
+                </div>
+                
+                {/* Email/Password Signup Form */}
+                <form className="space-y-4" onSubmit={handleEmailSignup}>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="firstName" className="block text-sm font-medium mb-2">
+                        First Name
+                      </Label>
+                      <Input
+                        id="firstName"
+                        name="firstName"
+                        type="text"
+                        placeholder="John"
+                        className="w-full"
+                        required
+                        data-testid="signup-firstname-input"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="lastName" className="block text-sm font-medium mb-2">
+                        Last Name
+                      </Label>
+                      <Input
+                        id="lastName"
+                        name="lastName"
+                        type="text"
+                        placeholder="Doe"
+                        className="w-full"
+                        required
+                        data-testid="signup-lastname-input"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="signup-email" className="block text-sm font-medium mb-2">
+                      Email
+                    </Label>
+                    <Input
+                      id="signup-email"
+                      name="signup-email"
+                      type="email"
+                      placeholder="you@hospital.org"
+                      className="w-full"
+                      required
+                      data-testid="signup-email-input"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="signup-password" className="block text-sm font-medium mb-2">
+                      Password
+                    </Label>
+                    <Input
+                      id="signup-password"
+                      name="signup-password"
+                      type="password"
+                      placeholder="••••••••"
+                      className="w-full"
+                      required
+                      minLength={6}
+                      data-testid="signup-password-input"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="hospitalName" className="block text-sm font-medium mb-2">
+                      Hospital Name
+                    </Label>
+                    <Input
+                      id="hospitalName"
+                      name="hospitalName"
+                      type="text"
+                      placeholder="General Hospital"
+                      className="w-full"
+                      required
+                      data-testid="signup-hospital-input"
+                    />
+                  </div>
+                  
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    size="lg" 
+                    disabled={isLoading}
+                    data-testid="signup-submit-btn"
+                  >
+                    {isLoading ? "Creating Account..." : "Create Account"}
+                  </Button>
+                </form>
               </>
             )}
           </CardContent>
