@@ -574,7 +574,7 @@ export default function Orders() {
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground mb-2">
-                      {order.orderLines.length} items • {formatCurrency(order.totalAmount || 0)}
+                      {order.orderLines.length} items
                     </p>
                     <p className="text-xs text-muted-foreground mb-3">
                       Sent {formatDate((order.updatedAt || order.createdAt) as any)}
@@ -642,7 +642,7 @@ export default function Orders() {
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground mb-2">
-                      {order.orderLines.length} items • {formatCurrency(order.totalAmount || 0)}
+                      {order.orderLines.length} items
                     </p>
                     <p className="text-xs text-muted-foreground mb-3">
                       Received {formatDate((order.updatedAt || order.createdAt) as any)}
