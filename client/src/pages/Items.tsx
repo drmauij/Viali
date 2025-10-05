@@ -276,7 +276,7 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id] });
       setBulkImportOpen(false);
       setBulkImages([]);
       setBulkItems([]);
@@ -300,7 +300,7 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id] });
       setIsBulkEditMode(false);
       setBulkEditItems({});
       toast({
