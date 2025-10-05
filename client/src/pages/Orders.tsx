@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import type { Order, Vendor, OrderLine, Item, StockLevel, Location } from "@shared/schema";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface OrderWithDetails extends Order {
   vendor: Vendor;
@@ -298,6 +300,69 @@ export default function Orders() {
     });
   };
 
+  const downloadOrderPDF = (order: OrderWithDetails) => {
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(20);
+    doc.text("PURCHASE ORDER", 105, 20, { align: "center" });
+    
+    // Order details
+    doc.setFontSize(10);
+    const orderDate = order.createdAt ? new Date(order.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A";
+    doc.text(`PO Number: PO-${order.id.slice(-4)}`, 20, 40);
+    doc.text(`Date: ${orderDate}`, 20, 46);
+    doc.text(`Status: ${order.status.toUpperCase()}`, 20, 52);
+    doc.text(`Location: ${getOrderLocation(order)}`, 20, 58);
+    
+    // Vendor details
+    doc.text(`Vendor: ${order.vendor.name}`, 120, 40);
+    if (order.vendor.contact) {
+      doc.text(`Contact: ${order.vendor.contact}`, 120, 46);
+    }
+    if (order.vendor.leadTime) {
+      doc.text(`Lead Time: ${order.vendor.leadTime} days`, 120, 52);
+    }
+    
+    // Items table
+    const tableData = order.orderLines.map((line) => {
+      const normalizedUnit = normalizeUnit(line.item.unit);
+      const isControlledSingleItem = line.item.controlled && normalizedUnit === "single item";
+      const displayUnit = isControlledSingleItem ? "pack" : line.item.unit;
+      
+      return [
+        line.item.name,
+        `${line.qty}`,
+        displayUnit,
+        line.item.controlled ? "Yes" : "No",
+      ];
+    });
+    
+    autoTable(doc, {
+      startY: 70,
+      head: [["Item Name", "Quantity", "Unit", "Controlled"]],
+      body: tableData,
+      theme: "grid",
+      styles: { fontSize: 10, cellPadding: 4 },
+      headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+      columnStyles: {
+        0: { cellWidth: 80 },
+        1: { cellWidth: 30, halign: "center" },
+        2: { cellWidth: 40 },
+        3: { cellWidth: 30, halign: "center" },
+      },
+    });
+    
+    // Footer
+    const finalY = (doc as any).lastAutoTable.finalY || 70;
+    doc.setFontSize(9);
+    doc.text(`Total Items: ${order.orderLines.length}`, 20, finalY + 15);
+    doc.text(`Generated: ${new Date().toLocaleString("en-US")}`, 20, finalY + 21);
+    
+    // Download
+    doc.save(`PO-${order.id.slice(-4)}_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
   const handleStatusUpdate = (orderId: string, newStatus: string) => {
     updateOrderStatusMutation.mutate({ orderId, status: newStatus });
   };
@@ -511,7 +576,10 @@ export default function Orders() {
                         variant="outline" 
                         size="sm" 
                         className="flex-1" 
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadOrderPDF(order);
+                        }}
                         data-testid={`pdf-order-${order.id}`}
                       >
                         <i className="fas fa-file-pdf mr-1"></i>
