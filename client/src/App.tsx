@@ -21,10 +21,18 @@ import ChangePasswordDialog from "@/components/ChangePasswordDialog";
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100" data-testid="loading-spinner" />
+      </div>
+    );
+  }
+
   return (
     <>
       <Switch>
-        {isLoading || !isAuthenticated ? (
+        {!isAuthenticated ? (
           <Route path="/" component={Landing} />
         ) : (
           <>
