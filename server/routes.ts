@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage, db } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertItemSchema, insertActivitySchema, orderLines, items, stockLevels, orders } from "@shared/schema";
+import { insertItemSchema, insertActivitySchema, orderLines, items, stockLevels, orders, users } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, inArray, sql } from "drizzle-orm";
 
@@ -40,20 +40,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create hospital
       const hospital = await storage.createHospital(hospitalName);
 
-      // Create default location
-      const location = await storage.createLocation({
+      // Create 4 default locations
+      const anesthesyLocation = await storage.createLocation({
         hospitalId: hospital.id,
-        name: "Main Location",
-        type: null,
+        name: "Anesthesy",
+        type: "anesthesy",
+        parentId: null,
+      });
+      
+      await storage.createLocation({
+        hospitalId: hospital.id,
+        name: "Operating Room (OR)",
+        type: "or",
+        parentId: null,
+      });
+      
+      await storage.createLocation({
+        hospitalId: hospital.id,
+        name: "Emergency Room (ER)",
+        type: "er",
+        parentId: null,
+      });
+      
+      await storage.createLocation({
+        hospitalId: hospital.id,
+        name: "Intensive Care Unit (ICU)",
+        type: "icu",
         parentId: null,
       });
 
-      // Assign user as admin
+      // Assign user as admin to the first location (Anesthesy)
       await storage.createUserHospitalRole({
         userId: user.id,
         hospitalId: hospital.id,
-        locationId: location.id,
-        role: "AD",
+        locationId: anesthesyLocation.id,
+        role: "admin",
       });
 
       // Log the user in by creating a session
@@ -119,7 +140,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           last_name: user.lastName,
           profile_image_url: user.profileImageUrl
         },
-        expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) // 1 week
+        expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60), // 1 week
+        mustChangePassword: user.mustChangePassword
       }, (err) => {
         if (err) {
           console.error("Error logging in user:", err);
@@ -127,6 +149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         res.json({ 
           message: "Login successful",
+          mustChangePassword: user.mustChangePassword,
           user: {
             id: user.id,
             email: user.email,
@@ -138,6 +161,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error during login:", error);
       res.status(500).json({ message: error.message || "Login failed" });
+    }
+  });
+
+  // Change own password route
+  app.post('/api/auth/change-password', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { currentPassword, newPassword } = req.body;
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Current and new password are required" });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({ message: "New password must be at least 6 characters" });
+      }
+
+      // Get user
+      const user = await storage.getUser(userId);
+      if (!user || !user.passwordHash) {
+        return res.status(400).json({ message: "User does not have a password set" });
+      }
+
+      // Verify current password
+      const bcrypt = await import('bcrypt');
+      const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!isValid) {
+        return res.status(401).json({ message: "Current password is incorrect" });
+      }
+
+      // Update password and clear mustChangePassword flag
+      await storage.updateUserPassword(userId, newPassword);
+      await db.update(users).set({ mustChangePassword: false }).where(eq(users.id, userId));
+
+      // Update session
+      req.user.mustChangePassword = false;
+
+      res.json({ message: "Password changed successfully" });
+    } catch (error: any) {
+      console.error("Error changing password:", error);
+      res.status(500).json({ message: error.message || "Failed to change password" });
     }
   });
 
@@ -159,6 +223,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         ...sanitizedUser,
         hospitals,
+        mustChangePassword: user.mustChangePassword || false,
       });
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -178,20 +243,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create new hospital
       const hospital = await storage.createHospital(hospitalName);
 
-      // Create default location
-      const location = await storage.createLocation({
+      // Create 4 default locations
+      const anesthesyLocation = await storage.createLocation({
         hospitalId: hospital.id,
-        name: "Main Location",
-        type: null,
+        name: "Anesthesy",
+        type: "anesthesy",
+        parentId: null,
+      });
+      
+      await storage.createLocation({
+        hospitalId: hospital.id,
+        name: "Operating Room (OR)",
+        type: "or",
+        parentId: null,
+      });
+      
+      await storage.createLocation({
+        hospitalId: hospital.id,
+        name: "Emergency Room (ER)",
+        type: "er",
+        parentId: null,
+      });
+      
+      await storage.createLocation({
+        hospitalId: hospital.id,
+        name: "Intensive Care Unit (ICU)",
+        type: "icu",
         parentId: null,
       });
 
-      // Assign user as admin
+      // Assign user as admin to the first location (Anesthesy)
       await storage.createUserHospitalRole({
         userId,
         hospitalId: hospital.id,
-        locationId: location.id,
-        role: "AD",
+        locationId: anesthesyLocation.id,
+        role: "admin",
       });
 
       res.status(201).json({ 
@@ -1131,7 +1217,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin middleware - check if user has AD role
+  // Admin middleware - check if user has admin role
   async function isAdmin(req: any, res: Response, next: NextFunction) {
     try {
       const userId = req.user.claims.sub;
@@ -1140,7 +1226,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hospitals = await storage.getUserHospitals(userId);
       const hospital = hospitals.find(h => h.id === hospitalId);
       
-      if (!hospital || hospital.role !== 'AD') {
+      if (!hospital || hospital.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
       
@@ -1219,7 +1305,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const hospitals = await storage.getUserHospitals(userId);
       const hospital = hospitals.find(h => h.id === location.hospitalId);
-      if (!hospital || hospital.role !== 'AD') {
+      if (!hospital || hospital.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
       
@@ -1245,7 +1331,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const hospitals = await storage.getUserHospitals(userId);
       const hospital = hospitals.find(h => h.id === hospitalId);
-      if (!hospital || hospital.role !== 'AD') {
+      if (!hospital || hospital.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
       
@@ -1295,7 +1381,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if user is admin of at least one hospital
       const userId = req.user.claims.sub;
       const hospitals = await storage.getUserHospitals(userId);
-      const isAdmin = hospitals.some(h => h.role === 'AD');
+      const isAdmin = hospitals.some(h => h.role === 'admin');
       if (!isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -1345,7 +1431,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const hospitals = await storage.getUserHospitals(userId);
       const hospital = hospitals.find(h => h.id === hospitalId);
-      if (!hospital || hospital.role !== 'AD') {
+      if (!hospital || hospital.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
       
@@ -1370,7 +1456,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const hospitals = await storage.getUserHospitals(userId);
       const hospital = hospitals.find(h => h.id === hospitalId);
-      if (!hospital || hospital.role !== 'AD') {
+      if (!hospital || hospital.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
       
@@ -1401,6 +1487,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create user
       const newUser = await storage.createUserWithPassword(email, password, firstName, lastName);
 
+      // Set mustChangePassword flag for new users
+      await db.update(users).set({ mustChangePassword: true }).where(eq(users.id, newUser.id));
+
       // Assign user to hospital
       await storage.createUserHospitalRole({
         userId: newUser.id,
@@ -1409,9 +1498,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role,
       });
 
+      // TODO: Send email with login credentials
+      // The email should include:
+      // - Login URL: process.env.REPLIT_DOMAINS?.split(',')?.[0] or window.location.origin
+      // - Email: newUser.email
+      // - Temporary password: password (from request body)
+      // - Message that they must change password on first login
+
       // Sanitize user object - remove passwordHash
       const { passwordHash: _, ...sanitizedUser } = newUser;
-      res.status(201).json(sanitizedUser);
+      res.status(201).json({ ...sanitizedUser, mustChangePassword: true });
     } catch (error) {
       console.error("Error creating user:", error);
       res.status(500).json({ message: "Failed to create user" });
@@ -1432,7 +1528,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentUserId = req.user.claims.sub;
       const hospitals = await storage.getUserHospitals(currentUserId);
       const hospital = hospitals.find(h => h.id === hospitalId);
-      if (!hospital || hospital.role !== 'AD') {
+      if (!hospital || hospital.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
 
@@ -1454,7 +1550,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentUserId = req.user.claims.sub;
       const hospitals = await storage.getUserHospitals(currentUserId);
       const hospital = hospitals.find(h => h.id === hospitalId);
-      if (!hospital || hospital.role !== 'AD') {
+      if (!hospital || hospital.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
 

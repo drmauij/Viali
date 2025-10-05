@@ -51,7 +51,7 @@ export default function Admin() {
   const [newPassword, setNewPassword] = useState("");
 
   // Check if user is admin
-  const isAdmin = activeHospital?.role === "AD";
+  const isAdmin = activeHospital?.role === "admin";
 
   // Fetch locations
   const { data: locations = [], isLoading: locationsLoading } = useQuery<Location[]>({
@@ -378,10 +378,9 @@ export default function Admin() {
 
   const getRoleName = (role: string) => {
     switch (role) {
-      case "AD": return "Admin";
-      case "PH": return "Pharmacist";
-      case "AT": return "Anesthetist";
-      case "AU": return "Auditor";
+      case "admin": return "Admin";
+      case "doctor": return "Doctor";
+      case "nurse": return "Nurse";
       default: return role;
     }
   };
@@ -793,10 +792,9 @@ export default function Admin() {
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="AD">Admin</SelectItem>
-                      <SelectItem value="PH">Pharmacist</SelectItem>
-                      <SelectItem value="AT">Anesthetist</SelectItem>
-                      <SelectItem value="AU">Auditor</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="doctor">Doctor</SelectItem>
+                      <SelectItem value="nurse">Nurse</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

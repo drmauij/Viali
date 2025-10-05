@@ -5,10 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function Landing() {
   const [showSignup, setShowSignup] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const { toast } = useToast();
 
   const handleGoogleLogin = () => {
@@ -158,9 +160,14 @@ export default function Landing() {
                         Remember me
                       </Label>
                     </div>
-                    <a href="#" className="text-primary hover:underline">
+                    <button
+                      type="button"
+                      onClick={() => setForgotPasswordOpen(true)}
+                      className="text-primary hover:underline"
+                      data-testid="forgot-password-link"
+                    >
                       Forgot password?
-                    </a>
+                    </button>
                   </div>
                   
                   <Button 
@@ -313,6 +320,27 @@ export default function Landing() {
           )}
         </p>
       </div>
+
+      {/* Forgot Password Dialog */}
+      <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
+        <DialogContent data-testid="forgot-password-dialog">
+          <DialogHeader>
+            <DialogTitle>Forgot Password</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-muted-foreground">
+              Password reset functionality is coming soon. Please contact your hospital administrator for assistance with resetting your password.
+            </p>
+            <Button 
+              onClick={() => setForgotPasswordOpen(false)}
+              className="w-full"
+              data-testid="close-forgot-password"
+            >
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

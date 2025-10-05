@@ -16,28 +16,36 @@ import Alerts from "@/pages/Alerts";
 import ControlledLog from "@/pages/ControlledLog";
 import Admin from "@/pages/Admin";
 import Signup from "@/pages/Signup";
+import ChangePasswordDialog from "@/components/ChangePasswordDialog";
 
 function Router() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   return (
-    <Switch>
-      {isLoading || !isAuthenticated ? (
-        <Route path="/" component={Landing} />
-      ) : (
-        <>
-          <Route path="/" component={Items} />
-          <Route path="/scan" component={Scan} />
-          <Route path="/items" component={Items} />
-          <Route path="/orders" component={Orders} />
-          <Route path="/alerts" component={Alerts} />
-          <Route path="/controlled" component={ControlledLog} />
-          <Route path="/admin" component={Admin} />
-          <Route path="/signup" component={Signup} />
-        </>
+    <>
+      <Switch>
+        {isLoading || !isAuthenticated ? (
+          <Route path="/" component={Landing} />
+        ) : (
+          <>
+            <Route path="/" component={Items} />
+            <Route path="/scan" component={Scan} />
+            <Route path="/items" component={Items} />
+            <Route path="/orders" component={Orders} />
+            <Route path="/alerts" component={Alerts} />
+            <Route path="/controlled" component={ControlledLog} />
+            <Route path="/admin" component={Admin} />
+            <Route path="/signup" component={Signup} />
+          </>
+        )}
+        <Route component={NotFound} />
+      </Switch>
+      
+      {/* Force password change dialog */}
+      {isAuthenticated && (user as any)?.mustChangePassword && (
+        <ChangePasswordDialog open={true} required={true} />
       )}
-      <Route component={NotFound} />
-    </Switch>
+    </>
   );
 }
 

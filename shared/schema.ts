@@ -35,6 +35,7 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   passwordHash: varchar("password_hash"), // For local auth users
+  mustChangePassword: boolean("must_change_password").default(false), // Force password change on first login
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -57,7 +58,7 @@ export const userHospitalRoles = pgTable("user_hospital_roles", {
   userId: varchar("user_id").notNull().references(() => users.id),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
   locationId: varchar("location_id").notNull().references(() => locations.id),
-  role: varchar("role").notNull(), // AT, PH, AD, AU
+  role: varchar("role").notNull(), // doctor, nurse, admin
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_user_hospital_roles_user").on(table.userId),
