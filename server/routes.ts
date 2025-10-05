@@ -12,6 +12,41 @@ async function getUserLocationForHospital(userId: string, hospitalId: string): P
   return hospital?.locationId || null;
 }
 
+function getLicenseLimit(licenseType: string): number {
+  switch (licenseType) {
+    case "free":
+      return 10;
+    case "basic":
+      return 100;
+    default:
+      return 10;
+  }
+}
+
+async function checkLicenseLimit(hospitalId: string): Promise<{ allowed: boolean; currentCount: number; limit: number; licenseType: string }> {
+  const hospital = await storage.getHospital(hospitalId);
+  if (!hospital) {
+    throw new Error("Hospital not found");
+  }
+  
+  const licenseType = hospital.licenseType || "free";
+  const limit = getLicenseLimit(licenseType);
+  
+  const [result] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(items)
+    .where(eq(items.hospitalId, hospitalId));
+  
+  const currentCount = result?.count || 0;
+  
+  return {
+    allowed: currentCount < limit,
+    currentCount,
+    limit,
+    licenseType,
+  };
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
@@ -362,6 +397,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const itemData = insertItemSchema.parse(req.body);
       
+      // Check license limit
+      let licenseCheck;
+      try {
+        licenseCheck = await checkLicenseLimit(itemData.hospitalId);
+      } catch (error: any) {
+        if (error.message === "Hospital not found") {
+          return res.status(404).json({ message: "Hospital not found" });
+        }
+        throw error;
+      }
+      
+      if (!licenseCheck.allowed) {
+        return res.status(403).json({
+          error: "LICENSE_LIMIT_REACHED",
+          message: `You have reached the limit of ${licenseCheck.limit} items for your ${licenseCheck.licenseType} plan`,
+          currentCount: licenseCheck.currentCount,
+          limit: licenseCheck.limit,
+          licenseType: licenseCheck.licenseType,
+        });
+      }
+      
       // Validate controlled single items have pack size
       if (itemData.controlled && itemData.unit === "single item") {
         if (!itemData.packSize || itemData.packSize <= 0) {
@@ -528,6 +584,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const locationId = await getUserLocationForHospital(userId, hospitalId);
       if (!locationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+
+      // Check license limit for bulk creation
+      let licenseCheck;
+      try {
+        licenseCheck = await checkLicenseLimit(hospitalId);
+      } catch (error: any) {
+        if (error.message === "Hospital not found") {
+          return res.status(404).json({ message: "Hospital not found" });
+        }
+        throw error;
+      }
+      
+      const remainingSlots = Math.max(0, licenseCheck.limit - licenseCheck.currentCount);
+      
+      if (bulkItems.length > remainingSlots) {
+        return res.status(403).json({
+          error: "LICENSE_LIMIT_REACHED",
+          message: `You can only add ${remainingSlots} more item(s) with your ${licenseCheck.licenseType} plan. You are trying to add ${bulkItems.length} items.`,
+          currentCount: licenseCheck.currentCount,
+          limit: licenseCheck.limit,
+          licenseType: licenseCheck.licenseType,
+          remainingSlots,
+        });
       }
 
       const createdItems = [];
