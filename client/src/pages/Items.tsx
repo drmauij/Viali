@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import UpgradeDialog from "@/components/UpgradeDialog";
@@ -882,22 +883,64 @@ export default function Items() {
                 data-testid={`item-${item.id}`}
               >
                 <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1 min-w-0 pr-3">
-                    <h3 className="font-semibold text-foreground">{item.name}</h3>
-                    <p className="text-sm text-muted-foreground">{item.description || `${item.unit} unit`}</p>
-                  </div>
-                  <div className="flex gap-1">
-                    {item.critical && (
-                      <span className="status-chip chip-critical text-xs">
-                        <i className="fas fa-exclamation-circle"></i>
-                      </span>
-                    )}
-                    {item.controlled && (
-                      <span className="status-chip chip-controlled text-xs">
-                        <i className="fas fa-shield-halved"></i>
-                      </span>
-                    )}
-                  </div>
+                  {isBulkEditMode ? (
+                    <div className="flex-1 space-y-2">
+                      <div>
+                        <Label className="text-xs">Name</Label>
+                        <Input
+                          value={bulkEditItems[item.id]?.name !== undefined ? bulkEditItems[item.id].name : item.name}
+                          onChange={(e) => {
+                            setBulkEditItems(prev => ({
+                              ...prev,
+                              [item.id]: { ...prev[item.id], name: e.target.value }
+                            }));
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          data-testid={`bulk-edit-name-${item.id}`}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Unit Type</Label>
+                        <Select
+                          value={bulkEditItems[item.id]?.unit !== undefined ? bulkEditItems[item.id].unit : item.unit}
+                          onValueChange={(value) => {
+                            setBulkEditItems(prev => ({
+                              ...prev,
+                              [item.id]: { ...prev[item.id], unit: value }
+                            }));
+                          }}
+                        >
+                          <SelectTrigger data-testid={`bulk-edit-unit-${item.id}`} onClick={(e) => e.stopPropagation()}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pack">Pack</SelectItem>
+                            <SelectItem value="vial">Vial</SelectItem>
+                            <SelectItem value="single item">Single Item</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex-1 min-w-0 pr-3">
+                        <h3 className="font-semibold text-foreground">{item.name}</h3>
+                        <p className="text-sm text-muted-foreground">{item.description || `${item.unit} unit`}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        {item.critical && (
+                          <span className="status-chip chip-critical text-xs">
+                            <i className="fas fa-exclamation-circle"></i>
+                          </span>
+                        )}
+                        {item.controlled && (
+                          <span className="status-chip chip-controlled text-xs">
+                            <i className="fas fa-shield-halved"></i>
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {daysUntilExpiry !== null && (

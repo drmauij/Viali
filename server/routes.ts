@@ -674,8 +674,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const updates: any = {};
         if (bulkItem.minThreshold !== undefined) updates.minThreshold = bulkItem.minThreshold;
         if (bulkItem.maxThreshold !== undefined) updates.maxThreshold = bulkItem.maxThreshold;
+        if (bulkItem.name !== undefined) updates.name = bulkItem.name;
+        if (bulkItem.unit !== undefined) updates.unit = bulkItem.unit;
+        if (bulkItem.packSize !== undefined) updates.packSize = bulkItem.packSize;
+        if (bulkItem.controlled !== undefined) updates.controlled = bulkItem.controlled;
         
-        // Update item thresholds
+        // Validate controlled single items have pack size
+        const finalControlled = bulkItem.controlled !== undefined ? bulkItem.controlled : item.controlled;
+        const finalUnit = bulkItem.unit !== undefined ? bulkItem.unit : item.unit;
+        const finalPackSize = bulkItem.packSize !== undefined ? bulkItem.packSize : item.packSize;
+        
+        if (finalControlled && finalUnit === "single item") {
+          if (!finalPackSize || finalPackSize <= 0) {
+            return res.status(400).json({ 
+              message: `Item "${item.name}" is controlled with 'single item' unit type and must have a pack size greater than 0` 
+            });
+          }
+        }
+        
+        // Update item fields
         if (Object.keys(updates).length > 0) {
           await storage.updateItem(bulkItem.id, updates);
         }
