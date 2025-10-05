@@ -122,7 +122,7 @@ export default function Landing() {
         <p className="text-center text-sm text-muted-foreground mt-6">
           {!showSignup ? (
             <>
-              Don't have a hospital?{" "}
+              Don't have an account?{" "}
               <button onClick={() => setShowSignup(true)} className="text-primary hover:underline" data-testid="show-signup-button">
                 Sign up to create one
               </button>
