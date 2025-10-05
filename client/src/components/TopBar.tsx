@@ -20,6 +20,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
   const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
   const [showHospitalDropdown, setShowHospitalDropdown] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const getInitials = (firstName?: string | null, lastName?: string | null) => {
     if (!firstName && !lastName) return "U";
@@ -77,33 +78,51 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
           </div>
         </div>
         
-        <div className="flex items-center gap-3">
-          {/* Theme Toggle */}
+        <div className="relative">
+          {/* User Menu Button */}
           <button
-            className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-            onClick={toggleTheme}
-            data-testid="theme-toggle"
-          >
-            <i className={`fas ${theme === "dark" ? "fa-sun" : "fa-moon"}`}></i>
-          </button>
-          
-          {/* Logout Button */}
-          <button
-            className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-            onClick={() => window.location.href = "/api/logout"}
-            data-testid="button-logout"
-            title="Logout"
-          >
-            <i className="fas fa-sign-out-alt"></i>
-          </button>
-          
-          {/* Profile */}
-          <div
-            className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-semibold text-sm"
+            className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-semibold text-sm hover:opacity-90 transition-opacity"
+            onClick={() => setShowUserMenu(!showUserMenu)}
             data-testid="profile-avatar"
           >
             {getInitials(userFirstName, userLastName)}
-          </div>
+          </button>
+          
+          {/* User Dropdown Menu */}
+          {showUserMenu && (
+            <div className="absolute top-full right-0 mt-2 w-56 bg-card border border-border rounded-lg shadow-lg z-50">
+              {/* User Info */}
+              <div className="px-4 py-3 border-b border-border">
+                <div className="font-medium text-foreground">
+                  {userFirstName && userLastName ? `${userFirstName} ${userLastName}` : "User"}
+                </div>
+                <div className="text-xs text-muted-foreground">{(user as any)?.email || ""}</div>
+              </div>
+              
+              {/* Theme Toggle */}
+              <button
+                className="w-full px-4 py-3 text-left hover:bg-accent hover:text-accent-foreground border-b border-border flex items-center gap-3"
+                onClick={() => {
+                  toggleTheme();
+                  setShowUserMenu(false);
+                }}
+                data-testid="theme-toggle"
+              >
+                <i className={`fas ${theme === "dark" ? "fa-sun" : "fa-moon"} w-4`}></i>
+                <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+              </button>
+              
+              {/* Logout */}
+              <button
+                className="w-full px-4 py-3 text-left hover:bg-accent hover:text-accent-foreground flex items-center gap-3 text-destructive"
+                onClick={() => window.location.href = "/api/logout"}
+                data-testid="button-logout"
+              >
+                <i className="fas fa-sign-out-alt w-4"></i>
+                <span>Logout</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
