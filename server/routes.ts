@@ -274,6 +274,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk AI image analysis for multiple items
+  app.post('/api/items/analyze-images', isAuthenticated, async (req: any, res) => {
+    try {
+      const { images } = req.body;
+      if (!images || !Array.isArray(images) || images.length === 0) {
+        return res.status(400).json({ message: "Images array is required" });
+      }
+
+      if (images.length > 10) {
+        return res.status(400).json({ message: "Maximum 10 images allowed per batch" });
+      }
+
+      // Remove data URL prefix if present
+      const base64Images = images.map((img: string) => img.replace(/^data:image\/\w+;base64,/, ''));
+      
+      const { analyzeBulkItemImages } = await import('./openai');
+      const extractedItems = await analyzeBulkItemImages(base64Images);
+      
+      res.json({ items: extractedItems });
+    } catch (error: any) {
+      console.error("Error analyzing bulk images:", error);
+      res.status(500).json({ message: error.message || "Failed to analyze images" });
+    }
+  });
+
+  // Bulk item creation
+  app.post('/api/items/bulk', isAuthenticated, async (req: any, res) => {
+    try {
+      const { items: bulkItems, hospitalId } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!bulkItems || !Array.isArray(bulkItems) || bulkItems.length === 0) {
+        return res.status(400).json({ message: "Items array is required" });
+      }
+
+      if (!hospitalId) {
+        return res.status(400).json({ message: "Hospital ID is required" });
+      }
+
+      // Verify user has access to this hospital
+      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      if (!locationId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+
+      const createdItems = [];
+      for (const bulkItem of bulkItems) {
+        const itemData = {
+          hospitalId,
+          locationId,
+          name: bulkItem.name,
+          description: bulkItem.description || "",
+          unit: bulkItem.unit || "pack",
+          packSize: bulkItem.packSize || 1,
+          minThreshold: bulkItem.minThreshold || 0,
+          maxThreshold: bulkItem.maxThreshold || 0,
+          defaultOrderQty: 0,
+          critical: bulkItem.critical || false,
+          controlled: bulkItem.controlled || false,
+        };
+
+        const item = await storage.createItem(itemData);
+        
+        // Set initial stock if provided
+        if (bulkItem.initialStock !== undefined && bulkItem.initialStock > 0) {
+          await storage.updateStockLevel(item.id, locationId, bulkItem.initialStock);
+        }
+        
+        createdItems.push(item);
+      }
+      
+      res.status(201).json({ items: createdItems });
+    } catch (error: any) {
+      console.error("Error creating bulk items:", error);
+      res.status(500).json({ message: error.message || "Failed to create items" });
+    }
+  });
+
+  // Bulk item update
+  app.patch('/api/items/bulk-update', isAuthenticated, async (req: any, res) => {
+    try {
+      const { items: bulkItems } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!bulkItems || !Array.isArray(bulkItems) || bulkItems.length === 0) {
+        return res.status(400).json({ message: "Items array is required" });
+      }
+
+      const updatedItems = [];
+      for (const bulkItem of bulkItems) {
+        if (!bulkItem.id) {
+          continue;
+        }
+
+        // Get the item to verify access
+        const item = await storage.getItem(bulkItem.id);
+        if (!item) {
+          continue;
+        }
+        
+        // Verify user has access to this item's location
+        const locationId = await getUserLocationForHospital(userId, item.hospitalId);
+        if (!locationId || locationId !== item.locationId) {
+          continue;
+        }
+
+        const updates: any = {};
+        if (bulkItem.minThreshold !== undefined) updates.minThreshold = bulkItem.minThreshold;
+        if (bulkItem.maxThreshold !== undefined) updates.maxThreshold = bulkItem.maxThreshold;
+        
+        // Update item thresholds
+        if (Object.keys(updates).length > 0) {
+          await storage.updateItem(bulkItem.id, updates);
+        }
+        
+        // Update stock level if provided
+        if (bulkItem.actualStock !== undefined) {
+          await storage.updateStockLevel(bulkItem.id, item.locationId, bulkItem.actualStock);
+        }
+        
+        updatedItems.push({ id: bulkItem.id, ...updates });
+      }
+      
+      res.json({ items: updatedItems });
+    } catch (error: any) {
+      console.error("Error updating bulk items:", error);
+      res.status(500).json({ message: error.message || "Failed to update items" });
+    }
+  });
+
   // Barcode scanning
   app.post('/api/scan/barcode', isAuthenticated, async (req: any, res) => {
     try {

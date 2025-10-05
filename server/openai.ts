@@ -73,3 +73,78 @@ Important:
     throw new Error("Failed to analyze image: " + error.message);
   }
 }
+
+interface BulkItemExtraction {
+  name: string;
+  description?: string;
+  unit: string;
+  packSize: number;
+  minThreshold: number;
+  maxThreshold: number;
+  initialStock: number;
+  critical: boolean;
+  controlled: boolean;
+}
+
+export async function analyzeBulkItemImages(base64Images: string[]): Promise<BulkItemExtraction[]> {
+  try {
+    const imageContent = base64Images.map((img, idx) => ({
+      type: "image_url" as const,
+      image_url: {
+        url: `data:image/jpeg;base64,${img}`
+      }
+    }));
+
+    const visionResponse = await openai.chat.completions.create({
+      model: "gpt-5",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Analyze these pharmaceutical/medical product images and extract inventory item information for each distinct product visible across all images.
+
+Return a JSON object with an "items" array containing one entry per unique product:
+{
+  "items": [
+    {
+      "name": "Product Name",
+      "description": "Brief description (include concentration/strength if visible)",
+      "unit": "vial|pack|box|ampule|single item",
+      "packSize": 1,
+      "minThreshold": 5,
+      "maxThreshold": 20,
+      "initialStock": 0,
+      "critical": false,
+      "controlled": false
+    }
+  ]
+}
+
+Important instructions:
+- Identify ALL distinct products across all images
+- If the same product appears in multiple images, only list it once
+- For "unit": use "vial" for individual vials/ampules, "pack" or "box" for packages, or "single item" for other single units
+- For "packSize": if it's a pack/box, estimate how many units it contains (e.g., box of 10 vials = 10), otherwise use 1
+- Set "critical": true for emergency/life-saving drugs (e.g., epinephrine, atropine, emergency medications)
+- Set "controlled": true for controlled substances (opioids, benzodiazepines, anesthetics like propofol, ketamine, fentanyl)
+- Provide reasonable default thresholds: min 5-10, max 15-30 (higher for commonly used items)
+- Include concentration in description if visible (e.g., "Sodium Chloride 0.9% solution")
+- Return ONLY valid JSON`
+            },
+            ...imageContent
+          ],
+        },
+      ],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 4096,
+    });
+
+    const result = JSON.parse(visionResponse.choices[0].message.content || "{}");
+    return result.items || [];
+  } catch (error: any) {
+    console.error("Error analyzing bulk images with OpenAI:", error);
+    throw new Error("Failed to analyze images: " + error.message);
+  }
+}
