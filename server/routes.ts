@@ -1,9 +1,10 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage, db } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertItemSchema, insertActivitySchema } from "@shared/schema";
+import { insertItemSchema, insertActivitySchema, orderLines, items, stockLevels } from "@shared/schema";
 import { z } from "zod";
+import { eq, and } from "drizzle-orm";
 
 async function getUserLocationForHospital(userId: string, hospitalId: string): Promise<string | null> {
   const hospitals = await storage.getUserHospitals(userId);
@@ -472,6 +473,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!status) {
         return res.status(400).json({ message: "Status is required" });
+      }
+      
+      // If marking as received, update stock levels
+      if (status === 'received') {
+        // Get order lines with item details
+        const lines = await db
+          .select({
+            id: orderLines.id,
+            orderId: orderLines.orderId,
+            itemId: orderLines.itemId,
+            qty: orderLines.qty,
+            packSize: orderLines.packSize,
+            item: items,
+          })
+          .from(orderLines)
+          .innerJoin(items, eq(orderLines.itemId, items.id))
+          .where(eq(orderLines.orderId, orderId));
+        
+        // Update stock for each item
+        for (const line of lines) {
+          const item = line.item;
+          const normalizedUnit = item.unit.toLowerCase();
+          const isPackUnit = normalizedUnit === 'pack' || normalizedUnit === 'box';
+          const isSingleItem = !isPackUnit;
+          const isControlledSingleItem = item.controlled && isSingleItem;
+          
+          // Calculate quantity to add to stock
+          let qtyToAdd = line.qty;
+          if (isControlledSingleItem) {
+            // For controlled single items: pack quantity × pack size
+            qtyToAdd = line.qty * (line.packSize || 1);
+          }
+          
+          // Get current stock level
+          const [currentStock] = await db
+            .select()
+            .from(stockLevels)
+            .where(
+              and(
+                eq(stockLevels.itemId, item.id),
+                eq(stockLevels.locationId, item.locationId)
+              )
+            );
+          
+          const currentQty = currentStock?.qtyOnHand || 0;
+          const newQty = currentQty + qtyToAdd;
+          
+          // Update stock level
+          await storage.updateStockLevel(item.id, item.locationId, newQty);
+        }
       }
       
       const order = await storage.updateOrderStatus(orderId, status);
