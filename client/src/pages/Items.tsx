@@ -262,13 +262,13 @@ export default function Items() {
   };
 
   const quickOrderMutation = useMutation({
-    mutationFn: async (data: { itemId: string; qty: number; packSize: number; vendorId: string }) => {
+    mutationFn: async (data: { itemId: string; qty: number; packSize: number; vendorId?: string }) => {
       const response = await apiRequest("POST", "/api/orders/quick-add", {
         hospitalId: activeHospital?.id,
         itemId: data.itemId,
         qty: data.qty,
         packSize: data.packSize,
-        vendorId: data.vendorId,
+        vendorId: data.vendorId || null,
       });
       return await response.json();
     },
@@ -384,25 +384,6 @@ export default function Items() {
   const handleQuickOrder = (e: React.MouseEvent, item: ItemWithStock) => {
     e.stopPropagation();
     
-    if (vendors.length === 0) {
-      toast({
-        title: "No Vendor",
-        description: "Please add a vendor first before creating orders",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const defaultVendor = item.vendorId ? vendors.find(v => v.id === item.vendorId) : vendors[0];
-    if (!defaultVendor) {
-      toast({
-        title: "No Vendor",
-        description: "No vendor available for this item",
-        variant: "destructive",
-      });
-      return;
-    }
-
     const currentStock = item.stockLevel?.qtyOnHand || 0;
     const maxThreshold = item.maxThreshold || 10;
     const qtyToOrder = Math.max(0, maxThreshold - currentStock);
@@ -420,11 +401,14 @@ export default function Items() {
     const isControlledSingleItem = item.controlled && normalizedUnit === "single item";
     const qty = isControlledSingleItem ? Math.ceil(qtyToOrder / packSize) : qtyToOrder;
 
+    // Use item's vendor if available, or first available vendor, or null
+    const defaultVendor = item.vendorId ? vendors.find(v => v.id === item.vendorId) : vendors[0];
+
     quickOrderMutation.mutate({
       itemId: item.id,
       qty,
       packSize,
-      vendorId: defaultVendor.id,
+      vendorId: defaultVendor?.id,
     });
   };
 
