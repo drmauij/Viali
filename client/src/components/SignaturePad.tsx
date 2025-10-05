@@ -13,29 +13,40 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
   const [hasSignature, setHasSignature] = useState(false);
 
   useEffect(() => {
-    if (isOpen && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        // Set canvas size
-        canvas.width = canvas.offsetWidth * 2;
-        canvas.height = canvas.offsetHeight * 2;
-        ctx.scale(2, 2);
-        
-        // Get foreground color from computed styles
-        const foregroundColor = getComputedStyle(document.documentElement)
-          .getPropertyValue('--foreground').trim();
-        
-        // Set drawing styles with proper color (CSS var already includes hsl())
-        ctx.strokeStyle = foregroundColor || '#ffffff';
-        ctx.lineWidth = 2;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
+    if (isOpen) {
+      // Prevent body scrolling when modal is open
+      document.body.style.overflow = 'hidden';
+      
+      if (canvasRef.current) {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          // Set canvas size
+          canvas.width = canvas.offsetWidth * 2;
+          canvas.height = canvas.offsetHeight * 2;
+          ctx.scale(2, 2);
+          
+          // Get foreground color from computed styles
+          const foregroundColor = getComputedStyle(document.documentElement)
+            .getPropertyValue('--foreground').trim();
+          
+          // Set drawing styles with proper color (CSS var already includes hsl())
+          ctx.strokeStyle = foregroundColor || '#ffffff';
+          ctx.lineWidth = 2;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+        }
       }
     }
+    
+    return () => {
+      // Re-enable body scrolling when modal closes
+      document.body.style.overflow = '';
+    };
   }, [isOpen]);
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault(); // Prevent scrolling
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -55,6 +66,7 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
+    e.preventDefault(); // Prevent scrolling while drawing
 
     const canvas = canvasRef.current;
     if (!canvas) return;
