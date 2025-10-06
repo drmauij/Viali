@@ -1390,6 +1390,16 @@ export default function Items() {
             </>
           )}
         </div>
+        <DragOverlay>
+          {activeItemId ? (
+            <div className="bg-card border-2 border-primary rounded-lg p-3 shadow-lg opacity-90">
+              <div className="flex items-center gap-2">
+                <GripVertical className="w-4 h-4 text-muted-foreground" />
+                <span className="font-medium">Dragging item...</span>
+              </div>
+            </div>
+          ) : null}
+        </DragOverlay>
       </DndContext>
 
       {/* Folder Dialog */}
