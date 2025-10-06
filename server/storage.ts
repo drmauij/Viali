@@ -4,6 +4,7 @@ import {
   userHospitalRoles,
   vendors,
   locations,
+  folders,
   items,
   stockLevels,
   lots,
@@ -16,6 +17,7 @@ import {
   type UpsertUser,
   type Hospital,
   type UserHospitalRole,
+  type Folder,
   type Item,
   type StockLevel,
   type Lot,
@@ -25,6 +27,7 @@ import {
   type Alert,
   type Vendor,
   type Location,
+  type InsertFolder,
   type InsertItem,
   type InsertActivity,
   type ControlledCheck,
@@ -43,6 +46,13 @@ export interface IStorage {
   getUserHospitals(userId: string): Promise<(Hospital & { role: string; locationId: string; locationName: string })[]>;
   createHospital(name: string): Promise<Hospital>;
   updateHospital(id: string, updates: Partial<Hospital>): Promise<Hospital>;
+  
+  // Folder operations
+  getFolders(hospitalId: string, locationId: string): Promise<Folder[]>;
+  getFolder(id: string): Promise<Folder | undefined>;
+  createFolder(folder: InsertFolder): Promise<Folder>;
+  updateFolder(id: string, updates: Partial<Folder>): Promise<Folder>;
+  deleteFolder(id: string): Promise<void>;
   
   // Item operations
   getItems(hospitalId: string, locationId: string, filters?: {
@@ -183,6 +193,43 @@ export class DatabaseStorage implements IStorage {
       .where(eq(hospitals.id, id))
       .returning();
     return updated;
+  }
+
+  async getFolders(hospitalId: string, locationId: string): Promise<Folder[]> {
+    return await db
+      .select()
+      .from(folders)
+      .where(and(eq(folders.hospitalId, hospitalId), eq(folders.locationId, locationId)));
+  }
+
+  async getFolder(id: string): Promise<Folder | undefined> {
+    const [folder] = await db.select().from(folders).where(eq(folders.id, id));
+    return folder;
+  }
+
+  async createFolder(folder: InsertFolder): Promise<Folder> {
+    const [created] = await db.insert(folders).values(folder).returning();
+    return created;
+  }
+
+  async updateFolder(id: string, updates: Partial<Folder>): Promise<Folder> {
+    const [updated] = await db
+      .update(folders)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(folders.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteFolder(id: string): Promise<void> {
+    await db.transaction(async (tx) => {
+      await tx
+        .update(items)
+        .set({ folderId: null })
+        .where(eq(items.folderId, id));
+      
+      await tx.delete(folders).where(eq(folders.id, id));
+    });
   }
 
   async getItems(hospitalId: string, locationId: string, filters?: {

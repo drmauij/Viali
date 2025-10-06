@@ -92,11 +92,25 @@ export const locations: any = pgTable("locations", {
   index("idx_locations_parent").on(table.parentId),
 ]);
 
+// Folders (for organizing items)
+export const folders = pgTable("folders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  locationId: varchar("location_id").notNull().references(() => locations.id),
+  name: varchar("name").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_folders_hospital").on(table.hospitalId),
+  index("idx_folders_location").on(table.locationId),
+]);
+
 // Items
 export const items = pgTable("items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
   locationId: varchar("location_id").notNull().references(() => locations.id),
+  folderId: varchar("folder_id").references(() => folders.id),
   name: varchar("name").notNull(),
   description: text("description"),
   unit: varchar("unit").notNull(), // vial, amp, ml, etc.
@@ -115,6 +129,7 @@ export const items = pgTable("items", {
   index("idx_items_hospital").on(table.hospitalId),
   index("idx_items_location").on(table.locationId),
   index("idx_items_vendor").on(table.vendorId),
+  index("idx_items_folder").on(table.folderId),
 ]);
 
 // Stock Levels
@@ -245,6 +260,7 @@ export const hospitalsRelations = relations(hospitals, ({ many }) => ({
   userHospitalRoles: many(userHospitalRoles),
   vendors: many(vendors),
   locations: many(locations),
+  folders: many(folders),
   items: many(items),
   orders: many(orders),
   alerts: many(alerts),
@@ -265,12 +281,20 @@ export const locationsRelations = relations(locations, ({ one, many }) => ({
   hospital: one(hospitals, { fields: [locations.hospitalId], references: [hospitals.id] }),
   parent: one(locations, { fields: [locations.parentId], references: [locations.id] }),
   children: many(locations),
+  folders: many(folders),
   stockLevels: many(stockLevels),
   lots: many(lots),
 }));
 
+export const foldersRelations = relations(folders, ({ one, many }) => ({
+  hospital: one(hospitals, { fields: [folders.hospitalId], references: [hospitals.id] }),
+  location: one(locations, { fields: [folders.locationId], references: [locations.id] }),
+  items: many(items),
+}));
+
 export const itemsRelations = relations(items, ({ one, many }) => ({
   hospital: one(hospitals, { fields: [items.hospitalId], references: [hospitals.id] }),
+  folder: one(folders, { fields: [items.folderId], references: [folders.id] }),
   vendor: one(vendors, { fields: [items.vendorId], references: [vendors.id] }),
   stockLevels: many(stockLevels),
   lots: many(lots),
@@ -341,6 +365,12 @@ export const insertUserHospitalRoleSchema = createInsertSchema(userHospitalRoles
   createdAt: true,
 });
 
+export const insertFolderSchema = createInsertSchema(folders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertItemSchema = createInsertSchema(items).omit({
   id: true,
   createdAt: true,
@@ -368,6 +398,7 @@ export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type Hospital = typeof hospitals.$inferSelect;
 export type UserHospitalRole = typeof userHospitalRoles.$inferSelect;
+export type Folder = typeof folders.$inferSelect;
 export type Item = typeof items.$inferSelect;
 export type StockLevel = typeof stockLevels.$inferSelect;
 export type Lot = typeof lots.$inferSelect;
@@ -378,6 +409,7 @@ export type Alert = typeof alerts.$inferSelect;
 export type Vendor = typeof vendors.$inferSelect;
 export type Location = typeof locations.$inferSelect;
 
+export type InsertFolder = z.infer<typeof insertFolderSchema>;
 export type InsertItem = z.infer<typeof insertItemSchema>;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;

@@ -10,7 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import UpgradeDialog from "@/components/UpgradeDialog";
-import type { Item, StockLevel, InsertItem, Vendor } from "@shared/schema";
+import type { Item, StockLevel, InsertItem, Vendor, Folder } from "@shared/schema";
+import { DndContext, DragEndEvent, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Trash2 } from "lucide-react";
 
 type FilterType = "all" | "critical" | "controlled" | "expiring" | "belowMin";
 
@@ -84,8 +86,29 @@ export default function Items() {
     licenseType: string;
   } | null>(null);
 
+  // Folder state
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
+  const [folderName, setFolderName] = useState("");
+  const [activeItemId, setActiveItemId] = useState<string | null>(null);
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
   const { data: items = [], isLoading } = useQuery<ItemWithStock[]>({
     queryKey: ["/api/items", activeHospital?.id],
+    enabled: !!activeHospital?.id,
+  });
+
+  const { data: folders = [] } = useQuery<Folder[]>({
+    queryKey: ["/api/folders", activeHospital?.id],
     enabled: !!activeHospital?.id,
   });
   
@@ -382,6 +405,164 @@ export default function Items() {
     },
   });
 
+  const createFolderMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const response = await apiRequest("POST", "/api/folders", {
+        name,
+        hospitalId: activeHospital?.id,
+        locationId: activeHospital?.locationId,
+      });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/folders", activeHospital?.id] });
+      setFolderDialogOpen(false);
+      setFolderName("");
+      toast({
+        title: "Success",
+        description: "Folder created successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create folder",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateFolderMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const response = await apiRequest("PATCH", `/api/folders/${id}`, { name });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/folders", activeHospital?.id] });
+      setFolderDialogOpen(false);
+      setEditingFolder(null);
+      setFolderName("");
+      toast({
+        title: "Success",
+        description: "Folder updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update folder",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteFolderMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/folders/${id}`);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/folders", activeHospital?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id] });
+      toast({
+        title: "Success",
+        description: "Folder deleted successfully. Items moved to root level.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete folder",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const moveItemMutation = useMutation({
+    mutationFn: async ({ itemId, folderId }: { itemId: string; folderId: string | null }) => {
+      const response = await apiRequest("PATCH", `/api/items/${itemId}`, { folderId });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to move item",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveItemId(null);
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const itemId = active.id as string;
+    const overId = over.id as string;
+
+    if (overId === "root") {
+      moveItemMutation.mutate({ itemId, folderId: null });
+    } else if (overId.startsWith("folder-")) {
+      const folderId = overId.replace("folder-", "");
+      moveItemMutation.mutate({ itemId, folderId });
+    }
+  };
+
+  const toggleFolder = (folderId: string) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(folderId)) {
+        next.delete(folderId);
+      } else {
+        next.add(folderId);
+      }
+      return next;
+    });
+  };
+
+  const handleCreateFolder = () => {
+    setEditingFolder(null);
+    setFolderName("");
+    setFolderDialogOpen(true);
+  };
+
+  const handleEditFolder = (e: React.MouseEvent, folder: Folder) => {
+    e.stopPropagation();
+    setEditingFolder(folder);
+    setFolderName(folder.name);
+    setFolderDialogOpen(true);
+  };
+
+  const handleDeleteFolder = (e: React.MouseEvent, folderId: string) => {
+    e.stopPropagation();
+    if (confirm("Are you sure you want to delete this folder? Items will be moved to root level.")) {
+      deleteFolderMutation.mutate(folderId);
+    }
+  };
+
+  const handleSaveFolder = () => {
+    if (!folderName.trim()) {
+      toast({
+        title: "Error",
+        description: "Folder name is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (editingFolder) {
+      updateFolderMutation.mutate({ id: editingFolder.id, name: folderName });
+    } else {
+      createFolderMutation.mutate(folderName);
+    }
+  };
+
   const handleQuickOrder = (e: React.MouseEvent, item: ItemWithStock) => {
     e.stopPropagation();
     
@@ -642,8 +823,8 @@ export default function Items() {
     bulkUpdateMutation.mutate(updates);
   };
 
-  const filteredItems = useMemo(() => {
-    let filtered = items;
+  const filterAndSortItems = (itemsToFilter: ItemWithStock[]) => {
+    let filtered = itemsToFilter;
 
     // Apply search filter
     if (searchTerm) {
@@ -681,7 +862,6 @@ export default function Items() {
           const bExpiry = b.soonestExpiry ? new Date(b.soonestExpiry).getTime() : Infinity;
           return aExpiry - bExpiry;
         case "usage":
-          // Mock usage rate - would come from analytics
           return Math.random() - 0.5;
         case "stock":
           const aStock = a.stockLevel?.qtyOnHand || 0;
@@ -693,7 +873,27 @@ export default function Items() {
     });
 
     return filtered;
-  }, [items, searchTerm, activeFilter, sortBy]);
+  };
+
+  const organizedItems = useMemo(() => {
+    const rootItems = items.filter(item => !item.folderId);
+    const folderGroups = folders.map(folder => ({
+      folder,
+      items: items.filter(item => item.folderId === folder.id),
+    }));
+
+    return {
+      rootItems: filterAndSortItems(rootItems),
+      folderGroups: folderGroups.map(group => ({
+        folder: group.folder,
+        items: filterAndSortItems(group.items),
+      })).filter(group => group.items.length > 0 || searchTerm === ""),
+    };
+  }, [items, folders, searchTerm, activeFilter, sortBy]);
+
+  const filteredItems = useMemo(() => {
+    return [...organizedItems.rootItems, ...organizedItems.folderGroups.flatMap(g => g.items)];
+  }, [organizedItems]);
 
   const getFilterCounts = () => {
     return {
@@ -840,37 +1040,151 @@ export default function Items() {
         </button>
       </div>
 
-      {/* Sort Options */}
-      <div className="flex items-center justify-between">
+      {/* Sort Options and Create Folder */}
+      <div className="flex items-center justify-between gap-2">
         <span className="text-sm text-muted-foreground">{filteredItems.length} items</span>
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className="px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          data-testid="items-sort"
-        >
-          <option value="name">Sort: Name A-Z</option>
-          <option value="stock">Sort: Stock Level</option>
-        </select>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCreateFolder}
+            data-testid="create-folder-button"
+          >
+            <FolderPlus className="w-4 h-4 mr-1" />
+            New Folder
+          </Button>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            data-testid="items-sort"
+          >
+            <option value="name">Sort: Name A-Z</option>
+            <option value="stock">Sort: Stock Level</option>
+          </select>
+        </div>
       </div>
 
-      {/* Items List */}
-      <div className="space-y-3">
-        {isLoading ? (
-          <div className="text-center py-8">
-            <i className="fas fa-spinner fa-spin text-2xl text-primary mb-2"></i>
-            <p className="text-muted-foreground">Loading items...</p>
-          </div>
-        ) : filteredItems.length === 0 ? (
-          <div className="bg-card border border-border rounded-lg p-8 text-center">
-            <i className="fas fa-search text-4xl text-muted-foreground mb-4"></i>
-            <h3 className="text-lg font-semibold text-foreground mb-2">No Items Found</h3>
-            <p className="text-muted-foreground">
-              {searchTerm ? "Try adjusting your search terms" : "No items match the selected filters"}
-            </p>
-          </div>
-        ) : (
-          filteredItems.map((item) => {
+      {/* Items List with Folders */}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <div className="space-y-3">
+          {isLoading ? (
+            <div className="text-center py-8">
+              <i className="fas fa-spinner fa-spin text-2xl text-primary mb-2"></i>
+              <p className="text-muted-foreground">Loading items...</p>
+            </div>
+          ) : filteredItems.length === 0 ? (
+            <div className="bg-card border border-border rounded-lg p-8 text-center">
+              <i className="fas fa-search text-4xl text-muted-foreground mb-4"></i>
+              <h3 className="text-lg font-semibold text-foreground mb-2">No Items Found</h3>
+              <p className="text-muted-foreground">
+                {searchTerm ? "Try adjusting your search terms" : "No items match the selected filters"}
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Render folders */}
+              {organizedItems.folderGroups.map(({ folder, items: folderItems }) => (
+                <div key={folder.id} className="space-y-2">
+                  <div
+                    className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted/70 transition-colors"
+                    onClick={() => toggleFolder(folder.id)}
+                    data-testid={`folder-${folder.id}`}
+                  >
+                    {expandedFolders.has(folder.id) ? (
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    )}
+                    <FolderIcon className="w-5 h-5 text-primary" />
+                    <span className="flex-1 font-medium text-foreground">{folder.name}</span>
+                    <span className="text-sm text-muted-foreground">({folderItems.length})</span>
+                    <button
+                      onClick={(e) => handleEditFolder(e, folder)}
+                      className="p-1 hover:bg-muted rounded"
+                      data-testid={`edit-folder-${folder.id}`}
+                    >
+                      <Edit2 className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                    <button
+                      onClick={(e) => handleDeleteFolder(e, folder.id)}
+                      className="p-1 hover:bg-destructive/10 rounded"
+                      data-testid={`delete-folder-${folder.id}`}
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </button>
+                  </div>
+                  {expandedFolders.has(folder.id) && (
+                    <div className="pl-6 space-y-2">
+                      {folderItems.map((item) => {
+                        const stockStatus = getStockStatus(item);
+                        const daysUntilExpiry = getDaysUntilExpiry(item.soonestExpiry);
+                        const currentQty = item.stockLevel?.qtyOnHand || 0;
+
+                        return (
+                          <div
+                            key={item.id}
+                            className="bg-card border border-border rounded-lg p-3 hover:shadow-md transition-all cursor-pointer"
+                            onClick={() => handleEditItem(item)}
+                            data-testid={`item-${item.id}`}
+                          >
+                            {/* Item content - same as root items below */}
+                            <div className="flex items-start gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start gap-2">
+                                  <h3 className="text-sm font-semibold text-foreground truncate flex-1">{item.name}</h3>
+                                  <div className="flex gap-1 flex-shrink-0">
+                                    {item.critical && (
+                                      <span className="status-chip chip-critical text-xs" data-testid={`item-${item.id}-critical`}>
+                                        <i className="fas fa-exclamation-circle"></i>
+                                      </span>
+                                    )}
+                                    {item.controlled && (
+                                      <span className="status-chip chip-controlled text-xs" data-testid={`item-${item.id}-controlled`}>
+                                        <i className="fas fa-shield-halved"></i>
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                {item.description && (
+                                  <p className="text-xs text-muted-foreground mt-1 truncate">{item.description}</p>
+                                )}
+                                <div className="flex items-center gap-3 mt-2 flex-wrap text-xs">
+                                  <span className="text-muted-foreground">{item.unit}</span>
+                                  {item.stockLevel && (
+                                    <div className={`inline-flex items-center gap-1 ${stockStatus.color}`}>
+                                      <i className={`fas ${currentQty > 0 ? 'fa-check-circle' : 'fa-times-circle'}`}></i>
+                                      <span className="font-semibold" data-testid={`item-${item.id}-stock`}>{currentQty}</span>
+                                      {item.minThreshold !== null && item.minThreshold !== undefined && (
+                                        <span className="text-muted-foreground">
+                                          / Min: {item.minThreshold} / Max: {item.maxThreshold || 0}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              {currentQty <= (item.minThreshold || 0) && (
+                                <button
+                                  onClick={(e) => handleQuickOrder(e, item)}
+                                  className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors flex-shrink-0"
+                                  data-testid={`item-${item.id}-quick-order`}
+                                >
+                                  <i className="fas fa-bolt mr-1"></i>
+                                  Quick Order
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
+              
+              {/* Render root items */}
+              {organizedItems.rootItems.map((item) => {
             const stockStatus = getStockStatus(item);
             const daysUntilExpiry = getDaysUntilExpiry(item.soonestExpiry);
             const currentQty = item.stockLevel?.qtyOnHand || 0;
@@ -1012,9 +1326,43 @@ export default function Items() {
                 </div>
               </div>
             );
-          })
-        )}
-      </div>
+          })}
+            </>
+          )}
+        </div>
+      </DndContext>
+
+      {/* Folder Dialog */}
+      <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{editingFolder ? "Edit Folder" : "Create Folder"}</DialogTitle>
+            <DialogDescription>
+              {editingFolder ? "Update folder name" : "Create a new folder to organize items"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="folder-name">Folder Name</Label>
+              <Input
+                id="folder-name"
+                value={folderName}
+                onChange={(e) => setFolderName(e.target.value)}
+                placeholder="e.g., Drugs, Airway, etc."
+                data-testid="folder-name-input"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setFolderDialogOpen(false)} data-testid="cancel-folder">
+                Cancel
+              </Button>
+              <Button onClick={handleSaveFolder} data-testid="save-folder">
+                {editingFolder ? "Update" : "Create"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Item Dialog */}
       <Dialog open={addDialogOpen} onOpenChange={(open) => { setAddDialogOpen(open); if (!open) resetForm(); }}>

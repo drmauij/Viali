@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage, db } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertItemSchema, insertActivitySchema, orderLines, items, stockLevels, orders, users } from "@shared/schema";
+import { insertItemSchema, insertFolderSchema, insertActivitySchema, orderLines, items, stockLevels, orders, users } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, inArray, sql } from "drizzle-orm";
 
@@ -334,6 +334,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching KPIs:", error);
       res.status(500).json({ message: "Failed to fetch KPIs" });
+    }
+  });
+
+  // Folder routes
+  app.get('/api/folders/:hospitalId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const userId = req.user.claims.sub;
+      
+      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      if (!locationId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      const folders = await storage.getFolders(hospitalId, locationId);
+      res.json(folders);
+    } catch (error) {
+      console.error("Error fetching folders:", error);
+      res.status(500).json({ message: "Failed to fetch folders" });
+    }
+  });
+
+  app.post('/api/folders', isAuthenticated, async (req: any, res) => {
+    try {
+      const folderData = insertFolderSchema.parse(req.body);
+      const userId = req.user.claims.sub;
+      
+      const locationId = await getUserLocationForHospital(userId, folderData.hospitalId);
+      if (!locationId || locationId !== folderData.locationId) {
+        return res.status(403).json({ message: "Access denied to this hospital/location" });
+      }
+      
+      const folder = await storage.createFolder(folderData);
+      res.status(201).json(folder);
+    } catch (error) {
+      console.error("Error creating folder:", error);
+      res.status(500).json({ message: "Failed to create folder" });
+    }
+  });
+
+  app.patch('/api/folders/:folderId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { folderId } = req.params;
+      const updates = req.body;
+      const userId = req.user.claims.sub;
+      
+      const folder = await storage.getFolder(folderId);
+      if (!folder) {
+        return res.status(404).json({ message: "Folder not found" });
+      }
+      
+      const locationId = await getUserLocationForHospital(userId, folder.hospitalId);
+      if (!locationId || locationId !== folder.locationId) {
+        return res.status(403).json({ message: "Access denied to this folder" });
+      }
+      
+      const updated = await storage.updateFolder(folderId, updates);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating folder:", error);
+      res.status(500).json({ message: "Failed to update folder" });
+    }
+  });
+
+  app.delete('/api/folders/:folderId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { folderId } = req.params;
+      const userId = req.user.claims.sub;
+      
+      const folder = await storage.getFolder(folderId);
+      if (!folder) {
+        return res.status(404).json({ message: "Folder not found" });
+      }
+      
+      const locationId = await getUserLocationForHospital(userId, folder.hospitalId);
+      if (!locationId || locationId !== folder.locationId) {
+        return res.status(403).json({ message: "Access denied to this folder" });
+      }
+      
+      await storage.deleteFolder(folderId);
+      res.json({ message: "Folder deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting folder:", error);
+      res.status(500).json({ message: "Failed to delete folder" });
     }
   });
 
