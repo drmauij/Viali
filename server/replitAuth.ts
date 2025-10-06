@@ -137,13 +137,17 @@ export async function setupAuth(app: Express) {
 
   const domains = new Set<string>();
   for (const domain of process.env.REPLIT_DOMAINS!.split(",")) {
-    domains.add(domain.trim());
+    const trimmed = domain.trim();
+    domains.add(trimmed);
     
-    if (domain.includes('.replit.dev')) {
-      domains.add(domain.replace('.replit.dev', '.repl.co'));
-      domains.add(domain.replace('.replit.dev', '.riker.repl.co'));
+    // Add all domain variants
+    if (trimmed.endsWith('.replit.dev')) {
+      // Replace .replit.dev with .repl.co
+      domains.add(trimmed.replace('.replit.dev', '.repl.co'));
     }
   }
+
+  console.log('[Auth] Registering strategies for domains:', Array.from(domains));
 
   for (const domain of Array.from(domains)) {
     const strategy = new Strategy(
@@ -152,81 +156,31 @@ export async function setupAuth(app: Express) {
         config,
         scope: "openid email profile offline_access",
         callbackURL: `https://${domain}/api/callback`,
-        passReqToCallback: false,
       },
       verify,
     );
     passport.use(strategy);
   }
 
-  app.get("/api/login-dynamic", (req, res, next) => {
-    const dynamicCallbackURL = `${req.protocol}://${req.get('host')}/api/callback`;
-    const strategyName = 'replitauth:dynamic';
-    
-    console.log(`[Auth] Login request from: ${req.get('host')}, callback URL: ${dynamicCallbackURL}`);
-    
-    // Unregister existing dynamic strategy if it exists
-    try {
-      passport.unuse(strategyName);
-    } catch (e) {
-      // Strategy doesn't exist yet, that's fine
-    }
-    
-    const dynamicStrategy = new Strategy(
-      {
-        name: strategyName,
-        config,
-        scope: "openid email profile offline_access",
-        callbackURL: dynamicCallbackURL,
-      },
-      verify,
-    );
-    
-    passport.use(dynamicStrategy);
-    console.log(`[Auth] Registered strategy: ${strategyName} with callback: ${dynamicCallbackURL}`);
-    
+  passport.serializeUser((user: Express.User, cb) => cb(null, user));
+  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+
+  app.get("/api/login", (req, res, next) => {
+    const strategyName = `replitauth:${req.hostname}`;
+    console.log(`[Auth] Login requested for hostname: ${req.hostname}, strategy: ${strategyName}`);
     passport.authenticate(strategyName, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
 
-  passport.serializeUser((user: Express.User, cb) => cb(null, user));
-  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
-
-  app.get("/api/login", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      prompt: "login consent",
-      scope: ["openid", "email", "profile", "offline_access"],
-    })(req, res, next);
-  });
-
   app.get("/api/callback", (req, res, next) => {
-    console.log(`[Auth] Callback received`);
-    
-    passport.authenticate("replitauth:dynamic", (err: any, user: any, info: any) => {
-      if (err) {
-        console.error('[Auth] Callback error:', err);
-        return res.redirect("/api/login-dynamic");
-      }
-      if (!user) {
-        console.error('[Auth] No user returned, info:', info);
-        return res.redirect("/api/login-dynamic");
-      }
-      req.logIn(user, (loginErr) => {
-        if (loginErr) {
-          console.error('[Auth] Login error:', loginErr);
-          return res.redirect("/api/login-dynamic");
-        }
-        console.log('[Auth] Login successful, redirecting to /');
-        return res.redirect("/");
-      });
+    const strategyName = `replitauth:${req.hostname}`;
+    console.log(`[Auth] Callback received for hostname: ${req.hostname}, strategy: ${strategyName}`);
+    passport.authenticate(strategyName, {
+      successReturnToOrRedirect: "/",
+      failureRedirect: "/api/login",
     })(req, res, next);
-  });
-
-  app.get("/oidc/auth", (req, res) => {
-    console.log('[Auth] Received request to /oidc/auth, redirecting to /api/callback');
-    res.redirect(`/api/callback${req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : ''}`);
   });
 
   app.get("/api/logout", (req, res) => {
