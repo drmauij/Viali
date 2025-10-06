@@ -90,3 +90,68 @@ export async function sendWelcomeEmail(
     return { success: false, error };
   }
 }
+
+export async function sendPasswordResetEmail(
+  toEmail: string, 
+  resetUrl: string, 
+  userName?: string
+) {
+  try {
+    const { client, fromEmail } = await getUncachableResendClient();
+    
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #2563eb; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; background-color: #f9fafb; }
+            .button { display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Viali - Password Reset</h1>
+            </div>
+            <div class="content">
+              <p>Hello${userName ? ' ' + userName : ''},</p>
+              <p>You requested to reset your password for your Viali account. Click the button below to create a new password:</p>
+              <p style="text-align: center;">
+                <a href="${resetUrl}" class="button">Reset Password</a>
+              </p>
+              <p>Or copy and paste this link into your browser:</p>
+              <p style="word-break: break-all; color: #2563eb;">${resetUrl}</p>
+              <p><strong>This link will expire in 1 hour.</strong></p>
+              <p>If you didn't request this password reset, you can safely ignore this email.</p>
+            </div>
+            <div class="footer">
+              <p>Viali Hospital Inventory Management System</p>
+              <p>This is an automated email, please do not reply.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject: 'Reset Your Password - Viali',
+      html,
+    });
+
+    if (error) {
+      console.error('Failed to send password reset email:', error);
+      return { success: false, error };
+    }
+
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error sending password reset email:', error);
+    return { success: false, error };
+  }
+}
