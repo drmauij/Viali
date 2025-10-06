@@ -1535,40 +1535,6 @@ export default function Items() {
               </div>
             </div>
 
-            {selectedUnit === "pack" && formData.controlled && (
-              <>
-                <div>
-                  <Label htmlFor="packSize">Pack Size (ampules per pack) *</Label>
-                  <Input 
-                    ref={packSizeInputRef}
-                    id="packSize" 
-                    name="packSize" 
-                    type="number" 
-                    min="1"
-                    value={formData.packSize}
-                    onChange={(e) => setFormData(prev => ({ ...prev, packSize: e.target.value }))}
-                    data-testid="input-item-pack-size" 
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Number of ampules in each pack</p>
-                </div>
-                <div>
-                  <Label htmlFor="controlledUnits">Controlled Units (ampules) *</Label>
-                  <Input 
-                    id="controlledUnits" 
-                    name="controlledUnits" 
-                    type="number" 
-                    min="0"
-                    value={formData.controlledUnits}
-                    onChange={(e) => setFormData(prev => ({ ...prev, controlledUnits: e.target.value }))}
-                    data-testid="input-item-controlled-units" 
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Current ampules in stock for tracking</p>
-                </div>
-              </>
-            )}
-
             {/* <div>
               <Label htmlFor="barcode">Barcode</Label>
               <Input 
@@ -1643,6 +1609,41 @@ export default function Items() {
                 <Label htmlFor="controlled" className="cursor-pointer">Controlled Substance</Label>
               </div>
             </div>
+
+            {/* Controlled Substance Fields - Only shown for controlled pack items */}
+            {selectedUnit === "pack" && formData.controlled && (
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg border-2 border-amber-200 dark:border-amber-900/50 space-y-4">
+                <div>
+                  <Label htmlFor="packSize">Pack Size (ampules per pack) *</Label>
+                  <Input 
+                    ref={packSizeInputRef}
+                    id="packSize" 
+                    name="packSize" 
+                    type="number" 
+                    min="1"
+                    value={formData.packSize}
+                    onChange={(e) => setFormData(prev => ({ ...prev, packSize: e.target.value }))}
+                    data-testid="input-item-pack-size" 
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Number of ampules in each pack</p>
+                </div>
+                <div>
+                  <Label htmlFor="controlledUnits">Controlled Units (ampules) *</Label>
+                  <Input 
+                    id="controlledUnits" 
+                    name="controlledUnits" 
+                    type="number" 
+                    min="0"
+                    value={formData.controlledUnits}
+                    onChange={(e) => setFormData(prev => ({ ...prev, controlledUnits: e.target.value }))}
+                    data-testid="input-item-controlled-units" 
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Current ampules in stock for tracking</p>
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-3 pt-4 justify-end">
               <Button type="button" variant="outline" onClick={() => { setAddDialogOpen(false); resetForm(); }}>
@@ -1719,40 +1720,6 @@ export default function Items() {
               </div>
             </div>
 
-            {selectedUnit === "pack" && editFormData.controlled && (
-              <>
-                <div>
-                  <Label htmlFor="edit-packSize">Pack Size (ampules per pack) *</Label>
-                  <Input 
-                    ref={editPackSizeInputRef}
-                    id="edit-packSize" 
-                    name="packSize" 
-                    type="number" 
-                    min="1"
-                    value={editFormData.packSize}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, packSize: e.target.value }))}
-                    data-testid="input-edit-pack-size" 
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Number of ampules in each pack</p>
-                </div>
-                <div>
-                  <Label htmlFor="edit-controlledUnits">Controlled Units (ampules) *</Label>
-                  <Input 
-                    id="edit-controlledUnits" 
-                    name="controlledUnits" 
-                    type="number" 
-                    min="0"
-                    value={editFormData.controlledUnits}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, controlledUnits: e.target.value }))}
-                    data-testid="input-edit-controlled-units" 
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Current ampules in stock for tracking</p>
-                </div>
-              </>
-            )}
-
             {/* <div>
               <Label htmlFor="edit-barcode">Barcode</Label>
               <Input 
@@ -1828,6 +1795,41 @@ export default function Items() {
                 <Label htmlFor="edit-controlled" className="cursor-pointer">Controlled Substance</Label>
               </div>
             </div>
+
+            {/* Controlled Substance Fields - Only shown for controlled pack items */}
+            {selectedUnit === "pack" && editFormData.controlled && (
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg border-2 border-amber-200 dark:border-amber-900/50 space-y-4">
+                <div>
+                  <Label htmlFor="edit-packSize">Pack Size (ampules per pack) *</Label>
+                  <Input 
+                    ref={editPackSizeInputRef}
+                    id="edit-packSize" 
+                    name="packSize" 
+                    type="number" 
+                    min="1"
+                    value={editFormData.packSize}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, packSize: e.target.value }))}
+                    data-testid="input-edit-pack-size" 
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Number of ampules in each pack</p>
+                </div>
+                <div>
+                  <Label htmlFor="edit-controlledUnits">Controlled Units (ampules) *</Label>
+                  <Input 
+                    id="edit-controlledUnits" 
+                    name="controlledUnits" 
+                    type="number" 
+                    min="0"
+                    value={editFormData.controlledUnits}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, controlledUnits: e.target.value }))}
+                    data-testid="input-edit-controlled-units" 
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Current ampules in stock for tracking</p>
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-2 justify-between">
               <Button 
