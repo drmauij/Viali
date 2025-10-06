@@ -637,6 +637,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         packSize: req.body.packSize,
         critical: req.body.critical,
         controlled: req.body.controlled,
+        folderId: req.body.folderId !== undefined ? req.body.folderId : undefined,
       };
       
       const updatedItem = await storage.updateItem(itemId, updates);

@@ -554,27 +554,18 @@ export default function Items() {
     const { active, over } = event;
     setActiveItemId(null);
 
-    console.log('Drag ended:', { activeId: active.id, overId: over?.id });
-
     if (!over || active.id === over.id) {
-      console.log('No valid drop target');
       return;
     }
 
     const itemId = active.id as string;
     const overId = over.id as string;
 
-    console.log('Moving item:', { itemId, overId });
-
     if (overId === "root") {
-      console.log('Moving to root');
       moveItemMutation.mutate({ itemId, folderId: null });
     } else if (overId.startsWith("folder-")) {
       const folderId = overId.replace("folder-", "");
-      console.log('Moving to folder:', folderId);
       moveItemMutation.mutate({ itemId, folderId });
-    } else {
-      console.log('Invalid drop target:', overId);
     }
   };
 
