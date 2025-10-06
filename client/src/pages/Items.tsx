@@ -11,7 +11,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import UpgradeDialog from "@/components/UpgradeDialog";
 import type { Item, StockLevel, InsertItem, Vendor, Folder } from "@shared/schema";
-import { DndContext, DragEndEvent, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
 import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Trash2 } from "lucide-react";
 
 type FilterType = "all" | "critical" | "controlled" | "expiring" | "belowMin";
@@ -22,6 +22,36 @@ interface ItemWithStock extends Item {
 }
 
 type UnitType = "pack" | "ampulle";
+
+// Draggable item wrapper
+function DraggableItem({ id, children, disabled }: { id: string; children: React.ReactNode; disabled?: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id,
+    disabled,
+  });
+
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    opacity: isDragging ? 0.5 : 1,
+  } : undefined;
+
+  return (
+    <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
+      {children}
+    </div>
+  );
+}
+
+// Droppable folder wrapper
+function DroppableFolder({ id, children }: { id: string; children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  return (
+    <div ref={setNodeRef} className={isOver ? "ring-2 ring-primary rounded-lg" : ""}>
+      {children}
+    </div>
+  );
+}
 
 export default function Items() {
   const { user } = useAuth();
@@ -494,6 +524,14 @@ export default function Items() {
       });
     },
   });
+
+  const handleDragStart = (event: any) => {
+    setActiveItemId(event.active.id as string);
+  };
+
+  const handleDragCancel = () => {
+    setActiveItemId(null);
+  };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -1066,7 +1104,7 @@ export default function Items() {
       </div>
 
       {/* Items List with Folders */}
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
         <div className="space-y-3">
           {isLoading ? (
             <div className="text-center py-8">
@@ -1085,12 +1123,13 @@ export default function Items() {
             <>
               {/* Render folders */}
               {organizedItems.folderGroups.map(({ folder, items: folderItems }) => (
-                <div key={folder.id} className="space-y-2">
-                  <div
-                    className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted/70 transition-colors"
-                    onClick={() => toggleFolder(folder.id)}
-                    data-testid={`folder-${folder.id}`}
-                  >
+                <DroppableFolder key={folder.id} id={`folder-${folder.id}`}>
+                  <div className="space-y-2">
+                    <div
+                      className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted/70 transition-colors"
+                      onClick={() => toggleFolder(folder.id)}
+                      data-testid={`folder-${folder.id}`}
+                    >
                     {expandedFolders.has(folder.id) ? (
                       <ChevronDown className="w-4 h-4 text-muted-foreground" />
                     ) : (
@@ -1122,12 +1161,12 @@ export default function Items() {
                         const currentQty = item.stockLevel?.qtyOnHand || 0;
 
                         return (
-                          <div
-                            key={item.id}
-                            className="bg-card border border-border rounded-lg p-3 hover:shadow-md transition-all cursor-pointer"
-                            onClick={() => handleEditItem(item)}
-                            data-testid={`item-${item.id}`}
-                          >
+                          <DraggableItem key={item.id} id={item.id} disabled={isBulkEditMode}>
+                            <div
+                              className="bg-card border border-border rounded-lg p-3 hover:shadow-md transition-all cursor-pointer"
+                              onClick={() => handleEditItem(item)}
+                              data-testid={`item-${item.id}`}
+                            >
                             {/* Item content - same as root items below */}
                             <div className="flex items-start gap-3">
                               <div className="flex-1 min-w-0">
@@ -1175,27 +1214,31 @@ export default function Items() {
                                 </button>
                               )}
                             </div>
-                          </div>
+                            </div>
+                          </DraggableItem>
                         );
                       })}
                     </div>
                   )}
-                </div>
+                  </div>
+                </DroppableFolder>
               ))}
               
               {/* Render root items */}
-              {organizedItems.rootItems.map((item) => {
-            const stockStatus = getStockStatus(item);
-            const daysUntilExpiry = getDaysUntilExpiry(item.soonestExpiry);
-            const currentQty = item.stockLevel?.qtyOnHand || 0;
+              <DroppableFolder id="root">
+                <div className="space-y-3">
+                  {organizedItems.rootItems.map((item) => {
+                    const stockStatus = getStockStatus(item);
+                    const daysUntilExpiry = getDaysUntilExpiry(item.soonestExpiry);
+                    const currentQty = item.stockLevel?.qtyOnHand || 0;
 
-            return (
-              <div 
-                key={item.id} 
-                className="item-row cursor-pointer hover:bg-accent/50 transition-colors" 
-                onClick={() => handleEditItem(item)}
-                data-testid={`item-${item.id}`}
-              >
+                    return (
+                      <DraggableItem key={item.id} id={item.id} disabled={isBulkEditMode}>
+                        <div 
+                          className="item-row cursor-pointer hover:bg-accent/50 transition-colors" 
+                          onClick={() => handleEditItem(item)}
+                          data-testid={`item-${item.id}`}
+                        >
                 <div className="flex items-start justify-between mb-3">
                   {isBulkEditMode ? (
                     <div className="flex-1 space-y-2">
@@ -1324,9 +1367,12 @@ export default function Items() {
                     </>
                   )}
                 </div>
-              </div>
-            );
-          })}
+                        </div>
+                      </DraggableItem>
+                    );
+                  })}
+                </div>
+              </DroppableFolder>
             </>
           )}
         </div>
