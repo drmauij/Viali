@@ -135,8 +135,17 @@ export async function setupAuth(app: Express) {
     verified(null, user);
   };
 
-  for (const domain of process.env
-    .REPLIT_DOMAINS!.split(",")) {
+  const domains = new Set<string>();
+  for (const domain of process.env.REPLIT_DOMAINS!.split(",")) {
+    domains.add(domain.trim());
+    
+    if (domain.includes('.replit.dev')) {
+      domains.add(domain.replace('.replit.dev', '.repl.co'));
+      domains.add(domain.replace('.replit.dev', '.riker.repl.co'));
+    }
+  }
+
+  for (const domain of Array.from(domains)) {
     const strategy = new Strategy(
       {
         name: `replitauth:${domain}`,
