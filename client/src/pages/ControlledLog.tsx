@@ -1200,7 +1200,8 @@ export default function ControlledLog() {
                           ref={videoRef}
                           autoPlay
                           playsInline
-                          className="w-full h-64 object-cover rounded-lg"
+                          muted
+                          className="w-full h-64 object-cover rounded-lg bg-black"
                         />
                         <div className="flex gap-2 mt-3">
                           <Button className="flex-1" onClick={capturePatientPhoto} data-testid="capture-patient-photo">
