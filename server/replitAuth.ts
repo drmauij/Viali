@@ -152,11 +152,33 @@ export async function setupAuth(app: Express) {
         config,
         scope: "openid email profile offline_access",
         callbackURL: `https://${domain}/api/callback`,
+        passReqToCallback: false,
       },
       verify,
     );
     passport.use(strategy);
   }
+
+  app.get("/api/login-dynamic", (req, res, next) => {
+    const dynamicCallbackURL = `${req.protocol}://${req.get('host')}/api/callback`;
+    
+    const dynamicStrategy = new Strategy(
+      {
+        name: `replitauth:dynamic`,
+        config,
+        scope: "openid email profile offline_access",
+        callbackURL: dynamicCallbackURL,
+      },
+      verify,
+    );
+    
+    passport.use(dynamicStrategy);
+    
+    passport.authenticate("replitauth:dynamic", {
+      prompt: "login consent",
+      scope: ["openid", "email", "profile", "offline_access"],
+    })(req, res, next);
+  });
 
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
@@ -169,23 +191,21 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/callback", (req, res, next) => {
-    const strategyName = `replitauth:${req.hostname}`;
-    console.log(`[Auth] Callback received for hostname: ${req.hostname}, strategy: ${strategyName}`);
-    console.log(`[Auth] Registered strategies:`, Array.from(domains).map(d => `replitauth:${d}`));
+    console.log(`[Auth] Callback received`);
     
-    passport.authenticate(strategyName, (err: any, user: any, info: any) => {
+    passport.authenticate("replitauth:dynamic", (err: any, user: any, info: any) => {
       if (err) {
         console.error('[Auth] Callback error:', err);
-        return res.redirect("/api/login");
+        return res.redirect("/api/login-dynamic");
       }
       if (!user) {
         console.error('[Auth] No user returned, info:', info);
-        return res.redirect("/api/login");
+        return res.redirect("/api/login-dynamic");
       }
       req.logIn(user, (loginErr) => {
         if (loginErr) {
           console.error('[Auth] Login error:', loginErr);
-          return res.redirect("/api/login");
+          return res.redirect("/api/login-dynamic");
         }
         console.log('[Auth] Login successful, redirecting to /');
         return res.redirect("/");
