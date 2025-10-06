@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import SignaturePad from "@/components/SignaturePad";
+import BarcodeScanner from "@/components/BarcodeScanner";
 import type { Activity, User, Item, ControlledCheck } from "@shared/schema";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -66,6 +67,10 @@ export default function ControlledLog() {
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [showVerifySignaturePad, setShowVerifySignaturePad] = useState(false);
   const [patientMethod, setPatientMethod] = useState<PatientMethod>("text");
+  const [showPatientScanner, setShowPatientScanner] = useState(false);
+  const [showPatientCamera, setShowPatientCamera] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const photoStreamRef = useRef<MediaStream | null>(null);
   
   const [selectedDrugs, setSelectedDrugs] = useState<DrugSelection[]>([]);
   const [patientId, setPatientId] = useState("");
@@ -324,6 +329,81 @@ export default function ControlledLog() {
         drug.itemId === itemId ? { ...drug, qty: Math.max(0, qty) } : drug
       )
     );
+  };
+
+  const handlePatientBarcodeScan = (barcode: string) => {
+    setPatientId(barcode);
+    setShowPatientScanner(false);
+    toast({
+      title: "Barcode Scanned",
+      description: "Patient barcode captured successfully",
+    });
+  };
+
+  const startPatientCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } }
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        photoStreamRef.current = stream;
+      }
+      setShowPatientCamera(true);
+    } catch (error) {
+      console.error("Error accessing camera:", error);
+      toast({
+        title: "Camera Error",
+        description: "Unable to access camera",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const stopPatientCamera = () => {
+    if (photoStreamRef.current) {
+      photoStreamRef.current.getTracks().forEach(track => track.stop());
+      photoStreamRef.current = null;
+    }
+    setShowPatientCamera(false);
+  };
+
+  const capturePatientPhoto = async () => {
+    if (!videoRef.current) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx?.drawImage(videoRef.current, 0, 0);
+    const imageData = canvas.toDataURL('image/jpeg', 0.8);
+
+    try {
+      const response = await apiRequest("POST", "/api/controlled/extract-patient-info", { image: imageData });
+      const result = await response.json();
+      
+      if (result.patientId) {
+        setPatientId(result.patientId);
+        stopPatientCamera();
+        toast({
+          title: "Photo Captured",
+          description: "Patient information extracted successfully",
+        });
+      } else {
+        toast({
+          title: "Extraction Failed",
+          description: "Could not extract patient information from photo. Please enter manually.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error processing photo:", error);
+      toast({
+        title: "Processing Error",
+        description: "Failed to process patient photo",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleActualQtyChange = (itemId: string, actualQty: number) => {
@@ -1052,25 +1132,67 @@ export default function ControlledLog() {
 
                 {patientMethod === "barcode" && (
                   <div className="bg-muted rounded-lg p-4 text-center">
-                    <i className="fas fa-barcode text-4xl text-muted-foreground mb-2"></i>
-                    <p className="text-sm text-muted-foreground">Scan patient wristband</p>
-                    <Button className="mt-3" data-testid="open-patient-scanner">
-                      <i className="fas fa-camera mr-2"></i>
-                      Open Scanner
-                    </Button>
+                    {patientId ? (
+                      <>
+                        <i className="fas fa-check-circle text-4xl text-success mb-2"></i>
+                        <p className="text-sm text-success font-medium">Barcode: {patientId}</p>
+                        <Button className="mt-3" variant="outline" onClick={() => setPatientId("")}>
+                          <i className="fas fa-redo mr-2"></i>
+                          Rescan
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-barcode text-4xl text-muted-foreground mb-2"></i>
+                        <p className="text-sm text-muted-foreground">Scan patient wristband</p>
+                        <Button className="mt-3" onClick={() => setShowPatientScanner(true)} data-testid="open-patient-scanner">
+                          <i className="fas fa-camera mr-2"></i>
+                          Open Scanner
+                        </Button>
+                      </>
+                    )}
                   </div>
                 )}
 
                 {patientMethod === "photo" && (
-                  <div className="camera-preview">
-                    <div className="text-center">
-                      <i className="fas fa-camera text-4xl text-muted-foreground mb-2"></i>
-                      <p className="text-sm text-muted-foreground">Photo patient label/wristband</p>
-                      <Button className="mt-3" data-testid="capture-patient-photo">
-                        <i className="fas fa-camera mr-2"></i>
-                        Capture Photo
-                      </Button>
-                    </div>
+                  <div className="bg-muted rounded-lg p-4">
+                    {showPatientCamera ? (
+                      <div className="relative">
+                        <video
+                          ref={videoRef}
+                          autoPlay
+                          playsInline
+                          className="w-full h-64 object-cover rounded-lg"
+                        />
+                        <div className="flex gap-2 mt-3">
+                          <Button className="flex-1" onClick={capturePatientPhoto} data-testid="capture-patient-photo">
+                            <i className="fas fa-camera mr-2"></i>
+                            Capture
+                          </Button>
+                          <Button variant="outline" onClick={stopPatientCamera}>
+                            <i className="fas fa-times"></i>
+                          </Button>
+                        </div>
+                      </div>
+                    ) : patientId ? (
+                      <div className="text-center">
+                        <i className="fas fa-check-circle text-4xl text-success mb-2"></i>
+                        <p className="text-sm text-success font-medium">Patient ID: {patientId}</p>
+                        <Button className="mt-3" variant="outline" onClick={startPatientCamera}>
+                          <i className="fas fa-redo mr-2"></i>
+                          Retake
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <i className="fas fa-camera text-4xl text-muted-foreground mb-2"></i>
+                        <p className="text-sm text-muted-foreground">Photo patient label/wristband</p>
+                        <Button className="mt-3" onClick={startPatientCamera} data-testid="start-patient-camera">
+                          <i className="fas fa-camera mr-2"></i>
+                          Open Camera
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1535,6 +1657,17 @@ export default function ControlledLog() {
           </div>
         </div>
       )}
+
+      {/* Patient Barcode Scanner */}
+      <BarcodeScanner
+        isOpen={showPatientScanner}
+        onClose={() => setShowPatientScanner(false)}
+        onScan={handlePatientBarcodeScan}
+        onManualEntry={() => {
+          setShowPatientScanner(false);
+          setPatientMethod("text");
+        }}
+      />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Html5Qrcode } from "html5-qrcode";
 
 interface BarcodeScannerProps {
   isOpen: boolean;
@@ -9,74 +10,68 @@ interface BarcodeScannerProps {
 
 export default function BarcodeScanner({ isOpen, onClose, onScan, onManualEntry }: BarcodeScannerProps) {
   const [torchEnabled, setTorchEnabled] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const readerIdRef = useRef(`reader-${Date.now()}`);
 
   useEffect(() => {
     if (isOpen) {
-      startCamera();
+      startScanner();
     } else {
-      stopCamera();
+      stopScanner();
     }
 
-    return () => stopCamera();
+    return () => {
+      stopScanner();
+    };
   }, [isOpen]);
 
-  const startCamera = async () => {
+  const startScanner = async () => {
+    if (scanning || scannerRef.current) return;
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "environment", // Use back camera
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
+      setScanning(true);
+      const html5QrCode = new Html5Qrcode(readerIdRef.current);
+      scannerRef.current = html5QrCode;
+
+      const config = {
+        fps: 10,
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0,
+      };
+
+      await html5QrCode.start(
+        { facingMode: "environment" },
+        config,
+        (decodedText) => {
+          handleScanResult(decodedText);
         },
-      });
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        streamRef.current = stream;
-      }
-    } catch (error) {
-      console.error("Error accessing camera:", error);
-    }
-  };
-
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-  };
-
-  const toggleTorch = async () => {
-    if (streamRef.current) {
-      const track = streamRef.current.getVideoTracks()[0];
-      const capabilities = track.getCapabilities() as any;
-
-      if (capabilities.torch) {
-        try {
-          await track.applyConstraints({
-            advanced: [{ torch: !torchEnabled } as any],
-          });
-          setTorchEnabled(!torchEnabled);
-        } catch (error) {
-          console.error("Error toggling torch:", error);
+        (errorMessage) => {
         }
+      );
+    } catch (error) {
+      console.error("Error starting scanner:", error);
+      setScanning(false);
+    }
+  };
+
+  const stopScanner = async () => {
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.stop();
+        scannerRef.current.clear();
+        scannerRef.current = null;
+      } catch (error) {
+        console.error("Error stopping scanner:", error);
       }
     }
+    setScanning(false);
   };
 
   const handleScanResult = (result: string) => {
+    stopScanner();
     onScan(result);
     onClose();
-  };
-
-  // Mock barcode scanning for demo - in production, integrate with a barcode scanning library
-  const simulateScan = () => {
-    // Simulate successful scan
-    setTimeout(() => {
-      handleScanResult("1234567890123"); // Mock barcode
-    }, 1000);
   };
 
   if (!isOpen) return null;
@@ -91,32 +86,12 @@ export default function BarcodeScanner({ isOpen, onClose, onScan, onManualEntry 
         >
           <i className="fas fa-times"></i>
         </button>
-        <h2 className="text-white font-semibold">Scan Item</h2>
-        <button
-          className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center text-white"
-          onClick={toggleTorch}
-          data-testid="scanner-torch"
-        >
-          <i className={`fas ${torchEnabled ? "fa-lightbulb text-yellow-300" : "fa-lightbulb"}`}></i>
-        </button>
+        <h2 className="text-white font-semibold">Scan Barcode</h2>
+        <div className="w-10"></div>
       </div>
 
-      <div className="scanner-frame">
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          className="w-full h-full object-cover absolute inset-0"
-        />
-        
-        <div className="scanner-box relative z-10" onClick={simulateScan}>
-          <div className="scanner-line"></div>
-          {/* Corner markers */}
-          <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-primary"></div>
-          <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-primary"></div>
-          <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-primary"></div>
-          <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-primary"></div>
-        </div>
+      <div className="scanner-frame relative">
+        <div id={readerIdRef.current} className="w-full h-full"></div>
       </div>
 
       <div className="p-4 bg-black/50">
