@@ -731,6 +731,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         maxThreshold: req.body.maxThreshold,
         defaultOrderQty: req.body.defaultOrderQty,
         packSize: req.body.packSize,
+        controlledUnits: req.body.controlledUnits,
         critical: req.body.critical,
         controlled: req.body.controlled,
       };

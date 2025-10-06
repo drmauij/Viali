@@ -42,6 +42,7 @@ interface DrugSelection {
   onHand: number;
   qty: number;
   selected: boolean;
+  isControlledPack?: boolean;
 }
 
 interface RoutineCheckItem {
@@ -226,13 +227,22 @@ export default function ControlledLog() {
   });
 
   const resetAdministrationForm = () => {
-    setSelectedDrugs(controlledItems.map(item => ({
-      itemId: item.id,
-      name: item.name,
-      onHand: item.stockLevel?.qtyOnHand || 0,
-      qty: 0,
-      selected: false,
-    })));
+    setSelectedDrugs(controlledItems.map(item => {
+      const normalizedUnit = item.unit.toLowerCase();
+      const isControlledPack = !!(item.controlled && normalizedUnit === 'pack');
+      const onHandQty = isControlledPack 
+        ? (item.controlledUnits || 0) 
+        : (item.stockLevel?.qtyOnHand || 0);
+      
+      return {
+        itemId: item.id,
+        name: item.name,
+        onHand: onHandQty,
+        qty: 0,
+        selected: false,
+        isControlledPack,
+      };
+    }));
     setPatientId("");
     setNotes("");
     setSignature("");
@@ -260,13 +270,22 @@ export default function ControlledLog() {
   };
 
   const handleOpenAdministrationModal = () => {
-    setSelectedDrugs(controlledItems.map(item => ({
-      itemId: item.id,
-      name: item.name,
-      onHand: item.stockLevel?.qtyOnHand || 0,
-      qty: 0,
-      selected: false,
-    })));
+    setSelectedDrugs(controlledItems.map(item => {
+      const normalizedUnit = item.unit.toLowerCase();
+      const isControlledPack = !!(item.controlled && normalizedUnit === 'pack');
+      const onHandQty = isControlledPack 
+        ? (item.controlledUnits || 0) 
+        : (item.stockLevel?.qtyOnHand || 0);
+      
+      return {
+        itemId: item.id,
+        name: item.name,
+        onHand: onHandQty,
+        qty: 0,
+        selected: false,
+        isControlledPack,
+      };
+    }));
     setShowAdministrationModal(true);
   };
 
@@ -967,7 +986,11 @@ export default function ControlledLog() {
                         />
                         <div>
                           <p className="font-medium text-foreground">{drug.name}</p>
-                          <p className="text-xs text-muted-foreground">On hand: {drug.onHand} units</p>
+                          <p className="text-xs text-muted-foreground">
+                            {drug.isControlledPack 
+                              ? `Controlled units: ${drug.onHand} Ampules` 
+                              : `On hand: ${drug.onHand} units`}
+                          </p>
                         </div>
                       </div>
                       <Input
