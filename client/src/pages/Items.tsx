@@ -11,7 +11,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import UpgradeDialog from "@/components/UpgradeDialog";
 import type { Item, StockLevel, InsertItem, Vendor, Folder } from "@shared/schema";
-import { DndContext, DragEndEvent, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragOverlay, closestCenter, pointerWithin, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
 import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Trash2, GripVertical } from "lucide-react";
 
 type FilterType = "all" | "critical" | "controlled" | "expiring" | "belowMin";
@@ -554,18 +554,27 @@ export default function Items() {
     const { active, over } = event;
     setActiveItemId(null);
 
+    console.log('Drag ended:', { activeId: active.id, overId: over?.id });
+
     if (!over || active.id === over.id) {
+      console.log('No valid drop target');
       return;
     }
 
     const itemId = active.id as string;
     const overId = over.id as string;
 
+    console.log('Moving item:', { itemId, overId });
+
     if (overId === "root") {
+      console.log('Moving to root');
       moveItemMutation.mutate({ itemId, folderId: null });
     } else if (overId.startsWith("folder-")) {
       const folderId = overId.replace("folder-", "");
+      console.log('Moving to folder:', folderId);
       moveItemMutation.mutate({ itemId, folderId });
+    } else {
+      console.log('Invalid drop target:', overId);
     }
   };
 
@@ -1141,37 +1150,35 @@ export default function Items() {
               {/* Render folders */}
               {organizedItems.folderGroups.map(({ folder, items: folderItems }) => (
                 <div key={folder.id} className="space-y-2">
-                  <div
-                    className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted/70 transition-colors"
-                    onClick={() => toggleFolder(folder.id)}
-                    data-testid={`folder-${folder.id}`}
-                  >
-                    {expandedFolders.has(folder.id) ? (
-                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                    )}
-                    <FolderIcon className="w-5 h-5 text-primary" />
-                    <span className="flex-1 font-medium text-foreground">{folder.name}</span>
-                    <span className="text-sm text-muted-foreground">({folderItems.length})</span>
-                    <button
-                      onClick={(e) => handleEditFolder(e, folder)}
-                      className="p-1 hover:bg-muted rounded"
-                      data-testid={`edit-folder-${folder.id}`}
-                    >
-                      <Edit2 className="w-4 h-4 text-muted-foreground" />
-                    </button>
-                    <button
-                      onClick={(e) => handleDeleteFolder(e, folder.id)}
-                      className="p-1 hover:bg-destructive/10 rounded"
-                      data-testid={`delete-folder-${folder.id}`}
-                    >
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </button>
-                  </div>
-                  {/* Drop zone for folder */}
                   <DroppableFolder id={`folder-${folder.id}`}>
-                    <div className="min-h-[20px]"></div>
+                    <div
+                      className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted/70 transition-colors"
+                      onClick={() => toggleFolder(folder.id)}
+                      data-testid={`folder-${folder.id}`}
+                    >
+                      {expandedFolders.has(folder.id) ? (
+                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                      )}
+                      <FolderIcon className="w-5 h-5 text-primary" />
+                      <span className="flex-1 font-medium text-foreground">{folder.name}</span>
+                      <span className="text-sm text-muted-foreground">({folderItems.length})</span>
+                      <button
+                        onClick={(e) => handleEditFolder(e, folder)}
+                        className="p-1 hover:bg-muted rounded"
+                        data-testid={`edit-folder-${folder.id}`}
+                      >
+                        <Edit2 className="w-4 h-4 text-muted-foreground" />
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteFolder(e, folder.id)}
+                        className="p-1 hover:bg-destructive/10 rounded"
+                        data-testid={`delete-folder-${folder.id}`}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </button>
+                    </div>
                   </DroppableFolder>
                   {expandedFolders.has(folder.id) && (
                     <div className="pl-6 space-y-2">
