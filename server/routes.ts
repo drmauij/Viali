@@ -5,6 +5,8 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import { insertItemSchema, insertFolderSchema, insertActivitySchema, orderLines, items, stockLevels, orders, users } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, inArray, sql } from "drizzle-orm";
+import OpenAI from "openai";
+import crypto from "crypto";
 
 async function getUserLocationForHospital(userId: string, hospitalId: string): Promise<string | null> {
   const hospitals = await storage.getUserHospitals(userId);
@@ -45,6 +47,32 @@ async function checkLicenseLimit(hospitalId: string): Promise<{ allowed: boolean
     limit,
     licenseType,
   };
+}
+
+// Encryption utilities for patient data
+const ENCRYPTION_KEY = crypto.scryptSync(
+  process.env.ENCRYPTION_SECRET || "viali-default-encryption-key-change-in-production",
+  "salt",
+  32
+);
+const IV_LENGTH = 16;
+
+function encryptPatientData(text: string): string {
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv("aes-256-cbc", ENCRYPTION_KEY, iv);
+  let encrypted = cipher.update(text, "utf8", "hex");
+  encrypted += cipher.final("hex");
+  return iv.toString("hex") + ":" + encrypted;
+}
+
+function decryptPatientData(text: string): string {
+  const parts = text.split(":");
+  const iv = Buffer.from(parts[0], "hex");
+  const encrypted = parts[1];
+  const decipher = crypto.createDecipheriv("aes-256-cbc", ENCRYPTION_KEY, iv);
+  let decrypted = decipher.update(encrypted, "hex", "utf8");
+  decrypted += decipher.final("utf8");
+  return decrypted;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1257,6 +1285,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Controlled substances
+  app.post('/api/controlled/extract-patient-info', isAuthenticated, async (req: any, res) => {
+    try {
+      const { image } = req.body;
+      
+      if (!image) {
+        return res.status(400).json({ message: "Image data is required" });
+      }
+
+      // Initialize OpenAI client
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+
+      // Extract patient info using GPT-4 Vision
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "Extract patient identification information from this medical wristband or label. Look for patient ID, MRN (Medical Record Number), name, or any other identifier. Return only the most prominent patient identifier as plain text, nothing else. If you cannot find any patient identifier, respond with 'NOT_FOUND'."
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: image
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 100,
+      });
+
+      const extractedText = response.choices[0]?.message?.content?.trim() || "";
+      
+      if (extractedText === "NOT_FOUND" || !extractedText) {
+        return res.json({ patientId: null });
+      }
+
+      res.json({ patientId: extractedText });
+    } catch (error) {
+      console.error("Error extracting patient info:", error);
+      res.status(500).json({ message: "Failed to extract patient information" });
+    }
+  });
+
   app.post('/api/controlled/dispense', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -1269,6 +1346,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!patientId) {
         return res.status(400).json({ message: "Patient ID is required for controlled substances" });
       }
+      
+      // Encrypt patient data before storing
+      const encryptedPatientId = encryptPatientData(patientId);
       
       // Create activity for each dispensed item and update stock
       const activities = await Promise.all(
@@ -1324,7 +1404,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             locationId,
             delta: -item.qty, // Negative for dispensing
             notes,
-            patientId,
+            patientId: encryptedPatientId,
             patientPhoto,
             signatures,
             controlledVerified: signatures && signatures.length >= 2,
@@ -1361,7 +1441,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         controlled: true,
         limit: 50,
       });
-      res.json(activities);
+      
+      // Decrypt patient data for each activity
+      const decryptedActivities = activities.map((activity: any) => {
+        if (activity.patientId) {
+          try {
+            return { ...activity, patientId: decryptPatientData(activity.patientId) };
+          } catch (error) {
+            console.error("Error decrypting patient data:", error);
+            return activity;
+          }
+        }
+        return activity;
+      });
+      
+      res.json(decryptedActivities);
     } catch (error) {
       console.error("Error fetching controlled log:", error);
       res.status(500).json({ message: "Failed to fetch controlled log" });
