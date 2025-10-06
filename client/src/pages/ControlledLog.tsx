@@ -348,13 +348,14 @@ export default function ControlledLog() {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         photoStreamRef.current = stream;
+        await videoRef.current.play();
       }
       setShowPatientCamera(true);
     } catch (error) {
       console.error("Error accessing camera:", error);
       toast({
         title: "Camera Error",
-        description: "Unable to access camera",
+        description: "Unable to access camera. Please check camera permissions.",
         variant: "destructive",
       });
     }
@@ -369,14 +370,51 @@ export default function ControlledLog() {
   };
 
   const capturePatientPhoto = async () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current) {
+      toast({
+        title: "Camera Error",
+        description: "Video stream not available",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const video = videoRef.current;
+    
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      toast({
+        title: "Camera Error",
+        description: "Video stream not ready. Please wait a moment and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
-    ctx?.drawImage(videoRef.current, 0, 0);
-    const imageData = canvas.toDataURL('image/jpeg', 0.8);
+    
+    if (!ctx) {
+      toast({
+        title: "Camera Error",
+        description: "Failed to create image canvas",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    ctx.drawImage(video, 0, 0);
+    const imageData = canvas.toDataURL('image/jpeg', 0.9);
+    
+    if (!imageData || imageData === 'data:,') {
+      toast({
+        title: "Camera Error",
+        description: "Failed to capture image data",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       const response = await apiRequest("POST", "/api/controlled/extract-patient-info", { image: imageData });
