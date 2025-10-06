@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import UpgradeDialog from "@/components/UpgradeDialog";
 import type { Item, StockLevel, InsertItem, Vendor, Folder } from "@shared/schema";
 import { DndContext, DragEndEvent, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
-import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Trash2, GripVertical } from "lucide-react";
 
 type FilterType = "all" | "critical" | "controlled" | "expiring" | "belowMin";
 
@@ -36,8 +36,22 @@ function DraggableItem({ id, children, disabled }: { id: string; children: React
   } : undefined;
 
   return (
-    <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
-      {children}
+    <div ref={setNodeRef} style={style} className="relative">
+      {/* Drag handle - always visible for mobile/touch support */}
+      {!disabled && (
+        <div 
+          {...listeners} 
+          {...attributes}
+          className="absolute left-1 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing z-10 bg-muted/80 rounded p-1 touch-none"
+          data-testid={`drag-handle-${id}`}
+          title="Drag to move item"
+        >
+          <GripVertical className="w-4 h-4 text-muted-foreground" />
+        </div>
+      )}
+      <div className={!disabled ? "pl-8" : ""}>
+        {children}
+      </div>
     </div>
   );
 }
