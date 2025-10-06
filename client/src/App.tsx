@@ -16,6 +16,7 @@ import Alerts from "@/pages/Alerts";
 import ControlledLog from "@/pages/ControlledLog";
 import Admin from "@/pages/Admin";
 import Signup from "@/pages/Signup";
+import ResetPassword from "@/pages/ResetPassword";
 import ChangePasswordDialog from "@/components/ChangePasswordDialog";
 
 function Router() {
@@ -33,7 +34,10 @@ function Router() {
     <>
       <Switch>
         {!isAuthenticated ? (
-          <Route path="/" component={Landing} />
+          <>
+            <Route path="/" component={Landing} />
+            <Route path="/reset-password" component={ResetPassword} />
+          </>
         ) : (
           <>
             <Route path="/" component={Items} />
