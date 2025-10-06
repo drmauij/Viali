@@ -24,7 +24,17 @@ Viali employs a hybrid authentication strategy supporting both Google OAuth (via
 
 ### Database Schema
 
-The core database schema includes `Users`, `Hospitals`, `UserHospitalRoles` (for role-based access control), `Items` (with barcode support, min/max thresholds, and flags for critical/controlled items), `StockLevels`, `Lots` (for batch tracking and expiry), `Orders`, `OrderLines`, `Activities` (for audit trails), `Alerts`, `Vendors`, and `Locations`. Key design decisions include UUID primary keys, timestamp tracking, and separate lot tracking for compliance and expiry management. Controlled substances have specific logic for tracking individual units while ordering in packs.
+The core database schema includes `Users`, `Hospitals`, `UserHospitalRoles` (for role-based access control), `Items` (with barcode support, min/max thresholds, flags for critical/controlled items, and `controlledUnits` field for tracking individual ampules), `StockLevels`, `Lots` (for batch tracking and expiry), `Orders`, `OrderLines`, `Activities` (for audit trails), `Alerts`, `Vendors`, and `Locations`. Key design decisions include UUID primary keys, timestamp tracking, and separate lot tracking for compliance and expiry management.
+
+**Controlled Substances Tracking:**
+- Items with `controlled=true` and `unit=Pack` maintain dual tracking:
+  - `stock`: Quantity in packs
+  - `controlledUnits`: Individual ampules for compliance
+  - `packSize`: Ampules per pack (required)
+- Items with `controlled=true` and `unit=Ampulle` are treated as standard items (no pack size)
+- Receiving: Stock increases by packs received, controlledUnits increases by (packs × packSize)
+- Administration: ControlledUnits decreases by quantity administered, stock recalculated as ⌈controlledUnits ÷ packSize⌉
+- Routine Control: Verifies against controlledUnits for controlled pack items
 
 ### System Design Choices
 
