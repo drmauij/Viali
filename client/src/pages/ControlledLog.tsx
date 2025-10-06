@@ -240,13 +240,21 @@ export default function ControlledLog() {
   };
 
   const resetRoutineCheckForm = () => {
-    setRoutineCheckItems(controlledItems.map(item => ({
-      itemId: item.id,
-      name: item.name,
-      expectedQty: item.stockLevel?.qtyOnHand || 0,
-      actualQty: 0,
-      match: false,
-    })));
+    setRoutineCheckItems(controlledItems.map(item => {
+      const normalizedUnit = item.unit.toLowerCase();
+      const isControlledPack = item.controlled && normalizedUnit === 'pack';
+      const expectedQty = isControlledPack 
+        ? (item.controlledUnits || 0) 
+        : (item.stockLevel?.qtyOnHand || 0);
+      
+      return {
+        itemId: item.id,
+        name: item.name,
+        expectedQty,
+        actualQty: 0,
+        match: false,
+      };
+    }));
     setCheckNotes("");
     setCheckSignature("");
   };
@@ -263,13 +271,21 @@ export default function ControlledLog() {
   };
 
   const handleOpenRoutineCheckModal = () => {
-    setRoutineCheckItems(controlledItems.map(item => ({
-      itemId: item.id,
-      name: item.name,
-      expectedQty: item.stockLevel?.qtyOnHand || 0,
-      actualQty: 0,
-      match: false,
-    })));
+    setRoutineCheckItems(controlledItems.map(item => {
+      const normalizedUnit = item.unit.toLowerCase();
+      const isControlledPack = item.controlled && normalizedUnit === 'pack';
+      const expectedQty = isControlledPack 
+        ? (item.controlledUnits || 0) 
+        : (item.stockLevel?.qtyOnHand || 0);
+      
+      return {
+        itemId: item.id,
+        name: item.name,
+        expectedQty,
+        actualQty: 0,
+        match: false,
+      };
+    }));
     setShowRoutineCheckModal(true);
   };
 

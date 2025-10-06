@@ -90,6 +90,7 @@ export default function Items() {
     maxThreshold: "0",
     defaultOrderQty: "0",
     packSize: "1",
+    controlledUnits: "0",
     actualStock: "0",
     critical: false,
     controlled: false,
@@ -102,6 +103,7 @@ export default function Items() {
     maxThreshold: "10",
     defaultOrderQty: "0",
     packSize: "1",
+    controlledUnits: "0",
     initialStock: "0",
     critical: false,
     controlled: false,
@@ -298,7 +300,7 @@ export default function Items() {
 
   // Auto-focus pack size field in Add Item dialog when it becomes visible
   useEffect(() => {
-    if (selectedUnit === "ampulle" && formData.controlled && addDialogOpen) {
+    if (selectedUnit === "pack" && formData.controlled && addDialogOpen) {
       setTimeout(() => {
         packSizeInputRef.current?.focus();
       }, 100);
@@ -307,7 +309,7 @@ export default function Items() {
 
   // Auto-focus pack size field in Edit Item dialog when it becomes visible
   useEffect(() => {
-    if (selectedUnit === "ampulle" && editFormData.controlled && editDialogOpen) {
+    if (selectedUnit === "pack" && editFormData.controlled && editDialogOpen) {
       setTimeout(() => {
         editPackSizeInputRef.current?.focus();
       }, 100);
@@ -324,6 +326,7 @@ export default function Items() {
       maxThreshold: String(item.maxThreshold || 0),
       defaultOrderQty: String(item.defaultOrderQty || 0),
       packSize: String(item.packSize || 1),
+      controlledUnits: String(item.controlledUnits || 0),
       actualStock: String(item.stockLevel?.qtyOnHand || 0),
       critical: item.critical || false,
       controlled: item.controlled || false,
@@ -634,16 +637,13 @@ export default function Items() {
     }
 
     const packSize = item.packSize || 1;
-    const normalizedUnit = normalizeUnit(item.unit);
-    const isControlledSingleItem = item.controlled && normalizedUnit === "ampulle";
-    const qty = isControlledSingleItem ? Math.ceil(qtyToOrder / packSize) : qtyToOrder;
 
     // Use item's vendor if available, or first available vendor, or null
     const defaultVendor = item.vendorId ? vendors.find(v => v.id === item.vendorId) : vendors[0];
 
     quickOrderMutation.mutate({
       itemId: item.id,
-      qty,
+      qty: qtyToOrder,
       packSize,
       vendorId: defaultVendor?.id,
     });
@@ -660,7 +660,8 @@ export default function Items() {
       minThreshold: parseInt(editFormData.minThreshold) || 0,
       maxThreshold: parseInt(editFormData.maxThreshold) || 0,
       defaultOrderQty: parseInt(editFormData.defaultOrderQty) || 0,
-      packSize: (selectedUnit === "ampulle" && editFormData.controlled) ? parseInt(editFormData.packSize) || 1 : 1,
+      packSize: (selectedUnit === "pack" && editFormData.controlled) ? parseInt(editFormData.packSize) || 1 : 1,
+      controlledUnits: (selectedUnit === "pack" && editFormData.controlled) ? parseInt(editFormData.controlledUnits) || 0 : 0,
       critical: editFormData.critical,
       controlled: editFormData.controlled,
     };
@@ -797,7 +798,8 @@ export default function Items() {
       minThreshold: parseInt(formData.minThreshold) || 0,
       maxThreshold: parseInt(formData.maxThreshold) || 0,
       defaultOrderQty: parseInt(formData.defaultOrderQty) || 0,
-      packSize: (selectedUnit === "ampulle" && formData.controlled) ? parseInt(formData.packSize) || 1 : 1,
+      packSize: (selectedUnit === "pack" && formData.controlled) ? parseInt(formData.packSize) || 1 : 1,
+      controlledUnits: (selectedUnit === "pack" && formData.controlled) ? parseInt(formData.controlledUnits) || 0 : 0,
       critical: formData.critical,
       controlled: formData.controlled,
       initialStock: parseInt(formData.initialStock) || 0,
@@ -815,6 +817,7 @@ export default function Items() {
       maxThreshold: "10",
       defaultOrderQty: "0",
       packSize: "1",
+      controlledUnits: "0",
       initialStock: "0",
       critical: false,
       controlled: false,
@@ -1532,22 +1535,38 @@ export default function Items() {
               </div>
             </div>
 
-            {selectedUnit === "ampulle" && formData.controlled && (
-              <div>
-                <Label htmlFor="packSize">Pack Size (pieces per pack) *</Label>
-                <Input 
-                  ref={packSizeInputRef}
-                  id="packSize" 
-                  name="packSize" 
-                  type="number" 
-                  min="1"
-                  value={formData.packSize}
-                  onChange={(e) => setFormData(prev => ({ ...prev, packSize: e.target.value }))}
-                  data-testid="input-item-pack-size" 
-                  required
-                />
-                <p className="text-xs text-muted-foreground mt-1">Required to allow placing new orders in packs</p>
-              </div>
+            {selectedUnit === "pack" && formData.controlled && (
+              <>
+                <div>
+                  <Label htmlFor="packSize">Pack Size (ampules per pack) *</Label>
+                  <Input 
+                    ref={packSizeInputRef}
+                    id="packSize" 
+                    name="packSize" 
+                    type="number" 
+                    min="1"
+                    value={formData.packSize}
+                    onChange={(e) => setFormData(prev => ({ ...prev, packSize: e.target.value }))}
+                    data-testid="input-item-pack-size" 
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Number of ampules in each pack</p>
+                </div>
+                <div>
+                  <Label htmlFor="controlledUnits">Controlled Units (ampules) *</Label>
+                  <Input 
+                    id="controlledUnits" 
+                    name="controlledUnits" 
+                    type="number" 
+                    min="0"
+                    value={formData.controlledUnits}
+                    onChange={(e) => setFormData(prev => ({ ...prev, controlledUnits: e.target.value }))}
+                    data-testid="input-item-controlled-units" 
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Current ampules in stock for tracking</p>
+                </div>
+              </>
             )}
 
             {/* <div>
@@ -1700,22 +1719,38 @@ export default function Items() {
               </div>
             </div>
 
-            {selectedUnit === "ampulle" && editFormData.controlled && (
-              <div>
-                <Label htmlFor="edit-packSize">Pack Size (pieces per pack) *</Label>
-                <Input 
-                  ref={editPackSizeInputRef}
-                  id="edit-packSize" 
-                  name="packSize" 
-                  type="number" 
-                  min="1"
-                  value={editFormData.packSize}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, packSize: e.target.value }))}
-                  data-testid="input-edit-pack-size" 
-                  required
-                />
-                <p className="text-xs text-muted-foreground mt-1">Required to allow placing new orders in packs</p>
-              </div>
+            {selectedUnit === "pack" && editFormData.controlled && (
+              <>
+                <div>
+                  <Label htmlFor="edit-packSize">Pack Size (ampules per pack) *</Label>
+                  <Input 
+                    ref={editPackSizeInputRef}
+                    id="edit-packSize" 
+                    name="packSize" 
+                    type="number" 
+                    min="1"
+                    value={editFormData.packSize}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, packSize: e.target.value }))}
+                    data-testid="input-edit-pack-size" 
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Number of ampules in each pack</p>
+                </div>
+                <div>
+                  <Label htmlFor="edit-controlledUnits">Controlled Units (ampules) *</Label>
+                  <Input 
+                    id="edit-controlledUnits" 
+                    name="controlledUnits" 
+                    type="number" 
+                    min="0"
+                    value={editFormData.controlledUnits}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, controlledUnits: e.target.value }))}
+                    data-testid="input-edit-controlled-units" 
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Current ampules in stock for tracking</p>
+                </div>
+              </>
             )}
 
             {/* <div>

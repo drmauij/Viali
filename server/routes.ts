@@ -1158,14 +1158,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const line of lines) {
           const item = line.item;
           const normalizedUnit = item.unit.toLowerCase();
-          const isControlledAmpulle = item.controlled && normalizedUnit === 'ampulle';
-          
-          // Calculate quantity to add to stock
-          let qtyToAdd = line.qty;
-          if (isControlledAmpulle) {
-            // For controlled ampulle items: pack quantity × pack size
-            qtyToAdd = line.qty * (line.packSize || 1);
-          }
+          const isControlledPack = item.controlled && normalizedUnit === 'pack';
           
           // Get current stock level
           const [currentStock] = await db
@@ -1179,10 +1172,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
             );
           
           const currentQty = currentStock?.qtyOnHand || 0;
-          const newQty = currentQty + qtyToAdd;
+          const newQty = currentQty + line.qty;
           
           // Update stock level
           await storage.updateStockLevel(item.id, item.locationId, newQty);
+          
+          // For controlled pack items, also update controlled units
+          if (isControlledPack) {
+            // Fetch current controlledUnits to avoid using stale value
+            const [currentItem] = await db
+              .select({ controlledUnits: items.controlledUnits })
+              .from(items)
+              .where(eq(items.id, item.id));
+            
+            const currentControlledUnits = currentItem?.controlledUnits || 0;
+            const addedUnits = line.qty * (line.packSize || 1);
+            await db
+              .update(items)
+              .set({ 
+                controlledUnits: currentControlledUnits + addedUnits 
+              })
+              .where(eq(items.id, item.id));
+          }
         }
       }
       
@@ -1248,9 +1259,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/controlled/dispense', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { items, patientId, patientPhoto, notes, signatures } = req.body;
+      const { items: dispenseItems, patientId, patientPhoto, notes, signatures } = req.body;
       
-      if (!items || !Array.isArray(items) || items.length === 0) {
+      if (!dispenseItems || !Array.isArray(dispenseItems) || dispenseItems.length === 0) {
         return res.status(400).json({ message: "Items array is required" });
       }
       
@@ -1260,7 +1271,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create activity for each dispensed item and update stock
       const activities = await Promise.all(
-        items.map(async (item: any) => {
+        dispenseItems.map(async (item: any) => {
           // Get the item to find its hospital and location
           const itemData = await storage.getItem(item.itemId);
           if (!itemData) {
@@ -1278,13 +1289,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error(`Access denied to item ${item.itemId}'s location`);
           }
           
-          // Get current stock level
-          const currentStock = await storage.getStockLevel(item.itemId, locationId);
-          const currentQty = currentStock?.qtyOnHand || 0;
-          const newQty = Math.max(0, currentQty - item.qty);
+          // Check if this is a controlled pack item
+          const normalizedUnit = itemData.unit.toLowerCase();
+          const isControlledPack = itemData.controlled && normalizedUnit === 'pack';
           
-          // Update stock level
-          await storage.updateStockLevel(item.itemId, locationId, newQty);
+          if (isControlledPack) {
+            // For controlled pack items: update controlled units and recalculate stock
+            const currentControlledUnits = itemData.controlledUnits || 0;
+            const newControlledUnits = Math.max(0, currentControlledUnits - item.qty);
+            const packSize = itemData.packSize || 1;
+            const newQty = Math.ceil(newControlledUnits / packSize);
+            
+            // Update both controlled units and stock
+            await db
+              .update(items)
+              .set({ controlledUnits: newControlledUnits })
+              .where(eq(items.id, item.itemId));
+            
+            await storage.updateStockLevel(item.itemId, locationId, newQty);
+          } else {
+            // For normal items and controlled ampulle items: subtract from stock directly
+            const currentStock = await storage.getStockLevel(item.itemId, locationId);
+            const currentQty = currentStock?.qtyOnHand || 0;
+            const newQty = Math.max(0, currentQty - item.qty);
+            
+            await storage.updateStockLevel(item.itemId, locationId, newQty);
+          }
           
           return await storage.createActivity({
             userId,

@@ -329,14 +329,10 @@ export default function Orders() {
     
     // Items table
     const tableData = order.orderLines.map((line) => {
-      const normalizedUnit = normalizeUnit(line.item.unit);
-      const isControlledSingleItem = line.item.controlled && normalizedUnit === "ampulle";
-      const displayUnit = isControlledSingleItem ? "pack" : line.item.unit;
-      
       return [
         line.item.name,
         `${line.qty}`,
-        displayUnit,
+        line.item.unit,
         line.item.controlled ? "Yes" : "No",
       ];
     });
@@ -386,16 +382,10 @@ export default function Orders() {
   const handleCreateOrder = () => {
     const orderLines = itemsNeedingOrder.map(item => {
       const packSize = item.packSize || 1;
-      const normalizedUnit = normalizeUnit(item.unit);
-      const isControlledSingleItem = item.controlled && normalizedUnit === "ampulle";
-      
-      const qty = isControlledSingleItem 
-        ? Math.ceil(item.qtyToOrder / packSize)
-        : item.qtyToOrder;
       
       return {
         itemId: item.id,
-        qty,
+        qty: item.qtyToOrder,
         packSize,
       };
     });
@@ -754,10 +744,9 @@ export default function Orders() {
                     const stockStatus = getStockStatus(line.item);
                     const currentQty = line.item.stockLevel?.qtyOnHand ?? 0;
                     const normalizedUnit = normalizeUnit(line.item.unit);
-                    const isControlledSingleItem = line.item.controlled && normalizedUnit === "ampulle";
                     
                     const displayQty = line.qty;
-                    const displayUnit = isControlledSingleItem ? "pack" : line.item.unit;
+                    const displayUnit = line.item.unit;
                     
                     return (
                     <div key={line.id} className="flex items-center gap-3 p-3 border border-border rounded-lg" data-testid={`order-line-${line.id}`}>
