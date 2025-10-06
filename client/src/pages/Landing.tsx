@@ -11,6 +11,8 @@ export default function Landing() {
   const [showSignup, setShowSignup] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetSent, setResetSent] = useState(false);
   const { toast } = useToast();
 
   const handleGoogleLogin = () => {
@@ -322,23 +324,91 @@ export default function Landing() {
       </div>
 
       {/* Forgot Password Dialog */}
-      <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
+      <Dialog open={forgotPasswordOpen} onOpenChange={(open) => {
+        setForgotPasswordOpen(open);
+        if (!open) {
+          setResetEmail("");
+          setResetSent(false);
+        }
+      }}>
         <DialogContent data-testid="forgot-password-dialog">
           <DialogHeader>
             <DialogTitle>Forgot Password</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-muted-foreground">
-              Password reset functionality is coming soon. Please contact your hospital administrator for assistance with resetting your password.
-            </p>
-            <Button 
-              onClick={() => setForgotPasswordOpen(false)}
-              className="w-full"
-              data-testid="close-forgot-password"
-            >
-              Close
-            </Button>
-          </div>
+          {!resetSent ? (
+            <div className="space-y-4">
+              <p className="text-muted-foreground">
+                Enter your email address and we'll send you a link to reset your password.
+              </p>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                setIsLoading(true);
+                try {
+                  const response = await fetch('/api/auth/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: resetEmail }),
+                  });
+                  
+                  if (response.ok) {
+                    setResetSent(true);
+                  } else {
+                    const data = await response.json();
+                    toast({
+                      title: "Error",
+                      description: data.message || "Failed to send reset email",
+                      variant: "destructive",
+                    });
+                  }
+                } catch (error) {
+                  toast({
+                    title: "Error",
+                    description: "Failed to send reset email",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setIsLoading(false);
+                }
+              }}>
+                <div className="space-y-4">
+                  <Input
+                    type="email"
+                    placeholder="Enter your email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    required
+                    disabled={isLoading}
+                    data-testid="reset-email-input"
+                  />
+                  <Button 
+                    type="submit"
+                    className="w-full"
+                    disabled={isLoading}
+                    data-testid="send-reset-link"
+                  >
+                    {isLoading ? "Sending..." : "Send Reset Link"}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-muted-foreground">
+                If an account with that email exists, a password reset link has been sent. Please check your email inbox and spam folder.
+              </p>
+              <Button 
+                onClick={() => {
+                  setForgotPasswordOpen(false);
+                  setResetEmail("");
+                  setResetSent(false);
+                }}
+                className="w-full"
+                data-testid="close-forgot-password"
+              >
+                Close
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
