@@ -169,10 +169,33 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      successReturnToOrRedirect: "/",
-      failureRedirect: "/api/login",
+    const strategyName = `replitauth:${req.hostname}`;
+    console.log(`[Auth] Callback received for hostname: ${req.hostname}, strategy: ${strategyName}`);
+    console.log(`[Auth] Registered strategies:`, Array.from(domains).map(d => `replitauth:${d}`));
+    
+    passport.authenticate(strategyName, (err: any, user: any, info: any) => {
+      if (err) {
+        console.error('[Auth] Callback error:', err);
+        return res.redirect("/api/login");
+      }
+      if (!user) {
+        console.error('[Auth] No user returned, info:', info);
+        return res.redirect("/api/login");
+      }
+      req.logIn(user, (loginErr) => {
+        if (loginErr) {
+          console.error('[Auth] Login error:', loginErr);
+          return res.redirect("/api/login");
+        }
+        console.log('[Auth] Login successful, redirecting to /');
+        return res.redirect("/");
+      });
     })(req, res, next);
+  });
+
+  app.get("/oidc/auth", (req, res) => {
+    console.log('[Auth] Received request to /oidc/auth, redirecting to /api/callback');
+    res.redirect(`/api/callback${req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : ''}`);
   });
 
   app.get("/api/logout", (req, res) => {
