@@ -61,7 +61,10 @@ function DroppableFolder({ id, children }: { id: string; children: React.ReactNo
   const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
-    <div ref={setNodeRef} className={isOver ? "ring-2 ring-primary rounded-lg" : ""}>
+    <div 
+      ref={setNodeRef} 
+      className={isOver ? "ring-2 ring-primary rounded-lg bg-primary/5 transition-all" : "transition-all"}
+    >
       {children}
     </div>
   );
@@ -1137,13 +1140,12 @@ export default function Items() {
             <>
               {/* Render folders */}
               {organizedItems.folderGroups.map(({ folder, items: folderItems }) => (
-                <DroppableFolder key={folder.id} id={`folder-${folder.id}`}>
-                  <div className="space-y-2">
-                    <div
-                      className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted/70 transition-colors"
-                      onClick={() => toggleFolder(folder.id)}
-                      data-testid={`folder-${folder.id}`}
-                    >
+                <div key={folder.id} className="space-y-2">
+                  <div
+                    className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted/70 transition-colors"
+                    onClick={() => toggleFolder(folder.id)}
+                    data-testid={`folder-${folder.id}`}
+                  >
                     {expandedFolders.has(folder.id) ? (
                       <ChevronDown className="w-4 h-4 text-muted-foreground" />
                     ) : (
@@ -1167,6 +1169,10 @@ export default function Items() {
                       <Trash2 className="w-4 h-4 text-destructive" />
                     </button>
                   </div>
+                  {/* Drop zone for folder */}
+                  <DroppableFolder id={`folder-${folder.id}`}>
+                    <div className="min-h-[20px]"></div>
+                  </DroppableFolder>
                   {expandedFolders.has(folder.id) && (
                     <div className="pl-6 space-y-2">
                       {folderItems.map((item) => {
@@ -1234,8 +1240,7 @@ export default function Items() {
                       })}
                     </div>
                   )}
-                  </div>
-                </DroppableFolder>
+                </div>
               ))}
               
               {/* Render root items */}
