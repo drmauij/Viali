@@ -626,7 +626,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Update the item
-      const updates = {
+      const updates: any = {
         name: req.body.name,
         description: req.body.description,
         unit: req.body.unit,
@@ -637,8 +637,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         packSize: req.body.packSize,
         critical: req.body.critical,
         controlled: req.body.controlled,
-        folderId: req.body.folderId !== undefined ? req.body.folderId : undefined,
       };
+      
+      // Handle folderId separately to allow null values
+      if (req.body.folderId !== undefined) {
+        updates.folderId = req.body.folderId;
+      }
       
       const updatedItem = await storage.updateItem(itemId, updates);
       res.json(updatedItem);

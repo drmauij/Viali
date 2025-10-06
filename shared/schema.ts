@@ -36,6 +36,8 @@ export const users = pgTable("users", {
   profileImageUrl: varchar("profile_image_url"),
   passwordHash: varchar("password_hash"), // For local auth users
   mustChangePassword: boolean("must_change_password").default(false), // Force password change on first login
+  resetToken: varchar("reset_token"), // Password reset token
+  resetTokenExpiry: timestamp("reset_token_expiry"), // Token expiration time
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
