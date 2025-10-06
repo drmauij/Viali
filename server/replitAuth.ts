@@ -161,10 +161,20 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/login-dynamic", (req, res, next) => {
     const dynamicCallbackURL = `${req.protocol}://${req.get('host')}/api/callback`;
+    const strategyName = 'replitauth:dynamic';
+    
+    console.log(`[Auth] Login request from: ${req.get('host')}, callback URL: ${dynamicCallbackURL}`);
+    
+    // Unregister existing dynamic strategy if it exists
+    try {
+      passport.unuse(strategyName);
+    } catch (e) {
+      // Strategy doesn't exist yet, that's fine
+    }
     
     const dynamicStrategy = new Strategy(
       {
-        name: `replitauth:dynamic`,
+        name: strategyName,
         config,
         scope: "openid email profile offline_access",
         callbackURL: dynamicCallbackURL,
@@ -173,8 +183,9 @@ export async function setupAuth(app: Express) {
     );
     
     passport.use(dynamicStrategy);
+    console.log(`[Auth] Registered strategy: ${strategyName} with callback: ${dynamicCallbackURL}`);
     
-    passport.authenticate("replitauth:dynamic", {
+    passport.authenticate(strategyName, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
