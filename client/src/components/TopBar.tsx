@@ -1,6 +1,8 @@
 import { useTheme } from "./ThemeProvider";
+import { useLanguage } from "./LanguageProvider";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import ChangePasswordDialog from "./ChangePasswordDialog";
 
 interface Hospital {
@@ -19,6 +21,8 @@ interface TopBarProps {
 
 export default function TopBar({ hospitals = [], activeHospital, onHospitalChange }: TopBarProps) {
   const { theme, toggleTheme } = useTheme();
+  const { language, setLanguage } = useLanguage();
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [showHospitalDropdown, setShowHospitalDropdown] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -49,12 +53,12 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-foreground">
-                    {activeHospital?.name || "Select Hospital"}
+                    {activeHospital?.name || t('topBar.selectHospital')}
                   </span>
                   <i className="fas fa-chevron-down text-xs text-muted-foreground"></i>
                 </div>
                 <span className="text-xs text-muted-foreground">
-                  {activeHospital?.locationName || "No Location"} • {activeHospital?.role || "No Role"}
+                  {activeHospital?.locationName || t('topBar.noLocation')} • {activeHospital?.role || t('topBar.noRole')}
                 </span>
               </div>
             </button>
@@ -111,7 +115,20 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
                 data-testid="theme-toggle"
               >
                 <i className={`fas ${theme === "dark" ? "fa-sun" : "fa-moon"} w-4`}></i>
-                <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+                <span>{theme === "dark" ? t('topBar.lightMode') : t('topBar.darkMode')}</span>
+              </button>
+              
+              {/* Language Selector */}
+              <button
+                className="w-full px-4 py-3 text-left hover:bg-accent hover:text-accent-foreground border-b border-border flex items-center gap-3"
+                onClick={() => {
+                  setLanguage(language === 'en' ? 'de' : 'en');
+                  setShowUserMenu(false);
+                }}
+                data-testid="language-toggle"
+              >
+                <i className="fas fa-language w-4"></i>
+                <span>{language === 'en' ? t('topBar.german') : t('topBar.english')}</span>
               </button>
               
               {/* Change Password */}
@@ -124,7 +141,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
                 data-testid="button-change-password"
               >
                 <i className="fas fa-key w-4"></i>
-                <span>Change Password</span>
+                <span>{t('auth.changePassword')}</span>
               </button>
               
               {/* Logout */}
@@ -134,7 +151,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
                 data-testid="button-logout"
               >
                 <i className="fas fa-sign-out-alt w-4"></i>
-                <span>Logout</span>
+                <span>{t('auth.logout')}</span>
               </button>
             </div>
           )}
