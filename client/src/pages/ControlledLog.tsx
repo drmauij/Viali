@@ -73,6 +73,7 @@ export default function ControlledLog() {
   
   const [selectedDrugs, setSelectedDrugs] = useState<DrugSelection[]>([]);
   const [patientId, setPatientId] = useState("");
+  const [patientPhoto, setPatientPhoto] = useState("");
   const [notes, setNotes] = useState("");
   const [signature, setSignature] = useState("");
   
@@ -248,6 +249,7 @@ export default function ControlledLog() {
       };
     }));
     setPatientId("");
+    setPatientPhoto("");
     setNotes("");
     setSignature("");
     setPatientMethod("text");
@@ -343,67 +345,32 @@ export default function ControlledLog() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setIsAnalyzingPatient(true);
-    let worker: any = null;
-
     try {
-      console.log('Starting OCR process...');
-      const { createWorker } = await import('tesseract.js');
-      
-      console.log('Creating worker with CDN paths...');
-      worker = await createWorker('eng', 1, {
-        workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
-        langPath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core-simd.wasm.js',
-        corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core-simd.wasm.js',
-      });
-      
-      console.log('Worker created, recognizing image...');
-      const { data: { text } } = await worker.recognize(file);
-      console.log('OCR completed, extracted text:', text);
-      
-      const extractedText = text.trim();
-      
-      if (extractedText) {
-        const lines = extractedText.split('\n').filter((line: string) => line.trim());
-        const potentialId = lines.find((line: string) => 
-          /\d/.test(line) && line.length >= 3
-        ) || lines[0] || extractedText;
-        
-        setPatientId(potentialId.trim());
+      // Convert photo to base64
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64Data = event.target?.result as string;
+        setPatientPhoto(base64Data);
         toast({
-          title: "Text Extracted",
-          description: `Patient ID: ${potentialId.trim()}`,
+          title: "Photo Captured",
+          description: "Patient label photo saved securely",
         });
-      } else {
+      };
+      reader.onerror = () => {
         toast({
-          title: "No Text Found",
-          description: "Could not extract text from the image. Please try again or enter manually.",
+          title: "Photo Error",
+          description: "Failed to capture photo. Please try again.",
           variant: "destructive",
         });
-      }
+      };
+      reader.readAsDataURL(file);
     } catch (error) {
-      console.error('OCR Error details:', error);
-      console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
-      console.error('Error message:', error instanceof Error ? error.message : String(error));
-      if (error instanceof Error && error.stack) {
-        console.error('Error stack:', error.stack);
-      }
-      
+      console.error('Error capturing photo:', error);
       toast({
-        title: "OCR Failed",
-        description: error instanceof Error ? error.message : "Failed to extract text from image. Please try again or enter manually.",
+        title: "Photo Error",
+        description: "Failed to capture photo. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      if (worker) {
-        try {
-          await worker.terminate();
-          console.log('Worker terminated successfully');
-        } catch (terminateError) {
-          console.error('Error terminating worker:', terminateError);
-        }
-      }
-      setIsAnalyzingPatient(false);
     }
     
     if (patientPhotoInputRef.current) {
@@ -461,6 +428,7 @@ export default function ControlledLog() {
     dispenseMutation.mutate({
       items,
       patientId,
+      patientPhoto: patientPhoto || undefined,
       notes,
       signatures: [signature],
     });
