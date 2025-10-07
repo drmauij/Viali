@@ -115,36 +115,37 @@ export function CameraCapture({ isOpen, onClose, onCapture }: CameraCaptureProps
             
             {/* Rectangle guide overlay */}
             <div className="absolute inset-0 pointer-events-none">
-              <svg className="w-full h-full">
+              <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
                 {/* Dark overlay with cutout */}
                 <defs>
                   <mask id="guideMask">
-                    <rect width="100%" height="100%" fill="white" />
+                    <rect width="100" height="100" fill="white" />
                     <rect 
-                      x="5%" 
-                      y="calc(50% - 100px)" 
-                      width="90%" 
-                      height="200" 
+                      x="5" 
+                      y="40" 
+                      width="90" 
+                      height="20" 
                       fill="black"
                     />
                   </mask>
                 </defs>
                 <rect 
-                  width="100%" 
-                  height="100%" 
+                  width="100" 
+                  height="100" 
                   fill="rgba(0,0,0,0.5)" 
                   mask="url(#guideMask)"
                 />
                 {/* Guide rectangle border */}
                 <rect 
-                  x="5%" 
-                  y="calc(50% - 100px)" 
-                  width="90%" 
-                  height="200" 
+                  x="5" 
+                  y="40" 
+                  width="90" 
+                  height="20" 
                   fill="none" 
                   stroke="white" 
-                  strokeWidth="2"
-                  strokeDasharray="10,5"
+                  strokeWidth="0.3"
+                  strokeDasharray="2,1"
+                  vectorEffect="non-scaling-stroke"
                 />
               </svg>
               

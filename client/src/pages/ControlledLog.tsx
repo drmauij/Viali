@@ -70,8 +70,6 @@ export default function ControlledLog() {
   const [patientMethod, setPatientMethod] = useState<PatientMethod>("text");
   const [showPatientScanner, setShowPatientScanner] = useState(false);
   const [showPatientCamera, setShowPatientCamera] = useState(false);
-  const [isAnalyzingPatient, setIsAnalyzingPatient] = useState(false);
-  const patientPhotoInputRef = useRef<HTMLInputElement>(null);
   
   const [selectedDrugs, setSelectedDrugs] = useState<DrugSelection[]>([]);
   const [patientId, setPatientId] = useState("");
@@ -343,43 +341,6 @@ export default function ControlledLog() {
     });
   };
 
-  const handlePatientPhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      // Convert photo to base64
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64Data = event.target?.result as string;
-        setPatientPhoto(base64Data);
-        toast({
-          title: "Photo Captured",
-          description: "Patient label photo saved securely",
-        });
-      };
-      reader.onerror = () => {
-        toast({
-          title: "Photo Error",
-          description: "Failed to capture photo. Please try again.",
-          variant: "destructive",
-        });
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error('Error capturing photo:', error);
-      toast({
-        title: "Photo Error",
-        description: "Failed to capture photo. Please try again.",
-        variant: "destructive",
-      });
-    }
-    
-    if (patientPhotoInputRef.current) {
-      patientPhotoInputRef.current.value = '';
-    }
-  };
-
   const handleActualQtyChange = (itemId: string, actualQty: number) => {
     setRoutineCheckItems(prev =>
       prev.map(item => {
@@ -575,85 +536,85 @@ export default function ControlledLog() {
         doc.text(`  ${day}`, 20, yPosition);
         yPosition += 5;
 
-        // Create table for this day's administrations
+        // Create table for this day's administrations with placeholder for images
         const tableData = dayActivities.map(activity => [
           activity.timestamp ? new Date(activity.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "N/A",
           Math.abs(activity.delta || 0).toString(),
           activity.patientId || "N/A",
           `${activity.user.firstName} ${activity.user.lastName}`,
           activity.controlledVerified ? "Yes" : "No",
-          activity.notes || "-"
+          activity.notes || "-",
+          "", // Placeholder for signatures
+          "", // Placeholder for patient photo
         ]);
 
         autoTable(doc, {
           startY: yPosition,
-          head: [["Time", "Qty", "Patient ID", "Administrator", "Verified", "Notes"]],
+          head: [["Time", "Qty", "Patient", "Admin", "Ver", "Notes", "Signatures", "Photo"]],
           body: tableData,
           theme: "grid",
-          styles: { fontSize: 9, cellPadding: 2 },
-          headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+          styles: { fontSize: 8, cellPadding: 1, minCellHeight: 20 },
+          headStyles: { fillColor: [59, 130, 246], textColor: 255, fontSize: 8 },
           columnStyles: {
-            0: { cellWidth: 25 },
-            1: { cellWidth: 15, halign: "center" },
-            2: { cellWidth: 30 },
-            3: { cellWidth: 40 },
-            4: { cellWidth: 20, halign: "center" },
-            5: { cellWidth: 50 },
+            0: { cellWidth: 20 },
+            1: { cellWidth: 12, halign: "center" },
+            2: { cellWidth: 25 },
+            3: { cellWidth: 28 },
+            4: { cellWidth: 12, halign: "center" },
+            5: { cellWidth: 35 },
+            6: { cellWidth: 30 },
+            7: { cellWidth: 20 },
           },
-          margin: { left: 25 },
+          margin: { left: 15 },
+          didDrawCell: (data: any) => {
+            // Draw signatures in the signatures column (index 6)
+            if (data.column.index === 6 && data.section === 'body') {
+              const activity = dayActivities[data.row.index];
+              const signatures = activity.signatures as string[] | null;
+              
+              if (signatures && signatures.length > 0) {
+                const cellX = data.cell.x + 1;
+                const cellY = data.cell.y + 2;
+                
+                // Add admin signature (smaller)
+                if (signatures[0]) {
+                  try {
+                    doc.addImage(signatures[0], "PNG", cellX, cellY, 13, 6);
+                  } catch (e) {
+                    console.error("Failed to add admin signature", e);
+                  }
+                }
+                
+                // Add verifier signature if exists
+                if (signatures[1]) {
+                  try {
+                    doc.addImage(signatures[1], "PNG", cellX, cellY + 8, 13, 6);
+                  } catch (e) {
+                    console.error("Failed to add verifier signature", e);
+                  }
+                }
+              }
+            }
+            
+            // Draw patient photo in the photo column (index 7)
+            if (data.column.index === 7 && data.section === 'body') {
+              const activity = dayActivities[data.row.index];
+              
+              if (activity.patientPhoto) {
+                const cellX = data.cell.x + 1;
+                const cellY = data.cell.y + 1;
+                
+                try {
+                  doc.addImage(activity.patientPhoto, "JPEG", cellX, cellY, 18, 18);
+                } catch (e) {
+                  console.error("Failed to add patient photo", e);
+                }
+              }
+            }
+          },
         });
 
         yPosition = (doc as any).lastAutoTable.finalY + 5;
-
-        // Add signatures for each administration
-        dayActivities.forEach((activity, actIndex) => {
-          const signatures = activity.signatures as string[] | null;
-          if (signatures && signatures.length > 0) {
-            // Check if we need a new page
-            if (yPosition > 240) {
-              doc.addPage();
-              yPosition = 20;
-            }
-
-            // Activity reference
-            doc.setFontSize(8);
-            doc.setFont("helvetica", "italic");
-            const timeStr = activity.timestamp ? new Date(activity.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "N/A";
-            doc.text(`    ${timeStr} - Patient ${activity.patientId || "N/A"} - Signatures:`, 25, yPosition);
-            yPosition += 3;
-
-            let xPosition = 30;
-
-            // Administrator signature (first signature)
-            if (signatures[0]) {
-              doc.setFontSize(7);
-              doc.setFont("helvetica", "normal");
-              doc.text("Administrator:", xPosition, yPosition);
-              try {
-                doc.addImage(signatures[0], "PNG", xPosition, yPosition + 1, 35, 15);
-              } catch (e) {
-                console.error("Failed to add admin signature image", e);
-              }
-              xPosition += 40;
-            }
-
-            // Verifier signature (second signature, if verified)
-            if (signatures[1]) {
-              doc.setFontSize(7);
-              doc.setFont("helvetica", "normal");
-              doc.text("Verifier:", xPosition, yPosition);
-              try {
-                doc.addImage(signatures[1], "PNG", xPosition, yPosition + 1, 35, 15);
-              } catch (e) {
-                console.error("Failed to add verifier signature image", e);
-              }
-            }
-
-            yPosition += 18;
-          }
-        });
-
-        yPosition += 3;
       });
 
       yPosition += 5; // Space between drugs
