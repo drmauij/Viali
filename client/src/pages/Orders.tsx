@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -52,6 +53,7 @@ const getStockStatus = (item: Item & { stockLevel?: StockLevel }) => {
 };
 
 export default function Orders() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -101,14 +103,14 @@ export default function Orders() {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       setNewOrderDialogOpen(false);
       toast({
-        title: "Order Created",
-        description: "Draft order has been created successfully.",
+        title: t('orders.orderCreated'),
+        description: t('orders.orderCreatedSuccess'),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to create order",
+        title: t('common.error'),
+        description: error.message || t('orders.failedToCreateOrder'),
         variant: "destructive",
       });
     },
@@ -124,15 +126,15 @@ export default function Orders() {
       queryClient.invalidateQueries({ queryKey: ["/api/items"] });
       queryClient.invalidateQueries({ queryKey: ["/api/orders/open-items"] });
       toast({
-        title: "Order Updated",
-        description: "Order status has been updated successfully.",
+        title: t('orders.orderUpdated'),
+        description: t('orders.orderStatusUpdated'),
       });
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
         toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
+          title: t('orders.unauthorized'),
+          description: t('orders.unauthorizedMessage'),
           variant: "destructive",
         });
         setTimeout(() => {
@@ -142,8 +144,8 @@ export default function Orders() {
       }
       
       toast({
-        title: "Update Failed",
-        description: "Failed to update order status.",
+        title: t('orders.updateFailed'),
+        description: t('orders.failedToUpdateStatus'),
         variant: "destructive",
       });
     },
@@ -158,14 +160,14 @@ export default function Orders() {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       setEditingLineId(null);
       toast({
-        title: "Order Updated",
-        description: "Item quantity updated successfully.",
+        title: t('orders.orderUpdated'),
+        description: t('orders.itemQuantityUpdated'),
       });
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to update item quantity.",
+        title: t('common.error'),
+        description: t('orders.failedToUpdateQuantity'),
         variant: "destructive",
       });
     },
@@ -179,14 +181,14 @@ export default function Orders() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       toast({
-        title: "Item Removed",
-        description: "Item removed from order successfully.",
+        title: t('orders.itemRemoved'),
+        description: t('orders.itemRemovedSuccess'),
       });
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to remove item.",
+        title: t('common.error'),
+        description: t('orders.failedToRemoveItem'),
         variant: "destructive",
       });
     },
@@ -202,14 +204,14 @@ export default function Orders() {
       setEditOrderDialogOpen(false);
       setSelectedOrder(null);
       toast({
-        title: "Order Deleted",
-        description: "Order has been deleted successfully.",
+        title: t('orders.orderDeleted'),
+        description: t('orders.orderDeletedSuccess'),
       });
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to delete order.",
+        title: t('common.error'),
+        description: t('orders.failedToDeleteOrder'),
         variant: "destructive",
       });
     },
@@ -232,14 +234,14 @@ export default function Orders() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       toast({
-        title: "Item Added",
-        description: "Item added to order successfully.",
+        title: t('orders.itemAdded'),
+        description: t('orders.itemAddedSuccess'),
       });
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to add item to order.",
+        title: t('common.error'),
+        description: t('orders.failedToAddItem'),
         variant: "destructive",
       });
     },
@@ -369,8 +371,8 @@ export default function Orders() {
   const handleNewOrder = () => {
     if (itemsNeedingOrder.length === 0) {
       toast({
-        title: "No Items to Order",
-        description: "All items are at or above their max threshold",
+        title: t('orders.noItemsToOrder'),
+        description: t('orders.noItemsToOrderMessage'),
       });
       return;
     }
@@ -429,8 +431,8 @@ export default function Orders() {
       <div className="p-4">
         <div className="bg-card border border-border rounded-lg p-6 text-center">
           <i className="fas fa-hospital text-4xl text-muted-foreground mb-4"></i>
-          <h3 className="text-lg font-semibold text-foreground mb-2">No Hospital Selected</h3>
-          <p className="text-muted-foreground">Please select a hospital to view orders.</p>
+          <h3 className="text-lg font-semibold text-foreground mb-2">{t('orders.noHospitalSelected')}</h3>
+          <p className="text-muted-foreground">{t('orders.selectHospitalToView')}</p>
         </div>
       </div>
     );
@@ -439,24 +441,24 @@ export default function Orders() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Purchase Orders</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t('orders.title')}</h1>
         <Button size="sm" onClick={handleNewOrder} data-testid="add-order-button">
           <i className="fas fa-plus mr-2"></i>
-          New Order
+          {t('orders.newOrder')}
         </Button>
       </div>
 
       {isLoading ? (
         <div className="text-center py-8">
           <i className="fas fa-spinner fa-spin text-2xl text-primary mb-2"></i>
-          <p className="text-muted-foreground">Loading orders...</p>
+          <p className="text-muted-foreground">{t('orders.loadingOrders')}</p>
         </div>
       ) : (
         <div className="flex gap-4 overflow-x-auto pb-4">
           {/* Draft Column */}
           <div className="kanban-column">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-foreground">Draft</h3>
+              <h3 className="font-semibold text-foreground">{t('orders.draft')}</h3>
               <span className="w-6 h-6 rounded-full bg-muted text-foreground text-xs flex items-center justify-center font-semibold">
                 {ordersByStatus.draft.length}
               </span>
@@ -465,7 +467,7 @@ export default function Orders() {
             <div className="space-y-3">
               {ordersByStatus.draft.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground text-sm">
-                  No draft orders
+                  {t('orders.noDraftOrders')}
                 </div>
               ) : (
                 ordersByStatus.draft.map((order) => (
@@ -484,11 +486,11 @@ export default function Orders() {
                         </p>
                       </div>
                       <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
-                        Draft
+                        {t('orders.draft')}
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground mb-3">
-                      {order.orderLines.length} items
+                      {t('orders.itemsCount', { count: order.orderLines.length })}
                     </p>
                     <div className="flex gap-2">
                       <Button 
@@ -512,7 +514,7 @@ export default function Orders() {
                         disabled={updateOrderStatusMutation.isPending}
                         data-testid={`submit-order-${order.id}`}
                       >
-                        Submit
+                        {t('orders.submit')}
                       </Button>
                     </div>
                   </div>
@@ -524,7 +526,7 @@ export default function Orders() {
           {/* Sent Column */}
           <div className="kanban-column">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-foreground">Sent</h3>
+              <h3 className="font-semibold text-foreground">{t('orders.sent')}</h3>
               <span className="w-6 h-6 rounded-full bg-muted text-foreground text-xs flex items-center justify-center font-semibold">
                 {ordersByStatus.sent.length}
               </span>
@@ -533,7 +535,7 @@ export default function Orders() {
             <div className="space-y-3">
               {ordersByStatus.sent.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground text-sm">
-                  No sent orders
+                  {t('orders.noSentOrders')}
                 </div>
               ) : (
                 ordersByStatus.sent.map((order) => (
@@ -548,11 +550,11 @@ export default function Orders() {
                         <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
                       </div>
                       <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
-                        Sent
+                        {t('orders.sent')}
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground mb-2">
-                      {order.orderLines.length} items
+                      {t('orders.itemsCount', { count: order.orderLines.length })}
                     </p>
                     <p className="text-xs text-muted-foreground mb-3">
                       Sent {formatDate((order.updatedAt || order.createdAt) as any)}
@@ -580,7 +582,7 @@ export default function Orders() {
                         data-testid={`mark-received-${order.id}`}
                       >
                         <i className="fas fa-check mr-1"></i>
-                        Mark as Received
+                        {t('orders.markAsReceived')}
                       </Button>
                     </div>
                   </div>
@@ -592,7 +594,7 @@ export default function Orders() {
           {/* Received Column */}
           <div className="kanban-column">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-foreground">Received</h3>
+              <h3 className="font-semibold text-foreground">{t('orders.received')}</h3>
               <span className="w-6 h-6 rounded-full bg-muted text-foreground text-xs flex items-center justify-center font-semibold">
                 {ordersByStatus.received.length}
               </span>
@@ -601,7 +603,7 @@ export default function Orders() {
             <div className="space-y-3">
               {ordersByStatus.received.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground text-sm">
-                  No received orders
+                  {t('orders.noReceivedOrders')}
                 </div>
               ) : (
                 ordersByStatus.received.map((order) => (
@@ -616,11 +618,11 @@ export default function Orders() {
                         <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
                       </div>
                       <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
-                        Received
+                        {t('orders.received')}
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground mb-2">
-                      {order.orderLines.length} items
+                      {t('orders.itemsCount', { count: order.orderLines.length })}
                     </p>
                     <p className="text-xs text-muted-foreground mb-3">
                       Received {formatDate((order.updatedAt || order.createdAt) as any)}
@@ -636,7 +638,7 @@ export default function Orders() {
                       data-testid={`pdf-order-${order.id}`}
                     >
                       <i className="fas fa-file-pdf mr-1"></i>
-                      PDF
+                      {t('orders.pdf')}
                     </Button>
                   </div>
                 ))
@@ -650,15 +652,15 @@ export default function Orders() {
       <Dialog open={newOrderDialogOpen} onOpenChange={setNewOrderDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create New Order</DialogTitle>
-            <DialogDescription>Create a draft order for items that need restocking</DialogDescription>
+            <DialogTitle>{t('orders.createNewOrder')}</DialogTitle>
+            <DialogDescription>{t('orders.createDraftOrderDesc')}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
-              <h3 className="font-semibold mb-2">Items to Order ({itemsNeedingOrder.length})</h3>
+              <h3 className="font-semibold mb-2">{t('orders.itemsToOrder', { count: itemsNeedingOrder.length })}</h3>
               <p className="text-sm text-muted-foreground mb-3">
-                Items below max threshold that need restocking
+                {t('orders.itemsBelowMaxThreshold')}
               </p>
               
               <div className="space-y-2 max-h-96 overflow-y-auto">
@@ -667,14 +669,14 @@ export default function Orders() {
                     <div className="flex-1">
                       <p className="font-medium text-foreground">{item.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        Current: {item.stockLevel?.qtyOnHand || 0} / Max: {item.maxThreshold || 10}
+                        {t('orders.current')}: {item.stockLevel?.qtyOnHand || 0} / {t('orders.max')}: {item.maxThreshold || 10}
                       </p>
                     </div>
                     <div className="text-right">
                       <p className="text-lg font-semibold text-primary">
                         {item.qtyToOrder} {item.unit}
                       </p>
-                      <p className="text-xs text-muted-foreground">to order</p>
+                      <p className="text-xs text-muted-foreground">{t('orders.toOrder')}</p>
                     </div>
                   </div>
                 ))}
@@ -687,7 +689,7 @@ export default function Orders() {
                 onClick={() => setNewOrderDialogOpen(false)}
                 data-testid="cancel-order-button"
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 onClick={handleCreateOrder}
@@ -697,12 +699,12 @@ export default function Orders() {
                 {createOrderMutation.isPending ? (
                   <>
                     <i className="fas fa-spinner fa-spin mr-2"></i>
-                    Creating...
+                    {t('orders.creating')}
                   </>
                 ) : (
                   <>
                     <i className="fas fa-check mr-2"></i>
-                    Create Draft Order
+                    {t('orders.createDraftOrder')}
                   </>
                 )}
               </Button>
@@ -715,30 +717,30 @@ export default function Orders() {
       <Dialog open={editOrderDialogOpen} onOpenChange={setEditOrderDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Order - PO-{selectedOrder?.id.slice(-4)}</DialogTitle>
-            <DialogDescription>Edit order items, quantities, and status</DialogDescription>
+            <DialogTitle>{t('orders.editOrderTitle', { number: selectedOrder?.id.slice(-4) })}</DialogTitle>
+            <DialogDescription>{t('orders.editOrderDesc')}</DialogDescription>
           </DialogHeader>
 
           {selectedOrder && (
             <div className="space-y-4">
               <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                 <div>
-                  <p className="text-sm text-muted-foreground">Location</p>
+                  <p className="text-sm text-muted-foreground">{t('orders.location')}</p>
                   <p className="font-medium text-foreground">
                     <i className="fas fa-map-marker-alt mr-1"></i>
                     {getOrderLocation(selectedOrder)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Status</p>
+                  <p className="text-sm text-muted-foreground">{t('orders.status')}</p>
                   <span className={`status-chip ${getStatusChip(selectedOrder.status)} text-xs`}>
-                    {selectedOrder.status}
+                    {t(`orders.${selectedOrder.status}`)}
                   </span>
                 </div>
               </div>
 
               <div>
-                <h3 className="font-semibold mb-2">Order Items ({selectedOrder.orderLines.length})</h3>
+                <h3 className="font-semibold mb-2">{t('orders.orderItems', { count: selectedOrder.orderLines.length })}</h3>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {selectedOrder.orderLines.map(line => {
                     const stockStatus = getStockStatus(line.item);
@@ -758,7 +760,7 @@ export default function Orders() {
                           </span>
                           <i className={`fas ${normalizedUnit === "pack" ? "fa-box" : "fa-vial"} text-sm ${stockStatus.color}`}></i>
                           <span className="text-xs text-muted-foreground">
-                            / Min: {line.item.minThreshold ?? 0} / Max: {line.item.maxThreshold ?? 0}
+                            / {t('orders.min')}: {line.item.minThreshold ?? 0} / {t('orders.max')}: {line.item.maxThreshold ?? 0}
                           </span>
                         </div>
                       </div>
@@ -836,7 +838,7 @@ export default function Orders() {
                   disabled={deleteOrderMutation.isPending}
                   data-testid="delete-order-button"
                 >
-                  {deleteOrderMutation.isPending ? "Deleting..." : "Delete"}
+                  {deleteOrderMutation.isPending ? t('orders.deleting') : t('common.delete')}
                 </Button>
                 <div className="flex gap-2">
                   <Button
@@ -844,7 +846,7 @@ export default function Orders() {
                     onClick={() => setEditOrderDialogOpen(false)}
                     data-testid="close-edit-dialog"
                   >
-                    Close
+                    {t('common.close')}
                   </Button>
                   {selectedOrder.status === 'draft' && (
                     <Button
@@ -855,7 +857,7 @@ export default function Orders() {
                       data-testid="submit-from-edit"
                     >
                       <i className="fas fa-paper-plane mr-2"></i>
-                      Submit Order
+                      {t('orders.submitOrder')}
                     </Button>
                   )}
                 </div>
@@ -869,19 +871,19 @@ export default function Orders() {
       <AlertDialog open={!!lineToRemove} onOpenChange={(open) => !open && setLineToRemove(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove Item from Order?</AlertDialogTitle>
+            <AlertDialogTitle>{t('orders.removeItemTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove the item from this order. This action cannot be undone.
+              {t('orders.removeItemDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="cancel-remove-item">Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="cancel-remove-item">{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmRemoveItem}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               data-testid="confirm-remove-item"
             >
-              Remove Item
+              {t('orders.removeItem')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -25,6 +26,7 @@ type UnitType = "pack" | "ampulle";
 
 // Draggable item wrapper
 function DraggableItem({ id, children, disabled }: { id: string; children: React.ReactNode; disabled?: boolean }) {
+  const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id,
     disabled,
@@ -44,7 +46,7 @@ function DraggableItem({ id, children, disabled }: { id: string; children: React
           {...attributes}
           className="absolute left-1 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing z-10 bg-muted/80 rounded p-1 touch-none"
           data-testid={`drag-handle-${id}`}
-          title="Drag to move item"
+          title={t('items.dragToMove')}
         >
           <GripVertical className="w-4 h-4 text-muted-foreground" />
         </div>
@@ -71,6 +73,7 @@ function DroppableFolder({ id, children }: { id: string; children: React.ReactNo
 }
 
 export default function Items() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [activeHospital] = useState(() => (user as any)?.hospitals?.[0]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -205,7 +208,7 @@ export default function Items() {
           setUpgradeDialogOpen(true);
           return null;
         }
-        throw new Error(errorData.message || "Failed to create item");
+        throw new Error(errorData.message || t('items.failedToCreate'));
       }
       
       return await response.json();
@@ -216,14 +219,14 @@ export default function Items() {
       resetForm();
       setAddDialogOpen(false);
       toast({
-        title: "Success",
-        description: "Item created successfully",
+        title: t('common.success'),
+        description: t('items.itemCreatedSuccess'),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to create item",
+        title: t('common.error'),
+        description: error.message || t('items.failedToCreate'),
         variant: "destructive",
       });
     },
@@ -255,14 +258,14 @@ export default function Items() {
       queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id] });
       setEditDialogOpen(false);
       toast({
-        title: "Success",
-        description: "Item updated successfully",
+        title: t('common.success'),
+        description: t('items.itemUpdatedSuccess'),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to update item",
+        title: t('common.error'),
+        description: error.message || t('items.failedToUpdate'),
         variant: "destructive",
       });
     },
@@ -277,14 +280,14 @@ export default function Items() {
       queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id] });
       setEditDialogOpen(false);
       toast({
-        title: "Item Deleted",
-        description: "Item has been deleted successfully.",
+        title: t('items.deleteItem'),
+        description: t('items.itemDeletedSuccess'),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to delete item",
+        title: t('common.error'),
+        description: error.message || t('items.failedToDelete'),
         variant: "destructive",
       });
     },
@@ -350,14 +353,14 @@ export default function Items() {
       queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
       queryClient.invalidateQueries({ queryKey: ["/api/orders/open-items", activeHospital?.id] });
       toast({
-        title: "Added to Order",
-        description: "Item has been added to draft order",
+        title: t('items.addedToOrder'),
+        description: t('items.addedToDraftOrder'),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to add item to order",
+        title: t('common.error'),
+        description: error.message || t('items.failedToCreate'),
         variant: "destructive",
       });
     },
@@ -371,14 +374,14 @@ export default function Items() {
     onSuccess: (data) => {
       setBulkItems(data.items || []);
       toast({
-        title: "Analysis Complete",
-        description: `Extracted ${data.items?.length || 0} items from images`,
+        title: t('items.analysisComplete'),
+        description: t('items.extractedItems', { count: data.items?.length || 0 }),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Analysis Failed",
-        description: error.message || "Failed to analyze images",
+        title: t('items.analysisFailed'),
+        description: error.message || t('items.failedToAnalyze'),
         variant: "destructive",
       });
     },
@@ -407,7 +410,7 @@ export default function Items() {
           setUpgradeDialogOpen(true);
           return null;
         }
-        throw new Error(errorData.message || "Failed to import items");
+        throw new Error(errorData.message || t('items.failedToImport'));
       }
       
       return await response.json();
@@ -419,14 +422,14 @@ export default function Items() {
       setBulkImages([]);
       setBulkItems([]);
       toast({
-        title: "Success",
-        description: "Items imported successfully",
+        title: t('common.success'),
+        description: t('items.itemsImportedSuccess'),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to import items",
+        title: t('common.error'),
+        description: error.message || t('items.failedToImport'),
         variant: "destructive",
       });
     },
@@ -442,14 +445,14 @@ export default function Items() {
       setIsBulkEditMode(false);
       setBulkEditItems({});
       toast({
-        title: "Success",
-        description: "Items updated successfully",
+        title: t('common.success'),
+        description: t('items.itemsUpdatedSuccess'),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to update items",
+        title: t('common.error'),
+        description: error.message || t('items.failedToBulkUpdate'),
         variant: "destructive",
       });
     },
@@ -469,14 +472,14 @@ export default function Items() {
       setFolderDialogOpen(false);
       setFolderName("");
       toast({
-        title: "Success",
-        description: "Folder created successfully",
+        title: t('common.success'),
+        description: t('items.folderCreatedSuccess'),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to create folder",
+        title: t('common.error'),
+        description: error.message || t('items.failedToCreateFolder'),
         variant: "destructive",
       });
     },
@@ -493,14 +496,14 @@ export default function Items() {
       setEditingFolder(null);
       setFolderName("");
       toast({
-        title: "Success",
-        description: "Folder updated successfully",
+        title: t('common.success'),
+        description: t('items.folderUpdatedSuccess'),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to update folder",
+        title: t('common.error'),
+        description: error.message || t('items.failedToUpdateFolder'),
         variant: "destructive",
       });
     },
@@ -515,14 +518,14 @@ export default function Items() {
       queryClient.invalidateQueries({ queryKey: ["/api/folders", activeHospital?.id] });
       queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id] });
       toast({
-        title: "Success",
-        description: "Folder deleted successfully. Items moved to root level.",
+        title: t('common.success'),
+        description: t('items.folderDeletedSuccess'),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to delete folder",
+        title: t('common.error'),
+        description: error.message || t('items.failedToDeleteFolder'),
         variant: "destructive",
       });
     },
@@ -538,8 +541,8 @@ export default function Items() {
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to move item",
+        title: t('common.error'),
+        description: error.message || t('items.failedToMove'),
         variant: "destructive",
       });
     },
@@ -599,7 +602,7 @@ export default function Items() {
 
   const handleDeleteFolder = (e: React.MouseEvent, folderId: string) => {
     e.stopPropagation();
-    if (confirm("Are you sure you want to delete this folder? Items will be moved to root level.")) {
+    if (confirm(t('items.deleteFolderConfirm'))) {
       deleteFolderMutation.mutate(folderId);
     }
   };
@@ -607,8 +610,8 @@ export default function Items() {
   const handleSaveFolder = () => {
     if (!folderName.trim()) {
       toast({
-        title: "Error",
-        description: "Folder name is required",
+        title: t('common.error'),
+        description: t('items.folderNameRequired'),
         variant: "destructive",
       });
       return;
@@ -630,8 +633,8 @@ export default function Items() {
 
     if (qtyToOrder <= 0) {
       toast({
-        title: "Stock Sufficient",
-        description: "Item stock is already at or above max threshold",
+        title: t('items.stockSufficient'),
+        description: t('items.stockAboveMax'),
       });
       return;
     }
@@ -987,9 +990,9 @@ export default function Items() {
     const minThreshold = item.minThreshold || 0;
     
     if (currentQty <= minThreshold) {
-      return { color: "text-warning", status: "Below Min" };
+      return { color: "text-warning", status: t('items.belowMin') };
     }
-    return { color: "text-success", status: "Good" };
+    return { color: "text-success", status: t('items.good') };
   };
   
   const handleDismissOnboarding = () => {
@@ -1009,8 +1012,8 @@ export default function Items() {
       <div className="p-4">
         <div className="bg-card border border-border rounded-lg p-6 text-center">
           <i className="fas fa-hospital text-4xl text-muted-foreground mb-4"></i>
-          <h3 className="text-lg font-semibold text-foreground mb-2">No Hospital Selected</h3>
-          <p className="text-muted-foreground">Please select a hospital to view items.</p>
+          <h3 className="text-lg font-semibold text-foreground mb-2">{t('items.noHospitalSelected')}</h3>
+          <p className="text-muted-foreground">{t('items.selectHospitalToView')}</p>
         </div>
       </div>
     );
@@ -1020,31 +1023,31 @@ export default function Items() {
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-2xl font-bold text-foreground">Items</h1>
+          <h1 className="text-2xl font-bold text-foreground">{t('items.title')}</h1>
           <div className="flex gap-2">
             {isBulkEditMode ? (
               <>
                 <Button variant="outline" size="sm" onClick={() => { setIsBulkEditMode(false); setBulkEditItems({}); }} data-testid="cancel-bulk-edit" className="flex-1 sm:flex-initial">
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button size="sm" onClick={handleBulkEditSave} disabled={bulkUpdateMutation.isPending} data-testid="save-bulk-edit" className="flex-1 sm:flex-initial">
                   <i className="fas fa-save mr-2"></i>
-                  Save All
+                  {t('items.saveAll')}
                 </Button>
               </>
             ) : (
               <>
                 <Button variant="outline" size="sm" onClick={() => { setIsBulkEditMode(true); setBulkEditItems({}); }} data-testid="bulk-edit-button" className="flex-1 sm:flex-initial">
                   <i className="fas fa-edit mr-2"></i>
-                  Bulk Edit
+                  {t('items.bulkEdit')}
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => setBulkImportOpen(true)} data-testid="bulk-import-button" className="flex-1 sm:flex-initial">
                   <i className="fas fa-upload mr-2"></i>
-                  Bulk Import
+                  {t('items.bulkImport')}
                 </Button>
                 <Button size="sm" onClick={() => setAddDialogOpen(true)} data-testid="add-item-button" className="flex-1 sm:flex-initial">
                   <i className="fas fa-plus mr-2"></i>
-                  Add Item
+                  {t('items.addItem')}
                 </Button>
               </>
             )}
@@ -1055,7 +1058,7 @@ export default function Items() {
       <div className="relative">
         <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"></i>
         <Input
-          placeholder="Search items..."
+          placeholder={t('items.search')}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-10"
@@ -1070,7 +1073,7 @@ export default function Items() {
           onClick={() => setActiveFilter("all")}
           data-testid="filter-all"
         >
-          All Items ({filterCounts.all})
+          {t('items.allItems', { count: filterCounts.all })}
         </button>
         <button
           className={`status-chip whitespace-nowrap ${activeFilter === "belowMin" ? "chip-warning" : "chip-muted"}`}
@@ -1078,7 +1081,7 @@ export default function Items() {
           data-testid="filter-below-min"
         >
           <i className="fas fa-arrow-down text-xs mr-1"></i>
-          Below Min ({filterCounts.belowMin})
+          {t('items.belowMinItems', { count: filterCounts.belowMin })}
         </button>
         <button
           className={`status-chip whitespace-nowrap ${activeFilter === "critical" ? "chip-critical" : "chip-muted"}`}
@@ -1086,7 +1089,7 @@ export default function Items() {
           data-testid="filter-critical"
         >
           <i className="fas fa-exclamation-circle text-xs mr-1"></i>
-          Critical ({filterCounts.critical})
+          {t('items.criticalItems', { count: filterCounts.critical })}
         </button>
         <button
           className={`status-chip whitespace-nowrap ${activeFilter === "controlled" ? "chip-controlled" : "chip-muted"}`}
@@ -1094,13 +1097,13 @@ export default function Items() {
           data-testid="filter-controlled"
         >
           <i className="fas fa-shield-halved text-xs mr-1"></i>
-          Controlled ({filterCounts.controlled})
+          {t('items.controlledItems', { count: filterCounts.controlled })}
         </button>
       </div>
 
       {/* Sort Options and Create Folder */}
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm text-muted-foreground">{filteredItems.length} items</span>
+        <span className="text-sm text-muted-foreground">{t('items.itemsCount', { count: filteredItems.length })}</span>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -1109,7 +1112,7 @@ export default function Items() {
             data-testid="create-folder-button"
           >
             <FolderPlus className="w-4 h-4 mr-1" />
-            New Folder
+            {t('items.newFolder')}
           </Button>
           <select
             value={sortBy}
@@ -1117,8 +1120,8 @@ export default function Items() {
             className="px-3 py-2 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             data-testid="items-sort"
           >
-            <option value="name">Sort: Name A-Z</option>
-            <option value="stock">Sort: Stock Level</option>
+            <option value="name">{t('items.sortNameAZ')}</option>
+            <option value="stock">{t('items.sortStockLevel')}</option>
           </select>
         </div>
       </div>
@@ -1129,14 +1132,14 @@ export default function Items() {
           {isLoading ? (
             <div className="text-center py-8">
               <i className="fas fa-spinner fa-spin text-2xl text-primary mb-2"></i>
-              <p className="text-muted-foreground">Loading items...</p>
+              <p className="text-muted-foreground">{t('items.loadingItems')}</p>
             </div>
           ) : filteredItems.length === 0 ? (
             <div className="bg-card border border-border rounded-lg p-8 text-center">
               <i className="fas fa-search text-4xl text-muted-foreground mb-4"></i>
-              <h3 className="text-lg font-semibold text-foreground mb-2">No Items Found</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-2">{t('items.noItemsFound')}</h3>
               <p className="text-muted-foreground">
-                {searchTerm ? "Try adjusting your search terms" : "No items match the selected filters"}
+                {searchTerm ? t('items.tryAdjustingSearch') : t('items.noItemsMatchFilters')}
               </p>
             </div>
           ) : (
@@ -1231,7 +1234,7 @@ export default function Items() {
                                   data-testid={`item-${item.id}-quick-order`}
                                 >
                                   <i className="fas fa-bolt mr-1"></i>
-                                  Quick Order
+                                  {t('items.quickOrder')}
                                 </button>
                               )}
                             </div>
@@ -1263,7 +1266,7 @@ export default function Items() {
                   {isBulkEditMode ? (
                     <div className="flex-1 space-y-2">
                       <div>
-                        <Label className="text-xs">Name</Label>
+                        <Label className="text-xs">{t('items.name')}</Label>
                         <Input
                           value={bulkEditItems[item.id]?.name !== undefined ? bulkEditItems[item.id].name : item.name}
                           onChange={(e) => {
@@ -1303,7 +1306,7 @@ export default function Items() {
                   <div className="flex items-center gap-2 mb-2">
                     <div className={`expiry-indicator ${getExpiryColor(daysUntilExpiry)}`}></div>
                     <span className="text-sm text-muted-foreground">
-                      Expires in {Math.max(0, daysUntilExpiry)} days
+                      {t('items.expiresInDays', { days: Math.max(0, daysUntilExpiry) })}
                     </span>
                   </div>
                 )}
@@ -1312,7 +1315,7 @@ export default function Items() {
                   {isBulkEditMode ? (
                     <div className="flex gap-2 flex-1">
                       <div className="flex-1">
-                        <Label className="text-xs">Stock</Label>
+                        <Label className="text-xs">{t('items.stock')}</Label>
                         <Input
                           type="number"
                           value={bulkEditItems[item.id]?.actualStock !== undefined ? bulkEditItems[item.id].actualStock : currentQty}
@@ -1328,7 +1331,7 @@ export default function Items() {
                         />
                       </div>
                       <div className="flex-1">
-                        <Label className="text-xs">Min</Label>
+                        <Label className="text-xs">{t('items.min')}</Label>
                         <Input
                           type="number"
                           value={bulkEditItems[item.id]?.minThreshold !== undefined ? bulkEditItems[item.id].minThreshold : (item.minThreshold || 0)}
@@ -1344,7 +1347,7 @@ export default function Items() {
                         />
                       </div>
                       <div className="flex-1">
-                        <Label className="text-xs">Max</Label>
+                        <Label className="text-xs">{t('items.max')}</Label>
                         <Input
                           type="number"
                           value={bulkEditItems[item.id]?.maxThreshold !== undefined ? bulkEditItems[item.id].maxThreshold : (item.maxThreshold || 0)}
@@ -1376,12 +1379,12 @@ export default function Items() {
                       {openOrderItems[item.id] ? (
                         <Button variant="outline" size="sm" disabled data-testid={`quick-ordered-${item.id}`}>
                           <i className="fas fa-check mr-1"></i>
-                          quick ordered {openOrderItems[item.id].totalQty} units
+                          {t('items.quickOrdered', { count: openOrderItems[item.id].totalQty })}
                         </Button>
                       ) : (
                         <Button variant="outline" size="sm" onClick={(e) => handleQuickOrder(e, item)} data-testid={`quick-order-${item.id}`}>
                           <i className="fas fa-bolt mr-1"></i>
-                          Quick Order
+                          {t('items.quickOrder')}
                         </Button>
                       )}
                     </>
@@ -1401,7 +1404,7 @@ export default function Items() {
             <div className="bg-card border-2 border-primary rounded-lg p-3 shadow-lg opacity-90">
               <div className="flex items-center gap-2">
                 <GripVertical className="w-4 h-4 text-muted-foreground" />
-                <span className="font-medium">Dragging item...</span>
+                <span className="font-medium">{t('items.draggingItem')}</span>
               </div>
             </div>
           ) : null}
@@ -1412,28 +1415,28 @@ export default function Items() {
       <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>{editingFolder ? "Edit Folder" : "Create Folder"}</DialogTitle>
+            <DialogTitle>{editingFolder ? t('items.editFolder') : t('items.createFolder')}</DialogTitle>
             <DialogDescription>
-              {editingFolder ? "Update folder name" : "Create a new folder to organize items"}
+              {editingFolder ? t('items.updateFolderName') : t('items.createNewFolder')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="folder-name">Folder Name</Label>
+              <Label htmlFor="folder-name">{t('items.folderName')}</Label>
               <Input
                 id="folder-name"
                 value={folderName}
                 onChange={(e) => setFolderName(e.target.value)}
-                placeholder="e.g., Drugs, Airway, etc."
+                placeholder={t('items.folderNamePlaceholder')}
                 data-testid="folder-name-input"
               />
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setFolderDialogOpen(false)} data-testid="cancel-folder">
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button onClick={handleSaveFolder} data-testid="save-folder">
-                {editingFolder ? "Update" : "Create"}
+                {editingFolder ? t('items.update') : t('items.create')}
               </Button>
             </div>
           </div>
@@ -1444,13 +1447,13 @@ export default function Items() {
       <Dialog open={addDialogOpen} onOpenChange={(open) => { setAddDialogOpen(open); if (!open) resetForm(); }}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add New Item</DialogTitle>
-            <DialogDescription>Create a new inventory item</DialogDescription>
+            <DialogTitle>{t('items.addNewItem')}</DialogTitle>
+            <DialogDescription>{t('items.createNewInventoryItem')}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddItem} className="space-y-4">
             {/* Image Upload */}
             <div>
-              <Label>Item Photo (AI Analysis)</Label>
+              <Label>{t('items.uploadPhoto')}</Label>
               <input
                 type="file"
                 ref={fileInputRef}
@@ -1467,7 +1470,7 @@ export default function Items() {
                 data-testid="button-upload-image"
               >
                 <i className={`fas ${isAnalyzing ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
-                {isAnalyzing ? "Analyzing..." : "Take Photo"}
+                {isAnalyzing ? t('items.analyzing') : t('controlled.takePhoto')}
               </Button>
               {uploadedImages.length > 0 && (
                 <div className="mt-2 flex gap-2 overflow-x-auto">
@@ -1479,7 +1482,7 @@ export default function Items() {
             </div>
 
             <div>
-              <Label htmlFor="name">Item Name *</Label>
+              <Label htmlFor="name">{t('items.itemName')} *</Label>
               <Input 
                 id="name" 
                 name="name" 
@@ -1491,7 +1494,7 @@ export default function Items() {
             </div>
             
             <div>
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">{t('items.description')}</Label>
               <Input 
                 id="description" 
                 name="description" 
@@ -1503,7 +1506,7 @@ export default function Items() {
 
             {/* Visual Unit Selector */}
             <div>
-              <Label>Unit Type *</Label>
+              <Label>{t('items.unitType')} *</Label>
               <div className="flex gap-2 mt-2">
                 <button
                   type="button"
@@ -1516,7 +1519,7 @@ export default function Items() {
                   data-testid="unit-pack"
                 >
                   <i className="fas fa-box text-xl mb-1"></i>
-                  <div className="text-xs font-medium">Pack</div>
+                  <div className="text-xs font-medium">{t('items.pack')}</div>
                 </button>
                 <button
                   type="button"
@@ -1529,7 +1532,7 @@ export default function Items() {
                   data-testid="unit-ampulle"
                 >
                   <i className="fas fa-vial text-xl mb-1"></i>
-                  <div className="text-xs font-medium">Ampulle</div>
+                  <div className="text-xs font-medium">{t('items.ampulle')}</div>
                 </button>
               </div>
             </div>
@@ -1546,7 +1549,7 @@ export default function Items() {
             </div> */}
 
             <div className="p-4 bg-primary/10 dark:bg-primary/20 rounded-lg border-2 border-primary/30">
-              <Label htmlFor="initialStock" className="text-base font-semibold">Actual Stock</Label>
+              <Label htmlFor="initialStock" className="text-base font-semibold">{t('items.actualStock')}</Label>
               <Input 
                 id="initialStock" 
                 name="initialStock" 
@@ -1561,7 +1564,7 @@ export default function Items() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="minThreshold">Min Threshold</Label>
+                <Label htmlFor="minThreshold">{t('items.minThreshold')}</Label>
                 <Input 
                   id="minThreshold" 
                   name="minThreshold" 
@@ -1573,7 +1576,7 @@ export default function Items() {
                 />
               </div>
               <div>
-                <Label htmlFor="maxThreshold">Max Threshold</Label>
+                <Label htmlFor="maxThreshold">{t('items.maxThreshold')}</Label>
                 <Input 
                   id="maxThreshold" 
                   name="maxThreshold" 
@@ -1595,7 +1598,7 @@ export default function Items() {
                   onCheckedChange={(checked) => setFormData(prev => ({ ...prev, critical: checked === true }))}
                   data-testid="checkbox-item-critical" 
                 />
-                <Label htmlFor="critical" className="cursor-pointer">Critical Item</Label>
+                <Label htmlFor="critical" className="cursor-pointer">{t('items.critical')}</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox 
@@ -1605,7 +1608,7 @@ export default function Items() {
                   onCheckedChange={(checked) => setFormData(prev => ({ ...prev, controlled: checked === true }))}
                   data-testid="checkbox-item-controlled" 
                 />
-                <Label htmlFor="controlled" className="cursor-pointer">Controlled Substance</Label>
+                <Label htmlFor="controlled" className="cursor-pointer">{t('items.controlled')}</Label>
               </div>
             </div>
 
@@ -1613,7 +1616,7 @@ export default function Items() {
             {selectedUnit === "pack" && formData.controlled && (
               <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg border-2 border-amber-200 dark:border-amber-900/50 space-y-4">
                 <div>
-                  <Label htmlFor="packSize">Pack Size (ampules per pack) *</Label>
+                  <Label htmlFor="packSize">{t('items.packSize')} *</Label>
                   <Input 
                     ref={packSizeInputRef}
                     id="packSize" 
@@ -1625,10 +1628,10 @@ export default function Items() {
                     data-testid="input-item-pack-size" 
                     required
                   />
-                  <p className="text-xs text-muted-foreground mt-1">Number of ampules in each pack</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t('items.packSizeHelp')}</p>
                 </div>
                 <div>
-                  <Label htmlFor="controlledUnits">Controlled Units (ampules) *</Label>
+                  <Label htmlFor="controlledUnits">{t('items.controlledUnits')} *</Label>
                   <Input 
                     id="controlledUnits" 
                     name="controlledUnits" 
@@ -1639,17 +1642,17 @@ export default function Items() {
                     data-testid="input-item-controlled-units" 
                     required
                   />
-                  <p className="text-xs text-muted-foreground mt-1">Current ampules in stock for tracking</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t('items.controlledUnitsHelp')}</p>
                 </div>
               </div>
             )}
 
             <div className="flex gap-3 pt-4 justify-end">
               <Button type="button" variant="outline" onClick={() => { setAddDialogOpen(false); resetForm(); }}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button type="submit" disabled={createItemMutation.isPending || isAnalyzing} data-testid="button-save-item">
-                {createItemMutation.isPending ? "Creating..." : "Create Item"}
+                {createItemMutation.isPending ? t('common.loading') : t('items.addItem')}
               </Button>
             </div>
           </form>
@@ -1660,12 +1663,12 @@ export default function Items() {
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Item</DialogTitle>
-            <DialogDescription>Update item details</DialogDescription>
+            <DialogTitle>{t('items.editItem')}</DialogTitle>
+            <DialogDescription>{t('items.updateItemDetails')}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleUpdateItem} className="space-y-4">
             <div>
-              <Label htmlFor="edit-name">Item Name *</Label>
+              <Label htmlFor="edit-name">{t('items.itemName')} *</Label>
               <Input 
                 id="edit-name" 
                 name="name" 
@@ -1677,7 +1680,7 @@ export default function Items() {
             </div>
 
             <div>
-              <Label htmlFor="edit-description">Description</Label>
+              <Label htmlFor="edit-description">{t('items.description')}</Label>
               <Input 
                 id="edit-description" 
                 name="description" 
@@ -1688,7 +1691,7 @@ export default function Items() {
             </div>
 
             <div>
-              <Label>Unit Type *</Label>
+              <Label>{t('items.unitType')} *</Label>
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <button
                   type="button"
@@ -1701,7 +1704,7 @@ export default function Items() {
                   data-testid="edit-unit-pack"
                 >
                   <i className="fas fa-box text-xl mb-1"></i>
-                  <div className="text-xs font-medium">Pack</div>
+                  <div className="text-xs font-medium">{t('items.pack')}</div>
                 </button>
                 <button
                   type="button"
@@ -1714,7 +1717,7 @@ export default function Items() {
                   data-testid="edit-unit-ampulle"
                 >
                   <i className="fas fa-vial text-xl mb-1"></i>
-                  <div className="text-xs font-medium">Ampulle</div>
+                  <div className="text-xs font-medium">{t('items.ampulle')}</div>
                 </button>
               </div>
             </div>
@@ -1731,7 +1734,7 @@ export default function Items() {
             </div> */}
 
             <div className="p-4 bg-primary/10 dark:bg-primary/20 rounded-lg border-2 border-primary/30">
-              <Label htmlFor="edit-actualStock" className="text-base font-semibold">Actual Stock</Label>
+              <Label htmlFor="edit-actualStock" className="text-base font-semibold">{t('items.actualStock')}</Label>
               <Input 
                 id="edit-actualStock" 
                 name="actualStock" 
@@ -1747,7 +1750,7 @@ export default function Items() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="edit-minThreshold">Min Threshold</Label>
+                <Label htmlFor="edit-minThreshold">{t('items.minThreshold')}</Label>
                 <Input 
                   id="edit-minThreshold" 
                   name="minThreshold" 
@@ -1759,7 +1762,7 @@ export default function Items() {
                 />
               </div>
               <div>
-                <Label htmlFor="edit-maxThreshold">Max Threshold</Label>
+                <Label htmlFor="edit-maxThreshold">{t('items.maxThreshold')}</Label>
                 <Input 
                   id="edit-maxThreshold" 
                   name="maxThreshold" 
@@ -1781,7 +1784,7 @@ export default function Items() {
                   onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, critical: checked === true }))}
                   data-testid="checkbox-edit-critical" 
                 />
-                <Label htmlFor="edit-critical" className="cursor-pointer">Critical Item</Label>
+                <Label htmlFor="edit-critical" className="cursor-pointer">{t('items.critical')}</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox 
@@ -1791,7 +1794,7 @@ export default function Items() {
                   onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, controlled: checked === true }))}
                   data-testid="checkbox-edit-controlled" 
                 />
-                <Label htmlFor="edit-controlled" className="cursor-pointer">Controlled Substance</Label>
+                <Label htmlFor="edit-controlled" className="cursor-pointer">{t('items.controlled')}</Label>
               </div>
             </div>
 
@@ -1799,7 +1802,7 @@ export default function Items() {
             {selectedUnit === "pack" && editFormData.controlled && (
               <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg border-2 border-amber-200 dark:border-amber-900/50 space-y-4">
                 <div>
-                  <Label htmlFor="edit-packSize">Pack Size (ampules per pack) *</Label>
+                  <Label htmlFor="edit-packSize">{t('items.packSize')} *</Label>
                   <Input 
                     ref={editPackSizeInputRef}
                     id="edit-packSize" 
@@ -1811,10 +1814,10 @@ export default function Items() {
                     data-testid="input-edit-pack-size" 
                     required
                   />
-                  <p className="text-xs text-muted-foreground mt-1">Number of ampules in each pack</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t('items.packSizeHelp')}</p>
                 </div>
                 <div>
-                  <Label htmlFor="edit-controlledUnits">Controlled Units (ampules) *</Label>
+                  <Label htmlFor="edit-controlledUnits">{t('items.controlledUnits')} *</Label>
                   <Input 
                     id="edit-controlledUnits" 
                     name="controlledUnits" 
@@ -1825,7 +1828,7 @@ export default function Items() {
                     data-testid="input-edit-controlled-units" 
                     required
                   />
-                  <p className="text-xs text-muted-foreground mt-1">Current ampules in stock for tracking</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t('items.controlledUnitsHelp')}</p>
                 </div>
               </div>
             )}
@@ -1835,21 +1838,21 @@ export default function Items() {
                 type="button" 
                 variant="destructive" 
                 onClick={() => {
-                  if (selectedItem && window.confirm(`Are you sure you want to delete "${selectedItem.name}"? This action cannot be undone.`)) {
+                  if (selectedItem && window.confirm(t('items.deleteConfirm'))) {
                     deleteItemMutation.mutate(selectedItem.id);
                   }
                 }}
                 disabled={deleteItemMutation.isPending}
                 data-testid="button-delete-item"
               >
-                {deleteItemMutation.isPending ? "Deleting..." : "Delete"}
+                {deleteItemMutation.isPending ? t('common.loading') : t('common.delete')}
               </Button>
               <div className="flex gap-2">
                 <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button type="submit" disabled={updateItemMutation.isPending} data-testid="button-update-item">
-                  {updateItemMutation.isPending ? "Saving..." : "Save Changes"}
+                  {updateItemMutation.isPending ? t('common.loading') : t('common.save')}
                 </Button>
               </div>
             </div>
@@ -1861,8 +1864,8 @@ export default function Items() {
       <Dialog open={bulkImportOpen} onOpenChange={setBulkImportOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Bulk Import Items</DialogTitle>
-            <DialogDescription>Upload multiple photos and review extracted items</DialogDescription>
+            <DialogTitle>{t('items.bulkImportTitle')}</DialogTitle>
+            <DialogDescription>{t('items.importFromPhotos')}</DialogDescription>
           </DialogHeader>
 
           {bulkItems.length === 0 ? (
@@ -1885,8 +1888,8 @@ export default function Items() {
               >
                 <i className={`fas ${isBulkAnalyzing ? 'fa-spinner fa-spin' : 'fa-camera'} text-4xl mr-4`}></i>
                 <div>
-                  <div className="font-semibold">{isBulkAnalyzing ? "Analyzing..." : "Take/Upload Photos"}</div>
-                  <div className="text-sm text-muted-foreground">Upload up to 10 images</div>
+                  <div className="font-semibold">{isBulkAnalyzing ? t('items.analyzing') : t('items.uploadImages')}</div>
+                  <div className="text-sm text-muted-foreground">{t('items.uploadImages')}</div>
                 </div>
               </Button>
               {bulkImages.length > 0 && (
@@ -1900,14 +1903,14 @@ export default function Items() {
           ) : (
             <div className="space-y-4">
               <div className="text-sm text-muted-foreground">
-                Review and edit {bulkItems.length} extracted items before importing
+                {t('items.reviewItems')}
               </div>
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {bulkItems.map((item, idx) => (
                   <div key={idx} className="p-3 border rounded-lg space-y-2" data-testid={`bulk-item-${idx}`}>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <Label className="text-xs">Name</Label>
+                        <Label className="text-xs">{t('items.name')}</Label>
                         <Input
                           value={item.name}
                           onChange={(e) => {
@@ -1919,7 +1922,7 @@ export default function Items() {
                         />
                       </div>
                       <div>
-                        <Label className="text-xs">Description</Label>
+                        <Label className="text-xs">{t('items.description')}</Label>
                         <Input
                           value={item.description || ""}
                           onChange={(e) => {
@@ -1933,7 +1936,7 @@ export default function Items() {
                     </div>
                     <div className="grid grid-cols-4 gap-2">
                       <div>
-                        <Label className="text-xs">Stock</Label>
+                        <Label className="text-xs">{t('items.stock')}</Label>
                         <Input
                           type="number"
                           value={item.initialStock}
@@ -1946,7 +1949,7 @@ export default function Items() {
                         />
                       </div>
                       <div>
-                        <Label className="text-xs">Min</Label>
+                        <Label className="text-xs">{t('items.min')}</Label>
                         <Input
                           type="number"
                           value={item.minThreshold}
@@ -1959,7 +1962,7 @@ export default function Items() {
                         />
                       </div>
                       <div>
-                        <Label className="text-xs">Max</Label>
+                        <Label className="text-xs">{t('items.max')}</Label>
                         <Input
                           type="number"
                           value={item.maxThreshold}
@@ -1972,8 +1975,8 @@ export default function Items() {
                         />
                       </div>
                       <div className="flex items-end gap-1">
-                        {item.critical && <span className="px-2 py-1 rounded bg-red-500/20 text-red-500 text-xs">Critical</span>}
-                        {item.controlled && <span className="px-2 py-1 rounded bg-orange-500/20 text-orange-500 text-xs">Controlled</span>}
+                        {item.critical && <span className="px-2 py-1 rounded bg-red-500/20 text-red-500 text-xs">{t('items.critical')}</span>}
+                        {item.controlled && <span className="px-2 py-1 rounded bg-orange-500/20 text-orange-500 text-xs">{t('items.controlled')}</span>}
                       </div>
                     </div>
                   </div>
@@ -1981,10 +1984,10 @@ export default function Items() {
               </div>
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => { setBulkItems([]); setBulkImages([]); }}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button onClick={handleBulkImportSave} disabled={bulkCreateMutation.isPending} data-testid="button-save-bulk-import">
-                  {bulkCreateMutation.isPending ? "Importing..." : `Import ${bulkItems.length} Items`}
+                  {bulkCreateMutation.isPending ? t('items.importing') : t('items.importItems', { count: bulkItems.length })}
                 </Button>
               </div>
             </div>
@@ -1996,9 +1999,9 @@ export default function Items() {
       <Dialog open={showOnboarding} onOpenChange={setShowOnboarding}>
         <DialogContent data-testid="onboarding-dialog">
           <DialogHeader>
-            <DialogTitle>Welcome to Viali Inventory!</DialogTitle>
+            <DialogTitle>{t('items.welcomeTitle')}</DialogTitle>
             <DialogDescription>
-              Get started by adding your inventory items
+              {t('items.welcomeSubtitle')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -2008,13 +2011,13 @@ export default function Items() {
                   <i className="fas fa-upload text-lg"></i>
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-foreground mb-1">Bulk Import (Recommended)</h3>
+                  <h3 className="font-semibold text-foreground mb-1">{t('items.bulkImportRecommended')}</h3>
                   <p className="text-sm text-muted-foreground mb-3">
-                    Take photos of your drug vials and boxes, and our AI will automatically extract names, dosages, and barcodes. Perfect for setting up your inventory quickly!
+                    {t('items.bulkImportDesc')}
                   </p>
                   <Button onClick={handleStartBulkImport} className="w-full" data-testid="onboarding-bulk-import">
                     <i className="fas fa-upload mr-2"></i>
-                    Start Bulk Import
+                    {t('items.startBulkImport')}
                   </Button>
                 </div>
               </div>
@@ -2026,13 +2029,13 @@ export default function Items() {
                   <i className="fas fa-plus text-lg"></i>
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-foreground mb-1">Add Items Manually</h3>
+                  <h3 className="font-semibold text-foreground mb-1">{t('items.addItemsManually')}</h3>
                   <p className="text-sm text-muted-foreground mb-3">
-                    Prefer to add items one at a time? You can manually create items with all the details you need.
+                    {t('items.addItemsManuallyDesc')}
                   </p>
                   <Button variant="outline" onClick={() => { handleDismissOnboarding(); setAddDialogOpen(true); }} className="w-full" data-testid="onboarding-add-item">
                     <i className="fas fa-plus mr-2"></i>
-                    Add First Item
+                    {t('items.addFirstItem')}
                   </Button>
                 </div>
               </div>
@@ -2040,7 +2043,7 @@ export default function Items() {
             
             <div className="flex justify-end pt-2">
               <Button variant="ghost" onClick={handleDismissOnboarding} data-testid="onboarding-dismiss">
-                I'll do this later
+                {t('items.doLater')}
               </Button>
             </div>
           </div>

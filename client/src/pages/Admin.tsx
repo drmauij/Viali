@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -16,6 +17,7 @@ interface HospitalUser extends UserHospitalRole {
 }
 
 export default function Admin() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [activeHospital] = useState(() => (user as any)?.hospitals?.[0]);
   const [activeTab, setActiveTab] = useState<"locations" | "users">("locations");
@@ -75,10 +77,10 @@ export default function Admin() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "locations"] });
       setLocationDialogOpen(false);
       resetLocationForm();
-      toast({ title: "Success", description: "Location created successfully" });
+      toast({ title: t("common.success"), description: t("admin.locationCreatedSuccess") });
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to create location", variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToCreateLocation"), variant: "destructive" });
     },
   });
 
@@ -91,10 +93,10 @@ export default function Admin() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "locations"] });
       setLocationDialogOpen(false);
       resetLocationForm();
-      toast({ title: "Success", description: "Location updated successfully" });
+      toast({ title: t("common.success"), description: t("admin.locationUpdatedSuccess") });
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to update location", variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateLocation"), variant: "destructive" });
     },
   });
 
@@ -105,10 +107,10 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "locations"] });
-      toast({ title: "Success", description: "Location deleted successfully" });
+      toast({ title: t("common.success"), description: t("admin.locationDeletedSuccess") });
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to delete location", variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToDeleteLocation"), variant: "destructive" });
     },
   });
 
@@ -122,7 +124,7 @@ export default function Admin() {
       setSearchedUser(data);
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "User not found", variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || t("admin.userNotFound"), variant: "destructive" });
       setSearchedUser(null);
     },
   });
@@ -136,10 +138,10 @@ export default function Admin() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "users"] });
       setUserDialogOpen(false);
       resetUserForm();
-      toast({ title: "Success", description: "User assigned successfully" });
+      toast({ title: t("common.success"), description: t("admin.userAssignedSuccess") });
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to assign user", variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToAssignUser"), variant: "destructive" });
     },
   });
 
@@ -152,10 +154,10 @@ export default function Admin() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "users"] });
       setUserDialogOpen(false);
       resetUserForm();
-      toast({ title: "Success", description: "User updated successfully" });
+      toast({ title: t("common.success"), description: t("admin.userUpdatedSuccess") });
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to update user", variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateUser"), variant: "destructive" });
     },
   });
 
@@ -166,10 +168,10 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "users"] });
-      toast({ title: "Success", description: "User removed successfully" });
+      toast({ title: t("common.success"), description: t("admin.userRemovedSuccess") });
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to remove user", variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToRemoveUser"), variant: "destructive" });
     },
   });
 
@@ -182,10 +184,10 @@ export default function Admin() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "users"] });
       setUserDialogOpen(false);
       resetUserForm();
-      toast({ title: "Success", description: "User created successfully" });
+      toast({ title: t("common.success"), description: t("admin.userCreatedSuccess") });
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to create user", variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToCreateUser"), variant: "destructive" });
     },
   });
 
@@ -201,10 +203,10 @@ export default function Admin() {
       setPasswordDialogOpen(false);
       setNewPassword("");
       setSelectedUserForPassword(null);
-      toast({ title: "Success", description: "Password updated successfully" });
+      toast({ title: t("common.success"), description: t("admin.passwordUpdatedSuccess") });
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to update password", variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdatePassword"), variant: "destructive" });
     },
   });
 
@@ -215,10 +217,10 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "users"] });
-      toast({ title: "Success", description: "User deleted successfully" });
+      toast({ title: t("common.success"), description: t("admin.userDeletedSuccess") });
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to delete user", variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToDeleteUser"), variant: "destructive" });
     },
   });
 
@@ -231,10 +233,10 @@ export default function Admin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       setHospitalDialogOpen(false);
-      toast({ title: "Success", description: "Hospital name updated successfully" });
+      toast({ title: t("common.success"), description: t("admin.hospitalNameUpdatedSuccess") });
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to update hospital name", variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateHospitalName"), variant: "destructive" });
     },
   });
 
@@ -266,7 +268,7 @@ export default function Admin() {
 
   const handleSaveLocation = () => {
     if (!locationForm.name) {
-      toast({ title: "Error", description: "Location name is required", variant: "destructive" });
+      toast({ title: t("common.error"), description: t("admin.locationNameRequired"), variant: "destructive" });
       return;
     }
 
@@ -316,7 +318,7 @@ export default function Admin() {
 
   const handleSavePassword = () => {
     if (!newPassword || newPassword.length < 6) {
-      toast({ title: "Error", description: "Password must be at least 6 characters", variant: "destructive" });
+      toast({ title: t("common.error"), description: t("admin.passwordMinLength"), variant: "destructive" });
       return;
     }
     if (selectedUserForPassword) {
@@ -328,14 +330,14 @@ export default function Admin() {
   };
 
   const handleDeleteUser = (user: HospitalUser) => {
-    if (window.confirm(`Are you sure you want to permanently delete ${user.user.firstName} ${user.user.lastName}? This cannot be undone.`)) {
+    if (window.confirm(t("admin.deleteUserConfirm", { firstName: user.user.firstName, lastName: user.user.lastName }))) {
       deleteUserMutation.mutate(user.user.id);
     }
   };
 
   const handleSearchUser = () => {
     if (!userForm.email) {
-      toast({ title: "Error", description: "Email is required", variant: "destructive" });
+      toast({ title: t("common.error"), description: t("admin.emailRequired"), variant: "destructive" });
       return;
     }
     searchUserMutation.mutate(userForm.email);
@@ -344,21 +346,21 @@ export default function Admin() {
   const handleSaveUser = () => {
     if (userMode === "create") {
       if (!userForm.email || !userForm.password || !userForm.firstName || !userForm.lastName || !userForm.locationId || !userForm.role) {
-        toast({ title: "Error", description: "All fields are required", variant: "destructive" });
+        toast({ title: t("common.error"), description: t("admin.allFieldsRequired"), variant: "destructive" });
         return;
       }
       if (userForm.password.length < 6) {
-        toast({ title: "Error", description: "Password must be at least 6 characters", variant: "destructive" });
+        toast({ title: t("common.error"), description: t("admin.passwordMinLength"), variant: "destructive" });
         return;
       }
       createUserMutation.mutate(userForm);
     } else {
       if (!searchedUser) {
-        toast({ title: "Error", description: "Please search for a user first", variant: "destructive" });
+        toast({ title: t("common.error"), description: t("admin.pleaseSearchFirst"), variant: "destructive" });
         return;
       }
       if (!userForm.locationId || !userForm.role) {
-        toast({ title: "Error", description: "Location and role are required", variant: "destructive" });
+        toast({ title: t("common.error"), description: t("admin.locationAndRoleRequired"), variant: "destructive" });
         return;
       }
 
@@ -378,9 +380,9 @@ export default function Admin() {
 
   const getRoleName = (role: string) => {
     switch (role) {
-      case "admin": return "Admin";
-      case "doctor": return "Doctor";
-      case "nurse": return "Nurse";
+      case "admin": return t("admin.roleAdmin");
+      case "doctor": return t("admin.roleDoctor");
+      case "nurse": return t("admin.roleNurse");
       default: return role;
     }
   };
@@ -390,8 +392,8 @@ export default function Admin() {
       <div className="p-4">
         <div className="bg-card border border-border rounded-lg p-6 text-center">
           <i className="fas fa-hospital text-4xl text-muted-foreground mb-4"></i>
-          <h3 className="text-lg font-semibold text-foreground mb-2">No Hospital Selected</h3>
-          <p className="text-muted-foreground">Please select a hospital first.</p>
+          <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.noHospitalSelected")}</h3>
+          <p className="text-muted-foreground">{t("admin.selectHospitalFirst")}</p>
         </div>
       </div>
     );
@@ -402,8 +404,8 @@ export default function Admin() {
       <div className="p-4">
         <div className="bg-card border border-border rounded-lg p-6 text-center">
           <i className="fas fa-lock text-4xl text-muted-foreground mb-4"></i>
-          <h3 className="text-lg font-semibold text-foreground mb-2">Admin Access Required</h3>
-          <p className="text-muted-foreground">You need administrator privileges to access this page.</p>
+          <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.adminAccessRequired")}</h3>
+          <p className="text-muted-foreground">{t("admin.adminPrivilegesNeeded")}</p>
         </div>
       </div>
     );
@@ -416,7 +418,7 @@ export default function Admin() {
 
   const handleSaveHospitalName = () => {
     if (!hospitalName.trim()) {
-      toast({ title: "Error", description: "Hospital name is required", variant: "destructive" });
+      toast({ title: t("common.error"), description: t("admin.hospitalNameRequired"), variant: "destructive" });
       return;
     }
     updateHospitalMutation.mutate(hospitalName);
@@ -425,7 +427,7 @@ export default function Admin() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Admin Panel</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("admin.adminPanel")}</h1>
       </div>
 
       {/* Hospital Info Card */}
@@ -433,7 +435,7 @@ export default function Admin() {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-semibold text-foreground text-lg">{activeHospital?.name}</h3>
-            <p className="text-sm text-muted-foreground">Hospital Name</p>
+            <p className="text-sm text-muted-foreground">{t("admin.hospitalName")}</p>
           </div>
           <Button
             variant="outline"
@@ -442,7 +444,7 @@ export default function Admin() {
             data-testid="button-edit-hospital"
           >
             <i className="fas fa-edit mr-2"></i>
-            Edit Name
+            {t("admin.editName")}
           </Button>
         </div>
       </div>
@@ -459,7 +461,7 @@ export default function Admin() {
           data-testid="tab-locations"
         >
           <i className="fas fa-location-dot mr-2"></i>
-          Locations
+          {t("admin.locations")}
         </button>
         <button
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -471,7 +473,7 @@ export default function Admin() {
           data-testid="tab-users"
         >
           <i className="fas fa-users mr-2"></i>
-          Users & Roles
+          {t("admin.usersAndRoles")}
         </button>
       </div>
 
@@ -479,10 +481,10 @@ export default function Admin() {
       {activeTab === "locations" && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-foreground">Locations</h2>
+            <h2 className="text-lg font-semibold text-foreground">{t("admin.locations")}</h2>
             <Button onClick={handleAddLocation} size="sm" data-testid="button-add-location">
               <i className="fas fa-plus mr-2"></i>
-              Add Location
+              {t("admin.addLocation")}
             </Button>
           </div>
 
@@ -493,11 +495,11 @@ export default function Admin() {
           ) : locations.length === 0 ? (
             <div className="bg-card border border-border rounded-lg p-8 text-center">
               <i className="fas fa-location-dot text-4xl text-muted-foreground mb-4"></i>
-              <h3 className="text-lg font-semibold text-foreground mb-2">No Locations</h3>
-              <p className="text-muted-foreground mb-4">Get started by adding your first location.</p>
+              <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.noLocations")}</h3>
+              <p className="text-muted-foreground mb-4">{t("admin.noLocationsMessage")}</p>
               <Button onClick={handleAddLocation} size="sm">
                 <i className="fas fa-plus mr-2"></i>
-                Add Location
+                {t("admin.addLocation")}
               </Button>
             </div>
           ) : (
@@ -524,7 +526,7 @@ export default function Admin() {
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          if (confirm("Are you sure you want to delete this location?")) {
+                          if (confirm(t("admin.deleteLocationConfirm"))) {
                             deleteLocationMutation.mutate(location.id);
                           }
                         }}
@@ -545,15 +547,15 @@ export default function Admin() {
       {activeTab === "users" && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-foreground">Users & Roles</h2>
+            <h2 className="text-lg font-semibold text-foreground">{t("admin.usersAndRoles")}</h2>
             <div className="flex gap-2">
               <Button onClick={handleCreateUser} size="sm" data-testid="button-create-user">
                 <i className="fas fa-user-plus mr-2"></i>
-                Create New User
+                {t("admin.createNewUser")}
               </Button>
               <Button onClick={handleAddUser} size="sm" variant="outline" data-testid="button-add-user">
                 <i className="fas fa-plus mr-2"></i>
-                Assign Existing
+                {t("admin.assignExisting")}
               </Button>
             </div>
           </div>
@@ -565,11 +567,11 @@ export default function Admin() {
           ) : users.length === 0 ? (
             <div className="bg-card border border-border rounded-lg p-8 text-center">
               <i className="fas fa-users text-4xl text-muted-foreground mb-4"></i>
-              <h3 className="text-lg font-semibold text-foreground mb-2">No Users</h3>
-              <p className="text-muted-foreground mb-4">Assign users to this hospital.</p>
+              <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.noUsers")}</h3>
+              <p className="text-muted-foreground mb-4">{t("admin.noUsersMessage")}</p>
               <Button onClick={handleAddUser} size="sm">
                 <i className="fas fa-plus mr-2"></i>
-                Assign User
+                {t("admin.addUser")}
               </Button>
             </div>
           ) : (
@@ -593,7 +595,7 @@ export default function Admin() {
                         size="sm"
                         onClick={() => handleEditUser(user)}
                         data-testid={`button-edit-user-${user.id}`}
-                        title="Edit role and location"
+                        title={t("admin.editRoleAndLocation")}
                       >
                         <i className="fas fa-edit"></i>
                       </Button>
@@ -602,7 +604,7 @@ export default function Admin() {
                         size="sm"
                         onClick={() => handleChangePassword(user)}
                         data-testid={`button-change-password-${user.id}`}
-                        title="Change password"
+                        title={t("admin.changePasswordTitle")}
                       >
                         <i className="fas fa-key"></i>
                       </Button>
@@ -610,12 +612,12 @@ export default function Admin() {
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          if (confirm("Are you sure you want to remove this user from the hospital?")) {
+                          if (confirm(t("admin.removeUserConfirm"))) {
                             deleteUserRoleMutation.mutate(user.id);
                           }
                         }}
                         data-testid={`button-remove-user-${user.id}`}
-                        title="Remove from hospital"
+                        title={t("admin.removeFromHospital")}
                       >
                         <i className="fas fa-user-minus text-warning"></i>
                       </Button>
@@ -624,7 +626,7 @@ export default function Admin() {
                         size="sm"
                         onClick={() => handleDeleteUser(user)}
                         data-testid={`button-delete-user-${user.id}`}
-                        title="Delete user permanently"
+                        title={t("admin.deleteUserPermanently")}
                       >
                         <i className="fas fa-trash text-destructive"></i>
                       </Button>
@@ -641,39 +643,39 @@ export default function Admin() {
       <Dialog open={locationDialogOpen} onOpenChange={setLocationDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingLocation ? "Edit Location" : "Add Location"}</DialogTitle>
+            <DialogTitle>{editingLocation ? t("admin.editLocation") : t("admin.addLocation")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="location-name">Location Name *</Label>
+              <Label htmlFor="location-name">{t("admin.locationName")} *</Label>
               <Input
                 id="location-name"
                 value={locationForm.name}
                 onChange={(e) => setLocationForm({ ...locationForm, name: e.target.value })}
-                placeholder="e.g., OR 1, ICU, Pharmacy"
+                placeholder={t("admin.locationPlaceholder")}
                 data-testid="input-location-name"
               />
             </div>
             <div>
-              <Label htmlFor="location-type">Type</Label>
+              <Label htmlFor="location-type">{t("admin.type")}</Label>
               <Input
                 id="location-type"
                 value={locationForm.type}
                 onChange={(e) => setLocationForm({ ...locationForm, type: e.target.value })}
-                placeholder="e.g., Operating Room, Storage"
+                placeholder={t("admin.typePlaceholder")}
                 data-testid="input-location-type"
               />
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setLocationDialogOpen(false)}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button
                 onClick={handleSaveLocation}
                 disabled={createLocationMutation.isPending || updateLocationMutation.isPending}
                 data-testid="button-save-location"
               >
-                {editingLocation ? "Update" : "Create"}
+                {editingLocation ? t("common.edit") : t("common.save")}
               </Button>
             </div>
           </div>
@@ -685,52 +687,52 @@ export default function Admin() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {editingUser ? "Edit User Assignment" : userMode === "create" ? "Create New User" : "Assign Existing User"}
+              {editingUser ? t("admin.editUser") : userMode === "create" ? t("admin.createNewUser") : t("admin.assignExistingUser")}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {userMode === "create" && !editingUser ? (
               <>
                 <div>
-                  <Label htmlFor="user-email">Email *</Label>
+                  <Label htmlFor="user-email">{t("admin.email")} *</Label>
                   <Input
                     id="user-email"
                     type="email"
                     value={userForm.email}
                     onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                    placeholder="user@example.com"
+                    placeholder={t("admin.emailPlaceholder")}
                     data-testid="input-user-email"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="user-password">Password *</Label>
+                  <Label htmlFor="user-password">{t("admin.password")} *</Label>
                   <Input
                     id="user-password"
                     type="password"
                     value={userForm.password}
                     onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                    placeholder="Minimum 6 characters"
+                    placeholder={t("admin.passwordPlaceholder")}
                     data-testid="input-user-password"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label htmlFor="user-first-name">First Name *</Label>
+                    <Label htmlFor="user-first-name">{t("admin.firstName")} *</Label>
                     <Input
                       id="user-first-name"
                       value={userForm.firstName}
                       onChange={(e) => setUserForm({ ...userForm, firstName: e.target.value })}
-                      placeholder="John"
+                      placeholder={t("admin.firstNamePlaceholder")}
                       data-testid="input-user-first-name"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="user-last-name">Last Name *</Label>
+                    <Label htmlFor="user-last-name">{t("admin.lastName")} *</Label>
                     <Input
                       id="user-last-name"
                       value={userForm.lastName}
                       onChange={(e) => setUserForm({ ...userForm, lastName: e.target.value })}
-                      placeholder="Doe"
+                      placeholder={t("admin.lastNamePlaceholder")}
                       data-testid="input-user-last-name"
                     />
                   </div>
@@ -738,13 +740,13 @@ export default function Admin() {
               </>
             ) : !editingUser ? (
               <div>
-                <Label htmlFor="user-email">User Email *</Label>
+                <Label htmlFor="user-email">{t("admin.userEmail")} *</Label>
                 <div className="flex gap-2">
                   <Input
                     id="user-email"
                     value={userForm.email}
                     onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                    placeholder="user@example.com"
+                    placeholder={t("admin.emailPlaceholder")}
                     data-testid="input-user-email"
                   />
                   <Button
@@ -752,12 +754,12 @@ export default function Admin() {
                     disabled={searchUserMutation.isPending}
                     data-testid="button-search-user"
                   >
-                    Search
+                    {t("admin.searchUser")}
                   </Button>
                 </div>
                 {searchedUser && (
                   <p className="text-sm text-success mt-2">
-                    Found: {searchedUser.firstName} {searchedUser.lastName}
+                    {t("admin.userFound", { firstName: searchedUser.firstName, lastName: searchedUser.lastName })}
                   </p>
                 )}
               </div>
@@ -765,13 +767,13 @@ export default function Admin() {
             {(editingUser || searchedUser || userMode === "create") && (
               <>
                 <div>
-                  <Label htmlFor="user-location">Location *</Label>
+                  <Label htmlFor="user-location">{t("admin.location")} *</Label>
                   <Select
                     value={userForm.locationId}
                     onValueChange={(value) => setUserForm({ ...userForm, locationId: value })}
                   >
                     <SelectTrigger data-testid="select-user-location">
-                      <SelectValue placeholder="Select location" />
+                      <SelectValue placeholder={t("admin.selectLocation")} />
                     </SelectTrigger>
                     <SelectContent>
                       {locations.map((location) => (
@@ -783,18 +785,18 @@ export default function Admin() {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="user-role">Role *</Label>
+                  <Label htmlFor="user-role">{t("admin.role")} *</Label>
                   <Select
                     value={userForm.role}
                     onValueChange={(value) => setUserForm({ ...userForm, role: value })}
                   >
                     <SelectTrigger data-testid="select-user-role">
-                      <SelectValue placeholder="Select role" />
+                      <SelectValue placeholder={t("admin.selectRole")} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="doctor">Doctor</SelectItem>
-                      <SelectItem value="nurse">Nurse</SelectItem>
+                      <SelectItem value="admin">{t("admin.roleAdmin")}</SelectItem>
+                      <SelectItem value="doctor">{t("admin.roleDoctor")}</SelectItem>
+                      <SelectItem value="nurse">{t("admin.roleNurse")}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -802,14 +804,14 @@ export default function Admin() {
             )}
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setUserDialogOpen(false)}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button
                 onClick={handleSaveUser}
                 disabled={createUserRoleMutation.isPending || updateUserRoleMutation.isPending || createUserMutation.isPending}
                 data-testid="button-save-user"
               >
-                {editingUser ? "Update" : userMode === "create" ? "Create" : "Assign"}
+                {editingUser ? t("common.edit") : userMode === "create" ? t("common.save") : t("admin.assign")}
               </Button>
             </div>
           </div>
@@ -820,22 +822,22 @@ export default function Admin() {
       <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Change Password</DialogTitle>
+            <DialogTitle>{t("admin.changePassword")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {selectedUserForPassword && (
               <p className="text-sm text-muted-foreground">
-                Changing password for: {selectedUserForPassword.user.firstName} {selectedUserForPassword.user.lastName}
+                {t("admin.changingPasswordFor", { firstName: selectedUserForPassword.user.firstName, lastName: selectedUserForPassword.user.lastName })}
               </p>
             )}
             <div>
-              <Label htmlFor="new-password">New Password *</Label>
+              <Label htmlFor="new-password">{t("admin.newPassword")} *</Label>
               <Input
                 id="new-password"
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Minimum 6 characters"
+                placeholder={t("admin.passwordPlaceholder")}
                 data-testid="input-new-password"
               />
             </div>
@@ -844,14 +846,14 @@ export default function Admin() {
                 setPasswordDialogOpen(false);
                 setNewPassword("");
               }}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button
                 onClick={handleSavePassword}
                 disabled={updatePasswordMutation.isPending}
                 data-testid="button-save-password"
               >
-                {updatePasswordMutation.isPending ? "Updating..." : "Update Password"}
+                {updatePasswordMutation.isPending ? t("admin.updating") : t("admin.updatePassword")}
               </Button>
             </div>
           </div>
@@ -862,29 +864,29 @@ export default function Admin() {
       <Dialog open={hospitalDialogOpen} onOpenChange={setHospitalDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Hospital Name</DialogTitle>
+            <DialogTitle>{t("admin.editHospitalName")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="hospital-name">Hospital Name *</Label>
+              <Label htmlFor="hospital-name">{t("admin.hospitalNameLabel")} *</Label>
               <Input
                 id="hospital-name"
                 value={hospitalName}
                 onChange={(e) => setHospitalName(e.target.value)}
-                placeholder="e.g., City General Hospital"
+                placeholder={t("admin.hospitalNamePlaceholder")}
                 data-testid="input-hospital-name"
               />
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setHospitalDialogOpen(false)}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button
                 onClick={handleSaveHospitalName}
                 disabled={updateHospitalMutation.isPending}
                 data-testid="button-save-hospital"
               >
-                Update
+                {t("common.edit")}
               </Button>
             </div>
           </div>

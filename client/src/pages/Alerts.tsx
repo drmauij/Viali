@@ -6,6 +6,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
+import { useTranslation } from "react-i18next";
 import type { Alert, Item, Lot } from "@shared/schema";
 
 interface AlertWithDetails extends Alert {
@@ -14,6 +15,7 @@ interface AlertWithDetails extends Alert {
 }
 
 export default function Alerts() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -33,15 +35,15 @@ export default function Alerts() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/alerts"] });
       toast({
-        title: "Alert Acknowledged",
-        description: "Alert has been acknowledged successfully.",
+        title: t("alerts.alertAcknowledged"),
+        description: t("alerts.alertAcknowledgedSuccess"),
       });
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
         toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
+          title: t("alerts.unauthorized"),
+          description: t("alerts.unauthorizedMessage"),
           variant: "destructive",
         });
         setTimeout(() => {
@@ -51,8 +53,8 @@ export default function Alerts() {
       }
       
       toast({
-        title: "Action Failed",
-        description: "Failed to acknowledge alert.",
+        title: t("alerts.actionFailed"),
+        description: t("alerts.failedToAcknowledge"),
         variant: "destructive",
       });
     },
@@ -68,15 +70,15 @@ export default function Alerts() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/alerts"] });
       toast({
-        title: "Alert Snoozed",
-        description: "Alert has been snoozed for 24 hours.",
+        title: t("alerts.alertSnoozed"),
+        description: t("alerts.alertSnoozedSuccess"),
       });
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
         toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
+          title: t("alerts.unauthorized"),
+          description: t("alerts.unauthorizedMessage"),
           variant: "destructive",
         });
         setTimeout(() => {
@@ -86,8 +88,8 @@ export default function Alerts() {
       }
       
       toast({
-        title: "Action Failed",
-        description: "Failed to snooze alert.",
+        title: t("alerts.actionFailed"),
+        description: t("alerts.failedToSnooze"),
         variant: "destructive",
       });
     },
@@ -149,13 +151,13 @@ export default function Alerts() {
   const getSectionTitle = (type: string, count: number) => {
     switch (type) {
       case "below_min":
-        return `Below Minimum (${count})`;
+        return t("alerts.belowMinimum", { count });
       case "expiring":
-        return `Expiring Soon (${count})`;
+        return t("alerts.expiringSoon", { count });
       case "audit_due":
-        return `Audit Due (${count})`;
+        return t("alerts.auditDue", { count });
       case "recall":
-        return `Recall Notices (${count})`;
+        return t("alerts.recallNotices", { count });
       default:
         return `${type} (${count})`;
     }
@@ -189,8 +191,8 @@ export default function Alerts() {
       <div className="p-4">
         <div className="bg-card border border-border rounded-lg p-6 text-center">
           <i className="fas fa-hospital text-4xl text-muted-foreground mb-4"></i>
-          <h3 className="text-lg font-semibold text-foreground mb-2">No Hospital Selected</h3>
-          <p className="text-muted-foreground">Please select a hospital to view alerts.</p>
+          <h3 className="text-lg font-semibold text-foreground mb-2">{t("alerts.noHospitalSelected")}</h3>
+          <p className="text-muted-foreground">{t("alerts.selectHospitalToView")}</p>
         </div>
       </div>
     );
@@ -199,10 +201,10 @@ export default function Alerts() {
   return (
     <div className="p-4 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Alerts</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("alerts.title")}</h1>
         {alerts.length > 0 && (
           <Button variant="outline" size="sm" data-testid="acknowledge-all-button">
-            Acknowledge All
+            {t("alerts.acknowledgeAll")}
           </Button>
         )}
       </div>
@@ -210,14 +212,14 @@ export default function Alerts() {
       {isLoading ? (
         <div className="text-center py-8">
           <i className="fas fa-spinner fa-spin text-2xl text-primary mb-2"></i>
-          <p className="text-muted-foreground">Loading alerts...</p>
+          <p className="text-muted-foreground">{t("alerts.loadingAlerts")}</p>
         </div>
       ) : alerts.length === 0 ? (
         <div className="bg-card border border-border rounded-lg p-8 text-center">
           <i className="fas fa-check-circle text-4xl text-success mb-4"></i>
-          <h3 className="text-lg font-semibold text-foreground mb-2">No Active Alerts</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-2">{t("alerts.noActiveAlerts")}</h3>
           <p className="text-muted-foreground">
-            All items are within acceptable levels. Great job!
+            {t("alerts.allItemsGood")}
           </p>
         </div>
       ) : (
@@ -236,7 +238,7 @@ export default function Alerts() {
                   disabled={acknowledgeMutation.isPending}
                   data-testid={`ack-all-${type}`}
                 >
-                  Ack All
+                  {t("alerts.ackAll")}
                 </Button>
               )}
             </div>
@@ -251,7 +253,7 @@ export default function Alerts() {
                   <div className="flex items-start justify-between">
                     <div
                       className="flex-1 cursor-pointer"
-                      onClick={() => handleItemClick(alert.itemId)}
+                      onClick={() => handleItemClick(alert.itemId || undefined)}
                     >
                       <h4 className="font-semibold text-foreground">{alert.title}</h4>
                       <p className="text-sm text-muted-foreground mt-1">{alert.description}</p>
@@ -263,14 +265,14 @@ export default function Alerts() {
                           </p>
                           {alert.lot && (
                             <p className="text-xs text-muted-foreground">
-                              Lot: {alert.lot.lotNumber} • {alert.lot.qty} units remaining
+                              {t("alerts.lotInfo", { lotNumber: alert.lot.lotNumber, qty: alert.lot.qty })}
                             </p>
                           )}
                         </div>
                       )}
 
                       <p className="text-xs text-muted-foreground mt-2">
-                        {new Date(alert.createdAt).toLocaleString()}
+                        {alert.createdAt ? new Date(alert.createdAt).toLocaleString() : ''}
                       </p>
                     </div>
 
@@ -297,7 +299,7 @@ export default function Alerts() {
                   {alert.severity === "critical" && (
                     <div className="mt-3 bg-destructive/10 rounded-lg p-2">
                       <p className="text-sm text-destructive font-medium">
-                        🚨 Critical Alert - Immediate attention required
+                        {t("alerts.criticalAlert")}
                       </p>
                     </div>
                   )}
