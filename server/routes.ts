@@ -1949,14 +1949,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update user password
-  app.patch('/api/admin/users/:userId/password', isAuthenticated, async (req: any, res) => {
+  // Update user details (name)
+  app.patch('/api/admin/users/:userId/details', isAuthenticated, async (req: any, res) => {
     try {
       const { userId } = req.params;
-      const { password, hospitalId } = req.body;
+      const { firstName, lastName, hospitalId } = req.body;
       
-      if (!password) {
-        return res.status(400).json({ message: "Password is required" });
+      if (!firstName || !lastName) {
+        return res.status(400).json({ message: "First name and last name are required" });
       }
 
       // Check admin access
@@ -1967,11 +1967,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
 
-      await storage.updateUserPassword(userId, password);
+      await storage.updateUser(userId, { firstName, lastName });
       res.json({ success: true });
     } catch (error) {
-      console.error("Error updating password:", error);
-      res.status(500).json({ message: "Failed to update password" });
+      console.error("Error updating user details:", error);
+      res.status(500).json({ message: "Failed to update user details" });
     }
   });
 

@@ -125,6 +125,7 @@ export interface IStorage {
   deleteUserHospitalRole(id: string): Promise<void>;
   searchUserByEmail(email: string): Promise<User | undefined>;
   createUserWithPassword(email: string, password: string, firstName: string, lastName: string): Promise<User>;
+  updateUser(userId: string, updates: Partial<User>): Promise<User>;
   updateUserPassword(userId: string, newPassword: string): Promise<void>;
   deleteUser(userId: string): Promise<void>;
   
@@ -845,6 +846,15 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return newUser;
+  }
+
+  async updateUser(userId: string, updates: Partial<User>): Promise<User> {
+    const [updated] = await db
+      .update(users)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return updated;
   }
 
   async updateUserPassword(userId: string, newPassword: string): Promise<void> {

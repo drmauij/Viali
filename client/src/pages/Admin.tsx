@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useTranslation } from "react-i18next";
@@ -37,8 +37,8 @@ export default function Admin() {
 
   // User states
   const [userDialogOpen, setUserDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<HospitalUser | null>(null);
-  const [userMode, setUserMode] = useState<"search" | "create">("search");
+  const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
+  const [editingUserDetails, setEditingUserDetails] = useState<User | null>(null);
   const [userForm, setUserForm] = useState({
     email: "",
     password: "",
@@ -47,10 +47,8 @@ export default function Admin() {
     locationId: "",
     role: "",
   });
-  const [searchedUser, setSearchedUser] = useState<User | null>(null);
-  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
-  const [selectedUserForPassword, setSelectedUserForPassword] = useState<HospitalUser | null>(null);
-  const [newPassword, setNewPassword] = useState("");
+  const [roleLocationPairs, setRoleLocationPairs] = useState<Array<{ id?: string; role: string; locationId: string }>>([]);
+  const [newPair, setNewPair] = useState({ role: "", locationId: "" });
 
   // Check if user is admin
   const isAdmin = activeHospital?.role === "admin";
@@ -115,49 +113,17 @@ export default function Admin() {
   });
 
   // User mutations
-  const searchUserMutation = useMutation({
-    mutationFn: async (email: string) => {
-      const response = await apiRequest("GET", `/api/admin/users/search?email=${encodeURIComponent(email)}`);
-      return await response.json();
-    },
-    onSuccess: (data) => {
-      setSearchedUser(data);
-    },
-    onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || t("admin.userNotFound"), variant: "destructive" });
-      setSearchedUser(null);
-    },
-  });
-
   const createUserRoleMutation = useMutation({
     mutationFn: async (data: any) => {
       const response = await apiRequest("POST", `/api/admin/${activeHospital?.id}/users`, data);
       return await response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "users"] });
-      setUserDialogOpen(false);
-      resetUserForm();
-      toast({ title: t("common.success"), description: t("admin.userAssignedSuccess") });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "users"] });
+      toast({ title: t("common.success"), description: t("admin.roleLocationAdded") });
     },
     onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || t("admin.failedToAssignUser"), variant: "destructive" });
-    },
-  });
-
-  const updateUserRoleMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const response = await apiRequest("PATCH", `/api/admin/users/${id}`, { ...data, hospitalId: activeHospital?.id });
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "users"] });
-      setUserDialogOpen(false);
-      resetUserForm();
-      toast({ title: t("common.success"), description: t("admin.userUpdatedSuccess") });
-    },
-    onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateUser"), variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToAddRoleLocation"), variant: "destructive" });
     },
   });
 
@@ -166,12 +132,12 @@ export default function Admin() {
       const response = await apiRequest("DELETE", `/api/admin/users/${id}?hospitalId=${activeHospital?.id}`);
       return await response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "users"] });
-      toast({ title: t("common.success"), description: t("admin.userRemovedSuccess") });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "users"] });
+      toast({ title: t("common.success"), description: t("admin.roleLocationRemoved") });
     },
     onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || t("admin.failedToRemoveUser"), variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToRemoveRoleLocation"), variant: "destructive" });
     },
   });
 
@@ -191,22 +157,20 @@ export default function Admin() {
     },
   });
 
-  const updatePasswordMutation = useMutation({
-    mutationFn: async ({ userId, password }: { userId: string; password: string }) => {
-      const response = await apiRequest("PATCH", `/api/admin/users/${userId}/password`, { 
-        password, 
+  const updateUserDetailsMutation = useMutation({
+    mutationFn: async ({ userId, data }: { userId: string; data: { firstName: string; lastName: string } }) => {
+      const response = await apiRequest("PATCH", `/api/admin/users/${userId}/details`, { 
+        ...data,
         hospitalId: activeHospital?.id 
       });
       return await response.json();
     },
     onSuccess: () => {
-      setPasswordDialogOpen(false);
-      setNewPassword("");
-      setSelectedUserForPassword(null);
-      toast({ title: t("common.success"), description: t("admin.passwordUpdatedSuccess") });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "users"] });
+      toast({ title: t("common.success"), description: t("admin.userDetailsUpdated") });
     },
     onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdatePassword"), variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateUserDetails"), variant: "destructive" });
     },
   });
 
@@ -247,9 +211,6 @@ export default function Admin() {
 
   const resetUserForm = () => {
     setUserForm({ email: "", password: "", firstName: "", lastName: "", locationId: "", role: "" });
-    setEditingUser(null);
-    setSearchedUser(null);
-    setUserMode("search");
   };
 
   const handleAddLocation = () => {
@@ -284,50 +245,37 @@ export default function Admin() {
     }
   };
 
-  const handleAddUser = () => {
-    resetUserForm();
-    setUserMode("search");
-    setUserDialogOpen(true);
-  };
-
   const handleCreateUser = () => {
     resetUserForm();
-    setUserMode("create");
     setUserDialogOpen(true);
   };
 
   const handleEditUser = (user: HospitalUser) => {
-    setEditingUser(user);
-    setSearchedUser(user.user);
-    setUserMode("search");
+    // Get all role/location pairs for this user
+    const userPairs = users
+      .filter(u => u.user.id === user.user.id)
+      .map(u => ({ id: u.id, role: u.role, locationId: u.locationId }));
+    
+    setEditingUserDetails(user.user);
     setUserForm({
-      email: user.user.email || "",
-      password: "",
-      firstName: "",
-      lastName: "",
-      locationId: user.locationId,
-      role: user.role,
+      ...userForm,
+      firstName: user.user.firstName || "",
+      lastName: user.user.lastName || "",
     });
-    setUserDialogOpen(true);
+    setRoleLocationPairs(userPairs);
+    setNewPair({ role: "", locationId: "" });
+    setEditUserDialogOpen(true);
   };
 
-  const handleChangePassword = (user: HospitalUser) => {
-    setSelectedUserForPassword(user);
-    setPasswordDialogOpen(true);
-  };
-
-  const handleSavePassword = () => {
-    if (!newPassword || newPassword.length < 6) {
-      toast({ title: t("common.error"), description: t("admin.passwordMinLength"), variant: "destructive" });
-      return;
+  // Sync roleLocationPairs when users query updates (after mutations)
+  useEffect(() => {
+    if (editingUserDetails && users) {
+      const userPairs = users
+        .filter(u => u.user.id === editingUserDetails.id)
+        .map(u => ({ id: u.id, role: u.role, locationId: u.locationId }));
+      setRoleLocationPairs(userPairs);
     }
-    if (selectedUserForPassword) {
-      updatePasswordMutation.mutate({ 
-        userId: selectedUserForPassword.user.id, 
-        password: newPassword 
-      });
-    }
-  };
+  }, [users, editingUserDetails]);
 
   const handleDeleteUser = (user: HospitalUser) => {
     if (window.confirm(t("admin.deleteUserConfirm", { firstName: user.user.firstName, lastName: user.user.lastName }))) {
@@ -335,46 +283,88 @@ export default function Admin() {
     }
   };
 
-  const handleSearchUser = () => {
-    if (!userForm.email) {
-      toast({ title: t("common.error"), description: t("admin.emailRequired"), variant: "destructive" });
+  const handleSaveUser = () => {
+    if (!userForm.email || !userForm.password || !userForm.firstName || !userForm.lastName || !userForm.locationId || !userForm.role) {
+      toast({ title: t("common.error"), description: t("admin.allFieldsRequired"), variant: "destructive" });
       return;
     }
-    searchUserMutation.mutate(userForm.email);
+    if (userForm.password.length < 6) {
+      toast({ title: t("common.error"), description: t("admin.passwordMinLength"), variant: "destructive" });
+      return;
+    }
+    createUserMutation.mutate(userForm);
   };
 
-  const handleSaveUser = () => {
-    if (userMode === "create") {
-      if (!userForm.email || !userForm.password || !userForm.firstName || !userForm.lastName || !userForm.locationId || !userForm.role) {
-        toast({ title: t("common.error"), description: t("admin.allFieldsRequired"), variant: "destructive" });
-        return;
-      }
-      if (userForm.password.length < 6) {
-        toast({ title: t("common.error"), description: t("admin.passwordMinLength"), variant: "destructive" });
-        return;
-      }
-      createUserMutation.mutate(userForm);
-    } else {
-      if (!searchedUser) {
-        toast({ title: t("common.error"), description: t("admin.pleaseSearchFirst"), variant: "destructive" });
-        return;
-      }
-      if (!userForm.locationId || !userForm.role) {
-        toast({ title: t("common.error"), description: t("admin.locationAndRoleRequired"), variant: "destructive" });
-        return;
-      }
+  const handleSaveUserDetails = async () => {
+    if (!editingUserDetails) return;
+    
+    if (!userForm.firstName.trim() || !userForm.lastName.trim()) {
+      toast({ title: t("common.error"), description: t("admin.nameRequired"), variant: "destructive" });
+      return;
+    }
 
-      const data = {
-        userId: searchedUser.id,
-        locationId: userForm.locationId,
-        role: userForm.role,
-      };
-
-      if (editingUser) {
-        updateUserRoleMutation.mutate({ id: editingUser.id, data });
-      } else {
-        createUserRoleMutation.mutate(data);
+    // Update user details
+    await updateUserDetailsMutation.mutateAsync({
+      userId: editingUserDetails.id,
+      data: {
+        firstName: userForm.firstName,
+        lastName: userForm.lastName,
       }
+    });
+
+    setEditUserDialogOpen(false);
+    setEditingUserDetails(null);
+    setRoleLocationPairs([]);
+  };
+
+  const handleAddRoleLocation = async () => {
+    // Prevent double-clicks while mutation is pending
+    if (createUserRoleMutation.isPending) return;
+
+    if (!newPair.role || !newPair.locationId) {
+      toast({ title: t("common.error"), description: t("admin.roleAndLocationRequired"), variant: "destructive" });
+      return;
+    }
+
+    // Check for duplicates
+    const isDuplicate = roleLocationPairs.some(
+      pair => pair.role === newPair.role && pair.locationId === newPair.locationId
+    );
+
+    if (isDuplicate) {
+      toast({ title: t("common.error"), description: t("admin.duplicateRoleLocation"), variant: "destructive" });
+      return;
+    }
+
+    if (!editingUserDetails) return;
+
+    // Optimistically add to local state with temporary ID
+    const tempId = `temp-${Date.now()}`;
+    const optimisticPair = { id: tempId, role: newPair.role, locationId: newPair.locationId };
+    setRoleLocationPairs([...roleLocationPairs, optimisticPair]);
+
+    try {
+      await createUserRoleMutation.mutateAsync({
+        userId: editingUserDetails.id,
+        role: newPair.role,
+        locationId: newPair.locationId,
+      });
+
+      // Reset new pair (useEffect will replace temp ID with real ID when query refetches)
+      setNewPair({ role: "", locationId: "" });
+    } catch (error) {
+      // Roll back optimistic update on error using current state
+      setRoleLocationPairs(prev => prev.filter(p => p.id !== tempId));
+    }
+  };
+
+  const handleRemoveRoleLocation = async (pairId: string) => {
+    // Prevent double-clicks while mutation is pending
+    if (deleteUserRoleMutation.isPending) return;
+
+    if (window.confirm(t("admin.removeRoleLocationConfirm"))) {
+      await deleteUserRoleMutation.mutateAsync(pairId);
+      // useEffect will update roleLocationPairs when query refetches
     }
   };
 
@@ -548,16 +538,10 @@ export default function Admin() {
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold text-foreground">{t("admin.usersAndRoles")}</h2>
-            <div className="flex gap-2">
-              <Button onClick={handleCreateUser} size="sm" data-testid="button-create-user">
-                <i className="fas fa-user-plus mr-2"></i>
-                {t("admin.createNewUser")}
-              </Button>
-              <Button onClick={handleAddUser} size="sm" variant="outline" data-testid="button-add-user">
-                <i className="fas fa-plus mr-2"></i>
-                {t("admin.assignExisting")}
-              </Button>
-            </div>
+            <Button onClick={handleCreateUser} size="sm" data-testid="button-create-user">
+              <i className="fas fa-user-plus mr-2"></i>
+              {t("admin.createNewUser")}
+            </Button>
           </div>
 
           {usersLoading ? (
@@ -569,9 +553,9 @@ export default function Admin() {
               <i className="fas fa-users text-4xl text-muted-foreground mb-4"></i>
               <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.noUsers")}</h3>
               <p className="text-muted-foreground mb-4">{t("admin.noUsersMessage")}</p>
-              <Button onClick={handleAddUser} size="sm">
-                <i className="fas fa-plus mr-2"></i>
-                {t("admin.addUser")}
+              <Button onClick={handleCreateUser} size="sm">
+                <i className="fas fa-user-plus mr-2"></i>
+                {t("admin.createNewUser")}
               </Button>
             </div>
           ) : (
@@ -595,18 +579,9 @@ export default function Admin() {
                         size="sm"
                         onClick={() => handleEditUser(user)}
                         data-testid={`button-edit-user-${user.id}`}
-                        title={t("admin.editRoleAndLocation")}
+                        title={t("admin.editUser")}
                       >
                         <i className="fas fa-edit"></i>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleChangePassword(user)}
-                        data-testid={`button-change-password-${user.id}`}
-                        title={t("admin.changePasswordTitle")}
-                      >
-                        <i className="fas fa-key"></i>
                       </Button>
                       <Button
                         variant="outline"
@@ -682,178 +657,219 @@ export default function Admin() {
         </DialogContent>
       </Dialog>
 
-      {/* User Dialog */}
+      {/* Create User Dialog */}
       <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {editingUser ? t("admin.editUser") : userMode === "create" ? t("admin.createNewUser") : t("admin.assignExistingUser")}
-            </DialogTitle>
+            <DialogTitle>{t("admin.createNewUser")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {userMode === "create" && !editingUser ? (
-              <>
-                <div>
-                  <Label htmlFor="user-email">{t("admin.email")} *</Label>
-                  <Input
-                    id="user-email"
-                    type="email"
-                    value={userForm.email}
-                    onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                    placeholder={t("admin.emailPlaceholder")}
-                    data-testid="input-user-email"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="user-password">{t("admin.password")} *</Label>
-                  <Input
-                    id="user-password"
-                    type="password"
-                    value={userForm.password}
-                    onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                    placeholder={t("admin.passwordPlaceholder")}
-                    data-testid="input-user-password"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label htmlFor="user-first-name">{t("admin.firstName")} *</Label>
-                    <Input
-                      id="user-first-name"
-                      value={userForm.firstName}
-                      onChange={(e) => setUserForm({ ...userForm, firstName: e.target.value })}
-                      placeholder={t("admin.firstNamePlaceholder")}
-                      data-testid="input-user-first-name"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="user-last-name">{t("admin.lastName")} *</Label>
-                    <Input
-                      id="user-last-name"
-                      value={userForm.lastName}
-                      onChange={(e) => setUserForm({ ...userForm, lastName: e.target.value })}
-                      placeholder={t("admin.lastNamePlaceholder")}
-                      data-testid="input-user-last-name"
-                    />
-                  </div>
-                </div>
-              </>
-            ) : !editingUser ? (
+            <div>
+              <Label htmlFor="user-email">{t("admin.email")} *</Label>
+              <Input
+                id="user-email"
+                type="email"
+                value={userForm.email}
+                onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                placeholder={t("admin.emailPlaceholder")}
+                data-testid="input-user-email"
+              />
+            </div>
+            <div>
+              <Label htmlFor="user-password">{t("admin.password")} *</Label>
+              <Input
+                id="user-password"
+                type="password"
+                value={userForm.password}
+                onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                placeholder={t("admin.passwordPlaceholder")}
+                data-testid="input-user-password"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label htmlFor="user-email">{t("admin.userEmail")} *</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="user-email"
-                    value={userForm.email}
-                    onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                    placeholder={t("admin.emailPlaceholder")}
-                    data-testid="input-user-email"
-                  />
-                  <Button
-                    onClick={handleSearchUser}
-                    disabled={searchUserMutation.isPending}
-                    data-testid="button-search-user"
-                  >
-                    {t("admin.searchUser")}
-                  </Button>
-                </div>
-                {searchedUser && (
-                  <p className="text-sm text-success mt-2">
-                    {t("admin.userFound", { firstName: searchedUser.firstName, lastName: searchedUser.lastName })}
-                  </p>
-                )}
+                <Label htmlFor="user-first-name">{t("admin.firstName")} *</Label>
+                <Input
+                  id="user-first-name"
+                  value={userForm.firstName}
+                  onChange={(e) => setUserForm({ ...userForm, firstName: e.target.value })}
+                  placeholder={t("admin.firstNamePlaceholder")}
+                  data-testid="input-user-first-name"
+                />
               </div>
-            ) : null}
-            {(editingUser || searchedUser || userMode === "create") && (
-              <>
-                <div>
-                  <Label htmlFor="user-location">{t("admin.location")} *</Label>
-                  <Select
-                    value={userForm.locationId}
-                    onValueChange={(value) => setUserForm({ ...userForm, locationId: value })}
-                  >
-                    <SelectTrigger data-testid="select-user-location">
-                      <SelectValue placeholder={t("admin.selectLocation")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {locations.map((location) => (
-                        <SelectItem key={location.id} value={location.id}>
-                          {location.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="user-role">{t("admin.role")} *</Label>
-                  <Select
-                    value={userForm.role}
-                    onValueChange={(value) => setUserForm({ ...userForm, role: value })}
-                  >
-                    <SelectTrigger data-testid="select-user-role">
-                      <SelectValue placeholder={t("admin.selectRole")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="admin">{t("admin.roleAdmin")}</SelectItem>
-                      <SelectItem value="doctor">{t("admin.roleDoctor")}</SelectItem>
-                      <SelectItem value="nurse">{t("admin.roleNurse")}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
-            )}
+              <div>
+                <Label htmlFor="user-last-name">{t("admin.lastName")} *</Label>
+                <Input
+                  id="user-last-name"
+                  value={userForm.lastName}
+                  onChange={(e) => setUserForm({ ...userForm, lastName: e.target.value })}
+                  placeholder={t("admin.lastNamePlaceholder")}
+                  data-testid="input-user-last-name"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="user-location">{t("admin.location")} *</Label>
+              <Select
+                value={userForm.locationId}
+                onValueChange={(value) => setUserForm({ ...userForm, locationId: value })}
+              >
+                <SelectTrigger data-testid="select-user-location">
+                  <SelectValue placeholder={t("admin.selectLocation")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {locations.map((location) => (
+                    <SelectItem key={location.id} value={location.id}>
+                      {location.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="user-role">{t("admin.role")} *</Label>
+              <Select
+                value={userForm.role}
+                onValueChange={(value) => setUserForm({ ...userForm, role: value })}
+              >
+                <SelectTrigger data-testid="select-user-role">
+                  <SelectValue placeholder={t("admin.selectRole")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">{t("admin.roleAdmin")}</SelectItem>
+                  <SelectItem value="doctor">{t("admin.roleDoctor")}</SelectItem>
+                  <SelectItem value="nurse">{t("admin.roleNurse")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setUserDialogOpen(false)}>
                 {t("common.cancel")}
               </Button>
               <Button
                 onClick={handleSaveUser}
-                disabled={createUserRoleMutation.isPending || updateUserRoleMutation.isPending || createUserMutation.isPending}
+                disabled={createUserMutation.isPending}
                 data-testid="button-save-user"
               >
-                {editingUser ? t("common.edit") : userMode === "create" ? t("common.save") : t("admin.assign")}
+                {t("common.save")}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Change Password Dialog */}
-      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
-        <DialogContent>
+      {/* Edit User Dialog */}
+      <Dialog open={editUserDialogOpen} onOpenChange={setEditUserDialogOpen}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{t("admin.changePassword")}</DialogTitle>
+            <DialogTitle>{t("admin.editUser")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {selectedUserForPassword && (
-              <p className="text-sm text-muted-foreground">
-                {t("admin.changingPasswordFor", { firstName: selectedUserForPassword.user.firstName, lastName: selectedUserForPassword.user.lastName })}
-              </p>
-            )}
-            <div>
-              <Label htmlFor="new-password">{t("admin.newPassword")} *</Label>
-              <Input
-                id="new-password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder={t("admin.passwordPlaceholder")}
-                data-testid="input-new-password"
-              />
+            {/* Name fields */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="edit-first-name">{t("admin.firstName")} *</Label>
+                <Input
+                  id="edit-first-name"
+                  value={userForm.firstName}
+                  onChange={(e) => setUserForm({ ...userForm, firstName: e.target.value })}
+                  placeholder={t("admin.firstNamePlaceholder")}
+                  data-testid="input-edit-first-name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-last-name">{t("admin.lastName")} *</Label>
+                <Input
+                  id="edit-last-name"
+                  value={userForm.lastName}
+                  onChange={(e) => setUserForm({ ...userForm, lastName: e.target.value })}
+                  placeholder={t("admin.lastNamePlaceholder")}
+                  data-testid="input-edit-last-name"
+                />
+              </div>
             </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => {
-                setPasswordDialogOpen(false);
-                setNewPassword("");
-              }}>
+
+            {/* Role/Location Pairs */}
+            <div className="border-t pt-4">
+              <Label className="text-base font-semibold">{t("admin.roleLocationPairs")}</Label>
+              <div className="space-y-2 mt-3">
+                {roleLocationPairs.map((pair) => {
+                  const location = locations.find(l => l.id === pair.locationId);
+                  return (
+                    <div key={pair.id} className="flex items-center justify-between bg-muted p-2 rounded-md">
+                      <div className="flex gap-2">
+                        <span className="status-chip chip-primary text-xs">{getRoleName(pair.role)}</span>
+                        <span className="status-chip chip-muted text-xs">{location?.name}</span>
+                      </div>
+                      {pair.id && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveRoleLocation(pair.id!)}
+                          data-testid={`button-remove-pair-${pair.id}`}
+                        >
+                          <i className="fas fa-times text-destructive"></i>
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Add New Pair */}
+            <div className="border-t pt-4">
+              <Label className="text-sm font-medium mb-2 block">{t("admin.addRoleLocation")}</Label>
+              <div className="flex gap-2">
+                <Select
+                  value={newPair.role}
+                  onValueChange={(value) => setNewPair({ ...newPair, role: value })}
+                >
+                  <SelectTrigger className="flex-1" data-testid="select-new-role">
+                    <SelectValue placeholder={t("admin.selectRole")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">{t("admin.roleAdmin")}</SelectItem>
+                    <SelectItem value="doctor">{t("admin.roleDoctor")}</SelectItem>
+                    <SelectItem value="nurse">{t("admin.roleNurse")}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={newPair.locationId}
+                  onValueChange={(value) => setNewPair({ ...newPair, locationId: value })}
+                >
+                  <SelectTrigger className="flex-1" data-testid="select-new-location">
+                    <SelectValue placeholder={t("admin.selectLocation")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locations.map((location) => (
+                      <SelectItem key={location.id} value={location.id}>
+                        {location.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={handleAddRoleLocation}
+                  disabled={createUserRoleMutation.isPending}
+                  data-testid="button-add-pair"
+                >
+                  <i className="fas fa-plus mr-2"></i>
+                  {t("admin.add")}
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end border-t pt-4">
+              <Button variant="outline" onClick={() => setEditUserDialogOpen(false)}>
                 {t("common.cancel")}
               </Button>
               <Button
-                onClick={handleSavePassword}
-                disabled={updatePasswordMutation.isPending}
-                data-testid="button-save-password"
+                onClick={handleSaveUserDetails}
+                disabled={updateUserDetailsMutation.isPending}
+                data-testid="button-save-user-details"
               >
-                {updatePasswordMutation.isPending ? t("admin.updating") : t("admin.updatePassword")}
+                {t("common.save")}
               </Button>
             </div>
           </div>
