@@ -1349,6 +1349,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Encrypt patient data before storing
       const encryptedPatientId = encryptPatientData(patientId);
+      const encryptedPatientPhoto = patientPhoto ? encryptPatientData(patientPhoto) : null;
       
       // Create activity for each dispensed item and update stock
       const activities = await Promise.all(
@@ -1405,7 +1406,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             delta: -item.qty, // Negative for dispensing
             notes,
             patientId: encryptedPatientId,
-            patientPhoto,
+            patientPhoto: encryptedPatientPhoto,
             signatures,
             controlledVerified: signatures && signatures.length >= 2,
           });
@@ -1444,15 +1445,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Decrypt patient data for each activity
       const decryptedActivities = activities.map((activity: any) => {
+        const decrypted = { ...activity };
+        
         if (activity.patientId) {
           try {
-            return { ...activity, patientId: decryptPatientData(activity.patientId) };
+            decrypted.patientId = decryptPatientData(activity.patientId);
           } catch (error) {
-            console.error("Error decrypting patient data:", error);
-            return activity;
+            console.error("Error decrypting patient ID:", error);
           }
         }
-        return activity;
+        
+        if (activity.patientPhoto) {
+          try {
+            decrypted.patientPhoto = decryptPatientData(activity.patientPhoto);
+          } catch (error) {
+            console.error("Error decrypting patient photo:", error);
+          }
+        }
+        
+        return decrypted;
       });
       
       res.json(decryptedActivities);
