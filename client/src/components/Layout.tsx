@@ -31,6 +31,12 @@ export default function Layout({ children }: LayoutProps) {
     }
   }, [user, activeHospital]);
 
+  const handleHospitalChange = (hospital: Hospital) => {
+    setActiveHospital(hospital);
+    // Reload the page to refetch all queries with the new hospital/role context
+    window.location.reload();
+  };
+
   if (!isAuthenticated) {
     return <div className="screen-container">{children}</div>;
   }
@@ -40,7 +46,7 @@ export default function Layout({ children }: LayoutProps) {
       <TopBar
         hospitals={hospitals}
         activeHospital={activeHospital}
-        onHospitalChange={setActiveHospital}
+        onHospitalChange={handleHospitalChange}
       />
       {children}
       <BottomNav />
