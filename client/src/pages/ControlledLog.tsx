@@ -68,12 +68,8 @@ export default function ControlledLog() {
   const [showVerifySignaturePad, setShowVerifySignaturePad] = useState(false);
   const [patientMethod, setPatientMethod] = useState<PatientMethod>("text");
   const [showPatientScanner, setShowPatientScanner] = useState(false);
-  const [showPatientCamera, setShowPatientCamera] = useState(false);
-  const [isVideoReady, setIsVideoReady] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const photoStreamRef = useRef<MediaStream | null>(null);
-  const videoReadyCallbackRef = useRef<(() => void) | null>(null);
-  const videoReadyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isAnalyzingPatient, setIsAnalyzingPatient] = useState(false);
+  const patientPhotoInputRef = useRef<HTMLInputElement>(null);
   
   const [selectedDrugs, setSelectedDrugs] = useState<DrugSelection[]>([]);
   const [patientId, setPatientId] = useState("");
@@ -343,143 +339,68 @@ export default function ControlledLog() {
     });
   };
 
-  const startPatientCamera = async () => {
+  const handlePatientPhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsAnalyzingPatient(true);
+
     try {
-      setIsVideoReady(false);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } }
-      });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        photoStreamRef.current = stream;
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const imageData = reader.result as string;
         
-        const checkVideoReady = () => {
-          if (videoRef.current && videoRef.current.readyState >= 2) {
-            if (videoRef.current && videoReadyCallbackRef.current) {
-              videoRef.current.removeEventListener('loadedmetadata', videoReadyCallbackRef.current);
-              videoRef.current.removeEventListener('loadeddata', videoReadyCallbackRef.current);
-              videoRef.current.removeEventListener('canplay', videoReadyCallbackRef.current);
-            }
-            if (videoReadyTimeoutRef.current) {
-              clearTimeout(videoReadyTimeoutRef.current);
-              videoReadyTimeoutRef.current = null;
-            }
-            setIsVideoReady(true);
+        try {
+          const response = await fetch('/api/openai/analyze-patient-label', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: imageData }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to analyze patient label');
           }
-        };
-        
-        videoReadyCallbackRef.current = checkVideoReady;
-        
-        videoRef.current.addEventListener('loadedmetadata', checkVideoReady);
-        videoRef.current.addEventListener('loadeddata', checkVideoReady);
-        videoRef.current.addEventListener('canplay', checkVideoReady);
-        
-        await videoRef.current.play();
-        
-        videoReadyTimeoutRef.current = setTimeout(checkVideoReady, 500);
-      }
-      setShowPatientCamera(true);
+
+          const data = await response.json();
+          
+          if (data.patientId) {
+            setPatientId(data.patientId);
+            toast({
+              title: "Patient ID Extracted",
+              description: `Successfully identified patient: ${data.patientId}`,
+            });
+          } else {
+            toast({
+              title: "No Patient ID Found",
+              description: "Could not extract patient ID from the image. Please try again or enter manually.",
+              variant: "destructive",
+            });
+          }
+        } catch (error) {
+          console.error('Error analyzing patient label:', error);
+          toast({
+            title: "Analysis Failed",
+            description: error instanceof Error ? error.message : "Failed to analyze patient label",
+            variant: "destructive",
+          });
+        } finally {
+          setIsAnalyzingPatient(false);
+        }
+      };
+      reader.readAsDataURL(file);
     } catch (error) {
-      console.error("Error accessing camera:", error);
+      console.error('Error reading file:', error);
       toast({
-        title: "Camera Error",
-        description: "Unable to access camera. Please check camera permissions.",
+        title: "File Error",
+        description: "Failed to read the captured image",
         variant: "destructive",
       });
-    }
-  };
-
-  const stopPatientCamera = () => {
-    if (photoStreamRef.current) {
-      photoStreamRef.current.getTracks().forEach(track => track.stop());
-      photoStreamRef.current = null;
-    }
-    if (videoRef.current && videoReadyCallbackRef.current) {
-      videoRef.current.removeEventListener('loadedmetadata', videoReadyCallbackRef.current);
-      videoRef.current.removeEventListener('loadeddata', videoReadyCallbackRef.current);
-      videoRef.current.removeEventListener('canplay', videoReadyCallbackRef.current);
-    }
-    if (videoReadyTimeoutRef.current) {
-      clearTimeout(videoReadyTimeoutRef.current);
-      videoReadyTimeoutRef.current = null;
-    }
-    videoReadyCallbackRef.current = null;
-    setShowPatientCamera(false);
-    setIsVideoReady(false);
-  };
-
-  const capturePatientPhoto = async () => {
-    if (!videoRef.current) {
-      toast({
-        title: "Camera Error",
-        description: "Video stream not available",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const video = videoRef.current;
-    
-    if (video.videoWidth === 0 || video.videoHeight === 0) {
-      toast({
-        title: "Camera Error",
-        description: "Video stream not ready. Please wait a moment and try again.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    
-    if (!ctx) {
-      toast({
-        title: "Camera Error",
-        description: "Failed to create image canvas",
-        variant: "destructive",
-      });
-      return;
+      setIsAnalyzingPatient(false);
     }
     
-    ctx.drawImage(video, 0, 0);
-    const imageData = canvas.toDataURL('image/jpeg', 0.9);
-    
-    if (!imageData || imageData === 'data:,') {
-      toast({
-        title: "Camera Error",
-        description: "Failed to capture image data",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const response = await apiRequest("POST", "/api/controlled/extract-patient-info", { image: imageData });
-      const result = await response.json();
-      
-      if (result.patientId) {
-        setPatientId(result.patientId);
-        stopPatientCamera();
-        toast({
-          title: "Photo Captured",
-          description: "Patient information extracted successfully",
-        });
-      } else {
-        toast({
-          title: "Extraction Failed",
-          description: "Could not extract patient information from photo. Please enter manually.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error processing photo:", error);
-      toast({
-        title: "Processing Error",
-        description: "Failed to process patient photo",
-        variant: "destructive",
-      });
+    if (patientPhotoInputRef.current) {
+      patientPhotoInputRef.current.value = '';
     }
   };
 
@@ -1233,54 +1154,42 @@ export default function ControlledLog() {
 
                 {patientMethod === "photo" && (
                   <div className="bg-muted rounded-lg p-4">
-                    {showPatientCamera ? (
-                      <div className="relative">
-                        <video
-                          ref={videoRef}
-                          autoPlay
-                          playsInline
-                          muted
-                          className="w-full h-64 object-cover rounded-lg bg-black"
-                        />
-                        {!isVideoReady && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
-                            <div className="text-center text-white">
-                              <i className="fas fa-spinner fa-spin text-3xl mb-2"></i>
-                              <p className="text-sm">Loading camera...</p>
-                            </div>
-                          </div>
-                        )}
-                        <div className="flex gap-2 mt-3">
-                          <Button 
-                            className="flex-1" 
-                            onClick={capturePatientPhoto} 
-                            disabled={!isVideoReady}
-                            data-testid="capture-patient-photo"
-                          >
-                            <i className="fas fa-camera mr-2"></i>
-                            {isVideoReady ? "Capture" : "Loading..."}
-                          </Button>
-                          <Button variant="outline" onClick={stopPatientCamera}>
-                            <i className="fas fa-times"></i>
-                          </Button>
-                        </div>
-                      </div>
-                    ) : patientId ? (
+                    <input
+                      type="file"
+                      ref={patientPhotoInputRef}
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handlePatientPhotoCapture}
+                      className="hidden"
+                    />
+                    {patientId ? (
                       <div className="text-center">
                         <i className="fas fa-check-circle text-4xl text-success mb-2"></i>
                         <p className="text-sm text-success font-medium">Patient ID: {patientId}</p>
-                        <Button className="mt-3" variant="outline" onClick={startPatientCamera}>
+                        <Button 
+                          className="mt-3" 
+                          variant="outline" 
+                          onClick={() => patientPhotoInputRef.current?.click()}
+                          disabled={isAnalyzingPatient}
+                        >
                           <i className="fas fa-redo mr-2"></i>
                           Retake
                         </Button>
                       </div>
                     ) : (
                       <div className="text-center">
-                        <i className="fas fa-camera text-4xl text-muted-foreground mb-2"></i>
-                        <p className="text-sm text-muted-foreground">Photo patient label/wristband</p>
-                        <Button className="mt-3" onClick={startPatientCamera} data-testid="start-patient-camera">
-                          <i className="fas fa-camera mr-2"></i>
-                          Open Camera
+                        <i className={`fas ${isAnalyzingPatient ? 'fa-spinner fa-spin' : 'fa-camera'} text-4xl text-muted-foreground mb-2`}></i>
+                        <p className="text-sm text-muted-foreground">
+                          {isAnalyzingPatient ? 'Analyzing...' : 'Photo patient label/wristband'}
+                        </p>
+                        <Button 
+                          className="mt-3" 
+                          onClick={() => patientPhotoInputRef.current?.click()}
+                          disabled={isAnalyzingPatient}
+                          data-testid="start-patient-camera"
+                        >
+                          <i className={`fas ${isAnalyzingPatient ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
+                          {isAnalyzingPatient ? 'Analyzing...' : 'Take Photo'}
                         </Button>
                       </div>
                     )}
