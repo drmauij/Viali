@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 
 interface CameraCaptureProps {
@@ -8,6 +9,7 @@ interface CameraCaptureProps {
 }
 
 export function CameraCapture({ isOpen, onClose, onCapture }: CameraCaptureProps) {
+  const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -39,7 +41,7 @@ export function CameraCapture({ isOpen, onClose, onCapture }: CameraCaptureProps
         }
       } catch (err) {
         console.error("Error accessing camera:", err);
-        setError("Unable to access camera. Please check permissions.");
+        setError(t('camera.errorAccessing'));
       }
     }
 
@@ -101,7 +103,7 @@ export function CameraCapture({ isOpen, onClose, onCapture }: CameraCaptureProps
             <div className="text-center text-white p-4">
               <i className="fas fa-exclamation-triangle text-4xl mb-4"></i>
               <p className="mb-4">{error}</p>
-              <Button onClick={handleClose}>Close</Button>
+              <Button onClick={handleClose}>{t('common.close')}</Button>
             </div>
           </div>
         ) : (
@@ -152,7 +154,7 @@ export function CameraCapture({ isOpen, onClose, onCapture }: CameraCaptureProps
               {/* Instruction text */}
               <div className="absolute top-1/4 left-1/2 -translate-x-1/2 text-center">
                 <p className="text-white text-lg font-medium bg-black/50 px-4 py-2 rounded">
-                  Position patient label within the rectangle
+                  {t('controlled.positionLabel')}
                 </p>
               </div>
             </div>
@@ -166,7 +168,7 @@ export function CameraCapture({ isOpen, onClose, onCapture }: CameraCaptureProps
                 data-testid="close-camera"
               >
                 <i className="fas fa-times mr-2"></i>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 onClick={capturePhoto}
@@ -174,7 +176,7 @@ export function CameraCapture({ isOpen, onClose, onCapture }: CameraCaptureProps
                 data-testid="capture-photo"
               >
                 <i className="fas fa-camera mr-2"></i>
-                Capture
+                {t('controlled.capture')}
               </Button>
             </div>
 

@@ -32,6 +32,7 @@
     "passwordTooShort": "Password must be at least 6 characters",
     "passwordChangeSuccess": "Password changed successfully!",
     "passwordChangeError": "Failed to change password",
+    "passwordChangeRequired": "You must change your password before continuing.",
     "changingPassword": "Changing Password...",
     "resetPassword": "Reset Password",
     "sendResetLink": "Send Reset Link",
@@ -51,6 +52,7 @@
     "home": "Home",
     "items": "Items",
     "orders": "Orders",
+    "controlled": "Controlled",
     "admin": "Admin",
     "scan": "Scan"
   },
@@ -156,5 +158,8 @@
     "scanQRCode": "Scan QR Code",
     "openCamera": "Open Camera",
     "scanResult": "Scan Result"
+  },
+  "camera": {
+    "errorAccessing": "Unable to access camera. Please check permissions."
   }
 }

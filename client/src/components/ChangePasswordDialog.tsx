@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ interface ChangePasswordDialogProps {
 }
 
 export default function ChangePasswordDialog({ open, onOpenChange, required = false }: ChangePasswordDialogProps) {
+  const { t } = useTranslation();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -24,8 +26,8 @@ export default function ChangePasswordDialog({ open, onOpenChange, required = fa
     
     if (newPassword !== confirmPassword) {
       toast({ 
-        title: "Error", 
-        description: "New passwords do not match", 
+        title: t('common.error'), 
+        description: t('auth.passwordMismatch'), 
         variant: "destructive" 
       });
       return;
@@ -33,8 +35,8 @@ export default function ChangePasswordDialog({ open, onOpenChange, required = fa
 
     if (newPassword.length < 6) {
       toast({ 
-        title: "Error", 
-        description: "Password must be at least 6 characters", 
+        title: t('common.error'), 
+        description: t('auth.passwordTooShort'), 
         variant: "destructive" 
       });
       return;
@@ -54,8 +56,8 @@ export default function ChangePasswordDialog({ open, onOpenChange, required = fa
       }
 
       toast({ 
-        title: "Success", 
-        description: "Password changed successfully!" 
+        title: t('common.success'), 
+        description: t('auth.passwordChangeSuccess') 
       });
 
       // Reset form
@@ -67,8 +69,8 @@ export default function ChangePasswordDialog({ open, onOpenChange, required = fa
       window.location.href = "/";
     } catch (error: any) {
       toast({ 
-        title: "Error", 
-        description: error.message || "Failed to change password", 
+        title: t('common.error'), 
+        description: error.message || t('auth.passwordChangeError'), 
         variant: "destructive" 
       });
     } finally {
@@ -85,19 +87,19 @@ export default function ChangePasswordDialog({ open, onOpenChange, required = fa
       >
         <DialogHeader>
           <DialogTitle>
-            {required ? "Change Password Required" : "Change Password"}
+            {t('auth.changePassword')}
           </DialogTitle>
         </DialogHeader>
         
         {required && (
           <p className="text-sm text-muted-foreground mb-4">
-            You must change your password before continuing.
+            {t('auth.passwordChangeRequired')}
           </p>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="current-password">Current Password</Label>
+            <Label htmlFor="current-password">{t('auth.currentPassword')}</Label>
             <Input
               id="current-password"
               type="password"
@@ -109,7 +111,7 @@ export default function ChangePasswordDialog({ open, onOpenChange, required = fa
           </div>
 
           <div>
-            <Label htmlFor="new-password">New Password</Label>
+            <Label htmlFor="new-password">{t('auth.newPassword')}</Label>
             <Input
               id="new-password"
               type="password"
@@ -122,7 +124,7 @@ export default function ChangePasswordDialog({ open, onOpenChange, required = fa
           </div>
 
           <div>
-            <Label htmlFor="confirm-password">Confirm New Password</Label>
+            <Label htmlFor="confirm-password">{t('auth.confirmPassword')}</Label>
             <Input
               id="confirm-password"
               type="password"
@@ -140,7 +142,7 @@ export default function ChangePasswordDialog({ open, onOpenChange, required = fa
             disabled={isLoading}
             data-testid="submit-password-change"
           >
-            {isLoading ? "Changing Password..." : "Change Password"}
+            {isLoading ? t('auth.changingPassword') : t('auth.changePassword')}
           </Button>
         </form>
       </DialogContent>

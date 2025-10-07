@@ -32,6 +32,7 @@
     "passwordTooShort": "Das Passwort muss mindestens 6 Zeichen lang sein",
     "passwordChangeSuccess": "Passwort erfolgreich geändert!",
     "passwordChangeError": "Passwort konnte nicht geändert werden",
+    "passwordChangeRequired": "Sie müssen Ihr Passwort ändern, bevor Sie fortfahren können.",
     "changingPassword": "Passwort wird geändert...",
     "resetPassword": "Passwort zurücksetzen",
     "sendResetLink": "Link senden",
@@ -51,6 +52,7 @@
     "home": "Startseite",
     "items": "Artikel",
     "orders": "Bestellungen",
+    "controlled": "Kontrolle",
     "admin": "Admin",
     "scan": "Scannen"
   },
@@ -156,5 +158,8 @@
     "scanQRCode": "QR-Code scannen",
     "openCamera": "Kamera öffnen",
     "scanResult": "Scan-Ergebnis"
+  },
+  "camera": {
+    "errorAccessing": "Kamerazugriff nicht möglich. Bitte überprüfen Sie die Berechtigungen."
   }
 }

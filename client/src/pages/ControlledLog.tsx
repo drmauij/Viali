@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -58,6 +59,7 @@ interface RoutineCheckItem {
 type PatientMethod = "text" | "barcode" | "photo";
 
 export default function ControlledLog() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -988,7 +990,7 @@ export default function ControlledLog() {
         <div className="modal-overlay" onClick={() => setShowAdministrationModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-foreground">Record Administration</h2>
+              <h2 className="text-xl font-bold text-foreground">{t('controlled.recordAdministration')}</h2>
               <Button
                 variant="ghost"
                 size="sm"
@@ -1001,7 +1003,7 @@ export default function ControlledLog() {
 
             <div className="space-y-4">
               <div>
-                <Label className="block text-sm font-medium mb-2">Select Drug(s)</Label>
+                <Label className="block text-sm font-medium mb-2">{t('controlled.selectDrugs')}</Label>
                 <div className="space-y-2">
                   {selectedDrugs.map((drug) => (
                     <div key={drug.itemId} className="bg-muted rounded-lg p-3 flex items-center justify-between">
@@ -1015,8 +1017,8 @@ export default function ControlledLog() {
                           <p className="font-medium text-foreground">{drug.name}</p>
                           <p className="text-xs text-muted-foreground">
                             {drug.isControlledPack 
-                              ? `Controlled units: ${drug.onHand} Ampules` 
-                              : `On hand: ${drug.onHand} units`}
+                              ? `${t('controlled.controlledUnits')}: ${drug.onHand} ${t('controlled.ampules')}` 
+                              : `${t('items.onHand')}: ${drug.onHand} units`}
                           </p>
                         </div>
                       </div>
@@ -1037,7 +1039,7 @@ export default function ControlledLog() {
               </div>
 
               <div>
-                <Label className="block text-sm font-medium mb-2">Patient Assignment</Label>
+                <Label className="block text-sm font-medium mb-2">{t('controlled.patientAssignment')}</Label>
                 <div className="grid grid-cols-3 gap-2 mb-3">
                   <Button
                     variant={patientMethod === "text" ? "default" : "outline"}
@@ -1046,7 +1048,7 @@ export default function ControlledLog() {
                     data-testid="patient-method-text"
                   >
                     <i className="fas fa-keyboard mr-1"></i>
-                    Text
+                    {t('controlled.text')}
                   </Button>
                   <Button
                     variant={patientMethod === "barcode" ? "default" : "outline"}
@@ -1055,7 +1057,7 @@ export default function ControlledLog() {
                     data-testid="patient-method-barcode"
                   >
                     <i className="fas fa-barcode mr-1"></i>
-                    Barcode
+                    {t('controlled.barcode')}
                   </Button>
                   <Button
                     variant={patientMethod === "photo" ? "default" : "outline"}
@@ -1064,13 +1066,13 @@ export default function ControlledLog() {
                     data-testid="patient-method-photo"
                   >
                     <i className="fas fa-camera mr-1"></i>
-                    Photo
+                    {t('controlled.photo')}
                   </Button>
                 </div>
 
                 {patientMethod === "text" && (
                   <Input
-                    placeholder="Enter Patient ID or Name"
+                    placeholder={t('controlled.enterPatientId')}
                     value={patientId}
                     onChange={(e) => setPatientId(e.target.value)}
                     data-testid="patient-id-input"
@@ -1104,7 +1106,7 @@ export default function ControlledLog() {
                 {patientMethod === "photo" && (
                   <div className="bg-muted rounded-lg p-4">
                     <Label className="block text-sm font-medium mb-2">
-                      Patient Label Photo
+                      {t('controlled.patientLabelPhoto')}
                     </Label>
                     {patientPhoto ? (
                       <div className="space-y-2">
@@ -1122,7 +1124,7 @@ export default function ControlledLog() {
                           onClick={() => setShowPatientCamera(true)}
                         >
                           <i className="fas fa-redo mr-2"></i>
-                          Retake Photo
+                          {t('controlled.retakePhoto')}
                         </Button>
                       </div>
                     ) : (
@@ -1133,7 +1135,7 @@ export default function ControlledLog() {
                         data-testid="take-patient-photo"
                       >
                         <i className="fas fa-camera mr-2"></i>
-                        Take Photo
+                        {t('controlled.takePhoto')}
                       </Button>
                     )}
                   </div>
@@ -1142,12 +1144,12 @@ export default function ControlledLog() {
 
               <div>
                 <Label htmlFor="notes" className="block text-sm font-medium mb-2">
-                  Notes (Optional)
+                  {t('controlled.notesOptional')}
                 </Label>
                 <Textarea
                   id="notes"
                   rows={3}
-                  placeholder="Add any additional notes..."
+                  placeholder={t('controlled.addNotes')}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   data-testid="administration-notes"
@@ -1155,7 +1157,7 @@ export default function ControlledLog() {
               </div>
 
               <div>
-                <Label className="block text-sm font-medium mb-2">Your E-Signature</Label>
+                <Label className="block text-sm font-medium mb-2">{t('controlled.yourSignature')}</Label>
                 <div
                   className="signature-pad cursor-pointer"
                   onClick={() => setShowSignaturePad(true)}
@@ -1164,12 +1166,12 @@ export default function ControlledLog() {
                   {signature ? (
                     <div className="text-center">
                       <i className="fas fa-check-circle text-2xl text-success mb-2"></i>
-                      <p className="text-sm text-success">Signature captured</p>
+                      <p className="text-sm text-success">{t('controlled.signatureCaptured')}</p>
                     </div>
                   ) : (
                     <div className="text-center">
                       <i className="fas fa-signature text-2xl mb-2"></i>
-                      <p className="text-sm">Tap to sign</p>
+                      <p className="text-sm">{t('controlled.tapToSign')}</p>
                     </div>
                   )}
                 </div>
@@ -1182,7 +1184,7 @@ export default function ControlledLog() {
                   onClick={() => setShowAdministrationModal(false)}
                   data-testid="cancel-administration"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   className="flex-1 bg-accent hover:bg-accent/90"
@@ -1191,7 +1193,7 @@ export default function ControlledLog() {
                   data-testid="submit-administration"
                 >
                   <i className="fas fa-shield-halved mr-2"></i>
-                  Submit Record
+                  {t('controlled.submitRecord')}
                 </Button>
               </div>
             </div>
@@ -1289,12 +1291,12 @@ export default function ControlledLog() {
                   {checkSignature ? (
                     <div className="text-center">
                       <i className="fas fa-check-circle text-2xl text-success mb-2"></i>
-                      <p className="text-sm text-success">Signature captured</p>
+                      <p className="text-sm text-success">{t('controlled.signatureCaptured')}</p>
                     </div>
                   ) : (
                     <div className="text-center">
                       <i className="fas fa-signature text-2xl mb-2"></i>
-                      <p className="text-sm">Tap to sign</p>
+                      <p className="text-sm">{t('controlled.tapToSign')}</p>
                     </div>
                   )}
                 </div>
@@ -1631,8 +1633,8 @@ export default function ControlledLog() {
         onCapture={(photo) => {
           setPatientPhoto(photo);
           toast({
-            title: "Photo Captured",
-            description: "Patient label photo saved securely",
+            title: t('controlled.photoCaptured'),
+            description: t('controlled.photoSavedSecurely'),
           });
         }}
       />
