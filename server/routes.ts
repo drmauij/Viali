@@ -70,13 +70,38 @@ function encryptPatientData(text: string): string {
 }
 
 function decryptPatientData(text: string): string {
+  // Check if data is encrypted (has IV:encrypted format)
+  if (!text.includes(":")) {
+    // Data is not encrypted, return as-is (backward compatibility)
+    return text;
+  }
+  
   const parts = text.split(":");
-  const iv = Buffer.from(parts[0], "hex");
-  const encrypted = parts[1];
-  const decipher = crypto.createDecipheriv("aes-256-cbc", ENCRYPTION_KEY, iv);
-  let decrypted = decipher.update(encrypted, "hex", "utf8");
-  decrypted += decipher.final("utf8");
-  return decrypted;
+  
+  // Validate format
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    console.warn("Invalid encrypted data format, returning as-is");
+    return text;
+  }
+  
+  // Validate IV length (should be 32 hex chars = 16 bytes)
+  if (parts[0].length !== 32) {
+    console.warn(`Invalid IV length: ${parts[0].length}, expected 32. Returning as-is`);
+    return text;
+  }
+  
+  try {
+    const iv = Buffer.from(parts[0], "hex");
+    const encrypted = parts[1];
+    const decipher = crypto.createDecipheriv("aes-256-cbc", ENCRYPTION_KEY, iv);
+    let decrypted = decipher.update(encrypted, "hex", "utf8");
+    decrypted += decipher.final("utf8");
+    return decrypted;
+  } catch (error) {
+    console.error("Failed to decrypt data:", error);
+    // Return original text if decryption fails
+    return text;
+  }
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
