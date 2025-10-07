@@ -1187,8 +1187,8 @@ export default function Items() {
                         return (
                           <DraggableItem key={item.id} id={item.id} disabled={isBulkEditMode}>
                             <div
-                              className="bg-card border border-border rounded-lg p-3 hover:shadow-md transition-all cursor-pointer"
-                              onClick={() => handleEditItem(item)}
+                              className={`bg-card border border-border rounded-lg p-3 hover:shadow-md transition-all ${!isBulkEditMode ? 'cursor-pointer' : ''}`}
+                              onClick={() => !isBulkEditMode && handleEditItem(item)}
                               data-testid={`item-${item.id}`}
                             >
                             {/* Item content - same as root items below */}
@@ -1258,8 +1258,8 @@ export default function Items() {
                     return (
                       <DraggableItem key={item.id} id={item.id} disabled={isBulkEditMode}>
                         <div 
-                          className="item-row cursor-pointer hover:bg-accent/50 transition-colors" 
-                          onClick={() => handleEditItem(item)}
+                          className={`item-row ${!isBulkEditMode ? 'cursor-pointer hover:bg-accent/50' : ''} transition-colors`}
+                          onClick={() => !isBulkEditMode && handleEditItem(item)}
                           data-testid={`item-${item.id}`}
                         >
                 <div className="flex items-start justify-between mb-3">
