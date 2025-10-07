@@ -347,14 +347,19 @@ export default function ControlledLog() {
     let worker: any = null;
 
     try {
+      console.log('Starting OCR process...');
       const { createWorker } = await import('tesseract.js');
-      worker = await createWorker();
       
-      await worker.load();
-      await worker.loadLanguage('eng');
-      await worker.initialize('eng');
+      console.log('Creating worker with CDN paths...');
+      worker = await createWorker('eng', 1, {
+        workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
+        langPath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core-simd.wasm.js',
+        corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5/tesseract-core-simd.wasm.js',
+      });
       
+      console.log('Worker created, recognizing image...');
       const { data: { text } } = await worker.recognize(file);
+      console.log('OCR completed, extracted text:', text);
       
       const extractedText = text.trim();
       
@@ -377,15 +382,26 @@ export default function ControlledLog() {
         });
       }
     } catch (error) {
-      console.error('Error processing image:', error);
+      console.error('OCR Error details:', error);
+      console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+      console.error('Error message:', error instanceof Error ? error.message : String(error));
+      if (error instanceof Error && error.stack) {
+        console.error('Error stack:', error.stack);
+      }
+      
       toast({
         title: "OCR Failed",
-        description: "Failed to extract text from image. Please try again or enter manually.",
+        description: error instanceof Error ? error.message : "Failed to extract text from image. Please try again or enter manually.",
         variant: "destructive",
       });
     } finally {
       if (worker) {
-        await worker.terminate();
+        try {
+          await worker.terminate();
+          console.log('Worker terminated successfully');
+        } catch (terminateError) {
+          console.error('Error terminating worker:', terminateError);
+        }
       }
       setIsAnalyzingPatient(false);
     }
