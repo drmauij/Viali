@@ -1108,11 +1108,13 @@ export default function ControlledLog() {
                     </Label>
                     {patientPhoto ? (
                       <div className="space-y-2">
-                        <img 
-                          src={patientPhoto} 
-                          alt="Patient label" 
-                          className="w-full rounded border border-border"
-                        />
+                        <div className="w-full bg-black rounded border border-border overflow-hidden">
+                          <img 
+                            src={patientPhoto} 
+                            alt="Patient label" 
+                            className="w-full h-auto object-contain"
+                          />
+                        </div>
                         <Button 
                           variant="outline" 
                           size="sm"
