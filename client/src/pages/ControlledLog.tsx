@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import SignaturePad from "@/components/SignaturePad";
 import BarcodeScanner from "@/components/BarcodeScanner";
+import { CameraCapture } from "@/components/CameraCapture";
 import type { Activity, User, Item, ControlledCheck } from "@shared/schema";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -68,6 +69,7 @@ export default function ControlledLog() {
   const [showVerifySignaturePad, setShowVerifySignaturePad] = useState(false);
   const [patientMethod, setPatientMethod] = useState<PatientMethod>("text");
   const [showPatientScanner, setShowPatientScanner] = useState(false);
+  const [showPatientCamera, setShowPatientCamera] = useState(false);
   const [isAnalyzingPatient, setIsAnalyzingPatient] = useState(false);
   const patientPhotoInputRef = useRef<HTMLInputElement>(null);
   
@@ -1140,18 +1142,9 @@ export default function ControlledLog() {
 
                 {patientMethod === "photo" && (
                   <div className="bg-muted rounded-lg p-4 space-y-3">
-                    <input
-                      type="file"
-                      ref={patientPhotoInputRef}
-                      accept="image/*"
-                      capture="environment"
-                      onChange={handlePatientPhotoCapture}
-                      className="hidden"
-                    />
-                    
                     <div>
                       <Label htmlFor="patient-id-photo" className="block text-sm font-medium mb-2">
-                        Patient ID
+                        Patient ID (Optional)
                       </Label>
                       <Input
                         id="patient-id-photo"
@@ -1178,7 +1171,7 @@ export default function ControlledLog() {
                             variant="outline" 
                             size="sm"
                             className="w-full"
-                            onClick={() => patientPhotoInputRef.current?.click()}
+                            onClick={() => setShowPatientCamera(true)}
                           >
                             <i className="fas fa-redo mr-2"></i>
                             Retake Photo
@@ -1188,7 +1181,7 @@ export default function ControlledLog() {
                         <Button 
                           variant="outline"
                           className="w-full"
-                          onClick={() => patientPhotoInputRef.current?.click()}
+                          onClick={() => setShowPatientCamera(true)}
                           data-testid="take-patient-photo"
                         >
                           <i className="fas fa-camera mr-2"></i>
@@ -1681,6 +1674,19 @@ export default function ControlledLog() {
         onManualEntry={() => {
           setShowPatientScanner(false);
           setPatientMethod("text");
+        }}
+      />
+
+      {/* Patient Photo Camera */}
+      <CameraCapture
+        isOpen={showPatientCamera}
+        onClose={() => setShowPatientCamera(false)}
+        onCapture={(photo) => {
+          setPatientPhoto(photo);
+          toast({
+            title: "Photo Captured",
+            description: "Patient label photo saved securely",
+          });
         }}
       />
     </div>
