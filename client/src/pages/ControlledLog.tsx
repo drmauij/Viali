@@ -346,56 +346,40 @@ export default function ControlledLog() {
     setIsAnalyzingPatient(true);
 
     try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const imageData = reader.result as string;
+      const { createWorker } = await import('tesseract.js');
+      const worker = await createWorker('eng');
+      
+      const { data: { text } } = await worker.recognize(file);
+      await worker.terminate();
+      
+      const extractedText = text.trim();
+      
+      if (extractedText) {
+        const lines = extractedText.split('\n').filter(line => line.trim());
+        const potentialId = lines.find(line => 
+          /\d/.test(line) && line.length >= 3
+        ) || lines[0] || extractedText;
         
-        try {
-          const response = await fetch('/api/openai/analyze-patient-label', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: imageData }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to analyze patient label');
-          }
-
-          const data = await response.json();
-          
-          if (data.patientId) {
-            setPatientId(data.patientId);
-            toast({
-              title: "Patient ID Extracted",
-              description: `Successfully identified patient: ${data.patientId}`,
-            });
-          } else {
-            toast({
-              title: "No Patient ID Found",
-              description: "Could not extract patient ID from the image. Please try again or enter manually.",
-              variant: "destructive",
-            });
-          }
-        } catch (error) {
-          console.error('Error analyzing patient label:', error);
-          toast({
-            title: "Analysis Failed",
-            description: error instanceof Error ? error.message : "Failed to analyze patient label",
-            variant: "destructive",
-          });
-        } finally {
-          setIsAnalyzingPatient(false);
-        }
-      };
-      reader.readAsDataURL(file);
+        setPatientId(potentialId.trim());
+        toast({
+          title: "Text Extracted",
+          description: `Patient ID: ${potentialId.trim()}`,
+        });
+      } else {
+        toast({
+          title: "No Text Found",
+          description: "Could not extract text from the image. Please try again or enter manually.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
-      console.error('Error reading file:', error);
+      console.error('Error processing image:', error);
       toast({
-        title: "File Error",
-        description: "Failed to read the captured image",
+        title: "OCR Failed",
+        description: "Failed to extract text from image. Please try again or enter manually.",
         variant: "destructive",
       });
+    } finally {
       setIsAnalyzingPatient(false);
     }
     
