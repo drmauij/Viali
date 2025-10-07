@@ -1454,8 +1454,8 @@ export default function Items() {
               <input
                 type="file"
                 ref={fileInputRef}
-                accept="image/*"
-                multiple
+                accept="image/*;capture=camera"
+                capture="environment"
                 onChange={handleImageUpload}
                 className="hidden"
               />

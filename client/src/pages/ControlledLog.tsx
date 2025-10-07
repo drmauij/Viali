@@ -72,6 +72,8 @@ export default function ControlledLog() {
   const [isVideoReady, setIsVideoReady] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const photoStreamRef = useRef<MediaStream | null>(null);
+  const videoReadyCallbackRef = useRef<(() => void) | null>(null);
+  const videoReadyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const [selectedDrugs, setSelectedDrugs] = useState<DrugSelection[]>([]);
   const [patientId, setPatientId] = useState("");
@@ -351,11 +353,30 @@ export default function ControlledLog() {
         videoRef.current.srcObject = stream;
         photoStreamRef.current = stream;
         
-        videoRef.current.onloadedmetadata = () => {
-          setIsVideoReady(true);
+        const checkVideoReady = () => {
+          if (videoRef.current && videoRef.current.readyState >= 2) {
+            if (videoRef.current && videoReadyCallbackRef.current) {
+              videoRef.current.removeEventListener('loadedmetadata', videoReadyCallbackRef.current);
+              videoRef.current.removeEventListener('loadeddata', videoReadyCallbackRef.current);
+              videoRef.current.removeEventListener('canplay', videoReadyCallbackRef.current);
+            }
+            if (videoReadyTimeoutRef.current) {
+              clearTimeout(videoReadyTimeoutRef.current);
+              videoReadyTimeoutRef.current = null;
+            }
+            setIsVideoReady(true);
+          }
         };
         
+        videoReadyCallbackRef.current = checkVideoReady;
+        
+        videoRef.current.addEventListener('loadedmetadata', checkVideoReady);
+        videoRef.current.addEventListener('loadeddata', checkVideoReady);
+        videoRef.current.addEventListener('canplay', checkVideoReady);
+        
         await videoRef.current.play();
+        
+        videoReadyTimeoutRef.current = setTimeout(checkVideoReady, 500);
       }
       setShowPatientCamera(true);
     } catch (error) {
@@ -373,9 +394,16 @@ export default function ControlledLog() {
       photoStreamRef.current.getTracks().forEach(track => track.stop());
       photoStreamRef.current = null;
     }
-    if (videoRef.current) {
-      videoRef.current.onloadedmetadata = null;
+    if (videoRef.current && videoReadyCallbackRef.current) {
+      videoRef.current.removeEventListener('loadedmetadata', videoReadyCallbackRef.current);
+      videoRef.current.removeEventListener('loadeddata', videoReadyCallbackRef.current);
+      videoRef.current.removeEventListener('canplay', videoReadyCallbackRef.current);
     }
+    if (videoReadyTimeoutRef.current) {
+      clearTimeout(videoReadyTimeoutRef.current);
+      videoReadyTimeoutRef.current = null;
+    }
+    videoReadyCallbackRef.current = null;
     setShowPatientCamera(false);
     setIsVideoReady(false);
   };
