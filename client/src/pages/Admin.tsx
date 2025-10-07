@@ -19,7 +19,23 @@ interface HospitalUser extends UserHospitalRole {
 export default function Admin() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const [activeHospital] = useState(() => (user as any)?.hospitals?.[0]);
+  
+  // Get active hospital from localStorage (same as Layout and BottomNav)
+  const [activeHospital] = useState(() => {
+    const userHospitals = (user as any)?.hospitals;
+    if (!userHospitals || userHospitals.length === 0) return null;
+    
+    const savedHospitalKey = localStorage.getItem('activeHospital');
+    if (savedHospitalKey) {
+      const saved = userHospitals.find((h: any) => 
+        `${h.id}-${h.locationId}-${h.role}` === savedHospitalKey
+      );
+      if (saved) return saved;
+    }
+    
+    return userHospitals[0];
+  });
+  
   const [activeTab, setActiveTab] = useState<"locations" | "users">("locations");
   const { toast } = useToast();
 
