@@ -122,7 +122,7 @@
     "dragToMove": "Drag to move item",
     "draggingItem": "Dragging item...",
     "quickOrder": "Quick Order",
-    "quickOrdered": "quick ordered {{count}} units",
+    "quickOrdered": "Ordered {{count}}",
     "expiresInDays": "Expires in {{days}} days",
     "good": "Good",
     "addNewItem": "Add New Item",

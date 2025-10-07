@@ -122,7 +122,7 @@
     "dragToMove": "Ziehen zum Verschieben",
     "draggingItem": "Artikel wird verschoben...",
     "quickOrder": "Schnellbestellung",
-    "quickOrdered": "{{count}} Einheiten schnell bestellt",
+    "quickOrdered": "Bestellt {{count}}",
     "expiresInDays": "Läuft ab in {{days}} Tagen",
     "good": "Gut",
     "addNewItem": "Neuen Artikel hinzufügen",

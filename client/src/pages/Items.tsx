@@ -1305,14 +1305,25 @@ export default function Items() {
                                       )}
                                     </div>
                                     {currentQty <= (item.minThreshold || 0) && (
-                                      <button
-                                        onClick={(e) => handleQuickOrder(e, item)}
-                                        className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors flex-shrink-0"
-                                        data-testid={`item-${item.id}-quick-order`}
-                                      >
-                                        <i className="fas fa-bolt mr-1"></i>
-                                        {t('items.quickOrder')}
-                                      </button>
+                                      openOrderItems[item.id] ? (
+                                        <button
+                                          disabled
+                                          className="px-3 py-1.5 bg-muted text-muted-foreground rounded-lg text-xs font-medium flex-shrink-0 cursor-not-allowed"
+                                          data-testid={`item-${item.id}-quick-ordered`}
+                                        >
+                                          <i className="fas fa-check mr-1"></i>
+                                          {t('items.quickOrdered', { count: openOrderItems[item.id].totalQty })}
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={(e) => handleQuickOrder(e, item)}
+                                          className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors flex-shrink-0"
+                                          data-testid={`item-${item.id}-quick-order`}
+                                        >
+                                          <i className="fas fa-bolt mr-1"></i>
+                                          {t('items.quickOrder')}
+                                        </button>
+                                      )
                                     )}
                                   </>
                                 )}
