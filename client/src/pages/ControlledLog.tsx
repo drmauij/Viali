@@ -1102,54 +1102,38 @@ export default function ControlledLog() {
                 )}
 
                 {patientMethod === "photo" && (
-                  <div className="bg-muted rounded-lg p-4 space-y-3">
-                    <div>
-                      <Label htmlFor="patient-id-photo" className="block text-sm font-medium mb-2">
-                        Patient ID (Optional)
-                      </Label>
-                      <Input
-                        id="patient-id-photo"
-                        type="text"
-                        placeholder="Enter Patient ID or Name"
-                        value={patientId}
-                        onChange={(e) => setPatientId(e.target.value)}
-                        data-testid="patient-id-photo-input"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="block text-sm font-medium mb-2">
-                        Patient Label Photo
-                      </Label>
-                      {patientPhoto ? (
-                        <div className="space-y-2">
-                          <img 
-                            src={patientPhoto} 
-                            alt="Patient label" 
-                            className="w-full rounded border border-border"
-                          />
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="w-full"
-                            onClick={() => setShowPatientCamera(true)}
-                          >
-                            <i className="fas fa-redo mr-2"></i>
-                            Retake Photo
-                          </Button>
-                        </div>
-                      ) : (
+                  <div className="bg-muted rounded-lg p-4">
+                    <Label className="block text-sm font-medium mb-2">
+                      Patient Label Photo
+                    </Label>
+                    {patientPhoto ? (
+                      <div className="space-y-2">
+                        <img 
+                          src={patientPhoto} 
+                          alt="Patient label" 
+                          className="w-full rounded border border-border"
+                        />
                         <Button 
-                          variant="outline"
+                          variant="outline" 
+                          size="sm"
                           className="w-full"
                           onClick={() => setShowPatientCamera(true)}
-                          data-testid="take-patient-photo"
                         >
-                          <i className="fas fa-camera mr-2"></i>
-                          Take Photo
+                          <i className="fas fa-redo mr-2"></i>
+                          Retake Photo
                         </Button>
-                      )}
-                    </div>
+                      </div>
+                    ) : (
+                      <Button 
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setShowPatientCamera(true)}
+                        data-testid="take-patient-photo"
+                      >
+                        <i className="fas fa-camera mr-2"></i>
+                        Take Photo
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>

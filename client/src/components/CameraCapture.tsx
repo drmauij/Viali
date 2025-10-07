@@ -94,7 +94,7 @@ export function CameraCapture({ isOpen, onClose, onCapture }: CameraCaptureProps
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black">
+    <div className="fixed inset-0 z-[9999] bg-black">
       <div className="relative w-full h-full">
         {error ? (
           <div className="flex items-center justify-center h-full">
