@@ -1188,6 +1188,8 @@ export default function Items() {
                           <DraggableItem key={item.id} id={item.id} disabled={isBulkEditMode}>
                             <div
                               className="item-row"
+                              onClick={!isBulkEditMode ? () => handleEditItem(item) : undefined}
+                              style={!isBulkEditMode ? { cursor: 'pointer' } : undefined}
                               data-testid={`item-${item.id}`}
                             >
                               <div className="flex items-start justify-between mb-3">
@@ -1208,35 +1210,26 @@ export default function Items() {
                                     </div>
                                   </div>
                                 ) : (
-                                  <>
-                                    <div className="flex-1 min-w-0 pr-3">
-                                      <div className="flex items-start gap-2">
-                                        <h3 className="text-sm font-semibold text-foreground truncate flex-1">{item.name}</h3>
-                                        <div className="flex gap-1 flex-shrink-0">
-                                          {item.critical && (
-                                            <span className="status-chip chip-critical text-xs" data-testid={`item-${item.id}-critical`}>
-                                              <i className="fas fa-exclamation-circle"></i>
-                                            </span>
-                                          )}
-                                          {item.controlled && (
-                                            <span className="status-chip chip-controlled text-xs" data-testid={`item-${item.id}-controlled`}>
-                                              <i className="fas fa-shield-halved"></i>
-                                            </span>
-                                          )}
-                                        </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-start gap-2">
+                                      <h3 className="text-sm font-semibold text-foreground truncate flex-1">{item.name}</h3>
+                                      <div className="flex gap-1 flex-shrink-0">
+                                        {item.critical && (
+                                          <span className="status-chip chip-critical text-xs" data-testid={`item-${item.id}-critical`}>
+                                            <i className="fas fa-exclamation-circle"></i>
+                                          </span>
+                                        )}
+                                        {item.controlled && (
+                                          <span className="status-chip chip-controlled text-xs" data-testid={`item-${item.id}-controlled`}>
+                                            <i className="fas fa-shield-halved"></i>
+                                          </span>
+                                        )}
                                       </div>
-                                      {item.description && (
-                                        <p className="text-xs text-muted-foreground mt-1 truncate">{item.description}</p>
-                                      )}
                                     </div>
-                                    <button
-                                      onClick={() => handleEditItem(item)}
-                                      className="p-2 hover:bg-muted rounded-md transition-colors flex-shrink-0"
-                                      data-testid={`edit-item-${item.id}`}
-                                    >
-                                      <Edit2 className="w-4 h-4 text-muted-foreground" />
-                                    </button>
-                                  </>
+                                    {item.description && (
+                                      <p className="text-xs text-muted-foreground mt-1 truncate">{item.description}</p>
+                                    )}
+                                  </div>
                                 )}
                               </div>
 
@@ -1345,6 +1338,8 @@ export default function Items() {
                       <DraggableItem key={item.id} id={item.id} disabled={isBulkEditMode}>
                         <div 
                           className="item-row"
+                          onClick={!isBulkEditMode ? () => handleEditItem(item) : undefined}
+                          style={!isBulkEditMode ? { cursor: 'pointer' } : undefined}
                           data-testid={`item-${item.id}`}
                         >
                 <div className="flex items-start justify-between mb-3">
@@ -1365,31 +1360,26 @@ export default function Items() {
                       </div>
                     </div>
                   ) : (
-                    <>
-                      <div className="flex-1 min-w-0 pr-3">
-                        <h3 className="font-semibold text-foreground">{item.name}</h3>
-                        <p className="text-sm text-muted-foreground">{item.description || `${item.unit} unit`}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-foreground">{item.name}</h3>
+                          <p className="text-sm text-muted-foreground">{item.description || `${item.unit} unit`}</p>
+                        </div>
+                        <div className="flex gap-1 items-center flex-shrink-0">
+                          {item.critical && (
+                            <span className="status-chip chip-critical text-xs">
+                              <i className="fas fa-exclamation-circle"></i>
+                            </span>
+                          )}
+                          {item.controlled && (
+                            <span className="status-chip chip-controlled text-xs">
+                              <i className="fas fa-shield-halved"></i>
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex gap-1 items-center">
-                        {item.critical && (
-                          <span className="status-chip chip-critical text-xs">
-                            <i className="fas fa-exclamation-circle"></i>
-                          </span>
-                        )}
-                        {item.controlled && (
-                          <span className="status-chip chip-controlled text-xs">
-                            <i className="fas fa-shield-halved"></i>
-                          </span>
-                        )}
-                        <button
-                          onClick={() => handleEditItem(item)}
-                          className="p-2 hover:bg-muted rounded-md transition-colors"
-                          data-testid={`edit-item-${item.id}`}
-                        >
-                          <Edit2 className="w-4 h-4 text-muted-foreground" />
-                        </button>
-                      </div>
-                    </>
+                    </div>
                   )}
                 </div>
 
