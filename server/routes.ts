@@ -1669,9 +1669,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { hospitalId } = req.params;
       
       const hospitals = await storage.getUserHospitals(userId);
-      const hospital = hospitals.find(h => h.id === hospitalId);
+      // Check if user has admin role for this hospital (any location)
+      const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
       
-      if (!hospital || hospital.role !== 'admin') {
+      if (!hasAdminRole) {
         return res.status(403).json({ message: "Admin access required" });
       }
       
