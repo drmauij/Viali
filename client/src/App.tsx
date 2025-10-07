@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { LanguageProvider } from "@/components/LanguageProvider";
 import { useAuth } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
 import NotFound from "@/pages/not-found";
@@ -18,6 +19,7 @@ import Admin from "@/pages/Admin";
 import Signup from "@/pages/Signup";
 import ResetPassword from "@/pages/ResetPassword";
 import ChangePasswordDialog from "@/components/ChangePasswordDialog";
+import "@/i18n/config";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -65,12 +67,14 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Layout>
-            <Router />
-          </Layout>
-        </TooltipProvider>
+        <LanguageProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Layout>
+              <Router />
+            </Layout>
+          </TooltipProvider>
+        </LanguageProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );
