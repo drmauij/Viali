@@ -69,6 +69,7 @@ export default function ControlledLog() {
   const [patientMethod, setPatientMethod] = useState<PatientMethod>("text");
   const [showPatientScanner, setShowPatientScanner] = useState(false);
   const [showPatientCamera, setShowPatientCamera] = useState(false);
+  const [isVideoReady, setIsVideoReady] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const photoStreamRef = useRef<MediaStream | null>(null);
   
@@ -342,12 +343,18 @@ export default function ControlledLog() {
 
   const startPatientCamera = async () => {
     try {
+      setIsVideoReady(false);
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } }
       });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         photoStreamRef.current = stream;
+        
+        videoRef.current.onloadedmetadata = () => {
+          setIsVideoReady(true);
+        };
+        
         await videoRef.current.play();
       }
       setShowPatientCamera(true);
@@ -366,7 +373,11 @@ export default function ControlledLog() {
       photoStreamRef.current.getTracks().forEach(track => track.stop());
       photoStreamRef.current = null;
     }
+    if (videoRef.current) {
+      videoRef.current.onloadedmetadata = null;
+    }
     setShowPatientCamera(false);
+    setIsVideoReady(false);
   };
 
   const capturePatientPhoto = async () => {
@@ -1203,10 +1214,23 @@ export default function ControlledLog() {
                           muted
                           className="w-full h-64 object-cover rounded-lg bg-black"
                         />
+                        {!isVideoReady && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
+                            <div className="text-center text-white">
+                              <i className="fas fa-spinner fa-spin text-3xl mb-2"></i>
+                              <p className="text-sm">Loading camera...</p>
+                            </div>
+                          </div>
+                        )}
                         <div className="flex gap-2 mt-3">
-                          <Button className="flex-1" onClick={capturePatientPhoto} data-testid="capture-patient-photo">
+                          <Button 
+                            className="flex-1" 
+                            onClick={capturePatientPhoto} 
+                            disabled={!isVideoReady}
+                            data-testid="capture-patient-photo"
+                          >
                             <i className="fas fa-camera mr-2"></i>
-                            Capture
+                            {isVideoReady ? "Capture" : "Loading..."}
                           </Button>
                           <Button variant="outline" onClick={stopPatientCamera}>
                             <i className="fas fa-times"></i>
