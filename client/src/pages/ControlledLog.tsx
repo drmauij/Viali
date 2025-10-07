@@ -439,9 +439,9 @@ export default function ControlledLog() {
 
   const getCheckStatusChip = (check: ControlledCheckWithUser) => {
     if (check.allMatch) {
-      return <span className="status-chip chip-success text-xs">All Match</span>;
+      return <span className="status-chip chip-success text-xs">{t('controlled.allMatch')}</span>;
     }
-    return <span className="status-chip chip-destructive text-xs">Discrepancies</span>;
+    return <span className="status-chip chip-destructive text-xs">{t('controlled.discrepancies')}</span>;
   };
 
   const formatTimeAgo = (timestamp: string | Date) => {
@@ -631,13 +631,13 @@ export default function ControlledLog() {
       doc.addPage();
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text(`Total Administrations: ${monthlyActivities.length}`, 20, 20);
+      doc.text(`${t('controlled.totalAdministrations')} ${monthlyActivities.length}`, 20, 20);
       doc.text(`Total Drugs: ${Object.keys(groupedByDrug).length}`, 20, 26);
       doc.text(`Generated: ${new Date().toLocaleString("en-US")}`, 20, 32);
     } else {
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text(`Total Administrations: ${monthlyActivities.length}`, 20, footerY + 10);
+      doc.text(`${t('controlled.totalAdministrations')} ${monthlyActivities.length}`, 20, footerY + 10);
       doc.text(`Total Drugs: ${Object.keys(groupedByDrug).length}`, 20, footerY + 16);
       doc.text(`Generated: ${new Date().toLocaleString("en-US")}`, 20, footerY + 22);
     }
@@ -666,36 +666,36 @@ export default function ControlledLog() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Controlled Substances</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t('controlled.pageTitle')}</h1>
       </div>
 
       <Tabs defaultValue="administrations" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="administrations" data-testid="tab-administrations">
-            Administrations
+            {t('controlled.administrations')}
           </TabsTrigger>
           <TabsTrigger value="checks" data-testid="tab-checks">
-            Routine Checks
+            {t('controlled.routineChecks')}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="administrations" className="space-y-4 mt-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-foreground">Administration Log</h2>
+            <h2 className="text-lg font-semibold text-foreground">{t('controlled.administrationLog')}</h2>
             <Button
               className="bg-accent hover:bg-accent/90 text-accent-foreground"
               onClick={handleOpenAdministrationModal}
               data-testid="record-administration-button"
             >
               <i className="fas fa-plus mr-2"></i>
-              Record Administration
+              {t('controlled.recordAdministration')}
             </Button>
           </div>
 
           <div className="bg-card border border-border rounded-lg p-4">
             <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
               <div className="flex gap-2 items-center">
-                <Label className="text-sm font-medium">Monthly Report:</Label>
+                <Label className="text-sm font-medium">{t('controlled.monthlyReport')}</Label>
                 <Select value={selectedMonth} onValueChange={setSelectedMonth}>
                   <SelectTrigger className="w-32" data-testid="month-selector">
                     <SelectValue />
@@ -737,14 +737,14 @@ export default function ControlledLog() {
                 data-testid="download-monthly-report"
               >
                 <i className="fas fa-file-pdf mr-2"></i>
-                Download PDF Report
+                {t('controlled.downloadPdfReport')}
               </Button>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-card border border-border rounded-lg p-4">
-              <p className="text-sm text-muted-foreground mb-1">Today's Records</p>
+              <p className="text-sm text-muted-foreground mb-1">{t('controlled.todaysRecords')}</p>
               <p className="text-3xl font-bold text-foreground" data-testid="todays-records">
                 {activities.filter(a => {
                   const today = new Date().toDateString();
@@ -753,7 +753,7 @@ export default function ControlledLog() {
               </p>
             </div>
             <div className="bg-card border border-border rounded-lg p-4">
-              <p className="text-sm text-muted-foreground mb-1">Pending Review</p>
+              <p className="text-sm text-muted-foreground mb-1">{t('controlled.pendingReview')}</p>
               <p className="text-3xl font-bold text-accent" data-testid="pending-records">
                 {activities.filter(a => !a.controlledVerified).length}
               </p>
@@ -800,7 +800,7 @@ export default function ControlledLog() {
                     <div className="flex items-center gap-2">
                       <i className="fas fa-user-injured text-muted-foreground text-sm"></i>
                       <span className="text-sm text-foreground">
-                        Patient: {activity.patientId || "Unknown"}
+                        {t('controlled.patient')} {activity.patientId || "Unknown"}
                       </span>
                     </div>
                     {activity.patientPhoto && (
@@ -817,7 +817,7 @@ export default function ControlledLog() {
                     <div className="flex items-center gap-2">
                       <i className="fas fa-user-md text-muted-foreground text-sm"></i>
                       <span className="text-sm text-foreground">
-                        Administered by: {activity.user.firstName} {activity.user.lastName}
+                        {t('controlled.administeredBy')} {activity.user.firstName} {activity.user.lastName}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -867,7 +867,7 @@ export default function ControlledLog() {
                         onClick={() => setSelectedActivity(activity)}
                         data-testid={`view-details-${activity.id}`}
                       >
-                        View Details
+                        {t('controlled.viewDetails')}
                       </Button>
                     )}
                   </div>
@@ -879,14 +879,14 @@ export default function ControlledLog() {
 
         <TabsContent value="checks" className="space-y-4 mt-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-foreground">Routine Verification</h2>
+            <h2 className="text-lg font-semibold text-foreground">{t('controlled.routineVerification')}</h2>
             <Button
               className="bg-primary hover:bg-primary/90 text-primary-foreground"
               onClick={handleOpenRoutineCheckModal}
               data-testid="perform-routine-check-button"
             >
               <i className="fas fa-clipboard-check mr-2"></i>
-              Perform Routine Check
+              {t('controlled.performRoutineCheck')}
             </Button>
           </div>
 
@@ -894,7 +894,7 @@ export default function ControlledLog() {
             <div className="flex items-start gap-3">
               <i className="fas fa-info-circle text-blue-600 dark:text-blue-400 mt-0.5"></i>
               <div>
-                <p className="text-sm text-blue-900 dark:text-blue-100 font-medium">Routine Verification</p>
+                <p className="text-sm text-blue-900 dark:text-blue-100 font-medium">{t('controlled.routineVerification')}</p>
                 <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
                   Perform regular checks to verify controlled substance counts match system records.
                 </p>
@@ -929,10 +929,10 @@ export default function ControlledLog() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="font-semibold text-foreground">
-                        Routine Verification Check
+                        {t('controlled.routineVerificationCheck')}
                       </h4>
                       <p className="text-sm text-muted-foreground">
-                        {check.checkItems.length} items verified
+                        {check.checkItems.length} {t('controlled.itemsVerified')}
                       </p>
                     </div>
                     {getCheckStatusChip(check)}
@@ -942,7 +942,7 @@ export default function ControlledLog() {
                     <div className="flex items-center gap-2">
                       <i className="fas fa-user text-muted-foreground text-sm"></i>
                       <span className="text-sm text-foreground">
-                        Performed by: {check.user.firstName} {check.user.lastName}
+                        {t('controlled.performedBy')} {check.user.firstName} {check.user.lastName}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -962,7 +962,7 @@ export default function ControlledLog() {
                   {!check.allMatch && (
                     <div className="bg-destructive/10 rounded-lg p-2 mt-2">
                       <p className="text-sm text-destructive font-medium">
-                        ⚠️ Discrepancies detected - counts do not match
+                        {t('controlled.discrepanciesDetected')}
                       </p>
                     </div>
                   )}
@@ -975,7 +975,7 @@ export default function ControlledLog() {
                       onClick={() => setSelectedCheck(check)}
                       data-testid={`view-check-${check.id}`}
                     >
-                      View Details
+                      {t('controlled.viewDetails')}
                     </Button>
                   </div>
                 </div>
@@ -1206,7 +1206,7 @@ export default function ControlledLog() {
         <div className="modal-overlay" onClick={() => setShowRoutineCheckModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-foreground">Routine Verification Check</h2>
+              <h2 className="text-xl font-bold text-foreground">{t('controlled.routineVerificationCheck')}</h2>
               <Button
                 variant="ghost"
                 size="sm"
@@ -1225,7 +1225,7 @@ export default function ControlledLog() {
 
             <div className="space-y-4">
               <div>
-                <Label className="block text-sm font-medium mb-2">Controlled Substances</Label>
+                <Label className="block text-sm font-medium mb-2">{t('controlled.controlledSubstances')}</Label>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {routineCheckItems.map((item) => (
                     <div
@@ -1503,10 +1503,10 @@ export default function ControlledLog() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-foreground text-lg">
-                      Routine Verification Check
+                      {t('controlled.routineVerificationCheck')}
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                      {selectedCheck.checkItems.length} items verified
+                      {selectedCheck.checkItems.length} {t('controlled.itemsVerified')}
                     </p>
                   </div>
                 </div>
