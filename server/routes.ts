@@ -50,8 +50,12 @@ async function checkLicenseLimit(hospitalId: string): Promise<{ allowed: boolean
 }
 
 // Encryption utilities for patient data
+if (!process.env.ENCRYPTION_SECRET) {
+  throw new Error("ENCRYPTION_SECRET environment variable is required for patient data encryption");
+}
+
 const ENCRYPTION_KEY = crypto.scryptSync(
-  process.env.ENCRYPTION_SECRET || "viali-default-encryption-key-change-in-production",
+  process.env.ENCRYPTION_SECRET,
   "salt",
   32
 );
