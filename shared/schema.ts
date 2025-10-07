@@ -204,7 +204,7 @@ export const activities = pgTable("activities", {
   delta: integer("delta"), // quantity change
   notes: text("notes"),
   patientId: varchar("patient_id"), // for controlled substances
-  patientPhoto: varchar("patient_photo"), // photo URL
+  patientPhoto: text("patient_photo"), // encrypted photo data (base64)
   signatures: jsonb("signatures"), // array of e-signatures
   controlledVerified: boolean("controlled_verified").default(false),
   metadata: jsonb("metadata"), // additional data
