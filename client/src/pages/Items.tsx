@@ -1187,57 +1187,143 @@ export default function Items() {
                         return (
                           <DraggableItem key={item.id} id={item.id} disabled={isBulkEditMode}>
                             <div
-                              className={`bg-card border border-border rounded-lg p-3 hover:shadow-md transition-all ${!isBulkEditMode ? 'cursor-pointer' : ''}`}
-                              onClick={() => !isBulkEditMode && handleEditItem(item)}
+                              className="item-row"
                               data-testid={`item-${item.id}`}
                             >
-                            {/* Item content - same as root items below */}
-                            <div className="flex items-start gap-3">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-start gap-2">
-                                  <h3 className="text-sm font-semibold text-foreground truncate flex-1">{item.name}</h3>
-                                  <div className="flex gap-1 flex-shrink-0">
-                                    {item.critical && (
-                                      <span className="status-chip chip-critical text-xs" data-testid={`item-${item.id}-critical`}>
-                                        <i className="fas fa-exclamation-circle"></i>
-                                      </span>
-                                    )}
-                                    {item.controlled && (
-                                      <span className="status-chip chip-controlled text-xs" data-testid={`item-${item.id}-controlled`}>
-                                        <i className="fas fa-shield-halved"></i>
-                                      </span>
-                                    )}
+                              <div className="flex items-start justify-between mb-3">
+                                {isBulkEditMode ? (
+                                  <div className="flex-1 space-y-2">
+                                    <div>
+                                      <Label className="text-xs">{t('items.name')}</Label>
+                                      <Input
+                                        value={bulkEditItems[item.id]?.name !== undefined ? bulkEditItems[item.id].name : item.name}
+                                        onChange={(e) => {
+                                          setBulkEditItems(prev => ({
+                                            ...prev,
+                                            [item.id]: { ...prev[item.id], name: e.target.value }
+                                          }));
+                                        }}
+                                        data-testid={`bulk-edit-name-${item.id}`}
+                                      />
+                                    </div>
                                   </div>
-                                </div>
-                                {item.description && (
-                                  <p className="text-xs text-muted-foreground mt-1 truncate">{item.description}</p>
-                                )}
-                                <div className="flex items-center gap-3 mt-2 flex-wrap text-xs">
-                                  <span className="text-muted-foreground">{item.unit}</span>
-                                  {item.stockLevel && (
-                                    <div className={`inline-flex items-center gap-1 ${stockStatus.color}`}>
-                                      <i className={`fas ${currentQty > 0 ? 'fa-check-circle' : 'fa-times-circle'}`}></i>
-                                      <span className="font-semibold" data-testid={`item-${item.id}-stock`}>{currentQty}</span>
-                                      {item.minThreshold !== null && item.minThreshold !== undefined && (
-                                        <span className="text-muted-foreground">
-                                          / Min: {item.minThreshold} / Max: {item.maxThreshold || 0}
-                                        </span>
+                                ) : (
+                                  <>
+                                    <div className="flex-1 min-w-0 pr-3">
+                                      <div className="flex items-start gap-2">
+                                        <h3 className="text-sm font-semibold text-foreground truncate flex-1">{item.name}</h3>
+                                        <div className="flex gap-1 flex-shrink-0">
+                                          {item.critical && (
+                                            <span className="status-chip chip-critical text-xs" data-testid={`item-${item.id}-critical`}>
+                                              <i className="fas fa-exclamation-circle"></i>
+                                            </span>
+                                          )}
+                                          {item.controlled && (
+                                            <span className="status-chip chip-controlled text-xs" data-testid={`item-${item.id}-controlled`}>
+                                              <i className="fas fa-shield-halved"></i>
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {item.description && (
+                                        <p className="text-xs text-muted-foreground mt-1 truncate">{item.description}</p>
                                       )}
                                     </div>
-                                  )}
-                                </div>
+                                    <button
+                                      onClick={() => handleEditItem(item)}
+                                      className="p-2 hover:bg-muted rounded-md transition-colors flex-shrink-0"
+                                      data-testid={`edit-item-${item.id}`}
+                                    >
+                                      <Edit2 className="w-4 h-4 text-muted-foreground" />
+                                    </button>
+                                  </>
+                                )}
                               </div>
-                              {currentQty <= (item.minThreshold || 0) && (
-                                <button
-                                  onClick={(e) => handleQuickOrder(e, item)}
-                                  className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors flex-shrink-0"
-                                  data-testid={`item-${item.id}-quick-order`}
-                                >
-                                  <i className="fas fa-bolt mr-1"></i>
-                                  {t('items.quickOrder')}
-                                </button>
+
+                              {daysUntilExpiry !== null && (
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className={`expiry-indicator ${getExpiryColor(daysUntilExpiry)}`}></div>
+                                  <span className="text-sm text-muted-foreground">
+                                    {t('items.expiresInDays', { days: Math.max(0, daysUntilExpiry) })}
+                                  </span>
+                                </div>
                               )}
-                            </div>
+
+                              <div className="flex items-center justify-between">
+                                {isBulkEditMode ? (
+                                  <div className="flex gap-2 flex-1">
+                                    <div className="flex-1">
+                                      <Label className="text-xs">{t('items.stock')}</Label>
+                                      <Input
+                                        type="number"
+                                        value={bulkEditItems[item.id]?.actualStock !== undefined ? bulkEditItems[item.id].actualStock : currentQty}
+                                        onChange={(e) => {
+                                          setBulkEditItems(prev => ({
+                                            ...prev,
+                                            [item.id]: { ...prev[item.id], actualStock: parseInt(e.target.value) || 0 }
+                                          }));
+                                        }}
+                                        data-testid={`bulk-edit-stock-${item.id}`}
+                                      />
+                                    </div>
+                                    <div className="flex-1">
+                                      <Label className="text-xs">{t('items.minThreshold')}</Label>
+                                      <Input
+                                        type="number"
+                                        value={bulkEditItems[item.id]?.minThreshold !== undefined ? bulkEditItems[item.id].minThreshold : (item.minThreshold || 0)}
+                                        onChange={(e) => {
+                                          setBulkEditItems(prev => ({
+                                            ...prev,
+                                            [item.id]: { ...prev[item.id], minThreshold: parseInt(e.target.value) || 0 }
+                                          }));
+                                        }}
+                                        data-testid={`bulk-edit-min-${item.id}`}
+                                      />
+                                    </div>
+                                    <div className="flex-1">
+                                      <Label className="text-xs">{t('items.maxThreshold')}</Label>
+                                      <Input
+                                        type="number"
+                                        value={bulkEditItems[item.id]?.maxThreshold !== undefined ? bulkEditItems[item.id].maxThreshold : (item.maxThreshold || 0)}
+                                        onChange={(e) => {
+                                          setBulkEditItems(prev => ({
+                                            ...prev,
+                                            [item.id]: { ...prev[item.id], maxThreshold: parseInt(e.target.value) || 0 }
+                                          }));
+                                        }}
+                                        data-testid={`bulk-edit-max-${item.id}`}
+                                      />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div className="flex items-center gap-3 flex-wrap text-xs">
+                                      <span className="text-muted-foreground">{item.unit}</span>
+                                      {item.stockLevel && (
+                                        <div className={`inline-flex items-center gap-1 ${stockStatus.color}`}>
+                                          <i className={`fas ${currentQty > 0 ? 'fa-check-circle' : 'fa-times-circle'}`}></i>
+                                          <span className="font-semibold" data-testid={`item-${item.id}-stock`}>{currentQty}</span>
+                                          {item.minThreshold !== null && item.minThreshold !== undefined && (
+                                            <span className="text-muted-foreground">
+                                              / Min: {item.minThreshold} / Max: {item.maxThreshold || 0}
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                    {currentQty <= (item.minThreshold || 0) && (
+                                      <button
+                                        onClick={(e) => handleQuickOrder(e, item)}
+                                        className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors flex-shrink-0"
+                                        data-testid={`item-${item.id}-quick-order`}
+                                      >
+                                        <i className="fas fa-bolt mr-1"></i>
+                                        {t('items.quickOrder')}
+                                      </button>
+                                    )}
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </DraggableItem>
                         );
@@ -1258,8 +1344,7 @@ export default function Items() {
                     return (
                       <DraggableItem key={item.id} id={item.id} disabled={isBulkEditMode}>
                         <div 
-                          className={`item-row ${!isBulkEditMode ? 'cursor-pointer hover:bg-accent/50' : ''} transition-colors`}
-                          onClick={() => !isBulkEditMode && handleEditItem(item)}
+                          className="item-row"
                           data-testid={`item-${item.id}`}
                         >
                 <div className="flex items-start justify-between mb-3">
@@ -1275,7 +1360,6 @@ export default function Items() {
                               [item.id]: { ...prev[item.id], name: e.target.value }
                             }));
                           }}
-                          onClick={(e) => e.stopPropagation()}
                           data-testid={`bulk-edit-name-${item.id}`}
                         />
                       </div>
@@ -1286,7 +1370,7 @@ export default function Items() {
                         <h3 className="font-semibold text-foreground">{item.name}</h3>
                         <p className="text-sm text-muted-foreground">{item.description || `${item.unit} unit`}</p>
                       </div>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1 items-center">
                         {item.critical && (
                           <span className="status-chip chip-critical text-xs">
                             <i className="fas fa-exclamation-circle"></i>
@@ -1297,6 +1381,13 @@ export default function Items() {
                             <i className="fas fa-shield-halved"></i>
                           </span>
                         )}
+                        <button
+                          onClick={() => handleEditItem(item)}
+                          className="p-2 hover:bg-muted rounded-md transition-colors"
+                          data-testid={`edit-item-${item.id}`}
+                        >
+                          <Edit2 className="w-4 h-4 text-muted-foreground" />
+                        </button>
                       </div>
                     </>
                   )}
@@ -1326,7 +1417,6 @@ export default function Items() {
                               [item.id]: { ...prev[item.id], actualStock: val }
                             }));
                           }}
-                          onClick={(e) => e.stopPropagation()}
                           data-testid={`bulk-edit-stock-${item.id}`}
                         />
                       </div>
@@ -1342,7 +1432,6 @@ export default function Items() {
                               [item.id]: { ...prev[item.id], minThreshold: val }
                             }));
                           }}
-                          onClick={(e) => e.stopPropagation()}
                           data-testid={`bulk-edit-min-${item.id}`}
                         />
                       </div>
@@ -1358,7 +1447,6 @@ export default function Items() {
                               [item.id]: { ...prev[item.id], maxThreshold: val }
                             }));
                           }}
-                          onClick={(e) => e.stopPropagation()}
                           data-testid={`bulk-edit-max-${item.id}`}
                         />
                       </div>
