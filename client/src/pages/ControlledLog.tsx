@@ -402,10 +402,10 @@ export default function ControlledLog() {
       return;
     }
 
-    if (!patientId.trim()) {
+    if (!patientId.trim() && !patientPhoto) {
       toast({
         title: "Patient Required",
-        description: "Please provide patient identification.",
+        description: "Please provide patient identification (text ID or photo).",
         variant: "destructive",
       });
       return;
@@ -1247,7 +1247,7 @@ export default function ControlledLog() {
                 <Button
                   className="flex-1 bg-accent hover:bg-accent/90"
                   onClick={handleSubmitAdministration}
-                  disabled={dispenseMutation.isPending || !signature || !patientId.trim() || selectedDrugs.filter(d => d.selected && d.qty > 0).length === 0}
+                  disabled={dispenseMutation.isPending || !signature || (!patientId.trim() && !patientPhoto) || selectedDrugs.filter(d => d.selected && d.qty > 0).length === 0}
                   data-testid="submit-administration"
                 >
                   <i className="fas fa-shield-halved mr-2"></i>

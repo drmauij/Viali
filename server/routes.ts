@@ -1347,12 +1347,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Items array is required" });
       }
       
-      if (!patientId) {
-        return res.status(400).json({ message: "Patient ID is required for controlled substances" });
+      if (!patientId && !patientPhoto) {
+        return res.status(400).json({ message: "Patient identification (ID or photo) is required for controlled substances" });
       }
       
       // Encrypt patient data before storing
-      const encryptedPatientId = encryptPatientData(patientId);
+      const encryptedPatientId = patientId ? encryptPatientData(patientId) : null;
       const encryptedPatientPhoto = patientPhoto ? encryptPatientData(patientPhoto) : null;
       
       // Create activity for each dispensed item and update stock
