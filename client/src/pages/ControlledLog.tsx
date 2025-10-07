@@ -838,6 +838,17 @@ export default function ControlledLog() {
                         Patient: {activity.patientId || "Unknown"}
                       </span>
                     </div>
+                    {activity.patientPhoto && (
+                      <div className="ml-6">
+                        <img 
+                          src={activity.patientPhoto} 
+                          alt="Patient label" 
+                          className="max-w-xs rounded border border-border cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => activity.patientPhoto && window.open(activity.patientPhoto, '_blank')}
+                          data-testid={`patient-photo-${activity.id}`}
+                        />
+                      </div>
+                    )}
                     <div className="flex items-center gap-2">
                       <i className="fas fa-user-md text-muted-foreground text-sm"></i>
                       <span className="text-sm text-foreground">
@@ -1128,7 +1139,7 @@ export default function ControlledLog() {
                 )}
 
                 {patientMethod === "photo" && (
-                  <div className="bg-muted rounded-lg p-4">
+                  <div className="bg-muted rounded-lg p-4 space-y-3">
                     <input
                       type="file"
                       ref={patientPhotoInputRef}
@@ -1137,37 +1148,54 @@ export default function ControlledLog() {
                       onChange={handlePatientPhotoCapture}
                       className="hidden"
                     />
-                    {patientId ? (
-                      <div className="text-center">
-                        <i className="fas fa-check-circle text-4xl text-success mb-2"></i>
-                        <p className="text-sm text-success font-medium">Patient ID: {patientId}</p>
+                    
+                    <div>
+                      <Label htmlFor="patient-id-photo" className="block text-sm font-medium mb-2">
+                        Patient ID
+                      </Label>
+                      <Input
+                        id="patient-id-photo"
+                        type="text"
+                        placeholder="Enter Patient ID or Name"
+                        value={patientId}
+                        onChange={(e) => setPatientId(e.target.value)}
+                        data-testid="patient-id-photo-input"
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="block text-sm font-medium mb-2">
+                        Patient Label Photo
+                      </Label>
+                      {patientPhoto ? (
+                        <div className="space-y-2">
+                          <img 
+                            src={patientPhoto} 
+                            alt="Patient label" 
+                            className="w-full rounded border border-border"
+                          />
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="w-full"
+                            onClick={() => patientPhotoInputRef.current?.click()}
+                          >
+                            <i className="fas fa-redo mr-2"></i>
+                            Retake Photo
+                          </Button>
+                        </div>
+                      ) : (
                         <Button 
-                          className="mt-3" 
-                          variant="outline" 
+                          variant="outline"
+                          className="w-full"
                           onClick={() => patientPhotoInputRef.current?.click()}
-                          disabled={isAnalyzingPatient}
+                          data-testid="take-patient-photo"
                         >
-                          <i className="fas fa-redo mr-2"></i>
-                          Retake
+                          <i className="fas fa-camera mr-2"></i>
+                          Take Photo
                         </Button>
-                      </div>
-                    ) : (
-                      <div className="text-center">
-                        <i className={`fas ${isAnalyzingPatient ? 'fa-spinner fa-spin' : 'fa-camera'} text-4xl text-muted-foreground mb-2`}></i>
-                        <p className="text-sm text-muted-foreground">
-                          {isAnalyzingPatient ? 'Analyzing...' : 'Photo patient label/wristband'}
-                        </p>
-                        <Button 
-                          className="mt-3" 
-                          onClick={() => patientPhotoInputRef.current?.click()}
-                          disabled={isAnalyzingPatient}
-                          data-testid="start-patient-camera"
-                        >
-                          <i className={`fas ${isAnalyzingPatient ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
-                          {isAnalyzingPatient ? 'Analyzing...' : 'Take Photo'}
-                        </Button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1429,6 +1457,18 @@ export default function ControlledLog() {
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground mb-1">Patient ID</p>
                     <p className="font-medium text-foreground">{selectedActivity.patientId || "Not provided"}</p>
+                    {selectedActivity.patientPhoto && (
+                      <div className="mt-3">
+                        <p className="text-xs text-muted-foreground mb-2">Patient Label Photo</p>
+                        <img 
+                          src={selectedActivity.patientPhoto} 
+                          alt="Patient label" 
+                          className="max-w-full rounded border border-border cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => selectedActivity.patientPhoto && window.open(selectedActivity.patientPhoto, '_blank')}
+                          data-testid="patient-photo-detail"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
 
