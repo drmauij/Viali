@@ -1461,14 +1461,13 @@ export default function Items() {
               />
               <Button
                 type="button"
-                variant="outline"
-                className="w-full"
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isAnalyzing}
                 data-testid="button-upload-image"
               >
                 <i className={`fas ${isAnalyzing ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
-                {isAnalyzing ? "Analyzing..." : "Take Photo / Upload Images"}
+                {isAnalyzing ? "Analyzing..." : "Take Photo"}
               </Button>
               {uploadedImages.length > 0 && (
                 <div className="mt-2 flex gap-2 overflow-x-auto">
