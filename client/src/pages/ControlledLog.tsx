@@ -344,19 +344,23 @@ export default function ControlledLog() {
     if (!file) return;
 
     setIsAnalyzingPatient(true);
+    let worker: any = null;
 
     try {
       const { createWorker } = await import('tesseract.js');
-      const worker = await createWorker('eng');
+      worker = await createWorker();
+      
+      await worker.load();
+      await worker.loadLanguage('eng');
+      await worker.initialize('eng');
       
       const { data: { text } } = await worker.recognize(file);
-      await worker.terminate();
       
       const extractedText = text.trim();
       
       if (extractedText) {
-        const lines = extractedText.split('\n').filter(line => line.trim());
-        const potentialId = lines.find(line => 
+        const lines = extractedText.split('\n').filter((line: string) => line.trim());
+        const potentialId = lines.find((line: string) => 
           /\d/.test(line) && line.length >= 3
         ) || lines[0] || extractedText;
         
@@ -380,6 +384,9 @@ export default function ControlledLog() {
         variant: "destructive",
       });
     } finally {
+      if (worker) {
+        await worker.terminate();
+      }
       setIsAnalyzingPatient(false);
     }
     
