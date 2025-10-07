@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useTranslation } from "react-i18next";
@@ -76,10 +76,40 @@ export default function Admin() {
   });
 
   // Fetch users
-  const { data: users = [], isLoading: usersLoading } = useQuery<HospitalUser[]>({
+  const { data: rawUsers = [], isLoading: usersLoading } = useQuery<HospitalUser[]>({
     queryKey: ["/api/admin", activeHospital?.id, "users"],
     enabled: !!activeHospital?.id && isAdmin,
   });
+
+  // Group users by user ID to show each user only once with all their roles
+  const users = useMemo(() => {
+    const grouped = new Map<string, HospitalUser & { roles: Array<{ role: string; location: Location; roleId: string; locationId: string }> }>();
+    
+    rawUsers.forEach(userRole => {
+      const userId = userRole.user.id;
+      if (!grouped.has(userId)) {
+        grouped.set(userId, {
+          ...userRole,
+          roles: [{
+            role: userRole.role,
+            location: userRole.location,
+            roleId: userRole.id,
+            locationId: userRole.locationId
+          }]
+        });
+      } else {
+        const existing = grouped.get(userId)!;
+        existing.roles.push({
+          role: userRole.role,
+          location: userRole.location,
+          roleId: userRole.id,
+          locationId: userRole.locationId
+        });
+      }
+    });
+    
+    return Array.from(grouped.values());
+  }, [rawUsers]);
 
   // Location mutations
   const createLocationMutation = useMutation({
@@ -195,9 +225,12 @@ export default function Admin() {
       const response = await apiRequest("DELETE", `/api/admin/users/${userId}/delete?hospitalId=${activeHospital?.id}`);
       return await response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "users"] });
-      toast({ title: t("common.success"), description: t("admin.userDeletedSuccess") });
+      toast({ 
+        title: t("common.success"), 
+        description: data.message || t("admin.userDeletedSuccess")
+      });
     },
     onError: (error: any) => {
       toast({ title: t("common.error"), description: error.message || t("admin.failedToDeleteUser"), variant: "destructive" });
@@ -267,10 +300,12 @@ export default function Admin() {
   };
 
   const handleEditUser = (user: HospitalUser) => {
-    // Get all role/location pairs for this user
-    const userPairs = users
-      .filter(u => u.user.id === user.user.id)
-      .map(u => ({ id: u.id, role: u.role, locationId: u.locationId }));
+    // For grouped users, use the roles array directly
+    const userPairs = user.roles?.map(r => ({ 
+      id: r.roleId, 
+      role: r.role, 
+      locationId: r.locationId 
+    })) || [];
     
     setEditingUserDetails(user.user);
     setUserForm({
@@ -286,10 +321,15 @@ export default function Admin() {
   // Sync roleLocationPairs when users query updates (after mutations)
   useEffect(() => {
     if (editingUserDetails && users) {
-      const userPairs = users
-        .filter(u => u.user.id === editingUserDetails.id)
-        .map(u => ({ id: u.id, role: u.role, locationId: u.locationId }));
-      setRoleLocationPairs(userPairs);
+      const user = users.find(u => u.user.id === editingUserDetails.id);
+      if (user) {
+        const userPairs = user.roles?.map(r => ({ 
+          id: r.roleId, 
+          role: r.role, 
+          locationId: r.locationId 
+        })) || [];
+        setRoleLocationPairs(userPairs);
+      }
     }
   }, [users, editingUserDetails]);
 
@@ -577,16 +617,20 @@ export default function Admin() {
           ) : (
             <div className="space-y-2">
               {users.map((user) => (
-                <div key={user.id} className="bg-card border border-border rounded-lg p-4" data-testid={`user-${user.id}`}>
+                <div key={user.user.id} className="bg-card border border-border rounded-lg p-4" data-testid={`user-${user.user.id}`}>
                   <div className="flex items-center justify-between">
-                    <div>
+                    <div className="flex-1">
                       <h3 className="font-semibold text-foreground">
                         {user.user.firstName} {user.user.lastName}
                       </h3>
                       <p className="text-sm text-muted-foreground">{user.user.email}</p>
-                      <div className="flex gap-2 mt-1">
-                        <span className="status-chip chip-primary text-xs">{getRoleName(user.role)}</span>
-                        <span className="status-chip chip-muted text-xs">{user.location.name}</span>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {user.roles.map((roleInfo, idx) => (
+                          <div key={idx} className="flex gap-1 items-center">
+                            <span className="status-chip chip-primary text-xs">{getRoleName(roleInfo.role)}</span>
+                            <span className="status-chip chip-muted text-xs">{roleInfo.location.name}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -594,30 +638,17 @@ export default function Admin() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleEditUser(user)}
-                        data-testid={`button-edit-user-${user.id}`}
+                        data-testid={`button-edit-user-${user.user.id}`}
                         title={t("admin.editUser")}
                       >
-                        <i className="fas fa-edit"></i>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          if (confirm(t("admin.removeUserConfirm"))) {
-                            deleteUserRoleMutation.mutate(user.id);
-                          }
-                        }}
-                        data-testid={`button-remove-user-${user.id}`}
-                        title={t("admin.removeFromHospital")}
-                      >
-                        <i className="fas fa-user-minus text-warning"></i>
+                        <i className="fas fa-user-edit"></i>
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleDeleteUser(user)}
-                        data-testid={`button-delete-user-${user.id}`}
-                        title={t("admin.deleteUserPermanently")}
+                        data-testid={`button-delete-user-${user.user.id}`}
+                        title={t("admin.deleteUser")}
                       >
                         <i className="fas fa-trash text-destructive"></i>
                       </Button>

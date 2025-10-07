@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage, db } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertItemSchema, insertFolderSchema, insertActivitySchema, orderLines, items, stockLevels, orders, users } from "@shared/schema";
+import { insertItemSchema, insertFolderSchema, insertActivitySchema, orderLines, items, stockLevels, orders, users, userHospitalRoles, activities } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import OpenAI from "openai";
@@ -2015,8 +2015,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
 
-      await storage.deleteUser(userId);
-      res.json({ success: true });
+      // Get all user's hospital associations
+      const userHospitals = await storage.getUserHospitals(userId);
+      
+      // Remove all associations for this hospital
+      const hospitalRoles = userHospitals.filter(h => h.id === hospitalId);
+      for (const role of hospitalRoles) {
+        // Get the role record ID by looking up user_hospital_roles
+        const [roleRecord] = await db
+          .select()
+          .from(userHospitalRoles)
+          .where(
+            and(
+              eq(userHospitalRoles.userId, userId),
+              eq(userHospitalRoles.hospitalId, hospitalId),
+              eq(userHospitalRoles.locationId, role.locationId),
+              eq(userHospitalRoles.role, role.role)
+            )
+          );
+        
+        if (roleRecord) {
+          await storage.deleteUserHospitalRole(roleRecord.id);
+        }
+      }
+      
+      // Check if user has associations with other hospitals
+      const remainingHospitals = userHospitals.filter(h => h.id !== hospitalId);
+      
+      // Check if user has any activity records (for audit trail)
+      const [activityCount] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(activities)
+        .where(eq(activities.userId, userId));
+      
+      const hasActivities = activityCount?.count > 0;
+      
+      // Only delete user if they have no other hospitals AND no activities
+      // This preserves audit trails for compliance
+      if (remainingHospitals.length === 0 && !hasActivities) {
+        await storage.deleteUser(userId);
+        res.json({ 
+          success: true, 
+          deleted: true,
+          message: "User completely removed from system"
+        });
+      } else {
+        res.json({ 
+          success: true, 
+          deleted: false,
+          message: hasActivities 
+            ? "User removed from hospital but preserved for audit trail"
+            : "User removed from hospital but has access to other hospitals"
+        });
+      }
     } catch (error) {
       console.error("Error deleting user:", error);
       res.status(500).json({ message: "Failed to delete user" });
