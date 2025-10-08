@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
@@ -61,10 +62,9 @@ type PatientMethod = "text" | "barcode" | "photo";
 export default function ControlledLog() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const activeHospital = useActiveHospital();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
-  const [activeHospital] = useState(() => (user as any)?.hospitals?.[0]);
   const [showAdministrationModal, setShowAdministrationModal] = useState(false);
   const [showRoutineCheckModal, setShowRoutineCheckModal] = useState(false);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
@@ -400,6 +400,8 @@ export default function ControlledLog() {
   };
 
   const handleSubmitRoutineCheck = () => {
+    if (!activeHospital) return;
+    
     if (!checkSignature) {
       toast({
         title: "Signature Required",

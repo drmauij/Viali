@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -75,7 +76,7 @@ function DroppableFolder({ id, children }: { id: string; children: React.ReactNo
 export default function Items() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const [activeHospital] = useState(() => (user as any)?.hospitals?.[0]);
+  const activeHospital = useActiveHospital();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [sortBy, setSortBy] = useState("name");

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import BarcodeScanner from "@/components/BarcodeScanner";
@@ -27,6 +28,7 @@ interface ExternalProduct {
 
 export default function Scan() {
   const { user } = useAuth();
+  const activeHospital = useActiveHospital();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -36,7 +38,6 @@ export default function Scan() {
   const [manualBarcode, setManualBarcode] = useState("");
   const [scannedItem, setScannedItem] = useState<ItemWithStock | null>(null);
   const [externalProduct, setExternalProduct] = useState<ExternalProduct | null>(null);
-  const [activeHospital] = useState(() => (user as any)?.hospitals?.[0]);
 
   // Barcode scan mutation - first try to find in local database
   const scanMutation = useMutation({

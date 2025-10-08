@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
@@ -55,9 +56,9 @@ const getStockStatus = (item: Item & { stockLevel?: StockLevel }) => {
 export default function Orders() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const activeHospital = useActiveHospital();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeHospital] = useState(() => (user as any)?.hospitals?.[0]);
   const [newOrderDialogOpen, setNewOrderDialogOpen] = useState(false);
   const [editOrderDialogOpen, setEditOrderDialogOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrderWithDetails | null>(null);

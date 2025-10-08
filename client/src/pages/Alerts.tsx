@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
@@ -17,10 +18,10 @@ interface AlertWithDetails extends Alert {
 export default function Alerts() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const activeHospital = useActiveHospital();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
-  const [activeHospital] = useState(() => (user as any)?.hospitals?.[0]);
 
   const { data: alerts = [], isLoading } = useQuery<AlertWithDetails[]>({
     queryKey: ["/api/alerts", activeHospital?.id, false], // false = unacknowledged
