@@ -732,8 +732,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateItem(bulkItem.id, updates);
         }
         
-        // Update stock level if provided
-        if (bulkItem.actualStock !== undefined) {
+        // Handle stock updates
+        if (item.trackExactQuantity && bulkItem.currentUnits !== undefined) {
+          // For items with exact quantity tracking: update currentUnits and recalculate stock
+          const packSize = item.packSize || 1;
+          const newStock = Math.ceil(bulkItem.currentUnits / packSize);
+          
+          await db
+            .update(items)
+            .set({ currentUnits: bulkItem.currentUnits })
+            .where(eq(items.id, bulkItem.id));
+          
+          await storage.updateStockLevel(bulkItem.id, item.locationId, newStock);
+        } else if (bulkItem.actualStock !== undefined) {
+          // For standard items: update stock directly
           await storage.updateStockLevel(bulkItem.id, item.locationId, bulkItem.actualStock);
         }
         

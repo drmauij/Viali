@@ -295,6 +295,27 @@ export default function Items() {
     },
   });
 
+  const quickReduceMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      const response = await apiRequest("PATCH", `/api/items/${itemId}/reduce-unit`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id] });
+      toast({
+        title: t('common.success'),
+        description: "Unit reduced successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('common.error'),
+        description: error.message || "Failed to reduce unit",
+        variant: "destructive",
+      });
+    },
+  });
+
   const normalizeUnit = (unit: string): UnitType => {
     const normalized = unit.toLowerCase();
     if (normalized === "pack" || normalized === "box") {
@@ -673,6 +694,11 @@ export default function Items() {
       packSize,
       vendorId: defaultVendor?.id,
     });
+  };
+
+  const handleQuickReduce = (e: React.MouseEvent, item: ItemWithStock) => {
+    e.stopPropagation();
+    quickReduceMutation.mutate(item.id);
   };
 
   const handleUpdateItem = (e: React.FormEvent<HTMLFormElement>) => {
@@ -1272,17 +1298,31 @@ export default function Items() {
                                 {isBulkEditMode ? (
                                   <div className="flex gap-2 flex-1">
                                     <div className="flex-1">
-                                      <Label className="text-xs">{t('items.stock')}</Label>
+                                      <Label className="text-xs">
+                                        {item.trackExactQuantity ? t('items.currentUnits') : t('items.stock')}
+                                      </Label>
                                       <Input
                                         type="number"
-                                        value={bulkEditItems[item.id]?.actualStock !== undefined ? bulkEditItems[item.id].actualStock : currentQty}
+                                        value={
+                                          item.trackExactQuantity 
+                                            ? (bulkEditItems[item.id]?.currentUnits !== undefined ? bulkEditItems[item.id].currentUnits : (item.currentUnits || 0))
+                                            : (bulkEditItems[item.id]?.actualStock !== undefined ? bulkEditItems[item.id].actualStock : currentQty)
+                                        }
                                         onChange={(e) => {
-                                          setBulkEditItems(prev => ({
-                                            ...prev,
-                                            [item.id]: { ...prev[item.id], actualStock: parseInt(e.target.value) || 0 }
-                                          }));
+                                          const val = parseInt(e.target.value) || 0;
+                                          if (item.trackExactQuantity) {
+                                            setBulkEditItems(prev => ({
+                                              ...prev,
+                                              [item.id]: { ...prev[item.id], currentUnits: val }
+                                            }));
+                                          } else {
+                                            setBulkEditItems(prev => ({
+                                              ...prev,
+                                              [item.id]: { ...prev[item.id], actualStock: val }
+                                            }));
+                                          }
                                         }}
-                                        data-testid={`bulk-edit-stock-${item.id}`}
+                                        data-testid={`bulk-edit-${item.trackExactQuantity ? 'units' : 'stock'}-${item.id}`}
                                       />
                                     </div>
                                     <div className="flex-1">
@@ -1335,27 +1375,39 @@ export default function Items() {
                                         </div>
                                       )}
                                     </div>
-                                    {currentQty <= (item.minThreshold || 0) && (
-                                      openOrderItems[item.id] ? (
+                                    <div className="flex gap-1 items-center">
+                                      {(item.trackExactQuantity || item.unit.toLowerCase() === 'single unit') && (
                                         <button
-                                          disabled
-                                          className="px-3 py-1.5 bg-muted text-muted-foreground rounded-lg text-xs font-medium flex-shrink-0 cursor-not-allowed"
-                                          data-testid={`item-${item.id}-quick-ordered`}
+                                          onClick={(e) => handleQuickReduce(e, item)}
+                                          className="px-2 py-1 bg-orange-500 text-white rounded text-xs font-medium hover:bg-orange-600 transition-colors flex-shrink-0"
+                                          data-testid={`item-${item.id}-quick-reduce`}
+                                          title="Reduce 1 unit"
                                         >
-                                          <i className="fas fa-check mr-1"></i>
-                                          {t('items.quickOrdered', { count: openOrderItems[item.id].totalQty })}
+                                          -1
                                         </button>
-                                      ) : (
-                                        <button
-                                          onClick={(e) => handleQuickOrder(e, item)}
-                                          className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors flex-shrink-0"
-                                          data-testid={`item-${item.id}-quick-order`}
-                                        >
-                                          <i className="fas fa-bolt mr-1"></i>
-                                          {t('items.quickOrder')}
-                                        </button>
-                                      )
-                                    )}
+                                      )}
+                                      {currentQty <= (item.minThreshold || 0) && (
+                                        openOrderItems[item.id] ? (
+                                          <button
+                                            disabled
+                                            className="px-3 py-1.5 bg-muted text-muted-foreground rounded-lg text-xs font-medium flex-shrink-0 cursor-not-allowed"
+                                            data-testid={`item-${item.id}-quick-ordered`}
+                                          >
+                                            <i className="fas fa-check mr-1"></i>
+                                            {t('items.quickOrdered', { count: openOrderItems[item.id].totalQty })}
+                                          </button>
+                                        ) : (
+                                          <button
+                                            onClick={(e) => handleQuickOrder(e, item)}
+                                            className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors flex-shrink-0"
+                                            data-testid={`item-${item.id}-quick-order`}
+                                          >
+                                            <i className="fas fa-bolt mr-1"></i>
+                                            {t('items.quickOrder')}
+                                          </button>
+                                        )
+                                      )}
+                                    </div>
                                   </>
                                 )}
                               </div>
@@ -1438,18 +1490,31 @@ export default function Items() {
                   {isBulkEditMode ? (
                     <div className="flex gap-2 flex-1">
                       <div className="flex-1">
-                        <Label className="text-xs">{t('items.stock')}</Label>
+                        <Label className="text-xs">
+                          {item.trackExactQuantity ? t('items.currentUnits') : t('items.stock')}
+                        </Label>
                         <Input
                           type="number"
-                          value={bulkEditItems[item.id]?.actualStock !== undefined ? bulkEditItems[item.id].actualStock : currentQty}
+                          value={
+                            item.trackExactQuantity 
+                              ? (bulkEditItems[item.id]?.currentUnits !== undefined ? bulkEditItems[item.id].currentUnits : (item.currentUnits || 0))
+                              : (bulkEditItems[item.id]?.actualStock !== undefined ? bulkEditItems[item.id].actualStock : currentQty)
+                          }
                           onChange={(e) => {
                             const val = parseInt(e.target.value) || 0;
-                            setBulkEditItems(prev => ({
-                              ...prev,
-                              [item.id]: { ...prev[item.id], actualStock: val }
-                            }));
+                            if (item.trackExactQuantity) {
+                              setBulkEditItems(prev => ({
+                                ...prev,
+                                [item.id]: { ...prev[item.id], currentUnits: val }
+                              }));
+                            } else {
+                              setBulkEditItems(prev => ({
+                                ...prev,
+                                [item.id]: { ...prev[item.id], actualStock: val }
+                              }));
+                            }
                           }}
-                          data-testid={`bulk-edit-stock-${item.id}`}
+                          data-testid={`bulk-edit-${item.trackExactQuantity ? 'units' : 'stock'}-${item.id}`}
                         />
                       </div>
                       <div className="flex-1">
@@ -1499,17 +1564,31 @@ export default function Items() {
                           / Min: {item.minThreshold || 0} / Max: {item.maxThreshold || 0}
                         </span>
                       </div>
-                      {openOrderItems[item.id] ? (
-                        <Button variant="outline" size="sm" disabled data-testid={`quick-ordered-${item.id}`}>
-                          <i className="fas fa-check mr-1"></i>
-                          {t('items.quickOrdered', { count: openOrderItems[item.id].totalQty })}
-                        </Button>
-                      ) : (
-                        <Button variant="outline" size="sm" onClick={(e) => handleQuickOrder(e, item)} data-testid={`quick-order-${item.id}`}>
-                          <i className="fas fa-bolt mr-1"></i>
-                          {t('items.quickOrder')}
-                        </Button>
-                      )}
+                      <div className="flex gap-1 items-center">
+                        {(item.trackExactQuantity || item.unit.toLowerCase() === 'single unit') && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={(e) => handleQuickReduce(e, item)} 
+                            data-testid={`quick-reduce-${item.id}`}
+                            className="px-2 bg-orange-500 hover:bg-orange-600 text-white border-orange-500"
+                            title="Reduce 1 unit"
+                          >
+                            -1
+                          </Button>
+                        )}
+                        {openOrderItems[item.id] ? (
+                          <Button variant="outline" size="sm" disabled data-testid={`quick-ordered-${item.id}`}>
+                            <i className="fas fa-check mr-1"></i>
+                            {t('items.quickOrdered', { count: openOrderItems[item.id].totalQty })}
+                          </Button>
+                        ) : (
+                          <Button variant="outline" size="sm" onClick={(e) => handleQuickOrder(e, item)} data-testid={`quick-order-${item.id}`}>
+                            <i className="fas fa-bolt mr-1"></i>
+                            {t('items.quickOrder')}
+                          </Button>
+                        )}
+                      </div>
                     </>
                   )}
                 </div>
@@ -1670,9 +1749,9 @@ export default function Items() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSelectedUnit("ampulle")}
+                  onClick={() => setSelectedUnit("Single unit")}
                   className={`flex-1 py-3 px-2 rounded-lg border-2 transition-all ${
-                    selectedUnit === "ampulle" 
+                    selectedUnit === "Single unit" 
                       ? "border-primary bg-primary/10" 
                       : "border-border bg-background"
                   }`}
@@ -1878,9 +1957,9 @@ export default function Items() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSelectedUnit("ampulle")}
+                  onClick={() => setSelectedUnit("Single unit")}
                   className={`flex flex-col items-center py-3 px-2 rounded-lg border-2 transition-all ${
-                    selectedUnit === "ampulle" 
+                    selectedUnit === "Single unit" 
                       ? "border-primary bg-primary/10" 
                       : "border-border bg-background"
                   }`}
