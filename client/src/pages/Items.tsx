@@ -124,6 +124,7 @@ export default function Items() {
   const [bulkImages, setBulkImages] = useState<string[]>([]);
   const [bulkItems, setBulkItems] = useState<any[]>([]);
   const [isBulkAnalyzing, setIsBulkAnalyzing] = useState(false);
+  const [bulkImportLimit, setBulkImportLimit] = useState(10); // Default to free tier limit
   
   // Bulk edit state
   const [isBulkEditMode, setIsBulkEditMode] = useState(false);
@@ -175,6 +176,25 @@ export default function Items() {
       }
     }
   }, [items.length, isLoading, activeHospital?.id]);
+
+  // Fetch bulk import limit based on hospital license
+  useEffect(() => {
+    if (activeHospital?.id) {
+      fetch(`/api/hospitals/${activeHospital.id}/bulk-import-limit`, {
+        credentials: "include"
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.limit) {
+            setBulkImportLimit(data.limit);
+          }
+        })
+        .catch(err => {
+          console.error("Failed to fetch bulk import limit:", err);
+          setBulkImportLimit(10); // Default to free tier
+        });
+    }
+  }, [activeHospital?.id]);
 
   const { data: vendors = [] } = useQuery<Vendor[]>({
     queryKey: ["/api/vendors", activeHospital?.id],
@@ -412,7 +432,10 @@ export default function Items() {
 
   const bulkAnalyzeMutation = useMutation({
     mutationFn: async (images: string[]) => {
-      const response = await apiRequest("POST", "/api/items/analyze-images", { images });
+      const response = await apiRequest("POST", "/api/items/analyze-images", { 
+        images,
+        hospitalId: activeHospital?.id 
+      });
       return await response.json();
     },
     onSuccess: (data) => {
@@ -884,10 +907,10 @@ export default function Items() {
   const handleBulkImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    if (files.length > 10) {
+    if (files.length > bulkImportLimit) {
       toast({
-        title: "Too Many Images",
-        description: "Maximum 10 images allowed",
+        title: t('items.tooManyImages'),
+        description: t('items.maxImagesAllowed', { count: bulkImportLimit }),
         variant: "destructive",
       });
       return;

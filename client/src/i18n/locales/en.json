@@ -183,7 +183,9 @@
     "addItemsManually": "Add Items Manually",
     "addItemsManuallyDesc": "Prefer to add items one at a time? You can manually create items with all the details you need.",
     "addFirstItem": "Add First Item",
-    "doLater": "I'll do this later"
+    "doLater": "I'll do this later",
+    "tooManyImages": "Too Many Images",
+    "maxImagesAllowed": "Maximum {{count}} images allowed for your plan"
   },
   "orders": {
     "title": "Purchase Orders",

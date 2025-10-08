@@ -183,7 +183,9 @@
     "addItemsManually": "Artikel manuell hinzufügen",
     "addItemsManuallyDesc": "Möchten Sie lieber Artikel einzeln hinzufügen? Sie können Artikel manuell mit allen benötigten Details erstellen.",
     "addFirstItem": "Ersten Artikel hinzufügen",
-    "doLater": "Ich mache das später"
+    "doLater": "Ich mache das später",
+    "tooManyImages": "Zu viele Bilder",
+    "maxImagesAllowed": "Maximal {{count}} Bilder für Ihren Plan erlaubt"
   },
   "orders": {
     "title": "Bestellungen",
