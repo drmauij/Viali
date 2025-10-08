@@ -126,6 +126,13 @@ export default function Items() {
   const [isBulkAnalyzing, setIsBulkAnalyzing] = useState(false);
   const [bulkImportLimit, setBulkImportLimit] = useState(10); // Default to free tier limit
   
+  // Import job notification state
+  const [importJob, setImportJob] = useState<{
+    jobId: string;
+    status: 'processing' | 'completed';
+    itemCount: number;
+  } | null>(null);
+  
   // Bulk edit state
   const [isBulkEditMode, setIsBulkEditMode] = useState(false);
   const [bulkEditItems, setBulkEditItems] = useState<Record<string, any>>({});
@@ -439,6 +446,14 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: (data) => {
+      // Close dialog and show notification
+      setBulkImportOpen(false);
+      setImportJob({
+        jobId: data.jobId,
+        status: 'processing',
+        itemCount: data.totalImages
+      });
+      
       // Start polling for job completion
       const jobId = data.jobId;
       const pollInterval = setInterval(async () => {
@@ -452,13 +467,15 @@ export default function Items() {
             clearInterval(pollInterval);
             setIsBulkAnalyzing(false);
             setBulkItems(jobStatus.results || []);
-            toast({
-              title: t('items.analysisComplete'),
-              description: t('items.extractedItems', { count: jobStatus.results?.length || 0 }),
+            setImportJob({
+              jobId: data.jobId,
+              status: 'completed',
+              itemCount: jobStatus.results?.length || 0
             });
           } else if (jobStatus.status === 'failed') {
             clearInterval(pollInterval);
             setIsBulkAnalyzing(false);
+            setImportJob(null);
             toast({
               title: t('items.analysisFailed'),
               description: jobStatus.error || t('items.failedToAnalyze'),
@@ -469,6 +486,7 @@ export default function Items() {
         } catch (error) {
           clearInterval(pollInterval);
           setIsBulkAnalyzing(false);
+          setImportJob(null);
           toast({
             title: t('items.analysisFailed'),
             description: 'Failed to check job status',
@@ -476,11 +494,6 @@ export default function Items() {
           });
         }
       }, 2000); // Poll every 2 seconds
-
-      toast({
-        title: "Processing Started",
-        description: `Your ${data.totalImages} images are being analyzed. This may take a minute...`,
-      });
     },
     onError: (error: any) => {
       toast({
@@ -525,6 +538,7 @@ export default function Items() {
       setBulkImportOpen(false);
       setBulkImages([]);
       setBulkItems([]);
+      setImportJob(null); // Clear notification
       toast({
         title: t('common.success'),
         description: t('items.itemsImportedSuccess'),
@@ -538,6 +552,13 @@ export default function Items() {
       });
     },
   });
+
+  // Handler for notification click
+  const handleImportNotificationClick = () => {
+    if (importJob?.status === 'completed' && bulkItems.length > 0) {
+      setBulkImportOpen(true);
+    }
+  };
 
   const bulkUpdateMutation = useMutation({
     mutationFn: async (items: any[]) => {
@@ -1133,6 +1154,35 @@ export default function Items() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {/* Import Job Notification */}
+      {importJob && (
+        <div 
+          className={`p-3 flex items-center gap-3 border-b cursor-pointer transition-colors ${
+            importJob.status === 'processing' 
+              ? 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-950/50' 
+              : 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-950/50'
+          }`}
+          onClick={handleImportNotificationClick}
+          data-testid="import-notification"
+        >
+          {importJob.status === 'processing' ? (
+            <>
+              <i className="fas fa-spinner fa-spin text-blue-600 dark:text-blue-400"></i>
+              <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                Processing {importJob.itemCount} images...
+              </span>
+            </>
+          ) : (
+            <>
+              <i className="fas fa-check-circle text-green-600 dark:text-green-400"></i>
+              <span className="text-sm font-medium text-green-900 dark:text-green-100">
+                Import complete - {importJob.itemCount} items extracted. Click to review.
+              </span>
+            </>
+          )}
+        </div>
+      )}
+      
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-bold text-foreground">{t('items.title')}</h1>
@@ -1153,7 +1203,14 @@ export default function Items() {
                   <i className="fas fa-edit mr-2"></i>
                   {t('items.bulkEdit')}
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => setBulkImportOpen(true)} data-testid="bulk-import-button" className="flex-1 sm:flex-initial">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setBulkImportOpen(true)} 
+                  disabled={importJob?.status === 'processing'}
+                  data-testid="bulk-import-button" 
+                  className="flex-1 sm:flex-initial"
+                >
                   <i className="fas fa-upload mr-2"></i>
                   {t('items.bulkImport')}
                 </Button>
