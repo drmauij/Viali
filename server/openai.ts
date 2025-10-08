@@ -88,22 +88,30 @@ interface BulkItemExtraction {
 
 export async function analyzeBulkItemImages(base64Images: string[]): Promise<BulkItemExtraction[]> {
   try {
-    const imageContent = base64Images.map((img, idx) => ({
-      type: "image_url" as const,
-      image_url: {
-        url: `data:image/jpeg;base64,${img}`
-      }
-    }));
+    // Process images in batches for better robustness
+    const BATCH_SIZE = 15; // Process 15 images at a time for optimal performance
+    const allItems: BulkItemExtraction[] = [];
+    
+    for (let i = 0; i < base64Images.length; i += BATCH_SIZE) {
+      const batch = base64Images.slice(i, i + BATCH_SIZE);
+      const imageContent = batch.map((img) => ({
+        type: "image_url" as const,
+        image_url: {
+          url: `data:image/jpeg;base64,${img}`
+        }
+      }));
 
-    const visionResponse = await openai.chat.completions.create({
-      model: "gpt-5",
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: `Analyze these pharmaceutical/medical product images and extract inventory item information for each distinct product visible across all images.
+      console.log(`[Bulk Import] Processing batch ${Math.floor(i / BATCH_SIZE) + 1} (${batch.length} images)`);
+
+      const visionResponse = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `Analyze these pharmaceutical/medical product images and extract inventory item information for each distinct product visible across all images.
 
 Return a JSON object with an "items" array containing one entry per unique product:
 {
@@ -132,17 +140,40 @@ Important instructions:
 - Provide reasonable default thresholds: min 5-10, max 15-30 (higher for commonly used items)
 - Include concentration in description if visible (e.g., "Sodium Chloride 0.9% solution")
 - Return ONLY valid JSON`
-            },
-            ...imageContent
-          ],
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 4096,
-    });
+              },
+              ...imageContent
+            ],
+          },
+        ],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 4096,
+      });
 
-    const result = JSON.parse(visionResponse.choices[0].message.content || "{}");
-    return result.items || [];
+      const result = JSON.parse(visionResponse.choices[0].message.content || "{}");
+      const batchItems = result.items || [];
+      
+      // Merge items, avoiding duplicates by name
+      for (const item of batchItems) {
+        // Skip items without names or with invalid names
+        if (!item.name || typeof item.name !== 'string' || !item.name.trim()) {
+          console.warn('[Bulk Import] Skipping item without valid name:', item);
+          continue;
+        }
+        
+        const itemNameLower = item.name.toLowerCase().trim();
+        const exists = allItems.find(existing => 
+          existing.name && existing.name.toLowerCase().trim() === itemNameLower
+        );
+        if (!exists) {
+          allItems.push(item);
+        } else {
+          console.log(`[Bulk Import] Skipping duplicate item: ${item.name}`);
+        }
+      }
+    }
+    
+    console.log(`[Bulk Import] Total extracted items: ${allItems.length}`);
+    return allItems;
   } catch (error: any) {
     console.error("Error analyzing bulk images with OpenAI:", error);
     throw new Error("Failed to analyze images: " + error.message);
