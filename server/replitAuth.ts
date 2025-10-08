@@ -146,11 +146,6 @@ export async function setupAuth(app: Express) {
       domains.add(trimmed.replace('.replit.dev', '.repl.co'));
     }
   }
-  
-  // Always add custom domain for production (workaround for domain verification issues)
-  if (process.env.NODE_ENV === 'production') {
-    domains.add('use.viali.app');
-  }
 
   console.log('[Auth] Registering strategies for domains:', Array.from(domains));
 
