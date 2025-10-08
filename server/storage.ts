@@ -13,6 +13,8 @@ import {
   activities,
   alerts,
   controlledChecks,
+  importJobs,
+  importJobImages,
   type User,
   type UpsertUser,
   type Hospital,
@@ -32,6 +34,8 @@ import {
   type InsertActivity,
   type ControlledCheck,
   type InsertControlledCheck,
+  type ImportJob,
+  type ImportJobImage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, lte, gte } from "drizzle-orm";
@@ -132,6 +136,14 @@ export interface IStorage {
   // Controlled Checks
   createControlledCheck(check: InsertControlledCheck): Promise<ControlledCheck>;
   getControlledChecks(hospitalId: string, locationId: string, limit?: number): Promise<(ControlledCheck & { user: User })[]>;
+  
+  // Import Jobs
+  createImportJob(job: Omit<ImportJob, 'id' | 'createdAt' | 'startedAt' | 'completedAt'>): Promise<ImportJob>;
+  createImportJobImage(image: Omit<ImportJobImage, 'id' | 'createdAt'>): Promise<ImportJobImage>;
+  getImportJob(id: string): Promise<ImportJob | undefined>;
+  getImportJobs(hospitalId: string, userId?: string, status?: string): Promise<ImportJob[]>;
+  updateImportJob(id: string, updates: Partial<ImportJob>): Promise<ImportJob>;
+  getImportJobImages(jobId: string): Promise<ImportJobImage[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -892,6 +904,54 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
     
     return checks as (ControlledCheck & { user: User })[];
+  }
+
+  async createImportJob(job: Omit<ImportJob, 'id' | 'createdAt' | 'startedAt' | 'completedAt'>): Promise<ImportJob> {
+    const [created] = await db.insert(importJobs).values(job).returning();
+    return created;
+  }
+
+  async createImportJobImage(image: Omit<ImportJobImage, 'id' | 'createdAt'>): Promise<ImportJobImage> {
+    const [created] = await db.insert(importJobImages).values(image).returning();
+    return created;
+  }
+
+  async getImportJob(id: string): Promise<ImportJob | undefined> {
+    const [job] = await db.select().from(importJobs).where(eq(importJobs.id, id));
+    return job;
+  }
+
+  async getImportJobs(hospitalId: string, userId?: string, status?: string): Promise<ImportJob[]> {
+    const conditions = [eq(importJobs.hospitalId, hospitalId)];
+    if (userId) conditions.push(eq(importJobs.userId, userId));
+    if (status) conditions.push(eq(importJobs.status, status));
+
+    const jobs = await db
+      .select()
+      .from(importJobs)
+      .where(and(...conditions))
+      .orderBy(desc(importJobs.createdAt));
+    
+    return jobs;
+  }
+
+  async updateImportJob(id: string, updates: Partial<ImportJob>): Promise<ImportJob> {
+    const [updated] = await db
+      .update(importJobs)
+      .set(updates)
+      .where(eq(importJobs.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getImportJobImages(jobId: string): Promise<ImportJobImage[]> {
+    const images = await db
+      .select()
+      .from(importJobImages)
+      .where(eq(importJobImages.jobId, jobId))
+      .orderBy(asc(importJobImages.imageIndex));
+    
+    return images;
   }
 }
 
