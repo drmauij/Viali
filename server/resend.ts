@@ -155,3 +155,76 @@ export async function sendPasswordResetEmail(
     return { success: false, error };
   }
 }
+
+export async function sendBulkImportCompleteEmail(
+  toEmail: string,
+  userName: string,
+  itemsExtracted: number,
+  previewUrl: string
+) {
+  try {
+    const { client, fromEmail } = await getUncachableResendClient();
+    
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #10b981; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; background-color: #f9fafb; }
+            .button { display: inline-block; padding: 12px 24px; background-color: #10b981; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .stats { background: white; padding: 15px; border-radius: 8px; margin: 20px 0; }
+            .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>✅ Bulk Import Complete!</h1>
+            </div>
+            <div class="content">
+              <p>Hello ${userName},</p>
+              <p>Great news! Your bulk import has finished processing.</p>
+              
+              <div class="stats">
+                <p><strong>Items Extracted:</strong> ${itemsExtracted}</p>
+              </div>
+              
+              <p>Click the button below to review and import the items:</p>
+              <p style="text-align: center;">
+                <a href="${previewUrl}" class="button">Review Import</a>
+              </p>
+              <p>Or copy and paste this link into your browser:</p>
+              <p style="word-break: break-all; color: #10b981;">${previewUrl}</p>
+              
+              <p>You can review the extracted items, make adjustments, and confirm the import.</p>
+            </div>
+            <div class="footer">
+              <p>Viali Hospital Inventory Management System</p>
+              <p>This is an automated email, please do not reply.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject: `Bulk Import Complete - ${itemsExtracted} Items Ready`,
+      html,
+    });
+
+    if (error) {
+      console.error('Failed to send bulk import email:', error);
+      return { success: false, error };
+    }
+
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error sending bulk import email:', error);
+    return { success: false, error };
+  }
+}

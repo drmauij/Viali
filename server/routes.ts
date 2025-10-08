@@ -1099,6 +1099,184 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Async Bulk Import - Create Job
+  app.post('/api/import-jobs', isAuthenticated, async (req: any, res) => {
+    try {
+      const { images, hospitalId } = req.body;
+      const userId = req.user.claims.sub;
+
+      if (!images || !Array.isArray(images) || images.length === 0) {
+        return res.status(400).json({ message: "Images array is required" });
+      }
+
+      if (!hospitalId) {
+        return res.status(400).json({ message: "Hospital ID is required" });
+      }
+
+      // Verify user has access to this hospital
+      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      if (!locationId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+
+      // Get hospital license type to determine image limit
+      const hospital = await storage.getHospital(hospitalId);
+      if (!hospital) {
+        return res.status(404).json({ message: "Hospital not found" });
+      }
+
+      const licenseType = hospital.licenseType || "free";
+      const imageLimit = licenseType === "basic" ? 50 : 10;
+
+      if (images.length > imageLimit) {
+        return res.status(400).json({ 
+          message: `Maximum ${imageLimit} images allowed for ${licenseType} plan`,
+          limit: imageLimit,
+          licenseType 
+        });
+      }
+
+      // Remove data URL prefix if present
+      const base64Images = images.map((img: string) => img.replace(/^data:image\/\w+;base64,/, ''));
+
+      // Create job record
+      const job = await storage.createImportJob({
+        hospitalId,
+        locationId,
+        userId,
+        status: 'queued',
+        totalImages: base64Images.length,
+        processedImages: 0,
+        extractedItems: 0,
+        imagesData: base64Images, // Store images temporarily
+        results: null,
+        error: null,
+        notificationSent: false,
+      });
+
+      console.log(`[Import Job] Created job ${job.id} with ${base64Images.length} images for user ${userId}`);
+
+      res.status(201).json({ 
+        jobId: job.id,
+        status: job.status,
+        totalImages: job.totalImages
+      });
+    } catch (error: any) {
+      console.error("Error creating import job:", error);
+      res.status(500).json({ message: error.message || "Failed to create import job" });
+    }
+  });
+
+  // Get Import Job Status
+  app.get('/api/import-jobs/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.claims.sub;
+
+      const job = await storage.getImportJob(id);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      // Verify user owns this job or has access to the hospital
+      if (job.userId !== userId) {
+        const locationId = await getUserLocationForHospital(userId, job.hospitalId);
+        if (!locationId) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+
+      res.json({
+        id: job.id,
+        status: job.status,
+        totalImages: job.totalImages,
+        processedImages: job.processedImages,
+        extractedItems: job.extractedItems,
+        results: job.results,
+        error: job.error,
+        createdAt: job.createdAt,
+        completedAt: job.completedAt,
+      });
+    } catch (error: any) {
+      console.error("Error getting import job:", error);
+      res.status(500).json({ message: error.message || "Failed to get job status" });
+    }
+  });
+
+  // Process Next Queued Job (Background Worker Endpoint)
+  app.post('/api/import-jobs/process-next', async (req, res) => {
+    try {
+      // Get next queued job
+      const job = await storage.getNextQueuedJob();
+      
+      if (!job) {
+        return res.json({ message: "No jobs in queue" });
+      }
+
+      console.log(`[Import Job Worker] Processing job ${job.id}`);
+
+      // Update job status to processing
+      await storage.updateImportJob(job.id, {
+        status: 'processing',
+        startedAt: new Date(),
+      });
+
+      // Process images
+      const { analyzeBulkItemImages } = await import('./openai');
+      const extractedItems = await analyzeBulkItemImages(job.imagesData as string[]);
+
+      // Update job with results
+      await storage.updateImportJob(job.id, {
+        status: 'completed',
+        completedAt: new Date(),
+        processedImages: job.totalImages,
+        extractedItems: extractedItems.length,
+        results: extractedItems,
+        imagesData: null, // Clear images to free up space
+      });
+
+      console.log(`[Import Job Worker] Completed job ${job.id}, extracted ${extractedItems.length} items`);
+
+      // Send email notification
+      const user = await storage.getUser(job.userId);
+      if (user?.email) {
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        const previewUrl = `${baseUrl}/bulk-import/preview/${job.id}`;
+        
+        const { sendBulkImportCompleteEmail } = await import('./resend');
+        await sendBulkImportCompleteEmail(
+          user.email,
+          user.firstName || 'User',
+          extractedItems.length,
+          previewUrl
+        );
+
+        await storage.updateImportJob(job.id, { notificationSent: true });
+        console.log(`[Import Job Worker] Sent notification email to ${user.email}`);
+      }
+
+      res.json({ 
+        message: "Job processed successfully",
+        jobId: job.id,
+        itemsExtracted: extractedItems.length
+      });
+    } catch (error: any) {
+      console.error("Error processing job:", error);
+      
+      // Try to update job status to failed if we have a job
+      const job = await storage.getNextQueuedJob();
+      if (job) {
+        await storage.updateImportJob(job.id, {
+          status: 'failed',
+          completedAt: new Date(),
+          error: error.message || 'Processing failed',
+        });
+      }
+      
+      res.status(500).json({ message: error.message || "Failed to process job" });
+    }
+  });
+
   // Barcode scanning
   app.post('/api/scan/barcode', isAuthenticated, async (req: any, res) => {
     try {

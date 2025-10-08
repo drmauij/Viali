@@ -14,7 +14,6 @@ import {
   alerts,
   controlledChecks,
   importJobs,
-  importJobImages,
   type User,
   type UpsertUser,
   type Hospital,
@@ -35,7 +34,6 @@ import {
   type ControlledCheck,
   type InsertControlledCheck,
   type ImportJob,
-  type ImportJobImage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, lte, gte } from "drizzle-orm";
@@ -139,11 +137,10 @@ export interface IStorage {
   
   // Import Jobs
   createImportJob(job: Omit<ImportJob, 'id' | 'createdAt' | 'startedAt' | 'completedAt'>): Promise<ImportJob>;
-  createImportJobImage(image: Omit<ImportJobImage, 'id' | 'createdAt'>): Promise<ImportJobImage>;
   getImportJob(id: string): Promise<ImportJob | undefined>;
   getImportJobs(hospitalId: string, userId?: string, status?: string): Promise<ImportJob[]>;
+  getNextQueuedJob(): Promise<ImportJob | undefined>;
   updateImportJob(id: string, updates: Partial<ImportJob>): Promise<ImportJob>;
-  getImportJobImages(jobId: string): Promise<ImportJobImage[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -911,11 +908,6 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async createImportJobImage(image: Omit<ImportJobImage, 'id' | 'createdAt'>): Promise<ImportJobImage> {
-    const [created] = await db.insert(importJobImages).values(image).returning();
-    return created;
-  }
-
   async getImportJob(id: string): Promise<ImportJob | undefined> {
     const [job] = await db.select().from(importJobs).where(eq(importJobs.id, id));
     return job;
@@ -935,6 +927,17 @@ export class DatabaseStorage implements IStorage {
     return jobs;
   }
 
+  async getNextQueuedJob(): Promise<ImportJob | undefined> {
+    const [job] = await db
+      .select()
+      .from(importJobs)
+      .where(eq(importJobs.status, 'queued'))
+      .orderBy(asc(importJobs.createdAt))
+      .limit(1);
+    
+    return job;
+  }
+
   async updateImportJob(id: string, updates: Partial<ImportJob>): Promise<ImportJob> {
     const [updated] = await db
       .update(importJobs)
@@ -942,16 +945,6 @@ export class DatabaseStorage implements IStorage {
       .where(eq(importJobs.id, id))
       .returning();
     return updated;
-  }
-
-  async getImportJobImages(jobId: string): Promise<ImportJobImage[]> {
-    const images = await db
-      .select()
-      .from(importJobImages)
-      .where(eq(importJobImages.jobId, jobId))
-      .orderBy(asc(importJobImages.imageIndex));
-    
-    return images;
   }
 }
 

@@ -264,6 +264,7 @@ export const importJobs = pgTable("import_jobs", {
   totalImages: integer("total_images").notNull(),
   processedImages: integer("processed_images").default(0),
   extractedItems: integer("extracted_items").default(0),
+  imagesData: jsonb("images_data"), // temporary storage for base64 images
   results: jsonb("results"), // array of extracted items
   error: text("error"),
   notificationSent: boolean("notification_sent").default(false),
@@ -277,17 +278,6 @@ export const importJobs = pgTable("import_jobs", {
   index("idx_import_jobs_created").on(table.createdAt),
 ]);
 
-// Import Job Images (track uploaded images for each job)
-export const importJobImages = pgTable("import_job_images", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  jobId: varchar("job_id").notNull().references(() => importJobs.id, { onDelete: 'cascade' }),
-  imageIndex: integer("image_index").notNull(),
-  storageKey: varchar("storage_key").notNull(), // object storage key
-  createdAt: timestamp("created_at").defaultNow(),
-}, (table) => [
-  index("idx_import_job_images_job").on(table.jobId),
-  unique("unique_job_image_index").on(table.jobId, table.imageIndex),
-]);
 
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
@@ -386,15 +376,10 @@ export const controlledChecksRelations = relations(controlledChecks, ({ one }) =
   user: one(users, { fields: [controlledChecks.userId], references: [users.id] }),
 }));
 
-export const importJobsRelations = relations(importJobs, ({ one, many }) => ({
+export const importJobsRelations = relations(importJobs, ({ one }) => ({
   hospital: one(hospitals, { fields: [importJobs.hospitalId], references: [hospitals.id] }),
   location: one(locations, { fields: [importJobs.locationId], references: [locations.id] }),
   user: one(users, { fields: [importJobs.userId], references: [users.id] }),
-  images: many(importJobImages),
-}));
-
-export const importJobImagesRelations = relations(importJobImages, ({ one }) => ({
-  job: one(importJobs, { fields: [importJobImages.jobId], references: [importJobs.id] }),
 }));
 
 // Insert schemas
@@ -450,11 +435,6 @@ export const insertImportJobSchema = createInsertSchema(importJobs).omit({
   completedAt: true,
 });
 
-export const insertImportJobImageSchema = createInsertSchema(importJobImages).omit({
-  id: true,
-  createdAt: true,
-});
-
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -480,8 +460,6 @@ export type ControlledCheck = typeof controlledChecks.$inferSelect;
 export type InsertControlledCheck = z.infer<typeof insertControlledCheckSchema>;
 export type ImportJob = typeof importJobs.$inferSelect;
 export type InsertImportJob = z.infer<typeof insertImportJobSchema>;
-export type ImportJobImage = typeof importJobImages.$inferSelect;
-export type InsertImportJobImage = z.infer<typeof insertImportJobImageSchema>;
 
 // Bulk operations schemas
 export const bulkImportItemSchema = z.object({
