@@ -849,6 +849,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied to this item" });
       }
       
+      // Check if item is controlled - controlled substances must be managed via Controller tab only
+      if (item.controlled) {
+        return res.status(403).json({ message: "Controlled substances must be managed through the Controller tab only" });
+      }
+      
       // Handle reduction based on item configuration
       if (item.trackExactQuantity) {
         // For items with exact quantity tracking: reduce currentUnits by 1 and recalculate stock

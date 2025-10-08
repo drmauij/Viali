@@ -1494,7 +1494,7 @@ export default function Items() {
                                       )}
                                     </div>
                                     <div className="flex gap-1 items-center">
-                                      {(item.trackExactQuantity || item.unit.toLowerCase() === 'single unit') && (
+                                      {(item.trackExactQuantity || item.unit.toLowerCase() === 'single unit') && !item.controlled && (
                                         <button
                                           onClick={(e) => handleQuickReduce(e, item)}
                                           className="px-2 py-1 bg-orange-500 text-white rounded text-xs font-medium hover:bg-orange-600 transition-colors flex-shrink-0"
@@ -1683,7 +1683,7 @@ export default function Items() {
                         </span>
                       </div>
                       <div className="flex gap-1 items-center">
-                        {(item.trackExactQuantity || item.unit.toLowerCase() === 'single unit') && (
+                        {(item.trackExactQuantity || item.unit.toLowerCase() === 'single unit') && !item.controlled && (
                           <Button 
                             variant="outline" 
                             size="sm" 
