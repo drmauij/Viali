@@ -2155,31 +2155,29 @@ export default function Items() {
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {bulkItems.map((item, idx) => (
                   <div key={idx} className="p-3 border rounded-lg space-y-2" data-testid={`bulk-item-${idx}`}>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-xs">{t('items.name')}</Label>
-                        <Input
-                          value={item.name}
-                          onChange={(e) => {
-                            const updated = [...bulkItems];
-                            updated[idx].name = e.target.value;
-                            setBulkItems(updated);
-                          }}
-                          data-testid={`bulk-item-name-${idx}`}
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">{t('items.description')}</Label>
-                        <Input
-                          value={item.description || ""}
-                          onChange={(e) => {
-                            const updated = [...bulkItems];
-                            updated[idx].description = e.target.value;
-                            setBulkItems(updated);
-                          }}
-                          data-testid={`bulk-item-description-${idx}`}
-                        />
-                      </div>
+                    <div>
+                      <Label className="text-xs">{t('items.name')}</Label>
+                      <Input
+                        value={item.name}
+                        onChange={(e) => {
+                          const updated = [...bulkItems];
+                          updated[idx].name = e.target.value;
+                          setBulkItems(updated);
+                        }}
+                        data-testid={`bulk-item-name-${idx}`}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">{t('items.description')}</Label>
+                      <Input
+                        value={item.description || ""}
+                        onChange={(e) => {
+                          const updated = [...bulkItems];
+                          updated[idx].description = e.target.value;
+                          setBulkItems(updated);
+                        }}
+                        data-testid={`bulk-item-description-${idx}`}
+                      />
                     </div>
                     <div className="grid grid-cols-4 gap-2">
                       <div>
