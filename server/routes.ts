@@ -25,6 +25,17 @@ function getLicenseLimit(licenseType: string): number {
   }
 }
 
+function getBulkImportImageLimit(licenseType: string): number {
+  switch (licenseType) {
+    case "free":
+      return 10;
+    case "basic":
+      return 30;
+    default:
+      return 10;
+  }
+}
+
 async function checkLicenseLimit(hospitalId: string): Promise<{ allowed: boolean; currentCount: number; limit: number; licenseType: string }> {
   const hospital = await storage.getHospital(hospitalId);
   if (!hospital) {
@@ -911,6 +922,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get bulk import image limit for a hospital
+  app.get('/api/hospitals/:hospitalId/bulk-import-limit', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const hospital = await storage.getHospital(hospitalId);
+      
+      if (!hospital) {
+        return res.status(404).json({ message: "Hospital not found" });
+      }
+
+      const licenseType = hospital.licenseType || "free";
+      const imageLimit = getBulkImportImageLimit(licenseType);
+
+      res.json({ 
+        limit: imageLimit,
+        licenseType 
+      });
+    } catch (error: any) {
+      console.error("Error getting bulk import limit:", error);
+      res.status(500).json({ message: "Failed to get bulk import limit" });
+    }
+  });
+  
   // AI image analysis for item data extraction
   app.post('/api/items/analyze-image', isAuthenticated, async (req: any, res) => {
     try {
@@ -935,13 +969,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bulk AI image analysis for multiple items
   app.post('/api/items/analyze-images', isAuthenticated, async (req: any, res) => {
     try {
-      const { images } = req.body;
+      const { images, hospitalId } = req.body;
       if (!images || !Array.isArray(images) || images.length === 0) {
         return res.status(400).json({ message: "Images array is required" });
       }
 
-      if (images.length > 10) {
-        return res.status(400).json({ message: "Maximum 10 images allowed per batch" });
+      if (!hospitalId) {
+        return res.status(400).json({ message: "Hospital ID is required" });
+      }
+
+      // Get hospital license type to determine image limit
+      const hospital = await storage.getHospital(hospitalId);
+      if (!hospital) {
+        return res.status(404).json({ message: "Hospital not found" });
+      }
+
+      const licenseType = hospital.licenseType || "free";
+      const imageLimit = getBulkImportImageLimit(licenseType);
+
+      if (images.length > imageLimit) {
+        return res.status(400).json({ 
+          message: `Maximum ${imageLimit} images allowed for ${licenseType} plan`,
+          limit: imageLimit,
+          licenseType 
+        });
       }
 
       // Remove data URL prefix if present
