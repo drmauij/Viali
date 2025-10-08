@@ -1007,14 +1007,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           hospitalId,
           locationId,
           name: bulkItem.name,
-          description: bulkItem.description || "",
-          unit: bulkItem.unit || "pack",
-          packSize: bulkItem.packSize || 1,
-          minThreshold: bulkItem.minThreshold || 0,
-          maxThreshold: bulkItem.maxThreshold || 0,
+          description: bulkItem.description ?? "",
+          unit: bulkItem.unit ?? "pack",
+          packSize: bulkItem.packSize ?? 1,
+          minThreshold: bulkItem.minThreshold ?? 0,
+          maxThreshold: bulkItem.maxThreshold ?? 0,
           defaultOrderQty: 0,
-          critical: bulkItem.critical || false,
-          controlled: bulkItem.controlled || false,
+          critical: bulkItem.critical ?? false,
+          controlled: bulkItem.controlled ?? false,
+          trackExactQuantity: bulkItem.trackExactQuantity ?? false,
+          currentUnits: bulkItem.currentUnits ?? 0,
         };
 
         const item = await storage.createItem(itemData);
