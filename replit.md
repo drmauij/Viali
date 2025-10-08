@@ -53,6 +53,12 @@ The system supports comprehensive inventory management functionalities such as:
 - **Item Lifecycle Management**: Creation, updating, and transactional cascade deletion of items ensuring data integrity across related records (alerts, activities, order lines, lots, stock levels).
 - **User Management**: A comprehensive system for creating, assigning roles, changing passwords, and deleting users, with strong security measures.
 - **Signature Capture**: Print-ready black-on-white electronic signatures for all controlled substance transactions and verification checks.
+- **Bulk Import with AI**: License-based bulk photo import using OpenAI Vision API for automated item extraction:
+  - Free tier: Up to 10 images per import
+  - Basic tier: Up to 30 images per import
+  - Batch processing (15 images per batch) for reliability with larger imports
+  - Intelligent deduplication across batches
+  - Automatic extraction of item names, descriptions, concentrations, pack sizes, and thresholds
 
 ## External Dependencies
 
