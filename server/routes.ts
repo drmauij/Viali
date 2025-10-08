@@ -26,14 +26,10 @@ function getLicenseLimit(licenseType: string): number {
 }
 
 function getBulkImportImageLimit(licenseType: string): number {
-  switch (licenseType) {
-    case "free":
-      return 10;
-    case "basic":
-      return 30;
-    default:
-      return 10;
-  }
+  // All accounts limited to 3 images to ensure completion within 30s deployment timeout
+  // Each batch of 3 images takes ~12-20s, safely under 30s limit
+  // Users can import multiple times for larger inventories
+  return 3;
 }
 
 async function checkLicenseLimit(hospitalId: string): Promise<{ allowed: boolean; currentCount: number; limit: number; licenseType: string }> {
@@ -969,6 +965,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bulk AI image analysis for multiple items
   app.post('/api/items/analyze-images', isAuthenticated, async (req: any, res) => {
     try {
+      // Set a longer timeout for this endpoint (5 minutes)
+      req.setTimeout(300000); // 5 minutes in milliseconds
+      res.setTimeout(300000);
+
       const { images, hospitalId } = req.body;
       if (!images || !Array.isArray(images) || images.length === 0) {
         return res.status(400).json({ message: "Images array is required" });
@@ -998,12 +998,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Remove data URL prefix if present
       const base64Images = images.map((img: string) => img.replace(/^data:image\/\w+;base64,/, ''));
       
+      console.log(`[Bulk Import] Starting analysis of ${base64Images.length} images for hospital ${hospitalId}`);
+      
       const { analyzeBulkItemImages } = await import('./openai');
       const extractedItems = await analyzeBulkItemImages(base64Images);
+      
+      console.log(`[Bulk Import] Completed analysis, extracted ${extractedItems.length} items`);
       
       res.json({ items: extractedItems });
     } catch (error: any) {
       console.error("Error analyzing bulk images:", error);
+      
+      // Provide more detailed error messages
+      if (error.message?.includes('timeout') || error.code === 'ETIMEDOUT') {
+        return res.status(504).json({ 
+          message: "Analysis timed out. Please try with fewer images or try again later." 
+        });
+      }
+      
       res.status(500).json({ message: error.message || "Failed to analyze images" });
     }
   });

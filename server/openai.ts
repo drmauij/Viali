@@ -88,8 +88,9 @@ interface BulkItemExtraction {
 
 export async function analyzeBulkItemImages(base64Images: string[]): Promise<BulkItemExtraction[]> {
   try {
-    // Process images in batches for better robustness
-    const BATCH_SIZE = 15; // Process 15 images at a time for optimal performance
+    // Process images in small batches to stay within strict 30s deployment timeout
+    // Each batch of 3 images takes ~12-20 seconds, safely completing under 30s
+    const BATCH_SIZE = 3;
     const allItems: BulkItemExtraction[] = [];
     
     for (let i = 0; i < base64Images.length; i += BATCH_SIZE) {
@@ -101,7 +102,7 @@ export async function analyzeBulkItemImages(base64Images: string[]): Promise<Bul
         }
       }));
 
-      console.log(`[Bulk Import] Processing batch ${Math.floor(i / BATCH_SIZE) + 1} (${batch.length} images)`);
+      console.log(`[Bulk Import] Processing batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(base64Images.length / BATCH_SIZE)} (${batch.length} images)`);
 
       const visionResponse = await openai.chat.completions.create({
         model: "gpt-5",
@@ -147,6 +148,8 @@ Important instructions:
         ],
         response_format: { type: "json_object" },
         max_completion_tokens: 4096,
+      }, {
+        timeout: 120000, // 2 minute timeout per batch
       });
 
       const result = JSON.parse(visionResponse.choices[0].message.content || "{}");
