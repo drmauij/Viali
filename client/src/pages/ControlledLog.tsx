@@ -238,7 +238,7 @@ export default function ControlledLog() {
       const normalizedUnit = item.unit.toLowerCase();
       const isControlledPack = !!(item.controlled && normalizedUnit === 'pack');
       const onHandQty = isControlledPack 
-        ? (item.controlledUnits || 0) 
+        ? (item.currentUnits || 0) 
         : (item.stockLevel?.qtyOnHand || 0);
       
       return {
@@ -262,7 +262,7 @@ export default function ControlledLog() {
       const normalizedUnit = item.unit.toLowerCase();
       const isControlledPack = item.controlled && normalizedUnit === 'pack';
       const expectedQty = isControlledPack 
-        ? (item.controlledUnits || 0) 
+        ? (item.currentUnits || 0) 
         : (item.stockLevel?.qtyOnHand || 0);
       
       return {
@@ -282,7 +282,7 @@ export default function ControlledLog() {
       const normalizedUnit = item.unit.toLowerCase();
       const isControlledPack = !!(item.controlled && normalizedUnit === 'pack');
       const onHandQty = isControlledPack 
-        ? (item.controlledUnits || 0) 
+        ? (item.currentUnits || 0) 
         : (item.stockLevel?.qtyOnHand || 0);
       
       return {
@@ -302,7 +302,7 @@ export default function ControlledLog() {
       const normalizedUnit = item.unit.toLowerCase();
       const isControlledPack = item.controlled && normalizedUnit === 'pack';
       const expectedQty = isControlledPack 
-        ? (item.controlledUnits || 0) 
+        ? (item.currentUnits || 0) 
         : (item.stockLevel?.qtyOnHand || 0);
       
       return {
