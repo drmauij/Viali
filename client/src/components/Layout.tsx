@@ -48,6 +48,8 @@ export default function Layout({ children }: LayoutProps) {
   const handleHospitalChange = (hospital: Hospital) => {
     // Save to localStorage before reload
     localStorage.setItem('activeHospital', `${hospital.id}-${hospital.locationId}-${hospital.role}`);
+    // Dispatch custom event to notify other components
+    window.dispatchEvent(new CustomEvent("hospital-changed"));
     setActiveHospital(hospital);
     // Reload the page to refetch all queries with the new hospital/role context
     window.location.reload();

@@ -1424,10 +1424,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Orders routes
-  app.get('/api/orders/:hospitalId', isAuthenticated, async (req, res) => {
+  app.get('/api/orders/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
       const { status } = req.query;
+      const userId = req.user.claims.sub;
+      
+      // Verify user has access to this hospital
+      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      if (!locationId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
       
       const orders = await storage.getOrders(hospitalId, status as string);
       res.json(orders);
@@ -1485,6 +1492,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!hospitalId) {
         return res.status(400).json({ message: "Hospital ID is required" });
       }
+      
+      // Verify user has access to this hospital
+      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      if (!locationId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
 
       const order = await storage.createOrder({
         hospitalId,
@@ -1515,6 +1528,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!hospitalId || !itemId) {
         return res.status(400).json({ message: "Hospital ID and Item ID are required" });
       }
+      
+      // Verify user has access to this hospital
+      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      if (!locationId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
 
       const order = await storage.findOrCreateDraftOrder(hospitalId, vendorId || null, userId);
       const orderLine = await storage.addItemToOrder(order.id, itemId, qty || 1, packSize || 1);
@@ -1526,13 +1545,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/orders/:orderId/status', isAuthenticated, async (req, res) => {
+  app.post('/api/orders/:orderId/status', isAuthenticated, async (req: any, res) => {
     try {
       const { orderId } = req.params;
       const { status } = req.body;
+      const userId = req.user.claims.sub;
       
       if (!status) {
         return res.status(400).json({ message: "Status is required" });
+      }
+      
+      // Get order to verify access
+      const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      // Verify user has access to this hospital
+      const locationId = await getUserLocationForHospital(userId, order.hospitalId);
+      if (!locationId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
       // If marking as received, update stock levels
@@ -1594,21 +1626,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      const order = await storage.updateOrderStatus(orderId, status);
-      res.json(order);
+      const updatedOrder = await storage.updateOrderStatus(orderId, status);
+      res.json(updatedOrder);
     } catch (error) {
       console.error("Error updating order status:", error);
       res.status(500).json({ message: "Failed to update order status" });
     }
   });
 
-  app.patch('/api/order-lines/:lineId', isAuthenticated, async (req, res) => {
+  app.patch('/api/order-lines/:lineId', isAuthenticated, async (req: any, res) => {
     try {
       const { lineId } = req.params;
       const { qty } = req.body;
+      const userId = req.user.claims.sub;
       
       if (!qty || qty < 1) {
         return res.status(400).json({ message: "Valid quantity is required" });
+      }
+      
+      // Get order line to find associated order
+      const [line] = await db.select().from(orderLines).where(eq(orderLines.id, lineId));
+      if (!line) {
+        return res.status(404).json({ message: "Order line not found" });
+      }
+      
+      // Get order to verify access
+      const [order] = await db.select().from(orders).where(eq(orders.id, line.orderId));
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      // Verify user has access to this hospital
+      const locationId = await getUserLocationForHospital(userId, order.hospitalId);
+      if (!locationId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
       const orderLine = await storage.updateOrderLine(lineId, qty);
@@ -1619,9 +1670,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/order-lines/:lineId', isAuthenticated, async (req, res) => {
+  app.delete('/api/order-lines/:lineId', isAuthenticated, async (req: any, res) => {
     try {
       const { lineId } = req.params;
+      const userId = req.user.claims.sub;
+      
+      // Get order line to find associated order
+      const [line] = await db.select().from(orderLines).where(eq(orderLines.id, lineId));
+      if (!line) {
+        return res.status(404).json({ message: "Order line not found" });
+      }
+      
+      // Get order to verify access
+      const [order] = await db.select().from(orders).where(eq(orders.id, line.orderId));
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      // Verify user has access to this hospital
+      const locationId = await getUserLocationForHospital(userId, order.hospitalId);
+      if (!locationId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
       await storage.removeOrderLine(lineId);
       res.json({ success: true });
     } catch (error) {
@@ -1630,9 +1701,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/orders/:orderId', isAuthenticated, async (req, res) => {
+  app.delete('/api/orders/:orderId', isAuthenticated, async (req: any, res) => {
     try {
       const { orderId } = req.params;
+      const userId = req.user.claims.sub;
+      
+      // Get order to verify access
+      const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      // Verify user has access to this hospital
+      const locationId = await getUserLocationForHospital(userId, order.hospitalId);
+      if (!locationId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
       await storage.deleteOrder(orderId);
       res.json({ success: true });
     } catch (error) {
