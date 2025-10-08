@@ -807,6 +807,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Quick reduce unit count (for trackExactQuantity or single unit items)
+  app.patch('/api/items/:itemId/reduce-unit', isAuthenticated, async (req: any, res) => {
+    try {
+      const { itemId } = req.params;
+      const userId = req.user.claims.sub;
+      
+      // Get the item to verify access and current values
+      const item = await storage.getItem(itemId);
+      if (!item) {
+        return res.status(404).json({ message: "Item not found" });
+      }
+      
+      // Verify user has access to this item's location
+      const locationId = await getUserLocationForHospital(userId, item.hospitalId);
+      if (!locationId || locationId !== item.locationId) {
+        return res.status(403).json({ message: "Access denied to this item" });
+      }
+      
+      // Handle reduction based on item configuration
+      if (item.trackExactQuantity) {
+        // For items with exact quantity tracking: reduce currentUnits by 1 and recalculate stock
+        const currentCurrentUnits = item.currentUnits || 0;
+        if (currentCurrentUnits <= 0) {
+          return res.status(400).json({ message: "No units available to reduce" });
+        }
+        
+        const newCurrentUnits = currentCurrentUnits - 1;
+        const packSize = item.packSize || 1;
+        const newStock = Math.ceil(newCurrentUnits / packSize);
+        
+        // Update current units in items table
+        await db
+          .update(items)
+          .set({ currentUnits: newCurrentUnits })
+          .where(eq(items.id, itemId));
+        
+        // Update stock level
+        await storage.updateStockLevel(itemId, locationId, newStock);
+        
+        // Return updated item with new values
+        const updatedItem = await storage.getItem(itemId);
+        res.json(updatedItem);
+      } else if (item.unit.toLowerCase() === 'single unit') {
+        // For single unit items: reduce stock directly
+        const currentStock = await storage.getStockLevel(itemId, locationId);
+        const currentQty = currentStock?.qtyOnHand || 0;
+        
+        if (currentQty <= 0) {
+          return res.status(400).json({ message: "No stock available to reduce" });
+        }
+        
+        const newQty = currentQty - 1;
+        await storage.updateStockLevel(itemId, locationId, newQty);
+        
+        // Return updated item
+        const updatedItem = await storage.getItem(itemId);
+        res.json(updatedItem);
+      } else {
+        return res.status(400).json({ message: "Quick reduce is only available for items with exact quantity tracking or single unit items" });
+      }
+    } catch (error) {
+      console.error("Error reducing unit:", error);
+      res.status(500).json({ message: "Failed to reduce unit" });
+    }
+  });
+
   app.delete('/api/items/:itemId', isAuthenticated, async (req: any, res) => {
     try {
       const { itemId } = req.params;
