@@ -24,17 +24,26 @@ Viali employs a hybrid authentication strategy supporting both Google OAuth (via
 
 ### Database Schema
 
-The core database schema includes `Users`, `Hospitals`, `UserHospitalRoles` (for role-based access control), `Items` (with barcode support, min/max thresholds, flags for critical/controlled items, and `controlledUnits` field for tracking individual ampules), `StockLevels`, `Lots` (for batch tracking and expiry), `Orders`, `OrderLines`, `Activities` (for audit trails), `Alerts`, `Vendors`, and `Locations`. Key design decisions include UUID primary keys, timestamp tracking, and separate lot tracking for compliance and expiry management.
+The core database schema includes `Users`, `Hospitals`, `UserHospitalRoles` (for role-based access control), `Items` (with barcode support, min/max thresholds, flags for critical/controlled items, `trackExactQuantity` flag, `currentUnits` for pack-level tracking, and `packSize` fields), `StockLevels`, `Lots` (for batch tracking and expiry), `Orders`, `OrderLines`, `Activities` (for audit trails), `Alerts`, `Vendors`, and `Locations`. Key design decisions include UUID primary keys, timestamp tracking, and separate lot tracking for compliance and expiry management.
 
-**Controlled Substances Tracking:**
-- Items with `controlled=true` and `unit=Pack` maintain dual tracking:
-  - `stock`: Quantity in packs
-  - `controlledUnits`: Individual ampules for compliance
-  - `packSize`: Ampules per pack (required)
-- Items with `controlled=true` and `unit=Ampulle` are treated as standard items (no pack size)
-- Receiving: Stock increases by packs received, controlledUnits increases by (packs × packSize)
-- Administration: ControlledUnits decreases by quantity administered, stock recalculated as ⌈controlledUnits ÷ packSize⌉
-- Routine Control: Verifies against controlledUnits for controlled pack items
+**Stock Management System:**
+- Items can be configured with two order types:
+  - **Pack**: Items ordered and received in packs (boxes, cartons, etc.)
+  - **Single unit**: Items ordered and received as individual units (tablets, vials, etc.)
+- **Track Exact Quantity** feature (available for Pack items only):
+  - `trackExactQuantity`: Boolean flag to enable pack-level tracking
+  - `currentUnits`: Stores exact unit count within packs
+  - `packSize`: Number of units per pack
+  - Stock is auto-calculated: ⌈currentUnits ÷ packSize⌉ (ceiling division)
+  - Display shows "X packs [Y units]" format
+- **Order Processing**:
+  - Pack items: Order qty represents number of packs
+  - Single unit items: Order qty represents number of individual units
+  - Receiving: Stock increases by qty, currentUnits increases by (qty × packSize) if trackExactQuantity enabled
+- **Controlled Substances Administration**:
+  - For items with trackExactQuantity: Deducts from currentUnits, stock auto-recalculated
+  - For standard items: Deducts from stock directly
+  - Routine Control: Verifies against currentUnits for trackExactQuantity items, stock otherwise
 
 ### System Design Choices
 

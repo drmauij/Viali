@@ -122,7 +122,8 @@ export const items = pgTable("items", {
   defaultOrderQty: integer("default_order_qty").default(0),
   critical: boolean("critical").default(false),
   controlled: boolean("controlled").default(false),
-  controlledUnits: integer("controlled_units").default(0),
+  trackExactQuantity: boolean("track_exact_quantity").default(false),
+  currentUnits: integer("current_units").default(0),
   vendorId: varchar("vendor_id").references(() => vendors.id),
   barcodes: text("barcodes").array(), // Multiple barcodes per item
   imageUrl: varchar("image_url"),

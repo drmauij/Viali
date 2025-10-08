@@ -22,7 +22,7 @@ interface ItemWithStock extends Item {
   soonestExpiry?: Date;
 }
 
-type UnitType = "pack" | "ampulle";
+type UnitType = "pack" | "Single unit";
 
 // Draggable item wrapper
 function DraggableItem({ id, children, disabled }: { id: string; children: React.ReactNode; disabled?: boolean }) {
@@ -93,10 +93,11 @@ export default function Items() {
     maxThreshold: "0",
     defaultOrderQty: "0",
     packSize: "1",
-    controlledUnits: "0",
+    currentUnits: "0",
     actualStock: "0",
     critical: false,
     controlled: false,
+    trackExactQuantity: false,
   });
   const [formData, setFormData] = useState({
     name: "",
@@ -106,10 +107,11 @@ export default function Items() {
     maxThreshold: "10",
     defaultOrderQty: "0",
     packSize: "1",
-    controlledUnits: "0",
+    currentUnits: "0",
     initialStock: "0",
     critical: false,
     controlled: false,
+    trackExactQuantity: false,
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const packSizeInputRef = useRef<HTMLInputElement>(null);
@@ -298,26 +300,46 @@ export default function Items() {
     if (normalized === "pack" || normalized === "box") {
       return "pack";
     }
-    return "ampulle";
+    return "Single unit";
   };
 
   // Auto-focus pack size field in Add Item dialog when it becomes visible
   useEffect(() => {
-    if (selectedUnit === "pack" && formData.controlled && addDialogOpen) {
+    if (selectedUnit === "pack" && formData.trackExactQuantity && addDialogOpen) {
       setTimeout(() => {
         packSizeInputRef.current?.focus();
       }, 100);
     }
-  }, [selectedUnit, formData.controlled, addDialogOpen]);
+  }, [selectedUnit, formData.trackExactQuantity, addDialogOpen]);
 
   // Auto-focus pack size field in Edit Item dialog when it becomes visible
   useEffect(() => {
-    if (selectedUnit === "pack" && editFormData.controlled && editDialogOpen) {
+    if (selectedUnit === "pack" && editFormData.trackExactQuantity && editDialogOpen) {
       setTimeout(() => {
         editPackSizeInputRef.current?.focus();
       }, 100);
     }
-  }, [selectedUnit, editFormData.controlled, editDialogOpen]);
+  }, [selectedUnit, editFormData.trackExactQuantity, editDialogOpen]);
+
+  // Auto-calculate initial stock for Add Item when trackExactQuantity is enabled
+  useEffect(() => {
+    if (formData.trackExactQuantity && formData.packSize && formData.currentUnits) {
+      const packSize = parseInt(formData.packSize) || 1;
+      const currentUnits = parseInt(formData.currentUnits) || 0;
+      const calculatedStock = Math.ceil(currentUnits / packSize);
+      setFormData(prev => ({ ...prev, initialStock: String(calculatedStock) }));
+    }
+  }, [formData.trackExactQuantity, formData.packSize, formData.currentUnits]);
+
+  // Auto-calculate actual stock for Edit Item when trackExactQuantity is enabled
+  useEffect(() => {
+    if (editFormData.trackExactQuantity && editFormData.packSize && editFormData.currentUnits) {
+      const packSize = parseInt(editFormData.packSize) || 1;
+      const currentUnits = parseInt(editFormData.currentUnits) || 0;
+      const calculatedStock = Math.ceil(currentUnits / packSize);
+      setEditFormData(prev => ({ ...prev, actualStock: String(calculatedStock) }));
+    }
+  }, [editFormData.trackExactQuantity, editFormData.packSize, editFormData.currentUnits]);
 
   const handleEditItem = (item: ItemWithStock) => {
     setSelectedItem(item);
@@ -329,10 +351,11 @@ export default function Items() {
       maxThreshold: String(item.maxThreshold || 0),
       defaultOrderQty: String(item.defaultOrderQty || 0),
       packSize: String(item.packSize || 1),
-      controlledUnits: String(item.controlledUnits || 0),
+      currentUnits: String(item.currentUnits || 0),
       actualStock: String(item.stockLevel?.qtyOnHand || 0),
       critical: item.critical || false,
       controlled: item.controlled || false,
+      trackExactQuantity: item.trackExactQuantity || false,
     });
     setSelectedUnit(normalizeUnit(item.unit));
     setEditDialogOpen(true);
@@ -663,8 +686,9 @@ export default function Items() {
       minThreshold: parseInt(editFormData.minThreshold) || 0,
       maxThreshold: parseInt(editFormData.maxThreshold) || 0,
       defaultOrderQty: parseInt(editFormData.defaultOrderQty) || 0,
-      packSize: (selectedUnit === "pack" && editFormData.controlled) ? parseInt(editFormData.packSize) || 1 : 1,
-      controlledUnits: (selectedUnit === "pack" && editFormData.controlled) ? parseInt(editFormData.controlledUnits) || 0 : 0,
+      packSize: (selectedUnit === "pack" && editFormData.trackExactQuantity) ? parseInt(editFormData.packSize) || 1 : 1,
+      currentUnits: (selectedUnit === "pack" && editFormData.trackExactQuantity) ? parseInt(editFormData.currentUnits) || 0 : 0,
+      trackExactQuantity: editFormData.trackExactQuantity,
       critical: editFormData.critical,
       controlled: editFormData.controlled,
     };
@@ -801,8 +825,9 @@ export default function Items() {
       minThreshold: parseInt(formData.minThreshold) || 0,
       maxThreshold: parseInt(formData.maxThreshold) || 0,
       defaultOrderQty: parseInt(formData.defaultOrderQty) || 0,
-      packSize: (selectedUnit === "pack" && formData.controlled) ? parseInt(formData.packSize) || 1 : 1,
-      controlledUnits: (selectedUnit === "pack" && formData.controlled) ? parseInt(formData.controlledUnits) || 0 : 0,
+      packSize: (selectedUnit === "pack" && formData.trackExactQuantity) ? parseInt(formData.packSize) || 1 : 1,
+      currentUnits: (selectedUnit === "pack" && formData.trackExactQuantity) ? parseInt(formData.currentUnits) || 0 : 0,
+      trackExactQuantity: formData.trackExactQuantity,
       critical: formData.critical,
       controlled: formData.controlled,
       initialStock: parseInt(formData.initialStock) || 0,
@@ -820,10 +845,11 @@ export default function Items() {
       maxThreshold: "10",
       defaultOrderQty: "0",
       packSize: "1",
-      controlledUnits: "0",
+      currentUnits: "0",
       initialStock: "0",
       critical: false,
       controlled: false,
+      trackExactQuantity: false,
     });
     setSelectedUnit("pack");
     setUploadedImages([]);
@@ -1295,7 +1321,12 @@ export default function Items() {
                                       {item.stockLevel && (
                                         <div className={`inline-flex items-center gap-1 ${stockStatus.color}`}>
                                           <i className={`fas ${currentQty > 0 ? 'fa-check-circle' : 'fa-times-circle'}`}></i>
-                                          <span className="font-semibold" data-testid={`item-${item.id}-stock`}>{currentQty}</span>
+                                          <span className="font-semibold" data-testid={`item-${item.id}-stock`}>
+                                            {currentQty}
+                                            {item.trackExactQuantity && item.unit === 'pack' && (
+                                              <span className="text-muted-foreground font-normal"> [{item.currentUnits} units]</span>
+                                            )}
+                                          </span>
                                           {item.minThreshold !== null && item.minThreshold !== undefined && (
                                             <span className="text-muted-foreground">
                                               / Min: {item.minThreshold} / Max: {item.maxThreshold || 0}
@@ -1458,6 +1489,9 @@ export default function Items() {
                         <div className="flex items-center gap-1.5">
                           <span className={`text-2xl font-bold ${stockStatus.color}`}>
                             {currentQty}
+                            {item.trackExactQuantity && item.unit === 'pack' && (
+                              <span className="text-base text-muted-foreground font-normal ml-1">[{item.currentUnits} units]</span>
+                            )}
                           </span>
                           <i className={`fas ${normalizeUnit(item.unit) === "pack" ? "fa-box" : "fa-vial"} text-lg ${stockStatus.color}`}></i>
                         </div>
@@ -1593,9 +1627,33 @@ export default function Items() {
               />
             </div>
 
-            {/* Visual Unit Selector */}
+            {/* Item Qualities - Critical and Controlled */}
+            <div className="flex gap-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="critical" 
+                  name="critical" 
+                  checked={formData.critical}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, critical: checked === true }))}
+                  data-testid="checkbox-item-critical" 
+                />
+                <Label htmlFor="critical" className="cursor-pointer">{t('items.critical')}</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="controlled" 
+                  name="controlled"
+                  checked={formData.controlled}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, controlled: checked === true }))}
+                  data-testid="checkbox-item-controlled" 
+                />
+                <Label htmlFor="controlled" className="cursor-pointer">{t('items.controlled')}</Label>
+              </div>
+            </div>
+
+            {/* Order Unit Selector */}
             <div>
-              <Label>{t('items.unitType')} *</Label>
+              <Label>{t('items.placeOrdersBy')} *</Label>
               <div className="flex gap-2 mt-2">
                 <button
                   type="button"
@@ -1618,13 +1676,62 @@ export default function Items() {
                       ? "border-primary bg-primary/10" 
                       : "border-border bg-background"
                   }`}
-                  data-testid="unit-ampulle"
+                  data-testid="unit-single"
                 >
                   <i className="fas fa-vial text-xl mb-1"></i>
-                  <div className="text-xs font-medium">{t('items.ampulle')}</div>
+                  <div className="text-xs font-medium">{t('items.singleUnit')}</div>
                 </button>
               </div>
             </div>
+
+            {/* Track Exact Quantity - Only for Pack orders */}
+            {selectedUnit === "pack" && (
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="trackExactQuantity" 
+                  name="trackExactQuantity"
+                  checked={formData.trackExactQuantity}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, trackExactQuantity: checked === true }))}
+                  data-testid="checkbox-track-exact-quantity" 
+                />
+                <Label htmlFor="trackExactQuantity" className="cursor-pointer">{t('items.trackExactQuantity')}</Label>
+              </div>
+            )}
+
+            {/* Pack Size and Current Units - Only shown when Track Exact Quantity is checked */}
+            {selectedUnit === "pack" && formData.trackExactQuantity && (
+              <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border-2 border-blue-200 dark:border-blue-900/50 space-y-4">
+                <div>
+                  <Label htmlFor="packSize">{t('items.packSize')} *</Label>
+                  <Input 
+                    ref={packSizeInputRef}
+                    id="packSize" 
+                    name="packSize" 
+                    type="number" 
+                    min="1"
+                    value={formData.packSize}
+                    onChange={(e) => setFormData(prev => ({ ...prev, packSize: e.target.value }))}
+                    data-testid="input-item-pack-size" 
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">{t('items.packSizeHelp')}</p>
+                </div>
+                <div>
+                  <Label htmlFor="currentUnits">{t('items.currentUnits')} *</Label>
+                  <Input 
+                    id="currentUnits" 
+                    name="currentUnits" 
+                    type="number" 
+                    min="0"
+                    value={formData.currentUnits}
+                    onChange={(e) => setFormData(prev => ({ ...prev, currentUnits: e.target.value }))}
+                    data-testid="input-item-current-units" 
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">{t('items.currentUnitsHelp')}</p>
+                </div>
+              </div>
+            )}
 
             {/* <div>
               <Label htmlFor="barcode">Barcode</Label>
@@ -1638,7 +1745,12 @@ export default function Items() {
             </div> */}
 
             <div className="p-4 bg-primary/10 dark:bg-primary/20 rounded-lg border-2 border-primary/30">
-              <Label htmlFor="initialStock" className="text-base font-semibold">{t('items.actualStock')}</Label>
+              <Label htmlFor="initialStock" className="text-base font-semibold">
+                {t('items.actualStock')}
+                {formData.trackExactQuantity && (
+                  <span className="ml-2 text-xs text-muted-foreground font-normal">(Auto-calculated)</span>
+                )}
+              </Label>
               <Input 
                 id="initialStock" 
                 name="initialStock" 
@@ -1648,6 +1760,8 @@ export default function Items() {
                 onChange={(e) => setFormData(prev => ({ ...prev, initialStock: e.target.value }))}
                 data-testid="input-initial-stock"
                 className="mt-2 text-lg font-medium"
+                disabled={formData.trackExactQuantity}
+                readOnly={formData.trackExactQuantity}
               />
             </div>
 
@@ -1677,64 +1791,6 @@ export default function Items() {
                 />
               </div>
             </div>
-
-            <div className="flex gap-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="critical" 
-                  name="critical" 
-                  checked={formData.critical}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, critical: checked === true }))}
-                  data-testid="checkbox-item-critical" 
-                />
-                <Label htmlFor="critical" className="cursor-pointer">{t('items.critical')}</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="controlled" 
-                  name="controlled"
-                  checked={formData.controlled}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, controlled: checked === true }))}
-                  data-testid="checkbox-item-controlled" 
-                />
-                <Label htmlFor="controlled" className="cursor-pointer">{t('items.controlled')}</Label>
-              </div>
-            </div>
-
-            {/* Controlled Substance Fields - Only shown for controlled pack items */}
-            {selectedUnit === "pack" && formData.controlled && (
-              <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg border-2 border-amber-200 dark:border-amber-900/50 space-y-4">
-                <div>
-                  <Label htmlFor="packSize">{t('items.packSize')} *</Label>
-                  <Input 
-                    ref={packSizeInputRef}
-                    id="packSize" 
-                    name="packSize" 
-                    type="number" 
-                    min="1"
-                    value={formData.packSize}
-                    onChange={(e) => setFormData(prev => ({ ...prev, packSize: e.target.value }))}
-                    data-testid="input-item-pack-size" 
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">{t('items.packSizeHelp')}</p>
-                </div>
-                <div>
-                  <Label htmlFor="controlledUnits">{t('items.controlledUnits')} *</Label>
-                  <Input 
-                    id="controlledUnits" 
-                    name="controlledUnits" 
-                    type="number" 
-                    min="0"
-                    value={formData.controlledUnits}
-                    onChange={(e) => setFormData(prev => ({ ...prev, controlledUnits: e.target.value }))}
-                    data-testid="input-item-controlled-units" 
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">{t('items.controlledUnitsHelp')}</p>
-                </div>
-              </div>
-            )}
 
             <div className="flex gap-3 pt-4 justify-end">
               <Button type="button" variant="outline" onClick={() => { setAddDialogOpen(false); resetForm(); }}>
@@ -1779,8 +1835,33 @@ export default function Items() {
               />
             </div>
 
+            {/* Item Qualities - Critical and Controlled */}
+            <div className="flex gap-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="edit-critical" 
+                  name="critical" 
+                  checked={editFormData.critical}
+                  onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, critical: checked === true }))}
+                  data-testid="checkbox-edit-critical" 
+                />
+                <Label htmlFor="edit-critical" className="cursor-pointer">{t('items.critical')}</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="edit-controlled" 
+                  name="controlled"
+                  checked={editFormData.controlled}
+                  onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, controlled: checked === true }))}
+                  data-testid="checkbox-edit-controlled" 
+                />
+                <Label htmlFor="edit-controlled" className="cursor-pointer">{t('items.controlled')}</Label>
+              </div>
+            </div>
+
+            {/* Order Unit Selector */}
             <div>
-              <Label>{t('items.unitType')} *</Label>
+              <Label>{t('items.placeOrdersBy')} *</Label>
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <button
                   type="button"
@@ -1803,13 +1884,62 @@ export default function Items() {
                       ? "border-primary bg-primary/10" 
                       : "border-border bg-background"
                   }`}
-                  data-testid="edit-unit-ampulle"
+                  data-testid="edit-unit-single"
                 >
                   <i className="fas fa-vial text-xl mb-1"></i>
-                  <div className="text-xs font-medium">{t('items.ampulle')}</div>
+                  <div className="text-xs font-medium">{t('items.singleUnit')}</div>
                 </button>
               </div>
             </div>
+
+            {/* Track Exact Quantity - Only for Pack orders */}
+            {selectedUnit === "pack" && (
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="edit-trackExactQuantity" 
+                  name="trackExactQuantity"
+                  checked={editFormData.trackExactQuantity}
+                  onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, trackExactQuantity: checked === true }))}
+                  data-testid="checkbox-edit-track-exact-quantity" 
+                />
+                <Label htmlFor="edit-trackExactQuantity" className="cursor-pointer">{t('items.trackExactQuantity')}</Label>
+              </div>
+            )}
+
+            {/* Pack Size and Current Units - Only shown when Track Exact Quantity is checked */}
+            {selectedUnit === "pack" && editFormData.trackExactQuantity && (
+              <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border-2 border-blue-200 dark:border-blue-900/50 space-y-4">
+                <div>
+                  <Label htmlFor="edit-packSize">{t('items.packSize')} *</Label>
+                  <Input 
+                    ref={editPackSizeInputRef}
+                    id="edit-packSize" 
+                    name="packSize" 
+                    type="number" 
+                    min="1"
+                    value={editFormData.packSize}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, packSize: e.target.value }))}
+                    data-testid="input-edit-pack-size" 
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">{t('items.packSizeHelp')}</p>
+                </div>
+                <div>
+                  <Label htmlFor="edit-currentUnits">{t('items.currentUnits')} *</Label>
+                  <Input 
+                    id="edit-currentUnits" 
+                    name="currentUnits" 
+                    type="number" 
+                    min="0"
+                    value={editFormData.currentUnits}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, currentUnits: e.target.value }))}
+                    data-testid="input-edit-current-units" 
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">{t('items.currentUnitsHelp')}</p>
+                </div>
+              </div>
+            )}
 
             {/* <div>
               <Label htmlFor="edit-barcode">Barcode</Label>
@@ -1823,7 +1953,12 @@ export default function Items() {
             </div> */}
 
             <div className="p-4 bg-primary/10 dark:bg-primary/20 rounded-lg border-2 border-primary/30">
-              <Label htmlFor="edit-actualStock" className="text-base font-semibold">{t('items.actualStock')}</Label>
+              <Label htmlFor="edit-actualStock" className="text-base font-semibold">
+                {t('items.actualStock')}
+                {editFormData.trackExactQuantity && (
+                  <span className="ml-2 text-xs text-muted-foreground font-normal">(Auto-calculated)</span>
+                )}
+              </Label>
               <Input 
                 id="edit-actualStock" 
                 name="actualStock" 
@@ -1833,7 +1968,9 @@ export default function Items() {
                 onChange={(e) => setEditFormData(prev => ({ ...prev, actualStock: e.target.value }))}
                 data-testid="input-edit-actual-stock"
                 className="mt-2 text-lg font-medium"
-                autoFocus
+                autoFocus={!editFormData.trackExactQuantity}
+                disabled={editFormData.trackExactQuantity}
+                readOnly={editFormData.trackExactQuantity}
               />
             </div>
 
@@ -1863,64 +2000,6 @@ export default function Items() {
                 />
               </div>
             </div>
-
-            <div className="flex gap-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="edit-critical" 
-                  name="critical" 
-                  checked={editFormData.critical}
-                  onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, critical: checked === true }))}
-                  data-testid="checkbox-edit-critical" 
-                />
-                <Label htmlFor="edit-critical" className="cursor-pointer">{t('items.critical')}</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="edit-controlled" 
-                  name="controlled"
-                  checked={editFormData.controlled}
-                  onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, controlled: checked === true }))}
-                  data-testid="checkbox-edit-controlled" 
-                />
-                <Label htmlFor="edit-controlled" className="cursor-pointer">{t('items.controlled')}</Label>
-              </div>
-            </div>
-
-            {/* Controlled Substance Fields - Only shown for controlled pack items */}
-            {selectedUnit === "pack" && editFormData.controlled && (
-              <div className="p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg border-2 border-amber-200 dark:border-amber-900/50 space-y-4">
-                <div>
-                  <Label htmlFor="edit-packSize">{t('items.packSize')} *</Label>
-                  <Input 
-                    ref={editPackSizeInputRef}
-                    id="edit-packSize" 
-                    name="packSize" 
-                    type="number" 
-                    min="1"
-                    value={editFormData.packSize}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, packSize: e.target.value }))}
-                    data-testid="input-edit-pack-size" 
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">{t('items.packSizeHelp')}</p>
-                </div>
-                <div>
-                  <Label htmlFor="edit-controlledUnits">{t('items.controlledUnits')} *</Label>
-                  <Input 
-                    id="edit-controlledUnits" 
-                    name="controlledUnits" 
-                    type="number" 
-                    min="0"
-                    value={editFormData.controlledUnits}
-                    onChange={(e) => setEditFormData(prev => ({ ...prev, controlledUnits: e.target.value }))}
-                    data-testid="input-edit-controlled-units" 
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">{t('items.controlledUnitsHelp')}</p>
-                </div>
-              </div>
-            )}
 
             <div className="flex gap-2 justify-between">
               <Button 

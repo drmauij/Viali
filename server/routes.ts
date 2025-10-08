@@ -788,7 +788,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         maxThreshold: req.body.maxThreshold,
         defaultOrderQty: req.body.defaultOrderQty,
         packSize: req.body.packSize,
-        controlledUnits: req.body.controlledUnits,
+        currentUnits: req.body.currentUnits,
+        trackExactQuantity: req.body.trackExactQuantity,
         critical: req.body.critical,
         controlled: req.body.controlled,
       };
@@ -1235,20 +1236,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Update stock level
           await storage.updateStockLevel(item.id, item.locationId, newQty);
           
-          // For controlled pack items, also update controlled units
-          if (isControlledPack) {
-            // Fetch current controlledUnits to avoid using stale value
+          // For items with exact quantity tracking, also update current units
+          if (item.trackExactQuantity) {
+            // Fetch current currentUnits to avoid using stale value
             const [currentItem] = await db
-              .select({ controlledUnits: items.controlledUnits })
+              .select({ currentUnits: items.currentUnits })
               .from(items)
               .where(eq(items.id, item.id));
             
-            const currentControlledUnits = currentItem?.controlledUnits || 0;
+            const currentCurrentUnits = currentItem?.currentUnits || 0;
             const addedUnits = line.qty * (line.packSize || 1);
             await db
               .update(items)
               .set({ 
-                controlledUnits: currentControlledUnits + addedUnits 
+                currentUnits: currentCurrentUnits + addedUnits 
               })
               .where(eq(items.id, item.id));
           }
@@ -1400,26 +1401,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
             throw new Error(`Access denied to item ${item.itemId}'s location`);
           }
           
-          // Check if this is a controlled pack item
-          const normalizedUnit = itemData.unit.toLowerCase();
-          const isControlledPack = itemData.controlled && normalizedUnit === 'pack';
-          
-          if (isControlledPack) {
-            // For controlled pack items: update controlled units and recalculate stock
-            const currentControlledUnits = itemData.controlledUnits || 0;
-            const newControlledUnits = Math.max(0, currentControlledUnits - item.qty);
+          // Check if this item has exact quantity tracking enabled
+          if (itemData.trackExactQuantity) {
+            // For items with exact quantity tracking: update current units and recalculate stock
+            const currentCurrentUnits = itemData.currentUnits || 0;
+            const newCurrentUnits = Math.max(0, currentCurrentUnits - item.qty);
             const packSize = itemData.packSize || 1;
-            const newQty = Math.ceil(newControlledUnits / packSize);
+            const newQty = Math.ceil(newCurrentUnits / packSize);
             
-            // Update both controlled units and stock
+            // Update both current units and stock
             await db
               .update(items)
-              .set({ controlledUnits: newControlledUnits })
+              .set({ currentUnits: newCurrentUnits })
               .where(eq(items.id, item.itemId));
             
             await storage.updateStockLevel(item.itemId, locationId, newQty);
           } else {
-            // For normal items and controlled ampulle items: subtract from stock directly
+            // For normal items: subtract from stock directly
             const currentStock = await storage.getStockLevel(item.itemId, locationId);
             const currentQty = currentStock?.qtyOnHand || 0;
             const newQty = Math.max(0, currentQty - item.qty);
