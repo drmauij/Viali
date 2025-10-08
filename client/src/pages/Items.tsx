@@ -117,6 +117,7 @@ export default function Items() {
   const packSizeInputRef = useRef<HTMLInputElement>(null);
   const editPackSizeInputRef = useRef<HTMLInputElement>(null);
   const bulkFileInputRef = useRef<HTMLInputElement>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
   
   // Bulk import state
@@ -202,6 +203,16 @@ export default function Items() {
         });
     }
   }, [activeHospital?.id]);
+
+  // Cleanup polling interval on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   const { data: vendors = [] } = useQuery<Vendor[]>({
     queryKey: ["/api/vendors", activeHospital?.id],
@@ -446,6 +457,12 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: (data) => {
+      // Clear any existing polling interval
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+      
       // Close dialog and show notification
       setBulkImportOpen(false);
       setImportJob({
@@ -456,7 +473,7 @@ export default function Items() {
       
       // Start polling for job completion
       const jobId = data.jobId;
-      const pollInterval = setInterval(async () => {
+      pollingIntervalRef.current = setInterval(async () => {
         try {
           const statusResponse = await fetch(`/api/import-jobs/${jobId}`, {
             credentials: "include"
@@ -464,7 +481,10 @@ export default function Items() {
           const jobStatus = await statusResponse.json();
           
           if (jobStatus.status === 'completed') {
-            clearInterval(pollInterval);
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
             setIsBulkAnalyzing(false);
             setBulkItems(jobStatus.results || []);
             setImportJob({
@@ -473,7 +493,10 @@ export default function Items() {
               itemCount: jobStatus.results?.length || 0
             });
           } else if (jobStatus.status === 'failed') {
-            clearInterval(pollInterval);
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
             setIsBulkAnalyzing(false);
             setImportJob(null);
             toast({
@@ -484,7 +507,10 @@ export default function Items() {
           }
           // If still processing or queued, continue polling
         } catch (error) {
-          clearInterval(pollInterval);
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
           setIsBulkAnalyzing(false);
           setImportJob(null);
           toast({
@@ -555,7 +581,7 @@ export default function Items() {
 
   // Handler for notification click
   const handleImportNotificationClick = () => {
-    if (importJob?.status === 'completed' && bulkItems.length > 0) {
+    if (importJob?.status === 'completed') {
       setBulkImportOpen(true);
     }
   };
