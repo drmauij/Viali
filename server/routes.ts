@@ -927,6 +927,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to delete item" });
     }
   });
+
+  // Bulk delete items
+  app.post('/api/items/bulk-delete', isAuthenticated, async (req: any, res) => {
+    try {
+      const { itemIds } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!Array.isArray(itemIds) || itemIds.length === 0) {
+        return res.status(400).json({ message: "Item IDs array is required" });
+      }
+
+      const results = {
+        deleted: [] as string[],
+        failed: [] as { id: string; reason: string }[]
+      };
+
+      // Process each item
+      for (const itemId of itemIds) {
+        try {
+          // Get the item to verify access
+          const item = await storage.getItem(itemId);
+          if (!item) {
+            results.failed.push({ id: itemId, reason: "Item not found" });
+            continue;
+          }
+          
+          // Verify user has access to this item's location
+          const locationId = await getUserLocationForHospital(userId, item.hospitalId);
+          if (!locationId || locationId !== item.locationId) {
+            results.failed.push({ id: itemId, reason: "Access denied" });
+            continue;
+          }
+          
+          // Delete the item
+          await storage.deleteItem(itemId);
+          results.deleted.push(itemId);
+        } catch (error: any) {
+          console.error(`Error deleting item ${itemId}:`, error);
+          results.failed.push({ id: itemId, reason: error.message || "Unknown error" });
+        }
+      }
+
+      res.json({
+        success: true,
+        deletedCount: results.deleted.length,
+        failedCount: results.failed.length,
+        results
+      });
+    } catch (error) {
+      console.error("Error bulk deleting items:", error);
+      res.status(500).json({ message: "Failed to bulk delete items" });
+    }
+  });
   
   // Get bulk import image limit for a hospital
   app.get('/api/hospitals/:hospitalId/bulk-import-limit', isAuthenticated, async (req: any, res) => {

@@ -138,6 +138,11 @@ export default function Items() {
   const [isBulkEditMode, setIsBulkEditMode] = useState(false);
   const [bulkEditItems, setBulkEditItems] = useState<Record<string, any>>({});
   
+  // Bulk delete state
+  const [isBulkDeleteMode, setIsBulkDeleteMode] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
   // Onboarding state
   const [showOnboarding, setShowOnboarding] = useState(false);
   
@@ -352,6 +357,30 @@ export default function Items() {
       toast({
         title: t('common.error'),
         description: error.message || t('items.failedToDelete'),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (itemIds: string[]) => {
+      const response = await apiRequest("POST", "/api/items/bulk-delete", { itemIds });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id] });
+      setIsBulkDeleteMode(false);
+      setSelectedItems(new Set());
+      setShowDeleteConfirm(false);
+      toast({
+        title: t('common.success'),
+        description: `${data.deletedCount} items deleted successfully${data.failedCount > 0 ? ` (${data.failedCount} failed)` : ''}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('common.error'),
+        description: error.message || "Failed to delete items",
         variant: "destructive",
       });
     },
@@ -784,6 +813,42 @@ export default function Items() {
     quickReduceMutation.mutate(item.id);
   };
 
+  const toggleItemSelection = (itemId: string) => {
+    setSelectedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
+  };
+
+  const selectAllItems = () => {
+    setSelectedItems(new Set(filteredItems.map(item => item.id)));
+  };
+
+  const deselectAllItems = () => {
+    setSelectedItems(new Set());
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedItems.size === 0) {
+      toast({
+        title: t('common.error'),
+        description: "Please select items to delete",
+        variant: "destructive",
+      });
+      return;
+    }
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmBulkDelete = () => {
+    bulkDeleteMutation.mutate(Array.from(selectedItems));
+  };
+
   const handleUpdateItem = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
@@ -1199,8 +1264,41 @@ export default function Items() {
                   {t('items.saveAll')}
                 </Button>
               </>
+            ) : isBulkDeleteMode ? (
+              <>
+                <Button variant="outline" size="sm" onClick={() => { setIsBulkDeleteMode(false); setSelectedItems(new Set()); }} data-testid="cancel-bulk-delete" className="flex-1 sm:flex-initial">
+                  {t('common.cancel')}
+                </Button>
+                {selectedItems.size > 0 && selectedItems.size < filteredItems.length && (
+                  <Button variant="outline" size="sm" onClick={selectAllItems} data-testid="select-all-items" className="flex-1 sm:flex-initial">
+                    <i className="fas fa-check-double mr-2"></i>
+                    Select All
+                  </Button>
+                )}
+                {selectedItems.size === filteredItems.length && filteredItems.length > 0 && (
+                  <Button variant="outline" size="sm" onClick={deselectAllItems} data-testid="deselect-all-items" className="flex-1 sm:flex-initial">
+                    <i className="fas fa-times mr-2"></i>
+                    Deselect All
+                  </Button>
+                )}
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  onClick={handleBulkDelete} 
+                  disabled={selectedItems.size === 0 || bulkDeleteMutation.isPending}
+                  data-testid="delete-selected-button" 
+                  className="flex-1 sm:flex-initial"
+                >
+                  <i className="fas fa-trash mr-2"></i>
+                  Delete ({selectedItems.size})
+                </Button>
+              </>
             ) : (
               <>
+                <Button variant="outline" size="sm" onClick={() => { setIsBulkDeleteMode(true); setSelectedItems(new Set()); }} data-testid="bulk-delete-button" className="flex-1 sm:flex-initial">
+                  <i className="fas fa-trash mr-2"></i>
+                  Bulk Delete
+                </Button>
                 <Button variant="outline" size="sm" onClick={() => { setIsBulkEditMode(true); setBulkEditItems({}); }} data-testid="bulk-edit-button" className="flex-1 sm:flex-initial">
                   <i className="fas fa-edit mr-2"></i>
                   {t('items.bulkEdit')}
@@ -1356,15 +1454,29 @@ export default function Items() {
                         const currentQty = item.stockLevel?.qtyOnHand || 0;
 
                         return (
-                          <DraggableItem key={item.id} id={item.id} disabled={isBulkEditMode}>
+                          <DraggableItem key={item.id} id={item.id} disabled={isBulkEditMode || isBulkDeleteMode}>
                             <div
                               className="item-row"
-                              onClick={!isBulkEditMode ? () => handleEditItem(item) : undefined}
-                              style={!isBulkEditMode ? { cursor: 'pointer' } : undefined}
+                              onClick={!isBulkEditMode && !isBulkDeleteMode ? () => handleEditItem(item) : undefined}
+                              style={!isBulkEditMode && !isBulkDeleteMode ? { cursor: 'pointer' } : undefined}
                               data-testid={`item-${item.id}`}
                             >
                               <div className="flex items-start justify-between mb-3">
-                                {isBulkEditMode ? (
+                                {isBulkDeleteMode ? (
+                                  <div className="flex items-center gap-3 flex-1">
+                                    <Checkbox
+                                      checked={selectedItems.has(item.id)}
+                                      onCheckedChange={() => toggleItemSelection(item.id)}
+                                      data-testid={`checkbox-item-${item.id}`}
+                                    />
+                                    <div className="flex-1">
+                                      <h3 className="text-sm font-semibold text-foreground truncate">{item.name}</h3>
+                                      {item.description && (
+                                        <p className="text-xs text-muted-foreground mt-1 truncate">{item.description}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : isBulkEditMode ? (
                                   <div className="flex-1 space-y-2">
                                     <div>
                                       <Label className="text-xs">{t('items.name')}</Label>
@@ -1548,15 +1660,27 @@ export default function Items() {
                     const currentQty = item.stockLevel?.qtyOnHand || 0;
 
                     return (
-                      <DraggableItem key={item.id} id={item.id} disabled={isBulkEditMode}>
+                      <DraggableItem key={item.id} id={item.id} disabled={isBulkEditMode || isBulkDeleteMode}>
                         <div 
                           className="item-row"
-                          onClick={!isBulkEditMode ? () => handleEditItem(item) : undefined}
-                          style={!isBulkEditMode ? { cursor: 'pointer' } : undefined}
+                          onClick={!isBulkEditMode && !isBulkDeleteMode ? () => handleEditItem(item) : undefined}
+                          style={!isBulkEditMode && !isBulkDeleteMode ? { cursor: 'pointer' } : undefined}
                           data-testid={`item-${item.id}`}
                         >
                 <div className="flex items-start justify-between mb-3">
-                  {isBulkEditMode ? (
+                  {isBulkDeleteMode ? (
+                    <div className="flex items-center gap-3 flex-1">
+                      <Checkbox
+                        checked={selectedItems.has(item.id)}
+                        onCheckedChange={() => toggleItemSelection(item.id)}
+                        data-testid={`checkbox-item-${item.id}`}
+                      />
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-foreground">{item.name}</h3>
+                        <p className="text-sm text-muted-foreground">{item.description || `${item.unit} unit`}</p>
+                      </div>
+                    </div>
+                  ) : isBulkEditMode ? (
                     <div className="flex-1 space-y-2">
                       <div>
                         <Label className="text-xs">{t('items.name')}</Label>
@@ -2410,6 +2534,35 @@ export default function Items() {
                 {t('items.doLater')}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent data-testid="bulk-delete-confirm-dialog">
+          <DialogHeader>
+            <DialogTitle>Confirm Bulk Delete</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete {selectedItems.size} item{selectedItems.size > 1 ? 's' : ''}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowDeleteConfirm(false)}
+              data-testid="cancel-bulk-delete-dialog"
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={confirmBulkDelete}
+              disabled={bulkDeleteMutation.isPending}
+              data-testid="confirm-bulk-delete-dialog"
+            >
+              {bulkDeleteMutation.isPending ? 'Deleting...' : 'Delete Items'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
