@@ -1156,6 +1156,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[Import Job] Created job ${job.id} with ${base64Images.length} images for user ${userId}`);
 
+      // Trigger background processing (fire and forget)
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      fetch(`${baseUrl}/api/import-jobs/process-next`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).catch(err => console.error('[Import Job] Failed to trigger background worker:', err));
+
       res.status(201).json({ 
         jobId: job.id,
         status: job.status,

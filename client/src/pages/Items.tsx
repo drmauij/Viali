@@ -430,19 +430,56 @@ export default function Items() {
     },
   });
 
-  const bulkAnalyzeMutation = useMutation({
+  const createImportJobMutation = useMutation({
     mutationFn: async (images: string[]) => {
-      const response = await apiRequest("POST", "/api/items/analyze-images", { 
+      const response = await apiRequest("POST", "/api/import-jobs", { 
         images,
         hospitalId: activeHospital?.id 
       });
       return await response.json();
     },
     onSuccess: (data) => {
-      setBulkItems(data.items || []);
+      // Start polling for job completion
+      const jobId = data.jobId;
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusResponse = await fetch(`/api/import-jobs/${jobId}`, {
+            credentials: "include"
+          });
+          const jobStatus = await statusResponse.json();
+          
+          if (jobStatus.status === 'completed') {
+            clearInterval(pollInterval);
+            setIsBulkAnalyzing(false);
+            setBulkItems(jobStatus.results || []);
+            toast({
+              title: t('items.analysisComplete'),
+              description: t('items.extractedItems', { count: jobStatus.results?.length || 0 }),
+            });
+          } else if (jobStatus.status === 'failed') {
+            clearInterval(pollInterval);
+            setIsBulkAnalyzing(false);
+            toast({
+              title: t('items.analysisFailed'),
+              description: jobStatus.error || t('items.failedToAnalyze'),
+              variant: "destructive",
+            });
+          }
+          // If still processing or queued, continue polling
+        } catch (error) {
+          clearInterval(pollInterval);
+          setIsBulkAnalyzing(false);
+          toast({
+            title: t('items.analysisFailed'),
+            description: 'Failed to check job status',
+            variant: "destructive",
+          });
+        }
+      }, 2000); // Poll every 2 seconds
+
       toast({
-        title: t('items.analysisComplete'),
-        description: t('items.extractedItems', { count: data.items?.length || 0 }),
+        title: "Processing Started",
+        description: `Your ${data.totalImages} images are being analyzed. This may take a minute...`,
       });
     },
     onError: (error: any) => {
@@ -925,15 +962,15 @@ export default function Items() {
         images.push(compressedImage);
       }
       setBulkImages(images);
-      await bulkAnalyzeMutation.mutateAsync(images);
+      await createImportJobMutation.mutateAsync(images);
     } catch (error: any) {
       toast({
         title: "Upload Failed",
         description: error.message || "Failed to process images",
         variant: "destructive",
       });
-    } finally {
       setIsBulkAnalyzing(false);
+    } finally {
       e.target.value = '';
     }
   };
