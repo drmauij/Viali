@@ -117,7 +117,6 @@ export default function Items() {
   const packSizeInputRef = useRef<HTMLInputElement>(null);
   const editPackSizeInputRef = useRef<HTMLInputElement>(null);
   const bulkFileInputRef = useRef<HTMLInputElement>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
   
   // Bulk import state
@@ -204,15 +203,39 @@ export default function Items() {
     }
   }, [activeHospital?.id]);
 
-  // Cleanup polling interval on unmount
+  // Load import job state from localStorage on mount and watch for changes
   useEffect(() => {
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
+    if (!activeHospital?.id) return;
+
+    const loadJobState = () => {
+      const savedJob = localStorage.getItem(`import-job-${activeHospital.id}`);
+      if (savedJob) {
+        try {
+          const job = JSON.parse(savedJob);
+          setImportJob(job);
+          
+          // If job is completed, load the results for preview
+          if (job.status === 'completed' && job.results) {
+            setBulkItems(job.results);
+            setIsBulkAnalyzing(false);
+          }
+        } catch (error) {
+          console.error('Failed to parse saved import job:', error);
+          localStorage.removeItem(`import-job-${activeHospital.id}`);
+        }
+      } else {
+        setImportJob(null);
       }
     };
-  }, []);
+
+    // Load initially
+    loadJobState();
+
+    // Check for updates every second (BottomNav updates localStorage)
+    const checkInterval = setInterval(loadJobState, 1000);
+
+    return () => clearInterval(checkInterval);
+  }, [activeHospital?.id]);
 
   const { data: vendors = [] } = useQuery<Vendor[]>({
     queryKey: ["/api/vendors", activeHospital?.id],
@@ -457,69 +480,17 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: (data) => {
-      // Clear any existing polling interval
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-      
       // Close dialog and show notification
       setBulkImportOpen(false);
-      setImportJob({
-        jobId: data.jobId,
-        status: 'processing',
-        itemCount: data.totalImages
-      });
       
-      // Start polling for job completion
-      const jobId = data.jobId;
-      pollingIntervalRef.current = setInterval(async () => {
-        try {
-          const statusResponse = await fetch(`/api/import-jobs/${jobId}`, {
-            credentials: "include"
-          });
-          const jobStatus = await statusResponse.json();
-          
-          if (jobStatus.status === 'completed') {
-            if (pollingIntervalRef.current) {
-              clearInterval(pollingIntervalRef.current);
-              pollingIntervalRef.current = null;
-            }
-            setIsBulkAnalyzing(false);
-            setBulkItems(jobStatus.results || []);
-            setImportJob({
-              jobId: data.jobId,
-              status: 'completed',
-              itemCount: jobStatus.results?.length || 0
-            });
-          } else if (jobStatus.status === 'failed') {
-            if (pollingIntervalRef.current) {
-              clearInterval(pollingIntervalRef.current);
-              pollingIntervalRef.current = null;
-            }
-            setIsBulkAnalyzing(false);
-            setImportJob(null);
-            toast({
-              title: t('items.analysisFailed'),
-              description: jobStatus.error || t('items.failedToAnalyze'),
-              variant: "destructive",
-            });
-          }
-          // If still processing or queued, continue polling
-        } catch (error) {
-          if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-          }
-          setIsBulkAnalyzing(false);
-          setImportJob(null);
-          toast({
-            title: t('items.analysisFailed'),
-            description: 'Failed to check job status',
-            variant: "destructive",
-          });
-        }
-      }, 2000); // Poll every 2 seconds
+      // Set initial job state - BottomNav will handle polling
+      const processingJob = {
+        jobId: data.jobId,
+        status: 'processing' as const,
+        itemCount: data.totalImages
+      };
+      setImportJob(processingJob);
+      localStorage.setItem(`import-job-${activeHospital?.id}`, JSON.stringify(processingJob));
     },
     onError: (error: any) => {
       toast({
@@ -564,7 +535,11 @@ export default function Items() {
       setBulkImportOpen(false);
       setBulkImages([]);
       setBulkItems([]);
-      setImportJob(null); // Clear notification
+      setImportJob(null);
+      // Clear from localStorage so badge disappears
+      if (activeHospital?.id) {
+        localStorage.removeItem(`import-job-${activeHospital.id}`);
+      }
       toast({
         title: t('common.success'),
         description: t('items.itemsImportedSuccess'),

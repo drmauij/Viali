@@ -1,7 +1,7 @@
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useTranslation } from "react-i18next";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 
 interface NavItem {
   id: string;
@@ -15,6 +15,8 @@ export default function BottomNav() {
   const { t } = useTranslation();
   const [location, navigate] = useLocation();
   const { user } = useAuth();
+  const [hasCompletedImport, setHasCompletedImport] = useState(false);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const activeHospital = useMemo(() => {
     const userHospitals = (user as any)?.hospitals;
@@ -34,6 +36,61 @@ export default function BottomNav() {
   }, [user]);
 
   const isAdmin = activeHospital?.role === "admin";
+
+  // Poll for import job status and update localStorage
+  useEffect(() => {
+    if (!activeHospital?.id) return;
+
+    const pollJobStatus = async () => {
+      const savedJob = localStorage.getItem(`import-job-${activeHospital.id}`);
+      if (savedJob) {
+        try {
+          const job = JSON.parse(savedJob);
+          
+          // Only poll if job is still processing
+          if (job.status === 'processing') {
+            const statusResponse = await fetch(`/api/import-jobs/${job.jobId}`, {
+              credentials: "include"
+            });
+            const jobStatus = await statusResponse.json();
+            
+            if (jobStatus.status === 'completed') {
+              const completedJob = {
+                jobId: job.jobId,
+                status: 'completed' as const,
+                itemCount: jobStatus.results?.length || 0,
+                results: jobStatus.results || []
+              };
+              localStorage.setItem(`import-job-${activeHospital.id}`, JSON.stringify(completedJob));
+              setHasCompletedImport(true);
+            } else if (jobStatus.status === 'failed') {
+              localStorage.removeItem(`import-job-${activeHospital.id}`);
+              setHasCompletedImport(false);
+            }
+          } else if (job.status === 'completed') {
+            setHasCompletedImport(true);
+          }
+        } catch (error) {
+          console.error('Failed to poll job status:', error);
+        }
+      } else {
+        setHasCompletedImport(false);
+      }
+    };
+
+    // Check initially
+    pollJobStatus();
+
+    // Poll every 2 seconds
+    pollingIntervalRef.current = setInterval(pollJobStatus, 2000);
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [activeHospital?.id]);
 
   const navItems: NavItem[] = useMemo(() => {
     const items = [
@@ -64,7 +121,25 @@ export default function BottomNav() {
           onClick={() => navigate(item.path)}
           data-testid={`nav-${item.id}`}
         >
-          <i className={item.icon}></i>
+          <div style={{ position: 'relative' }}>
+            <i className={item.icon}></i>
+            {item.id === 'items' && hasCompletedImport && (
+              <span
+                className="import-badge"
+                style={{
+                  position: 'absolute',
+                  top: '-4px',
+                  right: '-8px',
+                  width: '10px',
+                  height: '10px',
+                  backgroundColor: '#10b981',
+                  borderRadius: '50%',
+                  border: '2px solid var(--background)',
+                }}
+                data-testid="import-badge"
+              />
+            )}
+          </div>
           <span>{item.label}</span>
         </button>
       ))}
