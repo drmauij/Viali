@@ -26,10 +26,15 @@ function getLicenseLimit(licenseType: string): number {
 }
 
 function getBulkImportImageLimit(licenseType: string): number {
-  // All accounts limited to 3 images to ensure completion within 30s deployment timeout
-  // Each batch of 3 images takes ~12-20s, safely under 30s limit
-  // Users can import multiple times for larger inventories
-  return 3;
+  // Async job queue system allows higher limits without timeout constraints
+  // Background worker processes images within 30s timeout per job
+  switch (licenseType) {
+    case "basic":
+      return 50;  // Basic accounts: up to 50 images
+    case "free":
+    default:
+      return 10;  // Free accounts: up to 10 images
+  }
 }
 
 async function checkLicenseLimit(hospitalId: string): Promise<{ allowed: boolean; currentCount: number; limit: number; licenseType: string }> {

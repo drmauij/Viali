@@ -24,7 +24,7 @@ Viali employs a hybrid authentication strategy supporting both Google OAuth (via
 
 ### Database Schema
 
-The core database schema includes `Users`, `Hospitals`, `UserHospitalRoles` (for role-based access control), `Items` (with barcode support, min/max thresholds, flags for critical/controlled items, `trackExactQuantity` flag, `currentUnits` for pack-level tracking, and `packSize` fields), `StockLevels`, `Lots` (for batch tracking and expiry), `Orders`, `OrderLines`, `Activities` (for audit trails), `Alerts`, `Vendors`, and `Locations`. Key design decisions include UUID primary keys, timestamp tracking, and separate lot tracking for compliance and expiry management.
+The core database schema includes `Users`, `Hospitals`, `UserHospitalRoles` (for role-based access control), `Items` (with barcode support, min/max thresholds, flags for critical/controlled items, `trackExactQuantity` flag, `currentUnits` for pack-level tracking, and `packSize` fields), `StockLevels`, `Lots` (for batch tracking and expiry), `Orders`, `OrderLines`, `Activities` (for audit trails), `Alerts`, `Vendors`, `Locations`, and `ImportJobs` (for async bulk import processing with job queue management). Key design decisions include UUID primary keys, timestamp tracking, separate lot tracking for compliance and expiry management, and JSONB storage for temporary bulk import data.
 
 **Stock Management System:**
 - Items can be configured with two order types:
@@ -53,9 +53,20 @@ The system supports comprehensive inventory management functionalities such as:
 - **Item Lifecycle Management**: Creation, updating, and transactional cascade deletion of items ensuring data integrity across related records (alerts, activities, order lines, lots, stock levels).
 - **User Management**: A comprehensive system for creating, assigning roles, changing passwords, and deleting users, with strong security measures.
 - **Signature Capture**: Print-ready black-on-white electronic signatures for all controlled substance transactions and verification checks.
-- **Bulk Import with AI**: AI-powered bulk photo import using OpenAI Vision API for automated item extraction:
-  - All accounts: Up to 3 images per import (optimized for 30-second deployment timeout limit)
-  - Single batch processing (3 images) completes in 12-20 seconds, safely within platform constraints
+- **Bulk Import with AI**: AI-powered bulk photo import using OpenAI Vision API for automated item extraction with asynchronous job processing:
+  - Basic accounts: Up to 50 images per import
+  - Free accounts: Up to 10 images per import (previously limited to 3 due to synchronous processing)
+  - **Async Architecture**: Images uploaded and processed via background job queue system
+    - Job creation is instant (< 1 second response time)
+    - Background worker processes images asynchronously within 30-second timeout
+    - Batch processing completes in 12-20 seconds for up to 3 images
+    - Email notifications sent upon completion with preview links
+    - Frontend polls job status every 2 seconds for real-time updates
+  - **Implementation Details**:
+    - Images temporarily stored in `import_jobs.imagesData` JSONB field
+    - Job states: queued → processing → completed/failed
+    - Worker auto-triggered on job creation (fire-and-forget pattern)
+    - Images cleared from database after processing to free storage
   - Automatic extraction of item names, descriptions, concentrations, pack sizes, and thresholds
   - Users can import multiple times for larger inventories (no daily limit on import sessions)
 
