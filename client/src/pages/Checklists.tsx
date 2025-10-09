@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
-import { useUser } from "@/hooks/useUser";
+import { useAuth } from "@/hooks/useAuth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ interface ChecklistCompletionWithDetails extends ChecklistCompletion {
 
 export default function Checklists() {
   const { t } = useTranslation();
-  const { user } = useUser();
+  const { user } = useAuth();
   const activeHospital = useActiveHospital();
   const { toast } = useToast();
   const [showCompletionModal, setShowCompletionModal] = useState(false);
