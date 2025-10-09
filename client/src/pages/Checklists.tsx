@@ -1,12 +1,19 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useUser } from "@/hooks/useUser";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ClipboardCheck, Clock, AlertCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { ClipboardCheck, Clock, AlertCircle, FileSignature } from "lucide-react";
+import SignaturePad from "@/components/SignaturePad";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { ChecklistTemplate, ChecklistCompletion, User } from "@shared/schema";
 import { format } from "date-fns";
 
@@ -23,9 +30,14 @@ interface ChecklistCompletionWithDetails extends ChecklistCompletion {
 
 export default function Checklists() {
   const { t } = useTranslation();
+  const { user } = useUser();
   const activeHospital = useActiveHospital();
+  const { toast } = useToast();
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<PendingChecklist | null>(null);
+  const [showSignaturePad, setShowSignaturePad] = useState(false);
+  const [signature, setSignature] = useState("");
+  const [comment, setComment] = useState("");
 
   const { data: pendingChecklists = [], isLoading: isLoadingPending } = useQuery<PendingChecklist[]>({
     queryKey: [`/api/checklists/pending/${activeHospital?.id}`, activeHospital?.locationId],
@@ -37,9 +49,68 @@ export default function Checklists() {
     enabled: !!activeHospital?.id,
   });
 
+  const completeMutation = useMutation({
+    mutationFn: async (data: { templateId: string; comment?: string; signature: string }) => {
+      if (!activeHospital?.id || !activeHospital?.locationId || !user?.id) {
+        throw new Error("Missing required information");
+      }
+      
+      return await apiRequest(`/api/checklists/complete`, {
+        method: "POST",
+        body: JSON.stringify({
+          templateId: data.templateId,
+          completedBy: user.id,
+          completedAt: new Date().toISOString(),
+          comment: data.comment,
+          signature: data.signature,
+          hospitalId: activeHospital.id,
+          locationId: activeHospital.locationId,
+        }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/checklists/pending/${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/checklists/history/${activeHospital?.id}`] });
+      toast({
+        title: t("common.success"),
+        description: t("checklists.completionSuccess"),
+      });
+      setShowCompletionModal(false);
+      setSelectedTemplate(null);
+      setSignature("");
+      setComment("");
+    },
+    onError: () => {
+      toast({
+        title: t("common.error"),
+        description: t("checklists.completionError"),
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCompleteChecklist = (checklist: PendingChecklist) => {
     setSelectedTemplate(checklist);
     setShowCompletionModal(true);
+  };
+
+  const handleSubmitCompletion = () => {
+    if (!selectedTemplate) return;
+    
+    if (!signature) {
+      toast({
+        title: t("common.error"),
+        description: t("checklists.signatureRequired"),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    completeMutation.mutate({
+      templateId: selectedTemplate.id,
+      comment: comment.trim() || undefined,
+      signature,
+    });
   };
 
   const getStatusBadge = (checklist: PendingChecklist) => {
@@ -236,6 +307,129 @@ export default function Checklists() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Completion Modal */}
+      <Dialog 
+        open={showCompletionModal} 
+        onOpenChange={(open) => {
+          setShowCompletionModal(open);
+          if (!open) {
+            // Reset all state when dialog closes
+            setSelectedTemplate(null);
+            setSignature("");
+            setComment("");
+            setShowSignaturePad(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl" data-testid="dialog-complete-checklist">
+          <DialogHeader>
+            <DialogTitle data-testid="text-modal-title">
+              {t("checklists.complete")} - {selectedTemplate?.name}
+            </DialogTitle>
+            <DialogDescription data-testid="text-modal-description">
+              {t("checklists.completionDescription")}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-4">
+            {/* Checklist Items */}
+            {selectedTemplate && Array.isArray(selectedTemplate.items) && selectedTemplate.items.length > 0 && (
+              <div>
+                <Label className="text-sm font-semibold mb-2 block" data-testid="label-items">
+                  {t("checklists.itemsToCheck")}
+                </Label>
+                <ul className="space-y-2 bg-muted p-4 rounded-lg" data-testid="list-items">
+                  {selectedTemplate.items.map((item, index) => (
+                    <li key={index} className="flex items-center gap-2 text-sm" data-testid={`item-${index}`}>
+                      <div className="w-4 h-4 border-2 border-primary rounded"></div>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Comment */}
+            <div>
+              <Label htmlFor="comment" className="mb-2 block" data-testid="label-comment">
+                {t("checklists.comment")} ({t("checklists.optional")})
+              </Label>
+              <Textarea
+                id="comment"
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder={t("checklists.commentPlaceholder")}
+                className="min-h-24"
+                data-testid="input-comment"
+              />
+            </div>
+
+            {/* Signature */}
+            <div>
+              <Label className="mb-2 block" data-testid="label-signature">
+                {t("checklists.signature")} *
+              </Label>
+              <div
+                className="signature-pad cursor-pointer border-2 border-dashed border-border rounded-lg p-6 hover:bg-muted/50 transition-colors"
+                onClick={() => setShowSignaturePad(true)}
+                data-testid="signature-trigger"
+              >
+                {signature ? (
+                  <div className="text-center">
+                    <FileSignature className="w-8 h-8 text-green-600 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-green-600" data-testid="text-signature-added">
+                      {t("checklists.signatureAdded")}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t("checklists.clickToChange")}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <FileSignature className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-sm font-medium" data-testid="text-signature-required">
+                      {t("checklists.clickToSign")}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCompletionModal(false);
+                setSelectedTemplate(null);
+                setSignature("");
+                setComment("");
+              }}
+              disabled={completeMutation.isPending}
+              data-testid="button-cancel"
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onClick={handleSubmitCompletion}
+              disabled={completeMutation.isPending || !signature}
+              className="flex-1"
+              data-testid="button-submit"
+            >
+              {completeMutation.isPending ? t("checklists.completing") : t("checklists.submitCompletion")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Signature Pad */}
+      <SignaturePad
+        isOpen={showSignaturePad}
+        onClose={() => setShowSignaturePad(false)}
+        onSave={(sig) => setSignature(sig)}
+        title={t("checklists.yourSignature")}
+      />
     </div>
   );
 }
