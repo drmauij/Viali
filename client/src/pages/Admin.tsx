@@ -17,10 +17,16 @@ interface HospitalUser extends UserHospitalRole {
   location: Location;
 }
 
+interface GroupedHospitalUser extends HospitalUser {
+  roles: Array<{ role: string; location: Location; roleId: string; locationId: string }>;
+}
+
 export default function Admin() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const activeHospital = useActiveHospital();
+  
+  console.log('[Admin] Active hospital:', activeHospital);
   
   const [activeTab, setActiveTab] = useState<"locations" | "users">("locations");
   const { toast } = useToast();
@@ -69,7 +75,7 @@ export default function Admin() {
 
   // Group users by user ID to show each user only once with all their roles
   const users = useMemo(() => {
-    const grouped = new Map<string, HospitalUser & { roles: Array<{ role: string; location: Location; roleId: string; locationId: string }> }>();
+    const grouped = new Map<string, GroupedHospitalUser>();
     
     rawUsers.forEach(userRole => {
       const userId = userRole.user.id;
@@ -208,7 +214,11 @@ export default function Admin() {
 
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      const response = await apiRequest("DELETE", `/api/admin/users/${userId}/delete?hospitalId=${activeHospital?.id}`);
+      if (!activeHospital?.id) {
+        throw new Error("No active hospital selected");
+      }
+      console.log('[Admin] Deleting user:', userId, 'for hospital:', activeHospital.id);
+      const response = await apiRequest("DELETE", `/api/admin/users/${userId}/delete?hospitalId=${activeHospital.id}`);
       return await response.json();
     },
     onSuccess: (data: any) => {
@@ -285,9 +295,9 @@ export default function Admin() {
     setUserDialogOpen(true);
   };
 
-  const handleEditUser = (user: HospitalUser) => {
+  const handleEditUser = (user: GroupedHospitalUser) => {
     // For grouped users, use the roles array directly
-    const userPairs = user.roles?.map(r => ({ 
+    const userPairs = user.roles?.map((r: any) => ({ 
       id: r.roleId, 
       role: r.role, 
       locationId: r.locationId 
@@ -309,7 +319,7 @@ export default function Admin() {
     if (editingUserDetails && users) {
       const user = users.find(u => u.user.id === editingUserDetails.id);
       if (user) {
-        const userPairs = user.roles?.map(r => ({ 
+        const userPairs = user.roles?.map((r: any) => ({ 
           id: r.roleId, 
           role: r.role, 
           locationId: r.locationId 
