@@ -50,6 +50,7 @@ export async function sendWelcomeEmail(
 ) {
   try {
     const { client, fromEmail } = await getUncachableResendClient();
+    console.log('[Email] Sending from:', fromEmail, 'to:', toEmail);
 
     const html = `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
