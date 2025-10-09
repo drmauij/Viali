@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage, db } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertItemSchema, insertFolderSchema, insertActivitySchema, orderLines, items, stockLevels, orders, users, userHospitalRoles, activities } from "@shared/schema";
+import { insertItemSchema, insertFolderSchema, insertActivitySchema, insertChecklistTemplateSchema, insertChecklistCompletionSchema, orderLines, items, stockLevels, orders, users, userHospitalRoles, activities } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import OpenAI from "openai";
@@ -12,6 +12,21 @@ async function getUserLocationForHospital(userId: string, hospitalId: string): P
   const hospitals = await storage.getUserHospitals(userId);
   const hospital = hospitals.find(h => h.id === hospitalId);
   return hospital?.locationId || null;
+}
+
+async function getUserRole(userId: string, hospitalId: string): Promise<string | null> {
+  const hospitals = await storage.getUserHospitals(userId);
+  const hospital = hospitals.find(h => h.id === hospitalId);
+  return hospital?.role || null;
+}
+
+async function verifyUserHospitalLocationAccess(userId: string, hospitalId: string, locationId: string): Promise<{ hasAccess: boolean; role: string | null }> {
+  const hospitals = await storage.getUserHospitals(userId);
+  const match = hospitals.find(h => h.id === hospitalId && h.locationId === locationId);
+  return {
+    hasAccess: !!match,
+    role: match?.role || null
+  };
 }
 
 function getLicenseLimit(licenseType: string): number {
@@ -2577,6 +2592,298 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting user:", error);
       res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
+  // Checklist Template Routes
+  
+  // Create checklist template (admin only)
+  app.post('/api/checklists/templates', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const templateData = req.body;
+      
+      if (!templateData.hospitalId || !templateData.locationId) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      // Verify user has admin access to this specific hospital/location
+      const access = await verifyUserHospitalLocationAccess(userId, templateData.hospitalId, templateData.locationId);
+      if (!access.hasAccess) {
+        return res.status(403).json({ message: "Access denied to this location" });
+      }
+      if (access.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      // Validate with schema
+      const validated = insertChecklistTemplateSchema.parse(templateData);
+      
+      const template = await storage.createChecklistTemplate(validated);
+      res.status(201).json(template);
+    } catch (error: any) {
+      console.error("Error creating checklist template:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Invalid template data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create checklist template" });
+    }
+  });
+  
+  // Get all checklist templates for a hospital (all locations user has access to)
+  app.get('/api/checklists/templates/:hospitalId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const userId = req.user.claims.sub;
+      const active = req.query.active !== 'false'; // Default to active only
+      
+      // Get all user's locations for this hospital
+      const hospitals = await storage.getUserHospitals(userId);
+      const userLocations = hospitals.filter(h => h.id === hospitalId);
+      
+      if (userLocations.length === 0) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Get templates for all user's locations
+      const allTemplates = await Promise.all(
+        userLocations.map(loc => storage.getChecklistTemplates(hospitalId, loc.locationId, active))
+      );
+      
+      // Flatten and deduplicate (in case templates span multiple locations)
+      const templates = allTemplates.flat();
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching checklist templates:", error);
+      res.status(500).json({ message: "Failed to fetch checklist templates" });
+    }
+  });
+  
+  // Update checklist template (admin only)
+  app.patch('/api/checklists/templates/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.claims.sub;
+      const updates = req.body;
+      
+      const template = await storage.getChecklistTemplate(id);
+      if (!template) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+      
+      // Verify user has admin access to this specific hospital/location
+      const access = await verifyUserHospitalLocationAccess(userId, template.hospitalId, template.locationId);
+      if (!access.hasAccess) {
+        return res.status(403).json({ message: "Access denied to this location" });
+      }
+      if (access.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const updated = await storage.updateChecklistTemplate(id, updates);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating checklist template:", error);
+      res.status(500).json({ message: "Failed to update checklist template" });
+    }
+  });
+  
+  // Delete checklist template (admin only)
+  app.delete('/api/checklists/templates/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.claims.sub;
+      
+      const template = await storage.getChecklistTemplate(id);
+      if (!template) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+      
+      // Verify user has admin access to this specific hospital/location
+      const access = await verifyUserHospitalLocationAccess(userId, template.hospitalId, template.locationId);
+      if (!access.hasAccess) {
+        return res.status(403).json({ message: "Access denied to this location" });
+      }
+      if (access.role !== 'admin') {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      await storage.deleteChecklistTemplate(id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting checklist template:", error);
+      res.status(500).json({ message: "Failed to delete checklist template" });
+    }
+  });
+  
+  // Checklist Completion Routes
+  
+  // Get pending checklists for all user's locations
+  app.get('/api/checklists/pending/:hospitalId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const userId = req.user.claims.sub;
+      
+      // Get all user's locations for this hospital
+      const hospitals = await storage.getUserHospitals(userId);
+      const userLocations = hospitals.filter(h => h.id === hospitalId);
+      
+      if (userLocations.length === 0) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Get pending checklists for all user's locations
+      const allPending = await Promise.all(
+        userLocations.map(loc => 
+          storage.getPendingChecklists(hospitalId, loc.locationId, loc.role)
+        )
+      );
+      
+      // Flatten and sort by due date
+      const pending = allPending.flat().sort((a, b) => 
+        a.nextDueDate.getTime() - b.nextDueDate.getTime()
+      );
+      
+      res.json(pending);
+    } catch (error) {
+      console.error("Error fetching pending checklists:", error);
+      res.status(500).json({ message: "Failed to fetch pending checklists" });
+    }
+  });
+  
+  // Get pending checklist count (for badge) across all user's locations
+  app.get('/api/checklists/count/:hospitalId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const userId = req.user.claims.sub;
+      
+      // Get all user's locations for this hospital
+      const hospitals = await storage.getUserHospitals(userId);
+      const userLocations = hospitals.filter(h => h.id === hospitalId);
+      
+      if (userLocations.length === 0) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Get counts for all user's locations
+      const counts = await Promise.all(
+        userLocations.map(loc => 
+          storage.getPendingChecklistCount(hospitalId, loc.locationId, loc.role)
+        )
+      );
+      
+      // Sum all counts
+      const totalCount = counts.reduce((sum, count) => sum + count, 0);
+      
+      res.json({ count: totalCount });
+    } catch (error) {
+      console.error("Error fetching pending checklist count:", error);
+      res.status(500).json({ message: "Failed to fetch pending checklist count" });
+    }
+  });
+  
+  // Complete a checklist
+  app.post('/api/checklists/complete', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const completionData = req.body;
+      
+      if (!completionData.templateId || !completionData.signature) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      // Get template to verify access
+      const template = await storage.getChecklistTemplate(completionData.templateId);
+      if (!template) {
+        return res.status(404).json({ message: "Template not found" });
+      }
+      
+      // Verify user has access to this specific hospital/location
+      const access = await verifyUserHospitalLocationAccess(userId, template.hospitalId, template.locationId);
+      if (!access.hasAccess) {
+        return res.status(403).json({ message: "Access denied to this location" });
+      }
+      
+      // Validate with schema
+      const validated = insertChecklistCompletionSchema.parse({
+        ...completionData,
+        completedBy: userId,
+        hospitalId: template.hospitalId,
+        locationId: template.locationId,
+        completedAt: new Date(),
+      });
+      
+      const completion = await storage.completeChecklist(validated);
+      res.status(201).json(completion);
+    } catch (error: any) {
+      console.error("Error completing checklist:", error);
+      if (error.name === 'ZodError') {
+        return res.status(400).json({ message: "Invalid completion data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to complete checklist" });
+    }
+  });
+  
+  // Get checklist completion history for all user's locations
+  app.get('/api/checklists/history/:hospitalId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const userId = req.user.claims.sub;
+      const { templateId, limit } = req.query;
+      
+      // Get all user's locations for this hospital
+      const hospitals = await storage.getUserHospitals(userId);
+      const userLocations = hospitals.filter(h => h.id === hospitalId);
+      
+      if (userLocations.length === 0) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Get completions for all user's locations
+      const allCompletions = await Promise.all(
+        userLocations.map(loc => 
+          storage.getChecklistCompletions(
+            hospitalId,
+            loc.locationId,
+            templateId as string | undefined,
+            limit ? parseInt(limit as string) : undefined
+          )
+        )
+      );
+      
+      // Flatten and sort by completion date (most recent first)
+      const completions = allCompletions.flat().sort((a, b) => 
+        new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime()
+      );
+      
+      res.json(completions);
+    } catch (error) {
+      console.error("Error fetching checklist history:", error);
+      res.status(500).json({ message: "Failed to fetch checklist history" });
+    }
+  });
+  
+  // Get single checklist completion (for PDF generation)
+  app.get('/api/checklists/completion/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.claims.sub;
+      
+      const completion = await storage.getChecklistCompletion(id);
+      if (!completion) {
+        return res.status(404).json({ message: "Completion not found" });
+      }
+      
+      // Verify user has access to this specific hospital/location
+      const access = await verifyUserHospitalLocationAccess(userId, completion.hospitalId, completion.locationId);
+      if (!access.hasAccess) {
+        return res.status(403).json({ message: "Access denied to this location" });
+      }
+      
+      res.json(completion);
+    } catch (error) {
+      console.error("Error fetching checklist completion:", error);
+      res.status(500).json({ message: "Failed to fetch checklist completion" });
     }
   });
 
