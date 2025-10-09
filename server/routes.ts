@@ -2422,9 +2422,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hospital = await storage.getHospital(hospitalId);
       
       // Send email with login credentials
-      const loginUrl = process.env.REPLIT_DOMAINS?.split(',')?.[0] 
-        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}/` 
-        : 'your-app-url';
+      // Use production URL if available, otherwise fall back to REPLIT_DOMAINS
+      const loginUrl = process.env.PRODUCTION_URL 
+        || (process.env.REPLIT_DOMAINS?.split(',')?.[0] 
+          ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}/` 
+          : 'https://use.viali.app/');
       
       try {
         const { sendWelcomeEmail } = await import('./resend');
