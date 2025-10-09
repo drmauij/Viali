@@ -52,6 +52,7 @@
     "home": "Startseite",
     "items": "Artikel",
     "orders": "Bestellungen",
+    "checklists": "Checklisten",
     "controlled": "Kontrolle",
     "admin": "Admin",
     "scan": "Scannen"
@@ -265,6 +266,33 @@
     "removeItemTitle": "Artikel aus Bestellung entfernen?",
     "removeItemDesc": "Dies entfernt den Artikel aus dieser Bestellung. Diese Aktion kann nicht rückgängig gemacht werden.",
     "removeItem": "Artikel entfernen"
+  },
+  "checklists": {
+    "title": "Geräte-Checklisten",
+    "pending": "Ausstehend",
+    "history": "Verlauf",
+    "noPending": "Keine ausstehenden Checklisten",
+    "noHistory": "Keine abgeschlossenen Checklisten",
+    "complete": "Abschließen",
+    "completed": "Abgeschlossen",
+    "overdue": "Überfällig",
+    "dueSoon": "Bald fällig",
+    "upcoming": "Demnächst",
+    "dueDate": "Fällig",
+    "completedOn": "Abgeschlossen am",
+    "items": "Artikel",
+    "recurrency": {
+      "daily": "Täglich",
+      "weekly": "Wöchentlich",
+      "monthly": "Monatlich",
+      "yearly": "Jährlich"
+    },
+    "role": {
+      "admin": "Admin",
+      "staff": "Personal",
+      "nurse": "Krankenschwester",
+      "doctor": "Arzt"
+    }
   },
   "controlled": {
     "title": "Betäubungsmittelprotokoll",

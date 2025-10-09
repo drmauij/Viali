@@ -52,6 +52,7 @@
     "home": "Home",
     "items": "Items",
     "orders": "Orders",
+    "checklists": "Checklists",
     "controlled": "Controlled",
     "admin": "Admin",
     "scan": "Scan"
@@ -265,6 +266,33 @@
     "removeItemTitle": "Remove Item from Order?",
     "removeItemDesc": "This will remove the item from this order. This action cannot be undone.",
     "removeItem": "Remove Item"
+  },
+  "checklists": {
+    "title": "Equipment Checklists",
+    "pending": "Pending",
+    "history": "History",
+    "noPending": "No pending checklists",
+    "noHistory": "No completed checklists",
+    "complete": "Complete",
+    "completed": "Completed",
+    "overdue": "Overdue",
+    "dueSoon": "Due Soon",
+    "upcoming": "Upcoming",
+    "dueDate": "Due",
+    "completedOn": "Completed on",
+    "items": "items",
+    "recurrency": {
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly",
+      "yearly": "Yearly"
+    },
+    "role": {
+      "admin": "Admin",
+      "staff": "Staff",
+      "nurse": "Nurse",
+      "doctor": "Doctor"
+    }
   },
   "controlled": {
     "title": "Controlled Substances Log",

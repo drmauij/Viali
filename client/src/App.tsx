@@ -15,6 +15,7 @@ import Items from "@/pages/Items";
 import Orders from "@/pages/Orders";
 import Alerts from "@/pages/Alerts";
 import ControlledLog from "@/pages/ControlledLog";
+import Checklists from "@/pages/Checklists";
 import Admin from "@/pages/Admin";
 import Signup from "@/pages/Signup";
 import ResetPassword from "@/pages/ResetPassword";
@@ -48,6 +49,7 @@ function Router() {
             <Route path="/orders" component={Orders} />
             <Route path="/alerts" component={Alerts} />
             <Route path="/controlled" component={ControlledLog} />
+            <Route path="/checklists" component={Checklists} />
             <Route path="/admin" component={Admin} />
             <Route path="/signup" component={Signup} />
           </>
