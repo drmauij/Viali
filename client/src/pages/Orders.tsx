@@ -68,17 +68,17 @@ export default function Orders() {
   const [lineToRemove, setLineToRemove] = useState<string | null>(null);
 
   const { data: orders = [], isLoading } = useQuery<OrderWithDetails[]>({
-    queryKey: ["/api/orders", activeHospital?.id, activeHospital?.locationId],
+    queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.locationId],
     enabled: !!activeHospital?.id,
   });
 
   const { data: vendors = [] } = useQuery<Vendor[]>({
-    queryKey: ["/api/vendors", activeHospital?.id, activeHospital?.locationId],
+    queryKey: [`/api/vendors/${activeHospital?.id}`, activeHospital?.locationId],
     enabled: !!activeHospital?.id,
   });
 
   const { data: items = [] } = useQuery<ItemWithStock[]>({
-    queryKey: ["/api/items", activeHospital?.id, activeHospital?.locationId],
+    queryKey: [`/api/items/${activeHospital?.id}`, activeHospital?.locationId],
     enabled: !!activeHospital?.id,
   });
 
@@ -101,7 +101,7 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders", activeHospital?.id, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.locationId] });
       setNewOrderDialogOpen(false);
       toast({
         title: t('orders.orderCreated'),
@@ -123,9 +123,9 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders", activeHospital?.id, activeHospital?.locationId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id, activeHospital?.locationId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/orders/open-items", activeHospital?.id, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}/open-items`, activeHospital?.locationId] });
       toast({
         title: t('orders.orderUpdated'),
         description: t('orders.orderStatusUpdated'),
@@ -158,7 +158,7 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders", activeHospital?.id, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.locationId] });
       setEditingLineId(null);
       toast({
         title: t('orders.orderUpdated'),
@@ -180,7 +180,7 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders", activeHospital?.id, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.locationId] });
       toast({
         title: t('orders.itemRemoved'),
         description: t('orders.itemRemovedSuccess'),
@@ -201,7 +201,7 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders", activeHospital?.id, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.locationId] });
       setEditOrderDialogOpen(false);
       setSelectedOrder(null);
       toast({
@@ -233,7 +233,7 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders", activeHospital?.id, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.locationId] });
       toast({
         title: t('orders.itemAdded'),
         description: t('orders.itemAddedSuccess'),

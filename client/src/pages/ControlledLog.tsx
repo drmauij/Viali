@@ -93,7 +93,7 @@ export default function ControlledLog() {
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear().toString());
 
   const { data: controlledItems = [] } = useQuery<ItemWithStock[]>({
-    queryKey: ["/api/items", activeHospital?.id, activeHospital?.locationId, { controlled: true }],
+    queryKey: [`/api/items/${activeHospital?.id}`, activeHospital?.locationId, { controlled: true }],
     queryFn: async () => {
       const response = await fetch(`/api/items/${activeHospital?.id}?controlled=true`);
       if (!response.ok) throw new Error("Failed to fetch items");
@@ -103,12 +103,12 @@ export default function ControlledLog() {
   });
 
   const { data: activities = [], isLoading: isLoadingActivities } = useQuery<ControlledActivity[]>({
-    queryKey: ["/api/controlled/log", activeHospital?.id, activeHospital?.locationId],
+    queryKey: [`/api/controlled/log/${activeHospital?.id}`, activeHospital?.locationId],
     enabled: !!activeHospital?.id,
   });
 
   const { data: checks = [], isLoading: isLoadingChecks } = useQuery<ControlledCheckWithUser[]>({
-    queryKey: ["/api/controlled/checks", activeHospital?.id, activeHospital?.locationId],
+    queryKey: [`/api/controlled/checks/${activeHospital?.id}`, activeHospital?.locationId],
     enabled: !!activeHospital?.id,
   });
 
@@ -124,8 +124,8 @@ export default function ControlledLog() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/controlled/log", activeHospital?.id, activeHospital?.locationId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id, activeHospital?.locationId, { controlled: true }] });
+      queryClient.invalidateQueries({ queryKey: [`/api/controlled/log/${activeHospital?.id}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}`, activeHospital?.locationId, { controlled: true }] });
       toast({
         title: "Administration Recorded",
         description: "Controlled substance administration has been logged.",
@@ -167,7 +167,7 @@ export default function ControlledLog() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/controlled/checks", activeHospital?.id, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/controlled/checks/${activeHospital?.id}`, activeHospital?.locationId] });
       toast({
         title: "Routine Check Recorded",
         description: "Controlled substance routine check has been logged.",
@@ -204,7 +204,7 @@ export default function ControlledLog() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/controlled/log", activeHospital?.id, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/controlled/log/${activeHospital?.id}`, activeHospital?.locationId] });
       toast({
         title: "Verification Complete",
         description: "Controlled substance administration has been verified.",
