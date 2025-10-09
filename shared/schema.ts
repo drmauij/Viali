@@ -279,6 +279,47 @@ export const importJobs = pgTable("import_jobs", {
 ]);
 
 
+// Checklist Templates (recurring checks for equipment/machinery)
+export const checklistTemplates = pgTable("checklist_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  locationId: varchar("location_id").notNull().references(() => locations.id),
+  role: varchar("role"), // null = any role, otherwise specific role required
+  name: varchar("name").notNull(), // e.g., "Emergency Backpack", "Ventilator"
+  description: text("description"),
+  recurrency: varchar("recurrency").notNull(), // daily, weekly, monthly, yearly
+  startDate: timestamp("start_date").notNull(), // when the recurrency starts
+  items: jsonb("items").notNull(), // array of { description: string } - items to check
+  active: boolean("active").default(true), // allow templates to be archived
+  createdBy: varchar("created_by").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_checklist_templates_hospital").on(table.hospitalId),
+  index("idx_checklist_templates_location").on(table.locationId),
+  index("idx_checklist_templates_active").on(table.active),
+]);
+
+// Checklist Completions (record of completed checklists)
+export const checklistCompletions = pgTable("checklist_completions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateId: varchar("template_id").notNull().references(() => checklistTemplates.id),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  locationId: varchar("location_id").notNull().references(() => locations.id),
+  completedBy: varchar("completed_by").notNull().references(() => users.id),
+  completedAt: timestamp("completed_at").defaultNow(),
+  dueDate: timestamp("due_date").notNull(), // which recurrency period this completion covers
+  comment: text("comment"),
+  signature: text("signature").notNull(),
+  templateSnapshot: jsonb("template_snapshot").notNull(), // snapshot of template at time of completion
+}, (table) => [
+  index("idx_checklist_completions_template").on(table.templateId),
+  index("idx_checklist_completions_hospital").on(table.hospitalId),
+  index("idx_checklist_completions_location").on(table.locationId),
+  index("idx_checklist_completions_completed_at").on(table.completedAt),
+  index("idx_checklist_completions_due_date").on(table.dueDate),
+]);
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   userHospitalRoles: many(userHospitalRoles),
@@ -382,6 +423,20 @@ export const importJobsRelations = relations(importJobs, ({ one }) => ({
   user: one(users, { fields: [importJobs.userId], references: [users.id] }),
 }));
 
+export const checklistTemplatesRelations = relations(checklistTemplates, ({ one, many }) => ({
+  hospital: one(hospitals, { fields: [checklistTemplates.hospitalId], references: [hospitals.id] }),
+  location: one(locations, { fields: [checklistTemplates.locationId], references: [locations.id] }),
+  createdByUser: one(users, { fields: [checklistTemplates.createdBy], references: [users.id] }),
+  completions: many(checklistCompletions),
+}));
+
+export const checklistCompletionsRelations = relations(checklistCompletions, ({ one }) => ({
+  template: one(checklistTemplates, { fields: [checklistCompletions.templateId], references: [checklistTemplates.id] }),
+  hospital: one(hospitals, { fields: [checklistCompletions.hospitalId], references: [hospitals.id] }),
+  location: one(locations, { fields: [checklistCompletions.locationId], references: [locations.id] }),
+  completedByUser: one(users, { fields: [checklistCompletions.completedBy], references: [users.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -435,6 +490,17 @@ export const insertImportJobSchema = createInsertSchema(importJobs).omit({
   completedAt: true,
 });
 
+export const insertChecklistTemplateSchema = createInsertSchema(checklistTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertChecklistCompletionSchema = createInsertSchema(checklistCompletions).omit({
+  id: true,
+  completedAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -460,6 +526,10 @@ export type ControlledCheck = typeof controlledChecks.$inferSelect;
 export type InsertControlledCheck = z.infer<typeof insertControlledCheckSchema>;
 export type ImportJob = typeof importJobs.$inferSelect;
 export type InsertImportJob = z.infer<typeof insertImportJobSchema>;
+export type ChecklistTemplate = typeof checklistTemplates.$inferSelect;
+export type InsertChecklistTemplate = z.infer<typeof insertChecklistTemplateSchema>;
+export type ChecklistCompletion = typeof checklistCompletions.$inferSelect;
+export type InsertChecklistCompletion = z.infer<typeof insertChecklistCompletionSchema>;
 
 // Bulk operations schemas
 export const bulkImportItemSchema = z.object({
