@@ -2428,15 +2428,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       try {
         const { sendWelcomeEmail } = await import('./resend');
-        await sendWelcomeEmail(
+        console.log('[User Creation] Attempting to send welcome email to:', newUser.email);
+        const result = await sendWelcomeEmail(
           newUser.email!,
           newUser.firstName!,
           hospital?.name || 'Your Hospital',
           password,
           loginUrl
         );
+        if (result.success) {
+          console.log('[User Creation] Welcome email sent successfully:', result.data);
+        } else {
+          console.error('[User Creation] Failed to send welcome email:', result.error);
+        }
       } catch (emailError) {
-        console.error('Failed to send welcome email:', emailError);
+        console.error('[User Creation] Exception sending welcome email:', emailError);
         // Continue even if email fails
       }
 
