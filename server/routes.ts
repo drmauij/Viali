@@ -2494,14 +2494,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Hospital ID is required" });
       }
       
-      // Check admin access
+      // Check admin access - user may have multiple roles for same hospital
       const currentUserId = req.user.claims.sub;
       const hospitals = await storage.getUserHospitals(currentUserId);
       console.log('[Delete User] User hospitals:', hospitals.map(h => ({ id: h.id, role: h.role })));
       
-      const hospital = hospitals.find(h => h.id === hospitalId);
-      if (!hospital || hospital.role !== 'admin') {
-        console.log('[Delete User] Admin check failed:', { hospital, hasHospital: !!hospital, role: hospital?.role });
+      // Check if user has admin role for this hospital (may have multiple roles)
+      const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+      if (!hasAdminRole) {
+        console.log('[Delete User] Admin check failed - no admin role found for hospital:', hospitalId);
         return res.status(403).json({ message: "Admin access required" });
       }
 
