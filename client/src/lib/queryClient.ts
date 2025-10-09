@@ -10,11 +10,17 @@ async function throwIfResNotOk(res: Response) {
       if (errorData.message) {
         throw new Error(errorData.message);
       }
-    } catch {
-      // If not valid JSON or no message field, use original format
+      // If JSON but no message field, use full format
+      throw new Error(`${res.status}: ${text}`);
+    } catch (e) {
+      // If not valid JSON, check if error is from JSON.parse
+      if (e instanceof SyntaxError) {
+        // Not JSON, use full format
+        throw new Error(`${res.status}: ${text}`);
+      }
+      // Otherwise it's the error we threw above, re-throw it
+      throw e;
     }
-    
-    throw new Error(`${res.status}: ${text}`);
   }
 }
 

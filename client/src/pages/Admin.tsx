@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,22 +20,7 @@ interface HospitalUser extends UserHospitalRole {
 export default function Admin() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  
-  // Get active hospital from localStorage (same as Layout and BottomNav)
-  const [activeHospital] = useState(() => {
-    const userHospitals = (user as any)?.hospitals;
-    if (!userHospitals || userHospitals.length === 0) return null;
-    
-    const savedHospitalKey = localStorage.getItem('activeHospital');
-    if (savedHospitalKey) {
-      const saved = userHospitals.find((h: any) => 
-        `${h.id}-${h.locationId}-${h.role}` === savedHospitalKey
-      );
-      if (saved) return saved;
-    }
-    
-    return userHospitals[0];
-  });
+  const activeHospital = useActiveHospital();
   
   const [activeTab, setActiveTab] = useState<"locations" | "users">("locations");
   const { toast } = useToast();
