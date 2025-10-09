@@ -78,8 +78,8 @@ export default function Orders() {
   });
 
   const { data: items = [] } = useQuery<ItemWithStock[]>({
-    queryKey: [`/api/items/${activeHospital?.id}`, activeHospital?.locationId],
-    enabled: !!activeHospital?.id,
+    queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId],
+    enabled: !!activeHospital?.id && !!activeHospital?.locationId,
   });
 
   useEffect(() => {
@@ -124,7 +124,7 @@ export default function Orders() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.locationId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
       queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}/open-items`, activeHospital?.locationId] });
       toast({
         title: t('orders.orderUpdated'),

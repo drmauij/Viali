@@ -24,8 +24,8 @@ export default function Alerts() {
   const [, navigate] = useLocation();
 
   const { data: alerts = [], isLoading } = useQuery<AlertWithDetails[]>({
-    queryKey: [`/api/alerts/${activeHospital?.id}`, activeHospital?.locationId, false], // false = unacknowledged
-    enabled: !!activeHospital?.id,
+    queryKey: [`/api/alerts/${activeHospital?.id}?locationId=${activeHospital?.locationId}&acknowledged=false`, activeHospital?.locationId, false], // false = unacknowledged
+    enabled: !!activeHospital?.id && !!activeHospital?.locationId,
   });
 
   const acknowledgeMutation = useMutation({
@@ -34,7 +34,7 @@ export default function Alerts() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/alerts/${activeHospital?.id}`, activeHospital?.locationId, false] });
+      queryClient.invalidateQueries({ queryKey: [`/api/alerts/${activeHospital?.id}?locationId=${activeHospital?.locationId}&acknowledged=false`, activeHospital?.locationId, false] });
       toast({
         title: t("alerts.alertAcknowledged"),
         description: t("alerts.alertAcknowledgedSuccess"),
@@ -69,7 +69,7 @@ export default function Alerts() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/alerts/${activeHospital?.id}`, activeHospital?.locationId, false] });
+      queryClient.invalidateQueries({ queryKey: [`/api/alerts/${activeHospital?.id}?locationId=${activeHospital?.locationId}&acknowledged=false`, activeHospital?.locationId, false] });
       toast({
         title: t("alerts.alertSnoozed"),
         description: t("alerts.alertSnoozedSuccess"),

@@ -99,7 +99,7 @@ export interface IStorage {
   }): Promise<(Activity & { user: User; item?: Item })[]>;
   
   // Alert operations
-  getAlerts(hospitalId: string, acknowledged?: boolean): Promise<(Alert & { item?: Item; lot?: Lot })[]>;
+  getAlerts(hospitalId: string, locationId: string, acknowledged?: boolean): Promise<(Alert & { item?: Item; lot?: Lot })[]>;
   acknowledgeAlert(id: string, userId: string): Promise<Alert>;
   snoozeAlert(id: string, until: Date): Promise<Alert>;
   
@@ -627,7 +627,7 @@ export class DatabaseStorage implements IStorage {
     return await query;
   }
 
-  async getAlerts(hospitalId: string, acknowledged?: boolean): Promise<(Alert & { item?: Item; lot?: Lot })[]> {
+  async getAlerts(hospitalId: string, locationId: string, acknowledged?: boolean): Promise<(Alert & { item?: Item; lot?: Lot })[]> {
     let query = db
       .select({
         ...alerts,
@@ -637,10 +637,10 @@ export class DatabaseStorage implements IStorage {
       .from(alerts)
       .leftJoin(items, eq(alerts.itemId, items.id))
       .leftJoin(lots, eq(alerts.lotId, lots.id))
-      .where(eq(alerts.hospitalId, hospitalId));
+      .where(and(eq(alerts.hospitalId, hospitalId), eq(items.locationId, locationId)));
 
     if (acknowledged !== undefined) {
-      query = query.where(and(eq(alerts.hospitalId, hospitalId), eq(alerts.acknowledged, acknowledged)));
+      query = query.where(and(eq(alerts.hospitalId, hospitalId), eq(items.locationId, locationId), eq(alerts.acknowledged, acknowledged)));
     }
 
     return await query.orderBy(desc(alerts.createdAt));

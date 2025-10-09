@@ -506,11 +506,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/folders/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
+      const { locationId } = req.query;
       const userId = req.user.claims.sub;
       
-      const locationId = await getUserLocationForHospital(userId, hospitalId);
-      if (!locationId) {
-        return res.status(403).json({ message: "Access denied to this hospital" });
+      // Verify user has access to this hospital and location
+      const userHospitals = await storage.getUserHospitals(userId);
+      const hasAccess = userHospitals.some(h => h.id === hospitalId && h.locationId === locationId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied to this hospital or location" });
       }
       
       const folders = await storage.getFolders(hospitalId, locationId);
@@ -590,12 +593,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/items/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
-      const { critical, controlled, belowMin, expiring } = req.query;
+      const { critical, controlled, belowMin, expiring, locationId } = req.query;
       const userId = req.user.claims.sub;
       
-      const locationId = await getUserLocationForHospital(userId, hospitalId);
-      if (!locationId) {
-        return res.status(403).json({ message: "Access denied to this hospital" });
+      // Verify user has access to this hospital and location
+      const userHospitals = await storage.getUserHospitals(userId);
+      const hasAccess = userHospitals.some(h => h.id === hospitalId && h.locationId === locationId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied to this hospital or location" });
       }
       
       const filters = {
@@ -2069,13 +2074,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Alerts routes
-  app.get('/api/alerts/:hospitalId', isAuthenticated, async (req, res) => {
+  app.get('/api/alerts/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
-      const { acknowledged } = req.query;
+      const { locationId, acknowledged } = req.query;
+      const userId = req.user.claims.sub;
+      
+      // Verify user has access to this hospital and location
+      const userHospitals = await storage.getUserHospitals(userId);
+      const hasAccess = userHospitals.some(h => h.id === hospitalId && h.locationId === locationId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied to this hospital or location" });
+      }
       
       const acknowledgedBool = acknowledged === 'true' ? true : acknowledged === 'false' ? false : undefined;
-      const alerts = await storage.getAlerts(hospitalId, acknowledgedBool);
+      const alerts = await storage.getAlerts(hospitalId, locationId, acknowledgedBool);
       res.json(alerts);
     } catch (error) {
       console.error("Error fetching alerts:", error);

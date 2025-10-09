@@ -93,13 +93,13 @@ export default function ControlledLog() {
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear().toString());
 
   const { data: controlledItems = [] } = useQuery<ItemWithStock[]>({
-    queryKey: [`/api/items/${activeHospital?.id}`, activeHospital?.locationId, { controlled: true }],
+    queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}&controlled=true`, activeHospital?.locationId, { controlled: true }],
     queryFn: async () => {
-      const response = await fetch(`/api/items/${activeHospital?.id}?controlled=true`);
+      const response = await fetch(`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}&controlled=true`);
       if (!response.ok) throw new Error("Failed to fetch items");
       return response.json();
     },
-    enabled: !!activeHospital?.id,
+    enabled: !!activeHospital?.id && !!activeHospital?.locationId,
   });
 
   const { data: activities = [], isLoading: isLoadingActivities } = useQuery<ControlledActivity[]>({
@@ -125,7 +125,7 @@ export default function ControlledLog() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/controlled/log/${activeHospital?.id}`, activeHospital?.locationId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}`, activeHospital?.locationId, { controlled: true }] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}&controlled=true`, activeHospital?.locationId, { controlled: true }] });
       toast({
         title: "Administration Recorded",
         description: "Controlled substance administration has been logged.",

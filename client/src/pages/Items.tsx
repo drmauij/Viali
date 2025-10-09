@@ -171,13 +171,13 @@ export default function Items() {
   );
 
   const { data: items = [], isLoading } = useQuery<ItemWithStock[]>({
-    queryKey: [`/api/items/${activeHospital?.id}`, activeHospital?.locationId],
-    enabled: !!activeHospital?.id,
+    queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId],
+    enabled: !!activeHospital?.id && !!activeHospital?.locationId,
   });
 
   const { data: folders = [] } = useQuery<Folder[]>({
-    queryKey: [`/api/folders/${activeHospital?.id}`, activeHospital?.locationId],
-    enabled: !!activeHospital?.id,
+    queryKey: [`/api/folders/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId],
+    enabled: !!activeHospital?.id && !!activeHospital?.locationId,
   });
   
   // Show onboarding when there are no items
@@ -284,7 +284,7 @@ export default function Items() {
     },
     onSuccess: (data) => {
       if (!data) return;
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
       resetForm();
       setAddDialogOpen(false);
       toast({
@@ -324,7 +324,7 @@ export default function Items() {
       return updatedItem;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
       setEditDialogOpen(false);
       toast({
         title: t('common.success'),
@@ -346,7 +346,7 @@ export default function Items() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
       setEditDialogOpen(false);
       toast({
         title: t('items.deleteItem'),
@@ -368,7 +368,7 @@ export default function Items() {
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
       setIsBulkDeleteMode(false);
       setSelectedItems(new Set());
       setShowDeleteConfirm(false);
@@ -392,7 +392,7 @@ export default function Items() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
       toast({
         title: t('common.success'),
         description: "Unit reduced successfully",
@@ -561,7 +561,7 @@ export default function Items() {
     },
     onSuccess: (data) => {
       if (!data) return;
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
       setBulkImportOpen(false);
       setBulkImages([]);
       setBulkItems([]);
@@ -597,7 +597,7 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
       setIsBulkEditMode(false);
       setBulkEditItems({});
       toast({
@@ -671,8 +671,8 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/folders/${activeHospital?.id}`, activeHospital?.locationId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/folders/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
       toast({
         title: t('common.success'),
         description: t('items.folderDeletedSuccess'),
@@ -693,7 +693,7 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
     },
     onError: (error: any) => {
       toast({
