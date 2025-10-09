@@ -61,15 +61,15 @@ export default function Admin() {
   // Check if user is admin
   const isAdmin = activeHospital?.role === "admin";
 
-  // Fetch locations
+  // Fetch locations - hospital-wide, not filtered by location
   const { data: locations = [], isLoading: locationsLoading } = useQuery<Location[]>({
-    queryKey: ["/api/admin", activeHospital?.id, "locations"],
+    queryKey: [`/api/admin/${activeHospital?.id}/locations`],
     enabled: !!activeHospital?.id && isAdmin,
   });
 
-  // Fetch users
+  // Fetch users - hospital-wide, not filtered by location
   const { data: rawUsers = [], isLoading: usersLoading } = useQuery<HospitalUser[]>({
-    queryKey: ["/api/admin", activeHospital?.id, "users"],
+    queryKey: [`/api/admin/${activeHospital?.id}/users`],
     enabled: !!activeHospital?.id && isAdmin,
   });
 
@@ -110,7 +110,7 @@ export default function Admin() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "locations"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/locations`] });
       setLocationDialogOpen(false);
       resetLocationForm();
       toast({ title: t("common.success"), description: t("admin.locationCreatedSuccess") });
@@ -126,7 +126,7 @@ export default function Admin() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "locations"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/locations`] });
       setLocationDialogOpen(false);
       resetLocationForm();
       toast({ title: t("common.success"), description: t("admin.locationUpdatedSuccess") });
@@ -142,7 +142,7 @@ export default function Admin() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "locations"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/locations`] });
       toast({ title: t("common.success"), description: t("admin.locationDeletedSuccess") });
     },
     onError: (error: any) => {
@@ -157,7 +157,7 @@ export default function Admin() {
       return await response.json();
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "users"] });
+      await queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
       toast({ title: t("common.success"), description: t("admin.roleLocationAdded") });
     },
     onError: (error: any) => {
@@ -171,7 +171,7 @@ export default function Admin() {
       return await response.json();
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "users"] });
+      await queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
       toast({ title: t("common.success"), description: t("admin.roleLocationRemoved") });
     },
     onError: (error: any) => {
@@ -185,7 +185,7 @@ export default function Admin() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "users"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
       setUserDialogOpen(false);
       resetUserForm();
       toast({ title: t("common.success"), description: t("admin.userCreatedSuccess") });
@@ -204,7 +204,7 @@ export default function Admin() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "users"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
       toast({ title: t("common.success"), description: t("admin.userDetailsUpdated") });
     },
     onError: (error: any) => {
@@ -222,7 +222,7 @@ export default function Admin() {
       return await response.json();
     },
     onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/admin", activeHospital?.id, "users"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
       toast({ 
         title: t("common.success"), 
         description: data.message || t("admin.userDeletedSuccess")
