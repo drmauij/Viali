@@ -2487,11 +2487,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { userId } = req.params;
       const { hospitalId } = req.query;
       
+      console.log('[Delete User] Request received:', { userId, hospitalId, query: req.query });
+      
+      if (!hospitalId) {
+        console.log('[Delete User] ERROR: No hospitalId provided in query');
+        return res.status(400).json({ message: "Hospital ID is required" });
+      }
+      
       // Check admin access
       const currentUserId = req.user.claims.sub;
       const hospitals = await storage.getUserHospitals(currentUserId);
+      console.log('[Delete User] User hospitals:', hospitals.map(h => ({ id: h.id, role: h.role })));
+      
       const hospital = hospitals.find(h => h.id === hospitalId);
       if (!hospital || hospital.role !== 'admin') {
+        console.log('[Delete User] Admin check failed:', { hospital, hasHospital: !!hospital, role: hospital?.role });
         return res.status(403).json({ message: "Admin access required" });
       }
 
