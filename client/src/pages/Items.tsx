@@ -1463,13 +1463,18 @@ export default function Items() {
                             >
                               <div className="flex items-start justify-between mb-3">
                                 {isBulkDeleteMode ? (
-                                  <div className="flex items-center gap-3 flex-1">
-                                    <Checkbox
-                                      checked={selectedItems.has(item.id)}
-                                      onCheckedChange={() => toggleItemSelection(item.id)}
-                                      data-testid={`checkbox-item-${item.id}`}
-                                    />
-                                    <div className="flex-1">
+                                  <div 
+                                    className="flex items-center gap-3 flex-1 cursor-pointer -ml-2 -mr-2 pl-2 pr-2 py-1 rounded hover:bg-muted/50 transition-colors"
+                                    onClick={() => toggleItemSelection(item.id)}
+                                  >
+                                    <div onClick={(e) => e.stopPropagation()}>
+                                      <Checkbox
+                                        checked={selectedItems.has(item.id)}
+                                        onCheckedChange={() => toggleItemSelection(item.id)}
+                                        data-testid={`checkbox-item-${item.id}`}
+                                      />
+                                    </div>
+                                    <div className="flex-1 pointer-events-none">
                                       <h3 className="text-sm font-semibold text-foreground truncate">{item.name}</h3>
                                       {item.description && (
                                         <p className="text-xs text-muted-foreground mt-1 truncate">{item.description}</p>
@@ -1669,13 +1674,18 @@ export default function Items() {
                         >
                 <div className="flex items-start justify-between mb-3">
                   {isBulkDeleteMode ? (
-                    <div className="flex items-center gap-3 flex-1">
-                      <Checkbox
-                        checked={selectedItems.has(item.id)}
-                        onCheckedChange={() => toggleItemSelection(item.id)}
-                        data-testid={`checkbox-item-${item.id}`}
-                      />
-                      <div className="flex-1">
+                    <div 
+                      className="flex items-center gap-3 flex-1 cursor-pointer -ml-2 -mr-2 pl-2 pr-2 py-1 rounded hover:bg-muted/50 transition-colors"
+                      onClick={() => toggleItemSelection(item.id)}
+                    >
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedItems.has(item.id)}
+                          onCheckedChange={() => toggleItemSelection(item.id)}
+                          data-testid={`checkbox-item-${item.id}`}
+                        />
+                      </div>
+                      <div className="flex-1 pointer-events-none">
                         <h3 className="font-semibold text-foreground">{item.name}</h3>
                         <p className="text-sm text-muted-foreground">{item.description || `${item.unit} unit`}</p>
                       </div>
