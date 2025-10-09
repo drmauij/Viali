@@ -14,6 +14,8 @@ import {
   alerts,
   controlledChecks,
   importJobs,
+  checklistTemplates,
+  checklistCompletions,
   type User,
   type UpsertUser,
   type Hospital,
@@ -34,6 +36,10 @@ import {
   type ControlledCheck,
   type InsertControlledCheck,
   type ImportJob,
+  type ChecklistTemplate,
+  type InsertChecklistTemplate,
+  type ChecklistCompletion,
+  type InsertChecklistCompletion,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, lte, gte } from "drizzle-orm";
@@ -134,6 +140,18 @@ export interface IStorage {
   // Controlled Checks
   createControlledCheck(check: InsertControlledCheck): Promise<ControlledCheck>;
   getControlledChecks(hospitalId: string, locationId: string, limit?: number): Promise<(ControlledCheck & { user: User })[]>;
+  
+  // Checklist operations
+  createChecklistTemplate(template: InsertChecklistTemplate): Promise<ChecklistTemplate>;
+  getChecklistTemplates(hospitalId: string, locationId?: string, active?: boolean): Promise<ChecklistTemplate[]>;
+  getChecklistTemplate(id: string): Promise<ChecklistTemplate | undefined>;
+  updateChecklistTemplate(id: string, updates: Partial<ChecklistTemplate>): Promise<ChecklistTemplate>;
+  deleteChecklistTemplate(id: string): Promise<void>;
+  getPendingChecklists(hospitalId: string, locationId: string, role?: string): Promise<(ChecklistTemplate & { lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean })[]>;
+  completeChecklist(completion: InsertChecklistCompletion): Promise<ChecklistCompletion>;
+  getChecklistCompletions(hospitalId: string, locationId?: string, templateId?: string, limit?: number): Promise<(ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User })[]>;
+  getChecklistCompletion(id: string): Promise<(ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User }) | undefined>;
+  getPendingChecklistCount(hospitalId: string, locationId: string, role?: string): Promise<number>;
   
   // Import Jobs
   createImportJob(job: Omit<ImportJob, 'id' | 'createdAt' | 'startedAt' | 'completedAt'>): Promise<ImportJob>;
@@ -945,6 +963,160 @@ export class DatabaseStorage implements IStorage {
       .where(eq(importJobs.id, id))
       .returning();
     return updated;
+  }
+
+  // Checklist implementations
+  async createChecklistTemplate(template: InsertChecklistTemplate): Promise<ChecklistTemplate> {
+    const [created] = await db.insert(checklistTemplates).values(template).returning();
+    return created;
+  }
+
+  async getChecklistTemplates(hospitalId: string, locationId?: string, active: boolean = true): Promise<ChecklistTemplate[]> {
+    const conditions = [eq(checklistTemplates.hospitalId, hospitalId)];
+    if (locationId) conditions.push(eq(checklistTemplates.locationId, locationId));
+    if (active !== undefined) conditions.push(eq(checklistTemplates.active, active));
+
+    const templates = await db
+      .select()
+      .from(checklistTemplates)
+      .where(and(...conditions))
+      .orderBy(asc(checklistTemplates.name));
+    
+    return templates;
+  }
+
+  async getChecklistTemplate(id: string): Promise<ChecklistTemplate | undefined> {
+    const [template] = await db.select().from(checklistTemplates).where(eq(checklistTemplates.id, id));
+    return template;
+  }
+
+  async updateChecklistTemplate(id: string, updates: Partial<ChecklistTemplate>): Promise<ChecklistTemplate> {
+    const [updated] = await db
+      .update(checklistTemplates)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(checklistTemplates.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteChecklistTemplate(id: string): Promise<void> {
+    await db.delete(checklistTemplates).where(eq(checklistTemplates.id, id));
+  }
+
+  async getPendingChecklists(hospitalId: string, locationId: string, role?: string): Promise<(ChecklistTemplate & { lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean })[]> {
+    const conditions = [
+      eq(checklistTemplates.hospitalId, hospitalId),
+      eq(checklistTemplates.locationId, locationId),
+      eq(checklistTemplates.active, true),
+    ];
+    
+    if (role) {
+      conditions.push(
+        sql`(${checklistTemplates.role} IS NULL OR ${checklistTemplates.role} = ${role})`
+      );
+    } else {
+      conditions.push(sql`${checklistTemplates.role} IS NULL`);
+    }
+
+    const templates = await db
+      .select()
+      .from(checklistTemplates)
+      .where(and(...conditions));
+
+    const result = [];
+    const now = new Date();
+
+    for (const template of templates) {
+      const completions = await db
+        .select()
+        .from(checklistCompletions)
+        .where(eq(checklistCompletions.templateId, template.id))
+        .orderBy(desc(checklistCompletions.dueDate))
+        .limit(1);
+
+      const lastCompletion = completions[0];
+      const nextDueDate = this.calculateNextDueDate(template.startDate, template.recurrency, lastCompletion?.dueDate);
+      const isOverdue = nextDueDate <= now;
+
+      if (isOverdue || nextDueDate <= new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)) {
+        result.push({
+          ...template,
+          lastCompletion,
+          nextDueDate,
+          isOverdue,
+        });
+      }
+    }
+
+    return result.sort((a, b) => a.nextDueDate.getTime() - b.nextDueDate.getTime());
+  }
+
+  private calculateNextDueDate(startDate: Date, recurrency: string, lastDueDate?: Date): Date {
+    const baseDate = lastDueDate || startDate;
+    const date = new Date(baseDate);
+
+    switch (recurrency) {
+      case 'daily':
+        date.setDate(date.getDate() + 1);
+        break;
+      case 'weekly':
+        date.setDate(date.getDate() + 7);
+        break;
+      case 'monthly':
+        date.setMonth(date.getMonth() + 1);
+        break;
+      case 'yearly':
+        date.setFullYear(date.getFullYear() + 1);
+        break;
+    }
+
+    return date;
+  }
+
+  async completeChecklist(completion: InsertChecklistCompletion): Promise<ChecklistCompletion> {
+    const [created] = await db.insert(checklistCompletions).values(completion).returning();
+    return created;
+  }
+
+  async getChecklistCompletions(hospitalId: string, locationId?: string, templateId?: string, limit: number = 50): Promise<(ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User })[]> {
+    const conditions = [eq(checklistCompletions.hospitalId, hospitalId)];
+    if (locationId) conditions.push(eq(checklistCompletions.locationId, locationId));
+    if (templateId) conditions.push(eq(checklistCompletions.templateId, templateId));
+
+    const completions = await db
+      .select({
+        ...checklistCompletions,
+        template: checklistTemplates,
+        completedByUser: users,
+      })
+      .from(checklistCompletions)
+      .leftJoin(checklistTemplates, eq(checklistCompletions.templateId, checklistTemplates.id))
+      .leftJoin(users, eq(checklistCompletions.completedBy, users.id))
+      .where(and(...conditions))
+      .orderBy(desc(checklistCompletions.completedAt))
+      .limit(limit);
+
+    return completions as (ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User })[];
+  }
+
+  async getChecklistCompletion(id: string): Promise<(ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User }) | undefined> {
+    const [completion] = await db
+      .select({
+        ...checklistCompletions,
+        template: checklistTemplates,
+        completedByUser: users,
+      })
+      .from(checklistCompletions)
+      .leftJoin(checklistTemplates, eq(checklistCompletions.templateId, checklistTemplates.id))
+      .leftJoin(users, eq(checklistCompletions.completedBy, users.id))
+      .where(eq(checklistCompletions.id, id));
+
+    return completion as (ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User }) | undefined;
+  }
+
+  async getPendingChecklistCount(hospitalId: string, locationId: string, role?: string): Promise<number> {
+    const pending = await this.getPendingChecklists(hospitalId, locationId, role);
+    return pending.filter(c => c.isOverdue).length;
   }
 }
 
