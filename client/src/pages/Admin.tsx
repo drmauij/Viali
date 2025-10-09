@@ -28,7 +28,7 @@ export default function Admin() {
   
   console.log('[Admin] Active hospital:', activeHospital);
   
-  const [activeTab, setActiveTab] = useState<"locations" | "users">("locations");
+  const [activeTab, setActiveTab] = useState<"locations" | "users" | "checklists">("locations");
   const { toast } = useToast();
 
   // Hospital name states
@@ -57,6 +57,19 @@ export default function Admin() {
   });
   const [roleLocationPairs, setRoleLocationPairs] = useState<Array<{ id?: string; role: string; locationId: string }>>([]);
   const [newPair, setNewPair] = useState({ role: "", locationId: "" });
+
+  // Checklist template states
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<any | null>(null);
+  const [templateForm, setTemplateForm] = useState({
+    name: "",
+    recurrency: "",
+    items: [] as string[],
+    locationId: "",
+    role: "",
+    startDate: new Date().toISOString().split('T')[0],
+  });
+  const [newTemplateItem, setNewTemplateItem] = useState("");
 
   // Check if user is admin
   const isAdmin = activeHospital?.role === "admin";
@@ -249,6 +262,59 @@ export default function Admin() {
     },
   });
 
+  // Fetch checklist templates
+  const { data: templates = [], isLoading: templatesLoading } = useQuery<any[]>({
+    queryKey: [`/api/checklists/templates/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id && isAdmin,
+  });
+
+  // Template mutations
+  const createTemplateMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", `/api/checklists/templates`, { ...data, hospitalId: activeHospital?.id });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/checklists/templates/${activeHospital?.id}`] });
+      setTemplateDialogOpen(false);
+      resetTemplateForm();
+      toast({ title: t("common.success"), description: t("admin.templateCreatedSuccess") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToCreateTemplate"), variant: "destructive" });
+    },
+  });
+
+  const updateTemplateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const response = await apiRequest("PATCH", `/api/checklists/templates/${id}`, data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/checklists/templates/${activeHospital?.id}`] });
+      setTemplateDialogOpen(false);
+      resetTemplateForm();
+      toast({ title: t("common.success"), description: t("admin.templateUpdatedSuccess") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateTemplate"), variant: "destructive" });
+    },
+  });
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/checklists/templates/${id}`);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/checklists/templates/${activeHospital?.id}`] });
+      toast({ title: t("common.success"), description: t("admin.templateDeletedSuccess") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToDeleteTemplate"), variant: "destructive" });
+    },
+  });
+
   const resetLocationForm = () => {
     setLocationForm({ name: "", type: "" });
     setEditingLocation(null);
@@ -256,6 +322,19 @@ export default function Admin() {
 
   const resetUserForm = () => {
     setUserForm({ email: "", password: "", firstName: "", lastName: "", locationId: "", role: "" });
+  };
+
+  const resetTemplateForm = () => {
+    setTemplateForm({
+      name: "",
+      recurrency: "",
+      items: [],
+      locationId: "",
+      role: "",
+      startDate: new Date().toISOString().split('T')[0],
+    });
+    setNewTemplateItem("");
+    setEditingTemplate(null);
   };
 
   const handleAddLocation = () => {
@@ -420,6 +499,74 @@ export default function Admin() {
     }
   };
 
+  // Template handlers
+  const handleAddTemplate = () => {
+    resetTemplateForm();
+    setTemplateDialogOpen(true);
+  };
+
+  const handleEditTemplate = (template: any) => {
+    setEditingTemplate(template);
+    setTemplateForm({
+      name: template.name,
+      recurrency: template.recurrency,
+      items: template.items || [],
+      locationId: template.locationId || "",
+      role: template.role || "",
+      startDate: template.startDate?.split('T')[0] || new Date().toISOString().split('T')[0],
+    });
+    setTemplateDialogOpen(true);
+  };
+
+  const handleSaveTemplate = () => {
+    if (!templateForm.name.trim()) {
+      toast({ title: t("common.error"), description: t("admin.templateNameRequired"), variant: "destructive" });
+      return;
+    }
+    if (!templateForm.recurrency) {
+      toast({ title: t("common.error"), description: t("admin.recurrencyRequired"), variant: "destructive" });
+      return;
+    }
+    if (templateForm.items.length === 0) {
+      toast({ title: t("common.error"), description: t("admin.atLeastOneItem"), variant: "destructive" });
+      return;
+    }
+
+    const data = {
+      name: templateForm.name,
+      recurrency: templateForm.recurrency,
+      items: templateForm.items,
+      locationId: templateForm.locationId || null,
+      role: templateForm.role || null,
+      startDate: templateForm.startDate,
+    };
+
+    if (editingTemplate) {
+      updateTemplateMutation.mutate({ id: editingTemplate.id, data });
+    } else {
+      createTemplateMutation.mutate(data);
+    }
+  };
+
+  const handleAddTemplateItem = () => {
+    if (!newTemplateItem.trim()) {
+      toast({ title: t("common.error"), description: t("admin.itemRequired"), variant: "destructive" });
+      return;
+    }
+    setTemplateForm({
+      ...templateForm,
+      items: [...templateForm.items, newTemplateItem.trim()],
+    });
+    setNewTemplateItem("");
+  };
+
+  const handleRemoveTemplateItem = (index: number) => {
+    setTemplateForm({
+      ...templateForm,
+      items: templateForm.items.filter((_, i) => i !== index),
+    });
+  };
+
   const getRoleName = (role: string) => {
     switch (role) {
       case "admin": return t("admin.roleAdmin");
@@ -516,6 +663,18 @@ export default function Admin() {
         >
           <i className="fas fa-users mr-2"></i>
           {t("admin.usersAndRoles")}
+        </button>
+        <button
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === "checklists"
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground hover:bg-muted/80"
+          }`}
+          onClick={() => setActiveTab("checklists")}
+          data-testid="tab-checklists"
+        >
+          <i className="fas fa-clipboard-check mr-2"></i>
+          {t("admin.checklists")}
         </button>
       </div>
 
@@ -645,6 +804,87 @@ export default function Admin() {
                         onClick={() => handleDeleteUser(user)}
                         data-testid={`button-delete-user-${user.user.id}`}
                         title={t("admin.deleteUser")}
+                      >
+                        <i className="fas fa-trash text-destructive"></i>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Checklists Tab */}
+      {activeTab === "checklists" && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-foreground">{t("admin.checklists")}</h2>
+            <Button onClick={handleAddTemplate} size="sm" data-testid="button-add-template">
+              <i className="fas fa-plus mr-2"></i>
+              {t("admin.addTemplate")}
+            </Button>
+          </div>
+
+          {templatesLoading ? (
+            <div className="text-center py-8">
+              <i className="fas fa-spinner fa-spin text-2xl text-primary"></i>
+            </div>
+          ) : templates.length === 0 ? (
+            <div className="bg-card border border-border rounded-lg p-8 text-center">
+              <i className="fas fa-clipboard-check text-4xl text-muted-foreground mb-4"></i>
+              <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.noTemplates")}</h3>
+              <p className="text-muted-foreground mb-4">{t("admin.noTemplatesMessage")}</p>
+              <Button onClick={handleAddTemplate} size="sm">
+                <i className="fas fa-plus mr-2"></i>
+                {t("admin.addTemplate")}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {templates.map((template) => (
+                <div key={template.id} className="bg-card border border-border rounded-lg p-4" data-testid={`template-${template.id}`}>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-foreground">{template.name}</h3>
+                      <div className="flex flex-wrap gap-2 mt-2 text-sm text-muted-foreground">
+                        <span className="status-chip chip-primary text-xs">
+                          {t(`checklists.recurrency.${template.recurrency}`)}
+                        </span>
+                        {template.role && (
+                          <span className="status-chip chip-muted text-xs">
+                            {t(`checklists.role.${template.role}`)}
+                          </span>
+                        )}
+                        {template.location && (
+                          <span className="status-chip chip-muted text-xs">
+                            {template.location.name}
+                          </span>
+                        )}
+                        <span className="text-xs">
+                          {template.items?.length || 0} {t("checklists.items")}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditTemplate(template)}
+                        data-testid={`button-edit-template-${template.id}`}
+                      >
+                        <i className="fas fa-edit"></i>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (confirm(t("admin.deleteTemplateConfirm"))) {
+                            deleteTemplateMutation.mutate(template.id);
+                          }
+                        }}
+                        data-testid={`button-delete-template-${template.id}`}
                       >
                         <i className="fas fa-trash text-destructive"></i>
                       </Button>
@@ -946,6 +1186,143 @@ export default function Admin() {
                 data-testid="button-save-hospital"
               >
                 {t("common.edit")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Template Dialog */}
+      <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingTemplate ? t("admin.editTemplate") : t("admin.addTemplate")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="template-name">{t("admin.templateName")} *</Label>
+              <Input
+                id="template-name"
+                value={templateForm.name}
+                onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
+                placeholder={t("admin.templateNamePlaceholder")}
+                data-testid="input-template-name"
+              />
+            </div>
+            <div>
+              <Label htmlFor="template-recurrency">{t("admin.recurrency")} *</Label>
+              <Select
+                value={templateForm.recurrency}
+                onValueChange={(value) => setTemplateForm({ ...templateForm, recurrency: value })}
+              >
+                <SelectTrigger data-testid="select-template-recurrency">
+                  <SelectValue placeholder={t("admin.selectRecurrency")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">{t("checklists.recurrency.daily")}</SelectItem>
+                  <SelectItem value="weekly">{t("checklists.recurrency.weekly")}</SelectItem>
+                  <SelectItem value="monthly">{t("checklists.recurrency.monthly")}</SelectItem>
+                  <SelectItem value="yearly">{t("checklists.recurrency.yearly")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="template-location">{t("admin.location")} ({t("checklists.optional")})</Label>
+                <Select
+                  value={templateForm.locationId}
+                  onValueChange={(value) => setTemplateForm({ ...templateForm, locationId: value })}
+                >
+                  <SelectTrigger data-testid="select-template-location">
+                    <SelectValue placeholder={t("admin.selectLocation")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locations.map((location) => (
+                      <SelectItem key={location.id} value={location.id}>
+                        {location.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="template-role">{t("admin.role")} ({t("checklists.optional")})</Label>
+                <Select
+                  value={templateForm.role}
+                  onValueChange={(value) => setTemplateForm({ ...templateForm, role: value })}
+                >
+                  <SelectTrigger data-testid="select-template-role">
+                    <SelectValue placeholder={t("admin.selectRole")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">{t("checklists.role.admin")}</SelectItem>
+                    <SelectItem value="staff">{t("checklists.role.staff")}</SelectItem>
+                    <SelectItem value="nurse">{t("checklists.role.nurse")}</SelectItem>
+                    <SelectItem value="doctor">{t("checklists.role.doctor")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="template-start-date">{t("admin.startDate")} *</Label>
+              <Input
+                id="template-start-date"
+                type="date"
+                value={templateForm.startDate}
+                onChange={(e) => setTemplateForm({ ...templateForm, startDate: e.target.value })}
+                data-testid="input-template-start-date"
+              />
+            </div>
+            <div>
+              <Label>{t("admin.checklistItems")} *</Label>
+              <div className="space-y-2">
+                {templateForm.items.map((item, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input value={item} disabled className="flex-1" data-testid={`item-${index}`} />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleRemoveTemplateItem(index)}
+                      data-testid={`button-remove-item-${index}`}
+                    >
+                      <i className="fas fa-trash text-destructive"></i>
+                    </Button>
+                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <Input
+                    value={newTemplateItem}
+                    onChange={(e) => setNewTemplateItem(e.target.value)}
+                    placeholder={t("admin.addItemPlaceholder")}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddTemplateItem();
+                      }
+                    }}
+                    data-testid="input-new-item"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleAddTemplateItem}
+                    data-testid="button-add-item"
+                  >
+                    <i className="fas fa-plus"></i>
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setTemplateDialogOpen(false)}>
+                {t("common.cancel")}
+              </Button>
+              <Button
+                onClick={handleSaveTemplate}
+                disabled={createTemplateMutation.isPending || updateTemplateMutation.isPending}
+                data-testid="button-save-template"
+              >
+                {editingTemplate ? t("common.edit") : t("common.save")}
               </Button>
             </div>
           </div>
