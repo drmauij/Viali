@@ -171,12 +171,12 @@ export default function Items() {
   );
 
   const { data: items = [], isLoading } = useQuery<ItemWithStock[]>({
-    queryKey: ["/api/items", activeHospital?.id],
+    queryKey: ["/api/items", activeHospital?.id, activeHospital?.locationId],
     enabled: !!activeHospital?.id,
   });
 
   const { data: folders = [] } = useQuery<Folder[]>({
-    queryKey: ["/api/folders", activeHospital?.id],
+    queryKey: ["/api/folders", activeHospital?.id, activeHospital?.locationId],
     enabled: !!activeHospital?.id,
   });
   
@@ -244,12 +244,12 @@ export default function Items() {
   }, [activeHospital?.id]);
 
   const { data: vendors = [] } = useQuery<Vendor[]>({
-    queryKey: ["/api/vendors", activeHospital?.id],
+    queryKey: ["/api/vendors", activeHospital?.id, activeHospital?.locationId],
     enabled: !!activeHospital?.id,
   });
 
   const { data: openOrderItems = {} } = useQuery<Record<string, { totalQty: number }>>({
-    queryKey: ["/api/orders/open-items", activeHospital?.id],
+    queryKey: ["/api/orders/open-items", activeHospital?.id, activeHospital?.locationId],
     enabled: !!activeHospital?.id,
   });
 
@@ -284,7 +284,7 @@ export default function Items() {
     },
     onSuccess: (data) => {
       if (!data) return;
-      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id, activeHospital?.locationId] });
       resetForm();
       setAddDialogOpen(false);
       toast({
@@ -324,7 +324,7 @@ export default function Items() {
       return updatedItem;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id, activeHospital?.locationId] });
       setEditDialogOpen(false);
       toast({
         title: t('common.success'),
@@ -346,7 +346,7 @@ export default function Items() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id, activeHospital?.locationId] });
       setEditDialogOpen(false);
       toast({
         title: t('items.deleteItem'),
@@ -368,7 +368,7 @@ export default function Items() {
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id, activeHospital?.locationId] });
       setIsBulkDeleteMode(false);
       setSelectedItems(new Set());
       setShowDeleteConfirm(false);
@@ -392,7 +392,7 @@ export default function Items() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id, activeHospital?.locationId] });
       toast({
         title: t('common.success'),
         description: "Unit reduced successfully",
@@ -485,8 +485,8 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/orders/open-items", activeHospital?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders", activeHospital?.id, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/orders/open-items", activeHospital?.id, activeHospital?.locationId] });
       toast({
         title: t('items.addedToOrder'),
         description: t('items.addedToDraftOrder'),
@@ -561,7 +561,7 @@ export default function Items() {
     },
     onSuccess: (data) => {
       if (!data) return;
-      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id, activeHospital?.locationId] });
       setBulkImportOpen(false);
       setBulkImages([]);
       setBulkItems([]);
@@ -597,7 +597,7 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id, activeHospital?.locationId] });
       setIsBulkEditMode(false);
       setBulkEditItems({});
       toast({
@@ -624,7 +624,7 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/folders", activeHospital?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/folders", activeHospital?.id, activeHospital?.locationId] });
       setFolderDialogOpen(false);
       setFolderName("");
       toast({
@@ -647,7 +647,7 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/folders", activeHospital?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/folders", activeHospital?.id, activeHospital?.locationId] });
       setFolderDialogOpen(false);
       setEditingFolder(null);
       setFolderName("");
@@ -671,8 +671,8 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/folders", activeHospital?.id] });
-      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/folders", activeHospital?.id, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id, activeHospital?.locationId] });
       toast({
         title: t('common.success'),
         description: t('items.folderDeletedSuccess'),
@@ -693,7 +693,7 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/items", activeHospital?.id, activeHospital?.locationId] });
     },
     onError: (error: any) => {
       toast({
