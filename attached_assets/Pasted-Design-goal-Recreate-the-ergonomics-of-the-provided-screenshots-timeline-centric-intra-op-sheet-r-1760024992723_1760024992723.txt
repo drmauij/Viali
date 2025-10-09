@@ -1,0 +1,163 @@
+Design goal: Recreate the ergonomics of the provided screenshots (timeline-centric intra-op sheet, right sidebar with structured fields, pre-op checklist cards, and a compact case overview + print preview). Match layout and interaction patterns; keep everything editable manually with optional AI-assist actions.
+
+Screens to build
+
+Patient list & detail
+
+List: search, filters (tags, last ASA), create patient.
+
+Detail: demographics (de-identified allowed), chips for allergies/ASA, table of cases with status, “New case”.
+
+Case workspace with tabs (sticky header: patient + case summary)
+
+Tabs: Pre-op | Anesthesia | Post-op | Exports | Audit.
+
+Pre-op tab (based on your third screenshot)
+
+Top cards: Planned procedure, OP date, urgency (color badges), location, surgeon.
+
+Classification grid: ASA radio, METs (activity bands), capacity/orientation, dentition, Mallampati I–IV, anticipated intubation problems, PONV risk checkbox set.
+
+Planned procedures: checkboxes (Intubation, LMA, Mask, Blocks, Analgesia, etc.), “Extras” (artery, CVC, jet ventilation, prone etc.).
+
+History & special notes panels.
+
+AI Assist panel (right drawer or bottom sheet):
+
+Upload PDF/image OR paste text → redaction preview (original vs redacted).
+
+Button “Extract & Propose” → propose ASA + anesthesia plan + fillable fields.
+
+Per-field accept/decline with inline diff.
+
+Save banner with validation.
+
+Anesthesia tab (based on your first two screenshots)
+
+Timeline area (full width, top):
+
+Minute scale across the top with zoom.
+
+Series dots/lines: NIBP (blue), HR (red), optional IBP channels, shaded anesthesia window, OR room segments (Saal/Bedt).
+
+Hover → crosshair and tooltip with timestamp + values.
+
+Bands below the chart (stacked rows):
+
+Heart rhythm strip label.
+
+Numeric vitals ticker (SpO₂, Temp, etc.) at discrete times.
+
+Events/Measures lane with icons (N, RL, O₂, positioning, incision, extubation). Drag to adjust time.
+
+Medications swimlanes (one lane per active infusion/TCI; discrete dots for boluses; numeric dose labels). Dotted red line for target/rate if applicable.
+
+Ventilation parameters bar/line (mode labels: PCV, PSV, CPAP; parameters like PEEP, Ppeak).
+
+Installations lane for lines/airway (IV gauge & site badges, A-line, CVC, ETT size, LMA).
+
+Right info panel (sticky, like your screenshots):
+
+Case information (planned surgery/date, ASA, allergies).
+
+Personnel list with timestamps.
+
+Access/lines, techniques, airway block with start/end.
+
+Comments/notes.
+
+Controls row:
+
+“Upload monitor photo” → AI parse → preview → “Append to timeline”.
+
+“Record/Upload voice” → transcribe → parse → event proposal.
+
+“Add manual” menus: Vital, Event, Drug (bolus/infusion/TCI), Installation, Airway.
+
+Undo/Redo, Zoom in/out.
+
+Inline edit on all entries; audit chip shows source (manual/vision/voice).
+
+Post-op tab
+
+Compact timeline + vitals table.
+
+Fields: pain score, sedation, PONV, complications, analgesia given, disposition.
+
+Same AI/photo/voice helpers.
+
+Exports tab
+
+PDF preview (right pane) mirroring the anesthesia sheet layout.
+
+Buttons: Download PDF, Download CSV (long form).
+
+Audit tab
+
+Chronological list: user, action, entity, timestamp; expandable to show AI prompt/response metadata.
+
+🧭 Interactions & ergonomics to copy from the screenshots
+
+Dense but scannable grid; subtle row tints per band.
+
+Small iconography for event types; hover tooltips with legend text.
+
+Right panel with collapsible sections; start/end times per item with traffic-light badges.
+
+Timeline drag handles for durations; snapping to minute grid.
+
+Color coding consistent across the app (NIBP blue, HR red, SpO₂ violet/indigo, infusions green area, warnings amber/red).
+
+Sticky headers on scroll.
+
+🎨 Suggested palette (extracted from your images)
+
+Use these as a base; adjust as needed for contrast:
+
+Neutrals: #e8edeb, #ebedec, #adafae, #a9abac, #b9c7b8
+
+Blues/Cyans (lines, chrome): #a8d2e3, #abd0dd, #a5b0cf
+
+Accents (alerts & meds): #ece9ae, #f5efb4, #fdfc7b, #dea5ac
+
+Typography: compact sans (e.g., Inter/Source Sans), 12–14px base with 11px for dense labels; bold only for section titles and current values.
+
+🧩 Data wiring (what each UI component reads/writes)
+
+All tabs operate on the entities we already defined: Patient, Case, PreopRecord, AnesthesiaRecord, PostopRecord, TimelineEntry, Attachment, AuditEntry.
+
+Timeline series read from TimelineEntry:
+
+vitals keys: HR, NIBP_sys, NIBP_dia, NIBP_mean, SpO2, Temp
+
+ventilation keys: EtCO2, RR, TV, FiO2, PEEP, Ppeak, Pmean, MAC, TOF_count, TCI_target, Pump_rate
+
+Right panel sections are derived from Case, AnesthesiaRecord (airwayManagement, lines), and PreopRecord (allergies, ASA, notes).
+
+Inline edits create/patch TimelineEntry rows and log an AuditEntry.
+
+🤖 AI hooks (keep the same privacy rules)
+
+Pre-op AI: /api/cases/:caseId/preop/extract
+Input: redacted text or redacted images → return fields + proposed_ASA, proposed_anesthesia_plan.
+UI: show diff per field; accepting writes to PreopRecord.
+
+Monitor photo AI: /api/cases/:caseId/frames
+Input: locally blurred image → return normalized map; append TimelineEntry (source="vision").
+
+Voice AI: /api/cases/:caseId/voice
+Input: audio → STT → event JSON; append TimelineEntry (source="voice").
+
+Always store aiAudit (prompt/model/masks) and require user approval before commit.
+
+🧪 UI acceptance checklist
+
+Timeline renders your sample pattern: blue NIBP points with shaded region; red HR hearts; SpO₂ band; numeric tickers along time.
+
+Draggable event bars; hover tooltips with timestamp + values.
+
+Right info panel mirrors your structure: personnel & times, lines with start/end, techniques, airway notes, comments.
+
+Pre-op grid looks like your screenshot (classification & planned procedures).
+
+PDF preview resembles the anesthesia sheet (layout and color cues).
