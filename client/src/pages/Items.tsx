@@ -13,7 +13,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import UpgradeDialog from "@/components/UpgradeDialog";
 import type { Item, StockLevel, InsertItem, Vendor, Folder } from "@shared/schema";
-import { DndContext, DragEndEvent, DragOverlay, pointerWithin, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
 import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Trash2, GripVertical } from "lucide-react";
 
 type FilterType = "all" | "critical" | "controlled" | "expiring" | "belowMin";
@@ -191,6 +191,30 @@ export default function Items() {
       },
     })
   );
+
+  // Custom collision detection that excludes the item's current folder
+  const customCollisionDetection = (args: any) => {
+    const { active, droppableContainers, pointerCoordinates } = args;
+    
+    // For folder-to-folder dragging, use closestCorners
+    if (active.id.toString().startsWith("folder-")) {
+      return closestCorners(args);
+    }
+    
+    // For item dragging, exclude the item's current parent folder
+    const activeItem = items.find(i => i.id === active.id);
+    const filteredContainers = droppableContainers.filter((container: any) => {
+      const containerId = container.id.toString();
+      // Exclude the folder the item is currently in
+      if (activeItem?.folderId && containerId === `folder-${activeItem.folderId}`) {
+        return false;
+      }
+      return true;
+    });
+    
+    // Use closestCorners with filtered containers
+    return closestCorners({ ...args, droppableContainers: filteredContainers });
+  };
 
   const { data: items = [], isLoading } = useQuery<ItemWithStock[]>({
     queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId],
@@ -1494,7 +1518,7 @@ export default function Items() {
       </div>
 
       {/* Items List with Folders */}
-      <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
+      <DndContext sensors={sensors} collisionDetection={customCollisionDetection} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
         <div className="space-y-3">
           {isLoading ? (
             <div className="text-center py-8">
