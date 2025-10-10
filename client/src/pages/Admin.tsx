@@ -515,7 +515,7 @@ export default function Admin() {
     setTemplateForm({
       name: template.name,
       recurrency: template.recurrency,
-      items: template.items || [],
+      items: (template.items || []).map((item: any) => typeof item === 'string' ? item : item.description),
       locationId: template.locationId || "",
       role: template.role || "",
       startDate: template.startDate?.split('T')[0] || new Date().toISOString().split('T')[0],
@@ -544,7 +544,7 @@ export default function Admin() {
     const data = {
       name: templateForm.name,
       recurrency: templateForm.recurrency,
-      items: templateForm.items,
+      items: templateForm.items.map(item => ({ description: item })),
       locationId: templateForm.locationId,
       role: templateForm.role || null,
       startDate: templateForm.startDate,
