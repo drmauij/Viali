@@ -100,6 +100,7 @@ export const folders = pgTable("folders", {
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
   locationId: varchar("location_id").notNull().references(() => locations.id),
   name: varchar("name").notNull(),
+  sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -127,6 +128,7 @@ export const items = pgTable("items", {
   vendorId: varchar("vendor_id").references(() => vendors.id),
   barcodes: text("barcodes").array(), // Multiple barcodes per item
   imageUrl: varchar("image_url"),
+  sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
