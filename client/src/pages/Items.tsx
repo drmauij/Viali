@@ -13,7 +13,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import UpgradeDialog from "@/components/UpgradeDialog";
 import type { Item, StockLevel, InsertItem, Vendor, Folder } from "@shared/schema";
-import { DndContext, DragEndEvent, DragOverlay, closestCenter, pointerWithin, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragOverlay, pointerWithin, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
 import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Trash2, GripVertical } from "lucide-react";
 
 type FilterType = "all" | "critical" | "controlled" | "expiring" | "belowMin";
@@ -59,15 +59,34 @@ function DraggableItem({ id, children, disabled }: { id: string; children: React
   );
 }
 
+// Drop indicator component
+function DropIndicator({ position }: { position: 'above' | 'below' }) {
+  return (
+    <div 
+      className={`absolute left-0 right-0 h-0.5 bg-primary z-20 ${position === 'above' ? '-top-1' : '-bottom-1'}`}
+      style={{ pointerEvents: 'none' }}
+    />
+  );
+}
+
 // Droppable folder wrapper
-function DroppableFolder({ id, children }: { id: string; children: React.ReactNode }) {
+function DroppableFolder({ 
+  id, 
+  children, 
+  showDropIndicator 
+}: { 
+  id: string; 
+  children: React.ReactNode;
+  showDropIndicator?: 'above' | 'below' | null;
+}) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
     <div 
       ref={setNodeRef} 
-      className={isOver ? "ring-2 ring-primary rounded-lg bg-primary/5 transition-all" : "transition-all"}
+      className={`relative ${isOver ? "ring-2 ring-primary rounded-lg bg-primary/5 transition-all" : "transition-all"}`}
     >
+      {showDropIndicator && <DropIndicator position={showDropIndicator} />}
       {children}
     </div>
   );
@@ -160,6 +179,9 @@ export default function Items() {
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
   const [folderName, setFolderName] = useState("");
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
+  
+  // Drop indicator state for visual feedback
+  const [dropIndicator, setDropIndicator] = useState<{ overId: string; position: 'above' | 'below' } | null>(null);
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -697,15 +719,6 @@ export default function Items() {
     },
   });
 
-  const updateItemsSortMutation = useMutation({
-    mutationFn: async (items: { id: string; sortOrder: number }[]) => {
-      const response = await apiRequest("PATCH", "/api/items/bulk-sort", { items });
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
-    },
-  });
 
   const moveItemMutation = useMutation({
     mutationFn: async ({ itemId, folderId }: { itemId: string; folderId: string | null }) => {
@@ -728,13 +741,45 @@ export default function Items() {
     setActiveItemId(event.active.id as string);
   };
 
+  const handleDragOver = (event: any) => {
+    const { active, over } = event;
+    
+    if (!over || !active) {
+      setDropIndicator(null);
+      return;
+    }
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // Only show indicator for folder-to-folder dragging
+    if (activeId.startsWith("folder-") && overId.startsWith("folder-") && activeId !== overId) {
+      // Calculate position based on mouse position relative to the target
+      const overRect = over.rect;
+      const activeRect = active.rect.current.translated;
+      
+      if (overRect && activeRect) {
+        const overMiddleY = overRect.top + overRect.height / 2;
+        const activeMiddleY = activeRect.top + activeRect.height / 2;
+        
+        // If active item's center is above the over item's center, drop above; otherwise below
+        const position = activeMiddleY < overMiddleY ? 'above' : 'below';
+        setDropIndicator({ overId, position });
+      }
+    } else {
+      setDropIndicator(null);
+    }
+  };
+
   const handleDragCancel = () => {
     setActiveItemId(null);
+    setDropIndicator(null);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveItemId(null);
+    setDropIndicator(null);
 
     if (!over || active.id === over.id) {
       return;
@@ -768,11 +813,11 @@ export default function Items() {
       return;
     }
 
-    // Handle item operations
+    // Handle item operations - only moving to folders
     if (!activeId.startsWith("folder-")) {
       const itemId = activeId;
       
-      // Move to folder
+      // Move to folder or root
       if (overId === "root") {
         moveItemMutation.mutate({ itemId, folderId: null });
         return;
@@ -780,28 +825,6 @@ export default function Items() {
         const folderId = overId.replace("folder-", "");
         moveItemMutation.mutate({ itemId, folderId });
         return;
-      }
-      
-      // Reorder items within same folder/root
-      const activeItem = items.find(i => i.id === itemId);
-      const overItem = items.find(i => i.id === overId);
-      
-      if (activeItem && overItem && activeItem.folderId === overItem.folderId) {
-        const sameFolderItems = items.filter(i => i.folderId === activeItem.folderId);
-        const activeIndex = sameFolderItems.findIndex(i => i.id === itemId);
-        const overIndex = sameFolderItems.findIndex(i => i.id === overId);
-        
-        if (activeIndex !== -1 && overIndex !== -1) {
-          const [movedItem] = sameFolderItems.splice(activeIndex, 1);
-          sameFolderItems.splice(overIndex, 0, movedItem);
-          
-          const updates = sameFolderItems.map((item, index) => ({
-            id: item.id,
-            sortOrder: index
-          }));
-          
-          updateItemsSortMutation.mutate(updates);
-        }
       }
     }
   };
@@ -1471,7 +1494,7 @@ export default function Items() {
       </div>
 
       {/* Items List with Folders */}
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
+      <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
         <div className="space-y-3">
           {isLoading ? (
             <div className="text-center py-8">
@@ -1492,7 +1515,10 @@ export default function Items() {
               {organizedItems.folderGroups.map(({ folder, items: folderItems }) => (
                 <div key={folder.id} className="space-y-2">
                   <DraggableItem id={`folder-${folder.id}`}>
-                    <DroppableFolder id={`folder-${folder.id}`}>
+                    <DroppableFolder 
+                      id={`folder-${folder.id}`}
+                      showDropIndicator={dropIndicator?.overId === `folder-${folder.id}` ? dropIndicator.position : null}
+                    >
                       <div
                         className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted/70 transition-colors"
                         onClick={() => toggleFolder(folder.id)}

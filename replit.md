@@ -53,12 +53,16 @@ The system supports comprehensive inventory management functionalities such as:
 - **Item Lifecycle Management**: Creation, updating, and transactional cascade deletion of items ensuring data integrity across related records (alerts, activities, order lines, lots, stock levels).
 - **User Management**: A comprehensive system for creating, assigning roles, changing passwords, and deleting users, with strong security measures.
 - **Signature Capture**: Print-ready black-on-white electronic signatures for all controlled substance transactions and verification checks.
-- **Custom Sorting**: Drag-and-drop functionality for organizing folders and items in a custom order:
-  - Both folders and items have a `sortOrder` field for persistent custom ordering
+- **Custom Sorting**: Drag-and-drop functionality for organizing folders in a custom order:
+  - Folders have a `sortOrder` field for persistent custom ordering
   - Default display follows custom sort order (sortOrder ascending, then name alphabetically)
-  - Drag-and-drop to reorder folders within location
-  - Drag-and-drop to reorder items within same folder or root location
-  - Bulk sort API endpoints (`/api/folders/bulk-sort` and `/api/items/bulk-sort`) for efficient updates
+  - **Folder Reordering**: Drag-and-drop to reorder folders within location
+    - Visual drop indicator (horizontal line) shows where folder will be inserted (above/below target)
+    - Uses `pointerWithin` collision detection for accurate drop target resolution
+    - Bulk sort API endpoint (`/api/folders/bulk-sort`) for efficient updates
+  - **Item Management**: Items can be dragged to folders or root, but not reordered within folders
+    - Drag item to folder header to move it to that folder
+    - Drag item to root area to remove from folder
   - Other sorting options (alphabetical, stock level) remain available alongside custom ordering
 - **Bulk Import with AI**: AI-powered bulk photo import using OpenAI Vision API for automated item extraction with asynchronous job processing:
   - Basic accounts: Up to 50 images per import
