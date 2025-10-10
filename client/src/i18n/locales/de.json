@@ -489,6 +489,7 @@
     "recurrency": "Wiederholung",
     "selectRecurrency": "Wiederholung auswählen",
     "startDate": "Startdatum",
+    "selectDate": "Datum auswählen",
     "checklistItems": "Checklistenelemente",
     "addItemPlaceholder": "Checklistenelement hinzufügen...",
     "templateCreatedSuccess": "Vorlage erfolgreich erstellt",

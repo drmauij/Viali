@@ -10,6 +10,10 @@ import { Label } from "@/components/ui/label";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
 import type { Location, UserHospitalRole, User } from "@shared/schema";
 
 interface HospitalUser extends UserHospitalRole {
@@ -61,6 +65,7 @@ export default function Admin() {
   // Checklist template states
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<any | null>(null);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [templateForm, setTemplateForm] = useState({
     name: "",
     recurrency: "",
@@ -1264,14 +1269,32 @@ export default function Admin() {
               </div>
             </div>
             <div>
-              <Label htmlFor="template-start-date">{t("admin.startDate")} *</Label>
-              <Input
-                id="template-start-date"
-                type="date"
-                value={templateForm.startDate}
-                onChange={(e) => setTemplateForm({ ...templateForm, startDate: e.target.value })}
-                data-testid="input-template-start-date"
-              />
+              <Label>{t("admin.startDate")} *</Label>
+              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                    data-testid="input-template-start-date"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {templateForm.startDate ? format(new Date(templateForm.startDate), "PPP") : t("admin.selectDate")}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={templateForm.startDate ? new Date(templateForm.startDate) : undefined}
+                    onSelect={(date) => {
+                      if (date) {
+                        setTemplateForm({ ...templateForm, startDate: format(date, "yyyy-MM-dd") });
+                        setDatePickerOpen(false); // Auto-close on selection
+                      }
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div>
               <Label>{t("admin.checklistItems")} *</Label>

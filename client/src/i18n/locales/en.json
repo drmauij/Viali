@@ -489,6 +489,7 @@
     "recurrency": "Recurrency",
     "selectRecurrency": "Select recurrency",
     "startDate": "Start Date",
+    "selectDate": "Select date",
     "checklistItems": "Checklist Items",
     "addItemPlaceholder": "Add checklist item...",
     "templateCreatedSuccess": "Template created successfully",
