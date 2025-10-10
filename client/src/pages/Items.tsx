@@ -689,8 +689,6 @@ export default function Items() {
 
   const updateFoldersSortMutation = useMutation({
     mutationFn: async (folders: { id: string; sortOrder: number }[]) => {
-      console.log('[updateFoldersSortMutation] Received folders:', folders);
-      console.log('[updateFoldersSortMutation] Sending payload:', { folders });
       const response = await apiRequest("PATCH", "/api/folders/bulk-sort", { folders });
       return await response.json();
     },

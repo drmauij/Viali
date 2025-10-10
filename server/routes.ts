@@ -560,11 +560,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bulk update folder sort order - MUST be before :folderId route
   app.patch('/api/folders/bulk-sort', isAuthenticated, async (req: any, res) => {
     try {
-      console.log('[bulk-sort] Full request body:', JSON.stringify(req.body));
       const { folders: folderUpdates } = req.body;
       const userId = req.user.claims.sub;
-      
-      console.log('[bulk-sort] Received request:', { folderUpdates, userId, bodyKeys: Object.keys(req.body) });
       
       if (!folderUpdates || !Array.isArray(folderUpdates)) {
         return res.status(400).json({ message: "Folders array is required" });
@@ -573,19 +570,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let updatedCount = 0;
       for (const folderUpdate of folderUpdates) {
         if (!folderUpdate.id || folderUpdate.sortOrder === undefined) {
-          console.log('[bulk-sort] Skipping invalid folder update:', folderUpdate);
           continue;
         }
 
         const folder = await storage.getFolder(folderUpdate.id);
         if (!folder) {
-          console.log('[bulk-sort] Folder not found:', folderUpdate.id);
           continue;
         }
 
         const locationId = await getUserLocationForHospital(userId, folder.hospitalId);
         if (!locationId || locationId !== folder.locationId) {
-          console.log('[bulk-sort] Access denied for folder:', { folderId: folderUpdate.id, locationId, folderLocationId: folder.locationId });
           continue;
         }
 
@@ -593,7 +587,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedCount++;
       }
 
-      console.log('[bulk-sort] Updated folders count:', updatedCount);
       res.json({ message: "Folder sort order updated successfully", updatedCount });
     } catch (error) {
       console.error("Error updating folder sort order:", error);
