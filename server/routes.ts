@@ -2625,8 +2625,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
       
-      // Validate with schema
-      const validated = insertChecklistTemplateSchema.parse(templateData);
+      // Validate with schema and add createdBy
+      const validated = insertChecklistTemplateSchema.parse({
+        ...templateData,
+        createdBy: userId,
+      });
       
       const template = await storage.createChecklistTemplate(validated);
       res.status(201).json(template);
