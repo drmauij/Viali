@@ -687,6 +687,28 @@ export default function Items() {
     },
   });
 
+  const updateFoldersSortMutation = useMutation({
+    mutationFn: async (folders: { id: string; sortOrder: number }[]) => {
+      console.log('[updateFoldersSortMutation] Received folders:', folders);
+      console.log('[updateFoldersSortMutation] Sending payload:', { folders });
+      const response = await apiRequest("PATCH", "/api/folders/bulk-sort", { folders });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/folders/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
+    },
+  });
+
+  const updateItemsSortMutation = useMutation({
+    mutationFn: async (items: { id: string; sortOrder: number }[]) => {
+      const response = await apiRequest("PATCH", "/api/items/bulk-sort", { items });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
+    },
+  });
+
   const moveItemMutation = useMutation({
     mutationFn: async ({ itemId, folderId }: { itemId: string; folderId: string | null }) => {
       const response = await apiRequest("PATCH", `/api/items/${itemId}`, { folderId });
@@ -720,14 +742,69 @@ export default function Items() {
       return;
     }
 
-    const itemId = active.id as string;
+    const activeId = active.id as string;
     const overId = over.id as string;
 
-    if (overId === "root") {
-      moveItemMutation.mutate({ itemId, folderId: null });
-    } else if (overId.startsWith("folder-")) {
-      const folderId = overId.replace("folder-", "");
-      moveItemMutation.mutate({ itemId, folderId });
+    // Handle folder reordering
+    if (activeId.startsWith("folder-") && overId.startsWith("folder-")) {
+      const activeFolderId = activeId.replace("folder-", "");
+      const overFolderId = overId.replace("folder-", "");
+      
+      const folderArray = [...folders];
+      const activeIndex = folderArray.findIndex(f => f.id === activeFolderId);
+      const overIndex = folderArray.findIndex(f => f.id === overFolderId);
+      
+      if (activeIndex !== -1 && overIndex !== -1) {
+        // Reorder folders
+        const [movedFolder] = folderArray.splice(activeIndex, 1);
+        folderArray.splice(overIndex, 0, movedFolder);
+        
+        // Update sort orders
+        const updates = folderArray.map((folder, index) => ({
+          id: folder.id,
+          sortOrder: index
+        }));
+        
+        updateFoldersSortMutation.mutate(updates);
+      }
+      return;
+    }
+
+    // Handle item operations
+    if (!activeId.startsWith("folder-")) {
+      const itemId = activeId;
+      
+      // Move to folder
+      if (overId === "root") {
+        moveItemMutation.mutate({ itemId, folderId: null });
+        return;
+      } else if (overId.startsWith("folder-")) {
+        const folderId = overId.replace("folder-", "");
+        moveItemMutation.mutate({ itemId, folderId });
+        return;
+      }
+      
+      // Reorder items within same folder/root
+      const activeItem = items.find(i => i.id === itemId);
+      const overItem = items.find(i => i.id === overId);
+      
+      if (activeItem && overItem && activeItem.folderId === overItem.folderId) {
+        const sameFolderItems = items.filter(i => i.folderId === activeItem.folderId);
+        const activeIndex = sameFolderItems.findIndex(i => i.id === itemId);
+        const overIndex = sameFolderItems.findIndex(i => i.id === overId);
+        
+        if (activeIndex !== -1 && overIndex !== -1) {
+          const [movedItem] = sameFolderItems.splice(activeIndex, 1);
+          sameFolderItems.splice(overIndex, 0, movedItem);
+          
+          const updates = sameFolderItems.map((item, index) => ({
+            id: item.id,
+            sortOrder: index
+          }));
+          
+          updateItemsSortMutation.mutate(updates);
+        }
+      }
     }
   };
 
@@ -1416,36 +1493,38 @@ export default function Items() {
               {/* Render folders */}
               {organizedItems.folderGroups.map(({ folder, items: folderItems }) => (
                 <div key={folder.id} className="space-y-2">
-                  <DroppableFolder id={`folder-${folder.id}`}>
-                    <div
-                      className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted/70 transition-colors"
-                      onClick={() => toggleFolder(folder.id)}
-                      data-testid={`folder-${folder.id}`}
-                    >
-                      {expandedFolders.has(folder.id) ? (
-                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                      )}
-                      <FolderIcon className="w-5 h-5 text-primary" />
-                      <span className="flex-1 font-medium text-foreground">{folder.name}</span>
-                      <span className="text-sm text-muted-foreground">({folderItems.length})</span>
-                      <button
-                        onClick={(e) => handleEditFolder(e, folder)}
-                        className="p-1 hover:bg-muted rounded"
-                        data-testid={`edit-folder-${folder.id}`}
+                  <DraggableItem id={`folder-${folder.id}`}>
+                    <DroppableFolder id={`folder-${folder.id}`}>
+                      <div
+                        className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted/70 transition-colors"
+                        onClick={() => toggleFolder(folder.id)}
+                        data-testid={`folder-${folder.id}`}
                       >
-                        <Edit2 className="w-4 h-4 text-muted-foreground" />
-                      </button>
-                      <button
-                        onClick={(e) => handleDeleteFolder(e, folder.id)}
-                        className="p-1 hover:bg-destructive/10 rounded"
-                        data-testid={`delete-folder-${folder.id}`}
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </button>
-                    </div>
-                  </DroppableFolder>
+                        {expandedFolders.has(folder.id) ? (
+                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                        )}
+                        <FolderIcon className="w-5 h-5 text-primary" />
+                        <span className="flex-1 font-medium text-foreground">{folder.name}</span>
+                        <span className="text-sm text-muted-foreground">({folderItems.length})</span>
+                        <button
+                          onClick={(e) => handleEditFolder(e, folder)}
+                          className="p-1 hover:bg-muted rounded"
+                          data-testid={`edit-folder-${folder.id}`}
+                        >
+                          <Edit2 className="w-4 h-4 text-muted-foreground" />
+                        </button>
+                        <button
+                          onClick={(e) => handleDeleteFolder(e, folder.id)}
+                          className="p-1 hover:bg-destructive/10 rounded"
+                          data-testid={`delete-folder-${folder.id}`}
+                        >
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </button>
+                      </div>
+                    </DroppableFolder>
+                  </DraggableItem>
                   {expandedFolders.has(folder.id) && (
                     <div className="pl-6 space-y-2">
                       {folderItems.map((item) => {

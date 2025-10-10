@@ -53,6 +53,13 @@ The system supports comprehensive inventory management functionalities such as:
 - **Item Lifecycle Management**: Creation, updating, and transactional cascade deletion of items ensuring data integrity across related records (alerts, activities, order lines, lots, stock levels).
 - **User Management**: A comprehensive system for creating, assigning roles, changing passwords, and deleting users, with strong security measures.
 - **Signature Capture**: Print-ready black-on-white electronic signatures for all controlled substance transactions and verification checks.
+- **Custom Sorting**: Drag-and-drop functionality for organizing folders and items in a custom order:
+  - Both folders and items have a `sortOrder` field for persistent custom ordering
+  - Default display follows custom sort order (sortOrder ascending, then name alphabetically)
+  - Drag-and-drop to reorder folders within location
+  - Drag-and-drop to reorder items within same folder or root location
+  - Bulk sort API endpoints (`/api/folders/bulk-sort` and `/api/items/bulk-sort`) for efficient updates
+  - Other sorting options (alphabetical, stock level) remain available alongside custom ordering
 - **Bulk Import with AI**: AI-powered bulk photo import using OpenAI Vision API for automated item extraction with asynchronous job processing:
   - Basic accounts: Up to 50 images per import
   - Free accounts: Up to 10 images per import (previously limited to 3 due to synchronous processing)

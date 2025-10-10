@@ -557,6 +557,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk update folder sort order - MUST be before :folderId route
+  app.patch('/api/folders/bulk-sort', isAuthenticated, async (req: any, res) => {
+    try {
+      console.log('[bulk-sort] Full request body:', JSON.stringify(req.body));
+      const { folders: folderUpdates } = req.body;
+      const userId = req.user.claims.sub;
+      
+      console.log('[bulk-sort] Received request:', { folderUpdates, userId, bodyKeys: Object.keys(req.body) });
+      
+      if (!folderUpdates || !Array.isArray(folderUpdates)) {
+        return res.status(400).json({ message: "Folders array is required" });
+      }
+
+      let updatedCount = 0;
+      for (const folderUpdate of folderUpdates) {
+        if (!folderUpdate.id || folderUpdate.sortOrder === undefined) {
+          console.log('[bulk-sort] Skipping invalid folder update:', folderUpdate);
+          continue;
+        }
+
+        const folder = await storage.getFolder(folderUpdate.id);
+        if (!folder) {
+          console.log('[bulk-sort] Folder not found:', folderUpdate.id);
+          continue;
+        }
+
+        const locationId = await getUserLocationForHospital(userId, folder.hospitalId);
+        if (!locationId || locationId !== folder.locationId) {
+          console.log('[bulk-sort] Access denied for folder:', { folderId: folderUpdate.id, locationId, folderLocationId: folder.locationId });
+          continue;
+        }
+
+        await storage.updateFolder(folderUpdate.id, { sortOrder: folderUpdate.sortOrder });
+        updatedCount++;
+      }
+
+      console.log('[bulk-sort] Updated folders count:', updatedCount);
+      res.json({ message: "Folder sort order updated successfully", updatedCount });
+    } catch (error) {
+      console.error("Error updating folder sort order:", error);
+      res.status(500).json({ message: "Failed to update folder sort order" });
+    }
+  });
+
   app.patch('/api/folders/:folderId', isAuthenticated, async (req: any, res) => {
     try {
       const { folderId } = req.params;
@@ -601,39 +645,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting folder:", error);
       res.status(500).json({ message: "Failed to delete folder" });
-    }
-  });
-
-  // Bulk update folder sort order
-  app.patch('/api/folders/bulk-sort', isAuthenticated, async (req: any, res) => {
-    try {
-      const { folders: folderUpdates } = req.body;
-      const userId = req.user.claims.sub;
-      
-      if (!folderUpdates || !Array.isArray(folderUpdates)) {
-        return res.status(400).json({ message: "Folders array is required" });
-      }
-
-      for (const folderUpdate of folderUpdates) {
-        if (!folderUpdate.id || folderUpdate.sortOrder === undefined) {
-          continue;
-        }
-
-        const folder = await storage.getFolder(folderUpdate.id);
-        if (!folder) continue;
-
-        const locationId = await getUserLocationForHospital(userId, folder.hospitalId);
-        if (!locationId || locationId !== folder.locationId) {
-          continue;
-        }
-
-        await storage.updateFolder(folderUpdate.id, { sortOrder: folderUpdate.sortOrder });
-      }
-
-      res.json({ message: "Folder sort order updated successfully" });
-    } catch (error) {
-      console.error("Error updating folder sort order:", error);
-      res.status(500).json({ message: "Failed to update folder sort order" });
     }
   });
 
