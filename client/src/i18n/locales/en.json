@@ -500,6 +500,7 @@
     "failedToDeleteTemplate": "Failed to delete template",
     "templateNameRequired": "Template name is required",
     "recurrencyRequired": "Recurrency is required",
+    "locationRequired": "Location is required",
     "atLeastOneItem": "At least one checklist item is required",
     "itemRequired": "Item text is required"
   },

@@ -532,6 +532,10 @@ export default function Admin() {
       toast({ title: t("common.error"), description: t("admin.recurrencyRequired"), variant: "destructive" });
       return;
     }
+    if (!templateForm.locationId) {
+      toast({ title: t("common.error"), description: t("admin.locationRequired"), variant: "destructive" });
+      return;
+    }
     if (templateForm.items.length === 0) {
       toast({ title: t("common.error"), description: t("admin.atLeastOneItem"), variant: "destructive" });
       return;
@@ -541,7 +545,7 @@ export default function Admin() {
       name: templateForm.name,
       recurrency: templateForm.recurrency,
       items: templateForm.items,
-      locationId: templateForm.locationId || null,
+      locationId: templateForm.locationId,
       role: templateForm.role || null,
       startDate: templateForm.startDate,
     };
@@ -1233,7 +1237,7 @@ export default function Admin() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label htmlFor="template-location">{t("admin.location")} ({t("checklists.optional")})</Label>
+                <Label htmlFor="template-location">{t("admin.location")} *</Label>
                 <Select
                   value={templateForm.locationId}
                   onValueChange={(value) => setTemplateForm({ ...templateForm, locationId: value })}

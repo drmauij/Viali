@@ -500,6 +500,7 @@
     "failedToDeleteTemplate": "Vorlage konnte nicht gelöscht werden",
     "templateNameRequired": "Vorlagenname ist erforderlich",
     "recurrencyRequired": "Wiederholung ist erforderlich",
+    "locationRequired": "Standort ist erforderlich",
     "atLeastOneItem": "Mindestens ein Checklistenelement ist erforderlich",
     "itemRequired": "Elementtext ist erforderlich"
   },

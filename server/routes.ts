@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage, db } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertItemSchema, insertFolderSchema, insertActivitySchema, insertChecklistTemplateSchema, insertChecklistCompletionSchema, orderLines, items, stockLevels, orders, users, userHospitalRoles, activities } from "@shared/schema";
+import { insertItemSchema, insertFolderSchema, insertActivitySchema, insertChecklistTemplateSchema, insertChecklistCompletionSchema, orderLines, items, stockLevels, orders, users, userHospitalRoles, activities, locations } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import OpenAI from "openai";
@@ -2607,24 +2607,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Hospital ID is required" });
       }
       
-      // Verify user has admin access
-      // If locationId is provided, check that specific location
-      // If not, check if user is admin for ANY location in the hospital
-      if (templateData.locationId) {
-        const access = await verifyUserHospitalLocationAccess(userId, templateData.hospitalId, templateData.locationId);
-        if (!access.hasAccess) {
-          return res.status(403).json({ message: "Access denied to this location" });
-        }
-        if (access.role !== 'admin') {
-          return res.status(403).json({ message: "Admin access required" });
-        }
-      } else {
-        // Check if user is admin for ANY location in this hospital
-        const hospitals = await storage.getUserHospitals(userId);
-        const adminLocations = hospitals.filter(h => h.id === templateData.hospitalId && h.role === 'admin');
-        if (adminLocations.length === 0) {
-          return res.status(403).json({ message: "Admin access required" });
-        }
+      if (!templateData.locationId) {
+        return res.status(400).json({ message: "Location ID is required" });
+      }
+      
+      // Verify the locationId belongs to the hospital
+      const [location] = await db.select().from(locations).where(eq(locations.id, templateData.locationId));
+      if (!location || location.hospitalId !== templateData.hospitalId) {
+        return res.status(400).json({ message: "Invalid location for this hospital" });
+      }
+      
+      // Verify user is admin for ANY location in the hospital
+      // Admins can create templates for any location in their hospital
+      const hospitals = await storage.getUserHospitals(userId);
+      const adminLocations = hospitals.filter(h => h.id === templateData.hospitalId && h.role === 'admin');
+      if (adminLocations.length === 0) {
+        return res.status(403).json({ message: "Admin access required" });
       }
       
       // Validate with schema
@@ -2682,22 +2680,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Template not found" });
       }
       
-      // Verify user has admin access
-      if (template.locationId) {
-        const access = await verifyUserHospitalLocationAccess(userId, template.hospitalId, template.locationId);
-        if (!access.hasAccess) {
-          return res.status(403).json({ message: "Access denied to this location" });
+      // If locationId is being updated, verify it belongs to the hospital
+      if (updates.locationId && updates.locationId !== template.locationId) {
+        const [location] = await db.select().from(locations).where(eq(locations.id, updates.locationId));
+        if (!location || location.hospitalId !== template.hospitalId) {
+          return res.status(400).json({ message: "Invalid location for this hospital" });
         }
-        if (access.role !== 'admin') {
-          return res.status(403).json({ message: "Admin access required" });
-        }
-      } else {
-        // Template has no specific location, check if user is admin for ANY location in hospital
-        const hospitals = await storage.getUserHospitals(userId);
-        const adminLocations = hospitals.filter(h => h.id === template.hospitalId && h.role === 'admin');
-        if (adminLocations.length === 0) {
-          return res.status(403).json({ message: "Admin access required" });
-        }
+      }
+      
+      // Verify user is admin for ANY location in the hospital
+      // Admins can update/delete templates for any location in their hospital
+      const hospitals = await storage.getUserHospitals(userId);
+      const adminLocations = hospitals.filter(h => h.id === template.hospitalId && h.role === 'admin');
+      if (adminLocations.length === 0) {
+        return res.status(403).json({ message: "Admin access required" });
       }
       
       const updated = await storage.updateChecklistTemplate(id, updates);
@@ -2719,22 +2715,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Template not found" });
       }
       
-      // Verify user has admin access
-      if (template.locationId) {
-        const access = await verifyUserHospitalLocationAccess(userId, template.hospitalId, template.locationId);
-        if (!access.hasAccess) {
-          return res.status(403).json({ message: "Access denied to this location" });
-        }
-        if (access.role !== 'admin') {
-          return res.status(403).json({ message: "Admin access required" });
-        }
-      } else {
-        // Template has no specific location, check if user is admin for ANY location in hospital
-        const hospitals = await storage.getUserHospitals(userId);
-        const adminLocations = hospitals.filter(h => h.id === template.hospitalId && h.role === 'admin');
-        if (adminLocations.length === 0) {
-          return res.status(403).json({ message: "Admin access required" });
-        }
+      // Verify user is admin for ANY location in the hospital
+      // Admins can update/delete templates for any location in their hospital
+      const hospitals = await storage.getUserHospitals(userId);
+      const adminLocations = hospitals.filter(h => h.id === template.hospitalId && h.role === 'admin');
+      if (adminLocations.length === 0) {
+        return res.status(403).json({ message: "Admin access required" });
       }
       
       await storage.deleteChecklistTemplate(id);
