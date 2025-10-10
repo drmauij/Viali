@@ -515,7 +515,7 @@ export default function Admin() {
     setTemplateForm({
       name: template.name,
       recurrency: template.recurrency,
-      items: (template.items || []).map((item: any) => typeof item === 'string' ? item : item.description),
+      items: (template.items || []).map((item: any) => typeof item === 'string' ? item : (item.description || "")),
       locationId: template.locationId || "",
       role: template.role || "",
       startDate: template.startDate?.split('T')[0] || new Date().toISOString().split('T')[0],
@@ -542,9 +542,9 @@ export default function Admin() {
     }
 
     const data = {
-      name: templateForm.name,
+      name: templateForm.name.trim(),
       recurrency: templateForm.recurrency,
-      items: templateForm.items.map(item => ({ description: item })),
+      items: templateForm.items.filter(item => item.trim()).map(item => ({ description: item.trim() })),
       locationId: templateForm.locationId,
       role: templateForm.role || null,
       startDate: templateForm.startDate,
@@ -558,13 +558,18 @@ export default function Admin() {
   };
 
   const handleAddTemplateItem = () => {
-    if (!newTemplateItem.trim()) {
+    const trimmedItem = newTemplateItem.trim();
+    if (!trimmedItem) {
       toast({ title: t("common.error"), description: t("admin.itemRequired"), variant: "destructive" });
+      return;
+    }
+    if (templateForm.items.includes(trimmedItem)) {
+      toast({ title: t("common.error"), description: t("admin.itemAlreadyExists"), variant: "destructive" });
       return;
     }
     setTemplateForm({
       ...templateForm,
-      items: [...templateForm.items, newTemplateItem.trim()],
+      items: [...templateForm.items, trimmedItem],
     });
     setNewTemplateItem("");
   };
