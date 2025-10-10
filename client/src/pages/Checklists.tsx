@@ -51,19 +51,23 @@ export default function Checklists() {
   });
 
   const completeMutation = useMutation({
-    mutationFn: async (data: { templateId: string; comment?: string; signature: string }) => {
+    mutationFn: async (data: { 
+      templateId: string; 
+      dueDate: Date;
+      comment?: string; 
+      signature: string;
+      templateSnapshot: Pick<ChecklistTemplate, 'name' | 'description' | 'recurrency' | 'items' | 'role'>;
+    }) => {
       if (!activeHospital?.id || !activeHospital?.locationId || !user?.id) {
         throw new Error("Missing required information");
       }
       
       const response = await apiRequest("POST", `/api/checklists/complete`, {
         templateId: data.templateId,
-        completedBy: user.id,
-        completedAt: new Date().toISOString(),
+        dueDate: new Date(data.dueDate).toISOString(),
         comment: data.comment,
         signature: data.signature,
-        hospitalId: activeHospital.id,
-        locationId: activeHospital.locationId,
+        templateSnapshot: data.templateSnapshot,
       });
       return response.json();
     },
@@ -119,10 +123,21 @@ export default function Checklists() {
       return;
     }
 
+    // Create template snapshot for historical record
+    const templateSnapshot = {
+      name: selectedTemplate.name,
+      description: selectedTemplate.description,
+      recurrency: selectedTemplate.recurrency,
+      items: selectedTemplate.items,
+      role: selectedTemplate.role,
+    };
+
     completeMutation.mutate({
       templateId: selectedTemplate.id,
+      dueDate: selectedTemplate.nextDueDate,
       comment: comment.trim() || undefined,
       signature,
+      templateSnapshot,
     });
   };
 

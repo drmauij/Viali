@@ -2848,8 +2848,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied to this location" });
       }
       
-      // Validate with schema
-      const validated = insertChecklistCompletionSchema.parse({
+      // Validate with schema (extend to coerce dueDate from ISO string)
+      const validated = insertChecklistCompletionSchema.extend({
+        dueDate: z.coerce.date(),
+      }).parse({
         ...completionData,
         completedBy: userId,
         hospitalId: template.hospitalId,
