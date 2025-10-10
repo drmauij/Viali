@@ -227,7 +227,8 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(folders)
-      .where(and(eq(folders.hospitalId, hospitalId), eq(folders.locationId, locationId)));
+      .where(and(eq(folders.hospitalId, hospitalId), eq(folders.locationId, locationId)))
+      .orderBy(asc(folders.sortOrder), asc(folders.name));
   }
 
   async getFolder(id: string): Promise<Folder | undefined> {
@@ -286,7 +287,7 @@ export class DatabaseStorage implements IStorage {
       query = query.where(and(eq(items.hospitalId, hospitalId), eq(items.locationId, locationId), eq(items.controlled, true)));
     }
 
-    const result = await query;
+    const result = await query.orderBy(asc(items.sortOrder), asc(items.name));
     return result as (Item & { stockLevel?: StockLevel; soonestExpiry?: Date })[];
   }
 

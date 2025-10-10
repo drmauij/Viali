@@ -604,6 +604,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk update folder sort order
+  app.patch('/api/folders/bulk-sort', isAuthenticated, async (req: any, res) => {
+    try {
+      const { folders: folderUpdates } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!folderUpdates || !Array.isArray(folderUpdates)) {
+        return res.status(400).json({ message: "Folders array is required" });
+      }
+
+      for (const folderUpdate of folderUpdates) {
+        if (!folderUpdate.id || folderUpdate.sortOrder === undefined) {
+          continue;
+        }
+
+        const folder = await storage.getFolder(folderUpdate.id);
+        if (!folder) continue;
+
+        const locationId = await getUserLocationForHospital(userId, folder.hospitalId);
+        if (!locationId || locationId !== folder.locationId) {
+          continue;
+        }
+
+        await storage.updateFolder(folderUpdate.id, { sortOrder: folderUpdate.sortOrder });
+      }
+
+      res.json({ message: "Folder sort order updated successfully" });
+    } catch (error) {
+      console.error("Error updating folder sort order:", error);
+      res.status(500).json({ message: "Failed to update folder sort order" });
+    }
+  });
+
   // Items routes
   app.get('/api/items/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
@@ -788,6 +821,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error updating bulk items:", error);
       res.status(500).json({ message: error.message || "Failed to update items" });
+    }
+  });
+
+  // Bulk update item sort order
+  app.patch('/api/items/bulk-sort', isAuthenticated, async (req: any, res) => {
+    try {
+      const { items: itemUpdates } = req.body;
+      const userId = req.user.claims.sub;
+      
+      if (!itemUpdates || !Array.isArray(itemUpdates)) {
+        return res.status(400).json({ message: "Items array is required" });
+      }
+
+      for (const itemUpdate of itemUpdates) {
+        if (!itemUpdate.id || itemUpdate.sortOrder === undefined) {
+          continue;
+        }
+
+        const item = await storage.getItem(itemUpdate.id);
+        if (!item) continue;
+
+        const locationId = await getUserLocationForHospital(userId, item.hospitalId);
+        if (!locationId || locationId !== item.locationId) {
+          continue;
+        }
+
+        await storage.updateItem(itemUpdate.id, { sortOrder: itemUpdate.sortOrder });
+      }
+
+      res.json({ message: "Item sort order updated successfully" });
+    } catch (error) {
+      console.error("Error updating item sort order:", error);
+      res.status(500).json({ message: "Failed to update item sort order" });
     }
   });
 
