@@ -2274,12 +2274,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { locationId } = req.params;
       const { hospitalId } = req.query;
-      
-      // Check admin access
       const userId = req.user.claims.sub;
+      
+      // Check admin access - user must be admin for ANY location in this hospital
       const hospitals = await storage.getUserHospitals(userId);
-      const hospital = hospitals.find(h => h.id === hospitalId);
-      if (!hospital || hospital.role !== 'admin') {
+      const adminLocations = hospitals.filter(h => h.id === hospitalId && h.role === 'admin');
+      
+      if (adminLocations.length === 0) {
         return res.status(403).json({ message: "Admin access required" });
       }
       
@@ -2626,20 +2627,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Validate with schema and add createdBy
-      const dataToValidate = {
+      const validated = insertChecklistTemplateSchema.parse({
         ...templateData,
         createdBy: userId,
-      };
-      console.log("Validating template data:", JSON.stringify(dataToValidate, null, 2));
-      
-      const validated = insertChecklistTemplateSchema.parse(dataToValidate);
+      });
       
       const template = await storage.createChecklistTemplate(validated);
       res.status(201).json(template);
     } catch (error: any) {
       console.error("Error creating checklist template:", error);
       if (error.name === 'ZodError') {
-        console.error("Validation errors:", JSON.stringify(error.errors, null, 2));
+        console.error("Validation errors:", error.errors);
         return res.status(400).json({ message: "Invalid template data", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to create checklist template" });
