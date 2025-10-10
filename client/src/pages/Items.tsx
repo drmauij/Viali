@@ -624,7 +624,7 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/folders", activeHospital?.id, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/folders/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
       setFolderDialogOpen(false);
       setFolderName("");
       toast({
@@ -647,7 +647,7 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/folders", activeHospital?.id, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/folders/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
       setFolderDialogOpen(false);
       setEditingFolder(null);
       setFolderName("");
