@@ -38,6 +38,7 @@ export default function Checklists() {
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [signature, setSignature] = useState("");
   const [comment, setComment] = useState("");
+  const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
 
   const { data: pendingChecklists = [], isLoading: isLoadingPending } = useQuery<PendingChecklist[]>({
     queryKey: [`/api/checklists/pending/${activeHospital?.id}`, activeHospital?.locationId],
@@ -90,7 +91,20 @@ export default function Checklists() {
 
   const handleCompleteChecklist = (checklist: PendingChecklist) => {
     setSelectedTemplate(checklist);
+    setCheckedItems(new Set()); // Reset checked items
     setShowCompletionModal(true);
+  };
+
+  const toggleItemCheck = (index: number) => {
+    setCheckedItems(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
   };
 
   const handleSubmitCompletion = () => {
@@ -318,6 +332,7 @@ export default function Checklists() {
             setSignature("");
             setComment("");
             setShowSignaturePad(false);
+            setCheckedItems(new Set());
           }
         }}
       >
@@ -335,16 +350,46 @@ export default function Checklists() {
             {/* Checklist Items */}
             {selectedTemplate && Array.isArray(selectedTemplate.items) && selectedTemplate.items.length > 0 && (
               <div>
-                <Label className="text-sm font-semibold mb-2 block" data-testid="label-items">
+                <Label className="text-sm font-semibold mb-3 block" data-testid="label-items">
                   {t("checklists.itemsToCheck")}
                 </Label>
-                <ul className="space-y-2 bg-muted p-4 rounded-lg" data-testid="list-items">
-                  {selectedTemplate.items.map((item, index) => (
-                    <li key={index} className="flex items-center gap-2 text-sm" data-testid={`item-${index}`}>
-                      <div className="w-4 h-4 border-2 border-primary rounded"></div>
-                      <span>{typeof item === 'string' ? item : item.description}</span>
-                    </li>
-                  ))}
+                <ul className="space-y-3" data-testid="list-items">
+                  {selectedTemplate.items.map((item, index) => {
+                    const isChecked = checkedItems.has(index);
+                    return (
+                      <li
+                        key={index}
+                        onClick={() => toggleItemCheck(index)}
+                        className="flex items-center gap-3 p-4 rounded-lg bg-muted hover:bg-muted/80 transition-colors cursor-pointer active:scale-[0.98]"
+                        data-testid={`item-${index}`}
+                      >
+                        <div 
+                          className={`min-w-6 w-6 h-6 border-2 rounded flex items-center justify-center transition-all ${
+                            isChecked 
+                              ? 'bg-primary border-primary' 
+                              : 'border-muted-foreground/40'
+                          }`}
+                        >
+                          {isChecked && (
+                            <svg
+                              className="w-4 h-4 text-primary-foreground"
+                              fill="none"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path d="M5 13l4 4L19 7"></path>
+                            </svg>
+                          )}
+                        </div>
+                        <span className={`text-base ${isChecked ? 'line-through text-muted-foreground' : ''}`}>
+                          {typeof item === 'string' ? item : item.description}
+                        </span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             )}

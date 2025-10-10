@@ -1,4 +1,6 @@
 import { useRef, useEffect, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 interface SignaturePadProps {
   isOpen: boolean;
@@ -31,29 +33,19 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
   };
 
   useEffect(() => {
-    if (isOpen) {
-      // Prevent body scrolling when modal is open
-      document.body.style.overflow = 'hidden';
-      
-      if (canvasRef.current) {
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          // Set canvas size
-          canvas.width = canvas.offsetWidth * 2;
-          canvas.height = canvas.offsetHeight * 2;
-          ctx.scale(2, 2);
-          
-          // Initialize canvas with white background and black stroke
-          initializeCanvas();
-        }
+    if (isOpen && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        // Set canvas size
+        canvas.width = canvas.offsetWidth * 2;
+        canvas.height = canvas.offsetHeight * 2;
+        ctx.scale(2, 2);
+        
+        // Initialize canvas with white background and black stroke
+        initializeCanvas();
       }
     }
-    
-    return () => {
-      // Re-enable body scrolling when modal closes
-      document.body.style.overflow = '';
-    };
   }, [isOpen]);
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
@@ -118,69 +110,63 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
 
     const dataUrl = canvas.toDataURL("image/png");
     onSave(dataUrl);
+    clearSignature();
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-foreground">{title}</h2>
-          <button
-            className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center text-muted-foreground"
-            onClick={onClose}
-            data-testid="signature-close"
-          >
-            <i className="fas fa-times"></i>
-          </button>
-        </div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-lg" data-testid="dialog-signature-pad">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
 
-        <div className="mb-6">
-          <canvas
-            ref={canvasRef}
-            className="w-full h-48 border-2 border-dashed border-border rounded-lg bg-white cursor-crosshair"
-            onMouseDown={startDrawing}
-            onMouseMove={draw}
-            onMouseUp={stopDrawing}
-            onMouseLeave={stopDrawing}
-            onTouchStart={startDrawing}
-            onTouchMove={draw}
-            onTouchEnd={stopDrawing}
-            data-testid="signature-canvas"
-          />
-          <p className="text-sm text-muted-foreground mt-2 text-center">
-            Draw your signature above
-          </p>
-        </div>
+        <div className="space-y-4">
+          <div>
+            <canvas
+              ref={canvasRef}
+              className="w-full h-48 border-2 border-dashed border-border rounded-lg bg-white cursor-crosshair touch-none"
+              onMouseDown={startDrawing}
+              onMouseMove={draw}
+              onMouseUp={stopDrawing}
+              onMouseLeave={stopDrawing}
+              onTouchStart={startDrawing}
+              onTouchMove={draw}
+              onTouchEnd={stopDrawing}
+              data-testid="signature-canvas"
+            />
+            <p className="text-sm text-muted-foreground mt-2 text-center">
+              Draw your signature above
+            </p>
+          </div>
 
-        <div className="flex gap-3">
-          <button
-            className="action-button btn-outline flex-1"
-            onClick={clearSignature}
-            disabled={!hasSignature}
-            data-testid="signature-clear"
-          >
-            Clear
-          </button>
-          <button
-            className="action-button btn-outline flex-1"
-            onClick={onClose}
-            data-testid="signature-cancel"
-          >
-            Cancel
-          </button>
-          <button
-            className="action-button btn-primary flex-1"
-            onClick={saveSignature}
-            disabled={!hasSignature}
-            data-testid="signature-save"
-          >
-            Save Signature
-          </button>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={clearSignature}
+              disabled={!hasSignature}
+              data-testid="signature-clear"
+            >
+              Clear
+            </Button>
+            <Button
+              variant="outline"
+              onClick={onClose}
+              data-testid="signature-cancel"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={saveSignature}
+              disabled={!hasSignature}
+              className="flex-1"
+              data-testid="signature-save"
+            >
+              Done
+            </Button>
+          </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
