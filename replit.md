@@ -58,11 +58,13 @@ The system supports comprehensive inventory management functionalities such as:
   - Default display follows custom sort order (sortOrder ascending, then name alphabetically)
   - **Folder Reordering**: Drag-and-drop to reorder folders within location
     - Visual drop indicator (horizontal line) shows where folder will be inserted (above/below target)
-    - Uses `pointerWithin` collision detection for accurate drop target resolution
+    - Custom collision detection using `closestCorners` for accurate drop target resolution
+    - Prevents folder nesting - folders can only reorder in the list
     - Bulk sort API endpoint (`/api/folders/bulk-sort`) for efficient updates
   - **Item Management**: Items can be dragged to folders or root, but not reordered within folders
     - Drag item to folder header to move it to that folder
     - Drag item to root area to remove from folder
+    - Custom collision detection filters out the item's current parent folder to prevent false positive drops
   - Other sorting options (alphabetical, stock level) remain available alongside custom ordering
 - **Bulk Import with AI**: AI-powered bulk photo import using OpenAI Vision API for automated item extraction with asynchronous job processing:
   - Basic accounts: Up to 50 images per import

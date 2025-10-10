@@ -192,9 +192,22 @@ export default function Items() {
     })
   );
 
-  // Custom collision detection that excludes the item's current folder
+  /**
+   * Custom collision detection for drag-and-drop operations.
+   * 
+   * Prevents items from being detected as dropping back into their source folder
+   * by filtering out the parent folder from droppable containers during collision detection.
+   * 
+   * Strategy:
+   * - Folder-to-folder dragging: Uses closestCorners for accurate reordering
+   * - Item dragging: Excludes the item's current parent folder, then uses closestCorners
+   *   with remaining containers to find the best drop target
+   * 
+   * This solves the issue where items inside expanded folders would be incorrectly
+   * detected as dropping into their own folder instead of the intended target.
+   */
   const customCollisionDetection = (args: any) => {
-    const { active, droppableContainers, pointerCoordinates } = args;
+    const { active, droppableContainers } = args;
     
     // For folder-to-folder dragging, use closestCorners
     if (active.id.toString().startsWith("folder-")) {
@@ -205,7 +218,7 @@ export default function Items() {
     const activeItem = items.find(i => i.id === active.id);
     const filteredContainers = droppableContainers.filter((container: any) => {
       const containerId = container.id.toString();
-      // Exclude the folder the item is currently in
+      // Exclude the folder the item is currently in to prevent false positive drops
       if (activeItem?.folderId && containerId === `folder-${activeItem.folderId}`) {
         return false;
       }
