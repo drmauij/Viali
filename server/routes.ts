@@ -2779,8 +2779,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         )
       );
       
-      // Flatten and sort by due date
-      const pending = allPending.flat().sort((a, b) => 
+      // Flatten and deduplicate by template ID
+      const pendingMap = new Map();
+      allPending.flat().forEach(checklist => {
+        pendingMap.set(checklist.id, checklist);
+      });
+      const pending = Array.from(pendingMap.values()).sort((a, b) => 
         a.nextDueDate.getTime() - b.nextDueDate.getTime()
       );
       

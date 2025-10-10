@@ -55,22 +55,21 @@ export default function Checklists() {
         throw new Error("Missing required information");
       }
       
-      return await apiRequest(`/api/checklists/complete`, {
-        method: "POST",
-        body: JSON.stringify({
-          templateId: data.templateId,
-          completedBy: user.id,
-          completedAt: new Date().toISOString(),
-          comment: data.comment,
-          signature: data.signature,
-          hospitalId: activeHospital.id,
-          locationId: activeHospital.locationId,
-        }),
+      const response = await apiRequest("POST", `/api/checklists/complete`, {
+        templateId: data.templateId,
+        completedBy: user.id,
+        completedAt: new Date().toISOString(),
+        comment: data.comment,
+        signature: data.signature,
+        hospitalId: activeHospital.id,
+        locationId: activeHospital.locationId,
       });
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/checklists/pending/${activeHospital?.id}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/checklists/history/${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/checklists/count/${activeHospital?.id}`] });
       toast({
         title: t("common.success"),
         description: t("checklists.completionSuccess"),
@@ -343,7 +342,7 @@ export default function Checklists() {
                   {selectedTemplate.items.map((item, index) => (
                     <li key={index} className="flex items-center gap-2 text-sm" data-testid={`item-${index}`}>
                       <div className="w-4 h-4 border-2 border-primary rounded"></div>
-                      <span>{item}</span>
+                      <span>{typeof item === 'string' ? item : item.description}</span>
                     </li>
                   ))}
                 </ul>

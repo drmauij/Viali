@@ -2,6 +2,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useTranslation } from "react-i18next";
 import { useMemo, useState, useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 interface NavItem {
   id: string;
@@ -36,6 +37,15 @@ export default function BottomNav() {
   }, [user]);
 
   const isAdmin = activeHospital?.role === "admin";
+
+  // Fetch pending checklist count
+  const { data: pendingCountData } = useQuery<{ count: number }>({
+    queryKey: [`/api/checklists/count/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id,
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
+
+  const hasPendingChecklists = (pendingCountData?.count || 0) > 0;
 
   // Poll for import job status and update localStorage
   useEffect(() => {
@@ -138,6 +148,22 @@ export default function BottomNav() {
                   border: '2px solid var(--background)',
                 }}
                 data-testid="import-badge"
+              />
+            )}
+            {item.id === 'checklists' && hasPendingChecklists && (
+              <span
+                className="pending-badge"
+                style={{
+                  position: 'absolute',
+                  top: '-4px',
+                  right: '-8px',
+                  width: '10px',
+                  height: '10px',
+                  backgroundColor: '#ef4444',
+                  borderRadius: '50%',
+                  border: '2px solid var(--background)',
+                }}
+                data-testid="pending-checklists-badge"
               />
             )}
           </div>
