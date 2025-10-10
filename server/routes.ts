@@ -2659,13 +2659,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
-      // Get templates for all user's locations
+      // Deduplicate location IDs to avoid redundant queries
+      const uniqueLocationIds = Array.from(new Set(userLocations.map(loc => loc.locationId)));
+      
+      // Get templates for all unique locations
       const allTemplates = await Promise.all(
-        userLocations.map(loc => storage.getChecklistTemplates(hospitalId, loc.locationId, active))
+        uniqueLocationIds.map(locationId => storage.getChecklistTemplates(hospitalId, locationId, active))
       );
       
-      // Flatten and deduplicate (in case templates span multiple locations)
-      const templates = allTemplates.flat();
+      // Flatten and deduplicate by template ID (defensive fallback)
+      const templatesMap = new Map();
+      allTemplates.flat().forEach(template => {
+        templatesMap.set(template.id, template);
+      });
+      const templates = Array.from(templatesMap.values());
       res.json(templates);
     } catch (error) {
       console.error("Error fetching checklist templates:", error);
@@ -2701,7 +2708,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
       
-      const updated = await storage.updateChecklistTemplate(id, updates);
+      // Coerce startDate string to Date if present
+      const processedUpdates = { ...updates };
+      if (processedUpdates.startDate && typeof processedUpdates.startDate === 'string') {
+        processedUpdates.startDate = new Date(processedUpdates.startDate);
+      }
+      
+      // Also coerce items if present to ensure proper structure
+      if (processedUpdates.items && Array.isArray(processedUpdates.items)) {
+        processedUpdates.items = processedUpdates.items.map((item: any) => 
+          typeof item === 'string' ? { description: item } : item
+        );
+      }
+      
+      const updated = await storage.updateChecklistTemplate(id, processedUpdates);
       res.json(updated);
     } catch (error: any) {
       console.error("Error updating checklist template:", error);

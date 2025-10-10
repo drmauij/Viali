@@ -1052,8 +1052,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   private calculateNextDueDate(startDate: Date, recurrency: string, lastDueDate?: Date): Date {
-    const baseDate = lastDueDate || startDate;
-    const date = new Date(baseDate);
+    // If no last completion, the first due date IS the start date
+    if (!lastDueDate) {
+      return new Date(startDate);
+    }
+    
+    // Otherwise, calculate next due date based on last completion
+    const date = new Date(lastDueDate);
 
     switch (recurrency) {
       case 'daily':
