@@ -168,6 +168,7 @@ export async function setupAuth(app: Express) {
   app.get("/api/login", (req, res, next) => {
     const strategyName = `replitauth:${req.hostname}`;
     console.log(`[Auth] Login requested for hostname: ${req.hostname}, strategy: ${strategyName}`);
+    console.log(`[Auth] Full URL: ${req.protocol}://${req.get('host')}${req.originalUrl}`);
     passport.authenticate(strategyName, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
@@ -177,6 +178,8 @@ export async function setupAuth(app: Express) {
   app.get("/api/callback", (req, res, next) => {
     const strategyName = `replitauth:${req.hostname}`;
     console.log(`[Auth] Callback received for hostname: ${req.hostname}, strategy: ${strategyName}`);
+    console.log(`[Auth] Callback URL: ${req.protocol}://${req.get('host')}${req.originalUrl}`);
+    console.log(`[Auth] Query params:`, req.query);
     passport.authenticate(strategyName, {
       successReturnToOrRedirect: "/",
       failureRedirect: "/api/login",
