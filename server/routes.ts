@@ -2626,16 +2626,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Validate with schema and add createdBy
-      const validated = insertChecklistTemplateSchema.parse({
+      const dataToValidate = {
         ...templateData,
         createdBy: userId,
-      });
+      };
+      console.log("Validating template data:", JSON.stringify(dataToValidate, null, 2));
+      
+      const validated = insertChecklistTemplateSchema.parse(dataToValidate);
       
       const template = await storage.createChecklistTemplate(validated);
       res.status(201).json(template);
     } catch (error: any) {
       console.error("Error creating checklist template:", error);
       if (error.name === 'ZodError') {
+        console.error("Validation errors:", JSON.stringify(error.errors, null, 2));
         return res.status(400).json({ message: "Invalid template data", errors: error.errors });
       }
       res.status(500).json({ message: "Failed to create checklist template" });

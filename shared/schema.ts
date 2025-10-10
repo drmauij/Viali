@@ -494,6 +494,10 @@ export const insertChecklistTemplateSchema = createInsertSchema(checklistTemplat
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  items: z.array(z.object({
+    description: z.string().trim().min(1, "Item description cannot be empty"),
+  })).min(1, "At least one checklist item is required"),
 });
 
 export const insertChecklistCompletionSchema = createInsertSchema(checklistCompletions).omit({
