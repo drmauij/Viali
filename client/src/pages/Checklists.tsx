@@ -152,7 +152,8 @@ export default function Checklists() {
     }
     
     const now = new Date();
-    const daysUntilDue = Math.ceil((checklist.nextDueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    const dueDate = new Date(checklist.nextDueDate);
+    const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     
     if (daysUntilDue <= 2) {
       return (

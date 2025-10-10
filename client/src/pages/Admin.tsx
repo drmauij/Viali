@@ -281,6 +281,8 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/checklists/templates/${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/checklists/pending/${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/checklists/count/${activeHospital?.id}`] });
       setTemplateDialogOpen(false);
       resetTemplateForm();
       toast({ title: t("common.success"), description: t("admin.templateCreatedSuccess") });
@@ -297,6 +299,8 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/checklists/templates/${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/checklists/pending/${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/checklists/count/${activeHospital?.id}`] });
       setTemplateDialogOpen(false);
       resetTemplateForm();
       toast({ title: t("common.success"), description: t("admin.templateUpdatedSuccess") });
@@ -313,6 +317,8 @@ export default function Admin() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/checklists/templates/${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/checklists/pending/${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/checklists/count/${activeHospital?.id}`] });
       toast({ title: t("common.success"), description: t("admin.templateDeletedSuccess") });
     },
     onError: (error: any) => {
