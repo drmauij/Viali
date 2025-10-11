@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useLocation } from "wouter";
 
-export type Module = "inventory" | "anesthesia";
+export type Module = "inventory" | "anesthesia" | "admin";
 
 export interface ModuleContextType {
   activeModule: Module;
@@ -18,7 +18,9 @@ export function ModuleProvider({ children }: { children: ReactNode }) {
   
   const [activeModule, setActiveModuleState] = useState<Module>(() => {
     const saved = localStorage.getItem("activeModule");
-    return (saved === "anesthesia" ? "anesthesia" : "inventory") as Module;
+    if (saved === "anesthesia") return "anesthesia";
+    if (saved === "admin") return "admin";
+    return "inventory";
   });
 
   useEffect(() => {
@@ -31,12 +33,14 @@ export function ModuleProvider({ children }: { children: ReactNode }) {
     if (location.startsWith("/anesthesia")) {
       setActiveModuleState("anesthesia");
       localStorage.setItem("activeModule", "anesthesia");
-    } else {
-      // All other routes default to inventory module
-      // This includes: /items, /orders, /controlled, /checklists, /admin, /scan, /alerts, etc.
+    } else if (location.startsWith("/admin")) {
+      setActiveModuleState("admin");
+      localStorage.setItem("activeModule", "admin");
+    } else if (location.startsWith("/inventory")) {
       setActiveModuleState("inventory");
       localStorage.setItem("activeModule", "inventory");
     }
+    // Note: old routes like /items, /orders will be redirected or removed
   }, [location]);
 
   const setActiveModule = (module: Module) => {

@@ -115,22 +115,23 @@ export default function BottomNav() {
       ];
     }
     
-    const items = [
-      { id: "items", icon: "fas fa-boxes", label: t('bottomNav.items'), path: "/items" },
-      { id: "orders", icon: "fas fa-file-invoice", label: t('bottomNav.orders'), path: "/orders" },
-      { id: "controlled", icon: "fas fa-shield-halved", label: t('bottomNav.controlled'), path: "/controlled" },
-      { id: "checklists", icon: "fas fa-clipboard-check", label: t('bottomNav.checklists'), path: "/checklists" },
-      { id: "admin", icon: "fas fa-user-shield", label: t('bottomNav.admin'), path: "/admin", adminOnly: true },
+    if (activeModule === "admin") {
+      // Admin module doesn't have bottom nav (single page)
+      return [];
+    }
+    
+    // Inventory module nav items
+    return [
+      { id: "items", icon: "fas fa-boxes", label: t('bottomNav.items'), path: "/inventory/items" },
+      { id: "orders", icon: "fas fa-file-invoice", label: t('bottomNav.orders'), path: "/inventory/orders" },
+      { id: "controlled", icon: "fas fa-shield-halved", label: t('bottomNav.controlled'), path: "/inventory/controlled" },
+      { id: "checklists", icon: "fas fa-clipboard-check", label: t('bottomNav.checklists'), path: "/inventory/checklists" },
     ];
-    return items.filter(item => !item.adminOnly || isAdmin);
-  }, [t, isAdmin, activeModule]);
+  }, [t, activeModule]);
 
   const isActive = (path: string) => {
-    if (path === "/items") {
-      return location === "/" || location.startsWith("/items");
-    }
-    if (path === "/") {
-      return location === "/";
+    if (path === "/inventory/items") {
+      return location === "/inventory" || location.startsWith("/inventory/items");
     }
     return location.startsWith(path);
   };

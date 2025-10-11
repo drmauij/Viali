@@ -1,6 +1,8 @@
 import { useModule } from "@/contexts/ModuleContext";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "@/hooks/useAuth";
+import { useMemo } from "react";
 
 interface ModuleCard {
   id: string;
@@ -9,20 +11,39 @@ interface ModuleCard {
   description: string;
   route: string;
   color: string;
+  adminOnly?: boolean;
 }
 
 export default function ModuleDrawer() {
   const { isDrawerOpen, setIsDrawerOpen, activeModule } = useModule();
   const [, navigate] = useLocation();
   const { t } = useTranslation();
+  const { user } = useAuth();
 
-  const modules: ModuleCard[] = [
+  const activeHospital = useMemo(() => {
+    const userHospitals = (user as any)?.hospitals;
+    if (!userHospitals || userHospitals.length === 0) return null;
+    
+    const savedHospitalKey = localStorage.getItem('activeHospital');
+    if (savedHospitalKey) {
+      const saved = userHospitals.find((h: any) => 
+        `${h.id}-${h.locationId}-${h.role}` === savedHospitalKey
+      );
+      if (saved) return saved;
+    }
+    
+    return userHospitals[0];
+  }, [user]);
+
+  const isAdmin = activeHospital?.role === "admin";
+
+  const allModules: ModuleCard[] = [
     {
       id: "inventory",
       icon: "fas fa-boxes",
       title: t('modules.inventory.title'),
       description: t('modules.inventory.description'),
-      route: "/items",
+      route: "/inventory/items",
       color: "bg-blue-500",
     },
     {
@@ -33,7 +54,18 @@ export default function ModuleDrawer() {
       route: "/anesthesia/patients",
       color: "bg-red-500",
     },
+    {
+      id: "admin",
+      icon: "fas fa-user-shield",
+      title: t('modules.admin.title'),
+      description: t('modules.admin.description'),
+      route: "/admin",
+      color: "bg-purple-500",
+      adminOnly: true,
+    },
   ];
+
+  const modules = allModules.filter(module => !module.adminOnly || isAdmin);
 
   const handleModuleClick = (route: string) => {
     navigate(route);

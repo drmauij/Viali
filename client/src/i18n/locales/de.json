@@ -73,6 +73,10 @@
     "anesthesia": {
       "title": "Anästhesie-Aufzeichnungen",
       "description": "Verwalten Sie Patientenfälle, präoperative Bewertungen und Anästhesiedokumentation"
+    },
+    "admin": {
+      "title": "Verwaltung",
+      "description": "Benutzerverwaltung, Krankenhauseinstellungen und Systemkonfiguration"
     }
   },
   "home": {

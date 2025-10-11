@@ -73,6 +73,10 @@
     "anesthesia": {
       "title": "Anesthesia Records",
       "description": "Manage patient cases, pre-op assessments, and anesthesia documentation"
+    },
+    "admin": {
+      "title": "Administration",
+      "description": "User management, hospital settings, and system configuration"
     }
   },
   "home": {

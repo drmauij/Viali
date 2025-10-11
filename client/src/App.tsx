@@ -40,13 +40,15 @@ function HomeRedirect() {
   useEffect(() => {
     // Read module preference directly from localStorage to avoid race conditions
     const savedModule = localStorage.getItem("activeModule");
-    const targetModule = (savedModule === "anesthesia" ? "anesthesia" : "inventory");
     
     // Redirect based on saved module preference
-    if (targetModule === "anesthesia") {
+    if (savedModule === "anesthesia") {
       navigate("/anesthesia/patients", { replace: true });
+    } else if (savedModule === "admin") {
+      navigate("/admin", { replace: true });
     } else {
-      navigate("/items", { replace: true });
+      // Default to inventory
+      navigate("/inventory/items", { replace: true });
     }
   }, [navigate]);
 
@@ -79,11 +81,15 @@ function Router() {
         ) : (
           <>
             <Route path="/" component={HomeRedirect} />
-            <Route path="/scan" component={Scan} />
-            <Route path="/items" component={Items} />
-            <Route path="/orders" component={Orders} />
-            <Route path="/alerts" component={Alerts} />
-            <Route path="/controlled" component={ControlledLog} />
+            {/* Inventory Module */}
+            <Route path="/inventory" component={Items} />
+            <Route path="/inventory/items" component={Items} />
+            <Route path="/inventory/scan" component={Scan} />
+            <Route path="/inventory/orders" component={Orders} />
+            <Route path="/inventory/alerts" component={Alerts} />
+            <Route path="/inventory/controlled" component={ControlledLog} />
+            <Route path="/inventory/checklists" component={Checklists} />
+            {/* Anesthesia Module */}
             <Route path="/anesthesia" component={Patients} />
             <Route path="/anesthesia/patients" component={Patients} />
             <Route path="/anesthesia/patients/:id" component={PatientDetail} />
@@ -93,7 +99,7 @@ function Router() {
             <Route path="/anesthesia/pacu" component={Pacu} />
             <Route path="/anesthesia/reports" component={AnesthesiaReports} />
             <Route path="/anesthesia/settings" component={AnesthesiaSettings} />
-            <Route path="/checklists" component={Checklists} />
+            {/* Admin Module */}
             <Route path="/admin" component={Admin} />
             <Route path="/signup" component={Signup} />
           </>
