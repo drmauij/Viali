@@ -22,16 +22,18 @@ export function ModuleProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
+    // Don't switch modules on unauthenticated pages
+    const unauthenticatedPages = ["/reset-password", "/signup"];
+    if (unauthenticatedPages.includes(location)) {
+      return;
+    }
+
     if (location.startsWith("/anesthesia")) {
       setActiveModuleState("anesthesia");
       localStorage.setItem("activeModule", "anesthesia");
-    } else if (
-      location.startsWith("/items") || 
-      location.startsWith("/orders") || 
-      location.startsWith("/controlled") || 
-      location.startsWith("/checklists") || 
-      location.startsWith("/admin")
-    ) {
+    } else {
+      // All other routes default to inventory module
+      // This includes: /, /items, /orders, /controlled, /checklists, /admin, /scan, /alerts, etc.
       setActiveModuleState("inventory");
       localStorage.setItem("activeModule", "inventory");
     }
