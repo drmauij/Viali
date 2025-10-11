@@ -394,9 +394,10 @@ export default function Users() {
                   <p className="text-sm text-muted-foreground">{user.user.email}</p>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {user.roles.map((roleInfo, idx) => (
-                      <div key={idx} className="flex gap-1 items-center">
-                        <span className="status-chip chip-primary text-xs">{getRoleName(roleInfo.role)}</span>
-                        <span className="status-chip chip-muted text-xs">{roleInfo.location.name}</span>
+                      <div key={idx} className="inline-flex items-center bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
+                        <span className="text-xs font-medium text-primary">{getRoleName(roleInfo.role)}</span>
+                        <span className="text-xs text-primary/60 mx-1.5">@</span>
+                        <span className="text-xs text-primary/80">{roleInfo.location.name}</span>
                       </div>
                     ))}
                   </div>
@@ -567,9 +568,10 @@ export default function Users() {
                   const location = locations.find(l => l.id === pair.locationId);
                   return (
                     <div key={pair.id} className="flex items-center justify-between bg-muted p-2 rounded-md">
-                      <div className="flex gap-2">
-                        <span className="status-chip chip-primary text-xs">{getRoleName(pair.role)}</span>
-                        <span className="status-chip chip-muted text-xs">{location?.name}</span>
+                      <div className="inline-flex items-center bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
+                        <span className="text-xs font-medium text-primary">{getRoleName(pair.role)}</span>
+                        <span className="text-xs text-primary/60 mx-1.5">@</span>
+                        <span className="text-xs text-primary/80">{location?.name}</span>
                       </div>
                       {pair.id && (
                         <Button
