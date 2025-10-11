@@ -15,15 +15,37 @@ Preferred communication style: Simple, everyday language.
 The frontend is built with React and TypeScript, utilizing Vite for fast development and bundling. Wouter handles client-side routing, while TanStack Query manages server state and caching. UI components are developed using Shadcn/ui (based on Radix UI primitives) and styled with Tailwind CSS, adhering to a mobile-first responsive design philosophy.
 
 **Module Architecture:**
-- **Module Switcher**: Top-bar hamburger menu opens a slide-down drawer for switching between Inventory Management and Anesthesia Records modules
+
+The application is structured into three independent modules, each with its own URL namespace:
+
+1. **Inventory Management** (`/inventory/*`)
+   - Routes: /inventory/items, /inventory/orders, /inventory/controlled, /inventory/checklists, /inventory/alerts, /inventory/scan
+   - Bottom nav: Items | Orders | Controlled | Checklists
+   - Core functionality for hospital inventory operations
+
+2. **Anesthesia Records** (`/anesthesia/*`)
+   - Routes: /anesthesia/patients, /anesthesia/preop, /anesthesia/op, /anesthesia/pacu, /anesthesia/settings
+   - Bottom nav: Patients | Pre-OP | OP | PACU | Settings
+   - Clinical workflow for anesthesia documentation
+
+3. **Administration** (`/admin`)
+   - Single-page module for system administration
+   - No bottom navigation
+   - Only visible to users with admin role
+   - User management, hospital settings, system configuration
+
+**Module Switching:**
+- **Module Drawer**: Top-bar hamburger menu opens slide-down drawer showing available modules
+- **Role-Based Visibility**: Admin module only appears for users with admin role
 - **Context-Aware Navigation**: Bottom navigation dynamically changes based on active module
-  - Inventory mode: Items | Orders | Controlled | Checklists | Admin
-  - Anesthesia mode: Patients | Pre-OP | OP | PACU | Settings
-- **Home Redirect**: When navigating to root (/), users are automatically redirected based on their saved module preference
-  - Anesthesia preference → /anesthesia/patients
-  - Inventory preference (default) → /items
-- **Auto-Detection**: Module automatically switches based on route (/anesthesia/* → anesthesia, other routes → inventory, / excluded for home redirect)
-- **State Persistence**: Active module preference stored in localStorage and used for home redirect
+- **Auto-Detection**: Module automatically switches based on route prefix
+- **State Persistence**: Active module preference stored in localStorage
+
+**Home Redirect:**
+When navigating to root (/), users are automatically redirected based on their saved module preference:
+- Inventory preference (default) → /inventory/items
+- Anesthesia preference → /anesthesia/patients  
+- Admin preference → /admin
 
 **Anesthesia Workflow Pages:**
 - **Patients**: Master list of all patients with search and filtering
