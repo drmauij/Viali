@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import UpgradeDialog from "@/components/UpgradeDialog";
@@ -2297,40 +2298,14 @@ export default function Items() {
             <DialogDescription>{t('items.updateItemDetails')}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleUpdateItem} className="space-y-4">
-            {/* Item Image Section */}
-            <div className="space-y-2">
-              <Label>{t('items.itemImage')}</Label>
-              {editFormData.imageUrl && (
-                <div className="w-full rounded-lg overflow-hidden border-2 border-border">
-                  <img 
-                    src={editFormData.imageUrl} 
-                    alt={editFormData.name || "Item"} 
-                    className="w-full h-auto object-contain max-h-64"
-                    data-testid="edit-item-image"
-                  />
-                </div>
-              )}
-              <input
-                type="file"
-                ref={editFileInputRef}
-                accept="image/*"
-                capture="environment"
-                onChange={handleEditImageUpload}
-                className="hidden"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={() => editFileInputRef.current?.click()}
-                data-testid="button-upload-edit-image"
-              >
-                <i className="fas fa-camera mr-2"></i>
-                {editFormData.imageUrl ? t('items.replaceImage') : t('items.uploadImage')}
-              </Button>
-            </div>
-
-            <div>
+            <Tabs defaultValue="details" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="details" data-testid="tab-item-details">{t('items.itemDetails')}</TabsTrigger>
+                <TabsTrigger value="photo" data-testid="tab-item-photo">{t('items.itemPhoto')}</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="details" className="space-y-4 mt-4">
+                <div>
               <Label htmlFor="edit-name">{t('items.itemName')} *</Label>
               <Input 
                 id="edit-name" 
@@ -2518,8 +2493,41 @@ export default function Items() {
                 />
               </div>
             </div>
+              </TabsContent>
 
-            <div className="flex gap-2 justify-between">
+              <TabsContent value="photo" className="space-y-4 mt-4">
+                {editFormData.imageUrl && (
+                  <div className="w-full rounded-lg overflow-hidden border-2 border-border">
+                    <img 
+                      src={editFormData.imageUrl} 
+                      alt={editFormData.name || "Item"} 
+                      className="w-full h-auto object-contain max-h-64"
+                      data-testid="edit-item-image"
+                    />
+                  </div>
+                )}
+                <input
+                  type="file"
+                  ref={editFileInputRef}
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleEditImageUpload}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => editFileInputRef.current?.click()}
+                  data-testid="button-upload-edit-image"
+                >
+                  <i className="fas fa-camera mr-2"></i>
+                  {editFormData.imageUrl ? t('items.replaceImage') : t('items.uploadImage')}
+                </Button>
+              </TabsContent>
+            </Tabs>
+
+            <div className="flex gap-2 justify-between pt-4">
               <Button 
                 type="button" 
                 variant="destructive" 

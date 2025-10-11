@@ -137,6 +137,8 @@
     "itemImage": "Item Image",
     "uploadImage": "Upload Image",
     "replaceImage": "Replace Image",
+    "itemDetails": "Item Details",
+    "itemPhoto": "Item Photo",
     "uploadIcon": "Upload image",
     "analyzeIcon": "AI analyzing...",
     "noHospitalSelected": "No Hospital Selected",
