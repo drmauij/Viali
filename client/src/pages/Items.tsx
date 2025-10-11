@@ -1006,6 +1006,29 @@ export default function Items() {
     const file = files[0];
     const compressedImage = await compressImage(file);
     setEditFormData(prev => ({ ...prev, imageUrl: compressedImage }));
+
+    // Auto-save the image immediately
+    if (selectedItem) {
+      try {
+        await apiRequest("PATCH", `/api/items/${selectedItem.id}`, {
+          imageUrl: compressedImage
+        });
+        
+        queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
+        
+        toast({
+          title: t('common.success'),
+          description: t('items.imageUpdatedSuccess'),
+        });
+      } catch (error) {
+        console.error('Failed to save image:', error);
+        toast({
+          title: t('common.error'),
+          description: t('items.failedToUpdateImage'),
+          variant: 'destructive',
+        });
+      }
+    }
   };
 
   const handleUpdateItem = (e: React.FormEvent<HTMLFormElement>) => {
@@ -2590,9 +2613,32 @@ export default function Items() {
                       type="button"
                       variant="destructive"
                       className="w-full"
-                      onClick={() => {
+                      onClick={async () => {
                         if (window.confirm(t('items.deleteImageConfirm'))) {
                           setEditFormData(prev => ({ ...prev, imageUrl: "" }));
+                          
+                          // Auto-save the deletion immediately
+                          if (selectedItem) {
+                            try {
+                              await apiRequest("PATCH", `/api/items/${selectedItem.id}`, {
+                                imageUrl: null
+                              });
+                              
+                              queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
+                              
+                              toast({
+                                title: t('common.success'),
+                                description: t('items.imageDeletedSuccess'),
+                              });
+                            } catch (error) {
+                              console.error('Failed to delete image:', error);
+                              toast({
+                                title: t('common.error'),
+                                description: t('items.failedToDeleteImage'),
+                                variant: 'destructive',
+                              });
+                            }
+                          }
                         }
                       }}
                       data-testid="button-delete-image"
