@@ -59,7 +59,7 @@ export default function ModuleDrawer() {
       icon: "fas fa-user-shield",
       title: t('modules.admin.title'),
       description: t('modules.admin.description'),
-      route: "/admin/locations",
+      route: "/admin",
       color: "bg-purple-500",
       adminOnly: true,
     },
