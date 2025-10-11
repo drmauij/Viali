@@ -55,7 +55,8 @@
     "checklists": "Checklists",
     "controlled": "Controlled",
     "admin": "Admin",
-    "scan": "Scan"
+    "scan": "Scan",
+    "anesthesia": "Anesthesia"
   },
   "home": {
     "title": "Dashboard",

@@ -107,6 +107,7 @@ export default function BottomNav() {
       { id: "items", icon: "fas fa-boxes", label: t('bottomNav.items'), path: "/items" },
       { id: "orders", icon: "fas fa-file-invoice", label: t('bottomNav.orders'), path: "/orders" },
       { id: "controlled", icon: "fas fa-shield-halved", label: t('bottomNav.controlled'), path: "/controlled" },
+      { id: "anesthesia", icon: "fas fa-heartbeat", label: t('bottomNav.anesthesia'), path: "/anesthesia" },
       { id: "checklists", icon: "fas fa-clipboard-check", label: t('bottomNav.checklists'), path: "/checklists" },
       { id: "admin", icon: "fas fa-user-shield", label: t('bottomNav.admin'), path: "/admin", adminOnly: true },
     ];

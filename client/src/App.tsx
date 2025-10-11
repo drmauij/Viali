@@ -20,6 +20,9 @@ import Admin from "@/pages/Admin";
 import Signup from "@/pages/Signup";
 import ResetPassword from "@/pages/ResetPassword";
 import ChangePasswordDialog from "@/components/ChangePasswordDialog";
+import Patients from "@/pages/anesthesia/Patients";
+import PatientDetail from "@/pages/anesthesia/PatientDetail";
+import CaseDetail from "@/pages/anesthesia/CaseDetail";
 import "@/i18n/config";
 
 function Router() {
@@ -49,6 +52,10 @@ function Router() {
             <Route path="/orders" component={Orders} />
             <Route path="/alerts" component={Alerts} />
             <Route path="/controlled" component={ControlledLog} />
+            <Route path="/anesthesia" component={Patients} />
+            <Route path="/anesthesia/patients" component={Patients} />
+            <Route path="/anesthesia/patients/:id" component={PatientDetail} />
+            <Route path="/anesthesia/cases/:id" component={CaseDetail} />
             <Route path="/checklists" component={Checklists} />
             <Route path="/admin" component={Admin} />
             <Route path="/signup" component={Signup} />
