@@ -28,11 +28,11 @@ The application is structured into three independent modules, each with its own 
    - Bottom nav: Patients | Pre-OP | OP | PACU | Settings
    - Clinical workflow for anesthesia documentation
 
-3. **Administration** (`/admin`)
-   - Single-page module for system administration
-   - No bottom navigation
+3. **Administration** (`/admin/*`)
+   - Routes: /admin/locations, /admin/users, /admin/checklists
+   - Bottom nav: Locations | Users | Checklists
    - Only visible to users with admin role
-   - User management, hospital settings, system configuration
+   - System administration: locations, user management, checklist templates
 
 **Module Switching:**
 - **Module Drawer**: Top-bar hamburger menu opens slide-down drawer showing available modules
