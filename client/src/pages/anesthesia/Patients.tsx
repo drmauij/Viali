@@ -296,11 +296,11 @@ export default function Patients() {
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-6">
         {filteredPatients.map((patient) => (
           <Link key={patient.id} href={`/anesthesia/patients/${patient.id}`}>
             <div 
-              className="bg-card border border-border rounded-lg p-3 hover:bg-accent/50 transition-colors cursor-pointer"
+              className="bg-card border border-border rounded-lg p-4 hover:bg-accent/50 transition-colors cursor-pointer"
               data-testid={`patient-item-${patient.id}`}
             >
               <div className="font-semibold text-foreground">
