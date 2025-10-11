@@ -2,43 +2,45 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, UserPlus, User, FileText } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { Search, UserPlus, Camera } from "lucide-react";
 
 const mockPatients = [
   {
     id: "1",
-    pseudoId: "HMAC_9f3a1c2b",
-    name: null,
-    ageYears: 56,
+    patientId: "P-2024-001",
+    surname: "Rossi",
+    firstName: "Maria",
+    birthday: "1968-05-12",
     sex: "F",
-    tags: ["latex_allergy"],
-    casesCount: 3,
-    lastCase: "2025-10-09T14:30:00Z",
   },
   {
     id: "2",
-    pseudoId: "HMAC_7d2e5a8c",
-    name: null,
-    ageYears: 67,
+    patientId: "P-2024-002",
+    surname: "Bianchi",
+    firstName: "Giovanni",
+    birthday: "1957-11-03",
     sex: "M",
-    tags: [],
-    casesCount: 1,
-    lastCase: "2025-10-08T09:15:00Z",
   },
   {
     id: "3",
-    pseudoId: "HMAC_3b9c1f4d",
-    name: null,
-    ageYears: 42,
+    patientId: "P-2024-003",
+    surname: "Ferrari",
+    firstName: "Laura",
+    birthday: "1982-08-22",
     sex: "F",
-    tags: ["ASA_III"],
-    casesCount: 2,
-    lastCase: "2025-10-07T16:45:00Z",
+  },
+  {
+    id: "4",
+    patientId: "P-2024-004",
+    surname: "Colombo",
+    firstName: "Marco",
+    birthday: "1975-03-15",
+    sex: "M",
   },
 ];
 
@@ -46,21 +48,80 @@ export default function Patients() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newPatient, setNewPatient] = useState({
-    pseudoId: "",
-    ageYears: "",
+    surname: "",
+    firstName: "",
+    birthday: "",
     sex: "",
-    tags: [] as string[],
+    email: "",
+    phone: "",
+    allergies: [] as string[],
+    allergyNotes: "",
+    notes: "",
   });
 
-  const filteredPatients = mockPatients.filter(patient =>
-    patient.pseudoId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    patient.ageYears.toString().includes(searchQuery)
-  );
+  const commonAllergies = [
+    "Latex",
+    "Penicillin",
+    "NSAIDs",
+    "Local anesthetics",
+    "Opioids",
+    "Muscle relaxants",
+  ];
+
+  const toggleAllergy = (allergy: string) => {
+    if (newPatient.allergies.includes(allergy)) {
+      setNewPatient({ ...newPatient, allergies: newPatient.allergies.filter(a => a !== allergy) });
+    } else {
+      setNewPatient({ ...newPatient, allergies: [...newPatient.allergies, allergy] });
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  // Filter and sort patients alphabetically by surname, then firstName
+  const filteredPatients = mockPatients
+    .filter(patient => {
+      const query = searchQuery.toLowerCase();
+      const formattedBirthday = formatDate(patient.birthday).toLowerCase();
+      
+      return patient.surname.toLowerCase().includes(query) ||
+        patient.firstName.toLowerCase().includes(query) ||
+        patient.patientId.toLowerCase().includes(query) ||
+        patient.birthday.includes(searchQuery) || // ISO format search
+        formattedBirthday.includes(query); // Display format search (DD/MM/YYYY)
+    })
+    .sort((a, b) => {
+      const surnameCompare = a.surname.localeCompare(b.surname);
+      if (surnameCompare !== 0) return surnameCompare;
+      return a.firstName.localeCompare(b.firstName);
+    });
+
+  const handleBarcodeClick = () => {
+    // TODO: Implement barcode scanning via camera
+    console.log("Opening camera for barcode scan...");
+  };
 
   const handleCreatePatient = () => {
-    console.log("Creating patient:", newPatient);
+    // Auto-generate patient ID
+    const year = new Date().getFullYear();
+    const patientId = `P-${year}-${String(mockPatients.length + 1).padStart(3, '0')}`;
+    
+    console.log("Creating patient:", { ...newPatient, patientId });
     setIsCreateDialogOpen(false);
-    setNewPatient({ pseudoId: "", ageYears: "", sex: "", tags: [] });
+    setNewPatient({ 
+      surname: "", 
+      firstName: "", 
+      birthday: "", 
+      sex: "",
+      email: "",
+      phone: "",
+      allergies: [],
+      allergyNotes: "",
+      notes: ""
+    });
   };
 
   return (
@@ -69,7 +130,7 @@ export default function Patients() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Patients</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage de-identified patient records
+            Patient master list
           </p>
         </div>
         
@@ -80,46 +141,129 @@ export default function Patients() {
               New Patient
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Create De-identified Patient</DialogTitle>
+              <DialogTitle>Create New Patient</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="surname">Surname *</Label>
+                  <Input
+                    id="surname"
+                    placeholder="Rossi"
+                    value={newPatient.surname}
+                    onChange={(e) => setNewPatient({ ...newPatient, surname: e.target.value })}
+                    data-testid="input-surname"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name *</Label>
+                  <Input
+                    id="firstName"
+                    placeholder="Maria"
+                    value={newPatient.firstName}
+                    onChange={(e) => setNewPatient({ ...newPatient, firstName: e.target.value })}
+                    data-testid="input-first-name"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="birthday">Birthday *</Label>
+                  <Input
+                    id="birthday"
+                    type="date"
+                    value={newPatient.birthday}
+                    onChange={(e) => setNewPatient({ ...newPatient, birthday: e.target.value })}
+                    data-testid="input-birthday"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sex">Sex *</Label>
+                  <Select value={newPatient.sex} onValueChange={(value) => setNewPatient({ ...newPatient, sex: value })}>
+                    <SelectTrigger data-testid="select-sex">
+                      <SelectValue placeholder="Select sex" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="M">M</SelectItem>
+                      <SelectItem value="F">F</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label htmlFor="pseudoId">Pseudo ID (HMAC)</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
-                  id="pseudoId"
-                  placeholder="HMAC_xxxxxxxx"
-                  value={newPatient.pseudoId}
-                  onChange={(e) => setNewPatient({ ...newPatient, pseudoId: e.target.value })}
-                  data-testid="input-pseudo-id"
+                  id="email"
+                  type="email"
+                  placeholder="patient@example.com"
+                  value={newPatient.email}
+                  onChange={(e) => setNewPatient({ ...newPatient, email: e.target.value })}
+                  data-testid="input-email"
                 />
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="ageYears">Age (years)</Label>
+                <Label htmlFor="phone">Telephone Number</Label>
                 <Input
-                  id="ageYears"
-                  type="number"
-                  placeholder="56"
-                  value={newPatient.ageYears}
-                  onChange={(e) => setNewPatient({ ...newPatient, ageYears: e.target.value })}
-                  data-testid="input-age"
+                  id="phone"
+                  type="tel"
+                  placeholder="+39 123 456 7890"
+                  value={newPatient.phone}
+                  onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })}
+                  data-testid="input-phone"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="sex">Sex</Label>
-                <Select value={newPatient.sex} onValueChange={(value) => setNewPatient({ ...newPatient, sex: value })}>
-                  <SelectTrigger data-testid="select-sex">
-                    <SelectValue placeholder="Select sex" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="M">Male</SelectItem>
-                    <SelectItem value="F">Female</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
-                    <SelectItem value="Unknown">Unknown</SelectItem>
-                  </SelectContent>
-                </Select>
+
+              <div className="space-y-3">
+                <Label>Allergies</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {commonAllergies.map((allergy) => (
+                    <div key={allergy} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`allergy-${allergy}`}
+                        checked={newPatient.allergies.includes(allergy)}
+                        onCheckedChange={() => toggleAllergy(allergy)}
+                        data-testid={`checkbox-allergy-${allergy.toLowerCase().replace(/\s+/g, '-')}`}
+                      />
+                      <Label htmlFor={`allergy-${allergy}`} className="text-sm font-normal cursor-pointer">
+                        {allergy}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="allergyNotes">Other Allergies (free text)</Label>
+                  <Textarea
+                    id="allergyNotes"
+                    placeholder="Other allergies..."
+                    value={newPatient.allergyNotes}
+                    onChange={(e) => setNewPatient({ ...newPatient, allergyNotes: e.target.value })}
+                    rows={2}
+                    data-testid="textarea-allergy-notes"
+                  />
+                </div>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Additional notes..."
+                  value={newPatient.notes}
+                  onChange={(e) => setNewPatient({ ...newPatient, notes: e.target.value })}
+                  rows={3}
+                  data-testid="textarea-notes"
+                />
+              </div>
+
+              <div className="pt-2 text-xs text-muted-foreground">
+                * Required fields. Patient ID will be auto-generated.
+              </div>
+
               <Button onClick={handleCreatePatient} className="w-full" data-testid="button-submit-patient">
                 Create Patient
               </Button>
@@ -129,66 +273,50 @@ export default function Patients() {
       </div>
 
       <div className="mb-6">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by Pseudo ID or age..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-            data-testid="input-search-patients"
-          />
+        <div className="relative flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, patient ID or birthday..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+              data-testid="input-search-patients"
+            />
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleBarcodeClick}
+            title="Scan patient barcode"
+            data-testid="button-scan-barcode"
+          >
+            <Camera className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="space-y-3">
         {filteredPatients.map((patient) => (
           <Link key={patient.id} href={`/anesthesia/patients/${patient.id}`}>
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer" data-testid={`card-patient-${patient.id}`}>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <User className="h-5 w-5 text-primary" />
-                    <span className="font-mono text-sm">{patient.pseudoId}</span>
-                  </div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Age:</span>
-                    <span className="font-medium">{patient.ageYears} years</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Sex:</span>
-                    <span className="font-medium">{patient.sex}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Cases:</span>
-                    <span className="font-medium flex items-center gap-1">
-                      <FileText className="h-3 w-3" />
-                      {patient.casesCount}
-                    </span>
-                  </div>
-                  {patient.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 pt-2">
-                      {patient.tags.map((tag) => (
-                        <Badge key={tag} variant="secondary" className="text-xs">
-                          {tag.replace(/_/g, " ")}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <div 
+              className="bg-card border border-border rounded-lg p-3 hover:bg-accent/50 transition-colors cursor-pointer"
+              data-testid={`patient-item-${patient.id}`}
+            >
+              <div className="font-semibold text-foreground">
+                {patient.surname}, {patient.firstName}
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">
+                {formatDate(patient.birthday)} • {patient.sex} • {patient.patientId}
+              </div>
+            </div>
           </Link>
         ))}
       </div>
 
       {filteredPatients.length === 0 && (
         <div className="text-center py-12">
-          <User className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <UserPlus className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No patients found</h3>
           <p className="text-sm text-muted-foreground mt-1">
             {searchQuery ? "Try adjusting your search" : "Create your first patient to get started"}
