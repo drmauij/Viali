@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import UpgradeDialog from "@/components/UpgradeDialog";
 import type { Item, StockLevel, InsertItem, Vendor, Folder } from "@shared/schema";
 import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
-import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Trash2, GripVertical } from "lucide-react";
+import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Trash2, GripVertical, X } from "lucide-react";
 
 type FilterType = "all" | "critical" | "controlled" | "expiring" | "belowMin";
 
@@ -185,6 +185,10 @@ export default function Items() {
   
   // Drop indicator state for visual feedback
   const [dropIndicator, setDropIndicator] = useState<{ overId: string; position: 'above' | 'below' } | null>(null);
+
+  // Image zoom state
+  const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
+  const [zoomImageName, setZoomImageName] = useState<string>("");
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -2497,13 +2501,23 @@ export default function Items() {
 
               <TabsContent value="photo" className="space-y-4 mt-4">
                 {editFormData.imageUrl && (
-                  <div className="w-full rounded-lg overflow-hidden border-2 border-border">
+                  <div 
+                    className="w-full rounded-lg overflow-hidden border-2 border-border cursor-pointer hover:border-primary transition-colors"
+                    onClick={() => {
+                      setZoomImageUrl(editFormData.imageUrl);
+                      setZoomImageName(editFormData.name || "Item");
+                    }}
+                    data-testid="edit-item-image-container"
+                  >
                     <img 
                       src={editFormData.imageUrl} 
                       alt={editFormData.name || "Item"} 
-                      className="w-full h-auto object-contain max-h-64"
+                      className="w-full h-auto object-contain max-h-[500px]"
                       data-testid="edit-item-image"
                     />
+                    <div className="bg-muted/80 text-center py-2 text-sm text-muted-foreground">
+                      {t('items.clickToZoom')}
+                    </div>
                   </div>
                 )}
                 <input
@@ -2781,6 +2795,35 @@ export default function Items() {
           licenseType={licenseInfo.licenseType}
         />
       )}
+
+      {/* Image Zoom Dialog */}
+      <Dialog open={!!zoomImageUrl} onOpenChange={() => setZoomImageUrl(null)}>
+        <DialogContent className="max-w-full w-full h-full max-h-screen p-0 m-0 border-0" data-testid="image-zoom-dialog">
+          <DialogTitle className="sr-only">{t('items.itemImage')}</DialogTitle>
+          <DialogDescription className="sr-only">{zoomImageName}</DialogDescription>
+          <div className="relative w-full h-full bg-black/95 flex items-center justify-center">
+            <Button
+              variant="ghost"
+              className="absolute top-4 right-4 z-50 text-white hover:bg-white/20"
+              onClick={() => setZoomImageUrl(null)}
+              data-testid="button-close-zoom"
+            >
+              <X className="w-6 h-6" />
+            </Button>
+            {zoomImageUrl && (
+              <img
+                src={zoomImageUrl}
+                alt={zoomImageName}
+                className="max-w-full max-h-full object-contain p-4"
+                data-testid="zoomed-image"
+              />
+            )}
+            <div className="absolute bottom-4 left-4 right-4 text-center text-white text-sm bg-black/50 py-2 rounded">
+              {zoomImageName}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       </div>
     </div>
   );
