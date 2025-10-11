@@ -29,8 +29,9 @@ The application is structured into three independent modules, each with its own 
    - Clinical workflow for anesthesia documentation
 
 3. **Administration** (`/admin/*`)
-   - Routes: /admin/locations, /admin/users, /admin/checklists
-   - Bottom nav: Locations | Users | Checklists
+   - Routes: /admin (Hospital), /admin/users
+   - Bottom nav: Hospital | Users
+   - Hospital page has internal tab switcher: Locations | Checklists
    - Only visible to users with admin role
    - System administration: locations, user management, checklist templates
 
