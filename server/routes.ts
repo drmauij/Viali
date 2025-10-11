@@ -906,6 +906,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         trackExactQuantity: req.body.trackExactQuantity,
         critical: req.body.critical,
         controlled: req.body.controlled,
+        imageUrl: req.body.imageUrl,
       };
       
       // Handle folderId separately to allow null values
