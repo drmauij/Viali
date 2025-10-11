@@ -58,8 +58,9 @@
     "scan": "Scannen",
     "anesthesia": "Anästhesie",
     "anesthesia.patients": "Patienten",
-    "anesthesia.cases": "Fälle",
-    "anesthesia.reports": "Berichte",
+    "anesthesia.preop": "Prä-OP",
+    "anesthesia.op": "OP",
+    "anesthesia.pacu": "AWR",
     "anesthesia.settings": "Einstellungen"
   },
   "modules": {

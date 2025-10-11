@@ -58,8 +58,9 @@
     "scan": "Scan",
     "anesthesia": "Anesthesia",
     "anesthesia.patients": "Patients",
-    "anesthesia.cases": "Cases",
-    "anesthesia.reports": "Reports",
+    "anesthesia.preop": "Pre-OP",
+    "anesthesia.op": "OP",
+    "anesthesia.pacu": "PACU",
     "anesthesia.settings": "Settings"
   },
   "modules": {

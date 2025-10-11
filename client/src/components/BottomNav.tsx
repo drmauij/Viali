@@ -108,8 +108,9 @@ export default function BottomNav() {
     if (activeModule === "anesthesia") {
       return [
         { id: "patients", icon: "fas fa-users", label: t('bottomNav.anesthesia.patients'), path: "/anesthesia/patients" },
-        { id: "cases", icon: "fas fa-briefcase-medical", label: t('bottomNav.anesthesia.cases'), path: "/anesthesia/cases" },
-        { id: "reports", icon: "fas fa-chart-line", label: t('bottomNav.anesthesia.reports'), path: "/anesthesia/reports" },
+        { id: "preop", icon: "fas fa-clipboard-list", label: t('bottomNav.anesthesia.preop'), path: "/anesthesia/preop" },
+        { id: "op", icon: "fas fa-heartbeat", label: t('bottomNav.anesthesia.op'), path: "/anesthesia/op" },
+        { id: "pacu", icon: "fas fa-bed-pulse", label: t('bottomNav.anesthesia.pacu'), path: "/anesthesia/pacu" },
         { id: "settings", icon: "fas fa-cog", label: t('bottomNav.anesthesia.settings'), path: "/anesthesia/settings" },
       ];
     }

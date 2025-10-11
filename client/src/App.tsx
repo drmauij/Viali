@@ -24,6 +24,9 @@ import ChangePasswordDialog from "@/components/ChangePasswordDialog";
 import Patients from "@/pages/anesthesia/Patients";
 import PatientDetail from "@/pages/anesthesia/PatientDetail";
 import CaseDetail from "@/pages/anesthesia/CaseDetail";
+import PreOp from "@/pages/anesthesia/PreOp";
+import Op from "@/pages/anesthesia/Op";
+import Pacu from "@/pages/anesthesia/Pacu";
 import AnesthesiaReports from "@/pages/anesthesia/Reports";
 import AnesthesiaSettings from "@/pages/anesthesia/Settings";
 import "@/i18n/config";
@@ -59,6 +62,9 @@ function Router() {
             <Route path="/anesthesia/patients" component={Patients} />
             <Route path="/anesthesia/patients/:id" component={PatientDetail} />
             <Route path="/anesthesia/cases/:id" component={CaseDetail} />
+            <Route path="/anesthesia/preop" component={PreOp} />
+            <Route path="/anesthesia/op" component={Op} />
+            <Route path="/anesthesia/pacu" component={Pacu} />
             <Route path="/anesthesia/reports" component={AnesthesiaReports} />
             <Route path="/anesthesia/settings" component={AnesthesiaSettings} />
             <Route path="/checklists" component={Checklists} />
