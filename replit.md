@@ -50,7 +50,7 @@ The core database schema includes `Users`, `Hospitals`, `UserHospitalRoles` (for
 The system supports comprehensive inventory management functionalities such as:
 - **Controlled Substances Management**: Dedicated workflows for administration logging and routine verification checks with electronic signature capture, tracking individual vials/ampules while ordering in packs. Monthly PDF reports grouped by drug and sub-grouped by day with complete administration details.
 - **Order Management**: End-to-end order creation, editing (including inline quantity editing, item removal, order deletion), and submission, with automatic quantity calculation based on stock deficits and PDF export for purchase orders.
-- **Item Lifecycle Management**: Creation, updating, and transactional cascade deletion of items ensuring data integrity across related records (alerts, activities, order lines, lots, stock levels).
+- **Item Lifecycle Management**: Creation, updating, and transactional cascade deletion of items ensuring data integrity across related records (alerts, activities, order lines, lots, stock levels). Items support image uploads with automatic compression (max 800px, 0.8 quality JPEG) for visual identification, stored as base64 in the database.
 - **User Management**: A comprehensive system for creating, assigning roles, changing passwords, and deleting users, with strong security measures.
 - **Signature Capture**: Print-ready black-on-white electronic signatures for all controlled substance transactions and verification checks.
 - **Custom Sorting**: Drag-and-drop functionality for organizing folders in a custom order:
