@@ -116,8 +116,11 @@ export default function BottomNav() {
     }
     
     if (activeModule === "admin") {
-      // Admin module doesn't have bottom nav (single page)
-      return [];
+      return [
+        { id: "locations", icon: "fas fa-location-dot", label: t('bottomNav.admin.locations'), path: "/admin/locations" },
+        { id: "users", icon: "fas fa-users", label: t('bottomNav.admin.users'), path: "/admin/users" },
+        { id: "checklists", icon: "fas fa-clipboard-check", label: t('bottomNav.admin.checklists'), path: "/admin/checklists" },
+      ];
     }
     
     // Inventory module nav items

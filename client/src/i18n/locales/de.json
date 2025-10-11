@@ -61,7 +61,10 @@
     "anesthesia.preop": "Prä-OP",
     "anesthesia.op": "OP",
     "anesthesia.pacu": "AWR",
-    "anesthesia.settings": "Einstellungen"
+    "anesthesia.settings": "Einstellungen",
+    "admin.locations": "Standorte",
+    "admin.users": "Benutzer",
+    "admin.checklists": "Checklisten"
   },
   "modules": {
     "title": "Modul auswählen",

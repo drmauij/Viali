@@ -61,7 +61,10 @@
     "anesthesia.preop": "Pre-OP",
     "anesthesia.op": "OP",
     "anesthesia.pacu": "PACU",
-    "anesthesia.settings": "Settings"
+    "anesthesia.settings": "Settings",
+    "admin.locations": "Locations",
+    "admin.users": "Users",
+    "admin.checklists": "Checklists"
   },
   "modules": {
     "title": "Select Module",

@@ -19,7 +19,9 @@ import Orders from "@/pages/Orders";
 import Alerts from "@/pages/Alerts";
 import ControlledLog from "@/pages/ControlledLog";
 import Checklists from "@/pages/Checklists";
-import Admin from "@/pages/Admin";
+import AdminLocations from "@/pages/admin/Locations";
+import AdminUsers from "@/pages/admin/Users";
+import AdminChecklists from "@/pages/admin/Checklists";
 import Signup from "@/pages/Signup";
 import ResetPassword from "@/pages/ResetPassword";
 import ChangePasswordDialog from "@/components/ChangePasswordDialog";
@@ -45,7 +47,7 @@ function HomeRedirect() {
     if (savedModule === "anesthesia") {
       navigate("/anesthesia/patients", { replace: true });
     } else if (savedModule === "admin") {
-      navigate("/admin", { replace: true });
+      navigate("/admin/locations", { replace: true });
     } else {
       // Default to inventory
       navigate("/inventory/items", { replace: true });
@@ -100,7 +102,10 @@ function Router() {
             <Route path="/anesthesia/reports" component={AnesthesiaReports} />
             <Route path="/anesthesia/settings" component={AnesthesiaSettings} />
             {/* Admin Module */}
-            <Route path="/admin" component={Admin} />
+            <Route path="/admin" component={AdminLocations} />
+            <Route path="/admin/locations" component={AdminLocations} />
+            <Route path="/admin/users" component={AdminUsers} />
+            <Route path="/admin/checklists" component={AdminChecklists} />
             <Route path="/signup" component={Signup} />
           </>
         )}
