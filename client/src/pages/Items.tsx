@@ -137,7 +137,9 @@ export default function Items() {
     imageUrl: "",
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
+  const editGalleryInputRef = useRef<HTMLInputElement>(null);
   const packSizeInputRef = useRef<HTMLInputElement>(null);
   const editPackSizeInputRef = useRef<HTMLInputElement>(null);
   const bulkFileInputRef = useRef<HTMLInputElement>(null);
@@ -2083,16 +2085,35 @@ export default function Items() {
                 onChange={handleImageUpload}
                 className="hidden"
               />
-              <Button
-                type="button"
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isAnalyzing}
-                data-testid="button-upload-image"
-              >
-                <i className={`fas ${isAnalyzing ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
-                {isAnalyzing ? t('items.analyzing') : t('controlled.takePhoto')}
-              </Button>
+              <input
+                type="file"
+                ref={galleryInputRef}
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isAnalyzing}
+                  data-testid="button-camera-image"
+                >
+                  <i className={`fas ${isAnalyzing ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
+                  {isAnalyzing ? t('items.analyzing') : t('controlled.takePhoto')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => galleryInputRef.current?.click()}
+                  disabled={isAnalyzing}
+                  data-testid="button-gallery-image"
+                >
+                  <i className="fas fa-images mr-2"></i>
+                  {t('items.uploadFromGallery')}
+                </Button>
+              </div>
               {uploadedImages.length > 0 && (
                 <div className="mt-2 flex gap-2 overflow-x-auto">
                   {uploadedImages.map((img, idx) => (
@@ -2536,20 +2557,39 @@ export default function Items() {
                   onChange={handleEditImageUpload}
                   className="hidden"
                 />
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => editFileInputRef.current?.click()}
-                    data-testid="button-upload-edit-image"
-                  >
-                    <i className="fas fa-camera mr-2"></i>
-                    {editFormData.imageUrl ? t('items.replaceImage') : t('items.uploadImage')}
-                  </Button>
+                <input
+                  type="file"
+                  ref={editGalleryInputRef}
+                  accept="image/*"
+                  onChange={handleEditImageUpload}
+                  className="hidden"
+                />
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => editFileInputRef.current?.click()}
+                      data-testid="button-camera-edit-image"
+                    >
+                      <i className="fas fa-camera mr-2"></i>
+                      {t('controlled.takePhoto')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => editGalleryInputRef.current?.click()}
+                      data-testid="button-gallery-edit-image"
+                    >
+                      <i className="fas fa-images mr-2"></i>
+                      {t('items.uploadFromGallery')}
+                    </Button>
+                  </div>
                   {editFormData.imageUrl && (
                     <Button
                       type="button"
                       variant="destructive"
+                      className="w-full"
                       onClick={() => {
                         if (window.confirm(t('items.deleteImageConfirm'))) {
                           setEditFormData(prev => ({ ...prev, imageUrl: "" }));
