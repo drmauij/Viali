@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { Search, UserPlus, Camera } from "lucide-react";
+import { Search, UserPlus, ScanBarcode } from "lucide-react";
 
 const mockPatients = [
   {
@@ -291,12 +291,12 @@ export default function Patients() {
             title="Scan patient barcode"
             data-testid="button-scan-barcode"
           >
-            <Camera className="h-4 w-4" />
+            <ScanBarcode className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {filteredPatients.map((patient) => (
           <Link key={patient.id} href={`/anesthesia/patients/${patient.id}`}>
             <div 
