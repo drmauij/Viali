@@ -2,7 +2,7 @@
 
 ## Overview
 
-Viali is a mobile-first web application designed for comprehensive inventory management of anesthesia drugs and general consumables across multiple hospitals. Its primary purpose is to prevent critical stockouts, minimize waste from expired items, automate reordering using Min-Max rules, ensure compliance for controlled substances, and provide multi-hospital management with granular user roles and permissions. The project aims to streamline hospital operations, improve patient safety, and reduce operational costs by optimizing inventory workflows.
+Viali is a mobile-first web application with two main modules: **Inventory Management** for hospital inventory operations and **Anesthesia Records** for clinical anesthesia documentation. The Inventory module manages anesthesia drugs and general consumables across multiple hospitals, preventing stockouts, minimizing waste from expired items, automating reordering using Min-Max rules, and ensuring compliance for controlled substances. The Anesthesia module manages patient cases, pre-operative assessments, intra-operative documentation, and post-operative care with AI-assisted data extraction and privacy-first de-identification. Both modules share the same UI/UX design language and support multi-hospital management with granular user roles and permissions.
 
 ## User Preferences
 
@@ -12,7 +12,17 @@ Preferred communication style: Simple, everyday language.
 
 ### Frontend Architecture
 
-The frontend is built with React and TypeScript, utilizing Vite for fast development and bundling. Wouter handles client-side routing, while TanStack Query manages server state and caching. UI components are developed using Shadcn/ui (based on Radix UI primitives) and styled with Tailwind CSS, adhering to a mobile-first responsive design philosophy. Key features include a mobile-optimized bottom navigation, barcode scanning, a signature pad for documentation, real-time item quick panels, and a hospital switcher for multi-tenant environments.
+The frontend is built with React and TypeScript, utilizing Vite for fast development and bundling. Wouter handles client-side routing, while TanStack Query manages server state and caching. UI components are developed using Shadcn/ui (based on Radix UI primitives) and styled with Tailwind CSS, adhering to a mobile-first responsive design philosophy.
+
+**Module Architecture:**
+- **Module Switcher**: Top-bar hamburger menu opens a slide-down drawer for switching between Inventory Management and Anesthesia Records modules
+- **Context-Aware Navigation**: Bottom navigation dynamically changes based on active module
+  - Inventory mode: Items | Orders | Controlled | Checklists | Admin
+  - Anesthesia mode: Patients | Cases | Reports | Settings
+- **Auto-Detection**: Module automatically switches based on route (/anesthesia/* → anesthesia, all other routes → inventory)
+- **State Persistence**: Active module preference stored in localStorage
+
+Key features include a mobile-optimized bottom navigation, barcode scanning, a signature pad for documentation, real-time item quick panels, and a hospital switcher for multi-tenant environments.
 
 ### Backend Architecture
 
