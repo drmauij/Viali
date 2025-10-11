@@ -118,6 +118,7 @@ export default function Items() {
     critical: false,
     controlled: false,
     trackExactQuantity: false,
+    imageUrl: "",
   });
   const [formData, setFormData] = useState({
     name: "",
@@ -134,6 +135,7 @@ export default function Items() {
     trackExactQuantity: false,
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
   const packSizeInputRef = useRef<HTMLInputElement>(null);
   const editPackSizeInputRef = useRef<HTMLInputElement>(null);
   const bulkFileInputRef = useRef<HTMLInputElement>(null);
@@ -527,6 +529,7 @@ export default function Items() {
       critical: item.critical || false,
       controlled: item.controlled || false,
       trackExactQuantity: item.trackExactQuantity || false,
+      imageUrl: item.imageUrl || "",
     });
     setSelectedUnit(normalizeUnit(item.unit));
     setEditDialogOpen(true);
@@ -984,6 +987,15 @@ export default function Items() {
     bulkDeleteMutation.mutate(Array.from(selectedItems));
   };
 
+  const handleEditImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    const compressedImage = await compressImage(file);
+    setEditFormData(prev => ({ ...prev, imageUrl: compressedImage }));
+  };
+
   const handleUpdateItem = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
@@ -1000,6 +1012,7 @@ export default function Items() {
       trackExactQuantity: editFormData.trackExactQuantity,
       critical: editFormData.critical,
       controlled: editFormData.controlled,
+      imageUrl: editFormData.imageUrl || null,
     };
 
     updateItemMutation.mutate({
@@ -2284,6 +2297,39 @@ export default function Items() {
             <DialogDescription>{t('items.updateItemDetails')}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleUpdateItem} className="space-y-4">
+            {/* Item Image Section */}
+            <div className="space-y-2">
+              <Label>{t('items.itemImage')}</Label>
+              {editFormData.imageUrl && (
+                <div className="w-full rounded-lg overflow-hidden border-2 border-border">
+                  <img 
+                    src={editFormData.imageUrl} 
+                    alt={editFormData.name || "Item"} 
+                    className="w-full h-auto object-contain max-h-64"
+                    data-testid="edit-item-image"
+                  />
+                </div>
+              )}
+              <input
+                type="file"
+                ref={editFileInputRef}
+                accept="image/*"
+                capture="environment"
+                onChange={handleEditImageUpload}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => editFileInputRef.current?.click()}
+                data-testid="button-upload-edit-image"
+              >
+                <i className="fas fa-camera mr-2"></i>
+                {editFormData.imageUrl ? t('items.replaceImage') : t('items.uploadImage')}
+              </Button>
+            </div>
+
             <div>
               <Label htmlFor="edit-name">{t('items.itemName')} *</Label>
               <Input 
