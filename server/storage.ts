@@ -1001,6 +1001,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteChecklistTemplate(id: string): Promise<void> {
+    // Delete all associated checklist completions first (cascade delete)
+    await db.delete(checklistCompletions).where(eq(checklistCompletions.templateId, id));
+    // Then delete the template
     await db.delete(checklistTemplates).where(eq(checklistTemplates.id, id));
   }
 
