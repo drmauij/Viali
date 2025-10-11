@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import ChangePasswordDialog from "./ChangePasswordDialog";
+import { useModule } from "@/contexts/ModuleContext";
 
 interface Hospital {
   id: string;
@@ -24,6 +25,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
   const { language, setLanguage } = useLanguage();
   const { t } = useTranslation();
   const { user } = useAuth();
+  const { setIsDrawerOpen } = useModule();
   const [showHospitalDropdown, setShowHospitalDropdown] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -39,8 +41,17 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
   return (
     <div className="top-bar">
       <div className="flex items-center justify-between">
-        {/* Hospital Switcher */}
+        {/* Module Menu and Hospital Switcher */}
         <div className="flex items-center gap-3">
+          {/* Module Drawer Toggle */}
+          <button
+            onClick={() => setIsDrawerOpen(true)}
+            className="w-10 h-10 rounded-lg hover:bg-accent flex items-center justify-center transition-colors"
+            data-testid="module-menu-button"
+          >
+            <i className="fas fa-bars text-lg text-foreground"></i>
+          </button>
+          
           <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
             <i className="fas fa-hospital text-lg text-primary-foreground"></i>
           </div>

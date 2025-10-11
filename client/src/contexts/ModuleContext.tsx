@@ -6,12 +6,16 @@ export type Module = "inventory" | "anesthesia";
 interface ModuleContextType {
   activeModule: Module;
   setActiveModule: (module: Module) => void;
+  isDrawerOpen: boolean;
+  setIsDrawerOpen: (open: boolean) => void;
 }
 
 const ModuleContext = createContext<ModuleContextType | undefined>(undefined);
 
 export function ModuleProvider({ children }: { children: ReactNode }) {
   const [location] = useLocation();
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  
   const [activeModule, setActiveModuleState] = useState<Module>(() => {
     const saved = localStorage.getItem("activeModule");
     return (saved === "anesthesia" ? "anesthesia" : "inventory") as Module;
@@ -21,7 +25,13 @@ export function ModuleProvider({ children }: { children: ReactNode }) {
     if (location.startsWith("/anesthesia")) {
       setActiveModuleState("anesthesia");
       localStorage.setItem("activeModule", "anesthesia");
-    } else if (!location.startsWith("/anesthesia") && location !== "/" && location !== "/scan" && location !== "/alerts" && location !== "/signup" && location !== "/reset-password") {
+    } else if (
+      location.startsWith("/items") || 
+      location.startsWith("/orders") || 
+      location.startsWith("/controlled") || 
+      location.startsWith("/checklists") || 
+      location.startsWith("/admin")
+    ) {
       setActiveModuleState("inventory");
       localStorage.setItem("activeModule", "inventory");
     }
@@ -33,7 +43,7 @@ export function ModuleProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <ModuleContext.Provider value={{ activeModule, setActiveModule }}>
+    <ModuleContext.Provider value={{ activeModule, setActiveModule, isDrawerOpen, setIsDrawerOpen }}>
       {children}
     </ModuleContext.Provider>
   );
