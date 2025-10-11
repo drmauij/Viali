@@ -2447,11 +2447,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { roleId } = req.params;
       const { locationId, role, hospitalId } = req.body;
       
-      // Check admin access
+      // Check admin access - user may have multiple roles for same hospital
       const userId = req.user.claims.sub;
       const hospitals = await storage.getUserHospitals(userId);
-      const hospital = hospitals.find(h => h.id === hospitalId);
-      if (!hospital || hospital.role !== 'admin') {
+      const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+      if (!hasAdminRole) {
         return res.status(403).json({ message: "Admin access required" });
       }
       
@@ -2472,11 +2472,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { roleId } = req.params;
       const { hospitalId } = req.query;
       
-      // Check admin access
+      // Check admin access - user may have multiple roles for same hospital
       const userId = req.user.claims.sub;
       const hospitals = await storage.getUserHospitals(userId);
-      const hospital = hospitals.find(h => h.id === hospitalId);
-      if (!hospital || hospital.role !== 'admin') {
+      const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+      if (!hasAdminRole) {
         return res.status(403).json({ message: "Admin access required" });
       }
       
