@@ -62,9 +62,8 @@
     "anesthesia.op": "OP",
     "anesthesia.pacu": "AWR",
     "anesthesia.settings": "Einstellungen",
-    "admin.locations": "Standorte",
-    "admin.users": "Benutzer",
-    "admin.checklists": "Checklisten"
+    "admin.hospital": "Krankenhaus",
+    "admin.users": "Benutzer"
   },
   "modules": {
     "title": "Modul auswählen",
@@ -439,6 +438,7 @@
   "admin": {
     "title": "Admin",
     "adminPanel": "Admin-Panel",
+    "hospital": "Krankenhaus",
     "users": "Benutzer",
     "usersAndRoles": "Benutzer & Rollen",
     "hospitals": "Krankenhäuser",

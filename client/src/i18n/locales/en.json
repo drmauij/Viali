@@ -62,9 +62,8 @@
     "anesthesia.op": "OP",
     "anesthesia.pacu": "PACU",
     "anesthesia.settings": "Settings",
-    "admin.locations": "Locations",
-    "admin.users": "Users",
-    "admin.checklists": "Checklists"
+    "admin.hospital": "Hospital",
+    "admin.users": "Users"
   },
   "modules": {
     "title": "Select Module",
@@ -439,6 +438,7 @@
   "admin": {
     "title": "Admin",
     "adminPanel": "Admin Panel",
+    "hospital": "Hospital",
     "users": "Users",
     "usersAndRoles": "Users & Roles",
     "hospitals": "Hospitals",
