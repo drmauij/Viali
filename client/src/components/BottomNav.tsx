@@ -117,9 +117,8 @@ export default function BottomNav() {
     
     if (activeModule === "admin") {
       return [
-        { id: "locations", icon: "fas fa-location-dot", label: t('bottomNav.admin.locations'), path: "/admin/locations" },
-        { id: "users", icon: "fas fa-users", label: t('bottomNav.admin.users'), path: "/admin/users" },
-        { id: "checklists", icon: "fas fa-clipboard-check", label: t('bottomNav.admin.checklists'), path: "/admin/checklists" },
+        { id: "admin-hospital", icon: "fas fa-hospital", label: t('bottomNav.admin.hospital'), path: "/admin" },
+        { id: "admin-users", icon: "fas fa-users", label: t('bottomNav.admin.users'), path: "/admin/users" },
       ];
     }
     
