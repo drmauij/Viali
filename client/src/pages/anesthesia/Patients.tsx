@@ -299,19 +299,19 @@ export default function Patients() {
 
       <div className="space-y-4">
         {filteredPatients.map((patient) => (
-          <Link key={patient.id} href={`/anesthesia/patients/${patient.id}`}>
-            <Card 
-              className="p-4 cursor-pointer hover:bg-accent/50 transition-colors"
-              data-testid={`patient-item-${patient.id}`}
-            >
-              <div className="font-semibold text-foreground">
-                {patient.surname}, {patient.firstName}
-              </div>
-              <div className="text-sm text-muted-foreground mt-1">
-                {formatDate(patient.birthday)} • {patient.sex} • {patient.patientId}
-              </div>
-            </Card>
-          </Link>
+          <Card 
+            key={patient.id}
+            className="p-4 cursor-pointer hover:bg-accent/50 transition-colors"
+            data-testid={`patient-item-${patient.id}`}
+            onClick={() => window.location.href = `/anesthesia/patients/${patient.id}`}
+          >
+            <div className="font-semibold text-foreground">
+              {patient.surname}, {patient.firstName}
+            </div>
+            <div className="text-sm text-muted-foreground mt-1">
+              {formatDate(patient.birthday)} • {patient.sex} • {patient.patientId}
+            </div>
+          </Card>
         ))}
       </div>
 
