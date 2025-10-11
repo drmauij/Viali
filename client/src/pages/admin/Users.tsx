@@ -360,98 +360,72 @@ export default function Users() {
 
   return (
     <div className="p-4 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-foreground">{t("admin.usersAndRoles")}</h1>
+        <Button onClick={handleCreateUser} size="sm" data-testid="button-create-user">
+          <i className="fas fa-user-plus mr-2"></i>
+          {t("admin.createNewUser")}
+        </Button>
       </div>
 
-      {/* Hospital Info Card */}
-      <div className="bg-card border border-border rounded-lg p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold text-foreground text-lg">{activeHospital?.name}</h3>
-            <p className="text-sm text-muted-foreground">{t("admin.hospitalName")}</p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleEditHospitalName}
-            data-testid="button-edit-hospital"
-          >
-            <i className="fas fa-edit mr-2"></i>
-            {t("admin.editName")}
-          </Button>
+      {usersLoading ? (
+        <div className="text-center py-8">
+          <i className="fas fa-spinner fa-spin text-2xl text-primary"></i>
         </div>
-      </div>
-
-      {/* Users Content */}
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-foreground">{t("admin.usersAndRoles")}</h2>
-          <Button onClick={handleCreateUser} size="sm" data-testid="button-create-user">
+      ) : users.length === 0 ? (
+        <div className="bg-card border border-border rounded-lg p-8 text-center">
+          <i className="fas fa-users text-4xl text-muted-foreground mb-4"></i>
+          <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.noUsers")}</h3>
+          <p className="text-muted-foreground mb-4">{t("admin.noUsersMessage")}</p>
+          <Button onClick={handleCreateUser} size="sm">
             <i className="fas fa-user-plus mr-2"></i>
             {t("admin.createNewUser")}
           </Button>
         </div>
-
-        {usersLoading ? (
-          <div className="text-center py-8">
-            <i className="fas fa-spinner fa-spin text-2xl text-primary"></i>
-          </div>
-        ) : users.length === 0 ? (
-          <div className="bg-card border border-border rounded-lg p-8 text-center">
-            <i className="fas fa-users text-4xl text-muted-foreground mb-4"></i>
-            <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.noUsers")}</h3>
-            <p className="text-muted-foreground mb-4">{t("admin.noUsersMessage")}</p>
-            <Button onClick={handleCreateUser} size="sm">
-              <i className="fas fa-user-plus mr-2"></i>
-              {t("admin.createNewUser")}
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {users.map((user) => (
-              <div key={user.user.id} className="bg-card border border-border rounded-lg p-4" data-testid={`user-${user.user.id}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-foreground">
-                      {user.user.firstName} {user.user.lastName}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">{user.user.email}</p>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {user.roles.map((roleInfo, idx) => (
-                        <div key={idx} className="flex gap-1 items-center">
-                          <span className="status-chip chip-primary text-xs">{getRoleName(roleInfo.role)}</span>
-                          <span className="status-chip chip-muted text-xs">{roleInfo.location.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEditUser(user)}
-                      data-testid={`button-edit-user-${user.user.id}`}
-                      title={t("admin.editUser")}
-                    >
-                      <i className="fas fa-user-edit"></i>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDeleteUser(user)}
-                      data-testid={`button-delete-user-${user.user.id}`}
-                      title={t("admin.deleteUser")}
-                    >
-                      <i className="fas fa-trash text-destructive"></i>
-                    </Button>
+      ) : (
+        <div className="space-y-2">
+          {users.map((user) => (
+            <div key={user.user.id} className="bg-card border border-border rounded-lg p-4" data-testid={`user-${user.user.id}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-foreground">
+                    {user.user.firstName} {user.user.lastName}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">{user.user.email}</p>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {user.roles.map((roleInfo, idx) => (
+                      <div key={idx} className="flex gap-1 items-center">
+                        <span className="status-chip chip-primary text-xs">{getRoleName(roleInfo.role)}</span>
+                        <span className="status-chip chip-muted text-xs">{roleInfo.location.name}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEditUser(user)}
+                    data-testid={`button-edit-user-${user.user.id}`}
+                    title={t("admin.editUser")}
+                  >
+                    <i className="fas fa-user-edit"></i>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDeleteUser(user)}
+                    data-testid={`button-delete-user-${user.user.id}`}
+                    title={t("admin.deleteUser")}
+                  >
+                    <i className="fas fa-trash text-destructive"></i>
+                  </Button>
+                </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Create User Dialog */}
       <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
