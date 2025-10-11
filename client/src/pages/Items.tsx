@@ -134,6 +134,7 @@ export default function Items() {
     critical: false,
     controlled: false,
     trackExactQuantity: false,
+    imageUrl: "",
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
@@ -1108,6 +1109,7 @@ export default function Items() {
               name: itemName.trim() || prev.name,
               description: result.description || prev.description,
               barcode: result.barcode || prev.barcode,
+              imageUrl: i === 0 ? compressedImage : prev.imageUrl, // Save first image as item photo
             }));
             
             if (result.unit) {
@@ -1162,6 +1164,7 @@ export default function Items() {
       critical: formData.critical,
       controlled: formData.controlled,
       initialStock: parseInt(formData.initialStock) || 0,
+      imageUrl: formData.imageUrl || undefined,
     };
 
     createItemMutation.mutate(itemData);
@@ -1181,6 +1184,7 @@ export default function Items() {
       critical: false,
       controlled: false,
       trackExactQuantity: false,
+      imageUrl: "",
     });
     setSelectedUnit("pack");
     setUploadedImages([]);
