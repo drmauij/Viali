@@ -18,9 +18,19 @@ The frontend is built with React and TypeScript, utilizing Vite for fast develop
 - **Module Switcher**: Top-bar hamburger menu opens a slide-down drawer for switching between Inventory Management and Anesthesia Records modules
 - **Context-Aware Navigation**: Bottom navigation dynamically changes based on active module
   - Inventory mode: Items | Orders | Controlled | Checklists | Admin
-  - Anesthesia mode: Patients | Cases | Reports | Settings
-- **Auto-Detection**: Module automatically switches based on route (/anesthesia/* → anesthesia, all other routes → inventory)
-- **State Persistence**: Active module preference stored in localStorage
+  - Anesthesia mode: Patients | Pre-OP | OP | PACU | Settings
+- **Home Redirect**: When navigating to root (/), users are automatically redirected based on their saved module preference
+  - Anesthesia preference → /anesthesia/patients
+  - Inventory preference (default) → /items
+- **Auto-Detection**: Module automatically switches based on route (/anesthesia/* → anesthesia, other routes → inventory, / excluded for home redirect)
+- **State Persistence**: Active module preference stored in localStorage and used for home redirect
+
+**Anesthesia Workflow Pages:**
+- **Patients**: Master list of all patients with search and filtering
+- **Pre-OP**: Currently opened pre-operative assessments awaiting completion
+- **OP**: Active operations - patients currently undergoing surgery with real-time status
+- **PACU**: Post-Anesthesia Care Unit - patients in recovery with Aldrette scores and pain levels
+- **Settings**: Module-specific configuration and preferences
 
 Key features include a mobile-optimized bottom navigation, barcode scanning, a signature pad for documentation, real-time item quick panels, and a hospital switcher for multi-tenant environments.
 
