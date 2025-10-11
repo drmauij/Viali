@@ -135,6 +135,9 @@ export default function BottomNav() {
     if (path === "/inventory/items") {
       return location === "/inventory" || location.startsWith("/inventory/items");
     }
+    if (path === "/admin") {
+      return location === "/admin";
+    }
     return location.startsWith(path);
   };
 
