@@ -297,7 +297,7 @@ export default function Patients() {
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="flex flex-col gap-6">
         {filteredPatients.map((patient) => (
           <Link key={patient.id} href={`/anesthesia/patients/${patient.id}`}>
             <Card 
