@@ -39,20 +39,20 @@ export default function ModuleDrawer() {
 
   const allModules: ModuleCard[] = [
     {
-      id: "inventory",
-      icon: "fas fa-boxes",
-      title: t('modules.inventory.title'),
-      description: t('modules.inventory.description'),
-      route: "/inventory/items",
-      color: "bg-blue-500",
-    },
-    {
       id: "anesthesia",
       icon: "fas fa-heartbeat",
       title: t('modules.anesthesia.title'),
       description: t('modules.anesthesia.description'),
       route: "/anesthesia/patients",
       color: "bg-red-500",
+    },
+    {
+      id: "inventory",
+      icon: "fas fa-boxes",
+      title: t('modules.inventory.title'),
+      description: t('modules.inventory.description'),
+      route: "/inventory/items",
+      color: "bg-blue-500",
     },
     {
       id: "admin",
