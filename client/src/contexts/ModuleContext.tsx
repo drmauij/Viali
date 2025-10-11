@@ -22,9 +22,9 @@ export function ModuleProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    // Don't switch modules on unauthenticated pages
-    const unauthenticatedPages = ["/reset-password", "/signup"];
-    if (unauthenticatedPages.includes(location)) {
+    // Don't switch modules on unauthenticated pages or home page (which handles its own redirect)
+    const excludedPages = ["/", "/reset-password", "/signup"];
+    if (excludedPages.includes(location)) {
       return;
     }
 
@@ -33,7 +33,7 @@ export function ModuleProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("activeModule", "anesthesia");
     } else {
       // All other routes default to inventory module
-      // This includes: /, /items, /orders, /controlled, /checklists, /admin, /scan, /alerts, etc.
+      // This includes: /items, /orders, /controlled, /checklists, /admin, /scan, /alerts, etc.
       setActiveModuleState("inventory");
       localStorage.setItem("activeModule", "inventory");
     }

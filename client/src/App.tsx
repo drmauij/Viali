@@ -1,11 +1,13 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
+import { useEffect } from "react";
+import React from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/components/LanguageProvider";
-import { ModuleProvider } from "@/contexts/ModuleContext";
+import { ModuleProvider, useModule } from "@/contexts/ModuleContext";
 import { useAuth } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
 import NotFound from "@/pages/not-found";
@@ -31,6 +33,30 @@ import AnesthesiaReports from "@/pages/anesthesia/Reports";
 import AnesthesiaSettings from "@/pages/anesthesia/Settings";
 import "@/i18n/config";
 
+// Home redirect component that checks module preference
+function HomeRedirect() {
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    // Read module preference directly from localStorage to avoid race conditions
+    const savedModule = localStorage.getItem("activeModule");
+    const targetModule = (savedModule === "anesthesia" ? "anesthesia" : "inventory");
+    
+    // Redirect based on saved module preference
+    if (targetModule === "anesthesia") {
+      navigate("/anesthesia/patients", { replace: true });
+    } else {
+      navigate("/items", { replace: true });
+    }
+  }, [navigate]);
+
+  return (
+    <div className="min-h-screen w-full flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100" data-testid="loading-spinner" />
+    </div>
+  );
+}
+
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
@@ -52,7 +78,7 @@ function Router() {
           </>
         ) : (
           <>
-            <Route path="/" component={Items} />
+            <Route path="/" component={HomeRedirect} />
             <Route path="/scan" component={Scan} />
             <Route path="/items" component={Items} />
             <Route path="/orders" component={Orders} />
