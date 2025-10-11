@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTranslation } from "react-i18next";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useModule } from "@/contexts/ModuleContext";
 
 interface NavItem {
   id: string;
@@ -16,6 +17,7 @@ export default function BottomNav() {
   const { t } = useTranslation();
   const [location, navigate] = useLocation();
   const { user } = useAuth();
+  const { activeModule } = useModule();
   const [hasCompletedImport, setHasCompletedImport] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -103,16 +105,24 @@ export default function BottomNav() {
   }, [activeHospital?.id]);
 
   const navItems: NavItem[] = useMemo(() => {
+    if (activeModule === "anesthesia") {
+      return [
+        { id: "patients", icon: "fas fa-users", label: t('bottomNav.anesthesia.patients'), path: "/anesthesia/patients" },
+        { id: "cases", icon: "fas fa-briefcase-medical", label: t('bottomNav.anesthesia.cases'), path: "/anesthesia/cases" },
+        { id: "reports", icon: "fas fa-chart-line", label: t('bottomNav.anesthesia.reports'), path: "/anesthesia/reports" },
+        { id: "settings", icon: "fas fa-cog", label: t('bottomNav.anesthesia.settings'), path: "/anesthesia/settings" },
+      ];
+    }
+    
     const items = [
       { id: "items", icon: "fas fa-boxes", label: t('bottomNav.items'), path: "/items" },
       { id: "orders", icon: "fas fa-file-invoice", label: t('bottomNav.orders'), path: "/orders" },
       { id: "controlled", icon: "fas fa-shield-halved", label: t('bottomNav.controlled'), path: "/controlled" },
-      { id: "anesthesia", icon: "fas fa-heartbeat", label: t('bottomNav.anesthesia'), path: "/anesthesia" },
       { id: "checklists", icon: "fas fa-clipboard-check", label: t('bottomNav.checklists'), path: "/checklists" },
       { id: "admin", icon: "fas fa-user-shield", label: t('bottomNav.admin'), path: "/admin", adminOnly: true },
     ];
     return items.filter(item => !item.adminOnly || isAdmin);
-  }, [t, isAdmin]);
+  }, [t, isAdmin, activeModule]);
 
   const isActive = (path: string) => {
     if (path === "/items") {

@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 
 export type Module = "inventory" | "anesthesia";
 
-interface ModuleContextType {
+export interface ModuleContextType {
   activeModule: Module;
   setActiveModule: (module: Module) => void;
   isDrawerOpen: boolean;

@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/components/LanguageProvider";
+import { ModuleProvider } from "@/contexts/ModuleContext";
 import { useAuth } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
 import NotFound from "@/pages/not-found";
@@ -23,6 +24,8 @@ import ChangePasswordDialog from "@/components/ChangePasswordDialog";
 import Patients from "@/pages/anesthesia/Patients";
 import PatientDetail from "@/pages/anesthesia/PatientDetail";
 import CaseDetail from "@/pages/anesthesia/CaseDetail";
+import AnesthesiaReports from "@/pages/anesthesia/Reports";
+import AnesthesiaSettings from "@/pages/anesthesia/Settings";
 import "@/i18n/config";
 
 function Router() {
@@ -56,6 +59,8 @@ function Router() {
             <Route path="/anesthesia/patients" component={Patients} />
             <Route path="/anesthesia/patients/:id" component={PatientDetail} />
             <Route path="/anesthesia/cases/:id" component={CaseDetail} />
+            <Route path="/anesthesia/reports" component={AnesthesiaReports} />
+            <Route path="/anesthesia/settings" component={AnesthesiaSettings} />
             <Route path="/checklists" component={Checklists} />
             <Route path="/admin" component={Admin} />
             <Route path="/signup" component={Signup} />
@@ -77,12 +82,14 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <LanguageProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Layout>
-              <Router />
-            </Layout>
-          </TooltipProvider>
+          <ModuleProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Layout>
+                <Router />
+              </Layout>
+            </TooltipProvider>
+          </ModuleProvider>
         </LanguageProvider>
       </ThemeProvider>
     </QueryClientProvider>

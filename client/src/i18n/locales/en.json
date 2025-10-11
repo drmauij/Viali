@@ -56,7 +56,23 @@
     "controlled": "Controlled",
     "admin": "Admin",
     "scan": "Scan",
-    "anesthesia": "Anesthesia"
+    "anesthesia": "Anesthesia",
+    "anesthesia.patients": "Patients",
+    "anesthesia.cases": "Cases",
+    "anesthesia.reports": "Reports",
+    "anesthesia.settings": "Settings"
+  },
+  "modules": {
+    "title": "Select Module",
+    "active": "Active",
+    "inventory": {
+      "title": "Inventory Management",
+      "description": "Manage hospital inventory, track stock levels, and create purchase orders"
+    },
+    "anesthesia": {
+      "title": "Anesthesia Records",
+      "description": "Manage patient cases, pre-op assessments, and anesthesia documentation"
+    }
   },
   "home": {
     "title": "Dashboard",

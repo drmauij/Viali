@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
 import TopBar from "./TopBar";
 import BottomNav from "./BottomNav";
+import ModuleDrawer from "./ModuleDrawer";
 
 interface Hospital {
   id: string;
@@ -61,6 +62,7 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <div className="screen-container">
+      <ModuleDrawer />
       <TopBar
         hospitals={hospitals}
         activeHospital={activeHospital}

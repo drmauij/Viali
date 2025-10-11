@@ -55,7 +55,24 @@
     "checklists": "Checklisten",
     "controlled": "Kontrolle",
     "admin": "Admin",
-    "scan": "Scannen"
+    "scan": "Scannen",
+    "anesthesia": "Anästhesie",
+    "anesthesia.patients": "Patienten",
+    "anesthesia.cases": "Fälle",
+    "anesthesia.reports": "Berichte",
+    "anesthesia.settings": "Einstellungen"
+  },
+  "modules": {
+    "title": "Modul auswählen",
+    "active": "Aktiv",
+    "inventory": {
+      "title": "Bestandsverwaltung",
+      "description": "Verwalten Sie Krankenhausbestände, verfolgen Sie Lagerbestände und erstellen Sie Bestellungen"
+    },
+    "anesthesia": {
+      "title": "Anästhesie-Aufzeichnungen",
+      "description": "Verwalten Sie Patientenfälle, präoperative Bewertungen und Anästhesiedokumentation"
+    }
   },
   "home": {
     "title": "Dashboard",
