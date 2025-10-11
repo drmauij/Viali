@@ -140,6 +140,8 @@
     "itemDetails": "Artikeldetails",
     "itemPhoto": "Artikelfoto",
     "clickToZoom": "Klicken zum Zoomen",
+    "deleteImage": "Bild löschen",
+    "deleteImageConfirm": "Möchten Sie dieses Bild wirklich löschen?",
     "uploadIcon": "Bild hochladen",
     "analyzeIcon": "KI analysiert...",
     "noHospitalSelected": "Kein Krankenhaus ausgewählt",

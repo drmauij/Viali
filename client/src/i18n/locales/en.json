@@ -140,6 +140,8 @@
     "itemDetails": "Item Details",
     "itemPhoto": "Item Photo",
     "clickToZoom": "Click to zoom",
+    "deleteImage": "Delete Image",
+    "deleteImageConfirm": "Are you sure you want to delete this image?",
     "uploadIcon": "Upload image",
     "analyzeIcon": "AI analyzing...",
     "noHospitalSelected": "No Hospital Selected",

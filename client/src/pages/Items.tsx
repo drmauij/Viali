@@ -190,6 +190,9 @@ export default function Items() {
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
   const [zoomImageName, setZoomImageName] = useState<string>("");
 
+  // Edit dialog tab state
+  const [editDialogTab, setEditDialogTab] = useState<string>("details");
+
   // Drag and drop sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -537,6 +540,7 @@ export default function Items() {
       imageUrl: item.imageUrl || "",
     });
     setSelectedUnit(normalizeUnit(item.unit));
+    setEditDialogTab("details"); // Reset to details tab when opening
     setEditDialogOpen(true);
   };
 
@@ -1406,7 +1410,7 @@ export default function Items() {
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-bold text-foreground">{t('items.title')}</h1>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {isBulkEditMode ? (
               <>
                 <Button variant="outline" size="sm" onClick={() => { setIsBulkEditMode(false); setBulkEditItems({}); }} data-testid="cancel-bulk-edit" className="flex-1 sm:flex-initial">
@@ -2302,7 +2306,7 @@ export default function Items() {
             <DialogDescription>{t('items.updateItemDetails')}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleUpdateItem} className="space-y-4">
-            <Tabs defaultValue="details" className="w-full">
+            <Tabs defaultValue="details" value={editDialogTab} onValueChange={setEditDialogTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="details" data-testid="tab-item-details">{t('items.itemDetails')}</TabsTrigger>
                 <TabsTrigger value="photo" data-testid="tab-item-photo">{t('items.itemPhoto')}</TabsTrigger>
@@ -2528,42 +2532,60 @@ export default function Items() {
                   onChange={handleEditImageUpload}
                   className="hidden"
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => editFileInputRef.current?.click()}
-                  data-testid="button-upload-edit-image"
-                >
-                  <i className="fas fa-camera mr-2"></i>
-                  {editFormData.imageUrl ? t('items.replaceImage') : t('items.uploadImage')}
-                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => editFileInputRef.current?.click()}
+                    data-testid="button-upload-edit-image"
+                  >
+                    <i className="fas fa-camera mr-2"></i>
+                    {editFormData.imageUrl ? t('items.replaceImage') : t('items.uploadImage')}
+                  </Button>
+                  {editFormData.imageUrl && (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      onClick={() => {
+                        if (window.confirm(t('items.deleteImageConfirm'))) {
+                          setEditFormData(prev => ({ ...prev, imageUrl: "" }));
+                        }
+                      }}
+                      data-testid="button-delete-image"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      {t('items.deleteImage')}
+                    </Button>
+                  )}
+                </div>
               </TabsContent>
             </Tabs>
 
-            <div className="flex gap-2 justify-between pt-4">
-              <Button 
-                type="button" 
-                variant="destructive" 
-                onClick={() => {
-                  if (selectedItem && window.confirm(t('items.deleteConfirm'))) {
-                    deleteItemMutation.mutate(selectedItem.id);
-                  }
-                }}
-                disabled={deleteItemMutation.isPending}
-                data-testid="button-delete-item"
-              >
-                {deleteItemMutation.isPending ? t('common.loading') : t('common.delete')}
-              </Button>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
-                  {t('common.cancel')}
+            {editDialogTab === "details" && (
+              <div className="flex gap-2 justify-between pt-4">
+                <Button 
+                  type="button" 
+                  variant="destructive" 
+                  onClick={() => {
+                    if (selectedItem && window.confirm(t('items.deleteConfirm'))) {
+                      deleteItemMutation.mutate(selectedItem.id);
+                    }
+                  }}
+                  disabled={deleteItemMutation.isPending}
+                  data-testid="button-delete-item"
+                >
+                  {deleteItemMutation.isPending ? t('common.loading') : t('common.delete')}
                 </Button>
-                <Button type="submit" disabled={updateItemMutation.isPending} data-testid="button-update-item">
-                  {updateItemMutation.isPending ? t('common.loading') : t('common.save')}
-                </Button>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
+                    {t('common.cancel')}
+                  </Button>
+                  <Button type="submit" disabled={updateItemMutation.isPending} data-testid="button-update-item">
+                    {updateItemMutation.isPending ? t('common.loading') : t('common.save')}
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
           </form>
         </DialogContent>
       </Dialog>
