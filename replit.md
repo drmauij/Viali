@@ -11,7 +11,14 @@ Preferred communication style: Simple, everyday language.
 ### Frontend
 The frontend is built with React and TypeScript, leveraging Vite for development and bundling. It uses Wouter for routing, TanStack Query for server state management, and Shadcn/ui (based on Radix UI) with Tailwind CSS for a mobile-first, responsive design. The application is modular, featuring independent Inventory, Anesthesia, and Administration modules, each with dedicated routes and dynamic bottom navigation. A module drawer and role-based visibility manage access, with user preferences for module auto-detection and home redirection.
 
-The Anesthesia module includes a detailed OP Monitoring System with a full-screen dialog interface, a vitals timeline visualization (BP, HR, Temp, SpO2), clinical swimlanes for events, infusions, drugs, and staff, and tabbed documentation sections for comprehensive intraoperative record-keeping. Key features include barcode scanning, a signature pad, real-time item quick panels, and a hospital switcher for multi-tenant environments.
+**Anesthesia Module Workflow Pages:**
+- **Patients** (`/anesthesia/patients`): Master list of all patients with search and filtering
+- **Pre-OP List** (`/anesthesia/preop`): List of patients awaiting pre-operative assessment with search functionality, showing patient demographics, planned surgery details, surgeon, and planned date with "Awaiting Assessment" status badges. Cards link to case-specific pre-op assessment forms
+- **OP List** (`/anesthesia/op`): List of active surgeries currently in progress with search functionality, showing patient demographics, surgery details, surgeon, start time with duration calculation, and OR location. Cards have green styling and "In Progress" status badges, linking to case-specific OP monitoring pages
+- **OP Monitoring System** (`/anesthesia/cases/:id/op`): Full-screen dialog interface with vitals timeline visualization (BP, HR, Temp, SpO2), clinical swimlanes for events, infusions, drugs, and staff, and tabbed documentation sections for comprehensive intraoperative record-keeping
+- **PACU**: Post-Anesthesia Care Unit - patients in recovery with Aldrette scores and pain levels
+
+Key features include barcode scanning, a signature pad, real-time item quick panels, and a hospital switcher for multi-tenant environments.
 
 ### Backend
 The backend is developed with Express.js and TypeScript, interacting with a PostgreSQL database via Drizzle ORM, hosted on Neon serverless PostgreSQL. Authentication uses OpenID Connect (OIDC) via Replit Auth, supplemented by local email/password authentication, employing session-based authentication with a PostgreSQL session store. The API is RESTful, focusing on resource-based endpoints, JSON communication, centralized error handling, bcrypt for password hashing, and role-based access control.
