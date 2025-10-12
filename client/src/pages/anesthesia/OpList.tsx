@@ -121,53 +121,51 @@ export default function OpList() {
         ) : (
           filteredCases.map((case_) => (
             <Link key={case_.id} href={`/anesthesia/cases/${case_.id}/op`}>
-              <Card className="hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-green-500" data-testid={`card-op-case-${case_.id}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    {/* Patient Info */}
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        {case_.patientSex === "M" ? (
-                          <UserCircle className="h-6 w-6 text-blue-500" />
-                        ) : (
-                          <UserRound className="h-6 w-6 text-pink-500" />
-                        )}
-                        <div>
-                          <h3 className="font-semibold text-lg">{case_.patientName}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {new Date(case_.birthday).toLocaleDateString()} ({calculateAge(case_.birthday)} years)
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Surgery Details */}
-                      <div className="ml-9 space-y-1">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Activity className="h-4 w-4 text-green-600" />
-                          <span className="font-medium">{case_.plannedSurgery}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <User className="h-4 w-4" />
-                          <span>{case_.surgeon}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          <span>Started at {case_.startTime} • {calculateDuration(case_.startTime)}</span>
-                        </div>
+              <Card className="p-4 cursor-pointer hover:bg-accent/50 transition-colors border-l-4 border-l-green-500" data-testid={`card-op-case-${case_.id}`}>
+                <div className="flex items-start justify-between">
+                  {/* Patient Info */}
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      {case_.patientSex === "M" ? (
+                        <UserCircle className="h-6 w-6 text-blue-500" />
+                      ) : (
+                        <UserRound className="h-6 w-6 text-pink-500" />
+                      )}
+                      <div>
+                        <h3 className="font-semibold text-lg">{case_.patientName}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(case_.birthday).toLocaleDateString()} ({calculateAge(case_.birthday)} years)
+                        </p>
                       </div>
                     </div>
 
-                    {/* Location & Status */}
-                    <div className="flex flex-col items-end gap-2">
-                      <Badge className="bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700">
-                        {case_.location}
-                      </Badge>
-                      <Badge variant="outline" className="bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700">
-                        In Progress
-                      </Badge>
+                    {/* Surgery Details */}
+                    <div className="ml-9 space-y-1">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Activity className="h-4 w-4 text-green-600" />
+                        <span className="font-medium">{case_.plannedSurgery}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <User className="h-4 w-4" />
+                        <span>{case_.surgeon}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Clock className="h-4 w-4" />
+                        <span>Started at {case_.startTime} • {calculateDuration(case_.startTime)}</span>
+                      </div>
                     </div>
                   </div>
-                </CardContent>
+
+                  {/* Location & Status */}
+                  <div className="flex flex-col items-end gap-2">
+                    <Badge className="bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700">
+                      {case_.location}
+                    </Badge>
+                    <Badge variant="outline" className="bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700">
+                      In Progress
+                    </Badge>
+                  </div>
+                </div>
               </Card>
             </Link>
           ))

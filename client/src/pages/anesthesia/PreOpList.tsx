@@ -103,48 +103,46 @@ export default function PreOpList() {
         ) : (
           filteredCases.map((case_) => (
             <Link key={case_.id} href={`/anesthesia/cases/${case_.id}/preop`}>
-              <Card className="hover:shadow-md transition-shadow cursor-pointer" data-testid={`card-preop-case-${case_.id}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    {/* Patient Info */}
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        {case_.patientSex === "M" ? (
-                          <UserCircle className="h-6 w-6 text-blue-500" />
-                        ) : (
-                          <UserRound className="h-6 w-6 text-pink-500" />
-                        )}
-                        <div>
-                          <h3 className="font-semibold text-lg">{case_.patientName}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {new Date(case_.birthday).toLocaleDateString()} ({calculateAge(case_.birthday)} years)
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Surgery Details */}
-                      <div className="ml-9 space-y-1">
-                        <div className="flex items-center gap-2 text-sm">
-                          <ClipboardList className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">{case_.plannedSurgery}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <User className="h-4 w-4" />
-                          <span>{case_.surgeon}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
-                          <span>{new Date(case_.plannedDate).toLocaleDateString()}</span>
-                        </div>
+              <Card className="p-4 cursor-pointer hover:bg-accent/50 transition-colors" data-testid={`card-preop-case-${case_.id}`}>
+                <div className="flex items-start justify-between">
+                  {/* Patient Info */}
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      {case_.patientSex === "M" ? (
+                        <UserCircle className="h-6 w-6 text-blue-500" />
+                      ) : (
+                        <UserRound className="h-6 w-6 text-pink-500" />
+                      )}
+                      <div>
+                        <h3 className="font-semibold text-lg">{case_.patientName}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(case_.birthday).toLocaleDateString()} ({calculateAge(case_.birthday)} years)
+                        </p>
                       </div>
                     </div>
 
-                    {/* Status Badge */}
-                    <Badge variant="outline" className="bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700">
-                      Awaiting Assessment
-                    </Badge>
+                    {/* Surgery Details */}
+                    <div className="ml-9 space-y-1">
+                      <div className="flex items-center gap-2 text-sm">
+                        <ClipboardList className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{case_.plannedSurgery}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <User className="h-4 w-4" />
+                        <span>{case_.surgeon}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Calendar className="h-4 w-4" />
+                        <span>{new Date(case_.plannedDate).toLocaleDateString()}</span>
+                      </div>
+                    </div>
                   </div>
-                </CardContent>
+
+                  {/* Status Badge */}
+                  <Badge variant="outline" className="bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700">
+                    Awaiting Assessment
+                  </Badge>
+                </div>
               </Card>
             </Link>
           ))
