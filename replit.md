@@ -1,159 +1,65 @@
 # Viali - Hospital Inventory Management System
 
 ## Overview
-
-Viali is a mobile-first web application with two main modules: **Inventory Management** for hospital inventory operations and **Anesthesia Records** for clinical anesthesia documentation. The Inventory module manages anesthesia drugs and general consumables across multiple hospitals, preventing stockouts, minimizing waste from expired items, automating reordering using Min-Max rules, and ensuring compliance for controlled substances. The Anesthesia module manages patient cases, pre-operative assessments, intra-operative documentation, and post-operative care with AI-assisted data extraction and privacy-first de-identification. Both modules share the same UI/UX design language and support multi-hospital management with granular user roles and permissions.
+Viali is a mobile-first web application designed for hospital operations, featuring two primary modules: Inventory Management and Anesthesia Records. The Inventory module optimizes the management of anesthesia drugs and general consumables across multiple hospitals, aiming to prevent stockouts, minimize waste from expired items, automate reordering using Min-Max rules, and ensure compliance for controlled substances. The Anesthesia module streamlines patient case management, covering pre-operative assessments, intra-operative documentation, and post-operative care, enhanced with AI-assisted data extraction and privacy-first de-identification. Both modules share a consistent UI/UX design and support multi-hospital environments with granular user roles and permissions, addressing critical needs in healthcare efficiency and patient safety.
 
 ## User Preferences
-
 Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Frontend Architecture
+### Frontend
+The frontend is built with React and TypeScript, leveraging Vite for development and bundling. It uses Wouter for routing, TanStack Query for server state management, and Shadcn/ui (based on Radix UI) with Tailwind CSS for a mobile-first, responsive design. The application is modular, featuring independent Inventory, Anesthesia, and Administration modules, each with dedicated routes and dynamic bottom navigation. A module drawer and role-based visibility manage access, with user preferences for module auto-detection and home redirection.
 
-The frontend is built with React and TypeScript, utilizing Vite for fast development and bundling. Wouter handles client-side routing, while TanStack Query manages server state and caching. UI components are developed using Shadcn/ui (based on Radix UI primitives) and styled with Tailwind CSS, adhering to a mobile-first responsive design philosophy.
+The Anesthesia module includes a detailed OP Monitoring System with a full-screen dialog interface, a vitals timeline visualization (BP, HR, Temp, SpO2), clinical swimlanes for events, infusions, drugs, and staff, and tabbed documentation sections for comprehensive intraoperative record-keeping. Key features include barcode scanning, a signature pad, real-time item quick panels, and a hospital switcher for multi-tenant environments.
 
-**Module Architecture:**
-
-The application is structured into three independent modules, each with its own URL namespace:
-
-1. **Inventory Management** (`/inventory/*`)
-   - Routes: /inventory/items, /inventory/orders, /inventory/controlled, /inventory/checklists, /inventory/alerts, /inventory/scan
-   - Bottom nav: Items | Orders | Controlled | Checklists
-   - Core functionality for hospital inventory operations
-
-2. **Anesthesia Records** (`/anesthesia/*`)
-   - Routes: /anesthesia/patients, /anesthesia/preop, /anesthesia/op, /anesthesia/pacu, /anesthesia/settings
-   - Bottom nav: Patients | Pre-OP | OP | PACU | Settings
-   - Clinical workflow for anesthesia documentation
-
-3. **Administration** (`/admin/*`)
-   - Routes: /admin (Hospital), /admin/users
-   - Bottom nav: Hospital | Users
-   - Hospital page has internal tab switcher: Locations | Checklists
-   - Only visible to users with admin role
-   - System administration: locations, user management, checklist templates
-
-**Module Switching:**
-- **Module Drawer**: Top-bar hamburger menu opens slide-down drawer showing available modules
-- **Role-Based Visibility**: Admin module only appears for users with admin role
-- **Context-Aware Navigation**: Bottom navigation dynamically changes based on active module
-- **Auto-Detection**: Module automatically switches based on route prefix
-- **State Persistence**: Active module preference stored in localStorage
-
-**Home Redirect:**
-When navigating to root (/), users are automatically redirected based on their saved module preference:
-- Inventory preference (default) → /inventory/items
-- Anesthesia preference → /anesthesia/patients  
-- Admin preference → /admin
-
-**Anesthesia Workflow Pages:**
-- **Patients**: Master list of all patients with search and filtering
-- **Pre-OP**: Currently opened pre-operative assessments awaiting completion
-- **OP**: Active operations - patients currently undergoing surgery with real-time status
-- **PACU**: Post-Anesthesia Care Unit - patients in recovery with Aldrette scores and pain levels
-- **Settings**: Module-specific configuration and preferences
-
-Key features include a mobile-optimized bottom navigation, barcode scanning, a signature pad for documentation, real-time item quick panels, and a hospital switcher for multi-tenant environments.
-
-### Backend Architecture
-
-The backend uses Express.js with TypeScript, interfacing with a PostgreSQL database via Drizzle ORM. Neon serverless PostgreSQL provides the database infrastructure. Authentication is handled through OpenID Connect (OIDC) via Replit Auth, supplemented by local email/password authentication, using session-based authentication with a PostgreSQL session store. The API follows a RESTful design, with a focus on resource-based endpoints, JSON communication, centralized error handling, and robust security measures including bcrypt for password hashing and role-based access control.
+### Backend
+The backend is developed with Express.js and TypeScript, interacting with a PostgreSQL database via Drizzle ORM, hosted on Neon serverless PostgreSQL. Authentication uses OpenID Connect (OIDC) via Replit Auth, supplemented by local email/password authentication, employing session-based authentication with a PostgreSQL session store. The API is RESTful, focusing on resource-based endpoints, JSON communication, centralized error handling, bcrypt for password hashing, and role-based access control.
 
 ### Authentication & Authorization
-
-Viali employs a hybrid authentication strategy supporting both Google OAuth (via OIDC) and local credentials, with configurable methods per hospital. Authorization is role-based and multi-hospital, meaning user permissions are defined per hospital. A robust user management system allows for user creation, password changes, hospital assignment, and permanent deletion, all secured with AD role authorization and bcrypt hashing.
+Viali uses a hybrid authentication strategy supporting Google OAuth (OIDC) and local credentials, configurable per hospital. Authorization is role-based and multi-hospital, with permissions defined per hospital. A robust user management system includes user creation, password changes, hospital assignment, and deletion, secured with AD role authorization and bcrypt hashing.
 
 ### Database Schema
-
-The core database schema includes `Users`, `Hospitals`, `UserHospitalRoles` (for role-based access control), `Items` (with barcode support, min/max thresholds, flags for critical/controlled items, `trackExactQuantity` flag, `currentUnits` for pack-level tracking, and `packSize` fields), `StockLevels`, `Lots` (for batch tracking and expiry), `Orders`, `OrderLines`, `Activities` (for audit trails), `Alerts`, `Vendors`, `Locations`, `ImportJobs` (for async bulk import processing with job queue management), `ChecklistTemplates` (recurring equipment check templates with JSONB items field), and `ChecklistCompletions` (completed checklist records). Key design decisions include UUID primary keys, timestamp tracking, separate lot tracking for compliance and expiry management, and JSONB storage for temporary bulk import data and checklist items. For JSONB fields with specific structures (like checklist items), explicit Zod validation is added via `.extend()` to ensure type safety.
-
-**Stock Management System:**
-- Items can be configured with two order types:
-  - **Pack**: Items ordered and received in packs (boxes, cartons, etc.)
-  - **Single unit**: Items ordered and received as individual units (tablets, vials, etc.)
-- **Track Exact Quantity** feature (available for Pack items only):
-  - `trackExactQuantity`: Boolean flag to enable pack-level tracking
-  - `currentUnits`: Stores exact unit count within packs
-  - `packSize`: Number of units per pack
-  - Stock is auto-calculated: ⌈currentUnits ÷ packSize⌉ (ceiling division)
-  - Display shows "X packs [Y units]" format
-- **Order Processing**:
-  - Pack items: Order qty represents number of packs
-  - Single unit items: Order qty represents number of individual units
-  - Receiving: Stock increases by qty, currentUnits increases by (qty × packSize) if trackExactQuantity enabled
-- **Controlled Substances Administration**:
-  - For items with trackExactQuantity: Deducts from currentUnits, stock auto-recalculated
-  - For standard items: Deducts from stock directly
-  - Routine Control: Verifies against currentUnits for trackExactQuantity items, stock otherwise
+The database schema includes `Users`, `Hospitals`, `UserHospitalRoles`, `Items` (with barcode support, min/max thresholds, critical/controlled flags, `trackExactQuantity`, `currentUnits`, `packSize`), `StockLevels`, `Lots` (for batch tracking and expiry), `Orders`, `OrderLines`, `Activities` (audit trails), `Alerts`, `Vendors`, `Locations`, `ImportJobs` (for async bulk import), `ChecklistTemplates`, and `ChecklistCompletions`. UUID primary keys, timestamp tracking, separate lot tracking, and JSONB fields with Zod validation for dynamic data are key design decisions.
 
 ### System Design Choices
-
-The system supports comprehensive inventory management functionalities such as:
-- **Controlled Substances Management**: Dedicated workflows for administration logging and routine verification checks with electronic signature capture, tracking individual vials/ampules while ordering in packs. Monthly PDF reports grouped by drug and sub-grouped by day with complete administration details.
-- **Order Management**: End-to-end order creation, editing (including inline quantity editing, item removal, order deletion), and submission, with automatic quantity calculation based on stock deficits and PDF export for purchase orders.
-- **Item Lifecycle Management**: Creation, updating, and transactional cascade deletion of items ensuring data integrity across related records (alerts, activities, order lines, lots, stock levels). Items support image uploads with automatic compression (max 800px, 0.8 quality JPEG) for visual identification, stored as base64 in the database. When creating items via AI photo analysis, the analyzed photo is automatically saved as the item's image for immediate visual identification. Edit dialog uses a tabbed interface with "Item Details" and "Item Photo" sections for better organization (matching the Controlled Substances page pattern). Image preview displays at 500px max-height with click-to-zoom functionality for full-screen viewing. Photo tab supports dual upload methods: camera button (forces camera on mobile) and gallery button (opens native picker for camera OR gallery choice). Image changes (upload/replace/delete) auto-save immediately without requiring tab switch or Save button click, with toast notifications confirming success/failure. Safety feature: Delete/Save/Cancel buttons hide when on Photo tab to prevent accidental item deletion; Delete Image button available in Photo tab for removing item images.
-- **User Management**: A comprehensive system for creating, assigning roles, changing passwords, and deleting users, with strong security measures.
-- **Signature Capture**: Print-ready black-on-white electronic signatures for all controlled substance transactions and verification checks.
-- **Custom Sorting**: Drag-and-drop functionality for organizing folders in a custom order:
-  - Folders have a `sortOrder` field for persistent custom ordering
-  - Default display follows custom sort order (sortOrder ascending, then name alphabetically)
-  - **Folder Reordering**: Drag-and-drop to reorder folders within location
-    - Visual drop indicator (horizontal line) shows where folder will be inserted (above/below target)
-    - Custom collision detection using `closestCorners` for accurate drop target resolution
-    - Prevents folder nesting - folders can only reorder in the list
-    - Bulk sort API endpoint (`/api/folders/bulk-sort`) for efficient updates
-  - **Item Management**: Items can be dragged to folders or root, but not reordered within folders
-    - Drag item to folder header to move it to that folder
-    - Drag item to root area to remove from folder
-    - Custom collision detection filters out the item's current parent folder to prevent false positive drops
-  - Other sorting options (alphabetical, stock level) remain available alongside custom ordering
-- **Bulk Import with AI**: AI-powered bulk photo import using OpenAI Vision API for automated item extraction with asynchronous job processing:
-  - Basic accounts: Up to 50 images per import
-  - Free accounts: Up to 10 images per import (previously limited to 3 due to synchronous processing)
-  - **Async Architecture**: Images uploaded and processed via background job queue system
-    - Job creation is instant (< 1 second response time)
-    - Background worker processes images asynchronously within 30-second timeout
-    - Batch processing completes in 12-20 seconds for up to 3 images
-    - Email notifications sent upon completion with preview links
-    - Frontend polls job status every 2 seconds for real-time updates
-  - **Implementation Details**:
-    - Images temporarily stored in `import_jobs.imagesData` JSONB field
-    - Job states: queued → processing → completed/failed
-    - Worker auto-triggered on job creation (fire-and-forget pattern)
-    - Images cleared from database after processing to free storage
-  - Automatic extraction of item names, descriptions, concentrations, pack sizes, and thresholds
-  - Users can import multiple times for larger inventories (no daily limit on import sessions)
+The system provides comprehensive inventory management, including:
+- **Controlled Substances Management**: Workflows for administration logging, routine verification, electronic signature capture, and monthly PDF reports.
+- **Order Management**: End-to-end order creation, editing, submission, automatic quantity calculation, and PDF export.
+- **Item Lifecycle Management**: Creation, updating, and transactional cascade deletion of items, with image uploads, compression, and AI photo analysis for item identification.
+- **User Management**: Creation, role assignment, password changes, and deletion with strong security.
+- **Signature Capture**: Print-ready electronic signatures for controlled substance transactions.
+- **Custom Sorting**: Drag-and-drop functionality for organizing folders and moving items, with persistent `sortOrder` and bulk sort API endpoints.
+- **Bulk Import with AI**: AI-powered bulk photo import using OpenAI Vision API for automated item extraction, processed via an asynchronous job queue with email notifications and real-time status updates.
 
 ## External Dependencies
 
 **Database:**
-- Neon Serverless PostgreSQL: Cloud-native PostgreSQL for scalable data storage.
+- Neon Serverless PostgreSQL
 
 **Authentication Services:**
-- Replit OIDC Provider: For OAuth 2.0 / OpenID Connect authentication.
-- connect-pg-simple: PostgreSQL-backed session store for session management.
+- Replit OIDC Provider
+- connect-pg-simple
 
 **UI Component Libraries:**
-- Radix UI: Unstyled, accessible component primitives.
-- Shadcn/ui: Pre-configured component library built on Radix UI.
-- Lucide React & Font Awesome: Icon libraries.
+- Radix UI
+- Shadcn/ui
+- Lucide React & Font Awesome
 
 **Development Tools:**
-- Vite plugins: For Replit integration.
-- Drizzle Kit: Database migration and schema management.
-- Zod: Runtime type validation.
+- Vite plugins
+- Drizzle Kit
+- Zod
 
 **Barcode Scanning:**
-- Browser native camera API: For 1D and 2D barcode capture, including GTIN lookup.
+- Browser native camera API
 
 **Form Management:**
-- React Hook Form: Form state management and validation, integrated with Zod.
+- React Hook Form
 
 **Utilities:**
-- bcrypt: Password hashing.
-- date-fns: Date manipulation.
-- nanoid: Unique ID generation.
-- memoizee: Function result caching.
-- jsPDF & jspdf-autotable: PDF generation for reports (orders and controlled substances).
+- bcrypt
+- date-fns
+- nanoid
+- memoizee
+- jsPDF & jspdf-autotable
