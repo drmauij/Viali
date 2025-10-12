@@ -189,6 +189,9 @@ export default function PatientDetail() {
     },
     installationsOther: "",
     
+    // Surgical Approval Status
+    surgicalApprovalStatus: "", // "approved", "standby-ekg", "standby-labs", "standby-other", "not-approved"
+    
     // Doctor Info
     assessmentDate: new Date().toISOString().split('T')[0],
     doctorName: "",
@@ -312,7 +315,8 @@ export default function PatientDetail() {
            assessmentData.postOpICU ||
            assessmentData.anesthesiaOther.trim() !== "" ||
            Object.values(assessmentData.installations).some(v => v) ||
-           assessmentData.installationsOther.trim() !== "";
+           assessmentData.installationsOther.trim() !== "" ||
+           assessmentData.surgicalApprovalStatus.trim() !== "";
   };
   
   const hasGeneralData = () => {
@@ -359,7 +363,7 @@ export default function PatientDetail() {
       {/* Sticky Patient Header */}
       {!isPatientCardVisible && (
         <div 
-          className="fixed top-0 left-0 right-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b z-50 transition-all duration-200"
+          className="fixed top-0 left-0 right-0 bg-background border-b z-50 transition-all duration-200"
           data-testid="sticky-patient-header"
         >
           <div className="container mx-auto px-4 py-3">
@@ -617,28 +621,17 @@ export default function PatientDetail() {
         <DialogContent className="max-w-full h-screen m-0 p-0 gap-0 flex flex-col">
           <DialogHeader className="p-6 pb-4 shrink-0 border-b">
             <DialogTitle className="text-2xl mb-4">Pre-Operative Assessment</DialogTitle>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div className="flex items-center gap-3">
-                {mockPatient.sex === "M" ? (
-                  <UserCircle className="h-8 w-8 text-blue-500" />
-                ) : (
-                  <UserRound className="h-8 w-8 text-pink-500" />
-                )}
-                <div>
-                  <p className="font-semibold text-base">{mockPatient.surname}, {mockPatient.firstName}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatDate(mockPatient.birthday)} ({calculateAge(mockPatient.birthday)} y) • ID: {mockPatient.patientId}
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-col justify-center">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Planned Surgery</p>
-                <p className="font-medium">{mockCases.find(c => c.id === selectedCaseId)?.plannedSurgery || selectedCaseId}</p>
-              </div>
-              <div className="flex flex-col justify-center md:text-right">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Surgeon & Date</p>
-                <p className="font-medium">{mockCases.find(c => c.id === selectedCaseId)?.surgeon}</p>
-                <p className="text-xs text-muted-foreground">{new Date(mockCases.find(c => c.id === selectedCaseId)?.plannedDate || '').toLocaleDateString()}</p>
+            <div className="flex items-center gap-3">
+              {mockPatient.sex === "M" ? (
+                <UserCircle className="h-8 w-8 text-blue-500" />
+              ) : (
+                <UserRound className="h-8 w-8 text-pink-500" />
+              )}
+              <div>
+                <p className="font-semibold text-base">{mockPatient.surname}, {mockPatient.firstName}</p>
+                <p className="text-xs text-muted-foreground">
+                  {formatDate(mockPatient.birthday)} ({calculateAge(mockPatient.birthday)} y) • ID: {mockPatient.patientId}
+                </p>
               </div>
             </div>
           </DialogHeader>
@@ -695,6 +688,39 @@ export default function PatientDetail() {
                   )}
                 </Button>
               </div>
+
+              {/* Planned Surgery Card (Non-collapsible) */}
+              <Card className="bg-primary/5 dark:bg-primary/10 border-primary/20">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg text-primary">Planned Surgery Information</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Planned Surgery</p>
+                      <p className="font-semibold text-base">{mockCases.find(c => c.id === selectedCaseId)?.plannedSurgery || selectedCaseId}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Surgeon</p>
+                      <p className="font-semibold text-base">{mockCases.find(c => c.id === selectedCaseId)?.surgeon}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Planned Date</p>
+                      <p className="font-semibold text-base">
+                        {(() => {
+                          const plannedDate = mockCases.find(c => c.id === selectedCaseId)?.plannedDate;
+                          if (!plannedDate) return 'Not scheduled';
+                          try {
+                            return new Date(plannedDate).toLocaleDateString();
+                          } catch {
+                            return 'Invalid date';
+                          }
+                        })()}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
               <Accordion 
                 type="multiple" 
@@ -1796,6 +1822,72 @@ export default function PatientDetail() {
                                 rows={3}
                                 data-testid="textarea-installations-other"
                               />
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label className="text-base font-semibold">Surgical Approval Status</Label>
+                              <div className="border rounded-lg p-3 space-y-2">
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="approved"
+                                    checked={assessmentData.surgicalApprovalStatus === "approved"}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      surgicalApprovalStatus: checked ? "approved" : ""
+                                    })}
+                                    data-testid="checkbox-approved"
+                                  />
+                                  <Label htmlFor="approved" className="cursor-pointer font-normal text-sm">Approved for Surgery</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="standby-ekg"
+                                    checked={assessmentData.surgicalApprovalStatus === "standby-ekg"}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      surgicalApprovalStatus: checked ? "standby-ekg" : ""
+                                    })}
+                                    data-testid="checkbox-standby-ekg"
+                                  />
+                                  <Label htmlFor="standby-ekg" className="cursor-pointer font-normal text-sm">Stand-by waiting for EKG</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="standby-labs"
+                                    checked={assessmentData.surgicalApprovalStatus === "standby-labs"}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      surgicalApprovalStatus: checked ? "standby-labs" : ""
+                                    })}
+                                    data-testid="checkbox-standby-labs"
+                                  />
+                                  <Label htmlFor="standby-labs" className="cursor-pointer font-normal text-sm">Stand-by waiting for Labs</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="standby-other"
+                                    checked={assessmentData.surgicalApprovalStatus === "standby-other"}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      surgicalApprovalStatus: checked ? "standby-other" : ""
+                                    })}
+                                    data-testid="checkbox-standby-other"
+                                  />
+                                  <Label htmlFor="standby-other" className="cursor-pointer font-normal text-sm">Stand-by waiting for Other Exams</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="not-approved"
+                                    checked={assessmentData.surgicalApprovalStatus === "not-approved"}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      surgicalApprovalStatus: checked ? "not-approved" : ""
+                                    })}
+                                    data-testid="checkbox-not-approved"
+                                  />
+                                  <Label htmlFor="not-approved" className="cursor-pointer font-normal text-sm">Not Approved</Label>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
