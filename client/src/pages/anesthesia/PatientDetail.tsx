@@ -168,9 +168,26 @@ export default function PatientDetail() {
     childrenNotes: "",
     
     // Planned Anesthesia
-    plannedAnesthesia: "",
-    installations: "",
-    anesthesiaNotes: "",
+    anesthesiaTechniques: {
+      general: false,
+      spinal: false,
+      epidural: false,
+      regional: false,
+      sedation: false,
+      combined: false,
+    },
+    postOpICU: false,
+    anesthesiaOther: "",
+    
+    installations: {
+      arterialLine: false,
+      centralLine: false,
+      epiduralCatheter: false,
+      urinaryCatheter: false,
+      nasogastricTube: false,
+      peripheralIV: false,
+    },
+    installationsOther: "",
     
     // Doctor Info
     assessmentDate: new Date().toISOString().split('T')[0],
@@ -1578,26 +1595,207 @@ export default function PatientDetail() {
                       <CardTitle className="text-lg">Planned Anesthesia and Installations</CardTitle>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <CardContent className="space-y-4 pt-0">
-                        <div className="space-y-2">
-                          <Label>Planned Anesthesia Technique</Label>
-                          <Textarea
-                            value={assessmentData.plannedAnesthesia}
-                            onChange={(e) => setAssessmentData({...assessmentData, plannedAnesthesia: e.target.value})}
-                            placeholder="Describe the planned anesthesia technique (e.g., General anesthesia with endotracheal intubation, Spinal anesthesia)..."
-                            rows={3}
-                            data-testid="textarea-planned-anesthesia"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Required Installations</Label>
-                          <Textarea
-                            value={assessmentData.installations}
-                            onChange={(e) => setAssessmentData({...assessmentData, installations: e.target.value})}
-                            placeholder="List required installations (e.g., Arterial line, Central venous catheter, Epidural catheter)..."
-                            rows={3}
-                            data-testid="textarea-installations"
-                          />
+                      <CardContent className="pt-0">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label className="text-base font-semibold">Anesthesia Technique</Label>
+                              <div className="border rounded-lg p-3 space-y-2">
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="general"
+                                    checked={assessmentData.anesthesiaTechniques.general}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      anesthesiaTechniques: {...assessmentData.anesthesiaTechniques, general: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-general"
+                                  />
+                                  <Label htmlFor="general" className="cursor-pointer font-normal text-sm">General Anesthesia</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="spinal"
+                                    checked={assessmentData.anesthesiaTechniques.spinal}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      anesthesiaTechniques: {...assessmentData.anesthesiaTechniques, spinal: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-spinal"
+                                  />
+                                  <Label htmlFor="spinal" className="cursor-pointer font-normal text-sm">Spinal Anesthesia</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="epidural"
+                                    checked={assessmentData.anesthesiaTechniques.epidural}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      anesthesiaTechniques: {...assessmentData.anesthesiaTechniques, epidural: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-epidural"
+                                  />
+                                  <Label htmlFor="epidural" className="cursor-pointer font-normal text-sm">Epidural Anesthesia</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="regional"
+                                    checked={assessmentData.anesthesiaTechniques.regional}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      anesthesiaTechniques: {...assessmentData.anesthesiaTechniques, regional: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-regional"
+                                  />
+                                  <Label htmlFor="regional" className="cursor-pointer font-normal text-sm">Regional Anesthesia</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="sedation"
+                                    checked={assessmentData.anesthesiaTechniques.sedation}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      anesthesiaTechniques: {...assessmentData.anesthesiaTechniques, sedation: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-sedation"
+                                  />
+                                  <Label htmlFor="sedation" className="cursor-pointer font-normal text-sm">Sedation</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="combined"
+                                    checked={assessmentData.anesthesiaTechniques.combined}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      anesthesiaTechniques: {...assessmentData.anesthesiaTechniques, combined: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-combined"
+                                  />
+                                  <Label htmlFor="combined" className="cursor-pointer font-normal text-sm">Combined Technique</Label>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <Label className="text-base font-semibold">Post-Operative Care</Label>
+                              <div className="border rounded-lg p-3">
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="postOpICU"
+                                    checked={assessmentData.postOpICU}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      postOpICU: checked as boolean
+                                    })}
+                                    data-testid="checkbox-post-op-icu"
+                                  />
+                                  <Label htmlFor="postOpICU" className="cursor-pointer font-normal text-sm">Post-op ICU</Label>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label className="text-base font-semibold">Other Anesthesia Details</Label>
+                              <Textarea
+                                value={assessmentData.anesthesiaOther}
+                                onChange={(e) => setAssessmentData({...assessmentData, anesthesiaOther: e.target.value})}
+                                placeholder="Enter additional anesthesia details..."
+                                rows={3}
+                                data-testid="textarea-anesthesia-other"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label className="text-base font-semibold">Required Installations</Label>
+                              <div className="border rounded-lg p-3 space-y-2">
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="arterialLine"
+                                    checked={assessmentData.installations.arterialLine}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      installations: {...assessmentData.installations, arterialLine: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-arterial-line"
+                                  />
+                                  <Label htmlFor="arterialLine" className="cursor-pointer font-normal text-sm">Arterial Line</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="centralLine"
+                                    checked={assessmentData.installations.centralLine}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      installations: {...assessmentData.installations, centralLine: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-central-line"
+                                  />
+                                  <Label htmlFor="centralLine" className="cursor-pointer font-normal text-sm">Central Venous Line</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="epiduralCatheter"
+                                    checked={assessmentData.installations.epiduralCatheter}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      installations: {...assessmentData.installations, epiduralCatheter: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-epidural-catheter"
+                                  />
+                                  <Label htmlFor="epiduralCatheter" className="cursor-pointer font-normal text-sm">Epidural Catheter</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="urinaryCatheter"
+                                    checked={assessmentData.installations.urinaryCatheter}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      installations: {...assessmentData.installations, urinaryCatheter: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-urinary-catheter"
+                                  />
+                                  <Label htmlFor="urinaryCatheter" className="cursor-pointer font-normal text-sm">Urinary Catheter</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="nasogastricTube"
+                                    checked={assessmentData.installations.nasogastricTube}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      installations: {...assessmentData.installations, nasogastricTube: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-nasogastric-tube"
+                                  />
+                                  <Label htmlFor="nasogastricTube" className="cursor-pointer font-normal text-sm">Nasogastric Tube</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="peripheralIV"
+                                    checked={assessmentData.installations.peripheralIV}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      installations: {...assessmentData.installations, peripheralIV: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-peripheral-iv"
+                                  />
+                                  <Label htmlFor="peripheralIV" className="cursor-pointer font-normal text-sm">Peripheral IV</Label>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label className="text-base font-semibold">Other Installations</Label>
+                              <Textarea
+                                value={assessmentData.installationsOther}
+                                onChange={(e) => setAssessmentData({...assessmentData, installationsOther: e.target.value})}
+                                placeholder="Enter additional installations..."
+                                rows={3}
+                                data-testid="textarea-installations-other"
+                              />
+                            </div>
+                          </div>
                         </div>
                       </CardContent>
                     </AccordionContent>
