@@ -97,31 +97,31 @@ export default function CaseDetail() {
           <div className="grid grid-cols-3 gap-4">
             <Button
               variant="outline"
-              className="h-auto py-6 flex-col gap-2"
+              className="h-auto py-8 flex-col gap-3"
               onClick={() => setLocation(`/anesthesia/cases/${mockCase.id}/preop`)}
               data-testid="button-preop"
             >
-              <ClipboardList className="h-8 w-8 text-primary" />
+              <ClipboardList className="h-12 w-12 text-primary" />
               <span className="text-sm font-medium">Pre-op</span>
             </Button>
             
             <Button
               variant="outline"
-              className="h-auto py-6 flex-col gap-2"
+              className="h-auto py-8 flex-col gap-3"
               onClick={() => setLocation(`/anesthesia/cases/${mockCase.id}/op`)}
               data-testid="button-op"
             >
-              <Activity className="h-8 w-8 text-primary" />
+              <Activity className="h-12 w-12 text-primary" />
               <span className="text-sm font-medium">OP</span>
             </Button>
             
             <Button
               variant="outline"
-              className="h-auto py-6 flex-col gap-2"
+              className="h-auto py-8 flex-col gap-3"
               onClick={() => setLocation(`/anesthesia/cases/${mockCase.id}/pacu`)}
               data-testid="button-pacu"
             >
-              <BedDouble className="h-8 w-8 text-primary" />
+              <BedDouble className="h-12 w-12 text-primary" />
               <span className="text-sm font-medium">PACU</span>
             </Button>
           </div>
