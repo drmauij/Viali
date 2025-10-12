@@ -6,6 +6,7 @@ import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, Fi
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from "react";
 
 const mockPatient = {
@@ -49,17 +50,23 @@ export default function PatientDetail() {
   const [, setLocation] = useLocation();
   const [isCreateCaseOpen, setIsCreateCaseOpen] = useState(false);
   const [newCase, setNewCase] = useState({
-    title: "",
     plannedSurgery: "",
     surgeon: "",
     plannedDate: "",
-    location: "",
   });
 
+  const surgeons = [
+    "Dr. Smith",
+    "Dr. Johnson",
+    "Dr. Williams",
+    "Dr. Brown",
+    "Dr. Davis",
+  ];
+
   const handleCreateCase = () => {
-    console.log("Creating case:", newCase);
+    console.log("Creating case:", { ...newCase, title: newCase.plannedSurgery });
     setIsCreateCaseOpen(false);
-    setNewCase({ title: "", plannedSurgery: "", surgeon: "", plannedDate: "", location: "" });
+    setNewCase({ plannedSurgery: "", surgeon: "", plannedDate: "" });
   };
 
   const getStatusColor = (status: string) => {
@@ -202,16 +209,6 @@ export default function PatientDetail() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="title">Case Title</Label>
-                <Input
-                  id="title"
-                  placeholder="e.g., Laparoscopic Cholecystectomy"
-                  value={newCase.title}
-                  onChange={(e) => setNewCase({ ...newCase, title: e.target.value })}
-                  data-testid="input-case-title"
-                />
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="surgery">Planned Surgery</Label>
                 <Input
                   id="surgery"
@@ -223,23 +220,18 @@ export default function PatientDetail() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="surgeon">Surgeon</Label>
-                <Input
-                  id="surgeon"
-                  placeholder="e.g., Dr. Smith"
-                  value={newCase.surgeon}
-                  onChange={(e) => setNewCase({ ...newCase, surgeon: e.target.value })}
-                  data-testid="input-surgeon"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
-                <Input
-                  id="location"
-                  placeholder="e.g., OR 3"
-                  value={newCase.location}
-                  onChange={(e) => setNewCase({ ...newCase, location: e.target.value })}
-                  data-testid="input-location"
-                />
+                <Select value={newCase.surgeon} onValueChange={(value) => setNewCase({ ...newCase, surgeon: value })}>
+                  <SelectTrigger data-testid="select-surgeon">
+                    <SelectValue placeholder="Select surgeon" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {surgeons.map((surgeon) => (
+                      <SelectItem key={surgeon} value={surgeon}>
+                        {surgeon}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="date">Planned Date</Label>
