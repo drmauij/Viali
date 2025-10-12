@@ -2,7 +2,7 @@ import { useRoute, useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -255,40 +255,73 @@ export default function PatientDetail() {
         {mockCases.map((caseItem) => (
           <Card 
             key={caseItem.id} 
-            className="p-4 cursor-pointer hover:bg-accent/50 transition-colors" 
             data-testid={`card-case-${caseItem.id}`}
-            onClick={() => setLocation(`/anesthesia/cases/${caseItem.id}`)}
           >
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <FileText className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold text-lg">{caseItem.title}</h3>
+            <CardContent className="pt-6 space-y-4">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <FileText className="h-5 w-5 text-primary" />
+                  <h3 className="font-semibold text-lg">{caseItem.title}</h3>
+                </div>
+                <Badge className={getStatusColor(caseItem.status)}>
+                  {caseItem.status}
+                </Badge>
               </div>
-              <Badge className={getStatusColor(caseItem.status)}>
-                {caseItem.status}
-              </Badge>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div>
-                <p className="text-muted-foreground">Surgery</p>
-                <p className="font-medium">{caseItem.plannedSurgery}</p>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Surgery</p>
+                  <p className="font-medium">{caseItem.plannedSurgery}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Surgeon</p>
+                  <p className="font-medium">{caseItem.surgeon}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Location</p>
+                  <p className="font-medium">{caseItem.location}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Planned Date</p>
+                  <p className="font-medium flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {new Date(caseItem.plannedDate).toLocaleDateString()}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-muted-foreground">Surgeon</p>
-                <p className="font-medium">{caseItem.surgeon}</p>
+
+              <div className="grid grid-cols-3 gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  className="h-auto py-6 flex-col gap-2"
+                  onClick={() => setLocation(`/anesthesia/cases/${caseItem.id}/preop`)}
+                  data-testid={`button-preop-${caseItem.id}`}
+                >
+                  <ClipboardList className="h-10 w-10 text-primary" />
+                  <span className="text-sm font-medium">Pre-op</span>
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  className="h-auto py-6 flex-col gap-2"
+                  onClick={() => setLocation(`/anesthesia/cases/${caseItem.id}/op`)}
+                  data-testid={`button-op-${caseItem.id}`}
+                >
+                  <Activity className="h-10 w-10 text-primary" />
+                  <span className="text-sm font-medium">OP</span>
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  className="h-auto py-6 flex-col gap-2"
+                  onClick={() => setLocation(`/anesthesia/cases/${caseItem.id}/pacu`)}
+                  data-testid={`button-pacu-${caseItem.id}`}
+                >
+                  <BedDouble className="h-10 w-10 text-primary" />
+                  <span className="text-sm font-medium">PACU</span>
+                </Button>
               </div>
-              <div>
-                <p className="text-muted-foreground">Location</p>
-                <p className="font-medium">{caseItem.location}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Planned Date</p>
-                <p className="font-medium flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  {new Date(caseItem.plannedDate).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
+            </CardContent>
           </Card>
         ))}
       </div>
