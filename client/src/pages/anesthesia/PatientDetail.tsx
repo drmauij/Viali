@@ -8,6 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 
 const mockPatient = {
   id: "1",
@@ -49,10 +52,19 @@ export default function PatientDetail() {
   const [, params] = useRoute("/anesthesia/patients/:id");
   const [, setLocation] = useLocation();
   const [isCreateCaseOpen, setIsCreateCaseOpen] = useState(false);
+  const [isPreOpOpen, setIsPreOpOpen] = useState(false);
+  const [selectedCaseId, setSelectedCaseId] = useState<string>("");
   const [newCase, setNewCase] = useState({
     plannedSurgery: "",
     surgeon: "",
     plannedDate: "",
+  });
+  const [consentData, setConsentData] = useState({
+    general: false,
+    regional: false,
+    installations: false,
+    icuAdmission: false,
+    date: "",
   });
 
   const surgeons = [
@@ -294,11 +306,14 @@ export default function PatientDetail() {
                 <Button
                   variant="outline"
                   className="h-auto py-4 flex-col gap-2"
-                  onClick={() => setLocation(`/anesthesia/cases/${caseItem.id}/preop`)}
+                  onClick={() => {
+                    setSelectedCaseId(caseItem.id);
+                    setIsPreOpOpen(true);
+                  }}
                   data-testid={`button-preop-${caseItem.id}`}
                 >
                   <ClipboardList className="h-10 w-10 text-primary" />
-                  <span className="text-sm font-medium">Pre-op</span>
+                  <span className="text-sm font-medium">Pre-OP</span>
                 </Button>
                 
                 <Button
@@ -325,6 +340,203 @@ export default function PatientDetail() {
           </Card>
         ))}
       </div>
+
+      {/* Pre-OP Full Screen Dialog */}
+      <Dialog open={isPreOpOpen} onOpenChange={setIsPreOpOpen}>
+        <DialogContent className="max-w-full h-screen m-0 p-0 gap-0">
+          <DialogHeader className="p-6 pb-0">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-2xl">Pre-OP - Case {selectedCaseId}</DialogTitle>
+            </div>
+          </DialogHeader>
+          
+          <Tabs defaultValue="assessment" className="flex-1 flex flex-col p-6">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="assessment" data-testid="tab-assessment">Pre-OP Assessment</TabsTrigger>
+              <TabsTrigger value="consent" data-testid="tab-consent">Informed Consent</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="assessment" className="flex-1 overflow-y-auto space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Patient Assessment</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>ASA Classification</Label>
+                      <Select>
+                        <SelectTrigger data-testid="select-asa-classification">
+                          <SelectValue placeholder="Select ASA class" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="I">I - Healthy</SelectItem>
+                          <SelectItem value="II">II - Mild systemic disease</SelectItem>
+                          <SelectItem value="III">III - Severe systemic disease</SelectItem>
+                          <SelectItem value="IV">IV - Life-threatening disease</SelectItem>
+                          <SelectItem value="V">V - Moribund</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Mallampati Class</Label>
+                      <Select>
+                        <SelectTrigger data-testid="select-mallampati">
+                          <SelectValue placeholder="Select class" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="I">I</SelectItem>
+                          <SelectItem value="II">II</SelectItem>
+                          <SelectItem value="III">III</SelectItem>
+                          <SelectItem value="IV">IV</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Anesthesia Plan</Label>
+                    <Textarea 
+                      placeholder="Enter planned anesthesia technique and considerations..."
+                      rows={4}
+                      data-testid="textarea-anesthesia-plan"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Special Considerations</Label>
+                    <Textarea 
+                      placeholder="Enter any special considerations, allergies, or concerns..."
+                      rows={4}
+                      data-testid="textarea-special-considerations"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="consent" className="flex-1 overflow-y-auto space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Informed Consent for Anesthesia</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                      <Checkbox 
+                        id="general"
+                        checked={consentData.general}
+                        onCheckedChange={(checked) => setConsentData({...consentData, general: checked as boolean})}
+                        data-testid="checkbox-general"
+                      />
+                      <div className="flex-1">
+                        <Label htmlFor="general" className="font-semibold text-base cursor-pointer">
+                          General Anesthesia
+                        </Label>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Complete loss of consciousness using intravenous and/or inhaled medications.
+                        </p>
+                        <p className="text-sm text-destructive mt-2">
+                          <strong>Possible adverse events:</strong> Nausea, vomiting, sore throat, dental damage, awareness during anesthesia (rare), allergic reactions, cardiovascular complications.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                      <Checkbox 
+                        id="regional"
+                        checked={consentData.regional}
+                        onCheckedChange={(checked) => setConsentData({...consentData, regional: checked as boolean})}
+                        data-testid="checkbox-regional"
+                      />
+                      <div className="flex-1">
+                        <Label htmlFor="regional" className="font-semibold text-base cursor-pointer">
+                          Regional Anesthesia
+                        </Label>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Numbing of a specific region using local anesthetic injections (spinal, epidural, nerve blocks).
+                        </p>
+                        <p className="text-sm text-destructive mt-2">
+                          <strong>Possible adverse events:</strong> Headache, back pain, nerve damage (rare), hypotension, bleeding, infection at injection site.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                      <Checkbox 
+                        id="installations"
+                        checked={consentData.installations}
+                        onCheckedChange={(checked) => setConsentData({...consentData, installations: checked as boolean})}
+                        data-testid="checkbox-installations"
+                      />
+                      <div className="flex-1">
+                        <Label htmlFor="installations" className="font-semibold text-base cursor-pointer">
+                          Planned Installations (IV lines, catheters)
+                        </Label>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Placement of intravenous lines, arterial lines, central lines, or urinary catheters as needed.
+                        </p>
+                        <p className="text-sm text-destructive mt-2">
+                          <strong>Possible adverse events:</strong> Infection, bleeding, hematoma, pneumothorax (for central lines), thrombosis.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                      <Checkbox 
+                        id="icuAdmission"
+                        checked={consentData.icuAdmission}
+                        onCheckedChange={(checked) => setConsentData({...consentData, icuAdmission: checked as boolean})}
+                        data-testid="checkbox-icu"
+                      />
+                      <div className="flex-1">
+                        <Label htmlFor="icuAdmission" className="font-semibold text-base cursor-pointer">
+                          Postoperative ICU Admission
+                        </Label>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Transfer to Intensive Care Unit for close monitoring after surgery.
+                        </p>
+                        <p className="text-sm text-destructive mt-2">
+                          <strong>Purpose:</strong> Close hemodynamic monitoring, respiratory support, pain management, and early detection of complications.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pt-4 border-t">
+                    <div className="space-y-2">
+                      <Label>Date</Label>
+                      <Input
+                        type="date"
+                        value={consentData.date}
+                        onChange={(e) => setConsentData({...consentData, date: e.target.value})}
+                        data-testid="input-consent-date"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Patient Signature</Label>
+                        <div className="border-2 border-dashed rounded-lg h-32 flex items-center justify-center bg-muted/50">
+                          <p className="text-sm text-muted-foreground">Double tap to sign</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Doctor Signature</Label>
+                        <div className="border-2 border-dashed rounded-lg h-32 flex items-center justify-center bg-muted/50">
+                          <p className="text-sm text-muted-foreground">Double tap to sign</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button className="w-full" size="lg" data-testid="button-save-consent">
+                    Save Informed Consent
+                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
