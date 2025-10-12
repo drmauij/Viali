@@ -2,7 +2,7 @@ import { useRoute, useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -639,9 +639,20 @@ export default function PatientDetail() {
 
       {/* Pre-OP Full Screen Dialog */}
       <Dialog open={isPreOpOpen} onOpenChange={setIsPreOpOpen}>
-        <DialogContent className="max-w-full h-screen m-0 p-0 gap-0 flex flex-col">
-          <DialogHeader className="p-6 pb-4 shrink-0 border-b">
-            <DialogTitle className="text-2xl mb-4">Pre-Operative Assessment</DialogTitle>
+        <DialogContent className="max-w-full h-screen m-0 p-0 gap-0 flex flex-col [&>button]:hidden">
+          <DialogHeader className="p-6 pb-4 shrink-0 border-b relative">
+            <div className="flex items-center justify-between mb-4">
+              <DialogTitle className="text-2xl">Pre-Operative Assessment</DialogTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsPreOpOpen(false)}
+                className="absolute right-4 top-4"
+                data-testid="button-close-preop-dialog"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
             <div className="flex items-center gap-3">
               {mockPatient.sex === "M" ? (
                 <UserCircle className="h-8 w-8 text-blue-500" />

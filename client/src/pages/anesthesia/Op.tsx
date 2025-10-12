@@ -182,9 +182,20 @@ export default function Op() {
     <Dialog open={isOpen} onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-full h-screen m-0 p-0 gap-0 flex flex-col [&>button]:hidden">
         {/* Fixed Patient Info Header */}
-        <div className="shrink-0 border-b bg-background">
-          <div className="px-6 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-8 flex-1">
+        <div className="shrink-0 border-b bg-background relative">
+          {/* Close Button - Fixed top-right */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleClose}
+            className="absolute right-4 top-4 z-10"
+            data-testid="button-close-op"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+
+          <div className="px-4 md:px-6 py-3 pr-14">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-8">
               {/* Patient Name & Icon */}
               <div className="flex items-center gap-3">
                 {currentPatient.sex === "M" ? (
@@ -193,9 +204,9 @@ export default function Op() {
                   <UserRound className="h-8 w-8 text-pink-500" />
                 )}
                 <div>
-                  <h2 className="font-bold text-lg">{currentPatient.surname}, {currentPatient.firstName}</h2>
-                  <p className="text-sm text-muted-foreground">
-                    {new Date(currentPatient.birthday).toLocaleDateString()} ({calculateAge(currentPatient.birthday)} years) • {currentPatient.patientId}
+                  <h2 className="font-bold text-base md:text-lg">{currentPatient.surname}, {currentPatient.firstName}</h2>
+                  <p className="text-xs md:text-sm text-muted-foreground">
+                    {new Date(currentPatient.birthday).toLocaleDateString()} ({calculateAge(currentPatient.birthday)} y) • {currentPatient.patientId}
                   </p>
                 </div>
               </div>
@@ -203,12 +214,12 @@ export default function Op() {
               {/* Surgery Info */}
               <div className="px-3 py-2 bg-primary/10 border border-primary/30 rounded-lg">
                 <p className="text-xs font-medium text-primary/70">PROCEDURE</p>
-                <p className="font-semibold text-primary">{currentCase.plannedSurgery}</p>
+                <p className="font-semibold text-sm text-primary">{currentCase.plannedSurgery}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">{currentCase.surgeon} • {new Date(currentCase.plannedDate).toLocaleDateString()}</p>
               </div>
 
-              {/* Height/Weight/BMI */}
-              <div className="flex gap-4">
+              {/* Height/Weight/BMI - Hide on mobile, show on md+ */}
+              <div className="hidden md:flex gap-4">
                 <div>
                   <p className="text-xs text-muted-foreground">Height</p>
                   <p className="font-semibold">{currentPatient.height} cm</p>
@@ -224,26 +235,16 @@ export default function Op() {
               </div>
 
               {/* Allergies - Prominent Display */}
-              <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 rounded-lg">
-                <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              <div className="flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 rounded-lg">
+                <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400" />
                 <div>
                   <p className="text-xs font-medium text-amber-700 dark:text-amber-300">ALLERGIES</p>
-                  <p className="font-semibold text-amber-900 dark:text-amber-100">
+                  <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
                     {currentPatient.allergies.join(", ")}
                   </p>
                 </div>
               </div>
             </div>
-
-            {/* Close Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleClose}
-              data-testid="button-close-op"
-            >
-              <X className="h-5 w-5" />
-            </Button>
           </div>
         </div>
 
