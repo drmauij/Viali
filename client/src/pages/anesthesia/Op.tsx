@@ -138,12 +138,20 @@ export default function Op() {
     complications: "",
   });
 
+  // Handle dialog close and navigation
+  const handleDialogChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      // When dialog closes, navigate to patient detail
+      setTimeout(() => {
+        setLocation(`/anesthesia/patients/${currentCase.patientId}`);
+      }, 100);
+    }
+  };
+  
   // Close dialog handler
   const handleClose = () => {
-    setIsOpen(false);
-    setTimeout(() => {
-      setLocation(`/anesthesia/patients/${currentCase.patientId}`);
-    }, 100);
+    handleDialogChange(false);
   };
 
   // Calculate age
@@ -169,7 +177,7 @@ export default function Op() {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-full h-screen m-0 p-0 gap-0 flex flex-col">
         {/* Fixed Patient Info Header */}
         <div className="shrink-0 border-b bg-background">
