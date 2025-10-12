@@ -1,4 +1,4 @@
-import { useRoute, Link } from "wouter";
+import { useRoute, useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +46,7 @@ const mockCases = [
 
 export default function PatientDetail() {
   const [, params] = useRoute("/anesthesia/patients/:id");
+  const [, setLocation] = useLocation();
   const [isCreateCaseOpen, setIsCreateCaseOpen] = useState(false);
   const [newCase, setNewCase] = useState({
     title: "",
@@ -280,44 +281,43 @@ export default function PatientDetail() {
 
       <div className="space-y-4">
         {mockCases.map((caseItem) => (
-          <Link key={caseItem.id} href={`/anesthesia/cases/${caseItem.id}`}>
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer" data-testid={`card-case-${caseItem.id}`}>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-5 w-5 text-primary" />
-                    <span>{caseItem.title}</span>
-                  </div>
-                  <Badge className={getStatusColor(caseItem.status)}>
-                    {caseItem.status}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Surgery</p>
-                    <p className="font-medium">{caseItem.plannedSurgery}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Surgeon</p>
-                    <p className="font-medium">{caseItem.surgeon}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Location</p>
-                    <p className="font-medium">{caseItem.location}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Planned Date</p>
-                    <p className="font-medium flex items-center gap-1">
-                      <Calendar className="h-3 w-3" />
-                      {new Date(caseItem.plannedDate).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
+          <Card 
+            key={caseItem.id} 
+            className="p-4 cursor-pointer hover:bg-accent/50 transition-colors" 
+            data-testid={`card-case-${caseItem.id}`}
+            onClick={() => setLocation(`/anesthesia/cases/${caseItem.id}`)}
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <FileText className="h-5 w-5 text-primary" />
+                <h3 className="font-semibold text-lg">{caseItem.title}</h3>
+              </div>
+              <Badge className={getStatusColor(caseItem.status)}>
+                {caseItem.status}
+              </Badge>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <p className="text-muted-foreground">Surgery</p>
+                <p className="font-medium">{caseItem.plannedSurgery}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Surgeon</p>
+                <p className="font-medium">{caseItem.surgeon}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Location</p>
+                <p className="font-medium">{caseItem.location}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Planned Date</p>
+                <p className="font-medium flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  {new Date(caseItem.plannedDate).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+          </Card>
         ))}
       </div>
     </div>
