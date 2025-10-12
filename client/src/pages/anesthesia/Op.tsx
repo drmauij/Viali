@@ -12,6 +12,7 @@ import {
   X, 
   Gauge, 
   Heart, 
+  Thermometer,
   Wind, 
   Syringe,
   Users,
@@ -293,6 +294,14 @@ export default function Op() {
                 <Button 
                   variant="outline" 
                   className="w-full h-16 flex-col gap-1 p-2"
+                  data-testid="button-add-temp"
+                >
+                  <Thermometer className="h-6 w-6 text-orange-600" />
+                  <span className="text-xs">Temp</span>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full h-16 flex-col gap-1 p-2"
                   data-testid="button-add-spo2"
                 >
                   <Wind className="h-6 w-6 text-cyan-600" />
@@ -393,6 +402,36 @@ export default function Op() {
                                   <circle cx="5%" cy="60%" r="4" fill="#dc2626" />
                                   <circle cx="15%" cy="50%" r="4" fill="#dc2626" />
                                   <circle cx="25%" cy="55%" r="4" fill="#dc2626" />
+                                </svg>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Temp Track */}
+                      <div className="border-b">
+                        <div className="flex items-center h-20">
+                          <div className="w-24 shrink-0 px-3 py-2 border-r bg-muted/20">
+                            <p className="text-xs font-semibold text-orange-600">Temp</p>
+                            <p className="text-[10px] text-muted-foreground">°C</p>
+                          </div>
+                          <div className="flex-1 relative h-full">
+                            {/* Grid lines */}
+                            <div className="absolute inset-0 flex">
+                              {Array.from({ length: 13 }).map((_, i) => (
+                                <div key={i} className="flex-1 border-r last:border-r-0" />
+                              ))}
+                            </div>
+                            {/* Sample data points */}
+                            <div className="absolute inset-0 flex items-center px-4">
+                              <div className="relative w-full h-8">
+                                <svg className="w-full h-full">
+                                  <line x1="5%" y1="50%" x2="15%" y2="50%" stroke="#ea580c" strokeWidth="2" />
+                                  <line x1="15%" y1="50%" x2="25%" y2="48%" stroke="#ea580c" strokeWidth="2" />
+                                  <circle cx="5%" cy="50%" r="4" fill="#ea580c" />
+                                  <circle cx="15%" cy="50%" r="4" fill="#ea580c" />
+                                  <circle cx="25%" cy="48%" r="4" fill="#ea580c" />
                                 </svg>
                               </div>
                             </div>
