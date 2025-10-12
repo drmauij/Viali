@@ -114,7 +114,7 @@ export default function PatientDetail() {
               <div>
                 <div>{mockPatient.surname}, {mockPatient.firstName}</div>
                 <p className="text-sm text-muted-foreground font-normal mt-1">
-                  Patient ID: {mockPatient.patientId} • {formatDate(mockPatient.birthday)} ({calculateAge(mockPatient.birthday)} years)
+                  {formatDate(mockPatient.birthday)} ({calculateAge(mockPatient.birthday)} years) • Patient ID: {mockPatient.patientId}
                 </p>
               </div>
             </CardTitle>
