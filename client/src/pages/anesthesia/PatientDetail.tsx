@@ -73,6 +73,8 @@ export default function PatientDetail() {
   
   const [assessmentData, setAssessmentData] = useState({
     // General Data
+    height: "",
+    weight: "",
     allergies: [] as string[],
     allergiesOther: "",
     asa: "",
@@ -83,6 +85,7 @@ export default function PatientDetail() {
     anticoagulationMedsOther: "",
     generalMeds: [] as string[],
     generalMedsOther: "",
+    medicationsNotes: "",
     
     // Heart and Circulation
     heartIllnesses: {
@@ -103,27 +106,71 @@ export default function PatientDetail() {
     },
     lungNotes: "",
     
-    // Kidneys and Metabolic
+    // GI-Tract, Kidney and Metabolic
+    giIllnesses: {
+      reflux: false,
+      ibd: false,
+      liverDisease: false,
+    },
     kidneyIllnesses: {
       ckd: false,
       dialysis: false,
+    },
+    metabolicIllnesses: {
       diabetes: false,
       thyroid: false,
     },
-    kidneyNotes: "",
+    giKidneyMetabolicNotes: "",
     
-    // Neuro
+    // Neurological, Psychiatry and Skeletal
     neuroIllnesses: {
       stroke: false,
       epilepsy: false,
       parkinsons: false,
       dementia: false,
     },
-    neuroNotes: "",
+    psychIllnesses: {
+      depression: false,
+      anxiety: false,
+      psychosis: false,
+    },
+    skeletalIllnesses: {
+      arthritis: false,
+      osteoporosis: false,
+      spineDisorders: false,
+    },
+    neuroPsychSkeletalNotes: "",
+    
+    // Woman (Gynecological)
+    womanIssues: {
+      pregnancy: false,
+      breastfeeding: false,
+      menopause: false,
+      gynecologicalSurgery: false,
+    },
+    womanNotes: "",
+    
+    // Noxen (Substances)
+    noxen: {
+      nicotine: false,
+      alcohol: false,
+      drugs: false,
+    },
+    noxenNotes: "",
+    
+    // Children (Pediatric)
+    childrenIssues: {
+      prematurity: false,
+      developmentalDelay: false,
+      congenitalAnomalies: false,
+      vaccination: false,
+    },
+    childrenNotes: "",
     
     // Planned Anesthesia
-    plannedAnesthesia: [] as string[],
-    installations: [] as string[],
+    plannedAnesthesia: "",
+    installations: "",
+    anesthesiaNotes: "",
     
     // Doctor Info
     assessmentDate: new Date().toISOString().split('T')[0],
@@ -131,7 +178,7 @@ export default function PatientDetail() {
     doctorSignature: "",
   });
   
-  const [openSections, setOpenSections] = useState<string[]>(["general", "medications", "heart", "lungs", "kidneys", "neuro", "anesthesia"]);
+  const [openSections, setOpenSections] = useState<string[]>(["general", "medications", "heart", "lungs", "gi-kidney-metabolic", "neuro-psych-skeletal", "woman", "noxen", "children", "anesthesia"]);
 
   const surgeons = [
     "Dr. Smith",
@@ -217,16 +264,42 @@ export default function PatientDetail() {
     return Object.values(assessmentData.lungIllnesses).some(v => v) || assessmentData.lungNotes.trim() !== "";
   };
   
-  const hasKidneyData = () => {
-    return Object.values(assessmentData.kidneyIllnesses).some(v => v) || assessmentData.kidneyNotes.trim() !== "";
+  const hasGIKidneyMetabolicData = () => {
+    return Object.values(assessmentData.giIllnesses).some(v => v) || 
+           Object.values(assessmentData.kidneyIllnesses).some(v => v) || 
+           Object.values(assessmentData.metabolicIllnesses).some(v => v) || 
+           assessmentData.giKidneyMetabolicNotes.trim() !== "";
   };
   
-  const hasNeuroData = () => {
-    return Object.values(assessmentData.neuroIllnesses).some(v => v) || assessmentData.neuroNotes.trim() !== "";
+  const hasNeuroPsychSkeletalData = () => {
+    return Object.values(assessmentData.neuroIllnesses).some(v => v) || 
+           Object.values(assessmentData.psychIllnesses).some(v => v) || 
+           Object.values(assessmentData.skeletalIllnesses).some(v => v) || 
+           assessmentData.neuroPsychSkeletalNotes.trim() !== "";
+  };
+  
+  const hasWomanData = () => {
+    return Object.values(assessmentData.womanIssues).some(v => v) || assessmentData.womanNotes.trim() !== "";
+  };
+  
+  const hasNoxenData = () => {
+    return Object.values(assessmentData.noxen).some(v => v) || assessmentData.noxenNotes.trim() !== "";
+  };
+  
+  const hasChildrenData = () => {
+    return Object.values(assessmentData.childrenIssues).some(v => v) || assessmentData.childrenNotes.trim() !== "";
+  };
+  
+  const hasAnesthesiaData = () => {
+    return assessmentData.plannedAnesthesia.trim() !== "" || 
+           assessmentData.installations.trim() !== "" || 
+           assessmentData.anesthesiaNotes.trim() !== "";
   };
   
   const hasGeneralData = () => {
-    return assessmentData.allergies.length > 0 ||
+    return assessmentData.height.trim() !== "" ||
+           assessmentData.weight.trim() !== "" ||
+           assessmentData.allergies.length > 0 ||
            assessmentData.allergiesOther.trim() !== "" ||
            assessmentData.asa.trim() !== "" ||
            assessmentData.specialNotes.trim() !== "";
@@ -236,7 +309,8 @@ export default function PatientDetail() {
     return assessmentData.anticoagulationMeds.length > 0 ||
            assessmentData.anticoagulationMedsOther.trim() !== "" ||
            assessmentData.generalMeds.length > 0 ||
-           assessmentData.generalMedsOther.trim() !== "";
+           assessmentData.generalMedsOther.trim() !== "" ||
+           assessmentData.medicationsNotes.trim() !== "";
   };
 
   useEffect(() => {
@@ -563,11 +637,26 @@ export default function PatientDetail() {
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    const allSectionIds = ["general", "medications", "heart", "lungs", "kidneys", "neuro", "anesthesia"];
+                    const allSectionIds = ["general", "medications", "heart", "lungs", "gi-kidney-metabolic", "neuro-psych-skeletal", "woman", "noxen", "children", "anesthesia"];
+                    // Get only filled sections
+                    const filledSections = allSectionIds.filter(id => {
+                      if (id === "general") return hasGeneralData();
+                      if (id === "medications") return hasMedicationsData();
+                      if (id === "heart") return hasHeartData();
+                      if (id === "lungs") return hasLungData();
+                      if (id === "gi-kidney-metabolic") return hasGIKidneyMetabolicData();
+                      if (id === "neuro-psych-skeletal") return hasNeuroPsychSkeletalData();
+                      if (id === "woman") return hasWomanData();
+                      if (id === "noxen") return hasNoxenData();
+                      if (id === "children") return hasChildrenData();
+                      if (id === "anesthesia") return hasAnesthesiaData();
+                      return false;
+                    });
+                    
                     if (openSections.length > 0) {
                       setOpenSections([]);
                     } else {
-                      setOpenSections(allSectionIds);
+                      setOpenSections(filledSections.length > 0 ? filledSections : allSectionIds);
                     }
                   }}
                   className="gap-2"
@@ -601,6 +690,42 @@ export default function PatientDetail() {
                     </AccordionTrigger>
                     <AccordionContent>
                       <CardContent className="space-y-4 pt-0">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label>Height (cm)</Label>
+                            <Input
+                              type="number"
+                              value={assessmentData.height}
+                              onChange={(e) => setAssessmentData({...assessmentData, height: e.target.value})}
+                              placeholder="Enter height..."
+                              data-testid="input-height"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Weight (kg)</Label>
+                            <Input
+                              type="number"
+                              value={assessmentData.weight}
+                              onChange={(e) => setAssessmentData({...assessmentData, weight: e.target.value})}
+                              placeholder="Enter weight..."
+                              data-testid="input-weight"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>BMI</Label>
+                            <Input
+                              type="text"
+                              value={assessmentData.height && assessmentData.weight ? 
+                                (parseFloat(assessmentData.weight) / Math.pow(parseFloat(assessmentData.height) / 100, 2)).toFixed(1) : 
+                                ''
+                              }
+                              readOnly
+                              placeholder="Auto-calculated"
+                              className="bg-muted"
+                              data-testid="input-bmi"
+                            />
+                          </div>
+                        </div>
                         <div className="space-y-2">
                           <Label>Allergies</Label>
                           <div className="border rounded-lg p-3 space-y-2">
@@ -666,69 +791,85 @@ export default function PatientDetail() {
 
                 {/* Medications Section */}
                 <AccordionItem value="medications">
-                  <Card className={hasMedicationsData() ? "border-white dark:border-white" : ""}>
+                  <Card className={hasMedicationsData() ? "border-purple-400 dark:border-purple-600" : ""}>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-medications">
-                      <CardTitle className="text-lg">Medications</CardTitle>
+                      <CardTitle className={`text-lg ${hasMedicationsData() ? "text-purple-600 dark:text-purple-400" : ""}`}>
+                        Medications
+                      </CardTitle>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <CardContent className="space-y-4 pt-0">
-                        <div className="space-y-2">
-                          <Label className="text-base font-semibold">Anticoagulation Medications</Label>
-                          <div className="border rounded-lg p-3 space-y-2">
-                            <div className="grid grid-cols-2 gap-2">
-                              {anticoagulationMedications.map((medication) => (
-                                <div key={medication} className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id={`anticoag-${medication}`}
-                                    checked={assessmentData.anticoagulationMeds.includes(medication)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setAssessmentData({...assessmentData, anticoagulationMeds: [...assessmentData.anticoagulationMeds, medication]});
-                                      } else {
-                                        setAssessmentData({...assessmentData, anticoagulationMeds: assessmentData.anticoagulationMeds.filter(m => m !== medication)});
-                                      }
-                                    }}
-                                    data-testid={`checkbox-anticoag-${medication.toLowerCase().replace(/\s+/g, '-')}`}
-                                  />
-                                  <Label htmlFor={`anticoag-${medication}`} className="cursor-pointer font-normal text-sm">{medication}</Label>
+                      <CardContent className="pt-0">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label className="text-base font-semibold">Anticoagulation Medications</Label>
+                              <div className="border rounded-lg p-3 space-y-2">
+                                <div className="grid grid-cols-2 gap-2">
+                                  {anticoagulationMedications.map((medication) => (
+                                    <div key={medication} className="flex items-center space-x-2">
+                                      <Checkbox
+                                        id={`anticoag-${medication}`}
+                                        checked={assessmentData.anticoagulationMeds.includes(medication)}
+                                        onCheckedChange={(checked) => {
+                                          if (checked) {
+                                            setAssessmentData({...assessmentData, anticoagulationMeds: [...assessmentData.anticoagulationMeds, medication]});
+                                          } else {
+                                            setAssessmentData({...assessmentData, anticoagulationMeds: assessmentData.anticoagulationMeds.filter(m => m !== medication)});
+                                          }
+                                        }}
+                                        data-testid={`checkbox-anticoag-${medication.toLowerCase().replace(/\s+/g, '-')}`}
+                                      />
+                                      <Label htmlFor={`anticoag-${medication}`} className="cursor-pointer font-normal text-sm">{medication}</Label>
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
+                                <Input
+                                  value={assessmentData.anticoagulationMedsOther}
+                                  onChange={(e) => setAssessmentData({...assessmentData, anticoagulationMedsOther: e.target.value})}
+                                  placeholder="Other anticoagulation medications (free text)..."
+                                  data-testid="input-anticoag-other"
+                                />
+                              </div>
                             </div>
-                            <Input
-                              value={assessmentData.anticoagulationMedsOther}
-                              onChange={(e) => setAssessmentData({...assessmentData, anticoagulationMedsOther: e.target.value})}
-                              placeholder="Other anticoagulation medications (free text)..."
-                              data-testid="input-anticoag-other"
-                            />
+                            <div className="space-y-2">
+                              <Label className="text-base font-semibold">General Medications</Label>
+                              <div className="border rounded-lg p-3 space-y-2">
+                                <div className="grid grid-cols-2 gap-2">
+                                  {generalMedications.map((medication) => (
+                                    <div key={medication} className="flex items-center space-x-2">
+                                      <Checkbox
+                                        id={`general-med-${medication}`}
+                                        checked={assessmentData.generalMeds.includes(medication)}
+                                        onCheckedChange={(checked) => {
+                                          if (checked) {
+                                            setAssessmentData({...assessmentData, generalMeds: [...assessmentData.generalMeds, medication]});
+                                          } else {
+                                            setAssessmentData({...assessmentData, generalMeds: assessmentData.generalMeds.filter(m => m !== medication)});
+                                          }
+                                        }}
+                                        data-testid={`checkbox-general-med-${medication.toLowerCase().replace(/\s+/g, '-')}`}
+                                      />
+                                      <Label htmlFor={`general-med-${medication}`} className="cursor-pointer font-normal text-sm">{medication}</Label>
+                                    </div>
+                                  ))}
+                                </div>
+                                <Input
+                                  value={assessmentData.generalMedsOther}
+                                  onChange={(e) => setAssessmentData({...assessmentData, generalMedsOther: e.target.value})}
+                                  placeholder="Other medications (free text)..."
+                                  data-testid="input-general-med-other"
+                                />
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-base font-semibold">General Medications</Label>
-                          <div className="border rounded-lg p-3 space-y-2">
-                            <div className="grid grid-cols-2 gap-2">
-                              {generalMedications.map((medication) => (
-                                <div key={medication} className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id={`general-med-${medication}`}
-                                    checked={assessmentData.generalMeds.includes(medication)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setAssessmentData({...assessmentData, generalMeds: [...assessmentData.generalMeds, medication]});
-                                      } else {
-                                        setAssessmentData({...assessmentData, generalMeds: assessmentData.generalMeds.filter(m => m !== medication)});
-                                      }
-                                    }}
-                                    data-testid={`checkbox-general-med-${medication.toLowerCase().replace(/\s+/g, '-')}`}
-                                  />
-                                  <Label htmlFor={`general-med-${medication}`} className="cursor-pointer font-normal text-sm">{medication}</Label>
-                                </div>
-                              ))}
-                            </div>
-                            <Input
-                              value={assessmentData.generalMedsOther}
-                              onChange={(e) => setAssessmentData({...assessmentData, generalMedsOther: e.target.value})}
-                              placeholder="Other medications (free text)..."
-                              data-testid="input-general-med-other"
+                          <div className="space-y-2">
+                            <Label className="text-base font-semibold">Additional Notes</Label>
+                            <Textarea
+                              value={assessmentData.medicationsNotes}
+                              onChange={(e) => setAssessmentData({...assessmentData, medicationsNotes: e.target.value})}
+                              placeholder="Enter additional notes about medications..."
+                              rows={14}
+                              data-testid="textarea-medications-notes"
                             />
                           </div>
                         </div>
@@ -909,19 +1050,58 @@ export default function PatientDetail() {
                   </Card>
                 </AccordionItem>
 
-                {/* Kidneys and Metabolic Section */}
-                <AccordionItem value="kidneys">
-                  <Card className={hasKidneyData() ? "border-yellow-500 dark:border-yellow-700" : ""}>
-                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-kidneys">
-                      <CardTitle className={`text-lg ${hasKidneyData() ? "text-yellow-600 dark:text-yellow-400" : ""}`}>
-                        Kidneys and Metabolic
+                {/* GI-Tract, Kidney and Metabolic Section */}
+                <AccordionItem value="gi-kidney-metabolic">
+                  <Card className={hasGIKidneyMetabolicData() ? "border-yellow-500 dark:border-yellow-700" : ""}>
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-gi-kidney-metabolic">
+                      <CardTitle className={`text-lg ${hasGIKidneyMetabolicData() ? "text-yellow-600 dark:text-yellow-400" : ""}`}>
+                        GI-Tract, Kidney and Metabolic
                       </CardTitle>
                     </AccordionTrigger>
                     <AccordionContent>
                       <CardContent className="pt-0">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-3">
-                            <Label className="text-base font-semibold">Conditions</Label>
+                            <Label className="text-base font-semibold">GI-Tract</Label>
+                            <div className="space-y-2">
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="reflux"
+                                  checked={assessmentData.giIllnesses.reflux}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    giIllnesses: {...assessmentData.giIllnesses, reflux: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-reflux"
+                                />
+                                <Label htmlFor="reflux" className="cursor-pointer">Reflux</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="ibd"
+                                  checked={assessmentData.giIllnesses.ibd}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    giIllnesses: {...assessmentData.giIllnesses, ibd: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-ibd"
+                                />
+                                <Label htmlFor="ibd" className="cursor-pointer">IBD</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="liverDisease"
+                                  checked={assessmentData.giIllnesses.liverDisease}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    giIllnesses: {...assessmentData.giIllnesses, liverDisease: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-liver-disease"
+                                />
+                                <Label htmlFor="liverDisease" className="cursor-pointer">Liver Disease</Label>
+                              </div>
+                            </div>
+                            <Label className="text-base font-semibold mt-4">Kidney</Label>
                             <div className="space-y-2">
                               <div className="flex items-center space-x-2">
                                 <Checkbox
@@ -933,7 +1113,7 @@ export default function PatientDetail() {
                                   })}
                                   data-testid="checkbox-ckd"
                                 />
-                                <Label htmlFor="ckd" className="cursor-pointer">Chronic Kidney Disease (CKD)</Label>
+                                <Label htmlFor="ckd" className="cursor-pointer">Chronic Kidney Disease</Label>
                               </div>
                               <div className="flex items-center space-x-2">
                                 <Checkbox
@@ -947,13 +1127,16 @@ export default function PatientDetail() {
                                 />
                                 <Label htmlFor="dialysis" className="cursor-pointer">Dialysis</Label>
                               </div>
+                            </div>
+                            <Label className="text-base font-semibold mt-4">Metabolic</Label>
+                            <div className="space-y-2">
                               <div className="flex items-center space-x-2">
                                 <Checkbox
                                   id="diabetes"
-                                  checked={assessmentData.kidneyIllnesses.diabetes}
+                                  checked={assessmentData.metabolicIllnesses.diabetes}
                                   onCheckedChange={(checked) => setAssessmentData({
                                     ...assessmentData,
-                                    kidneyIllnesses: {...assessmentData.kidneyIllnesses, diabetes: checked as boolean}
+                                    metabolicIllnesses: {...assessmentData.metabolicIllnesses, diabetes: checked as boolean}
                                   })}
                                   data-testid="checkbox-diabetes"
                                 />
@@ -962,10 +1145,10 @@ export default function PatientDetail() {
                               <div className="flex items-center space-x-2">
                                 <Checkbox
                                   id="thyroid"
-                                  checked={assessmentData.kidneyIllnesses.thyroid}
+                                  checked={assessmentData.metabolicIllnesses.thyroid}
                                   onCheckedChange={(checked) => setAssessmentData({
                                     ...assessmentData,
-                                    kidneyIllnesses: {...assessmentData.kidneyIllnesses, thyroid: checked as boolean}
+                                    metabolicIllnesses: {...assessmentData.metabolicIllnesses, thyroid: checked as boolean}
                                   })}
                                   data-testid="checkbox-thyroid"
                                 />
@@ -976,11 +1159,11 @@ export default function PatientDetail() {
                           <div className="space-y-2">
                             <Label className="text-base font-semibold">Additional Notes</Label>
                             <Textarea
-                              value={assessmentData.kidneyNotes}
-                              onChange={(e) => setAssessmentData({...assessmentData, kidneyNotes: e.target.value})}
-                              placeholder="Enter additional notes about kidney or metabolic conditions..."
-                              rows={6}
-                              data-testid="textarea-kidney-notes"
+                              value={assessmentData.giKidneyMetabolicNotes}
+                              onChange={(e) => setAssessmentData({...assessmentData, giKidneyMetabolicNotes: e.target.value})}
+                              placeholder="Enter additional notes about GI, kidney or metabolic conditions..."
+                              rows={15}
+                              data-testid="textarea-gi-kidney-metabolic-notes"
                             />
                           </div>
                         </div>
@@ -989,19 +1172,19 @@ export default function PatientDetail() {
                   </Card>
                 </AccordionItem>
 
-                {/* Neuro Section */}
-                <AccordionItem value="neuro">
-                  <Card className={hasNeuroData() ? "border-green-500 dark:border-green-700" : ""}>
-                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-neuro">
-                      <CardTitle className={`text-lg ${hasNeuroData() ? "text-green-600 dark:text-green-400" : ""}`}>
-                        Neurological
+                {/* Neurological, Psychiatry and Skeletal Section */}
+                <AccordionItem value="neuro-psych-skeletal">
+                  <Card className={hasNeuroPsychSkeletalData() ? "border-orange-500 dark:border-orange-700" : ""}>
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-neuro-psych-skeletal">
+                      <CardTitle className={`text-lg ${hasNeuroPsychSkeletalData() ? "text-orange-600 dark:text-orange-400" : ""}`}>
+                        Neurological, Psychiatry and Skeletal
                       </CardTitle>
                     </AccordionTrigger>
                     <AccordionContent>
                       <CardContent className="pt-0">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-3">
-                            <Label className="text-base font-semibold">Conditions</Label>
+                            <Label className="text-base font-semibold">Neurological</Label>
                             <div className="space-y-2">
                               <div className="flex items-center space-x-2">
                                 <Checkbox
@@ -1052,15 +1235,321 @@ export default function PatientDetail() {
                                 <Label htmlFor="dementia" className="cursor-pointer">Dementia</Label>
                               </div>
                             </div>
+                            <Label className="text-base font-semibold mt-4">Psychiatry</Label>
+                            <div className="space-y-2">
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="depression"
+                                  checked={assessmentData.psychIllnesses.depression}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    psychIllnesses: {...assessmentData.psychIllnesses, depression: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-depression"
+                                />
+                                <Label htmlFor="depression" className="cursor-pointer">Depression</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="anxiety"
+                                  checked={assessmentData.psychIllnesses.anxiety}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    psychIllnesses: {...assessmentData.psychIllnesses, anxiety: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-anxiety"
+                                />
+                                <Label htmlFor="anxiety" className="cursor-pointer">Anxiety</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="psychosis"
+                                  checked={assessmentData.psychIllnesses.psychosis}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    psychIllnesses: {...assessmentData.psychIllnesses, psychosis: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-psychosis"
+                                />
+                                <Label htmlFor="psychosis" className="cursor-pointer">Psychosis</Label>
+                              </div>
+                            </div>
+                            <Label className="text-base font-semibold mt-4">Skeletal</Label>
+                            <div className="space-y-2">
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="arthritis"
+                                  checked={assessmentData.skeletalIllnesses.arthritis}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    skeletalIllnesses: {...assessmentData.skeletalIllnesses, arthritis: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-arthritis"
+                                />
+                                <Label htmlFor="arthritis" className="cursor-pointer">Arthritis</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="osteoporosis"
+                                  checked={assessmentData.skeletalIllnesses.osteoporosis}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    skeletalIllnesses: {...assessmentData.skeletalIllnesses, osteoporosis: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-osteoporosis"
+                                />
+                                <Label htmlFor="osteoporosis" className="cursor-pointer">Osteoporosis</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="spineDisorders"
+                                  checked={assessmentData.skeletalIllnesses.spineDisorders}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    skeletalIllnesses: {...assessmentData.skeletalIllnesses, spineDisorders: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-spine-disorders"
+                                />
+                                <Label htmlFor="spineDisorders" className="cursor-pointer">Spine Disorders</Label>
+                              </div>
+                            </div>
                           </div>
                           <div className="space-y-2">
                             <Label className="text-base font-semibold">Additional Notes</Label>
                             <Textarea
-                              value={assessmentData.neuroNotes}
-                              onChange={(e) => setAssessmentData({...assessmentData, neuroNotes: e.target.value})}
-                              placeholder="Enter additional notes about neurological conditions..."
+                              value={assessmentData.neuroPsychSkeletalNotes}
+                              onChange={(e) => setAssessmentData({...assessmentData, neuroPsychSkeletalNotes: e.target.value})}
+                              placeholder="Enter additional notes about neurological, psychiatric or skeletal conditions..."
+                              rows={20}
+                              data-testid="textarea-neuro-psych-skeletal-notes"
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </AccordionContent>
+                  </Card>
+                </AccordionItem>
+
+                {/* Woman (Gynecological) Section */}
+                <AccordionItem value="woman">
+                  <Card className={hasWomanData() ? "border-pink-500 dark:border-pink-700" : ""}>
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-woman">
+                      <CardTitle className={`text-lg ${hasWomanData() ? "text-pink-600 dark:text-pink-400" : ""}`}>
+                        Woman (Gynecological)
+                      </CardTitle>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <CardContent className="pt-0">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-3">
+                            <Label className="text-base font-semibold">Conditions</Label>
+                            <div className="space-y-2">
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="pregnancy"
+                                  checked={assessmentData.womanIssues.pregnancy}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    womanIssues: {...assessmentData.womanIssues, pregnancy: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-pregnancy"
+                                />
+                                <Label htmlFor="pregnancy" className="cursor-pointer">Pregnancy</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="breastfeeding"
+                                  checked={assessmentData.womanIssues.breastfeeding}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    womanIssues: {...assessmentData.womanIssues, breastfeeding: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-breastfeeding"
+                                />
+                                <Label htmlFor="breastfeeding" className="cursor-pointer">Breastfeeding</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="menopause"
+                                  checked={assessmentData.womanIssues.menopause}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    womanIssues: {...assessmentData.womanIssues, menopause: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-menopause"
+                                />
+                                <Label htmlFor="menopause" className="cursor-pointer">Menopause</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="gynecologicalSurgery"
+                                  checked={assessmentData.womanIssues.gynecologicalSurgery}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    womanIssues: {...assessmentData.womanIssues, gynecologicalSurgery: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-gynecological-surgery"
+                                />
+                                <Label htmlFor="gynecologicalSurgery" className="cursor-pointer">Gynecological Surgery</Label>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-base font-semibold">Additional Notes</Label>
+                            <Textarea
+                              value={assessmentData.womanNotes}
+                              onChange={(e) => setAssessmentData({...assessmentData, womanNotes: e.target.value})}
+                              placeholder="Enter additional notes about gynecological conditions..."
                               rows={6}
-                              data-testid="textarea-neuro-notes"
+                              data-testid="textarea-woman-notes"
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </AccordionContent>
+                  </Card>
+                </AccordionItem>
+
+                {/* Noxen (Substances) Section */}
+                <AccordionItem value="noxen">
+                  <Card className={hasNoxenData() ? "border-black dark:border-gray-700" : ""}>
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-noxen">
+                      <CardTitle className={`text-lg ${hasNoxenData() ? "text-black dark:text-gray-300" : ""}`}>
+                        Noxen (Substances)
+                      </CardTitle>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <CardContent className="pt-0">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-3">
+                            <Label className="text-base font-semibold">Substances</Label>
+                            <div className="space-y-2">
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="nicotine"
+                                  checked={assessmentData.noxen.nicotine}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    noxen: {...assessmentData.noxen, nicotine: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-nicotine"
+                                />
+                                <Label htmlFor="nicotine" className="cursor-pointer">Nicotine</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="alcohol"
+                                  checked={assessmentData.noxen.alcohol}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    noxen: {...assessmentData.noxen, alcohol: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-alcohol"
+                                />
+                                <Label htmlFor="alcohol" className="cursor-pointer">Alcohol</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="drugs"
+                                  checked={assessmentData.noxen.drugs}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    noxen: {...assessmentData.noxen, drugs: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-drugs"
+                                />
+                                <Label htmlFor="drugs" className="cursor-pointer">Drugs</Label>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-base font-semibold">Additional Notes</Label>
+                            <Textarea
+                              value={assessmentData.noxenNotes}
+                              onChange={(e) => setAssessmentData({...assessmentData, noxenNotes: e.target.value})}
+                              placeholder="Enter additional notes about substance use..."
+                              rows={6}
+                              data-testid="textarea-noxen-notes"
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </AccordionContent>
+                  </Card>
+                </AccordionItem>
+
+                {/* Children (Pediatric) Section */}
+                <AccordionItem value="children">
+                  <Card className={hasChildrenData() ? "border-green-500 dark:border-green-700" : ""}>
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-children">
+                      <CardTitle className={`text-lg ${hasChildrenData() ? "text-green-600 dark:text-green-400" : ""}`}>
+                        Children (Pediatric)
+                      </CardTitle>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <CardContent className="pt-0">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-3">
+                            <Label className="text-base font-semibold">Conditions</Label>
+                            <div className="space-y-2">
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="prematurity"
+                                  checked={assessmentData.childrenIssues.prematurity}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    childrenIssues: {...assessmentData.childrenIssues, prematurity: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-prematurity"
+                                />
+                                <Label htmlFor="prematurity" className="cursor-pointer">Prematurity</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="developmentalDelay"
+                                  checked={assessmentData.childrenIssues.developmentalDelay}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    childrenIssues: {...assessmentData.childrenIssues, developmentalDelay: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-developmental-delay"
+                                />
+                                <Label htmlFor="developmentalDelay" className="cursor-pointer">Developmental Delay</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="congenitalAnomalies"
+                                  checked={assessmentData.childrenIssues.congenitalAnomalies}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    childrenIssues: {...assessmentData.childrenIssues, congenitalAnomalies: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-congenital-anomalies"
+                                />
+                                <Label htmlFor="congenitalAnomalies" className="cursor-pointer">Congenital Anomalies</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="vaccination"
+                                  checked={assessmentData.childrenIssues.vaccination}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    childrenIssues: {...assessmentData.childrenIssues, vaccination: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-vaccination"
+                                />
+                                <Label htmlFor="vaccination" className="cursor-pointer">Vaccination Status</Label>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-base font-semibold">Additional Notes</Label>
+                            <Textarea
+                              value={assessmentData.childrenNotes}
+                              onChange={(e) => setAssessmentData({...assessmentData, childrenNotes: e.target.value})}
+                              placeholder="Enter additional notes about pediatric conditions..."
+                              rows={6}
+                              data-testid="textarea-children-notes"
                             />
                           </div>
                         </div>
@@ -1080,6 +1569,8 @@ export default function PatientDetail() {
                         <div className="space-y-2">
                           <Label>Planned Anesthesia Technique</Label>
                           <Textarea
+                            value={assessmentData.plannedAnesthesia}
+                            onChange={(e) => setAssessmentData({...assessmentData, plannedAnesthesia: e.target.value})}
                             placeholder="Describe the planned anesthesia technique (e.g., General anesthesia with endotracheal intubation, Spinal anesthesia)..."
                             rows={3}
                             data-testid="textarea-planned-anesthesia"
@@ -1088,6 +1579,8 @@ export default function PatientDetail() {
                         <div className="space-y-2">
                           <Label>Required Installations</Label>
                           <Textarea
+                            value={assessmentData.installations}
+                            onChange={(e) => setAssessmentData({...assessmentData, installations: e.target.value})}
                             placeholder="List required installations (e.g., Arterial line, Central venous catheter, Epidural catheter)..."
                             rows={3}
                             data-testid="textarea-installations"
