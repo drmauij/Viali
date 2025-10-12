@@ -58,6 +58,27 @@ export default function PatientDetail() {
   const [selectedCaseId, setSelectedCaseId] = useState<string>("");
   const [isPatientCardVisible, setIsPatientCardVisible] = useState(true);
   const patientCardRef = useRef<HTMLDivElement>(null);
+  
+  // Check for openPreOp query parameter and auto-open dialog
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const openPreOpCaseId = urlParams.get('openPreOp');
+    
+    if (openPreOpCaseId) {
+      setSelectedCaseId(openPreOpCaseId);
+      setAssessmentData(prev => ({
+        ...prev,
+        allergies: mockPatient.allergies || [],
+      }));
+      setIsPreOpOpen(true);
+      
+      // Clean up URL by removing only the openPreOp parameter
+      const url = new URL(window.location.href);
+      url.searchParams.delete('openPreOp');
+      const newUrl = url.searchParams.toString() ? `${url.pathname}?${url.searchParams.toString()}` : url.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, []);
   const [newCase, setNewCase] = useState({
     plannedSurgery: "",
     surgeon: "",

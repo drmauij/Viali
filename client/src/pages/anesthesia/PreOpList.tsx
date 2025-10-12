@@ -106,7 +106,7 @@ export default function PreOpList() {
               key={case_.id} 
               className="p-4 cursor-pointer hover:bg-accent/50 transition-colors" 
               data-testid={`card-preop-case-${case_.id}`}
-              onClick={() => setLocation(`/anesthesia/cases/${case_.id}/preop`)}
+              onClick={() => setLocation(`/anesthesia/patients/${case_.patientId}?openPreOp=${case_.id}`)}
             >
               <div className="flex items-start justify-between">
                 {/* Patient Info */}

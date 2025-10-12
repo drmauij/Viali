@@ -29,7 +29,6 @@ import PatientDetail from "@/pages/anesthesia/PatientDetail";
 import CaseDetail from "@/pages/anesthesia/CaseDetail";
 import PreOpList from "@/pages/anesthesia/PreOpList";
 import OpList from "@/pages/anesthesia/OpList";
-import PreOp from "@/pages/anesthesia/PreOp";
 import Op from "@/pages/anesthesia/Op";
 import Pacu from "@/pages/anesthesia/Pacu";
 import AnesthesiaReports from "@/pages/anesthesia/Reports";
@@ -98,7 +97,6 @@ function Router() {
             <Route path="/anesthesia/patients/:id" component={PatientDetail} />
             <Route path="/anesthesia/cases/:id" component={CaseDetail} />
             <Route path="/anesthesia/preop" component={PreOpList} />
-            <Route path="/anesthesia/cases/:id/preop" component={PreOp} />
             <Route path="/anesthesia/op" component={OpList} />
             <Route path="/anesthesia/cases/:id/op" component={Op} />
             <Route path="/anesthesia/cases/:id/pacu" component={Pacu} />
