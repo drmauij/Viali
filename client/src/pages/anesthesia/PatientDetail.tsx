@@ -343,20 +343,22 @@ export default function PatientDetail() {
 
       {/* Pre-OP Full Screen Dialog */}
       <Dialog open={isPreOpOpen} onOpenChange={setIsPreOpOpen}>
-        <DialogContent className="max-w-full h-screen m-0 p-0 gap-0">
-          <DialogHeader className="p-6 pb-0">
+        <DialogContent className="max-w-full h-screen m-0 p-0 gap-0 flex flex-col">
+          <DialogHeader className="p-6 pb-4 shrink-0">
             <div className="flex items-center justify-between">
               <DialogTitle className="text-2xl">Pre-OP - Case {selectedCaseId}</DialogTitle>
             </div>
           </DialogHeader>
           
-          <Tabs defaultValue="assessment" className="flex-1 flex flex-col p-6">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="assessment" data-testid="tab-assessment">Pre-OP Assessment</TabsTrigger>
-              <TabsTrigger value="consent" data-testid="tab-consent">Informed Consent</TabsTrigger>
-            </TabsList>
+          <Tabs defaultValue="assessment" className="flex-1 flex flex-col min-h-0">
+            <div className="px-6 shrink-0">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="assessment" data-testid="tab-assessment">Pre-OP Assessment</TabsTrigger>
+                <TabsTrigger value="consent" data-testid="tab-consent">Informed Consent</TabsTrigger>
+              </TabsList>
+            </div>
             
-            <TabsContent value="assessment" className="flex-1 overflow-y-auto space-y-6">
+            <TabsContent value="assessment" className="flex-1 overflow-y-auto px-6 pb-6 space-y-6 mt-0">
               <Card>
                 <CardHeader>
                   <CardTitle>Patient Assessment</CardTitle>
@@ -413,7 +415,7 @@ export default function PatientDetail() {
               </Card>
             </TabsContent>
             
-            <TabsContent value="consent" className="flex-1 overflow-y-auto space-y-6">
+            <TabsContent value="consent" className="flex-1 overflow-y-auto px-6 pb-6 space-y-6 mt-0">
               <Card>
                 <CardHeader>
                   <CardTitle>Informed Consent for Anesthesia</CardTitle>
