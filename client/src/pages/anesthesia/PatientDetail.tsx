@@ -2,7 +2,7 @@ import { useRoute, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -10,11 +10,16 @@ import { useState } from "react";
 
 const mockPatient = {
   id: "1",
-  pseudoId: "HMAC_9f3a1c2b",
-  name: null,
-  ageYears: 56,
+  patientId: "P-2024-001",
+  surname: "Rossi",
+  firstName: "Maria",
+  birthday: "1968-05-12",
   sex: "F",
-  tags: ["latex_allergy"],
+  email: "maria.rossi@example.com",
+  phone: "+39 123 456 7890",
+  allergies: ["Latex", "Penicillin"],
+  allergyNotes: "Mild reaction to shellfish",
+  notes: "Prefers morning appointments. History of hypertension.",
   createdAt: "2025-10-01T10:00:00Z",
 };
 
@@ -71,6 +76,22 @@ export default function PatientDetail() {
     }
   };
 
+  const calculateAge = (birthday: string) => {
+    const today = new Date();
+    const birthDate = new Date(birthday);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
   return (
     <div className="container mx-auto p-4 pb-20">
       <div className="mb-6">
@@ -85,34 +106,102 @@ export default function PatientDetail() {
           <CardHeader>
             <CardTitle className="flex items-center gap-3">
               <User className="h-6 w-6 text-primary" />
-              <span className="font-mono">{mockPatient.pseudoId}</span>
+              <span>{mockPatient.surname}, {mockPatient.firstName}</span>
             </CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Patient ID: {mockPatient.patientId}
+            </p>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Age</p>
-                <p className="text-lg font-medium">{mockPatient.ageYears} years</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Sex</p>
-                <p className="text-lg font-medium">{mockPatient.sex}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Cases</p>
-                <p className="text-lg font-medium">{mockCases.length}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Tags</p>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {mockPatient.tags.map((tag) => (
-                    <Badge key={tag} variant="secondary" className="text-xs">
-                      {tag.replace(/_/g, " ")}
-                    </Badge>
-                  ))}
+          <CardContent className="space-y-6">
+            {/* Basic Information */}
+            <div>
+              <h3 className="text-sm font-semibold text-muted-foreground mb-3">Basic Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-center gap-3">
+                  <Cake className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Birthday</p>
+                    <p className="font-medium">{formatDate(mockPatient.birthday)} ({calculateAge(mockPatient.birthday)} years)</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <User className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Sex</p>
+                    <p className="font-medium">{mockPatient.sex}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <FileText className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total Cases</p>
+                    <p className="font-medium">{mockCases.length}</p>
+                  </div>
                 </div>
               </div>
             </div>
+
+            {/* Contact Information */}
+            {(mockPatient.email || mockPatient.phone) && (
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-3">Contact Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {mockPatient.email && (
+                    <div className="flex items-center gap-3">
+                      <Mail className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Email</p>
+                        <p className="font-medium">{mockPatient.email}</p>
+                      </div>
+                    </div>
+                  )}
+                  {mockPatient.phone && (
+                    <div className="flex items-center gap-3">
+                      <Phone className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Phone</p>
+                        <p className="font-medium">{mockPatient.phone}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Allergies */}
+            {(mockPatient.allergies.length > 0 || mockPatient.allergyNotes) && (
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-red-500" />
+                  Allergies
+                </h3>
+                <div className="space-y-2">
+                  {mockPatient.allergies.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {mockPatient.allergies.map((allergy) => (
+                        <Badge key={allergy} variant="destructive" className="text-xs">
+                          {allergy}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  {mockPatient.allergyNotes && (
+                    <p className="text-sm text-muted-foreground">{mockPatient.allergyNotes}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Notes */}
+            {mockPatient.notes && (
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                  <NoteIcon className="h-5 w-5 text-muted-foreground" />
+                  Notes
+                </h3>
+                <p className="text-sm text-foreground bg-muted/50 p-3 rounded-md">{mockPatient.notes}</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
