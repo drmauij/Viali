@@ -310,21 +310,321 @@ export default function Op() {
               </div>
 
               {/* Timeline Visualization */}
-              <div className="flex-1">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Timeline View</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-[500px] border rounded-lg bg-muted/20 flex items-center justify-center">
-                      <div className="text-center text-muted-foreground">
-                        <Clock className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                        <p className="text-lg font-medium">Timeline visualization will appear here</p>
-                        <p className="text-sm mt-2">Vitals, events, medications, and staff timeline</p>
+              <div className="flex-1 flex flex-col">
+                {/* Timeline Header */}
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="font-semibold text-lg">Vitals Timeline</h3>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    <span>Start Time: 08:00</span>
+                  </div>
+                </div>
+
+                {/* Scrollable Timeline Container */}
+                <div className="flex-1 border rounded-lg bg-card overflow-hidden flex flex-col">
+                  {/* Unified Scroll Container */}
+                  <div className="flex-1 overflow-auto">
+                    {/* Time Markers */}
+                    <div className="border-b bg-muted/30 sticky top-0 z-10">
+                      <div className="flex min-w-[1200px]">
+                        {/* Spacer to match track label width */}
+                        <div className="w-24 shrink-0 border-r" />
+                        {/* Time marker cells */}
+                        <div className="flex-1 flex">
+                          {Array.from({ length: 13 }, (_, i) => {
+                            const hour = 8 + Math.floor(i / 2);
+                            const minute = i % 2 === 0 ? "00" : "30";
+                            return (
+                              <div
+                                key={i}
+                                className="flex-1 text-center py-2 border-r last:border-r-0 text-xs font-medium"
+                              >
+                                {hour}:{minute}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+
+                    {/* Vitals Tracks */}
+                    <div className="min-w-[1200px]">
+                      {/* BP Track */}
+                      <div className="border-b">
+                        <div className="flex items-center h-20">
+                          <div className="w-24 shrink-0 px-3 py-2 border-r bg-muted/20">
+                            <p className="text-xs font-semibold text-blue-600">BP</p>
+                            <p className="text-[10px] text-muted-foreground">mmHg</p>
+                          </div>
+                          <div className="flex-1 relative h-full">
+                            {/* Grid lines */}
+                            <div className="absolute inset-0 flex">
+                              {Array.from({ length: 13 }).map((_, i) => (
+                                <div key={i} className="flex-1 border-r last:border-r-0" />
+                              ))}
+                            </div>
+                            {/* Sample data points */}
+                            <div className="absolute inset-0 flex items-center px-4">
+                              <div className="relative w-full h-8">
+                                <svg className="w-full h-full">
+                                  <line x1="5%" y1="50%" x2="15%" y2="40%" stroke="#2563eb" strokeWidth="2" />
+                                  <line x1="15%" y1="40%" x2="25%" y2="45%" stroke="#2563eb" strokeWidth="2" />
+                                  <circle cx="5%" cy="50%" r="4" fill="#2563eb" />
+                                  <circle cx="15%" cy="40%" r="4" fill="#2563eb" />
+                                  <circle cx="25%" cy="45%" r="4" fill="#2563eb" />
+                                </svg>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* HR Track */}
+                      <div className="border-b">
+                        <div className="flex items-center h-20">
+                          <div className="w-24 shrink-0 px-3 py-2 border-r bg-muted/20">
+                            <p className="text-xs font-semibold text-red-600">HR</p>
+                            <p className="text-[10px] text-muted-foreground">bpm</p>
+                          </div>
+                          <div className="flex-1 relative h-full">
+                            {/* Grid lines */}
+                            <div className="absolute inset-0 flex">
+                              {Array.from({ length: 13 }).map((_, i) => (
+                                <div key={i} className="flex-1 border-r last:border-r-0" />
+                              ))}
+                            </div>
+                            {/* Sample data points */}
+                            <div className="absolute inset-0 flex items-center px-4">
+                              <div className="relative w-full h-8">
+                                <svg className="w-full h-full">
+                                  <line x1="5%" y1="60%" x2="15%" y2="50%" stroke="#dc2626" strokeWidth="2" />
+                                  <line x1="15%" y1="50%" x2="25%" y2="55%" stroke="#dc2626" strokeWidth="2" />
+                                  <circle cx="5%" cy="60%" r="4" fill="#dc2626" />
+                                  <circle cx="15%" cy="50%" r="4" fill="#dc2626" />
+                                  <circle cx="25%" cy="55%" r="4" fill="#dc2626" />
+                                </svg>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Temp Track */}
+                      <div className="border-b">
+                        <div className="flex items-center h-20">
+                          <div className="w-24 shrink-0 px-3 py-2 border-r bg-muted/20">
+                            <p className="text-xs font-semibold text-orange-600">Temp</p>
+                            <p className="text-[10px] text-muted-foreground">°C</p>
+                          </div>
+                          <div className="flex-1 relative h-full">
+                            {/* Grid lines */}
+                            <div className="absolute inset-0 flex">
+                              {Array.from({ length: 13 }).map((_, i) => (
+                                <div key={i} className="flex-1 border-r last:border-r-0" />
+                              ))}
+                            </div>
+                            {/* Sample data points */}
+                            <div className="absolute inset-0 flex items-center px-4">
+                              <div className="relative w-full h-8">
+                                <svg className="w-full h-full">
+                                  <line x1="5%" y1="50%" x2="15%" y2="50%" stroke="#ea580c" strokeWidth="2" />
+                                  <line x1="15%" y1="50%" x2="25%" y2="48%" stroke="#ea580c" strokeWidth="2" />
+                                  <circle cx="5%" cy="50%" r="4" fill="#ea580c" />
+                                  <circle cx="15%" cy="50%" r="4" fill="#ea580c" />
+                                  <circle cx="25%" cy="48%" r="4" fill="#ea580c" />
+                                </svg>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* SpO2 Track */}
+                      <div className="border-b">
+                        <div className="flex items-center h-20">
+                          <div className="w-24 shrink-0 px-3 py-2 border-r bg-muted/20">
+                            <p className="text-xs font-semibold text-cyan-600">SpO2</p>
+                            <p className="text-[10px] text-muted-foreground">%</p>
+                          </div>
+                          <div className="flex-1 relative h-full">
+                            {/* Grid lines */}
+                            <div className="absolute inset-0 flex">
+                              {Array.from({ length: 13 }).map((_, i) => (
+                                <div key={i} className="flex-1 border-r last:border-r-0" />
+                              ))}
+                            </div>
+                            {/* Sample data points */}
+                            <div className="absolute inset-0 flex items-center px-4">
+                              <div className="relative w-full h-8">
+                                <svg className="w-full h-full">
+                                  <line x1="5%" y1="30%" x2="15%" y2="35%" stroke="#0891b2" strokeWidth="2" />
+                                  <line x1="15%" y1="35%" x2="25%" y2="30%" stroke="#0891b2" strokeWidth="2" />
+                                  <circle cx="5%" cy="30%" r="4" fill="#0891b2" />
+                                  <circle cx="15%" cy="35%" r="4" fill="#0891b2" />
+                                  <circle cx="25%" cy="30%" r="4" fill="#0891b2" />
+                                </svg>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Events Swimlane */}
+                      <div className="border-b bg-purple-50/50 dark:bg-purple-950/20">
+                        <div className="flex items-center h-16">
+                          <div className="w-24 shrink-0 px-3 py-2 border-r bg-purple-100/50 dark:bg-purple-900/30">
+                            <p className="text-xs font-semibold text-purple-700 dark:text-purple-400">Events</p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 w-full text-[10px] mt-0.5 p-0"
+                              data-testid="button-add-event"
+                            >
+                              + Add
+                            </Button>
+                          </div>
+                          <div className="flex-1 relative h-full">
+                            {/* Grid lines */}
+                            <div className="absolute inset-0 flex">
+                              {Array.from({ length: 13 }).map((_, i) => (
+                                <div key={i} className="flex-1 border-r last:border-r-0 border-purple-200 dark:border-purple-800" />
+                              ))}
+                            </div>
+                            {/* Sample events */}
+                            <div className="absolute inset-0 flex items-center px-2">
+                              <div
+                                className="absolute bg-purple-500 text-white text-[10px] px-2 py-1 rounded"
+                                style={{ left: "10%", top: "50%", transform: "translateY(-50%)" }}
+                              >
+                                Intubation
+                              </div>
+                              <div
+                                className="absolute bg-purple-500 text-white text-[10px] px-2 py-1 rounded"
+                                style={{ left: "30%", top: "50%", transform: "translateY(-50%)" }}
+                              >
+                                Incision
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Infusions Swimlane */}
+                      <div className="border-b bg-green-50/50 dark:bg-green-950/20">
+                        <div className="flex items-center h-16">
+                          <div className="w-24 shrink-0 px-3 py-2 border-r bg-green-100/50 dark:bg-green-900/30">
+                            <p className="text-xs font-semibold text-green-700 dark:text-green-400">Infusions</p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 w-full text-[10px] mt-0.5 p-0"
+                              data-testid="button-add-infusion"
+                            >
+                              + Add
+                            </Button>
+                          </div>
+                          <div className="flex-1 relative h-full">
+                            {/* Grid lines */}
+                            <div className="absolute inset-0 flex">
+                              {Array.from({ length: 13 }).map((_, i) => (
+                                <div key={i} className="flex-1 border-r last:border-r-0 border-green-200 dark:border-green-800" />
+                              ))}
+                            </div>
+                            {/* Sample infusion bars */}
+                            <div className="absolute inset-0 flex items-center">
+                              <div
+                                className="absolute bg-green-500/70 h-6 rounded flex items-center px-2"
+                                style={{ left: "8%", width: "25%" }}
+                              >
+                                <span className="text-white text-[10px] font-medium truncate">Propofol 100mg/h</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Drugs/Medications Swimlane */}
+                      <div className="border-b bg-amber-50/50 dark:bg-amber-950/20">
+                        <div className="flex items-center h-16">
+                          <div className="w-24 shrink-0 px-3 py-2 border-r bg-amber-100/50 dark:bg-amber-900/30">
+                            <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">Drugs</p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 w-full text-[10px] mt-0.5 p-0"
+                              data-testid="button-add-drug"
+                            >
+                              + Add
+                            </Button>
+                          </div>
+                          <div className="flex-1 relative h-full">
+                            {/* Grid lines */}
+                            <div className="absolute inset-0 flex">
+                              {Array.from({ length: 13 }).map((_, i) => (
+                                <div key={i} className="flex-1 border-r last:border-r-0 border-amber-200 dark:border-amber-800" />
+                              ))}
+                            </div>
+                            {/* Sample drug administrations */}
+                            <div className="absolute inset-0 flex items-center px-2">
+                              <div
+                                className="absolute bg-amber-500 text-white text-[10px] px-2 py-1 rounded"
+                                style={{ left: "12%", top: "50%", transform: "translateY(-50%)" }}
+                              >
+                                Fentanyl 100μg
+                              </div>
+                              <div
+                                className="absolute bg-amber-500 text-white text-[10px] px-2 py-1 rounded"
+                                style={{ left: "28%", top: "50%", transform: "translateY(-50%)" }}
+                              >
+                                Rocuronium 50mg
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Staff Swimlane */}
+                      <div className="bg-slate-50/50 dark:bg-slate-950/20">
+                        <div className="flex items-center h-16">
+                          <div className="w-24 shrink-0 px-3 py-2 border-r bg-slate-100/50 dark:bg-slate-900/30">
+                            <p className="text-xs font-semibold text-slate-700 dark:text-slate-400">Staff</p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 w-full text-[10px] mt-0.5 p-0"
+                              data-testid="button-add-staff"
+                            >
+                              + Add
+                            </Button>
+                          </div>
+                          <div className="flex-1 relative h-full">
+                            {/* Grid lines */}
+                            <div className="absolute inset-0 flex">
+                              {Array.from({ length: 13 }).map((_, i) => (
+                                <div key={i} className="flex-1 border-r last:border-r-0 border-slate-200 dark:border-slate-800" />
+                              ))}
+                            </div>
+                            {/* Sample staff presence bars */}
+                            <div className="absolute inset-0 flex flex-col justify-center gap-1 px-2">
+                              <div
+                                className="bg-slate-600 dark:bg-slate-400 h-4 rounded flex items-center px-2"
+                                style={{ width: "70%" }}
+                              >
+                                <span className="text-white dark:text-slate-900 text-[10px] font-medium">Dr. Smith (Anesthesiologist)</span>
+                              </div>
+                              <div
+                                className="bg-slate-500 dark:bg-slate-500 h-4 rounded flex items-center px-2"
+                                style={{ width: "70%", marginLeft: "5%" }}
+                              >
+                                <span className="text-white text-[10px] font-medium">Nurse Johnson</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </TabsContent>
