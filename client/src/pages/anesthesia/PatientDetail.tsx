@@ -308,9 +308,11 @@ export default function PatientDetail() {
   };
   
   const hasAnesthesiaData = () => {
-    return assessmentData.plannedAnesthesia.trim() !== "" || 
-           assessmentData.installations.trim() !== "" || 
-           assessmentData.anesthesiaNotes.trim() !== "";
+    return Object.values(assessmentData.anesthesiaTechniques).some(v => v) ||
+           assessmentData.postOpICU ||
+           assessmentData.anesthesiaOther.trim() !== "" ||
+           Object.values(assessmentData.installations).some(v => v) ||
+           assessmentData.installationsOther.trim() !== "";
   };
   
   const hasGeneralData = () => {
