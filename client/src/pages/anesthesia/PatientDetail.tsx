@@ -73,9 +73,11 @@ export default function PatientDetail() {
     // General Data
     plannedSurgery: "",
     plannedDate: "",
-    surgeon: "",
-    allergies: "",
-    medications: "",
+    surgeons: [] as string[],
+    allergies: [] as string[],
+    allergiesOther: "",
+    medications: [] as string[],
+    medicationsOther: "",
     asa: "",
     specialNotes: "",
     
@@ -135,6 +137,28 @@ export default function PatientDetail() {
     "Dr. Brown",
     "Dr. Davis",
   ];
+  
+  const commonAllergies = [
+    "Latex",
+    "Penicillin",
+    "Sulfa drugs",
+    "Aspirin",
+    "Iodine",
+    "Shellfish",
+    "Eggs",
+    "Peanuts",
+  ];
+  
+  const commonMedications = [
+    "Aspirin",
+    "Warfarin",
+    "Clopidogrel",
+    "Metformin",
+    "Insulin",
+    "Levothyroxine",
+    "Metoprolol",
+    "Lisinopril",
+  ];
 
   const handleCreateCase = () => {
     console.log("Creating case:", { ...newCase, title: newCase.plannedSurgery });
@@ -187,6 +211,18 @@ export default function PatientDetail() {
   
   const hasNeuroData = () => {
     return Object.values(assessmentData.neuroIllnesses).some(v => v) || assessmentData.neuroNotes.trim() !== "";
+  };
+  
+  const hasGeneralData = () => {
+    return assessmentData.plannedSurgery.trim() !== "" || 
+           assessmentData.plannedDate.trim() !== "" || 
+           assessmentData.surgeons.length > 0 ||
+           assessmentData.allergies.length > 0 ||
+           assessmentData.allergiesOther.trim() !== "" ||
+           assessmentData.medications.length > 0 ||
+           assessmentData.medicationsOther.trim() !== "" ||
+           assessmentData.asa.trim() !== "" ||
+           assessmentData.specialNotes.trim() !== "";
   };
 
   return (
@@ -385,6 +421,14 @@ export default function PatientDetail() {
                   className="h-auto py-4 flex-col gap-2"
                   onClick={() => {
                     setSelectedCaseId(caseItem.id);
+                    // Auto-fill assessment data from case and patient
+                    setAssessmentData(prev => ({
+                      ...prev,
+                      plannedSurgery: caseItem.plannedSurgery,
+                      plannedDate: new Date(caseItem.plannedDate).toISOString().split('T')[0],
+                      surgeons: [caseItem.surgeon],
+                      allergies: mockPatient.allergies || [],
+                    }));
                     setIsPreOpOpen(true);
                   }}
                   data-testid={`button-preop-${caseItem.id}`}
@@ -476,7 +520,7 @@ export default function PatientDetail() {
               >
                 {/* General Data Section */}
                 <AccordionItem value="general">
-                  <Card>
+                  <Card className={hasGeneralData() ? "border-white dark:border-white" : ""}>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-general">
                       <CardTitle className="text-lg">General Data</CardTitle>
                     </AccordionTrigger>
@@ -502,40 +546,86 @@ export default function PatientDetail() {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label>Surgeon</Label>
-                          <Select
-                            value={assessmentData.surgeon}
-                            onValueChange={(value) => setAssessmentData({...assessmentData, surgeon: value})}
-                          >
-                            <SelectTrigger data-testid="select-surgeon">
-                              <SelectValue placeholder="Select surgeon" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {surgeons.map((surgeon) => (
-                                <SelectItem key={surgeon} value={surgeon}>{surgeon}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <Label>Surgeons</Label>
+                          <div className="border rounded-lg p-3 space-y-2">
+                            {surgeons.map((surgeon) => (
+                              <div key={surgeon} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`surgeon-${surgeon}`}
+                                  checked={assessmentData.surgeons.includes(surgeon)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setAssessmentData({...assessmentData, surgeons: [...assessmentData.surgeons, surgeon]});
+                                    } else {
+                                      setAssessmentData({...assessmentData, surgeons: assessmentData.surgeons.filter(s => s !== surgeon)});
+                                    }
+                                  }}
+                                  data-testid={`checkbox-surgeon-${surgeon.toLowerCase().replace(/\s+/g, '-')}`}
+                                />
+                                <Label htmlFor={`surgeon-${surgeon}`} className="cursor-pointer font-normal">{surgeon}</Label>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <Label>Allergies</Label>
-                          <Textarea
-                            value={assessmentData.allergies}
-                            onChange={(e) => setAssessmentData({...assessmentData, allergies: e.target.value})}
-                            placeholder="Enter patient allergies..."
-                            rows={2}
-                            data-testid="textarea-allergies"
-                          />
+                          <div className="border rounded-lg p-3 space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              {commonAllergies.map((allergy) => (
+                                <div key={allergy} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`allergy-${allergy}`}
+                                    checked={assessmentData.allergies.includes(allergy)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setAssessmentData({...assessmentData, allergies: [...assessmentData.allergies, allergy]});
+                                      } else {
+                                        setAssessmentData({...assessmentData, allergies: assessmentData.allergies.filter(a => a !== allergy)});
+                                      }
+                                    }}
+                                    data-testid={`checkbox-allergy-${allergy.toLowerCase().replace(/\s+/g, '-')}`}
+                                  />
+                                  <Label htmlFor={`allergy-${allergy}`} className="cursor-pointer font-normal text-sm">{allergy}</Label>
+                                </div>
+                              ))}
+                            </div>
+                            <Input
+                              value={assessmentData.allergiesOther}
+                              onChange={(e) => setAssessmentData({...assessmentData, allergiesOther: e.target.value})}
+                              placeholder="Other allergies (free text)..."
+                              data-testid="input-allergies-other"
+                            />
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <Label>Medications</Label>
-                          <Textarea
-                            value={assessmentData.medications}
-                            onChange={(e) => setAssessmentData({...assessmentData, medications: e.target.value})}
-                            placeholder="Enter current medications..."
-                            rows={3}
-                            data-testid="textarea-medications"
-                          />
+                          <div className="border rounded-lg p-3 space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              {commonMedications.map((medication) => (
+                                <div key={medication} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`medication-${medication}`}
+                                    checked={assessmentData.medications.includes(medication)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setAssessmentData({...assessmentData, medications: [...assessmentData.medications, medication]});
+                                      } else {
+                                        setAssessmentData({...assessmentData, medications: assessmentData.medications.filter(m => m !== medication)});
+                                      }
+                                    }}
+                                    data-testid={`checkbox-medication-${medication.toLowerCase().replace(/\s+/g, '-')}`}
+                                  />
+                                  <Label htmlFor={`medication-${medication}`} className="cursor-pointer font-normal text-sm">{medication}</Label>
+                                </div>
+                              ))}
+                            </div>
+                            <Input
+                              value={assessmentData.medicationsOther}
+                              onChange={(e) => setAssessmentData({...assessmentData, medicationsOther: e.target.value})}
+                              placeholder="Other medications (free text)..."
+                              data-testid="input-medications-other"
+                            />
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <Label>ASA Classification</Label>
