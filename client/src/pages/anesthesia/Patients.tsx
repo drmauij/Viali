@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { Search, UserPlus, ScanBarcode } from "lucide-react";
+import { Search, UserPlus, ScanBarcode, UserCircle, UserRound } from "lucide-react";
 
 const mockPatients = [
   {
@@ -306,11 +306,20 @@ export default function Patients() {
             data-testid={`patient-item-${patient.id}`}
             onClick={() => setLocation(`/anesthesia/patients/${patient.id}`)}
           >
-            <div className="font-semibold text-foreground">
-              {patient.surname}, {patient.firstName}
+            <div className="flex items-center gap-2">
+              {patient.sex === "M" ? (
+                <UserCircle className="h-5 w-5 text-blue-500" />
+              ) : patient.sex === "F" ? (
+                <UserRound className="h-5 w-5 text-pink-500" />
+              ) : (
+                <UserCircle className="h-5 w-5 text-gray-500" />
+              )}
+              <div className="font-semibold text-foreground">
+                {patient.surname}, {patient.firstName}
+              </div>
             </div>
-            <div className="text-sm text-muted-foreground mt-1">
-              {formatDate(patient.birthday)} • {patient.sex} • {patient.patientId}
+            <div className="text-sm text-muted-foreground mt-1 ml-7">
+              {formatDate(patient.birthday)} • {patient.patientId}
             </div>
           </Card>
         ))}

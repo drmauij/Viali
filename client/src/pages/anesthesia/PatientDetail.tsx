@@ -1823,72 +1823,6 @@ export default function PatientDetail() {
                                 data-testid="textarea-installations-other"
                               />
                             </div>
-
-                            <div className="space-y-2">
-                              <Label className="text-base font-semibold">Surgical Approval Status</Label>
-                              <div className="border rounded-lg p-3 space-y-2">
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="approved"
-                                    checked={assessmentData.surgicalApprovalStatus === "approved"}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      surgicalApprovalStatus: checked ? "approved" : ""
-                                    })}
-                                    data-testid="checkbox-approved"
-                                  />
-                                  <Label htmlFor="approved" className="cursor-pointer font-normal text-sm">Approved for Surgery</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="standby-ekg"
-                                    checked={assessmentData.surgicalApprovalStatus === "standby-ekg"}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      surgicalApprovalStatus: checked ? "standby-ekg" : ""
-                                    })}
-                                    data-testid="checkbox-standby-ekg"
-                                  />
-                                  <Label htmlFor="standby-ekg" className="cursor-pointer font-normal text-sm">Stand-by waiting for EKG</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="standby-labs"
-                                    checked={assessmentData.surgicalApprovalStatus === "standby-labs"}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      surgicalApprovalStatus: checked ? "standby-labs" : ""
-                                    })}
-                                    data-testid="checkbox-standby-labs"
-                                  />
-                                  <Label htmlFor="standby-labs" className="cursor-pointer font-normal text-sm">Stand-by waiting for Labs</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="standby-other"
-                                    checked={assessmentData.surgicalApprovalStatus === "standby-other"}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      surgicalApprovalStatus: checked ? "standby-other" : ""
-                                    })}
-                                    data-testid="checkbox-standby-other"
-                                  />
-                                  <Label htmlFor="standby-other" className="cursor-pointer font-normal text-sm">Stand-by waiting for Other Exams</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="not-approved"
-                                    checked={assessmentData.surgicalApprovalStatus === "not-approved"}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      surgicalApprovalStatus: checked ? "not-approved" : ""
-                                    })}
-                                    data-testid="checkbox-not-approved"
-                                  />
-                                  <Label htmlFor="not-approved" className="cursor-pointer font-normal text-sm">Not Approved</Label>
-                                </div>
-                              </div>
-                            </div>
                           </div>
                         </div>
                       </CardContent>
@@ -1931,6 +1865,88 @@ export default function PatientDetail() {
                       </div>
                     </div>
                   </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-base font-semibold">Surgical Approval Status</Label>
+                    <div className="space-y-2">
+                      <div className={`flex items-center space-x-2 p-2 rounded-lg ${assessmentData.surgicalApprovalStatus === "approved" ? "bg-green-50 dark:bg-green-950" : ""}`}>
+                        <Checkbox
+                          id="approved"
+                          checked={assessmentData.surgicalApprovalStatus === "approved"}
+                          onCheckedChange={(checked) => setAssessmentData({
+                            ...assessmentData,
+                            surgicalApprovalStatus: checked ? "approved" : ""
+                          })}
+                          data-testid="checkbox-approved"
+                          className={assessmentData.surgicalApprovalStatus === "approved" ? "border-green-600 data-[state=checked]:bg-green-600" : ""}
+                        />
+                        <Label htmlFor="approved" className={`cursor-pointer font-normal text-sm flex-1 ${assessmentData.surgicalApprovalStatus === "approved" ? "text-green-700 dark:text-green-300 font-semibold" : ""}`}>
+                          ✓ Approved for Surgery
+                        </Label>
+                      </div>
+                      <div className={`flex items-center space-x-2 p-2 rounded-lg ${assessmentData.surgicalApprovalStatus === "standby-ekg" ? "bg-yellow-50 dark:bg-yellow-950" : ""}`}>
+                        <Checkbox
+                          id="standby-ekg"
+                          checked={assessmentData.surgicalApprovalStatus === "standby-ekg"}
+                          onCheckedChange={(checked) => setAssessmentData({
+                            ...assessmentData,
+                            surgicalApprovalStatus: checked ? "standby-ekg" : ""
+                          })}
+                          data-testid="checkbox-standby-ekg"
+                          className={assessmentData.surgicalApprovalStatus === "standby-ekg" ? "border-yellow-600 data-[state=checked]:bg-yellow-600" : ""}
+                        />
+                        <Label htmlFor="standby-ekg" className={`cursor-pointer font-normal text-sm flex-1 ${assessmentData.surgicalApprovalStatus === "standby-ekg" ? "text-yellow-700 dark:text-yellow-300 font-semibold" : ""}`}>
+                          ⏸ Stand-by waiting for EKG
+                        </Label>
+                      </div>
+                      <div className={`flex items-center space-x-2 p-2 rounded-lg ${assessmentData.surgicalApprovalStatus === "standby-labs" ? "bg-yellow-50 dark:bg-yellow-950" : ""}`}>
+                        <Checkbox
+                          id="standby-labs"
+                          checked={assessmentData.surgicalApprovalStatus === "standby-labs"}
+                          onCheckedChange={(checked) => setAssessmentData({
+                            ...assessmentData,
+                            surgicalApprovalStatus: checked ? "standby-labs" : ""
+                          })}
+                          data-testid="checkbox-standby-labs"
+                          className={assessmentData.surgicalApprovalStatus === "standby-labs" ? "border-yellow-600 data-[state=checked]:bg-yellow-600" : ""}
+                        />
+                        <Label htmlFor="standby-labs" className={`cursor-pointer font-normal text-sm flex-1 ${assessmentData.surgicalApprovalStatus === "standby-labs" ? "text-yellow-700 dark:text-yellow-300 font-semibold" : ""}`}>
+                          ⏸ Stand-by waiting for Labs
+                        </Label>
+                      </div>
+                      <div className={`flex items-center space-x-2 p-2 rounded-lg ${assessmentData.surgicalApprovalStatus === "standby-other" ? "bg-yellow-50 dark:bg-yellow-950" : ""}`}>
+                        <Checkbox
+                          id="standby-other"
+                          checked={assessmentData.surgicalApprovalStatus === "standby-other"}
+                          onCheckedChange={(checked) => setAssessmentData({
+                            ...assessmentData,
+                            surgicalApprovalStatus: checked ? "standby-other" : ""
+                          })}
+                          data-testid="checkbox-standby-other"
+                          className={assessmentData.surgicalApprovalStatus === "standby-other" ? "border-yellow-600 data-[state=checked]:bg-yellow-600" : ""}
+                        />
+                        <Label htmlFor="standby-other" className={`cursor-pointer font-normal text-sm flex-1 ${assessmentData.surgicalApprovalStatus === "standby-other" ? "text-yellow-700 dark:text-yellow-300 font-semibold" : ""}`}>
+                          ⏸ Stand-by waiting for Other Exams
+                        </Label>
+                      </div>
+                      <div className={`flex items-center space-x-2 p-2 rounded-lg ${assessmentData.surgicalApprovalStatus === "not-approved" ? "bg-red-50 dark:bg-red-950" : ""}`}>
+                        <Checkbox
+                          id="not-approved"
+                          checked={assessmentData.surgicalApprovalStatus === "not-approved"}
+                          onCheckedChange={(checked) => setAssessmentData({
+                            ...assessmentData,
+                            surgicalApprovalStatus: checked ? "not-approved" : ""
+                          })}
+                          data-testid="checkbox-not-approved"
+                          className={assessmentData.surgicalApprovalStatus === "not-approved" ? "border-red-600 data-[state=checked]:bg-red-600" : ""}
+                        />
+                        <Label htmlFor="not-approved" className={`cursor-pointer font-normal text-sm flex-1 ${assessmentData.surgicalApprovalStatus === "not-approved" ? "text-red-700 dark:text-red-300 font-semibold" : ""}`}>
+                          ✗ Not Approved
+                        </Label>
+                      </div>
+                    </div>
+                  </div>
+
                   <Button className="w-full" size="lg" data-testid="button-save-assessment">
                     Save Pre-OP Assessment
                   </Button>
