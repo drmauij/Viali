@@ -293,7 +293,7 @@ export default function PatientDetail() {
               <div className="grid grid-cols-3 gap-3 pt-2">
                 <Button
                   variant="outline"
-                  className="h-auto py-6 flex-col gap-2"
+                  className="h-auto py-4 flex-col gap-2"
                   onClick={() => setLocation(`/anesthesia/cases/${caseItem.id}/preop`)}
                   data-testid={`button-preop-${caseItem.id}`}
                 >
@@ -303,7 +303,7 @@ export default function PatientDetail() {
                 
                 <Button
                   variant="outline"
-                  className="h-auto py-6 flex-col gap-2"
+                  className="h-auto py-4 flex-col gap-2"
                   onClick={() => setLocation(`/anesthesia/cases/${caseItem.id}/op`)}
                   data-testid={`button-op-${caseItem.id}`}
                 >
@@ -313,7 +313,7 @@ export default function PatientDetail() {
                 
                 <Button
                   variant="outline"
-                  className="h-auto py-6 flex-col gap-2"
+                  className="h-auto py-4 flex-col gap-2"
                   onClick={() => setLocation(`/anesthesia/cases/${caseItem.id}/pacu`)}
                   data-testid={`button-pacu-${caseItem.id}`}
                 >
