@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { 
   X, 
-  Activity, 
+  Gauge, 
   Heart, 
   Wind, 
   Syringe,
@@ -21,7 +21,8 @@ import {
   Plus,
   UserCircle,
   UserRound,
-  AlertCircle
+  AlertCircle,
+  LineChart
 } from "lucide-react";
 
 // Mock patients data
@@ -250,7 +251,7 @@ export default function Op() {
           <div className="px-6 shrink-0 border-b">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="vitals" data-testid="tab-vitals">
-                <Activity className="h-4 w-4 mr-2" />
+                <LineChart className="h-4 w-4 mr-2" />
                 Vitals & Timeline
               </TabsTrigger>
               <TabsTrigger value="anesthesia" data-testid="tab-anesthesia">
@@ -278,7 +279,7 @@ export default function Op() {
                   className="w-full h-16 flex-col gap-1 p-2"
                   data-testid="button-add-bp"
                 >
-                  <Activity className="h-6 w-6 text-blue-600" />
+                  <Gauge className="h-6 w-6 text-blue-600" />
                   <span className="text-xs">BP</span>
                 </Button>
                 <Button 
