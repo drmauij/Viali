@@ -180,7 +180,7 @@ export default function Op() {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogChange}>
-      <DialogContent className="max-w-full h-screen m-0 p-0 gap-0 flex flex-col">
+      <DialogContent className="max-w-full h-screen m-0 p-0 gap-0 flex flex-col [&>button]:hidden">
         {/* Fixed Patient Info Header */}
         <div className="shrink-0 border-b bg-background">
           <div className="px-6 py-3 flex items-center justify-between">
