@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
@@ -56,6 +56,8 @@ export default function PatientDetail() {
   const [isCreateCaseOpen, setIsCreateCaseOpen] = useState(false);
   const [isPreOpOpen, setIsPreOpOpen] = useState(false);
   const [selectedCaseId, setSelectedCaseId] = useState<string>("");
+  const [isPatientCardVisible, setIsPatientCardVisible] = useState(true);
+  const patientCardRef = useRef<HTMLDivElement>(null);
   const [newCase, setNewCase] = useState({
     plannedSurgery: "",
     surgeon: "",
@@ -237,8 +239,54 @@ export default function PatientDetail() {
            assessmentData.generalMedsOther.trim() !== "";
   };
 
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsPatientCardVisible(entry.isIntersecting);
+      },
+      {
+        threshold: 0.1,
+        rootMargin: "-80px 0px 0px 0px"
+      }
+    );
+
+    if (patientCardRef.current) {
+      observer.observe(patientCardRef.current);
+    }
+
+    return () => {
+      if (patientCardRef.current) {
+        observer.unobserve(patientCardRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div className="container mx-auto p-4 pb-20">
+      {/* Sticky Patient Header */}
+      {!isPatientCardVisible && (
+        <div 
+          className="fixed top-0 left-0 right-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b z-50 transition-all duration-200"
+          data-testid="sticky-patient-header"
+        >
+          <div className="container mx-auto px-4 py-3">
+            <div className="flex items-center gap-3">
+              {mockPatient.sex === "M" ? (
+                <UserCircle className="h-5 w-5 text-blue-500" />
+              ) : (
+                <UserRound className="h-5 w-5 text-pink-500" />
+              )}
+              <div>
+                <div className="font-semibold">{mockPatient.surname}, {mockPatient.firstName}</div>
+                <p className="text-xs text-muted-foreground">
+                  {formatDate(mockPatient.birthday)} ({calculateAge(mockPatient.birthday)} years) • Patient ID: {mockPatient.patientId}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mb-6">
         <Link href="/anesthesia/patients">
           <Button variant="ghost" className="gap-2 mb-4" data-testid="button-back">
@@ -247,7 +295,7 @@ export default function PatientDetail() {
           </Button>
         </Link>
 
-        <Card>
+        <Card ref={patientCardRef}>
           <CardHeader>
             <CardTitle className="flex items-center gap-3">
               {mockPatient.sex === "M" ? (
@@ -474,13 +522,31 @@ export default function PatientDetail() {
       {/* Pre-OP Full Screen Dialog */}
       <Dialog open={isPreOpOpen} onOpenChange={setIsPreOpOpen}>
         <DialogContent className="max-w-full h-screen m-0 p-0 gap-0 flex flex-col">
-          <DialogHeader className="p-6 pb-4 shrink-0">
-            <DialogTitle className="text-2xl">
-              Pre-OP - {mockCases.find(c => c.id === selectedCaseId)?.plannedSurgery || selectedCaseId}
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground mt-2">
-              {new Date(mockCases.find(c => c.id === selectedCaseId)?.plannedDate || '').toLocaleDateString()} • {mockCases.find(c => c.id === selectedCaseId)?.surgeon}
-            </p>
+          <DialogHeader className="p-6 pb-4 shrink-0 border-b">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <DialogTitle className="text-2xl mb-3">
+                  Pre-OP - {mockCases.find(c => c.id === selectedCaseId)?.plannedSurgery || selectedCaseId}
+                </DialogTitle>
+                <div className="flex items-center gap-3">
+                  {mockPatient.sex === "M" ? (
+                    <UserCircle className="h-5 w-5 text-blue-500" />
+                  ) : (
+                    <UserRound className="h-5 w-5 text-pink-500" />
+                  )}
+                  <div>
+                    <p className="text-sm font-semibold">{mockPatient.surname}, {mockPatient.firstName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDate(mockPatient.birthday)} ({calculateAge(mockPatient.birthday)} years) • Patient ID: {mockPatient.patientId}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="text-right text-sm text-muted-foreground">
+                <p>{new Date(mockCases.find(c => c.id === selectedCaseId)?.plannedDate || '').toLocaleDateString()}</p>
+                <p>{mockCases.find(c => c.id === selectedCaseId)?.surgeon}</p>
+              </div>
+            </div>
           </DialogHeader>
           
           <Tabs defaultValue="assessment" className="flex-1 flex flex-col min-h-0">
