@@ -142,7 +142,7 @@ export default function Op() {
   const handleClose = () => {
     setIsOpen(false);
     setTimeout(() => {
-      setLocation("/anesthesia/patients");
+      setLocation(`/anesthesia/patients/${currentCase.patientId}`);
     }, 100);
   };
 
