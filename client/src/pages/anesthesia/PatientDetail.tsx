@@ -126,7 +126,7 @@ export default function PatientDetail() {
     doctorSignature: "",
   });
   
-  const [allSectionsOpen, setAllSectionsOpen] = useState(true);
+  const [openSections, setOpenSections] = useState<string[]>(["general", "heart", "lungs", "kidneys", "neuro", "anesthesia"]);
 
   const surgeons = [
     "Dr. Smith",
@@ -443,11 +443,18 @@ export default function PatientDetail() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setAllSectionsOpen(!allSectionsOpen)}
+                  onClick={() => {
+                    const allSectionIds = ["general", "heart", "lungs", "kidneys", "neuro", "anesthesia"];
+                    if (openSections.length > 0) {
+                      setOpenSections([]);
+                    } else {
+                      setOpenSections(allSectionIds);
+                    }
+                  }}
                   className="gap-2"
                   data-testid="button-toggle-all"
                 >
-                  {allSectionsOpen ? (
+                  {openSections.length > 0 ? (
                     <>
                       <ChevronUp className="h-4 w-4" />
                       Collapse All
@@ -461,7 +468,12 @@ export default function PatientDetail() {
                 </Button>
               </div>
 
-              <Accordion type="multiple" value={allSectionsOpen ? ["general", "heart", "lungs", "kidneys", "neuro", "anesthesia"] : []} className="space-y-4">
+              <Accordion 
+                type="multiple" 
+                value={openSections} 
+                onValueChange={setOpenSections}
+                className="space-y-4"
+              >
                 {/* General Data Section */}
                 <AccordionItem value="general">
                   <Card>
