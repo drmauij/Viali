@@ -71,15 +71,16 @@ export default function PatientDetail() {
   
   const [assessmentData, setAssessmentData] = useState({
     // General Data
-    plannedSurgery: "",
-    plannedDate: "",
-    surgeons: [] as string[],
     allergies: [] as string[],
     allergiesOther: "",
-    medications: [] as string[],
-    medicationsOther: "",
     asa: "",
     specialNotes: "",
+    
+    // Medications
+    anticoagulationMeds: [] as string[],
+    anticoagulationMedsOther: "",
+    generalMeds: [] as string[],
+    generalMedsOther: "",
     
     // Heart and Circulation
     heartIllnesses: {
@@ -128,7 +129,7 @@ export default function PatientDetail() {
     doctorSignature: "",
   });
   
-  const [openSections, setOpenSections] = useState<string[]>(["general", "heart", "lungs", "kidneys", "neuro", "anesthesia"]);
+  const [openSections, setOpenSections] = useState<string[]>(["general", "medications", "heart", "lungs", "kidneys", "neuro", "anesthesia"]);
 
   const surgeons = [
     "Dr. Smith",
@@ -149,15 +150,24 @@ export default function PatientDetail() {
     "Peanuts",
   ];
   
-  const commonMedications = [
+  const anticoagulationMedications = [
     "Aspirin",
     "Warfarin",
     "Clopidogrel",
+    "Rivaroxaban",
+    "Apixaban",
+    "Heparin",
+  ];
+  
+  const generalMedications = [
     "Metformin",
     "Insulin",
     "Levothyroxine",
     "Metoprolol",
     "Lisinopril",
+    "Amlodipine",
+    "Atorvastatin",
+    "Omeprazole",
   ];
 
   const handleCreateCase = () => {
@@ -214,15 +224,17 @@ export default function PatientDetail() {
   };
   
   const hasGeneralData = () => {
-    return assessmentData.plannedSurgery.trim() !== "" || 
-           assessmentData.plannedDate.trim() !== "" || 
-           assessmentData.surgeons.length > 0 ||
-           assessmentData.allergies.length > 0 ||
+    return assessmentData.allergies.length > 0 ||
            assessmentData.allergiesOther.trim() !== "" ||
-           assessmentData.medications.length > 0 ||
-           assessmentData.medicationsOther.trim() !== "" ||
            assessmentData.asa.trim() !== "" ||
            assessmentData.specialNotes.trim() !== "";
+  };
+  
+  const hasMedicationsData = () => {
+    return assessmentData.anticoagulationMeds.length > 0 ||
+           assessmentData.anticoagulationMedsOther.trim() !== "" ||
+           assessmentData.generalMeds.length > 0 ||
+           assessmentData.generalMedsOther.trim() !== "";
   };
 
   return (
@@ -421,12 +433,9 @@ export default function PatientDetail() {
                   className="h-auto py-4 flex-col gap-2"
                   onClick={() => {
                     setSelectedCaseId(caseItem.id);
-                    // Auto-fill assessment data from case and patient
+                    // Auto-fill allergies from patient
                     setAssessmentData(prev => ({
                       ...prev,
-                      plannedSurgery: caseItem.plannedSurgery,
-                      plannedDate: new Date(caseItem.plannedDate).toISOString().split('T')[0],
-                      surgeons: [caseItem.surgeon],
                       allergies: mockPatient.allergies || [],
                     }));
                     setIsPreOpOpen(true);
@@ -488,7 +497,7 @@ export default function PatientDetail() {
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    const allSectionIds = ["general", "heart", "lungs", "kidneys", "neuro", "anesthesia"];
+                    const allSectionIds = ["general", "medications", "heart", "lungs", "kidneys", "neuro", "anesthesia"];
                     if (openSections.length > 0) {
                       setOpenSections([]);
                     } else {
@@ -526,47 +535,6 @@ export default function PatientDetail() {
                     </AccordionTrigger>
                     <AccordionContent>
                       <CardContent className="space-y-4 pt-0">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label>Planned Surgery</Label>
-                            <Input
-                              value={assessmentData.plannedSurgery}
-                              onChange={(e) => setAssessmentData({...assessmentData, plannedSurgery: e.target.value})}
-                              data-testid="input-planned-surgery"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Planned Date</Label>
-                            <Input
-                              type="date"
-                              value={assessmentData.plannedDate}
-                              onChange={(e) => setAssessmentData({...assessmentData, plannedDate: e.target.value})}
-                              data-testid="input-planned-date"
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Surgeons</Label>
-                          <div className="border rounded-lg p-3 space-y-2">
-                            {surgeons.map((surgeon) => (
-                              <div key={surgeon} className="flex items-center space-x-2">
-                                <Checkbox
-                                  id={`surgeon-${surgeon}`}
-                                  checked={assessmentData.surgeons.includes(surgeon)}
-                                  onCheckedChange={(checked) => {
-                                    if (checked) {
-                                      setAssessmentData({...assessmentData, surgeons: [...assessmentData.surgeons, surgeon]});
-                                    } else {
-                                      setAssessmentData({...assessmentData, surgeons: assessmentData.surgeons.filter(s => s !== surgeon)});
-                                    }
-                                  }}
-                                  data-testid={`checkbox-surgeon-${surgeon.toLowerCase().replace(/\s+/g, '-')}`}
-                                />
-                                <Label htmlFor={`surgeon-${surgeon}`} className="cursor-pointer font-normal">{surgeon}</Label>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
                         <div className="space-y-2">
                           <Label>Allergies</Label>
                           <div className="border rounded-lg p-3 space-y-2">
@@ -598,36 +566,6 @@ export default function PatientDetail() {
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label>Medications</Label>
-                          <div className="border rounded-lg p-3 space-y-2">
-                            <div className="grid grid-cols-2 gap-2">
-                              {commonMedications.map((medication) => (
-                                <div key={medication} className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id={`medication-${medication}`}
-                                    checked={assessmentData.medications.includes(medication)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setAssessmentData({...assessmentData, medications: [...assessmentData.medications, medication]});
-                                      } else {
-                                        setAssessmentData({...assessmentData, medications: assessmentData.medications.filter(m => m !== medication)});
-                                      }
-                                    }}
-                                    data-testid={`checkbox-medication-${medication.toLowerCase().replace(/\s+/g, '-')}`}
-                                  />
-                                  <Label htmlFor={`medication-${medication}`} className="cursor-pointer font-normal text-sm">{medication}</Label>
-                                </div>
-                              ))}
-                            </div>
-                            <Input
-                              value={assessmentData.medicationsOther}
-                              onChange={(e) => setAssessmentData({...assessmentData, medicationsOther: e.target.value})}
-                              placeholder="Other medications (free text)..."
-                              data-testid="input-medications-other"
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-2">
                           <Label>ASA Classification</Label>
                           <Select
                             value={assessmentData.asa}
@@ -654,6 +592,79 @@ export default function PatientDetail() {
                             rows={3}
                             data-testid="textarea-special-notes"
                           />
+                        </div>
+                      </CardContent>
+                    </AccordionContent>
+                  </Card>
+                </AccordionItem>
+
+                {/* Medications Section */}
+                <AccordionItem value="medications">
+                  <Card className={hasMedicationsData() ? "border-white dark:border-white" : ""}>
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-medications">
+                      <CardTitle className="text-lg">Medications</CardTitle>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <CardContent className="space-y-4 pt-0">
+                        <div className="space-y-2">
+                          <Label className="text-base font-semibold">Anticoagulation Medications</Label>
+                          <div className="border rounded-lg p-3 space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              {anticoagulationMedications.map((medication) => (
+                                <div key={medication} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`anticoag-${medication}`}
+                                    checked={assessmentData.anticoagulationMeds.includes(medication)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setAssessmentData({...assessmentData, anticoagulationMeds: [...assessmentData.anticoagulationMeds, medication]});
+                                      } else {
+                                        setAssessmentData({...assessmentData, anticoagulationMeds: assessmentData.anticoagulationMeds.filter(m => m !== medication)});
+                                      }
+                                    }}
+                                    data-testid={`checkbox-anticoag-${medication.toLowerCase().replace(/\s+/g, '-')}`}
+                                  />
+                                  <Label htmlFor={`anticoag-${medication}`} className="cursor-pointer font-normal text-sm">{medication}</Label>
+                                </div>
+                              ))}
+                            </div>
+                            <Input
+                              value={assessmentData.anticoagulationMedsOther}
+                              onChange={(e) => setAssessmentData({...assessmentData, anticoagulationMedsOther: e.target.value})}
+                              placeholder="Other anticoagulation medications (free text)..."
+                              data-testid="input-anticoag-other"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-base font-semibold">General Medications</Label>
+                          <div className="border rounded-lg p-3 space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              {generalMedications.map((medication) => (
+                                <div key={medication} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`general-med-${medication}`}
+                                    checked={assessmentData.generalMeds.includes(medication)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setAssessmentData({...assessmentData, generalMeds: [...assessmentData.generalMeds, medication]});
+                                      } else {
+                                        setAssessmentData({...assessmentData, generalMeds: assessmentData.generalMeds.filter(m => m !== medication)});
+                                      }
+                                    }}
+                                    data-testid={`checkbox-general-med-${medication.toLowerCase().replace(/\s+/g, '-')}`}
+                                  />
+                                  <Label htmlFor={`general-med-${medication}`} className="cursor-pointer font-normal text-sm">{medication}</Label>
+                                </div>
+                              ))}
+                            </div>
+                            <Input
+                              value={assessmentData.generalMedsOther}
+                              onChange={(e) => setAssessmentData({...assessmentData, generalMedsOther: e.target.value})}
+                              placeholder="Other medications (free text)..."
+                              data-testid="input-general-med-other"
+                            />
+                          </div>
                         </div>
                       </CardContent>
                     </AccordionContent>
