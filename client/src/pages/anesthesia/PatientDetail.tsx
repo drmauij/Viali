@@ -64,7 +64,7 @@ export default function PatientDetail() {
     regional: false,
     installations: false,
     icuAdmission: false,
-    date: "",
+    date: new Date().toISOString().split('T')[0],
   });
 
   const surgeons = [
