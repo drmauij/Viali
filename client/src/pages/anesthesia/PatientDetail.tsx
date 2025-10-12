@@ -639,15 +639,15 @@ export default function PatientDetail() {
 
       {/* Pre-OP Full Screen Dialog */}
       <Dialog open={isPreOpOpen} onOpenChange={setIsPreOpOpen}>
-        <DialogContent className="max-w-full h-screen m-0 p-0 gap-0 flex flex-col [&>button]:hidden">
-          <DialogHeader className="p-6 pb-4 shrink-0 border-b relative">
-            <div className="flex items-center justify-between mb-4">
-              <DialogTitle className="text-2xl">Pre-Operative Assessment</DialogTitle>
+        <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col [&>button]:hidden">
+          <DialogHeader className="p-4 md:p-6 pb-4 shrink-0 border-b relative">
+            <div className="flex items-center justify-between mb-4 pr-10">
+              <DialogTitle className="text-lg md:text-2xl">Pre-Operative Assessment</DialogTitle>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setIsPreOpOpen(false)}
-                className="absolute right-4 top-4"
+                className="absolute right-2 top-2 md:right-4 md:top-4 z-10"
                 data-testid="button-close-preop-dialog"
               >
                 <X className="h-5 w-5" />

@@ -180,7 +180,7 @@ export default function Op() {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogChange}>
-      <DialogContent className="max-w-full h-screen m-0 p-0 gap-0 flex flex-col [&>button]:hidden">
+      <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col [&>button]:hidden">
         {/* Fixed Patient Info Header */}
         <div className="shrink-0 border-b bg-background relative">
           {/* Close Button - Fixed top-right */}
@@ -188,14 +188,14 @@ export default function Op() {
             variant="ghost"
             size="icon"
             onClick={handleClose}
-            className="absolute right-4 top-4 z-10"
+            className="absolute right-2 top-2 md:right-4 md:top-4 z-10"
             data-testid="button-close-op"
           >
             <X className="h-5 w-5" />
           </Button>
 
-          <div className="px-4 md:px-6 py-3 pr-14">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-8">
+          <div className="px-4 md:px-6 py-3 pr-12 md:pr-14">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4 md:flex-wrap">
               {/* Patient Name & Icon */}
               <div className="flex items-center gap-3">
                 {currentPatient.sex === "M" ? (
