@@ -345,9 +345,12 @@ export default function PatientDetail() {
       <Dialog open={isPreOpOpen} onOpenChange={setIsPreOpOpen}>
         <DialogContent className="max-w-full h-screen m-0 p-0 gap-0 flex flex-col">
           <DialogHeader className="p-6 pb-4 shrink-0">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-2xl">Pre-OP - Case {selectedCaseId}</DialogTitle>
-            </div>
+            <DialogTitle className="text-2xl">
+              Pre-OP - {mockCases.find(c => c.id === selectedCaseId)?.plannedSurgery || selectedCaseId}
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground mt-2">
+              {new Date(mockCases.find(c => c.id === selectedCaseId)?.plannedDate || '').toLocaleDateString()} • {mockCases.find(c => c.id === selectedCaseId)?.surgeon}
+            </p>
           </DialogHeader>
           
           <Tabs defaultValue="assessment" className="flex-1 flex flex-col min-h-0">
