@@ -112,14 +112,9 @@ export default function PatientDetail() {
                 <UserRound className="h-6 w-6 text-pink-500" />
               )}
               <div>
-                <div className="flex items-center gap-3">
-                  <span>{mockPatient.surname}, {mockPatient.firstName}</span>
-                  <span className="text-base font-normal text-muted-foreground">
-                    {formatDate(mockPatient.birthday)} ({calculateAge(mockPatient.birthday)} years)
-                  </span>
-                </div>
+                <div>{mockPatient.surname}, {mockPatient.firstName}</div>
                 <p className="text-sm text-muted-foreground font-normal mt-1">
-                  Patient ID: {mockPatient.patientId}
+                  Patient ID: {mockPatient.patientId} • {formatDate(mockPatient.birthday)} ({calculateAge(mockPatient.birthday)} years)
                 </p>
               </div>
             </CardTitle>
