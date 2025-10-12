@@ -597,28 +597,29 @@ export default function PatientDetail() {
       <Dialog open={isPreOpOpen} onOpenChange={setIsPreOpOpen}>
         <DialogContent className="max-w-full h-screen m-0 p-0 gap-0 flex flex-col">
           <DialogHeader className="p-6 pb-4 shrink-0 border-b">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <DialogTitle className="text-2xl mb-3">
-                  Pre-OP - {mockCases.find(c => c.id === selectedCaseId)?.plannedSurgery || selectedCaseId}
-                </DialogTitle>
-                <div className="flex items-center gap-3">
-                  {mockPatient.sex === "M" ? (
-                    <UserCircle className="h-5 w-5 text-blue-500" />
-                  ) : (
-                    <UserRound className="h-5 w-5 text-pink-500" />
-                  )}
-                  <div>
-                    <p className="text-sm font-semibold">{mockPatient.surname}, {mockPatient.firstName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDate(mockPatient.birthday)} ({calculateAge(mockPatient.birthday)} years) • Patient ID: {mockPatient.patientId}
-                    </p>
-                  </div>
+            <DialogTitle className="text-2xl mb-4">Pre-Operative Assessment</DialogTitle>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="flex items-center gap-3">
+                {mockPatient.sex === "M" ? (
+                  <UserCircle className="h-8 w-8 text-blue-500" />
+                ) : (
+                  <UserRound className="h-8 w-8 text-pink-500" />
+                )}
+                <div>
+                  <p className="font-semibold text-base">{mockPatient.surname}, {mockPatient.firstName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDate(mockPatient.birthday)} ({calculateAge(mockPatient.birthday)} y) • ID: {mockPatient.patientId}
+                  </p>
                 </div>
               </div>
-              <div className="text-right text-sm text-muted-foreground">
-                <p>{new Date(mockCases.find(c => c.id === selectedCaseId)?.plannedDate || '').toLocaleDateString()}</p>
-                <p>{mockCases.find(c => c.id === selectedCaseId)?.surgeon}</p>
+              <div className="flex flex-col justify-center">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Planned Surgery</p>
+                <p className="font-medium">{mockCases.find(c => c.id === selectedCaseId)?.plannedSurgery || selectedCaseId}</p>
+              </div>
+              <div className="flex flex-col justify-center md:text-right">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Surgeon & Date</p>
+                <p className="font-medium">{mockCases.find(c => c.id === selectedCaseId)?.surgeon}</p>
+                <p className="text-xs text-muted-foreground">{new Date(mockCases.find(c => c.id === selectedCaseId)?.plannedDate || '').toLocaleDateString()}</p>
               </div>
             </div>
           </DialogHeader>
@@ -1061,98 +1062,104 @@ export default function PatientDetail() {
                     <AccordionContent>
                       <CardContent className="pt-0">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-3">
-                            <Label className="text-base font-semibold">GI-Tract</Label>
+                          <div className="space-y-4">
                             <div className="space-y-2">
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="reflux"
-                                  checked={assessmentData.giIllnesses.reflux}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    giIllnesses: {...assessmentData.giIllnesses, reflux: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-reflux"
-                                />
-                                <Label htmlFor="reflux" className="cursor-pointer">Reflux</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="ibd"
-                                  checked={assessmentData.giIllnesses.ibd}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    giIllnesses: {...assessmentData.giIllnesses, ibd: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-ibd"
-                                />
-                                <Label htmlFor="ibd" className="cursor-pointer">IBD</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="liverDisease"
-                                  checked={assessmentData.giIllnesses.liverDisease}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    giIllnesses: {...assessmentData.giIllnesses, liverDisease: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-liver-disease"
-                                />
-                                <Label htmlFor="liverDisease" className="cursor-pointer">Liver Disease</Label>
+                              <Label className="text-base font-semibold">GI-Tract</Label>
+                              <div className="border rounded-lg p-3 space-y-2">
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="reflux"
+                                    checked={assessmentData.giIllnesses.reflux}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      giIllnesses: {...assessmentData.giIllnesses, reflux: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-reflux"
+                                  />
+                                  <Label htmlFor="reflux" className="cursor-pointer font-normal text-sm">Reflux</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="ibd"
+                                    checked={assessmentData.giIllnesses.ibd}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      giIllnesses: {...assessmentData.giIllnesses, ibd: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-ibd"
+                                  />
+                                  <Label htmlFor="ibd" className="cursor-pointer font-normal text-sm">IBD</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="liverDisease"
+                                    checked={assessmentData.giIllnesses.liverDisease}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      giIllnesses: {...assessmentData.giIllnesses, liverDisease: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-liver-disease"
+                                  />
+                                  <Label htmlFor="liverDisease" className="cursor-pointer font-normal text-sm">Liver Disease</Label>
+                                </div>
                               </div>
                             </div>
-                            <Label className="text-base font-semibold mt-4">Kidney</Label>
                             <div className="space-y-2">
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="ckd"
-                                  checked={assessmentData.kidneyIllnesses.ckd}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    kidneyIllnesses: {...assessmentData.kidneyIllnesses, ckd: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-ckd"
-                                />
-                                <Label htmlFor="ckd" className="cursor-pointer">Chronic Kidney Disease</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="dialysis"
-                                  checked={assessmentData.kidneyIllnesses.dialysis}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    kidneyIllnesses: {...assessmentData.kidneyIllnesses, dialysis: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-dialysis"
-                                />
-                                <Label htmlFor="dialysis" className="cursor-pointer">Dialysis</Label>
+                              <Label className="text-base font-semibold">Kidney</Label>
+                              <div className="border rounded-lg p-3 space-y-2">
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="ckd"
+                                    checked={assessmentData.kidneyIllnesses.ckd}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      kidneyIllnesses: {...assessmentData.kidneyIllnesses, ckd: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-ckd"
+                                  />
+                                  <Label htmlFor="ckd" className="cursor-pointer font-normal text-sm">Chronic Kidney Disease</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="dialysis"
+                                    checked={assessmentData.kidneyIllnesses.dialysis}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      kidneyIllnesses: {...assessmentData.kidneyIllnesses, dialysis: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-dialysis"
+                                  />
+                                  <Label htmlFor="dialysis" className="cursor-pointer font-normal text-sm">Dialysis</Label>
+                                </div>
                               </div>
                             </div>
-                            <Label className="text-base font-semibold mt-4">Metabolic</Label>
                             <div className="space-y-2">
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="diabetes"
-                                  checked={assessmentData.metabolicIllnesses.diabetes}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    metabolicIllnesses: {...assessmentData.metabolicIllnesses, diabetes: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-diabetes"
-                                />
-                                <Label htmlFor="diabetes" className="cursor-pointer">Diabetes</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="thyroid"
-                                  checked={assessmentData.metabolicIllnesses.thyroid}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    metabolicIllnesses: {...assessmentData.metabolicIllnesses, thyroid: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-thyroid"
-                                />
-                                <Label htmlFor="thyroid" className="cursor-pointer">Thyroid Disorder</Label>
+                              <Label className="text-base font-semibold">Metabolic</Label>
+                              <div className="border rounded-lg p-3 space-y-2">
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="diabetes"
+                                    checked={assessmentData.metabolicIllnesses.diabetes}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      metabolicIllnesses: {...assessmentData.metabolicIllnesses, diabetes: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-diabetes"
+                                  />
+                                  <Label htmlFor="diabetes" className="cursor-pointer font-normal text-sm">Diabetes</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="thyroid"
+                                    checked={assessmentData.metabolicIllnesses.thyroid}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      metabolicIllnesses: {...assessmentData.metabolicIllnesses, thyroid: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-thyroid"
+                                  />
+                                  <Label htmlFor="thyroid" className="cursor-pointer font-normal text-sm">Thyroid Disorder</Label>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1162,7 +1169,7 @@ export default function PatientDetail() {
                               value={assessmentData.giKidneyMetabolicNotes}
                               onChange={(e) => setAssessmentData({...assessmentData, giKidneyMetabolicNotes: e.target.value})}
                               placeholder="Enter additional notes about GI, kidney or metabolic conditions..."
-                              rows={15}
+                              rows={18}
                               data-testid="textarea-gi-kidney-metabolic-notes"
                             />
                           </div>
@@ -1183,134 +1190,140 @@ export default function PatientDetail() {
                     <AccordionContent>
                       <CardContent className="pt-0">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-3">
-                            <Label className="text-base font-semibold">Neurological</Label>
+                          <div className="space-y-4">
                             <div className="space-y-2">
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="stroke"
-                                  checked={assessmentData.neuroIllnesses.stroke}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    neuroIllnesses: {...assessmentData.neuroIllnesses, stroke: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-stroke"
-                                />
-                                <Label htmlFor="stroke" className="cursor-pointer">Stroke History</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="epilepsy"
-                                  checked={assessmentData.neuroIllnesses.epilepsy}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    neuroIllnesses: {...assessmentData.neuroIllnesses, epilepsy: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-epilepsy"
-                                />
-                                <Label htmlFor="epilepsy" className="cursor-pointer">Epilepsy</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="parkinsons"
-                                  checked={assessmentData.neuroIllnesses.parkinsons}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    neuroIllnesses: {...assessmentData.neuroIllnesses, parkinsons: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-parkinsons"
-                                />
-                                <Label htmlFor="parkinsons" className="cursor-pointer">Parkinson's Disease</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="dementia"
-                                  checked={assessmentData.neuroIllnesses.dementia}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    neuroIllnesses: {...assessmentData.neuroIllnesses, dementia: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-dementia"
-                                />
-                                <Label htmlFor="dementia" className="cursor-pointer">Dementia</Label>
+                              <Label className="text-base font-semibold">Neurological</Label>
+                              <div className="border rounded-lg p-3 space-y-2">
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="stroke"
+                                    checked={assessmentData.neuroIllnesses.stroke}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      neuroIllnesses: {...assessmentData.neuroIllnesses, stroke: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-stroke"
+                                  />
+                                  <Label htmlFor="stroke" className="cursor-pointer font-normal text-sm">Stroke History</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="epilepsy"
+                                    checked={assessmentData.neuroIllnesses.epilepsy}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      neuroIllnesses: {...assessmentData.neuroIllnesses, epilepsy: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-epilepsy"
+                                  />
+                                  <Label htmlFor="epilepsy" className="cursor-pointer font-normal text-sm">Epilepsy</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="parkinsons"
+                                    checked={assessmentData.neuroIllnesses.parkinsons}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      neuroIllnesses: {...assessmentData.neuroIllnesses, parkinsons: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-parkinsons"
+                                  />
+                                  <Label htmlFor="parkinsons" className="cursor-pointer font-normal text-sm">Parkinson's Disease</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="dementia"
+                                    checked={assessmentData.neuroIllnesses.dementia}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      neuroIllnesses: {...assessmentData.neuroIllnesses, dementia: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-dementia"
+                                  />
+                                  <Label htmlFor="dementia" className="cursor-pointer font-normal text-sm">Dementia</Label>
+                                </div>
                               </div>
                             </div>
-                            <Label className="text-base font-semibold mt-4">Psychiatry</Label>
                             <div className="space-y-2">
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="depression"
-                                  checked={assessmentData.psychIllnesses.depression}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    psychIllnesses: {...assessmentData.psychIllnesses, depression: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-depression"
-                                />
-                                <Label htmlFor="depression" className="cursor-pointer">Depression</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="anxiety"
-                                  checked={assessmentData.psychIllnesses.anxiety}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    psychIllnesses: {...assessmentData.psychIllnesses, anxiety: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-anxiety"
-                                />
-                                <Label htmlFor="anxiety" className="cursor-pointer">Anxiety</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="psychosis"
-                                  checked={assessmentData.psychIllnesses.psychosis}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    psychIllnesses: {...assessmentData.psychIllnesses, psychosis: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-psychosis"
-                                />
-                                <Label htmlFor="psychosis" className="cursor-pointer">Psychosis</Label>
+                              <Label className="text-base font-semibold">Psychiatry</Label>
+                              <div className="border rounded-lg p-3 space-y-2">
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="depression"
+                                    checked={assessmentData.psychIllnesses.depression}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      psychIllnesses: {...assessmentData.psychIllnesses, depression: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-depression"
+                                  />
+                                  <Label htmlFor="depression" className="cursor-pointer font-normal text-sm">Depression</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="anxiety"
+                                    checked={assessmentData.psychIllnesses.anxiety}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      psychIllnesses: {...assessmentData.psychIllnesses, anxiety: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-anxiety"
+                                  />
+                                  <Label htmlFor="anxiety" className="cursor-pointer font-normal text-sm">Anxiety</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="psychosis"
+                                    checked={assessmentData.psychIllnesses.psychosis}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      psychIllnesses: {...assessmentData.psychIllnesses, psychosis: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-psychosis"
+                                  />
+                                  <Label htmlFor="psychosis" className="cursor-pointer font-normal text-sm">Psychosis</Label>
+                                </div>
                               </div>
                             </div>
-                            <Label className="text-base font-semibold mt-4">Skeletal</Label>
                             <div className="space-y-2">
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="arthritis"
-                                  checked={assessmentData.skeletalIllnesses.arthritis}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    skeletalIllnesses: {...assessmentData.skeletalIllnesses, arthritis: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-arthritis"
-                                />
-                                <Label htmlFor="arthritis" className="cursor-pointer">Arthritis</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="osteoporosis"
-                                  checked={assessmentData.skeletalIllnesses.osteoporosis}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    skeletalIllnesses: {...assessmentData.skeletalIllnesses, osteoporosis: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-osteoporosis"
-                                />
-                                <Label htmlFor="osteoporosis" className="cursor-pointer">Osteoporosis</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="spineDisorders"
-                                  checked={assessmentData.skeletalIllnesses.spineDisorders}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    skeletalIllnesses: {...assessmentData.skeletalIllnesses, spineDisorders: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-spine-disorders"
-                                />
-                                <Label htmlFor="spineDisorders" className="cursor-pointer">Spine Disorders</Label>
+                              <Label className="text-base font-semibold">Skeletal</Label>
+                              <div className="border rounded-lg p-3 space-y-2">
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="arthritis"
+                                    checked={assessmentData.skeletalIllnesses.arthritis}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      skeletalIllnesses: {...assessmentData.skeletalIllnesses, arthritis: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-arthritis"
+                                  />
+                                  <Label htmlFor="arthritis" className="cursor-pointer font-normal text-sm">Arthritis</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="osteoporosis"
+                                    checked={assessmentData.skeletalIllnesses.osteoporosis}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      skeletalIllnesses: {...assessmentData.skeletalIllnesses, osteoporosis: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-osteoporosis"
+                                  />
+                                  <Label htmlFor="osteoporosis" className="cursor-pointer font-normal text-sm">Osteoporosis</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="spineDisorders"
+                                    checked={assessmentData.skeletalIllnesses.spineDisorders}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      skeletalIllnesses: {...assessmentData.skeletalIllnesses, spineDisorders: checked as boolean}
+                                    })}
+                                    data-testid="checkbox-spine-disorders"
+                                  />
+                                  <Label htmlFor="spineDisorders" className="cursor-pointer font-normal text-sm">Spine Disorders</Label>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1320,7 +1333,7 @@ export default function PatientDetail() {
                               value={assessmentData.neuroPsychSkeletalNotes}
                               onChange={(e) => setAssessmentData({...assessmentData, neuroPsychSkeletalNotes: e.target.value})}
                               placeholder="Enter additional notes about neurological, psychiatric or skeletal conditions..."
-                              rows={20}
+                              rows={23}
                               data-testid="textarea-neuro-psych-skeletal-notes"
                             />
                           </div>
@@ -1330,12 +1343,12 @@ export default function PatientDetail() {
                   </Card>
                 </AccordionItem>
 
-                {/* Woman (Gynecological) Section */}
+                {/* Gynecology Section */}
                 <AccordionItem value="woman">
                   <Card className={hasWomanData() ? "border-pink-500 dark:border-pink-700" : ""}>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-woman">
                       <CardTitle className={`text-lg ${hasWomanData() ? "text-pink-600 dark:text-pink-400" : ""}`}>
-                        Woman (Gynecological)
+                        Gynecology
                       </CardTitle>
                     </AccordionTrigger>
                     <AccordionContent>
@@ -1410,80 +1423,12 @@ export default function PatientDetail() {
                   </Card>
                 </AccordionItem>
 
-                {/* Noxen (Substances) Section */}
-                <AccordionItem value="noxen">
-                  <Card className={hasNoxenData() ? "border-black dark:border-gray-700" : ""}>
-                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-noxen">
-                      <CardTitle className={`text-lg ${hasNoxenData() ? "text-black dark:text-gray-300" : ""}`}>
-                        Noxen (Substances)
-                      </CardTitle>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <CardContent className="pt-0">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-3">
-                            <Label className="text-base font-semibold">Substances</Label>
-                            <div className="space-y-2">
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="nicotine"
-                                  checked={assessmentData.noxen.nicotine}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    noxen: {...assessmentData.noxen, nicotine: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-nicotine"
-                                />
-                                <Label htmlFor="nicotine" className="cursor-pointer">Nicotine</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="alcohol"
-                                  checked={assessmentData.noxen.alcohol}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    noxen: {...assessmentData.noxen, alcohol: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-alcohol"
-                                />
-                                <Label htmlFor="alcohol" className="cursor-pointer">Alcohol</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="drugs"
-                                  checked={assessmentData.noxen.drugs}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    noxen: {...assessmentData.noxen, drugs: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-drugs"
-                                />
-                                <Label htmlFor="drugs" className="cursor-pointer">Drugs</Label>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-base font-semibold">Additional Notes</Label>
-                            <Textarea
-                              value={assessmentData.noxenNotes}
-                              onChange={(e) => setAssessmentData({...assessmentData, noxenNotes: e.target.value})}
-                              placeholder="Enter additional notes about substance use..."
-                              rows={6}
-                              data-testid="textarea-noxen-notes"
-                            />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </AccordionContent>
-                  </Card>
-                </AccordionItem>
-
-                {/* Children (Pediatric) Section */}
+                {/* Pediatric Section */}
                 <AccordionItem value="children">
                   <Card className={hasChildrenData() ? "border-green-500 dark:border-green-700" : ""}>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-children">
                       <CardTitle className={`text-lg ${hasChildrenData() ? "text-green-600 dark:text-green-400" : ""}`}>
-                        Children (Pediatric)
+                        Pediatric
                       </CardTitle>
                     </AccordionTrigger>
                     <AccordionContent>
@@ -1550,6 +1495,74 @@ export default function PatientDetail() {
                               placeholder="Enter additional notes about pediatric conditions..."
                               rows={6}
                               data-testid="textarea-children-notes"
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </AccordionContent>
+                  </Card>
+                </AccordionItem>
+
+                {/* Dependencies (Substances) Section */}
+                <AccordionItem value="noxen">
+                  <Card className={hasNoxenData() ? "border-black dark:border-gray-700" : ""}>
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-noxen">
+                      <CardTitle className={`text-lg ${hasNoxenData() ? "text-black dark:text-gray-300" : ""}`}>
+                        Dependencies (Substances)
+                      </CardTitle>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <CardContent className="pt-0">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-3">
+                            <Label className="text-base font-semibold">Substances</Label>
+                            <div className="space-y-2">
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="nicotine"
+                                  checked={assessmentData.noxen.nicotine}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    noxen: {...assessmentData.noxen, nicotine: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-nicotine"
+                                />
+                                <Label htmlFor="nicotine" className="cursor-pointer">Nicotine</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="alcohol"
+                                  checked={assessmentData.noxen.alcohol}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    noxen: {...assessmentData.noxen, alcohol: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-alcohol"
+                                />
+                                <Label htmlFor="alcohol" className="cursor-pointer">Alcohol</Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id="drugs"
+                                  checked={assessmentData.noxen.drugs}
+                                  onCheckedChange={(checked) => setAssessmentData({
+                                    ...assessmentData,
+                                    noxen: {...assessmentData.noxen, drugs: checked as boolean}
+                                  })}
+                                  data-testid="checkbox-drugs"
+                                />
+                                <Label htmlFor="drugs" className="cursor-pointer">Drugs</Label>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-base font-semibold">Additional Notes</Label>
+                            <Textarea
+                              value={assessmentData.noxenNotes}
+                              onChange={(e) => setAssessmentData({...assessmentData, noxenNotes: e.target.value})}
+                              placeholder="Enter additional notes about substance use..."
+                              rows={6}
+                              data-testid="textarea-noxen-notes"
                             />
                           </div>
                         </div>
