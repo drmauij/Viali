@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -46,6 +46,7 @@ const mockPatients = [
 ];
 
 export default function Patients() {
+  const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newPatient, setNewPatient] = useState({
@@ -303,7 +304,7 @@ export default function Patients() {
             key={patient.id}
             className="p-4 cursor-pointer hover:bg-accent/50 transition-colors"
             data-testid={`patient-item-${patient.id}`}
-            onClick={() => window.location.href = `/anesthesia/patients/${patient.id}`}
+            onClick={() => setLocation(`/anesthesia/patients/${patient.id}`)}
           >
             <div className="font-semibold text-foreground">
               {patient.surname}, {patient.firstName}
