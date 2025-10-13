@@ -817,32 +817,30 @@ export default function Op() {
 
           {/* Anesthesia Documentation Tab */}
           <TabsContent value="anesthesia" className="overflow-y-auto px-6 pb-6 space-y-4 mt-0">
-            <div>
-              <Card>
-              <CardHeader>
-                <CardTitle>Anesthesia Type & Installations</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Anesthesia Type</Label>
-                  <Input
-                    value={opData.anesthesiaType}
-                    onChange={(e) => setOpData({ ...opData, anesthesiaType: e.target.value })}
-                    placeholder="e.g., General, Regional, Combined..."
-                    data-testid="input-anesthesia-type"
-                  />
-                </div>
-                <div>
-                  <Label>Installations</Label>
-                  <Textarea
-                    placeholder="Document installations (arterial line, central line, etc.)"
-                    rows={4}
-                    data-testid="textarea-installations"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-            </div>
+            <Card>
+            <CardHeader>
+              <CardTitle>Anesthesia Type & Installations</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>Anesthesia Type</Label>
+                <Input
+                  value={opData.anesthesiaType}
+                  onChange={(e) => setOpData({ ...opData, anesthesiaType: e.target.value })}
+                  placeholder="e.g., General, Regional, Combined..."
+                  data-testid="input-anesthesia-type"
+                />
+              </div>
+              <div>
+                <Label>Installations</Label>
+                <Textarea
+                  placeholder="Document installations (arterial line, central line, etc.)"
+                  rows={4}
+                  data-testid="textarea-installations"
+                />
+              </div>
+            </CardContent>
+          </Card>
           </TabsContent>
 
           {/* WHO Checklists Tab */}
@@ -931,38 +929,36 @@ export default function Op() {
 
           {/* Post-op Management Tab */}
           <TabsContent value="postop" className="overflow-y-auto px-6 pb-6 space-y-4 mt-0">
-            <div>
-              <Card>
-              <CardHeader>
-                <CardTitle>Post-Operative Management</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label>Post-op Notes</Label>
-                  <Textarea
-                    value={opData.postOpNotes}
-                    onChange={(e) => setOpData({ ...opData, postOpNotes: e.target.value })}
-                    placeholder="Document post-operative observations and instructions..."
-                    rows={6}
-                    data-testid="textarea-postop-notes"
-                  />
-                </div>
-                <div>
-                  <Label>Complications (if any)</Label>
-                  <Textarea
-                    value={opData.complications}
-                    onChange={(e) => setOpData({ ...opData, complications: e.target.value })}
-                    placeholder="Document any complications encountered..."
-                    rows={4}
-                    data-testid="textarea-complications"
-                  />
-                </div>
-                <Button className="w-full" size="lg" data-testid="button-save-op">
-                  Save OP Record
-                </Button>
-              </CardContent>
-            </Card>
-            </div>
+            <Card>
+            <CardHeader>
+              <CardTitle>Post-Operative Management</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>Post-op Notes</Label>
+                <Textarea
+                  value={opData.postOpNotes}
+                  onChange={(e) => setOpData({ ...opData, postOpNotes: e.target.value })}
+                  placeholder="Document post-operative observations and instructions..."
+                  rows={6}
+                  data-testid="textarea-postop-notes"
+                />
+              </div>
+              <div>
+                <Label>Complications (if any)</Label>
+                <Textarea
+                  value={opData.complications}
+                  onChange={(e) => setOpData({ ...opData, complications: e.target.value })}
+                  placeholder="Document any complications encountered..."
+                  rows={4}
+                  data-testid="textarea-complications"
+                />
+              </div>
+              <Button className="w-full" size="lg" data-testid="button-save-op">
+                Save OP Record
+              </Button>
+            </CardContent>
+          </Card>
           </TabsContent>
         </Tabs>
       </DialogContent>
