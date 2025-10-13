@@ -390,24 +390,24 @@ export default function Op() {
                     <div className="w-44 shrink-0 border-r bg-gray-50 dark:bg-gray-900 sticky left-0 z-10 flex flex-col">
                       {/* Integrated Vitals with Unified Scale */}
                       <div className="h-96 border-b flex items-center justify-between px-3 relative bg-slate-50 dark:bg-slate-900">
-                        {/* Parameter Icons on left */}
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3">
-                          <div className="flex flex-col items-center gap-1">
-                            <Gauge className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                            <span className="text-[9px] font-medium text-muted-foreground">NIBP</span>
-                          </div>
-                          <div className="flex flex-col items-center gap-1">
-                            <Heart className="h-5 w-5 text-red-600 dark:text-red-400" />
-                            <span className="text-[9px] font-medium text-muted-foreground">HR</span>
-                          </div>
-                          <div className="flex flex-col items-center gap-1">
-                            <Droplet className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
-                            <span className="text-[9px] font-medium text-muted-foreground">SpO2</span>
-                          </div>
-                          <div className="flex flex-col items-center gap-1">
-                            <Thermometer className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-                            <span className="text-[9px] font-medium text-muted-foreground">°C</span>
-                          </div>
+                        {/* Parameter Icons on left - Clickable/Touchable Buttons */}
+                        <div className="absolute left-6 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3">
+                          <button className="flex flex-col items-center gap-1 p-3 border-2 border-blue-600 dark:border-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 active:bg-blue-100 dark:active:bg-blue-900/40 transition-colors" data-testid="button-vitals-nibp">
+                            <Gauge className="h-7 w-7 text-blue-600 dark:text-blue-400" />
+                            <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">NIBP</span>
+                          </button>
+                          <button className="flex flex-col items-center gap-1 p-3 border-2 border-red-600 dark:border-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 active:bg-red-100 dark:active:bg-red-900/40 transition-colors" data-testid="button-vitals-hr">
+                            <Heart className="h-7 w-7 text-red-600 dark:text-red-400" />
+                            <span className="text-[10px] font-semibold text-red-600 dark:text-red-400">HR</span>
+                          </button>
+                          <button className="flex flex-col items-center gap-1 p-3 border-2 border-cyan-600 dark:border-cyan-400 rounded-lg hover:bg-cyan-50 dark:hover:bg-cyan-900/20 active:bg-cyan-100 dark:active:bg-cyan-900/40 transition-colors" data-testid="button-vitals-spo2">
+                            <Droplet className="h-7 w-7 text-cyan-600 dark:text-cyan-400" />
+                            <span className="text-[10px] font-semibold text-cyan-600 dark:text-cyan-400">SpO2</span>
+                          </button>
+                          <button className="flex flex-col items-center gap-1 p-3 border-2 border-orange-600 dark:border-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 active:bg-orange-100 dark:active:bg-orange-900/40 transition-colors" data-testid="button-vitals-temp">
+                            <Thermometer className="h-7 w-7 text-orange-600 dark:text-orange-400" />
+                            <span className="text-[10px] font-semibold text-orange-600 dark:text-orange-400">°C</span>
+                          </button>
                         </div>
                         
                         {/* Unified 0-240 Scale on right */}
