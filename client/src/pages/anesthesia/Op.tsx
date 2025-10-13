@@ -250,23 +250,23 @@ export default function Op() {
 
         {/* Tabbed Content */}
         <Tabs defaultValue="vitals" className="flex-1 flex flex-col min-h-0">
-          <div className="px-6 shrink-0 border-b">
+          <div className="px-2 md:px-6 shrink-0 border-b">
             <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="vitals" data-testid="tab-vitals">
-                <LineChart className="h-4 w-4 mr-2" />
-                Vitals & Timeline
+              <TabsTrigger value="vitals" data-testid="tab-vitals" className="flex-col md:flex-row gap-1 md:gap-2 py-2">
+                <LineChart className="h-4 w-4" />
+                <span className="text-xs md:text-sm">Vitals</span>
               </TabsTrigger>
-              <TabsTrigger value="anesthesia" data-testid="tab-anesthesia">
-                <Syringe className="h-4 w-4 mr-2" />
-                Anesthesia
+              <TabsTrigger value="anesthesia" data-testid="tab-anesthesia" className="flex-col md:flex-row gap-1 md:gap-2 py-2">
+                <Syringe className="h-4 w-4" />
+                <span className="text-xs md:text-sm">Anesthesia</span>
               </TabsTrigger>
-              <TabsTrigger value="checklists" data-testid="tab-checklists">
-                <FileCheck className="h-4 w-4 mr-2" />
-                WHO Checklists
+              <TabsTrigger value="checklists" data-testid="tab-checklists" className="flex-col md:flex-row gap-1 md:gap-2 py-2">
+                <FileCheck className="h-4 w-4" />
+                <span className="text-xs md:text-sm">Checklists</span>
               </TabsTrigger>
-              <TabsTrigger value="postop" data-testid="tab-postop">
-                <ClipboardList className="h-4 w-4 mr-2" />
-                Post-op
+              <TabsTrigger value="postop" data-testid="tab-postop" className="flex-col md:flex-row gap-1 md:gap-2 py-2">
+                <ClipboardList className="h-4 w-4" />
+                <span className="text-xs md:text-sm">Post-op</span>
               </TabsTrigger>
             </TabsList>
           </div>
