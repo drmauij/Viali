@@ -358,13 +358,6 @@ export function UnifiedTimeline({
       series,
       dataZoom: [
         {
-          type: "inside",
-          xAxisIndex: grids.map((_, i) => i),
-          zoomOnMouseWheel: false,
-          moveOnMouseWheel: false,
-          moveOnMouseMove: true,
-        },
-        {
           type: "slider",
           xAxisIndex: grids.map((_, i) => i),
           bottom: 10,
