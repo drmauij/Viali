@@ -299,7 +299,7 @@ export function UnifiedTimeline({
             },
             fontSize: 11,
             fontFamily: "Poppins, sans-serif",
-            color: "var(--foreground)",
+            color: isDark ? "#ffffff" : "#000000",
           },
         });
       }
