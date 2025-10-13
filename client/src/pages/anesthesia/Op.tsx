@@ -849,86 +849,138 @@ export default function Op() {
 
           {/* WHO Checklists Tab */}
           <TabsContent value="checklists" className="overflow-y-auto px-6 pb-6 space-y-4 mt-0">
-            <div>
-              {/* Sign-In Checklist */}
-              <Card>
+            {/* Sign-In Checklist */}
+            <Card className="mb-4">
               <CardHeader>
                 <CardTitle className="text-green-700 dark:text-green-300">Sign-In (Before Induction)</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="sign-in-identity" data-testid="checkbox-sign-in-identity" />
-                  <Label htmlFor="sign-in-identity" className="cursor-pointer">Patient identity confirmed</Label>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="sign-in-identity" data-testid="checkbox-sign-in-identity" />
+                    <Label htmlFor="sign-in-identity" className="cursor-pointer">Patient identity confirmed</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="sign-in-site" data-testid="checkbox-sign-in-site" />
+                    <Label htmlFor="sign-in-site" className="cursor-pointer">Site marked</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="sign-in-consent" data-testid="checkbox-sign-in-consent" />
+                    <Label htmlFor="sign-in-consent" className="cursor-pointer">Consent confirmed</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="sign-in-anesthesia" data-testid="checkbox-sign-in-anesthesia" />
+                    <Label htmlFor="sign-in-anesthesia" className="cursor-pointer">Anesthesia safety check complete</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="sign-in-allergies" data-testid="checkbox-sign-in-allergies" />
+                    <Label htmlFor="sign-in-allergies" className="cursor-pointer">Known allergies reviewed</Label>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="sign-in-site" data-testid="checkbox-sign-in-site" />
-                  <Label htmlFor="sign-in-site" className="cursor-pointer">Site marked</Label>
+                
+                <div className="pt-4 border-t">
+                  <Label>Notes</Label>
+                  <Textarea
+                    placeholder="Additional notes for Sign-In checklist..."
+                    rows={2}
+                    data-testid="textarea-signin-notes"
+                  />
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="sign-in-consent" data-testid="checkbox-sign-in-consent" />
-                  <Label htmlFor="sign-in-consent" className="cursor-pointer">Consent confirmed</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="sign-in-anesthesia" data-testid="checkbox-sign-in-anesthesia" />
-                  <Label htmlFor="sign-in-anesthesia" className="cursor-pointer">Anesthesia safety check complete</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="sign-in-allergies" data-testid="checkbox-sign-in-allergies" />
-                  <Label htmlFor="sign-in-allergies" className="cursor-pointer">Known allergies reviewed</Label>
+                
+                <div>
+                  <Label>Verified By (Signature)</Label>
+                  <div className="border rounded-md p-2 bg-white dark:bg-slate-950 h-24" data-testid="signature-signin">
+                    <canvas className="w-full h-full" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* Time-Out Checklist */}
-            <Card>
+            <Card className="mb-4">
               <CardHeader>
                 <CardTitle className="text-yellow-700 dark:text-yellow-300">Team Time-Out (Before Skin Incision)</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="timeout-intro" data-testid="checkbox-timeout-intro" />
-                  <Label htmlFor="timeout-intro" className="cursor-pointer">Team members introduced</Label>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="timeout-intro" data-testid="checkbox-timeout-intro" />
+                    <Label htmlFor="timeout-intro" className="cursor-pointer">Team members introduced</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="timeout-patient" data-testid="checkbox-timeout-patient" />
+                    <Label htmlFor="timeout-patient" className="cursor-pointer">Patient, site, and procedure confirmed</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="timeout-antibiotics" data-testid="checkbox-timeout-antibiotics" />
+                    <Label htmlFor="timeout-antibiotics" className="cursor-pointer">Prophylactic antibiotics given</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="timeout-imaging" data-testid="checkbox-timeout-imaging" />
+                    <Label htmlFor="timeout-imaging" className="cursor-pointer">Essential imaging displayed</Label>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="timeout-patient" data-testid="checkbox-timeout-patient" />
-                  <Label htmlFor="timeout-patient" className="cursor-pointer">Patient, site, and procedure confirmed</Label>
+                
+                <div className="pt-4 border-t">
+                  <Label>Notes</Label>
+                  <Textarea
+                    placeholder="Additional notes for Time-Out checklist..."
+                    rows={2}
+                    data-testid="textarea-timeout-notes"
+                  />
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="timeout-antibiotics" data-testid="checkbox-timeout-antibiotics" />
-                  <Label htmlFor="timeout-antibiotics" className="cursor-pointer">Prophylactic antibiotics given</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="timeout-imaging" data-testid="checkbox-timeout-imaging" />
-                  <Label htmlFor="timeout-imaging" className="cursor-pointer">Essential imaging displayed</Label>
+                
+                <div>
+                  <Label>Verified By (Signature)</Label>
+                  <div className="border rounded-md p-2 bg-white dark:bg-slate-950 h-24" data-testid="signature-timeout">
+                    <canvas className="w-full h-full" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* Sign-Out Checklist */}
-            <Card>
+            <Card className="mb-4">
               <CardHeader>
                 <CardTitle className="text-red-700 dark:text-red-300">Sign-Out (Before Patient Leaves OR)</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="signout-procedure" data-testid="checkbox-signout-procedure" />
-                  <Label htmlFor="signout-procedure" className="cursor-pointer">Procedure recorded</Label>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="signout-procedure" data-testid="checkbox-signout-procedure" />
+                    <Label htmlFor="signout-procedure" className="cursor-pointer">Procedure recorded</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="signout-counts" data-testid="checkbox-signout-counts" />
+                    <Label htmlFor="signout-counts" className="cursor-pointer">Instrument/sponge counts correct</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="signout-specimens" data-testid="checkbox-signout-specimens" />
+                    <Label htmlFor="signout-specimens" className="cursor-pointer">Specimens labeled</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox id="signout-equipment" data-testid="checkbox-signout-equipment" />
+                    <Label htmlFor="signout-equipment" className="cursor-pointer">Equipment problems addressed</Label>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="signout-counts" data-testid="checkbox-signout-counts" />
-                  <Label htmlFor="signout-counts" className="cursor-pointer">Instrument/sponge counts correct</Label>
+                
+                <div className="pt-4 border-t">
+                  <Label>Notes</Label>
+                  <Textarea
+                    placeholder="Additional notes for Sign-Out checklist..."
+                    rows={2}
+                    data-testid="textarea-signout-notes"
+                  />
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="signout-specimens" data-testid="checkbox-signout-specimens" />
-                  <Label htmlFor="signout-specimens" className="cursor-pointer">Specimens labeled</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="signout-equipment" data-testid="checkbox-signout-equipment" />
-                  <Label htmlFor="signout-equipment" className="cursor-pointer">Equipment problems addressed</Label>
+                
+                <div>
+                  <Label>Verified By (Signature)</Label>
+                  <div className="border rounded-md p-2 bg-white dark:bg-slate-950 h-24" data-testid="signature-signout">
+                    <canvas className="w-full h-full" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
-            </div>
           </TabsContent>
 
           {/* Post-op Management Tab */}
