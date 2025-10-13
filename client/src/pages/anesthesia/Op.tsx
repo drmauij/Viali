@@ -390,19 +390,8 @@ export default function Op() {
                     <div className="w-44 shrink-0 border-r bg-gray-50 dark:bg-gray-900 sticky left-0 z-10 flex flex-col">
                       {/* Integrated Vitals with Unified Scale */}
                       <div className="h-96 border-b flex items-center justify-between px-3 relative bg-slate-50 dark:bg-slate-900">
-                        {/* Unified 0-240 Scale */}
-                        <div className="absolute left-2 top-0 bottom-0 flex flex-col justify-between py-4 text-[10px] font-semibold text-slate-700 dark:text-slate-300">
-                          <span>240</span>
-                          <span>200</span>
-                          <span>160</span>
-                          <span>120</span>
-                          <span>80</span>
-                          <span>40</span>
-                          <span>0</span>
-                        </div>
-                        
-                        {/* Parameter Icons on right */}
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3">
+                        {/* Parameter Icons on left */}
+                        <div className="absolute left-3 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3">
                           <div className="flex flex-col items-center gap-1">
                             <Gauge className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                             <span className="text-[9px] font-medium text-muted-foreground">NIBP</span>
@@ -415,6 +404,21 @@ export default function Op() {
                             <Droplet className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
                             <span className="text-[9px] font-medium text-muted-foreground">SpO2</span>
                           </div>
+                          <div className="flex flex-col items-center gap-1">
+                            <Thermometer className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                            <span className="text-[9px] font-medium text-muted-foreground">°C</span>
+                          </div>
+                        </div>
+                        
+                        {/* Unified 0-240 Scale on right */}
+                        <div className="absolute right-2 top-0 bottom-0 flex flex-col justify-between py-4 text-[10px] font-semibold text-slate-700 dark:text-slate-300">
+                          <span>240</span>
+                          <span>200</span>
+                          <span>160</span>
+                          <span>120</span>
+                          <span>80</span>
+                          <span>40</span>
+                          <span>0</span>
                         </div>
                       </div>
                       
