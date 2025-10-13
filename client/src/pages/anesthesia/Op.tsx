@@ -312,15 +312,6 @@ export default function Op() {
 
               {/* Timeline Visualization */}
               <div className="flex-1 flex flex-col">
-                {/* Timeline Header */}
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="font-semibold text-lg">Vitals Timeline</h3>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="h-4 w-4" />
-                    <span>Start Time: 08:00</span>
-                  </div>
-                </div>
-
                 {/* Scrollable Timeline Container */}
                 <div className="flex-1 border rounded-lg bg-card overflow-hidden flex flex-col">
                   {/* Unified Scroll Container */}
