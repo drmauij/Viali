@@ -398,37 +398,37 @@ export function UnifiedTimeline({
         
         {/* Zeiten */}
         <div className="h-[40px] flex items-center px-3 border-b border-border bg-purple-100 dark:bg-purple-900/30" style={{ marginTop: "20px" }}>
-          <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">Zeiten</span>
+          <span className="text-xs font-semibold text-black dark:text-white">Zeiten</span>
         </div>
         
         {/* Ereignisse */}
         <div className="h-[40px] flex items-center px-3 border-b border-border bg-blue-100 dark:bg-blue-900/30" style={{ marginTop: "10px" }}>
-          <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">Ereignisse</span>
+          <span className="text-xs font-semibold text-black dark:text-white">Ereignisse</span>
         </div>
         
         {/* Herzrhythmus */}
         <div className="h-[40px] flex items-center px-3 border-b border-border bg-pink-100 dark:bg-pink-900/30" style={{ marginTop: "10px" }}>
-          <span className="text-xs font-semibold text-pink-700 dark:text-pink-300">Herzrhythmus</span>
+          <span className="text-xs font-semibold text-black dark:text-white">Herzrhythmus</span>
         </div>
         
         {/* Medikamente */}
         <div className="h-[90px] flex items-center px-3 border-b border-border bg-green-100 dark:bg-green-900/30" style={{ marginTop: "10px" }}>
-          <span className="text-xs font-semibold text-green-700 dark:text-green-300">Medikamente</span>
+          <span className="text-xs font-semibold text-black dark:text-white">Medikamente</span>
         </div>
         
         {/* Infusionen/Perfusors */}
         <div className="h-[40px] flex items-center px-3 border-b border-border bg-cyan-100 dark:bg-cyan-900/30" style={{ marginTop: "10px" }}>
-          <span className="text-xs font-semibold text-cyan-700 dark:text-cyan-300">Infusionen</span>
+          <span className="text-xs font-semibold text-black dark:text-white">Infusionen</span>
         </div>
         
         {/* Ventilation */}
         <div className="h-[40px] flex items-center px-3 border-b border-border bg-amber-100 dark:bg-amber-900/30" style={{ marginTop: "10px" }}>
-          <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">Ventilation</span>
+          <span className="text-xs font-semibold text-black dark:text-white">Ventilation</span>
         </div>
         
         {/* Staff */}
         <div className="h-[40px] flex items-center px-3 bg-slate-100 dark:bg-slate-900/30" style={{ marginTop: "10px" }}>
-          <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Staff</span>
+          <span className="text-xs font-semibold text-black dark:text-white">Staff</span>
         </div>
       </div>
 
