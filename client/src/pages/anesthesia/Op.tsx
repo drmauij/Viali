@@ -563,30 +563,30 @@ export default function Op() {
                           </div>
                           
                           <svg className="absolute inset-0 w-full h-full">
-                            {/* Sample integrated vitals data - 15 data points */}
+                            {/* Sample integrated vitals data - 15 data points with standard medical values */}
                             {[
-                              { x: 5, sys: 135, dia: 78, hr: 62, spo2: 100 },
-                              { x: 11, sys: 128, dia: 72, hr: 58, spo2: 100 },
-                              { x: 17, sys: 142, dia: 85, hr: 65, spo2: 99 },
-                              { x: 23, sys: 125, dia: 70, hr: 54, spo2: 100 },
-                              { x: 29, sys: 138, dia: 80, hr: 61, spo2: 100 },
-                              { x: 35, sys: 132, dia: 75, hr: 48, spo2: 99 },
-                              { x: 41, sys: 145, dia: 88, hr: 67, spo2: 100 },
-                              { x: 47, sys: 130, dia: 73, hr: 55, spo2: 100 },
-                              { x: 53, sys: 140, dia: 82, hr: 63, spo2: 99 },
-                              { x: 59, sys: 126, dia: 71, hr: 51, spo2: 100 },
-                              { x: 65, sys: 148, dia: 90, hr: 69, spo2: 100 },
-                              { x: 71, sys: 133, dia: 76, hr: 57, spo2: 99 },
-                              { x: 77, sys: 137, dia: 79, hr: 64, spo2: 100 },
-                              { x: 83, sys: 129, dia: 74, hr: 52, spo2: 100 },
-                              { x: 89, sys: 141, dia: 84, hr: 60, spo2: 99 }
+                              { x: 5, sys: 118, dia: 78, hr: 58, spo2: 99 },
+                              { x: 11, sys: 122, dia: 82, hr: 62, spo2: 100 },
+                              { x: 17, sys: 116, dia: 76, hr: 59, spo2: 100 },
+                              { x: 23, sys: 124, dia: 84, hr: 64, spo2: 99 },
+                              { x: 29, sys: 120, dia: 80, hr: 60, spo2: 100 },
+                              { x: 35, sys: 119, dia: 79, hr: 61, spo2: 100 },
+                              { x: 41, sys: 125, dia: 85, hr: 63, spo2: 99 },
+                              { x: 47, sys: 121, dia: 81, hr: 58, spo2: 100 },
+                              { x: 53, sys: 117, dia: 77, hr: 62, spo2: 100 },
+                              { x: 59, sys: 123, dia: 83, hr: 60, spo2: 99 },
+                              { x: 65, sys: 120, dia: 80, hr: 61, spo2: 100 },
+                              { x: 71, sys: 118, dia: 78, hr: 59, spo2: 100 },
+                              { x: 77, sys: 122, dia: 82, hr: 63, spo2: 99 },
+                              { x: 83, sys: 119, dia: 79, hr: 60, spo2: 100 },
+                              { x: 89, sys: 121, dia: 81, hr: 62, spo2: 100 }
                             ].map((data, i, arr) => {
                               const xPos = `${data.x}%`;
-                              // Using 0-240 scale for BP/HR
+                              // Using 0-240 scale for BP/HR (standard values around 120/80 and 60)
                               const sysY = `${100 - (data.sys / 240) * 100}%`;
                               const diaY = `${100 - (data.dia / 240) * 100}%`;
                               const hrY = `${100 - (data.hr / 240) * 100}%`;
-                              // Using 50-100 scale for SpO2
+                              // Using 50-100 scale for SpO2 (values around 100)
                               const spo2Y = `${100 - ((data.spo2 - 50) / 50) * 100}%`;
                               const mapValue = (data.sys + 2 * data.dia) / 3;
                               const mapY = `${100 - (mapValue / 240) * 100}%`;
