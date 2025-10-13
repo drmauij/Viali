@@ -368,31 +368,15 @@ export default function Op() {
                   </div>
                 </div>
 
-                {/* Professional Vitals & Clinical Swimlanes - SHARED scrollable container */}
-                <div className="flex-1 overflow-y-auto overflow-x-hidden">
-                  <div className="flex">
-                    {/* Sticky Left Column */}
-                    <div className="w-44 shrink-0 bg-gray-50 dark:bg-gray-900 sticky left-0 z-10">
-                      {/* Time header spacer - matches the height */}
-                      <div className="h-10 border-b border-r bg-muted/30"></div>
-                    </div>
+                {/* Professional Vitals & Clinical Swimlanes */}
+                <div className="flex-1 flex overflow-hidden">
+                  {/* Left Sticky Column with Labels */}
+                  <div className="w-44 shrink-0 bg-gray-50 dark:bg-gray-900 border-r overflow-y-auto">
+                    {/* Time header spacer */}
+                    <div className="h-10 border-b bg-muted/30"></div>
                     
-                    {/* SHARED Scrollable Container for Time Markers + Swimlanes */}
-                    <div className="flex-1 overflow-x-auto">
-                      <div className="min-w-[1400px]">
-                        {/* Time Markers Row */}
-                        <div className="h-10 border-b bg-muted/30 flex">
-                          {getTimeIntervals().map((time, i) => (
-                            <div
-                              key={i}
-                              className="flex-1 text-center py-1.5 border-r last:border-r-0 text-[10px] font-medium flex items-center justify-center"
-                            >
-                              {time.hour}:{time.minute}
-                            </div>
-                          ))}
-                        </div>
-                      {/* Integrated Vitals with Unified Scale */}
-                      <div className="h-96 border-b flex items-center justify-between px-3 relative bg-slate-50 dark:bg-slate-900">
+                    {/* Vitals Section Label */}
+                    <div className="h-96 border-b flex items-center justify-between px-3 relative bg-slate-50 dark:bg-slate-900">
                         {/* Parameter Icons on left - Clickable/Touchable Buttons */}
                         <div className="absolute left-6 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2">
                           <button className="flex flex-col items-center gap-0.5 p-2 border-2 border-blue-600 dark:border-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 active:bg-blue-100 dark:active:bg-blue-900/40 transition-colors" data-testid="button-vitals-nibp">
@@ -541,6 +525,22 @@ export default function Op() {
                         <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Scores</span>
                       </div>
                     </div>
+                    
+                    {/* Right Scrollable Container with Time Markers and Swimlanes */}
+                    <div className="flex-1 overflow-y-auto overflow-x-auto">
+                      <div className="min-w-[1400px]">
+                        {/* Time Markers Row */}
+                        <div className="h-10 border-b bg-muted/30 flex">
+                          {getTimeIntervals().map((time, i) => (
+                            <div
+                              key={i}
+                              className="flex-1 text-center py-1.5 border-r last:border-r-0 text-[10px] font-medium flex items-center justify-center"
+                            >
+                              {time.hour}:{time.minute}
+                            </div>
+                          ))}
+                        </div>
+                        
                         {/* Integrated Vitals Swimlane - BP, HR, SpO2 on unified 0-240 scale */}
                         <div className="h-96 border-b relative bg-slate-50 dark:bg-slate-900">
                           {/* Grid lines */}
@@ -747,11 +747,8 @@ export default function Op() {
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="w-24 shrink-0"></div>
                   </div>
-                </div> {/* Close overflow-y-auto */}
-              </div> {/* Close flex-1 border-t */}
+                </div>
           </TabsContent>
 
           {/* Anesthesia Documentation Tab */}
