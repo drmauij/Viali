@@ -308,7 +308,7 @@ export default function Op() {
               {/* Professional Timeline Container */}
               <div className="h-full border-t bg-card overflow-hidden flex flex-col">
                 {/* Timeline Header with Navigation & Time Markers */}
-                <div className="border-b bg-muted/30 sticky top-0 z-20">
+                <div className="border-b bg-muted/30 shrink-0">
                   <div className="flex">
                     {/* Left Column: Navigation Controls */}
                     <div className="w-44 shrink-0 border-r bg-muted/30 flex items-center justify-between px-2 py-1">
