@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -113,32 +113,6 @@ export default function Op() {
     beatmungsparameter: false,
   });
 
-  // Refs for scroll synchronization
-  const timeHeaderScrollRef = useRef<HTMLDivElement>(null);
-  const timelineScrollRef = useRef<HTMLDivElement>(null);
-
-  // Sync horizontal scroll between time header and timeline
-  useEffect(() => {
-    const headerEl = timeHeaderScrollRef.current;
-    const timelineEl = timelineScrollRef.current;
-    
-    if (!headerEl || !timelineEl) return;
-
-    const syncScroll = (source: HTMLDivElement, target: HTMLDivElement) => () => {
-      target.scrollLeft = source.scrollLeft;
-    };
-
-    const headerHandler = syncScroll(headerEl, timelineEl);
-    const timelineHandler = syncScroll(timelineEl, headerEl);
-
-    headerEl.addEventListener('scroll', headerHandler);
-    timelineEl.addEventListener('scroll', timelineHandler);
-
-    return () => {
-      headerEl.removeEventListener('scroll', headerHandler);
-      timelineEl.removeEventListener('scroll', timelineHandler);
-    };
-  }, []);
 
   // Calculate time intervals based on zoom
   const getTimeIntervals = () => {
@@ -322,101 +296,101 @@ export default function Op() {
           <TabsContent value="vitals" className="data-[state=active]:flex-1 overflow-hidden flex flex-col mt-0">
             {/* Professional Timeline Container */}
             <div className="flex-1 border-t bg-card overflow-hidden flex flex-col relative z-0">
-                {/* Timeline Header with Navigation & Time Markers */}
-                <div className="border-b bg-muted/30 shrink-0 relative z-0">
-                  <div className="flex">
-                    {/* Left Column: Navigation Controls */}
-                    <div className="w-44 shrink-0 border-r bg-muted/30 flex items-center justify-between px-2 py-1">
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => setTimelineStart(Math.max(0, timelineStart - 1))}
-                          data-testid="button-timeline-start"
-                        >
-                          <ChevronsLeft className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => setTimelineStart(Math.max(0, timelineStart - 0.25))}
-                          data-testid="button-timeline-backward"
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="text-xs font-medium">
-                        {new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                      </div>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => setTimelineStart(timelineStart + 0.25)}
-                          data-testid="button-timeline-forward"
-                        >
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => setTimelineStart(timelineStart + 1)}
-                          data-testid="button-timeline-end"
-                        >
-                          <ChevronsRight className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    {/* Scrollable Time Markers */}
-                    <div ref={timeHeaderScrollRef} className="flex-1 overflow-x-auto overflow-y-hidden">
-                      <div className="min-w-[1400px]">
-                        <div className="flex">
-                          {getTimeIntervals().map((time, i) => (
-                            <div
-                              key={i}
-                              className="flex-1 text-center py-1.5 border-r last:border-r-0 text-[10px] font-medium"
-                            >
-                              <div>{time.hour}:{time.minute}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Right: Zoom Controls */}
-                    <div className="w-24 shrink-0 border-l bg-muted/30 flex items-center justify-center gap-1 px-2">
+                {/* Timeline Header with Controls (Fixed) */}
+                <div className="border-b bg-muted/30 shrink-0 relative z-0 flex">
+                  {/* Left Column: Navigation Controls */}
+                  <div className="w-44 shrink-0 border-r bg-muted/30 flex items-center justify-between px-2 py-1">
+                    <div className="flex gap-1">
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-7 w-7 p-0"
-                        onClick={() => setZoomLevel(Math.min(30, zoomLevel + 5))}
-                        data-testid="button-zoom-out"
+                        onClick={() => setTimelineStart(Math.max(0, timelineStart - 1))}
+                        data-testid="button-timeline-start"
                       >
-                        <ZoomOut className="h-3 w-3" />
+                        <ChevronsLeft className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-7 w-7 p-0"
-                        onClick={() => setZoomLevel(Math.max(5, zoomLevel - 5))}
-                        data-testid="button-zoom-in"
+                        onClick={() => setTimelineStart(Math.max(0, timelineStart - 0.25))}
+                        data-testid="button-timeline-backward"
                       >
-                        <ZoomIn className="h-3 w-3" />
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="text-xs font-medium">
+                      {new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </div>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => setTimelineStart(timelineStart + 0.25)}
+                        data-testid="button-timeline-forward"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => setTimelineStart(timelineStart + 1)}
+                        data-testid="button-timeline-end"
+                      >
+                        <ChevronsRight className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
+                  
+                  {/* Right: Zoom Controls */}
+                  <div className="w-24 shrink-0 border-l bg-muted/30 flex items-center justify-center gap-1 px-2 ml-auto">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => setZoomLevel(Math.min(30, zoomLevel + 5))}
+                      data-testid="button-zoom-out"
+                    >
+                      <ZoomOut className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => setZoomLevel(Math.max(5, zoomLevel - 5))}
+                      data-testid="button-zoom-in"
+                    >
+                      <ZoomIn className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
 
-                {/* Professional Vitals & Clinical Swimlanes */}
-                <div className="flex-1 overflow-y-auto">
+                {/* Professional Vitals & Clinical Swimlanes - SHARED scrollable container */}
+                <div className="flex-1 overflow-y-auto overflow-x-hidden">
                   <div className="flex">
-                    {/* Sticky Left Column with Icons & Scales */}
-                    <div className="w-44 shrink-0 border-r bg-gray-50 dark:bg-gray-900 sticky left-0 z-10 flex flex-col">
+                    {/* Sticky Left Column */}
+                    <div className="w-44 shrink-0 bg-gray-50 dark:bg-gray-900 sticky left-0 z-10">
+                      {/* Time header spacer - matches the height */}
+                      <div className="h-10 border-b border-r bg-muted/30"></div>
+                    </div>
+                    
+                    {/* SHARED Scrollable Container for Time Markers + Swimlanes */}
+                    <div className="flex-1 overflow-x-auto">
+                      <div className="min-w-[1400px]">
+                        {/* Time Markers Row */}
+                        <div className="h-10 border-b bg-muted/30 flex">
+                          {getTimeIntervals().map((time, i) => (
+                            <div
+                              key={i}
+                              className="flex-1 text-center py-1.5 border-r last:border-r-0 text-[10px] font-medium flex items-center justify-center"
+                            >
+                              {time.hour}:{time.minute}
+                            </div>
+                          ))}
+                        </div>
                       {/* Integrated Vitals with Unified Scale */}
                       <div className="h-96 border-b flex items-center justify-between px-3 relative bg-slate-50 dark:bg-slate-900">
                         {/* Parameter Icons on left - Clickable/Touchable Buttons */}
@@ -567,10 +541,6 @@ export default function Op() {
                         <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Scores</span>
                       </div>
                     </div>
-                    
-                    {/* Scrollable Timeline Content */}
-                    <div ref={timelineScrollRef} className="flex-1 overflow-x-auto">
-                      <div className="min-w-[1400px]">
                         {/* Integrated Vitals Swimlane - BP, HR, SpO2 on unified 0-240 scale */}
                         <div className="h-96 border-b relative bg-slate-50 dark:bg-slate-900">
                           {/* Grid lines */}
@@ -777,9 +747,11 @@ export default function Op() {
                         </div>
                       </div>
                     </div>
+                    
+                    <div className="w-24 shrink-0"></div>
                   </div>
-                </div>
-              </div>
+                </div> {/* Close overflow-y-auto */}
+              </div> {/* Close flex-1 border-t */}
           </TabsContent>
 
           {/* Anesthesia Documentation Tab */}
