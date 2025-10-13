@@ -272,10 +272,10 @@ export default function Op() {
           </div>
 
           {/* Vitals & Timeline Tab */}
-          <TabsContent value="vitals" className="flex-1 overflow-y-auto px-6 pb-6 mt-0 pt-4">
-            <div className="flex gap-4 h-full">
-              {/* Quick Add Vitals Sidebar */}
-              <div className="w-20 shrink-0 space-y-2">
+          <TabsContent value="vitals" className="flex-1 overflow-hidden mt-0">
+            <div className="flex gap-4 h-full px-6 pt-4 pb-6">
+              {/* Quick Add Vitals Sidebar - Sticky */}
+              <div className="w-20 shrink-0 space-y-2 overflow-y-auto">
                 <Button 
                   variant="outline" 
                   className="w-full h-16 flex-col gap-1 p-2"
@@ -311,7 +311,7 @@ export default function Op() {
               </div>
 
               {/* Timeline Visualization */}
-              <div className="flex-1 flex flex-col">
+              <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Scrollable Timeline Container */}
                 <div className="flex-1 border rounded-lg bg-card overflow-hidden flex flex-col">
                   {/* Unified Scroll Container */}
