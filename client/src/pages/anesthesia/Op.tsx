@@ -817,8 +817,8 @@ export default function Op() {
           </TabsContent>
 
           {/* Anesthesia Documentation Tab */}
-          <TabsContent value="anesthesia" className="overflow-y-auto px-6 pb-6 space-y-4 mt-0">
-            <Accordion type="multiple" className="space-y-4">
+          <TabsContent value="anesthesia" className="overflow-y-auto px-6 pb-6 space-y-4 mt-0 flex flex-col items-start">
+            <Accordion type="multiple" className="space-y-4 w-full">
               {/* Installations Section */}
               <AccordionItem value="installations">
                 <Card>
@@ -829,25 +829,59 @@ export default function Op() {
                     <CardContent className="space-y-6 pt-0">
                       {/* Peripheral Access */}
                       <div className="space-y-3">
-                        <Label className="text-base font-semibold">Peripheral Venous Access</Label>
-                        <div className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-base font-semibold">Peripheral Venous Access</Label>
+                          <Button variant="outline" size="sm" data-testid="button-add-pv-access">
+                            <Plus className="h-4 w-4 mr-1" />
+                            Add Entry
+                          </Button>
+                        </div>
+                        
+                        {/* Entry 1 */}
+                        <div className="border rounded-lg p-4 space-y-3 bg-slate-50 dark:bg-slate-900">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Entry #1</span>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" data-testid="button-remove-pv-1">
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
                           <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                               <Label>Location</Label>
-                              <Input placeholder="e.g., Right forearm" data-testid="input-pv-location" />
+                              <select className="w-full border rounded-md p-2 bg-background" data-testid="select-pv-location-1">
+                                <option value="">Select location</option>
+                                <option value="right-hand">Right Hand (Dorsum)</option>
+                                <option value="left-hand">Left Hand (Dorsum)</option>
+                                <option value="right-forearm">Right Forearm</option>
+                                <option value="left-forearm">Left Forearm</option>
+                                <option value="right-ac-fossa">Right Antecubital Fossa</option>
+                                <option value="left-ac-fossa">Left Antecubital Fossa</option>
+                                <option value="right-wrist">Right Wrist</option>
+                                <option value="left-wrist">Left Wrist</option>
+                                <option value="right-foot">Right Foot</option>
+                                <option value="left-foot">Left Foot</option>
+                              </select>
                             </div>
                             <div className="space-y-2">
                               <Label>Gauge</Label>
-                              <Input placeholder="e.g., 18G" data-testid="input-pv-gauge" />
+                              <select className="w-full border rounded-md p-2 bg-background" data-testid="select-pv-gauge-1">
+                                <option value="">Select gauge</option>
+                                <option value="14G">14G (Orange)</option>
+                                <option value="16G">16G (Gray)</option>
+                                <option value="18G">18G (Green)</option>
+                                <option value="20G">20G (Pink)</option>
+                                <option value="22G">22G (Blue)</option>
+                                <option value="24G">24G (Yellow)</option>
+                              </select>
                             </div>
                           </div>
                           <div className="space-y-2">
                             <Label>Number of Attempts</Label>
-                            <Input type="number" placeholder="1" data-testid="input-pv-attempts" />
+                            <Input type="number" placeholder="1" defaultValue="1" data-testid="input-pv-attempts-1" />
                           </div>
                           <div className="space-y-2">
                             <Label>Notes</Label>
-                            <Textarea rows={2} placeholder="Additional notes..." data-testid="textarea-pv-notes" />
+                            <Textarea rows={2} placeholder="Additional notes..." data-testid="textarea-pv-notes-1" />
                           </div>
                         </div>
                       </div>
@@ -870,7 +904,12 @@ export default function Op() {
                             </div>
                             <div className="space-y-2">
                               <Label>Gauge</Label>
-                              <Input placeholder="e.g., 20G" data-testid="input-arterial-gauge" />
+                              <select className="w-full border rounded-md p-2 bg-background" data-testid="select-arterial-gauge">
+                                <option value="">Select gauge</option>
+                                <option value="18G">18G</option>
+                                <option value="20G">20G</option>
+                                <option value="22G">22G</option>
+                              </select>
                             </div>
                           </div>
                           <div className="grid grid-cols-2 gap-4">
