@@ -15,7 +15,7 @@ The frontend is built with React and TypeScript, leveraging Vite for development
 - **Patients** (`/anesthesia/patients`): Master list of all patients with search and filtering
 - **Pre-OP List** (`/anesthesia/preop`): List of patients awaiting pre-operative assessment with search functionality, showing patient demographics, planned surgery details, surgeon, and planned date with "Awaiting Assessment" status badges. Cards link to case-specific pre-op assessment forms
 - **OP List** (`/anesthesia/op`): List of active surgeries currently in progress with search functionality, showing patient demographics, surgery details, surgeon, start time with duration calculation, and OR location. Cards have green styling and "In Progress" status badges, linking to case-specific OP monitoring pages
-- **OP Monitoring System** (`/anesthesia/cases/:id/op`): Full-screen dialog interface with vitals timeline visualization (BP, HR, Temp, SpO2), clinical swimlanes for events, infusions, drugs, and staff, and tabbed documentation sections for comprehensive intraoperative record-keeping
+- **OP Monitoring System** (`/anesthesia/cases/:id/op`): Full-screen dialog interface with professional Apache ECharts-based vitals timeline visualization featuring dual y-axes (0-240 for BP/HR, 50-100 for SpO2), custom medical symbols (BP carets with filled areas, HR hearts, SpO2 circles), built-in zoom/pan interactions, synchronized multi-grid swimlanes (Zeiten, Ereignisse & Maßnahmen, Herzrhythmus), and tabbed documentation sections for comprehensive intraoperative record-keeping using German medical terminology
 - **PACU**: Post-Anesthesia Care Unit - patients in recovery with Aldrette scores and pain levels
 
 Key features include barcode scanning, a signature pad, real-time item quick panels, and a hospital switcher for multi-tenant environments.
@@ -52,6 +52,10 @@ The system provides comprehensive inventory management, including:
 - Radix UI
 - Shadcn/ui
 - Lucide React & Font Awesome
+
+**Data Visualization:**
+- Apache ECharts
+- echarts-for-react
 
 **Development Tools:**
 - Vite plugins
