@@ -283,22 +283,10 @@ export default function Op() {
         <Tabs defaultValue="vitals" className="flex-1 flex flex-col min-h-0">
           <div className="px-6 shrink-0">
             <TabsList className="grid w-full grid-cols-4 mb-4">
-              <TabsTrigger value="vitals" data-testid="tab-vitals" className="flex-col md:flex-row gap-1 md:gap-2 py-2">
-                <LineChart className="h-4 w-4" />
-                <span className="text-xs md:text-sm">Vitals</span>
-              </TabsTrigger>
-              <TabsTrigger value="anesthesia" data-testid="tab-anesthesia" className="flex-col md:flex-row gap-1 md:gap-2 py-2">
-                <Syringe className="h-4 w-4" />
-                <span className="text-xs md:text-sm">Anesthesia</span>
-              </TabsTrigger>
-              <TabsTrigger value="checklists" data-testid="tab-checklists" className="flex-col md:flex-row gap-1 md:gap-2 py-2">
-                <FileCheck className="h-4 w-4" />
-                <span className="text-xs md:text-sm">Checklists</span>
-              </TabsTrigger>
-              <TabsTrigger value="postop" data-testid="tab-postop" className="flex-col md:flex-row gap-1 md:gap-2 py-2">
-                <ClipboardList className="h-4 w-4" />
-                <span className="text-xs md:text-sm">Post-op</span>
-              </TabsTrigger>
+              <TabsTrigger value="vitals" data-testid="tab-vitals">Vitals</TabsTrigger>
+              <TabsTrigger value="anesthesia" data-testid="tab-anesthesia">Anesthesia</TabsTrigger>
+              <TabsTrigger value="checklists" data-testid="tab-checklists">Checklists</TabsTrigger>
+              <TabsTrigger value="postop" data-testid="tab-postop">Post-op</TabsTrigger>
             </TabsList>
           </div>
 
