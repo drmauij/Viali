@@ -391,34 +391,47 @@ export default function Op() {
                       {/* Integrated Vitals with Unified Scale */}
                       <div className="h-96 border-b flex items-center justify-between px-3 relative bg-slate-50 dark:bg-slate-900">
                         {/* Parameter Icons on left - Clickable/Touchable Buttons */}
-                        <div className="absolute left-6 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3">
-                          <button className="flex flex-col items-center gap-1 p-3 border-2 border-blue-600 dark:border-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 active:bg-blue-100 dark:active:bg-blue-900/40 transition-colors" data-testid="button-vitals-nibp">
-                            <Gauge className="h-7 w-7 text-blue-600 dark:text-blue-400" />
-                            <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">NIBP</span>
+                        <div className="absolute left-6 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2">
+                          <button className="flex flex-col items-center gap-0.5 p-2 border-2 border-blue-600 dark:border-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 active:bg-blue-100 dark:active:bg-blue-900/40 transition-colors" data-testid="button-vitals-nibp">
+                            <Gauge className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                            <span className="text-[9px] font-semibold text-blue-600 dark:text-blue-400">NIBP</span>
                           </button>
-                          <button className="flex flex-col items-center gap-1 p-3 border-2 border-red-600 dark:border-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 active:bg-red-100 dark:active:bg-red-900/40 transition-colors" data-testid="button-vitals-hr">
-                            <Heart className="h-7 w-7 text-red-600 dark:text-red-400" />
-                            <span className="text-[10px] font-semibold text-red-600 dark:text-red-400">HR</span>
+                          <button className="flex flex-col items-center gap-0.5 p-2 border-2 border-red-600 dark:border-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 active:bg-red-100 dark:active:bg-red-900/40 transition-colors" data-testid="button-vitals-hr">
+                            <Heart className="h-5 w-5 text-red-600 dark:text-red-400" />
+                            <span className="text-[9px] font-semibold text-red-600 dark:text-red-400">HR</span>
                           </button>
-                          <button className="flex flex-col items-center gap-1 p-3 border-2 border-cyan-600 dark:border-cyan-400 rounded-lg hover:bg-cyan-50 dark:hover:bg-cyan-900/20 active:bg-cyan-100 dark:active:bg-cyan-900/40 transition-colors" data-testid="button-vitals-spo2">
-                            <Droplet className="h-7 w-7 text-cyan-600 dark:text-cyan-400" />
-                            <span className="text-[10px] font-semibold text-cyan-600 dark:text-cyan-400">SpO2</span>
+                          <button className="flex flex-col items-center gap-0.5 p-2 border-2 border-cyan-600 dark:border-cyan-400 rounded-lg hover:bg-cyan-50 dark:hover:bg-cyan-900/20 active:bg-cyan-100 dark:active:bg-cyan-900/40 transition-colors" data-testid="button-vitals-spo2">
+                            <Droplet className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+                            <span className="text-[9px] font-semibold text-cyan-600 dark:text-cyan-400">SpO2</span>
                           </button>
-                          <button className="flex flex-col items-center gap-1 p-3 border-2 border-orange-600 dark:border-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 active:bg-orange-100 dark:active:bg-orange-900/40 transition-colors" data-testid="button-vitals-temp">
-                            <Thermometer className="h-7 w-7 text-orange-600 dark:text-orange-400" />
-                            <span className="text-[10px] font-semibold text-orange-600 dark:text-orange-400">°C</span>
+                          <button className="flex flex-col items-center gap-0.5 p-2 border-2 border-orange-600 dark:border-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 active:bg-orange-100 dark:active:bg-orange-900/40 transition-colors" data-testid="button-vitals-temp">
+                            <Thermometer className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                            <span className="text-[9px] font-semibold text-orange-600 dark:text-orange-400">°C</span>
                           </button>
                         </div>
                         
-                        {/* Unified 0-240 Scale on right */}
-                        <div className="absolute right-2 top-0 bottom-0 flex flex-col justify-between py-4 text-[10px] font-semibold text-slate-700 dark:text-slate-300">
-                          <span>240</span>
-                          <span>200</span>
-                          <span>160</span>
-                          <span>120</span>
-                          <span>80</span>
-                          <span>40</span>
-                          <span>0</span>
+                        {/* Dual Numeric Scales on right */}
+                        <div className="absolute right-2 top-0 bottom-0 flex gap-4 py-4">
+                          {/* 0-240 Scale for BP/HR */}
+                          <div className="flex flex-col justify-between text-[10px] font-semibold text-slate-700 dark:text-slate-300">
+                            <span>240</span>
+                            <span>200</span>
+                            <span>160</span>
+                            <span>120</span>
+                            <span>80</span>
+                            <span>40</span>
+                            <span>0</span>
+                          </div>
+                          {/* 50-100 Scale for SpO2 */}
+                          <div className="flex flex-col justify-between text-[10px] font-semibold text-cyan-600 dark:text-cyan-400">
+                            <span>100</span>
+                            <span>95</span>
+                            <span>90</span>
+                            <span>85</span>
+                            <span>80</span>
+                            <span>75</span>
+                            <span>50</span>
+                          </div>
                         </div>
                       </div>
                       
@@ -550,21 +563,31 @@ export default function Op() {
                           </div>
                           
                           <svg className="absolute inset-0 w-full h-full">
-                            {/* Sample integrated vitals data */}
+                            {/* Sample integrated vitals data - 15 data points */}
                             {[
-                              { x: 10, sys: 130, dia: 75, hr: 72, spo2: 98 },
-                              { x: 20, sys: 135, dia: 78, hr: 68, spo2: 99 },
-                              { x: 30, sys: 125, dia: 72, hr: 75, spo2: 98 },
-                              { x: 40, sys: 140, dia: 82, hr: 70, spo2: 97 },
-                              { x: 50, sys: 132, dia: 76, hr: 73, spo2: 98 },
-                              { x: 60, sys: 128, dia: 74, hr: 71, spo2: 99 }
+                              { x: 5, sys: 135, dia: 78, hr: 62, spo2: 100 },
+                              { x: 11, sys: 128, dia: 72, hr: 58, spo2: 100 },
+                              { x: 17, sys: 142, dia: 85, hr: 65, spo2: 99 },
+                              { x: 23, sys: 125, dia: 70, hr: 54, spo2: 100 },
+                              { x: 29, sys: 138, dia: 80, hr: 61, spo2: 100 },
+                              { x: 35, sys: 132, dia: 75, hr: 48, spo2: 99 },
+                              { x: 41, sys: 145, dia: 88, hr: 67, spo2: 100 },
+                              { x: 47, sys: 130, dia: 73, hr: 55, spo2: 100 },
+                              { x: 53, sys: 140, dia: 82, hr: 63, spo2: 99 },
+                              { x: 59, sys: 126, dia: 71, hr: 51, spo2: 100 },
+                              { x: 65, sys: 148, dia: 90, hr: 69, spo2: 100 },
+                              { x: 71, sys: 133, dia: 76, hr: 57, spo2: 99 },
+                              { x: 77, sys: 137, dia: 79, hr: 64, spo2: 100 },
+                              { x: 83, sys: 129, dia: 74, hr: 52, spo2: 100 },
+                              { x: 89, sys: 141, dia: 84, hr: 60, spo2: 99 }
                             ].map((data, i, arr) => {
                               const xPos = `${data.x}%`;
-                              // Using 0-240 scale for all values
+                              // Using 0-240 scale for BP/HR
                               const sysY = `${100 - (data.sys / 240) * 100}%`;
                               const diaY = `${100 - (data.dia / 240) * 100}%`;
                               const hrY = `${100 - (data.hr / 240) * 100}%`;
-                              const spo2Y = `${100 - (data.spo2 / 240) * 100}%`;
+                              // Using 50-100 scale for SpO2
+                              const spo2Y = `${100 - ((data.spo2 - 50) / 50) * 100}%`;
                               const mapValue = (data.sys + 2 * data.dia) / 3;
                               const mapY = `${100 - (mapValue / 240) * 100}%`;
                               
@@ -594,7 +617,7 @@ export default function Op() {
                                     fill="#dc2626"
                                   />
                                   
-                                  {/* SpO2: Small blue circle */}
+                                  {/* SpO2: Small blue circle at 100 (or near) */}
                                   <circle cx={xPos} cy={spo2Y} r="3" fill="#3b82f6" />
                                 </g>
                               );
