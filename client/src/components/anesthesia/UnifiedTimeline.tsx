@@ -360,7 +360,8 @@ export function UnifiedTimeline({
         {
           type: "inside",
           xAxisIndex: grids.map((_, i) => i),
-          zoomOnMouseWheel: true,
+          zoomOnMouseWheel: false,
+          moveOnMouseWheel: false,
           moveOnMouseMove: true,
         },
         {
