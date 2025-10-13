@@ -333,7 +333,7 @@ export default function Op() {
           {/* Vitals & Timeline Tab */}
           <TabsContent value="vitals" className="data-[state=active]:flex-1 overflow-hidden flex flex-col mt-0 px-0" data-testid="tab-content-vitals">
             <div className="flex-1 border-t bg-card overflow-hidden">
-              <UnifiedTimeline data={timelineData} height={700} />
+              <UnifiedTimeline data={timelineData} height={750} />
             </div>
           </TabsContent>
 

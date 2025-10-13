@@ -40,7 +40,7 @@ export type UnifiedTimelineData = {
 
 export function UnifiedTimeline({
   data,
-  height = 700,
+  height = 750,
 }: {
   data: UnifiedTimelineData;
   height?: number;
@@ -58,12 +58,14 @@ export function UnifiedTimeline({
       { left: 140, right: 60, top: 390, height: 40 },
       // Grid 3: Herzrhythmus
       { left: 140, right: 60, top: 440, height: 40 },
-      // Grid 4-6: Medikamente (multiple rows)
+      // Grid 4: Medikamente (multiple rows)
       { left: 140, right: 60, top: 490, height: 90 },
-      // Grid 7: Infusionen/Perfusors
+      // Grid 5: Infusionen/Perfusors
       { left: 140, right: 60, top: 590, height: 40 },
-      // Grid 8: Ventilation
+      // Grid 6: Ventilation
       { left: 140, right: 60, top: 640, height: 40 },
+      // Grid 7: Staff
+      { left: 140, right: 60, top: 690, height: 40 },
     ];
 
     // Time x-axes (one per grid)
@@ -127,13 +129,29 @@ export function UnifiedTimeline({
         splitLine: { show: false },
       },
       // Swimlane y-axes (categorical or numeric for positioning)
-      ...grids.slice(1).map((_, index) => ({
-        type: "value" as const,
-        gridIndex: index + 1,
-        show: false,
-        min: 0,
-        max: 1,
-      })),
+      ...grids.slice(1).map((_, index) => {
+        const gridIdx = index + 1;
+        // Medikamente grid needs multiple rows
+        if (gridIdx === 4) {
+          return {
+            type: "category" as const,
+            gridIndex: gridIdx,
+            data: ["Row 0", "Row 1", "Row 2"],
+            show: false,
+            axisLine: { show: false },
+            axisTick: { show: false },
+          };
+        }
+        // Other swimlanes have single row
+        return {
+          type: "category" as const,
+          gridIndex: gridIdx,
+          data: [""],
+          show: false,
+          axisLine: { show: false },
+          axisTick: { show: false },
+        };
+      }),
     ];
 
     // Series
@@ -219,10 +237,10 @@ export function UnifiedTimeline({
       ereignisse: 2,
       herzrhythmus: 3,
       medikamente: 4,
-      infusionen: 7,
-      perfusors: 7,
-      ventilation: 8,
-      staff: 8,
+      infusionen: 5,
+      perfusors: 5,
+      ventilation: 6,
+      staff: 7,
     };
 
     // Group events by swimlane
@@ -244,53 +262,88 @@ export function UnifiedTimeline({
           type: "scatter",
           xAxisIndex: idx,
           yAxisIndex: idx + 1,
-          data: pointEvents.map(e => [e.time, 0.5]),
-          symbol: "pin",
-          symbolSize: 20,
+          data: pointEvents.map(e => {
+            // For medikamente grid, use row number; otherwise use empty string
+            const yValue = idx === 4 && e.row !== undefined ? `Row ${e.row}` : "";
+            return [e.time, yValue];
+          }),
+          symbol: "circle",
+          symbolSize: 12,
           itemStyle: {
             color: (params: any) => pointEvents[params.dataIndex]?.color || "#3b82f6",
+            borderColor: (params: any) => {
+              // Use theme-aware border color
+              return "var(--background)";
+            },
+            borderWidth: 2,
           },
           label: {
             show: true,
             position: "top",
             formatter: (params: any) => {
               const event = pointEvents[params.dataIndex];
-              return `${event?.icon || ""} ${event?.label || ""}`;
+              return `${event?.icon || "●"} ${event?.label || ""}`;
             },
-            fontSize: 10,
+            fontSize: 9,
             fontFamily: "Poppins, sans-serif",
+            color: "var(--foreground)",
           },
         });
       }
 
-      // Range events (with duration) - render as custom graphics
+      // Range events (with duration) - render as bars
       const rangeEvents = events.filter(e => e.duration);
       if (rangeEvents.length > 0) {
-        rangeEvents.forEach((event, i) => {
+        rangeEvents.forEach((event) => {
+          // For medikamente grid, use row number; otherwise use empty string
+          const yValue = idx === 4 && event.row !== undefined ? `Row ${event.row}` : "";
+          
           series.push({
             type: "custom",
             xAxisIndex: idx,
             yAxisIndex: idx + 1,
             renderItem: (params: any, api: any) => {
-              const start = api.coord([event.time, 0.5]);
-              const end = api.coord([event.time + (event.duration || 0), 0.5]);
+              const start = api.coord([event.time, yValue]);
+              const end = api.coord([event.time + (event.duration || 0), yValue]);
+              const height = api.size([0, 1])[1] * 0.5;
+              const y = start[1] - height / 2;
               
               return {
-                type: "rect",
-                shape: {
-                  x: start[0],
-                  y: start[1] - 12,
-                  width: end[0] - start[0],
-                  height: 24,
-                },
-                style: {
-                  fill: event.color || "#10b981",
-                  opacity: 0.7,
-                },
+                type: "group",
+                children: [
+                  {
+                    type: "rect",
+                    shape: {
+                      x: start[0],
+                      y,
+                      width: Math.max(end[0] - start[0], 2),
+                      height,
+                    },
+                    style: {
+                      fill: event.color || "#10b981",
+                      opacity: 0.8,
+                      stroke: "transparent",
+                      lineWidth: 0,
+                    },
+                  },
+                  {
+                    type: "text",
+                    style: {
+                      text: `${event.icon || ""} ${event.label}`,
+                      x: start[0] + 4,
+                      y: y + height / 2,
+                      fontSize: 9,
+                      fontFamily: "Poppins, sans-serif",
+                      fill: "#ffffff",
+                      fontWeight: "600",
+                      textVerticalAlign: "middle",
+                    },
+                  },
+                ],
               };
             },
-            data: [[event.time, 0.5]],
-            z: 1,
+            data: [[event.time, yValue]],
+            z: 2,
           });
         });
       }
@@ -375,8 +428,13 @@ export function UnifiedTimeline({
         </div>
         
         {/* Ventilation */}
-        <div className="h-[40px] flex items-center px-3 bg-amber-100 dark:bg-amber-900/30" style={{ marginTop: "10px" }}>
+        <div className="h-[40px] flex items-center px-3 border-b border-border bg-amber-100 dark:bg-amber-900/30" style={{ marginTop: "10px" }}>
           <span className="text-xs font-semibold text-amber-700 dark:text-amber-300">Ventilation</span>
+        </div>
+        
+        {/* Staff */}
+        <div className="h-[40px] flex items-center px-3 bg-slate-100 dark:bg-slate-900/30" style={{ marginTop: "10px" }}>
+          <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Staff</span>
         </div>
       </div>
 
