@@ -640,7 +640,7 @@ export default function PatientDetail() {
       {/* Pre-OP Full Screen Dialog */}
       <Dialog open={isPreOpOpen} onOpenChange={setIsPreOpOpen}>
         <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col [&>button]:hidden">
-          <DialogHeader className="p-4 md:p-6 pb-4 shrink-0 border-b relative">
+          <DialogHeader className="p-4 md:p-6 pb-4 shrink-0 relative">
             <div className="flex items-center justify-between mb-4 pr-10">
               <DialogTitle className="text-lg md:text-2xl">Pre-Operative Assessment</DialogTitle>
               <Button

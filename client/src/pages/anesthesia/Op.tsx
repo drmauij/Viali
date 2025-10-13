@@ -214,7 +214,7 @@ export default function Op() {
         <h2 className="sr-only" id="op-dialog-title">Intraoperative Monitoring - {currentPatient.surname}, {currentPatient.firstName}</h2>
         <p className="sr-only" id="op-dialog-description">Professional anesthesia monitoring system for tracking vitals, medications, and clinical events during surgery</p>
         {/* Fixed Patient Info Header */}
-        <div className="shrink-0 border-b bg-background relative">
+        <div className="shrink-0 bg-background relative">
           {/* Close Button - Fixed top-right */}
           <Button
             variant="ghost"
