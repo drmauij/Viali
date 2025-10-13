@@ -291,8 +291,8 @@ export default function Op() {
             </TabsList>
           </div>
 
-          {/* Vitals & Timeline Tab - FIXED: removed flex-1 to prevent spacing issues */}
-          <TabsContent value="vitals" className="absolute inset-0 top-[52px] overflow-hidden flex flex-col">
+          {/* Vitals & Timeline Tab */}
+          <TabsContent value="vitals" className="flex-1 overflow-hidden flex flex-col mt-0">
             {/* Professional Timeline Container */}
             <div className="flex-1 border-t bg-card overflow-hidden flex flex-col relative z-0">
                 {/* Timeline Header with Navigation & Time Markers */}
