@@ -602,23 +602,27 @@ export default function Op() {
                                     />
                                   )}
                                   
-                                  {/* BP: Systolic caret DOWN (v shape) */}
-                                  <path d={`M ${xPos} ${sysY} l -5 -8 l 5 5 l 5 -5 z`} fill="#3b82f6" />
+                                  {/* BP: Systolic caret DOWN (v shape) - LARGER */}
+                                  <path d={`M ${xPos} ${sysY} l -8 -12 l 8 8 l 8 -8 z`} fill="#3b82f6" stroke="#1e40af" strokeWidth="1" />
                                   
-                                  {/* BP: Diastolic caret UP (^ shape) */}
-                                  <path d={`M ${xPos} ${diaY} l -5 8 l 5 -5 l 5 5 z`} fill="#3b82f6" />
+                                  {/* BP: Diastolic caret UP (^ shape) - LARGER */}
+                                  <path d={`M ${xPos} ${diaY} l -8 12 l 8 -8 l 8 8 z`} fill="#3b82f6" stroke="#1e40af" strokeWidth="1" />
                                   
                                   {/* BP: MAP small point */}
-                                  <circle cx={xPos} cy={mapY} r="2.5" fill="#3b82f6" />
+                                  <circle cx={xPos} cy={mapY} r="4" fill="#3b82f6" stroke="#1e40af" strokeWidth="1" />
                                   
-                                  {/* Heart Rate: Red heart icon (no connecting line) */}
-                                  <path 
-                                    d={`M ${xPos} ${hrY} m -6 -2 q 0 -3 3 -3 q 2 0 3 2 q 1 -2 3 -2 q 3 0 3 3 q 0 4 -6 8 q -6 -4 -6 -8 z`}
-                                    fill="#dc2626"
-                                  />
+                                  {/* Heart Rate: Red heart icon - SIMPLER & LARGER */}
+                                  <g transform={`translate(${xPos}, ${hrY})`}>
+                                    <path 
+                                      d="M 0,-4 L -6,-10 L -10,-6 L 0,4 L 10,-6 L 6,-10 Z"
+                                      fill="#dc2626"
+                                      stroke="#991b1b"
+                                      strokeWidth="1"
+                                    />
+                                  </g>
                                   
                                   {/* SpO2: Small blue circle at 100 (or near) */}
-                                  <circle cx={xPos} cy={spo2Y} r="3" fill="#3b82f6" />
+                                  <circle cx={xPos} cy={spo2Y} r="5" fill="#06b6d4" stroke="#0891b2" strokeWidth="1" />
                                 </g>
                               );
                             })}
