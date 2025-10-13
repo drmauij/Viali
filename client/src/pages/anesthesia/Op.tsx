@@ -23,7 +23,17 @@ import {
   UserCircle,
   UserRound,
   AlertCircle,
-  LineChart
+  LineChart,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  ZoomIn,
+  ZoomOut,
+  Activity,
+  MessageSquare,
+  ChevronDown,
+  Droplet
 } from "lucide-react";
 
 // Mock patients data
@@ -95,6 +105,25 @@ export default function Op() {
     return null;
   }
   
+  // Timeline navigation state
+  const [timelineStart, setTimelineStart] = useState(8); // Start hour (8:00 AM)
+  const [zoomLevel, setZoomLevel] = useState(5); // Minutes per interval (5, 10, 15, 30)
+  const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({
+    beatmungsparameter: false,
+  });
+
+  // Calculate time intervals based on zoom
+  const getTimeIntervals = () => {
+    const intervals = [];
+    const totalMinutes = 360; // 6 hours visible
+    for (let i = 0; i <= totalMinutes; i += zoomLevel) {
+      const hour = Math.floor((timelineStart * 60 + i) / 60);
+      const minute = (timelineStart * 60 + i) % 60;
+      intervals.push({ hour, minute: minute.toString().padStart(2, '0') });
+    }
+    return intervals;
+  };
+
   // OP State
   const [opData, setOpData] = useState({
     // Vitals timeline data
@@ -180,7 +209,9 @@ export default function Op() {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogChange}>
-      <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col [&>button]:hidden">
+      <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col [&>button]:hidden" aria-describedby="op-dialog-description">
+        <h2 className="sr-only" id="op-dialog-title">Intraoperative Monitoring - {currentPatient.surname}, {currentPatient.firstName}</h2>
+        <p className="sr-only" id="op-dialog-description">Professional anesthesia monitoring system for tracking vitals, medications, and clinical events during surgery</p>
         {/* Fixed Patient Info Header */}
         <div className="shrink-0 border-b bg-background relative">
           {/* Close Button - Fixed top-right */}
@@ -273,343 +304,521 @@ export default function Op() {
 
           {/* Vitals & Timeline Tab */}
           <TabsContent value="vitals" className="flex-1 overflow-hidden mt-0">
-            <div className="h-full px-4 md:px-6 pt-4 pb-6">
-              {/* Merged Vitals Timeline Container */}
-              <div className="h-full border rounded-lg bg-card overflow-hidden flex flex-col">
-                {/* Time Markers - Sticky Header */}
+            <div className="h-full flex flex-col">
+              {/* Professional Timeline Container */}
+              <div className="h-full border-t bg-card overflow-hidden flex flex-col">
+                {/* Timeline Header with Navigation & Time Markers */}
                 <div className="border-b bg-muted/30 sticky top-0 z-20">
                   <div className="flex">
-                    {/* Sticky first column spacer */}
-                    <div className="w-32 md:w-40 shrink-0 border-r bg-muted/30" />
-                    {/* Scrollable time markers */}
-                    <div className="flex-1 overflow-x-auto">
-                      <div className="flex min-w-[1200px]">
-                        {Array.from({ length: 13 }, (_, i) => {
-                          const hour = 8 + Math.floor(i / 2);
-                          const minute = i % 2 === 0 ? "00" : "30";
-                          return (
-                            <div
-                              key={i}
-                              className="flex-1 text-center py-2 border-r last:border-r-0 text-xs font-medium"
-                            >
-                              {hour}:{minute}
-                            </div>
-                          );
-                        })}
+                    {/* Left Column: Navigation Controls */}
+                    <div className="w-44 shrink-0 border-r bg-muted/30 flex items-center justify-between px-2 py-1">
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => setTimelineStart(Math.max(0, timelineStart - 1))}
+                          data-testid="button-timeline-start"
+                        >
+                          <ChevronsLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => setTimelineStart(Math.max(0, timelineStart - 0.25))}
+                          data-testid="button-timeline-backward"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
                       </div>
+                      <div className="text-xs font-medium">
+                        {new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      </div>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => setTimelineStart(timelineStart + 0.25)}
+                          data-testid="button-timeline-forward"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => setTimelineStart(timelineStart + 1)}
+                          data-testid="button-timeline-end"
+                        >
+                          <ChevronsRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Scrollable Time Markers */}
+                    <div className="flex-1 overflow-x-auto">
+                      <div className="flex min-w-[1400px]">
+                        {getTimeIntervals().map((time, i) => (
+                          <div
+                            key={i}
+                            className="flex-1 text-center py-1.5 border-r last:border-r-0 text-[10px] font-medium"
+                          >
+                            <div>{time.hour}:{time.minute}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Right: Zoom Controls */}
+                    <div className="w-24 shrink-0 border-l bg-muted/30 flex items-center justify-center gap-1 px-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => setZoomLevel(Math.min(30, zoomLevel + 5))}
+                        data-testid="button-zoom-out"
+                      >
+                        <ZoomOut className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => setZoomLevel(Math.max(5, zoomLevel - 5))}
+                        data-testid="button-zoom-in"
+                      >
+                        <ZoomIn className="h-3 w-3" />
+                      </Button>
                     </div>
                   </div>
                 </div>
 
-                {/* Merged Vitals Swimlane */}
-                <div className="flex-1 overflow-hidden">
-                  <div className="flex h-full">
-                    {/* Sticky First Column: Scales & Buttons */}
-                    <div className="w-32 md:w-40 shrink-0 border-r bg-muted/10 flex flex-col sticky left-0 z-10">
-                      {/* Numeric Scales */}
-                      <div className="flex-1 relative grid grid-cols-4">
-                        {/* BP Scale (200-50) */}
-                        <div className="border-r py-2 relative">
-                          <div className="h-full flex flex-col justify-between text-[10px] text-blue-600 font-medium px-1">
-                            <span>200</span>
-                            <span>150</span>
-                            <span>100</span>
-                            <span className="text-blue-400">50</span>
-                          </div>
-                          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-90 text-[10px] text-muted-foreground whitespace-nowrap">
-                            BP
+                {/* Professional Vitals & Clinical Swimlanes */}
+                <div className="flex-1 overflow-y-auto">
+                  <div className="flex">
+                    {/* Sticky Left Column with Icons & Scales */}
+                    <div className="w-44 shrink-0 border-r bg-gray-50 dark:bg-gray-900 sticky left-0 z-10 flex flex-col">
+                      {/* NIBP Icon & Scale */}
+                      <div className="h-48 border-b flex items-center justify-center px-3 relative">
+                        <div className="absolute left-2 top-0 bottom-0 flex flex-col justify-between py-3 text-[9px] font-medium text-purple-600 dark:text-purple-400">
+                          <span>220</span>
+                          <span>100</span>
+                          <span>40</span>
+                        </div>
+                        <Gauge className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                        <div className="absolute right-2 text-[10px] font-semibold text-muted-foreground">NIBP</div>
+                      </div>
+                      
+                      {/* Heart Icon & Scale */}
+                      <div className="h-40 border-b flex items-center justify-center px-3 relative">
+                        <div className="absolute left-2 top-0 bottom-0 flex flex-col justify-between py-3 text-[9px] font-medium text-red-600 dark:text-red-400">
+                          <span>200</span>
+                          <span>80</span>
+                          <span>30</span>
+                        </div>
+                        <Heart className="h-6 w-6 text-red-600 dark:text-red-400" />
+                        <div className="absolute right-2 text-[10px] font-semibold text-muted-foreground">HR</div>
+                      </div>
+                      
+                      {/* Target Icon & Scale */}
+                      <div className="h-32 border-b flex items-center justify-center px-3 relative">
+                        <div className="absolute left-2 top-0 bottom-0 flex flex-col justify-between py-3 text-[9px] font-medium text-purple-600 dark:text-purple-400">
+                          <span>100</span>
+                          <span>80</span>
+                          <span>30</span>
+                        </div>
+                        <Activity className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                        <div className="absolute right-2 text-[10px] font-semibold text-muted-foreground">MAP</div>
+                      </div>
+                      
+                      {/* Thermometer Icon & Scale */}
+                      <div className="h-32 border-b flex items-center justify-center px-3 relative">
+                        <div className="absolute left-2 top-0 bottom-0 flex flex-col justify-between py-3 text-[9px] font-medium text-orange-600 dark:text-orange-400">
+                          <span>40</span>
+                          <span>38</span>
+                          <span>35</span>
+                        </div>
+                        <Thermometer className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+                        <div className="absolute right-2 text-[10px] font-semibold text-muted-foreground">°C</div>
+                      </div>
+                      
+                      {/* IV/Person Icon */}
+                      <div className="h-20 border-b flex items-center justify-center px-3 relative">
+                        <Droplet className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                        <div className="absolute right-2 text-[10px] font-semibold text-muted-foreground">SpO2</div>
+                      </div>
+                      
+                      {/* Zeiten (Times) */}
+                      <div className="h-16 border-b bg-purple-100 dark:bg-purple-900/30 flex items-center px-3">
+                        <Clock className="h-4 w-4 text-purple-700 dark:text-purple-300 mr-2" />
+                        <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">Zeiten</span>
+                      </div>
+                      
+                      {/* Ereignisse & Maßnahmen (Events) */}
+                      <div className="h-16 border-b bg-gray-100 dark:bg-gray-800 flex items-center px-3">
+                        <MessageSquare className="h-4 w-4 text-gray-700 dark:text-gray-300 mr-2" />
+                        <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Ereignisse</span>
+                      </div>
+                      
+                      {/* Herzrhythmus (Heart Rhythm) */}
+                      <div className="h-16 border-b bg-pink-100 dark:bg-pink-900/30 flex items-center px-3">
+                        <Activity className="h-4 w-4 text-pink-700 dark:text-pink-300 mr-2" />
+                        <span className="text-xs font-semibold text-pink-700 dark:text-pink-300">Herzrhythmus</span>
+                      </div>
+                      
+                      {/* Medikamente (Medications) */}
+                      <div className="min-h-48 border-b bg-green-50 dark:bg-green-900/20">
+                        <div className="px-3 py-2 border-b bg-green-100 dark:bg-green-900/40">
+                          <div className="flex items-center mb-2">
+                            <Syringe className="h-4 w-4 text-green-700 dark:text-green-300 mr-2" />
+                            <span className="text-xs font-semibold text-green-700 dark:text-green-300">Medikamente</span>
                           </div>
                         </div>
-                        
-                        {/* HR Scale (200-20) */}
-                        <div className="border-r py-2 relative">
-                          <div className="h-full flex flex-col justify-between text-[10px] text-red-600 font-medium px-1">
-                            <span>200</span>
-                            <span>140</span>
-                            <span>80</span>
-                            <span className="text-red-400">20</span>
+                        <div className="px-3 py-2 space-y-1">
+                          <div className="flex items-center gap-2 text-[10px]">
+                            <Checkbox className="h-3 w-3" />
+                            <span>Droperidol</span>
                           </div>
-                          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-90 text-[10px] text-muted-foreground whitespace-nowrap">
-                            HR
+                          <div className="flex items-center gap-2 text-[10px]">
+                            <Checkbox className="h-3 w-3" />
+                            <span>Metamizol</span>
                           </div>
-                        </div>
-                        
-                        {/* Temp Scale (42-34) */}
-                        <div className="border-r py-2 relative">
-                          <div className="h-full flex flex-col justify-between text-[10px] text-orange-600 font-medium px-1">
-                            <span>42</span>
-                            <span>38</span>
-                            <span>36</span>
-                            <span className="text-orange-400">34</span>
+                          <div className="flex items-center gap-2 text-[10px]">
+                            <Checkbox className="h-3 w-3" />
+                            <span>Toradol</span>
                           </div>
-                          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-90 text-[10px] text-muted-foreground whitespace-nowrap">
-                            Temp
+                          <div className="flex items-center gap-2 text-[10px]">
+                            <Checkbox className="h-3 w-3" />
+                            <span>NaCl</span>
                           </div>
-                        </div>
-                        
-                        {/* SpO2 Scale (100-50) */}
-                        <div className="py-2 relative">
-                          <div className="h-full flex flex-col justify-between text-[10px] text-cyan-600 font-medium px-1">
-                            <span>100</span>
-                            <span>90</span>
-                            <span>80</span>
-                            <span className="text-cyan-400">50</span>
+                          <div className="flex items-center gap-2 text-[10px]">
+                            <Checkbox className="h-3 w-3" />
+                            <span>Glucose</span>
                           </div>
-                          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-90 text-[10px] text-muted-foreground whitespace-nowrap">
-                            SpO2
+                          <div className="flex items-center gap-2 text-[10px]">
+                            <Checkbox className="h-3 w-3" />
+                            <span>Diclofenac</span>
                           </div>
                         </div>
                       </div>
-
-                      {/* Quick Add Buttons */}
-                      <div className="border-t p-2 space-y-1">
-                        <Button 
-                          variant="outline" 
-                          className="w-full h-10 flex items-center gap-2 justify-start text-xs p-2"
-                          data-testid="button-add-bp"
-                        >
-                          <Gauge className="h-4 w-4 text-blue-600" />
-                          <span>BP</span>
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          className="w-full h-10 flex items-center gap-2 justify-start text-xs p-2"
-                          data-testid="button-add-hr"
-                        >
-                          <Heart className="h-4 w-4 text-red-600" />
-                          <span>HR</span>
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          className="w-full h-10 flex items-center gap-2 justify-start text-xs p-2"
-                          data-testid="button-add-temp"
-                        >
-                          <Thermometer className="h-4 w-4 text-orange-600" />
-                          <span>Temp</span>
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          className="w-full h-10 flex items-center gap-2 justify-start text-xs p-2"
-                          data-testid="button-add-spo2"
-                        >
-                          <Wind className="h-4 w-4 text-cyan-600" />
-                          <span>SpO2</span>
-                        </Button>
+                      
+                      {/* Lagerung (Positioning) */}
+                      <div className="h-16 border-b bg-emerald-100 dark:bg-emerald-900/30 flex items-center px-3">
+                        <Users className="h-4 w-4 text-emerald-700 dark:text-emerald-300 mr-2" />
+                        <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">Lagerung</span>
+                      </div>
+                      
+                      {/* Beatmung (Ventilation) */}
+                      <div className="h-20 border-b bg-pink-100 dark:bg-pink-900/30 flex items-center px-3">
+                        <Wind className="h-4 w-4 text-pink-700 dark:text-pink-300 mr-2" />
+                        <span className="text-xs font-semibold text-pink-700 dark:text-pink-300">Beatmung</span>
+                      </div>
+                      
+                      {/* Beatmungsparameter (Ventilation Parameters) */}
+                      {expandedSections.beatmungsparameter && (
+                        <div className="min-h-32 border-b bg-blue-50 dark:bg-blue-900/20 px-3 py-2">
+                          <div className="space-y-1 text-[9px] text-gray-700 dark:text-gray-300">
+                            <div>etCO2 (mmHg)</div>
+                            <div>P insp (mbar)</div>
+                            <div>PEEP (mbar)</div>
+                            <div>Tidalvolumen (ml)</div>
+                            <div>Atemfrequenz (/min)</div>
+                            <div>Minutenvolumen (l/min)</div>
+                            <div>FiO2 (l/min)</div>
+                          </div>
+                        </div>
+                      )}
+                      <div className="h-10 border-b bg-blue-100 dark:bg-blue-900/40 flex items-center px-3 cursor-pointer" onClick={() => setExpandedSections(prev => ({ ...prev, beatmungsparameter: !prev.beatmungsparameter }))}>
+                        <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">Parameter</span>
+                        <ChevronDown className={`h-3 w-3 ml-auto transition-transform ${expandedSections.beatmungsparameter ? 'rotate-180' : ''}`} />
+                      </div>
+                      
+                      {/* Ausfuhren (Outputs) */}
+                      <div className="h-16 border-b bg-orange-100 dark:bg-orange-900/30 flex items-center px-3">
+                        <Droplet className="h-4 w-4 text-orange-700 dark:text-orange-300 mr-2" />
+                        <span className="text-xs font-semibold text-orange-700 dark:text-orange-300">Ausfuhren</span>
+                      </div>
+                      
+                      {/* NRS (Pain Scores) */}
+                      <div className="h-16 border-b bg-green-100 dark:bg-green-900/30 flex items-center px-3">
+                        <AlertCircle className="h-4 w-4 text-green-700 dark:text-green-300 mr-2" />
+                        <span className="text-xs font-semibold text-green-700 dark:text-green-300">NRS</span>
+                      </div>
+                      
+                      {/* Scores */}
+                      <div className="h-16 bg-slate-100 dark:bg-slate-800 flex items-center px-3">
+                        <FileCheck className="h-4 w-4 text-slate-700 dark:text-slate-300 mr-2" />
+                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Scores</span>
                       </div>
                     </div>
-
-                    {/* Scrollable Timeline Area */}
-                    <div className="flex-1 overflow-x-auto overflow-y-hidden">
-                      <div className="min-w-[1200px] h-full relative">
-                        {/* Grid lines */}
-                        <div className="absolute inset-0 flex">
-                          {Array.from({ length: 13 }).map((_, i) => (
-                            <div key={i} className="flex-1 border-r last:border-r-0" />
-                          ))}
-                        </div>
-
-                        {/* Vitals Data Visualization */}
-                        <div className="absolute inset-0 p-4">
-                          <svg className="w-full h-full">
-                            {/* BP Systolic (blue) - scale 200-50 */}
-                            <line x1="5%" y1="20%" x2="15%" y2="25%" stroke="#2563eb" strokeWidth="2" />
-                            <line x1="15%" y1="25%" x2="25%" y2="22%" stroke="#2563eb" strokeWidth="2" />
-                            <circle cx="5%" cy="20%" r="4" fill="#2563eb" />
-                            <circle cx="15%" cy="25%" r="4" fill="#2563eb" />
-                            <circle cx="25%" cy="22%" r="4" fill="#2563eb" />
-                            
-                            {/* BP Diastolic (light blue) - scale 200-50 */}
-                            <line x1="5%" y1="35%" x2="15%" y2="38%" stroke="#60a5fa" strokeWidth="2" strokeDasharray="4" />
-                            <line x1="15%" y1="38%" x2="25%" y2="36%" stroke="#60a5fa" strokeWidth="2" strokeDasharray="4" />
-                            <circle cx="5%" cy="35%" r="3" fill="#60a5fa" />
-                            <circle cx="15%" cy="38%" r="3" fill="#60a5fa" />
-                            <circle cx="25%" cy="36%" r="3" fill="#60a5fa" />
-                            
-                            {/* HR (red) - scale 200-20 */}
-                            <line x1="5%" y1="50%" x2="15%" y2="48%" stroke="#dc2626" strokeWidth="2" />
-                            <line x1="15%" y1="48%" x2="25%" y2="52%" stroke="#dc2626" strokeWidth="2" />
-                            <circle cx="5%" cy="50%" r="4" fill="#dc2626" />
-                            <circle cx="15%" cy="48%" r="4" fill="#dc2626" />
-                            <circle cx="25%" cy="52%" r="4" fill="#dc2626" />
-                            
-                            {/* Temp (orange) - scale 42-34 */}
-                            <line x1="5%" y1="55%" x2="15%" y2="54%" stroke="#ea580c" strokeWidth="2" />
-                            <line x1="15%" y1="54%" x2="25%" y2="56%" stroke="#ea580c" strokeWidth="2" />
-                            <circle cx="5%" cy="55%" r="4" fill="#ea580c" />
-                            <circle cx="15%" cy="54%" r="4" fill="#ea580c" />
-                            <circle cx="25%" cy="56%" r="4" fill="#ea580c" />
-                            
-                            {/* SpO2 (cyan) - scale 100-50 */}
-                            <line x1="5%" y1="15%" x2="15%" y2="18%" stroke="#0891b2" strokeWidth="2" />
-                            <line x1="15%" y1="18%" x2="25%" y2="16%" stroke="#0891b2" strokeWidth="2" />
-                            <circle cx="5%" cy="15%" r="4" fill="#0891b2" />
-                            <circle cx="15%" cy="18%" r="4" fill="#0891b2" />
-                            <circle cx="25%" cy="16%" r="4" fill="#0891b2" />
+                    
+                    {/* Scrollable Timeline Content */}
+                    <div className="flex-1 overflow-x-auto">
+                      <div className="min-w-[1400px]">
+                        {/* NIBP Row with BP Visualization */}
+                        <div className="h-48 border-b relative">
+                          {/* Grid lines */}
+                          <div className="absolute inset-0 flex">
+                            {getTimeIntervals().map((_, i) => (
+                              <div key={i} className="flex-1 border-r last:border-r-0 border-gray-200 dark:border-gray-700" />
+                            ))}
+                          </div>
+                          {/* BP Visualization with dual arrows and shaded band */}
+                          <svg className="absolute inset-0 w-full h-full">
+                            {/* Sample BP data points */}
+                            {[
+                              { x: 10, sys: 120, dia: 70, map: 85 },
+                              { x: 20, sys: 125, dia: 75, map: 90 },
+                              { x: 30, sys: 115, dia: 70, map: 85 },
+                              { x: 40, sys: 130, dia: 80, map: 95 },
+                              { x: 50, sys: 120, dia: 75, map: 90 }
+                            ].map((bp, i, arr) => {
+                              const xPos = `${bp.x}%`;
+                              const sysY = `${100 - ((bp.sys - 40) / 180) * 100}%`;
+                              const diaY = `${100 - ((bp.dia - 40) / 180) * 100}%`;
+                              const mapY = `${100 - ((bp.map - 40) / 180) * 100}%`;
+                              
+                              return (
+                                <g key={i}>
+                                  {/* Shaded band between systolic and diastolic */}
+                                  {i < arr.length - 1 && (
+                                    <polygon
+                                      points={`${xPos} ${sysY}, ${bp.x + 10}% ${100 - ((arr[i+1].sys - 40) / 180) * 100}%, ${bp.x + 10}% ${100 - ((arr[i+1].dia - 40) / 180) * 100}%, ${xPos} ${diaY}`}
+                                      fill="#93c5fd"
+                                      opacity="0.3"
+                                    />
+                                  )}
+                                  {/* Systolic arrow up */}
+                                  <path d={`M ${xPos} ${sysY} l -3 -8 l 3 2 l 3 -2 z`} fill="#9333ea" />
+                                  {/* Diastolic arrow down */}
+                                  <path d={`M ${xPos} ${diaY} l -3 8 l 3 -2 l 3 2 z`} fill="#9333ea" />
+                                  {/* Systolic trend line */}
+                                  {i < arr.length - 1 && (
+                                    <line
+                                      x1={xPos}
+                                      y1={sysY}
+                                      x2={`${arr[i+1].x}%`}
+                                      y2={`${100 - ((arr[i+1].sys - 40) / 180) * 100}%`}
+                                      stroke="#9333ea"
+                                      strokeWidth="2"
+                                    />
+                                  )}
+                                  {/* Systolic circle marker */}
+                                  <circle cx={xPos} cy={sysY} r="4" fill="#9333ea" />
+                                  {/* MAP small arrow at bottom */}
+                                  <path d={`M ${xPos} ${mapY} l -2 4 l 2 -1 l 2 1 z`} fill="#9333ea" opacity="0.6" />
+                                </g>
+                              );
+                            })}
                           </svg>
                         </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Clinical Swimlanes - Events, Infusions, Drugs, Staff */}
-                <div className="border-t">
-                  <div className="flex">
-                    {/* Sticky first column spacer */}
-                    <div className="w-32 md:w-40 shrink-0 border-r bg-muted/10" />
-                    {/* Scrollable swimlanes area */}
-                    <div className="flex-1 overflow-x-auto">
-                      <div className="min-w-[1200px]">
-                      {/* Events Swimlane */}
-                      <div className="border-b bg-purple-50/50 dark:bg-purple-950/20">
-                        <div className="flex items-center h-16">
-                          <div className="w-24 shrink-0 px-3 py-2 border-r bg-purple-100/50 dark:bg-purple-900/30">
-                            <p className="text-xs font-semibold text-purple-700 dark:text-purple-400">Events</p>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-5 w-full text-[10px] mt-0.5 p-0"
-                              data-testid="button-add-event"
-                            >
-                              + Add
-                            </Button>
+                        
+                        {/* HR Row */}
+                        <div className="h-40 border-b relative">
+                          <div className="absolute inset-0 flex">
+                            {getTimeIntervals().map((_, i) => (
+                              <div key={i} className="flex-1 border-r last:border-r-0 border-gray-200 dark:border-gray-700" />
+                            ))}
                           </div>
-                          <div className="flex-1 relative h-full">
-                            {/* Grid lines */}
-                            <div className="absolute inset-0 flex">
-                              {Array.from({ length: 13 }).map((_, i) => (
-                                <div key={i} className="flex-1 border-r last:border-r-0 border-purple-200 dark:border-purple-800" />
-                              ))}
+                          <svg className="absolute inset-0 w-full h-full">
+                            {/* Sample HR data - red line with circles */}
+                            {[
+                              { x: 10, hr: 72 },
+                              { x: 20, hr: 68 },
+                              { x: 30, hr: 75 },
+                              { x: 40, hr: 70 },
+                              { x: 50, hr: 73 }
+                            ].map((point, i, arr) => {
+                              const xPos = `${point.x}%`;
+                              const yPos = `${100 - ((point.hr - 30) / 170) * 100}%`;
+                              
+                              return (
+                                <g key={i}>
+                                  {i < arr.length - 1 && (
+                                    <line
+                                      x1={xPos}
+                                      y1={yPos}
+                                      x2={`${arr[i+1].x}%`}
+                                      y2={`${100 - ((arr[i+1].hr - 30) / 170) * 100}%`}
+                                      stroke="#dc2626"
+                                      strokeWidth="2"
+                                    />
+                                  )}
+                                  <circle cx={xPos} cy={yPos} r="4" fill="#dc2626" />
+                                </g>
+                              );
+                            })}
+                          </svg>
+                        </div>
+                        
+                        {/* MAP Row */}
+                        <div className="h-32 border-b relative">
+                          <div className="absolute inset-0 flex">
+                            {getTimeIntervals().map((_, i) => (
+                              <div key={i} className="flex-1 border-r last:border-r-0 border-gray-200 dark:border-gray-700" />
+                            ))}
+                          </div>
+                        </div>
+                        
+                        {/* Temperature Row */}
+                        <div className="h-32 border-b relative">
+                          <div className="absolute inset-0 flex">
+                            {getTimeIntervals().map((_, i) => (
+                              <div key={i} className="flex-1 border-r last:border-r-0 border-gray-200 dark:border-gray-700" />
+                            ))}
+                          </div>
+                        </div>
+                        
+                        {/* SpO2 Row */}
+                        <div className="h-20 border-b relative">
+                          <div className="absolute inset-0 flex">
+                            {getTimeIntervals().map((_, i) => (
+                              <div key={i} className="flex-1 border-r last:border-r-0 border-gray-200 dark:border-gray-700" />
+                            ))}
+                          </div>
+                        </div>
+                        
+                        {/* Zeiten (Times) Swimlane */}
+                        <div className="h-16 border-b bg-purple-50 dark:bg-purple-900/20 relative">
+                          <div className="absolute inset-0 flex">
+                            {getTimeIntervals().map((_, i) => (
+                              <div key={i} className="flex-1 border-r last:border-r-0 border-purple-200 dark:border-purple-800" />
+                            ))}
+                          </div>
+                          <div className="absolute inset-0 flex items-center px-2">
+                            <div className="absolute bg-red-500 text-white text-[10px] px-2 py-1 rounded font-medium" style={{ left: "8%" }}>A1</div>
+                            <div className="absolute bg-orange-500 text-white text-[10px] px-2 py-1 rounded font-medium" style={{ left: "25%" }}>AG</div>
+                            <div className="absolute bg-purple-500 text-white text-[10px] px-2 py-1 rounded font-medium" style={{ left: "60%" }}>O2</div>
+                          </div>
+                        </div>
+                        
+                        {/* Ereignisse (Events) Swimlane */}
+                        <div className="h-16 border-b bg-gray-50 dark:bg-gray-800 relative">
+                          <div className="absolute inset-0 flex">
+                            {getTimeIntervals().map((_, i) => (
+                              <div key={i} className="flex-1 border-r last:border-r-0 border-gray-200 dark:border-gray-700" />
+                            ))}
+                          </div>
+                          <div className="absolute inset-0 flex items-center px-2">
+                            <MessageSquare className="absolute h-4 w-4 text-gray-600 dark:text-gray-300" style={{ left: "30%" }} />
+                          </div>
+                        </div>
+                        
+                        {/* Herzrhythmus (Heart Rhythm) Swimlane */}
+                        <div className="h-16 border-b bg-pink-50 dark:bg-pink-900/20 relative">
+                          <div className="absolute inset-0 flex">
+                            {getTimeIntervals().map((_, i) => (
+                              <div key={i} className="flex-1 border-r last:border-r-0 border-pink-200 dark:border-pink-800" />
+                            ))}
+                          </div>
+                          <div className="absolute inset-0 flex items-center px-2">
+                            <div className="absolute bg-white dark:bg-gray-800 border border-pink-300 dark:border-pink-700 px-3 py-1 rounded text-xs font-medium" style={{ left: "15%" }}>SR</div>
+                          </div>
+                        </div>
+                        
+                        {/* Medikamente (Medications) Swimlane */}
+                        <div className="min-h-48 border-b bg-green-50 dark:bg-green-900/20 relative">
+                          <div className="absolute inset-0 flex">
+                            {getTimeIntervals().map((_, i) => (
+                              <div key={i} className="flex-1 border-r last:border-r-0 border-green-200 dark:border-green-800" />
+                            ))}
+                          </div>
+                          <div className="absolute inset-0 flex items-center px-2">
+                            {/* Blue bolus bars with dose numbers */}
+                            <div className="absolute" style={{ left: "20%", bottom: "20%" }}>
+                              <div className="w-2 h-24 bg-blue-600 relative">
+                                <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] font-medium">100</span>
+                              </div>
                             </div>
-                            {/* Sample events */}
-                            <div className="absolute inset-0 flex items-center px-2">
-                              <div
-                                className="absolute bg-purple-500 text-white text-[10px] px-2 py-1 rounded"
-                                style={{ left: "10%", top: "50%", transform: "translateY(-50%)" }}
-                              >
-                                Intubation
+                            <div className="absolute" style={{ left: "45%", bottom: "20%" }}>
+                              <div className="w-2 h-20 bg-blue-600 relative">
+                                <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] font-medium">75</span>
                               </div>
-                              <div
-                                className="absolute bg-purple-500 text-white text-[10px] px-2 py-1 rounded"
-                                style={{ left: "30%", top: "50%", transform: "translateY(-50%)" }}
-                              >
-                                Incision
-                              </div>
+                            </div>
+                            {/* Gray infusion duration box */}
+                            <div className="absolute bg-gray-400/50 h-8 rounded flex items-center px-2" style={{ left: "10%", width: "30%" }}>
+                              <span className="text-[10px] font-medium">100 ml/h</span>
                             </div>
                           </div>
                         </div>
-                      </div>
-
-                      {/* Infusions Swimlane */}
-                      <div className="border-b bg-green-50/50 dark:bg-green-950/20">
-                        <div className="flex items-center h-16">
-                          <div className="w-24 shrink-0 px-3 py-2 border-r bg-green-100/50 dark:bg-green-900/30">
-                            <p className="text-xs font-semibold text-green-700 dark:text-green-400">Infusions</p>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-5 w-full text-[10px] mt-0.5 p-0"
-                              data-testid="button-add-infusion"
-                            >
-                              + Add
-                            </Button>
-                          </div>
-                          <div className="flex-1 relative h-full">
-                            {/* Grid lines */}
-                            <div className="absolute inset-0 flex">
-                              {Array.from({ length: 13 }).map((_, i) => (
-                                <div key={i} className="flex-1 border-r last:border-r-0 border-green-200 dark:border-green-800" />
-                              ))}
-                            </div>
-                            {/* Sample infusion bars */}
-                            <div className="absolute inset-0 flex items-center">
-                              <div
-                                className="absolute bg-green-500/70 h-6 rounded flex items-center px-2"
-                                style={{ left: "8%", width: "25%" }}
-                              >
-                                <span className="text-white text-[10px] font-medium truncate">Propofol 100mg/h</span>
-                              </div>
-                            </div>
+                        
+                        {/* Lagerung (Positioning) Swimlane */}
+                        <div className="h-16 border-b bg-emerald-50 dark:bg-emerald-900/20 relative">
+                          <div className="absolute inset-0 flex">
+                            {getTimeIntervals().map((_, i) => (
+                              <div key={i} className="flex-1 border-r last:border-r-0 border-emerald-200 dark:border-emerald-800" />
+                            ))}
                           </div>
                         </div>
-                      </div>
-
-                      {/* Drugs/Medications Swimlane */}
-                      <div className="border-b bg-amber-50/50 dark:bg-amber-950/20">
-                        <div className="flex items-center h-16">
-                          <div className="w-24 shrink-0 px-3 py-2 border-r bg-amber-100/50 dark:bg-amber-900/30">
-                            <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">Drugs</p>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-5 w-full text-[10px] mt-0.5 p-0"
-                              data-testid="button-add-drug"
-                            >
-                              + Add
-                            </Button>
+                        
+                        {/* Beatmung (Ventilation) Swimlane */}
+                        <div className="h-20 border-b bg-pink-50 dark:bg-pink-900/20 relative">
+                          <div className="absolute inset-0 flex">
+                            {getTimeIntervals().map((_, i) => (
+                              <div key={i} className="flex-1 border-r last:border-r-0 border-pink-200 dark:border-pink-800" />
+                            ))}
                           </div>
-                          <div className="flex-1 relative h-full">
-                            {/* Grid lines */}
-                            <div className="absolute inset-0 flex">
-                              {Array.from({ length: 13 }).map((_, i) => (
-                                <div key={i} className="flex-1 border-r last:border-r-0 border-amber-200 dark:border-amber-800" />
-                              ))}
-                            </div>
-                            {/* Sample drug administrations */}
-                            <div className="absolute inset-0 flex items-center px-2">
-                              <div
-                                className="absolute bg-amber-500 text-white text-[10px] px-2 py-1 rounded"
-                                style={{ left: "12%", top: "50%", transform: "translateY(-50%)" }}
-                              >
-                                Fentanyl 100μg
-                              </div>
-                              <div
-                                className="absolute bg-amber-500 text-white text-[10px] px-2 py-1 rounded"
-                                style={{ left: "28%", top: "50%", transform: "translateY(-50%)" }}
-                              >
-                                Rocuronium 50mg
-                              </div>
-                            </div>
+                          <div className="absolute inset-0 flex items-center px-2">
+                            <div className="absolute left-2 text-[11px] font-medium text-pink-800 dark:text-pink-200">Leon plus | VCV - volumenkontrolliert</div>
                           </div>
                         </div>
-                      </div>
-
-                      {/* Staff Swimlane */}
-                      <div className="bg-slate-50/50 dark:bg-slate-950/20">
-                        <div className="flex items-center h-16">
-                          <div className="w-24 shrink-0 px-3 py-2 border-r bg-slate-100/50 dark:bg-slate-900/30">
-                            <p className="text-xs font-semibold text-slate-700 dark:text-slate-400">Staff</p>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-5 w-full text-[10px] mt-0.5 p-0"
-                              data-testid="button-add-staff"
-                            >
-                              + Add
-                            </Button>
-                          </div>
-                          <div className="flex-1 relative h-full">
-                            {/* Grid lines */}
+                        
+                        {/* Beatmungsparameter (Ventilation Parameters) - Expandable */}
+                        {expandedSections.beatmungsparameter && (
+                          <div className="min-h-32 border-b bg-blue-50 dark:bg-blue-900/20 relative">
                             <div className="absolute inset-0 flex">
-                              {Array.from({ length: 13 }).map((_, i) => (
-                                <div key={i} className="flex-1 border-r last:border-r-0 border-slate-200 dark:border-slate-800" />
+                              {getTimeIntervals().map((time, i) => (
+                                <div key={i} className="flex-1 border-r last:border-r-0 border-blue-200 dark:border-blue-800 px-1 py-2">
+                                  <div className="flex flex-col gap-0.5 text-[9px] font-medium text-center">
+                                    <div>32</div>
+                                    <div>12</div>
+                                    <div>5</div>
+                                    <div>480</div>
+                                    <div>12</div>
+                                    <div>5</div>
+                                    <div>0.4</div>
+                                  </div>
+                                </div>
                               ))}
                             </div>
-                            {/* Sample staff presence bars */}
-                            <div className="absolute inset-0 flex flex-col justify-center gap-1 px-2">
-                              <div
-                                className="bg-slate-600 dark:bg-slate-400 h-4 rounded flex items-center px-2"
-                                style={{ width: "70%" }}
-                              >
-                                <span className="text-white dark:text-slate-900 text-[10px] font-medium">Dr. Smith (Anesthesiologist)</span>
-                              </div>
-                              <div
-                                className="bg-slate-500 dark:bg-slate-500 h-4 rounded flex items-center px-2"
-                                style={{ width: "70%", marginLeft: "5%" }}
-                              >
-                                <span className="text-white text-[10px] font-medium">Nurse Johnson</span>
-                              </div>
-                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Parameter Toggle Row */}
+                        <div className="h-10 border-b bg-blue-100 dark:bg-blue-900/40 relative cursor-pointer" onClick={() => setExpandedSections(prev => ({ ...prev, beatmungsparameter: !prev.beatmungsparameter }))}>
+                          <div className="absolute inset-0 flex">
+                            {getTimeIntervals().map((_, i) => (
+                              <div key={i} className="flex-1 border-r last:border-r-0 border-blue-200 dark:border-blue-800" />
+                            ))}
+                          </div>
+                        </div>
+                        
+                        {/* Ausfuhren (Outputs) Swimlane */}
+                        <div className="h-16 border-b bg-orange-50 dark:bg-orange-900/20 relative">
+                          <div className="absolute inset-0 flex">
+                            {getTimeIntervals().map((_, i) => (
+                              <div key={i} className="flex-1 border-r last:border-r-0 border-orange-200 dark:border-orange-800" />
+                            ))}
+                          </div>
+                        </div>
+                        
+                        {/* NRS (Pain Scores) Swimlane */}
+                        <div className="h-16 border-b bg-green-50 dark:bg-green-900/20 relative">
+                          <div className="absolute inset-0 flex">
+                            {getTimeIntervals().map((_, i) => (
+                              <div key={i} className="flex-1 border-r last:border-r-0 border-green-200 dark:border-green-800" />
+                            ))}
+                          </div>
+                        </div>
+                        
+                        {/* Scores Swimlane */}
+                        <div className="h-16 bg-slate-50 dark:bg-slate-800 relative">
+                          <div className="absolute inset-0 flex">
+                            {getTimeIntervals().map((_, i) => (
+                              <div key={i} className="flex-1 border-r last:border-r-0 border-slate-200 dark:border-slate-700" />
+                            ))}
                           </div>
                         </div>
                       </div>
@@ -618,7 +827,6 @@ export default function Op() {
                 </div>
               </div>
             </div>
-          </div>
           </TabsContent>
 
           {/* Anesthesia Documentation Tab */}
