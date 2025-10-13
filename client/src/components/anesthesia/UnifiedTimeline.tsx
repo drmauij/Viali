@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
 
@@ -46,6 +46,19 @@ export function UnifiedTimeline({
   height?: number;
 }) {
   const chartRef = useRef<any>(null);
+  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"));
+
+  // Listen for theme changes
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains("dark"));
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   const option = useMemo(() => {
     // Grid layout configuration with background colors
@@ -334,7 +347,7 @@ export function UnifiedTimeline({
                       y: y + height / 2,
                       fontSize: 11,
                       fontFamily: "Poppins, sans-serif",
-                      fill: "#ffffff",
+                      fill: isDark ? "#ffffff" : "#000000",
                       fontWeight: "600",
                       textVerticalAlign: "middle",
                     },
@@ -385,7 +398,7 @@ export function UnifiedTimeline({
         },
       },
     } as echarts.EChartsOption;
-  }, [data]);
+  }, [data, isDark]);
 
   return (
     <div className="w-full h-full relative" style={{ height }}>
