@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
-import ReactECharts from "echarts-for-react";
-import * as echarts from "echarts";
+import { AnesthesiaTimeline, type AnesthesiaData, type VitalPoint, type EventItem, type Band } from "@/components/anesthesia/AnesthesiaTimeline";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -108,210 +107,132 @@ export default function Op() {
     return null;
   }
   
-  // Timeline navigation state
-  const [timelineStart, setTimelineStart] = useState(8); // Start hour (8:00 AM)
-  const [zoomLevel, setZoomLevel] = useState(5); // Minutes per interval (5, 10, 15, 30)
-  const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({
-    beatmungsparameter: false,
-  });
-
-
-  // Calculate time intervals based on zoom
-  const getTimeIntervals = () => {
-    const intervals = [];
-    const totalMinutes = 360; // 6 hours visible
-    for (let i = 0; i <= totalMinutes; i += zoomLevel) {
-      const hour = Math.floor((timelineStart * 60 + i) / 60);
-      const minute = (timelineStart * 60 + i) % 60;
-      intervals.push({ hour, minute: minute.toString().padStart(2, '0') });
-    }
-    return intervals;
-  };
-
-  // Generate mock vitals data - memoized to prevent regeneration on every render
-  const vitalsData = useMemo(() => {
-    const data = [];
-    const startTime = new Date();
-    startTime.setHours(timelineStart, 0, 0, 0);
+  // Generate mock timeline data - memoized
+  const timelineData = useMemo((): AnesthesiaData => {
+    const t0 = +new Date();
+    const startTime = new Date(t0);
+    startTime.setHours(11, 35, 0, 0);
+    const t0Ms = +startTime;
+    const step = 5 * 60 * 1000; // 5-minute intervals
     
-    for (let i = 0; i < 50; i++) {
-      const time = new Date(startTime.getTime() + i * 5 * 60000); // 5-minute intervals
-      data.push({
-        time: time,
-        systolic: 115 + Math.random() * 10,
-        diastolic: 75 + Math.random() * 10,
-        hr: 58 + Math.random() * 8,
-        spo2: 98 + Math.random() * 2,
-        temp: 36.5 + Math.random() * 0.5
-      });
-    }
-    return data;
-  }, [timelineStart]);
-
-  const chartRef = useRef<any>(null);
-
-  // ECharts configuration
-  const getChartOption = () => {
-    return {
-      backgroundColor: 'transparent',
-      grid: [
-        // Main vitals chart
-        { left: 180, right: 140, top: 60, height: 400, containLabel: false },
-        // Zeiten swimlane
-        { left: 180, right: 140, top: 480, height: 60, containLabel: false },
-        // Ereignisse swimlane
-        { left: 180, right: 140, top: 560, height: 60, containLabel: false },
-        // Herzrhythmus swimlane
-        { left: 180, right: 140, top: 640, height: 60, containLabel: false },
-      ],
-      xAxis: [
-        // Main timeline x-axis
-        {
-          type: 'time',
-          gridIndex: 0,
-          axisLabel: {
-            formatter: '{HH}:{mm}',
-            fontSize: 10,
-            color: '#64748b'
-          },
-          axisLine: { lineStyle: { color: '#e2e8f0' } },
-          splitLine: { show: true, lineStyle: { color: '#f1f5f9', width: 1 } }
-        },
-        // Zeiten x-axis
-        { type: 'time', gridIndex: 1, show: false },
-        // Ereignisse x-axis
-        { type: 'time', gridIndex: 2, show: false },
-        // Herzrhythmus x-axis
-        { type: 'time', gridIndex: 3, show: false },
-      ],
-      yAxis: [
-        // Left Y-axis: BP/HR (0-240)
-        {
-          type: 'value',
-          gridIndex: 0,
-          min: 0,
-          max: 240,
-          interval: 40,
-          position: 'left',
-          axisLabel: { fontSize: 10, color: '#64748b' },
-          axisLine: { show: true, lineStyle: { color: '#e2e8f0' } },
-          splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } }
-        },
-        // Right Y-axis: SpO2 (50-100)
-        {
-          type: 'value',
-          gridIndex: 0,
-          min: 50,
-          max: 100,
-          interval: 10,
-          position: 'right',
-          axisLabel: { fontSize: 10, color: '#0891b2' },
-          axisLine: { show: true, lineStyle: { color: '#0891b2' } },
-          splitLine: { show: false }
-        },
-        // Swimlane y-axes
-        { type: 'value', gridIndex: 1, show: false, min: 0, max: 1 },
-        { type: 'value', gridIndex: 2, show: false, min: 0, max: 1 },
-        { type: 'value', gridIndex: 3, show: false, min: 0, max: 1 },
-      ],
-      dataZoom: [
-        {
-          type: 'inside',
-          xAxisIndex: [0, 1, 2, 3],
-          start: 0,
-          end: 100,
-          zoomOnMouseWheel: true,
-          moveOnMouseMove: true,
-          moveOnMouseWheel: true
-        },
-        {
-          type: 'slider',
-          xAxisIndex: [0, 1, 2, 3],
-          bottom: 10,
-          height: 20,
-          handleSize: '80%'
-        }
-      ],
-      series: [
-        // BP Area (filled between systolic and diastolic)
-        {
-          name: 'NIBP',
-          type: 'line',
-          xAxisIndex: 0,
-          yAxisIndex: 0,
-          data: vitalsData.map(d => [d.time, d.systolic]),
-          smooth: true,
-          lineStyle: { color: '#3b82f6', width: 2 },
-          areaStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: 'rgba(59, 130, 246, 0.3)' },
-              { offset: 1, color: 'rgba(59, 130, 246, 0.1)' }
-            ])
-          },
-          symbol: 'path://M0,0 L-8,-12 L8,-12 Z',
-          symbolSize: 12,
-          itemStyle: { color: '#3b82f6', borderColor: '#1e40af', borderWidth: 1 }
-        },
-        // Diastolic BP
-        {
-          name: 'NIBP Diastolic',
-          type: 'line',
-          xAxisIndex: 0,
-          yAxisIndex: 0,
-          data: vitalsData.map(d => [d.time, d.diastolic]),
-          smooth: true,
-          lineStyle: { color: '#3b82f6', width: 1, type: 'solid' },
-          symbol: 'path://M0,0 L-8,12 L8,12 Z',
-          symbolSize: 12,
-          itemStyle: { color: '#3b82f6', borderColor: '#1e40af', borderWidth: 1 }
-        },
-        // Heart Rate
-        {
-          name: 'HR',
-          type: 'line',
-          xAxisIndex: 0,
-          yAxisIndex: 0,
-          data: vitalsData.map(d => [d.time, d.hr]),
-          smooth: true,
-          lineStyle: { color: '#dc2626', width: 2 },
-          symbol: 'path://M0,-5 L-6,-11 L-10,-7 L0,3 L10,-7 L6,-11 Z',
-          symbolSize: 14,
-          itemStyle: { color: '#dc2626', borderColor: '#991b1b', borderWidth: 1 }
-        },
-        // SpO2
-        {
-          name: 'SpO2',
-          type: 'line',
-          xAxisIndex: 0,
-          yAxisIndex: 1,
-          data: vitalsData.map(d => [d.time, d.spo2]),
-          smooth: true,
-          lineStyle: { color: '#8b5cf6', width: 2 },
-          symbol: 'circle',
-          symbolSize: 10,
-          itemStyle: { color: '#8b5cf6', borderColor: '#6d28d9', borderWidth: 1 }
-        }
-      ],
-      tooltip: {
-        trigger: 'axis',
-        axisPointer: { type: 'cross' },
-        formatter: (params: any) => {
-          const time = new Date(params[0].value[0]).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-          let result = `${time}<br/>`;
-          params.forEach((param: any) => {
-            result += `${param.marker}${param.seriesName}: ${param.value[1].toFixed(1)}<br/>`;
-          });
-          return result;
-        }
-      },
-      legend: {
-        top: 10,
-        left: 180,
-        data: ['NIBP', 'HR', 'SpO2'],
-        textStyle: { fontSize: 12 }
-      }
+    // Helper functions
+    const seq = (n: number) => Array.from({ length: n }, (_, i) => i);
+    const jitter = (base: number, amp = 5) => base + Math.round((Math.random() - .5) * 2 * amp);
+    
+    const times = seq(36).map(i => t0Ms + i * step);
+    
+    // Vitals data
+    const vitals = {
+      hr: times.map((t, i) => [t, jitter(78 + Math.round(6 * Math.sin(i / 3)), 3)] as VitalPoint),
+      map: times.map((t, i) => [t, jitter(75 + Math.round(5 * Math.cos(i / 4)), 3)] as VitalPoint),
+      spo2: times.map((t) => [t, 97 + Math.round(Math.random())] as VitalPoint),
+      etco2: times.map((t, i) => [t, jitter(34 + Math.round(3 * Math.sin(i / 5)), 2)] as VitalPoint),
+      rr: times.map((t, i) => [t, jitter(12 + Math.round(2 * Math.cos(i / 6)), 1)] as VitalPoint),
     };
-  };
+    
+    // Target bands
+    const bands: Band[] = [
+      { axis: "right", yMin: 65, yMax: 85, label: "MAP Target" },
+      { axis: "left", yMin: 30, yMax: 45, label: "EtCO₂ Target" },
+    ];
+    
+    // Events - use vis-timeline built-in types: 'range' for durations, 'point' for instants
+    const events: EventItem[] = [
+      // Infusions (ranges)
+      { 
+        id: 1, 
+        start: t0Ms + 6 * step, 
+        end: t0Ms + 19 * step, 
+        group: "Infusions", 
+        content: "Ringer Acetat", 
+        dose: "1000 ml", 
+        icon: "🧪",
+        className: "vis-item-range"
+      },
+      { 
+        id: 2, 
+        start: t0Ms + 7 * step, 
+        end: t0Ms + 22 * step, 
+        group: "Infusions", 
+        content: "Propofol 1%", 
+        dose: "5→6 mg/kg/h", 
+        icon: "💤",
+        className: "vis-item-range"
+      },
+      // Bolus drugs (points)
+      { 
+        id: 3, 
+        start: t0Ms + 8 * step, 
+        group: "Drugs", 
+        content: "Fentanyl", 
+        dose: "50 µg", 
+        icon: "💊",
+        className: "vis-item-point"
+      },
+      { 
+        id: 4, 
+        start: t0Ms + 12 * step, 
+        group: "Drugs", 
+        content: "Ephedrin", 
+        dose: "10 mg", 
+        icon: "💊",
+        className: "vis-item-point"
+      },
+      { 
+        id: 5, 
+        start: t0Ms + 20 * step, 
+        group: "Drugs", 
+        content: "Ondansetron", 
+        dose: "4 mg", 
+        icon: "💊",
+        className: "vis-item-point"
+      },
+      // Ventilation settings (ranges)
+      { 
+        id: 6, 
+        start: t0Ms + 6 * step, 
+        end: t0Ms + 25 * step, 
+        group: "Ventilation", 
+        content: "FiO₂ 40%", 
+        icon: "🫁",
+        className: "vis-item-range"
+      },
+      { 
+        id: 7, 
+        start: t0Ms + 10 * step, 
+        end: t0Ms + 18 * step, 
+        group: "Ventilation", 
+        content: "PEEP 5", 
+        icon: "🫁",
+        className: "vis-item-range"
+      },
+      // Notes/Events (points)
+      { 
+        id: 8, 
+        start: t0Ms + 5 * step, 
+        group: "Events", 
+        content: "Incision", 
+        icon: "✂️",
+        className: "vis-item-point"
+      },
+      { 
+        id: 9, 
+        start: t0Ms + 23 * step, 
+        group: "Events", 
+        content: "Emergence", 
+        icon: "⏏",
+        className: "vis-item-point"
+      },
+    ];
+    
+    return {
+      tStart: t0Ms,
+      tEnd: t0Ms + 35 * step,
+      vitals,
+      bands,
+      events,
+    };
+  }, []);
 
   // OP State
   const [opData, setOpData] = useState({
@@ -480,59 +401,9 @@ export default function Op() {
           </div>
 
           {/* Vitals & Timeline Tab */}
-          <TabsContent value="vitals" className="data-[state=active]:flex-1 overflow-hidden flex flex-col mt-0 px-0">
-            <div className="flex-1 border-t bg-card overflow-hidden flex flex-col relative">
-              {/* ECharts Professional Medical Timeline */}
-              <div className="absolute inset-0">
-                {/* Left Sidebar with Parameter Labels */}
-                <div className="absolute left-0 top-60 w-44 z-10 bg-gray-50 dark:bg-gray-900/50 border-r border-gray-200 dark:border-gray-700">
-                  {/* Vitals Section Label */}
-                  <div className="h-[400px] flex items-center justify-center px-3 border-b border-gray-200 dark:border-gray-700">
-                    <div className="flex flex-col items-center gap-2">
-                      <button className="flex flex-col items-center gap-0.5 p-2 border-2 border-blue-600 dark:border-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20" data-testid="button-vitals-nibp">
-                        <Gauge className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                        <span className="text-[9px] font-semibold text-blue-600 dark:text-blue-400">NIBP</span>
-                      </button>
-                      <button className="flex flex-col items-center gap-0.5 p-2 border-2 border-red-600 dark:border-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20" data-testid="button-vitals-hr">
-                        <Heart className="h-5 w-5 text-red-600 dark:text-red-400" />
-                        <span className="text-[9px] font-semibold text-red-600 dark:text-red-400">HR</span>
-                      </button>
-                      <button className="flex flex-col items-center gap-0.5 p-2 border-2 border-purple-600 dark:border-purple-400 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20" data-testid="button-vitals-spo2">
-                        <Droplet className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                        <span className="text-[9px] font-semibold text-purple-600 dark:text-purple-400">SpO2</span>
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* Zeiten Label */}
-                  <div className="h-[60px] flex items-center px-3 border-b border-gray-200 dark:border-gray-700 bg-purple-100 dark:bg-purple-900/30">
-                    <Clock className="h-4 w-4 text-purple-700 dark:text-purple-300 mr-2" />
-                    <span className="text-xs font-semibold text-purple-700 dark:text-purple-300">Zeiten</span>
-                  </div>
-                  
-                  {/* Ereignisse Label */}
-                  <div className="h-[60px] flex items-center px-3 border-b border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800">
-                    <MessageSquare className="h-4 w-4 text-gray-700 dark:text-gray-300 mr-2" />
-                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Ereignisse & Maßnahmen</span>
-                  </div>
-                  
-                  {/* Herzrhythmus Label */}
-                  <div className="h-[60px] flex items-center px-3 bg-pink-100 dark:bg-pink-900/30">
-                    <Activity className="h-4 w-4 text-pink-700 dark:text-pink-300 mr-2" />
-                    <span className="text-xs font-semibold text-pink-700 dark:text-pink-300">Herzrhythmus</span>
-                  </div>
-                </div>
-
-                {/* ECharts Timeline */}
-                <ReactECharts
-                  ref={chartRef}
-                  option={getChartOption()}
-                  style={{ height: '100%', width: '100%' }}
-                  opts={{ renderer: 'canvas' }}
-                  notMerge={true}
-                  lazyUpdate={true}
-                />
-              </div>
+          <TabsContent value="vitals" className="data-[state=active]:flex-1 overflow-hidden flex flex-col mt-0 px-0" data-testid="tab-content-vitals">
+            <div className="flex-1 border-t bg-card overflow-hidden">
+              <AnesthesiaTimeline data={timelineData} height={600} />
             </div>
           </TabsContent>
 
