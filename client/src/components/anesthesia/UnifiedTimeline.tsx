@@ -48,24 +48,24 @@ export function UnifiedTimeline({
   const chartRef = useRef<any>(null);
 
   const option = useMemo(() => {
-    // Grid layout configuration
+    // Grid layout configuration with background colors
     const grids = [
       // Grid 0: Vitals chart (tall)
-      { left: 140, right: 60, top: 40, height: 280 },
-      // Grid 1: Zeiten
-      { left: 140, right: 60, top: 340, height: 40 },
-      // Grid 2: Ereignisse & Maßnahmen
-      { left: 140, right: 60, top: 390, height: 40 },
-      // Grid 3: Herzrhythmus
-      { left: 140, right: 60, top: 440, height: 40 },
-      // Grid 4: Medikamente (multiple rows)
-      { left: 140, right: 60, top: 490, height: 90 },
-      // Grid 5: Infusionen/Perfusors
-      { left: 140, right: 60, top: 590, height: 40 },
-      // Grid 6: Ventilation
-      { left: 140, right: 60, top: 640, height: 40 },
-      // Grid 7: Staff
-      { left: 140, right: 60, top: 690, height: 40 },
+      { left: 140, right: 60, top: 40, height: 280, backgroundColor: "transparent" },
+      // Grid 1: Times (purple)
+      { left: 140, right: 60, top: 340, height: 40, backgroundColor: "rgba(243, 232, 255, 0.5)" },
+      // Grid 2: Events (blue)
+      { left: 140, right: 60, top: 390, height: 40, backgroundColor: "rgba(219, 234, 254, 0.5)" },
+      // Grid 3: Heart Rhythm (pink)
+      { left: 140, right: 60, top: 440, height: 40, backgroundColor: "rgba(252, 231, 243, 0.5)" },
+      // Grid 4: Medications (green, multiple rows)
+      { left: 140, right: 60, top: 490, height: 90, backgroundColor: "rgba(220, 252, 231, 0.5)" },
+      // Grid 5: Infusions/Perfusors (cyan)
+      { left: 140, right: 60, top: 590, height: 40, backgroundColor: "rgba(207, 250, 254, 0.5)" },
+      // Grid 6: Ventilation (amber)
+      { left: 140, right: 60, top: 640, height: 40, backgroundColor: "rgba(254, 243, 199, 0.5)" },
+      // Grid 7: Staff (slate)
+      { left: 140, right: 60, top: 690, height: 40, backgroundColor: "rgba(241, 245, 249, 0.5)" },
     ];
 
     // Time x-axes (one per grid)
