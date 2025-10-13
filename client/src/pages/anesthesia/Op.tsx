@@ -273,194 +273,193 @@ export default function Op() {
 
           {/* Vitals & Timeline Tab */}
           <TabsContent value="vitals" className="flex-1 overflow-hidden mt-0">
-            <div className="flex gap-4 h-full px-6 pt-4 pb-6">
-              {/* Quick Add Vitals Sidebar - Sticky */}
-              <div className="w-20 shrink-0 space-y-2 overflow-y-auto">
-                <Button 
-                  variant="outline" 
-                  className="w-full h-16 flex-col gap-1 p-2"
-                  data-testid="button-add-bp"
-                >
-                  <Gauge className="h-6 w-6 text-blue-600" />
-                  <span className="text-xs">BP</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="w-full h-16 flex-col gap-1 p-2"
-                  data-testid="button-add-hr"
-                >
-                  <Heart className="h-6 w-6 text-red-600" />
-                  <span className="text-xs">HR</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="w-full h-16 flex-col gap-1 p-2"
-                  data-testid="button-add-temp"
-                >
-                  <Thermometer className="h-6 w-6 text-orange-600" />
-                  <span className="text-xs">Temp</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="w-full h-16 flex-col gap-1 p-2"
-                  data-testid="button-add-spo2"
-                >
-                  <Wind className="h-6 w-6 text-cyan-600" />
-                  <span className="text-xs">SpO2</span>
-                </Button>
-              </div>
-
-              {/* Timeline Visualization */}
-              <div className="flex-1 flex flex-col overflow-hidden">
-                {/* Scrollable Timeline Container */}
-                <div className="flex-1 border rounded-lg bg-card overflow-hidden flex flex-col">
-                  {/* Unified Scroll Container */}
-                  <div className="flex-1 overflow-auto">
-                    {/* Time Markers */}
-                    <div className="border-b bg-muted/30 sticky top-0 z-10">
+            <div className="h-full px-4 md:px-6 pt-4 pb-6">
+              {/* Merged Vitals Timeline Container */}
+              <div className="h-full border rounded-lg bg-card overflow-hidden flex flex-col">
+                {/* Time Markers - Sticky Header */}
+                <div className="border-b bg-muted/30 sticky top-0 z-20">
+                  <div className="flex">
+                    {/* Sticky first column spacer */}
+                    <div className="w-32 md:w-40 shrink-0 border-r bg-muted/30" />
+                    {/* Scrollable time markers */}
+                    <div className="flex-1 overflow-x-auto">
                       <div className="flex min-w-[1200px]">
-                        {/* Spacer to match track label width */}
-                        <div className="w-24 shrink-0 border-r" />
-                        {/* Time marker cells */}
-                        <div className="flex-1 flex">
-                          {Array.from({ length: 13 }, (_, i) => {
-                            const hour = 8 + Math.floor(i / 2);
-                            const minute = i % 2 === 0 ? "00" : "30";
-                            return (
-                              <div
-                                key={i}
-                                className="flex-1 text-center py-2 border-r last:border-r-0 text-xs font-medium"
-                              >
-                                {hour}:{minute}
-                              </div>
-                            );
-                          })}
+                        {Array.from({ length: 13 }, (_, i) => {
+                          const hour = 8 + Math.floor(i / 2);
+                          const minute = i % 2 === 0 ? "00" : "30";
+                          return (
+                            <div
+                              key={i}
+                              className="flex-1 text-center py-2 border-r last:border-r-0 text-xs font-medium"
+                            >
+                              {hour}:{minute}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Merged Vitals Swimlane */}
+                <div className="flex-1 overflow-hidden">
+                  <div className="flex h-full">
+                    {/* Sticky First Column: Scales & Buttons */}
+                    <div className="w-32 md:w-40 shrink-0 border-r bg-muted/10 flex flex-col sticky left-0 z-10">
+                      {/* Numeric Scales */}
+                      <div className="flex-1 relative grid grid-cols-4">
+                        {/* BP Scale (200-50) */}
+                        <div className="border-r py-2 relative">
+                          <div className="h-full flex flex-col justify-between text-[10px] text-blue-600 font-medium px-1">
+                            <span>200</span>
+                            <span>150</span>
+                            <span>100</span>
+                            <span className="text-blue-400">50</span>
+                          </div>
+                          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-90 text-[10px] text-muted-foreground whitespace-nowrap">
+                            BP
+                          </div>
                         </div>
+                        
+                        {/* HR Scale (200-20) */}
+                        <div className="border-r py-2 relative">
+                          <div className="h-full flex flex-col justify-between text-[10px] text-red-600 font-medium px-1">
+                            <span>200</span>
+                            <span>140</span>
+                            <span>80</span>
+                            <span className="text-red-400">20</span>
+                          </div>
+                          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-90 text-[10px] text-muted-foreground whitespace-nowrap">
+                            HR
+                          </div>
+                        </div>
+                        
+                        {/* Temp Scale (42-34) */}
+                        <div className="border-r py-2 relative">
+                          <div className="h-full flex flex-col justify-between text-[10px] text-orange-600 font-medium px-1">
+                            <span>42</span>
+                            <span>38</span>
+                            <span>36</span>
+                            <span className="text-orange-400">34</span>
+                          </div>
+                          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-90 text-[10px] text-muted-foreground whitespace-nowrap">
+                            Temp
+                          </div>
+                        </div>
+                        
+                        {/* SpO2 Scale (100-50) */}
+                        <div className="py-2 relative">
+                          <div className="h-full flex flex-col justify-between text-[10px] text-cyan-600 font-medium px-1">
+                            <span>100</span>
+                            <span>90</span>
+                            <span>80</span>
+                            <span className="text-cyan-400">50</span>
+                          </div>
+                          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -rotate-90 text-[10px] text-muted-foreground whitespace-nowrap">
+                            SpO2
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Quick Add Buttons */}
+                      <div className="border-t p-2 space-y-1">
+                        <Button 
+                          variant="outline" 
+                          className="w-full h-10 flex items-center gap-2 justify-start text-xs p-2"
+                          data-testid="button-add-bp"
+                        >
+                          <Gauge className="h-4 w-4 text-blue-600" />
+                          <span>BP</span>
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          className="w-full h-10 flex items-center gap-2 justify-start text-xs p-2"
+                          data-testid="button-add-hr"
+                        >
+                          <Heart className="h-4 w-4 text-red-600" />
+                          <span>HR</span>
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          className="w-full h-10 flex items-center gap-2 justify-start text-xs p-2"
+                          data-testid="button-add-temp"
+                        >
+                          <Thermometer className="h-4 w-4 text-orange-600" />
+                          <span>Temp</span>
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          className="w-full h-10 flex items-center gap-2 justify-start text-xs p-2"
+                          data-testid="button-add-spo2"
+                        >
+                          <Wind className="h-4 w-4 text-cyan-600" />
+                          <span>SpO2</span>
+                        </Button>
                       </div>
                     </div>
 
-                    {/* Vitals Tracks */}
-                    <div className="min-w-[1200px]">
-                      {/* BP Track */}
-                      <div className="border-b">
-                        <div className="flex items-center h-20">
-                          <div className="w-24 shrink-0 px-3 py-2 border-r bg-muted/20">
-                            <p className="text-xs font-semibold text-blue-600">BP</p>
-                            <p className="text-[10px] text-muted-foreground">mmHg</p>
-                          </div>
-                          <div className="flex-1 relative h-full">
-                            {/* Grid lines */}
-                            <div className="absolute inset-0 flex">
-                              {Array.from({ length: 13 }).map((_, i) => (
-                                <div key={i} className="flex-1 border-r last:border-r-0" />
-                              ))}
-                            </div>
-                            {/* Sample data points */}
-                            <div className="absolute inset-0 flex items-center px-4">
-                              <div className="relative w-full h-8">
-                                <svg className="w-full h-full">
-                                  <line x1="5%" y1="50%" x2="15%" y2="40%" stroke="#2563eb" strokeWidth="2" />
-                                  <line x1="15%" y1="40%" x2="25%" y2="45%" stroke="#2563eb" strokeWidth="2" />
-                                  <circle cx="5%" cy="50%" r="4" fill="#2563eb" />
-                                  <circle cx="15%" cy="40%" r="4" fill="#2563eb" />
-                                  <circle cx="25%" cy="45%" r="4" fill="#2563eb" />
-                                </svg>
-                              </div>
-                            </div>
-                          </div>
+                    {/* Scrollable Timeline Area */}
+                    <div className="flex-1 overflow-x-auto overflow-y-hidden">
+                      <div className="min-w-[1200px] h-full relative">
+                        {/* Grid lines */}
+                        <div className="absolute inset-0 flex">
+                          {Array.from({ length: 13 }).map((_, i) => (
+                            <div key={i} className="flex-1 border-r last:border-r-0" />
+                          ))}
+                        </div>
+
+                        {/* Vitals Data Visualization */}
+                        <div className="absolute inset-0 p-4">
+                          <svg className="w-full h-full">
+                            {/* BP Systolic (blue) - scale 200-50 */}
+                            <line x1="5%" y1="20%" x2="15%" y2="25%" stroke="#2563eb" strokeWidth="2" />
+                            <line x1="15%" y1="25%" x2="25%" y2="22%" stroke="#2563eb" strokeWidth="2" />
+                            <circle cx="5%" cy="20%" r="4" fill="#2563eb" />
+                            <circle cx="15%" cy="25%" r="4" fill="#2563eb" />
+                            <circle cx="25%" cy="22%" r="4" fill="#2563eb" />
+                            
+                            {/* BP Diastolic (light blue) - scale 200-50 */}
+                            <line x1="5%" y1="35%" x2="15%" y2="38%" stroke="#60a5fa" strokeWidth="2" strokeDasharray="4" />
+                            <line x1="15%" y1="38%" x2="25%" y2="36%" stroke="#60a5fa" strokeWidth="2" strokeDasharray="4" />
+                            <circle cx="5%" cy="35%" r="3" fill="#60a5fa" />
+                            <circle cx="15%" cy="38%" r="3" fill="#60a5fa" />
+                            <circle cx="25%" cy="36%" r="3" fill="#60a5fa" />
+                            
+                            {/* HR (red) - scale 200-20 */}
+                            <line x1="5%" y1="50%" x2="15%" y2="48%" stroke="#dc2626" strokeWidth="2" />
+                            <line x1="15%" y1="48%" x2="25%" y2="52%" stroke="#dc2626" strokeWidth="2" />
+                            <circle cx="5%" cy="50%" r="4" fill="#dc2626" />
+                            <circle cx="15%" cy="48%" r="4" fill="#dc2626" />
+                            <circle cx="25%" cy="52%" r="4" fill="#dc2626" />
+                            
+                            {/* Temp (orange) - scale 42-34 */}
+                            <line x1="5%" y1="55%" x2="15%" y2="54%" stroke="#ea580c" strokeWidth="2" />
+                            <line x1="15%" y1="54%" x2="25%" y2="56%" stroke="#ea580c" strokeWidth="2" />
+                            <circle cx="5%" cy="55%" r="4" fill="#ea580c" />
+                            <circle cx="15%" cy="54%" r="4" fill="#ea580c" />
+                            <circle cx="25%" cy="56%" r="4" fill="#ea580c" />
+                            
+                            {/* SpO2 (cyan) - scale 100-50 */}
+                            <line x1="5%" y1="15%" x2="15%" y2="18%" stroke="#0891b2" strokeWidth="2" />
+                            <line x1="15%" y1="18%" x2="25%" y2="16%" stroke="#0891b2" strokeWidth="2" />
+                            <circle cx="5%" cy="15%" r="4" fill="#0891b2" />
+                            <circle cx="15%" cy="18%" r="4" fill="#0891b2" />
+                            <circle cx="25%" cy="16%" r="4" fill="#0891b2" />
+                          </svg>
                         </div>
                       </div>
+                    </div>
+                  </div>
+                </div>
 
-                      {/* HR Track */}
-                      <div className="border-b">
-                        <div className="flex items-center h-20">
-                          <div className="w-24 shrink-0 px-3 py-2 border-r bg-muted/20">
-                            <p className="text-xs font-semibold text-red-600">HR</p>
-                            <p className="text-[10px] text-muted-foreground">bpm</p>
-                          </div>
-                          <div className="flex-1 relative h-full">
-                            {/* Grid lines */}
-                            <div className="absolute inset-0 flex">
-                              {Array.from({ length: 13 }).map((_, i) => (
-                                <div key={i} className="flex-1 border-r last:border-r-0" />
-                              ))}
-                            </div>
-                            {/* Sample data points */}
-                            <div className="absolute inset-0 flex items-center px-4">
-                              <div className="relative w-full h-8">
-                                <svg className="w-full h-full">
-                                  <line x1="5%" y1="60%" x2="15%" y2="50%" stroke="#dc2626" strokeWidth="2" />
-                                  <line x1="15%" y1="50%" x2="25%" y2="55%" stroke="#dc2626" strokeWidth="2" />
-                                  <circle cx="5%" cy="60%" r="4" fill="#dc2626" />
-                                  <circle cx="15%" cy="50%" r="4" fill="#dc2626" />
-                                  <circle cx="25%" cy="55%" r="4" fill="#dc2626" />
-                                </svg>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Temp Track */}
-                      <div className="border-b">
-                        <div className="flex items-center h-20">
-                          <div className="w-24 shrink-0 px-3 py-2 border-r bg-muted/20">
-                            <p className="text-xs font-semibold text-orange-600">Temp</p>
-                            <p className="text-[10px] text-muted-foreground">°C</p>
-                          </div>
-                          <div className="flex-1 relative h-full">
-                            {/* Grid lines */}
-                            <div className="absolute inset-0 flex">
-                              {Array.from({ length: 13 }).map((_, i) => (
-                                <div key={i} className="flex-1 border-r last:border-r-0" />
-                              ))}
-                            </div>
-                            {/* Sample data points */}
-                            <div className="absolute inset-0 flex items-center px-4">
-                              <div className="relative w-full h-8">
-                                <svg className="w-full h-full">
-                                  <line x1="5%" y1="50%" x2="15%" y2="50%" stroke="#ea580c" strokeWidth="2" />
-                                  <line x1="15%" y1="50%" x2="25%" y2="48%" stroke="#ea580c" strokeWidth="2" />
-                                  <circle cx="5%" cy="50%" r="4" fill="#ea580c" />
-                                  <circle cx="15%" cy="50%" r="4" fill="#ea580c" />
-                                  <circle cx="25%" cy="48%" r="4" fill="#ea580c" />
-                                </svg>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* SpO2 Track */}
-                      <div className="border-b">
-                        <div className="flex items-center h-20">
-                          <div className="w-24 shrink-0 px-3 py-2 border-r bg-muted/20">
-                            <p className="text-xs font-semibold text-cyan-600">SpO2</p>
-                            <p className="text-[10px] text-muted-foreground">%</p>
-                          </div>
-                          <div className="flex-1 relative h-full">
-                            {/* Grid lines */}
-                            <div className="absolute inset-0 flex">
-                              {Array.from({ length: 13 }).map((_, i) => (
-                                <div key={i} className="flex-1 border-r last:border-r-0" />
-                              ))}
-                            </div>
-                            {/* Sample data points */}
-                            <div className="absolute inset-0 flex items-center px-4">
-                              <div className="relative w-full h-8">
-                                <svg className="w-full h-full">
-                                  <line x1="5%" y1="30%" x2="15%" y2="35%" stroke="#0891b2" strokeWidth="2" />
-                                  <line x1="15%" y1="35%" x2="25%" y2="30%" stroke="#0891b2" strokeWidth="2" />
-                                  <circle cx="5%" cy="30%" r="4" fill="#0891b2" />
-                                  <circle cx="15%" cy="35%" r="4" fill="#0891b2" />
-                                  <circle cx="25%" cy="30%" r="4" fill="#0891b2" />
-                                </svg>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
+                {/* Clinical Swimlanes - Events, Infusions, Drugs, Staff */}
+                <div className="border-t">
+                  <div className="flex">
+                    {/* Sticky first column spacer */}
+                    <div className="w-32 md:w-40 shrink-0 border-r bg-muted/10" />
+                    {/* Scrollable swimlanes area */}
+                    <div className="flex-1 overflow-x-auto">
+                      <div className="min-w-[1200px]">
                       {/* Events Swimlane */}
                       <div className="border-b bg-purple-50/50 dark:bg-purple-950/20">
                         <div className="flex items-center h-16">
@@ -619,6 +618,7 @@ export default function Op() {
                 </div>
               </div>
             </div>
+          </div>
           </TabsContent>
 
           {/* Anesthesia Documentation Tab */}
