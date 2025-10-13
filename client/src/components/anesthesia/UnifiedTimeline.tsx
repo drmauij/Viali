@@ -396,29 +396,29 @@ export function UnifiedTimeline({
           <span className="text-base font-semibold">Vitals</span>
         </div>
         
-        {/* Zeiten */}
+        {/* Times */}
         <div className="h-[40px] flex items-center px-3 border-b border-border bg-purple-100 dark:bg-purple-900/30" style={{ marginTop: "20px" }}>
-          <span className="text-sm font-semibold text-black dark:text-white">Zeiten</span>
+          <span className="text-sm font-semibold text-black dark:text-white">Times</span>
         </div>
         
-        {/* Ereignisse */}
+        {/* Events */}
         <div className="h-[40px] flex items-center px-3 border-b border-border bg-blue-100 dark:bg-blue-900/30" style={{ marginTop: "10px" }}>
-          <span className="text-sm font-semibold text-black dark:text-white">Ereignisse</span>
+          <span className="text-sm font-semibold text-black dark:text-white">Events</span>
         </div>
         
-        {/* Herzrhythmus */}
+        {/* Heart Rhythm */}
         <div className="h-[40px] flex items-center px-3 border-b border-border bg-pink-100 dark:bg-pink-900/30" style={{ marginTop: "10px" }}>
-          <span className="text-sm font-semibold text-black dark:text-white">Herzrhythmus</span>
+          <span className="text-sm font-semibold text-black dark:text-white">Heart Rhythm</span>
         </div>
         
-        {/* Medikamente */}
+        {/* Medications */}
         <div className="h-[90px] flex items-center px-3 border-b border-border bg-green-100 dark:bg-green-900/30" style={{ marginTop: "10px" }}>
-          <span className="text-sm font-semibold text-black dark:text-white">Medikamente</span>
+          <span className="text-sm font-semibold text-black dark:text-white">Medications</span>
         </div>
         
-        {/* Infusionen/Perfusors */}
+        {/* Infusions/Perfusors */}
         <div className="h-[40px] flex items-center px-3 border-b border-border bg-cyan-100 dark:bg-cyan-900/30" style={{ marginTop: "10px" }}>
-          <span className="text-sm font-semibold text-black dark:text-white">Infusionen</span>
+          <span className="text-sm font-semibold text-black dark:text-white">Infusions</span>
         </div>
         
         {/* Ventilation */}
