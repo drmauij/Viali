@@ -61,24 +61,24 @@ export function UnifiedTimeline({
   }, []);
 
   const option = useMemo(() => {
-    // Grid layout configuration with background colors matching reference style
+    // Grid layout configuration - continuous rows with no gaps
     const grids = [
       // Grid 0: Vitals chart (tall)
       { left: 140, right: 60, top: 40, height: 280, backgroundColor: "transparent" },
-      // Grid 1: Times (purple background)
-      { left: 140, right: 60, top: 340, height: 40, backgroundColor: isDark ? "rgba(216, 180, 254, 0.15)" : "rgba(243, 232, 255, 0.8)" },
-      // Grid 2: Events (blue background)
-      { left: 140, right: 60, top: 390, height: 40, backgroundColor: isDark ? "rgba(147, 197, 253, 0.15)" : "rgba(219, 234, 254, 0.8)" },
-      // Grid 3: Heart Rhythm (pink background)
-      { left: 140, right: 60, top: 440, height: 40, backgroundColor: isDark ? "rgba(244, 114, 182, 0.15)" : "rgba(252, 231, 243, 0.8)" },
-      // Grid 4: Medications (green background, multiple rows)
-      { left: 140, right: 60, top: 490, height: 90, backgroundColor: isDark ? "rgba(134, 239, 172, 0.15)" : "rgba(220, 252, 231, 0.8)" },
-      // Grid 5: Infusions/Perfusors (cyan background)
-      { left: 140, right: 60, top: 590, height: 40, backgroundColor: isDark ? "rgba(103, 232, 249, 0.15)" : "rgba(207, 250, 254, 0.8)" },
-      // Grid 6: Ventilation (amber background)
-      { left: 140, right: 60, top: 640, height: 40, backgroundColor: isDark ? "rgba(251, 191, 36, 0.15)" : "rgba(254, 243, 199, 0.8)" },
-      // Grid 7: Staff (slate background)
-      { left: 140, right: 60, top: 690, height: 40, backgroundColor: isDark ? "rgba(203, 213, 225, 0.15)" : "rgba(241, 245, 249, 0.8)" },
+      // Grid 1: Times (purple background) - continuous from 320 to 360
+      { left: 140, right: 60, top: 320, height: 40, backgroundColor: isDark ? "rgba(216, 180, 254, 0.15)" : "rgba(243, 232, 255, 0.8)" },
+      // Grid 2: Events (blue background) - continuous from 360 to 400
+      { left: 140, right: 60, top: 360, height: 40, backgroundColor: isDark ? "rgba(147, 197, 253, 0.15)" : "rgba(219, 234, 254, 0.8)" },
+      // Grid 3: Heart Rhythm (pink background) - continuous from 400 to 440
+      { left: 140, right: 60, top: 400, height: 40, backgroundColor: isDark ? "rgba(244, 114, 182, 0.15)" : "rgba(252, 231, 243, 0.8)" },
+      // Grid 4: Medications (green background) - continuous from 440 to 530
+      { left: 140, right: 60, top: 440, height: 90, backgroundColor: isDark ? "rgba(134, 239, 172, 0.15)" : "rgba(220, 252, 231, 0.8)" },
+      // Grid 5: Infusions/Perfusors (cyan background) - continuous from 530 to 570
+      { left: 140, right: 60, top: 530, height: 40, backgroundColor: isDark ? "rgba(103, 232, 249, 0.15)" : "rgba(207, 250, 254, 0.8)" },
+      // Grid 6: Ventilation (amber background) - continuous from 570 to 610
+      { left: 140, right: 60, top: 570, height: 40, backgroundColor: isDark ? "rgba(251, 191, 36, 0.15)" : "rgba(254, 243, 199, 0.8)" },
+      // Grid 7: Staff (slate background) - continuous from 610 to 650
+      { left: 140, right: 60, top: 610, height: 40, backgroundColor: isDark ? "rgba(203, 213, 225, 0.15)" : "rgba(241, 245, 249, 0.8)" },
     ];
 
     // Time x-axes (one per grid)
@@ -411,38 +411,38 @@ export function UnifiedTimeline({
           <span className="text-base font-semibold">Vitals</span>
         </div>
         
-        {/* Times - matches grid 1: top 340, height 40 */}
-        <div className="absolute top-[340px] h-[40px] w-full flex items-center px-3 border-b border-border" style={{ backgroundColor: isDark ? "rgba(216, 180, 254, 0.15)" : "rgba(243, 232, 255, 0.8)" }}>
+        {/* Times - matches grid 1: top 320, height 40 */}
+        <div className="absolute top-[320px] h-[40px] w-full flex items-center px-3 border-b border-border" style={{ backgroundColor: isDark ? "rgba(216, 180, 254, 0.15)" : "rgba(243, 232, 255, 0.8)" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Times</span>
         </div>
         
-        {/* Events - matches grid 2: top 390, height 40 */}
-        <div className="absolute top-[390px] h-[40px] w-full flex items-center px-3 border-b border-border" style={{ backgroundColor: isDark ? "rgba(147, 197, 253, 0.15)" : "rgba(219, 234, 254, 0.8)" }}>
+        {/* Events - matches grid 2: top 360, height 40 */}
+        <div className="absolute top-[360px] h-[40px] w-full flex items-center px-3 border-b border-border" style={{ backgroundColor: isDark ? "rgba(147, 197, 253, 0.15)" : "rgba(219, 234, 254, 0.8)" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Events</span>
         </div>
         
-        {/* Heart Rhythm - matches grid 3: top 440, height 40 */}
-        <div className="absolute top-[440px] h-[40px] w-full flex items-center px-3 border-b border-border" style={{ backgroundColor: isDark ? "rgba(244, 114, 182, 0.15)" : "rgba(252, 231, 243, 0.8)" }}>
+        {/* Heart Rhythm - matches grid 3: top 400, height 40 */}
+        <div className="absolute top-[400px] h-[40px] w-full flex items-center px-3 border-b border-border" style={{ backgroundColor: isDark ? "rgba(244, 114, 182, 0.15)" : "rgba(252, 231, 243, 0.8)" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Heart Rhythm</span>
         </div>
         
-        {/* Medications - matches grid 4: top 490, height 90 */}
-        <div className="absolute top-[490px] h-[90px] w-full flex items-center px-3 border-b border-border" style={{ backgroundColor: isDark ? "rgba(134, 239, 172, 0.15)" : "rgba(220, 252, 231, 0.8)" }}>
+        {/* Medications - matches grid 4: top 440, height 90 */}
+        <div className="absolute top-[440px] h-[90px] w-full flex items-center px-3 border-b border-border" style={{ backgroundColor: isDark ? "rgba(134, 239, 172, 0.15)" : "rgba(220, 252, 231, 0.8)" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Medications</span>
         </div>
         
-        {/* Infusions - matches grid 5: top 590, height 40 */}
-        <div className="absolute top-[590px] h-[40px] w-full flex items-center px-3 border-b border-border" style={{ backgroundColor: isDark ? "rgba(103, 232, 249, 0.15)" : "rgba(207, 250, 254, 0.8)" }}>
+        {/* Infusions - matches grid 5: top 530, height 40 */}
+        <div className="absolute top-[530px] h-[40px] w-full flex items-center px-3 border-b border-border" style={{ backgroundColor: isDark ? "rgba(103, 232, 249, 0.15)" : "rgba(207, 250, 254, 0.8)" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Infusions</span>
         </div>
         
-        {/* Ventilation - matches grid 6: top 640, height 40 */}
-        <div className="absolute top-[640px] h-[40px] w-full flex items-center px-3 border-b border-border" style={{ backgroundColor: isDark ? "rgba(251, 191, 36, 0.15)" : "rgba(254, 243, 199, 0.8)" }}>
+        {/* Ventilation - matches grid 6: top 570, height 40 */}
+        <div className="absolute top-[570px] h-[40px] w-full flex items-center px-3 border-b border-border" style={{ backgroundColor: isDark ? "rgba(251, 191, 36, 0.15)" : "rgba(254, 243, 199, 0.8)" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Ventilation</span>
         </div>
         
-        {/* Staff - matches grid 7: top 690, height 40 */}
-        <div className="absolute top-[690px] h-[40px] w-full flex items-center px-3" style={{ backgroundColor: isDark ? "rgba(203, 213, 225, 0.15)" : "rgba(241, 245, 249, 0.8)" }}>
+        {/* Staff - matches grid 7: top 610, height 40 */}
+        <div className="absolute top-[610px] h-[40px] w-full flex items-center px-3" style={{ backgroundColor: isDark ? "rgba(203, 213, 225, 0.15)" : "rgba(241, 245, 249, 0.8)" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Staff</span>
         </div>
       </div>
