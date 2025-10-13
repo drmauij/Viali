@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -112,6 +112,33 @@ export default function Op() {
   const [expandedSections, setExpandedSections] = useState<{[key: string]: boolean}>({
     beatmungsparameter: false,
   });
+
+  // Refs for scroll synchronization
+  const timeHeaderScrollRef = useRef<HTMLDivElement>(null);
+  const timelineScrollRef = useRef<HTMLDivElement>(null);
+
+  // Sync horizontal scroll between time header and timeline
+  useEffect(() => {
+    const headerEl = timeHeaderScrollRef.current;
+    const timelineEl = timelineScrollRef.current;
+    
+    if (!headerEl || !timelineEl) return;
+
+    const syncScroll = (source: HTMLDivElement, target: HTMLDivElement) => () => {
+      target.scrollLeft = source.scrollLeft;
+    };
+
+    const headerHandler = syncScroll(headerEl, timelineEl);
+    const timelineHandler = syncScroll(timelineEl, headerEl);
+
+    headerEl.addEventListener('scroll', headerHandler);
+    timelineEl.addEventListener('scroll', timelineHandler);
+
+    return () => {
+      headerEl.removeEventListener('scroll', headerHandler);
+      timelineEl.removeEventListener('scroll', timelineHandler);
+    };
+  }, []);
 
   // Calculate time intervals based on zoom
   const getTimeIntervals = () => {
@@ -346,16 +373,18 @@ export default function Op() {
                     </div>
                     
                     {/* Scrollable Time Markers */}
-                    <div className="flex-1 overflow-x-auto">
-                      <div className="flex min-w-[1400px]">
-                        {getTimeIntervals().map((time, i) => (
-                          <div
-                            key={i}
-                            className="flex-1 text-center py-1.5 border-r last:border-r-0 text-[10px] font-medium"
-                          >
-                            <div>{time.hour}:{time.minute}</div>
-                          </div>
-                        ))}
+                    <div ref={timeHeaderScrollRef} className="flex-1 overflow-x-auto overflow-y-hidden">
+                      <div className="min-w-[1400px]">
+                        <div className="flex">
+                          {getTimeIntervals().map((time, i) => (
+                            <div
+                              key={i}
+                              className="flex-1 text-center py-1.5 border-r last:border-r-0 text-[10px] font-medium"
+                            >
+                              <div>{time.hour}:{time.minute}</div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                     
@@ -540,7 +569,7 @@ export default function Op() {
                     </div>
                     
                     {/* Scrollable Timeline Content */}
-                    <div className="flex-1 overflow-x-auto">
+                    <div ref={timelineScrollRef} className="flex-1 overflow-x-auto">
                       <div className="min-w-[1400px]">
                         {/* Integrated Vitals Swimlane - BP, HR, SpO2 on unified 0-240 scale */}
                         <div className="h-96 border-b relative bg-slate-50 dark:bg-slate-900">
