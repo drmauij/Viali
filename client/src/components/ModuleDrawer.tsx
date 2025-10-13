@@ -124,6 +124,12 @@ export default function ModuleDrawer() {
                           <i className="fas fa-check-circle"></i> {t('modules.active')}
                         </span>
                       )}
+                      {module.id === "anesthesia" && (
+                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 border border-yellow-300 dark:border-yellow-700">
+                          <i className="fas fa-flask mr-1 text-[10px]"></i>
+                          POC / In Development
+                        </span>
+                      )}
                     </h3>
                     <p className="text-sm text-muted-foreground">{module.description}</p>
                   </div>
