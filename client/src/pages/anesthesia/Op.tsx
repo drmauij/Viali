@@ -817,7 +817,8 @@ export default function Op() {
 
           {/* Anesthesia Documentation Tab */}
           <TabsContent value="anesthesia" className="overflow-y-auto px-6 pb-6 space-y-4 mt-0">
-            <Card>
+            <div>
+              <Card>
               <CardHeader>
                 <CardTitle>Anesthesia Type & Installations</CardTitle>
               </CardHeader>
@@ -841,6 +842,7 @@ export default function Op() {
                 </div>
               </CardContent>
             </Card>
+            </div>
           </TabsContent>
 
           {/* WHO Checklists Tab */}
