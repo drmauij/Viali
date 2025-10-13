@@ -405,42 +405,42 @@ export function UnifiedTimeline({
       {/* Left sidebar with swimlane labels */}
       <div className="absolute left-0 top-0 w-[140px] h-full border-r border-border z-10 bg-background">
         {/* Vitals label */}
-        <div className="h-[280px] flex items-center justify-center px-3 border-b border-border" style={{ marginTop: "40px" }}>
+        <div className="h-[320px] flex items-center justify-center px-3 border-b border-border">
           <span className="text-base font-semibold">Vitals</span>
         </div>
         
         {/* Times */}
-        <div className="h-[40px] flex items-center px-3 border-b border-border bg-purple-100 dark:bg-purple-900/30" style={{ marginTop: "20px" }}>
+        <div className="h-[40px] flex items-center px-3 border-b border-border bg-purple-100 dark:bg-purple-900/30">
           <span className="text-sm font-semibold text-black dark:text-white">Times</span>
         </div>
         
         {/* Events */}
-        <div className="h-[40px] flex items-center px-3 border-b border-border bg-blue-100 dark:bg-blue-900/30" style={{ marginTop: "10px" }}>
+        <div className="h-[40px] flex items-center px-3 border-b border-border bg-blue-100 dark:bg-blue-900/30">
           <span className="text-sm font-semibold text-black dark:text-white">Events</span>
         </div>
         
         {/* Heart Rhythm */}
-        <div className="h-[40px] flex items-center px-3 border-b border-border bg-pink-100 dark:bg-pink-900/30" style={{ marginTop: "10px" }}>
+        <div className="h-[40px] flex items-center px-3 border-b border-border bg-pink-100 dark:bg-pink-900/30">
           <span className="text-sm font-semibold text-black dark:text-white">Heart Rhythm</span>
         </div>
         
         {/* Medications */}
-        <div className="h-[90px] flex items-center px-3 border-b border-border bg-green-100 dark:bg-green-900/30" style={{ marginTop: "10px" }}>
+        <div className="h-[90px] flex items-center px-3 border-b border-border bg-green-100 dark:bg-green-900/30">
           <span className="text-sm font-semibold text-black dark:text-white">Medications</span>
         </div>
         
         {/* Infusions/Perfusors */}
-        <div className="h-[40px] flex items-center px-3 border-b border-border bg-cyan-100 dark:bg-cyan-900/30" style={{ marginTop: "10px" }}>
+        <div className="h-[40px] flex items-center px-3 border-b border-border bg-cyan-100 dark:bg-cyan-900/30">
           <span className="text-sm font-semibold text-black dark:text-white">Infusions</span>
         </div>
         
         {/* Ventilation */}
-        <div className="h-[40px] flex items-center px-3 border-b border-border bg-amber-100 dark:bg-amber-900/30" style={{ marginTop: "10px" }}>
+        <div className="h-[40px] flex items-center px-3 border-b border-border bg-amber-100 dark:bg-amber-900/30">
           <span className="text-sm font-semibold text-black dark:text-white">Ventilation</span>
         </div>
         
         {/* Staff */}
-        <div className="h-[40px] flex items-center px-3 bg-slate-100 dark:bg-slate-900/30" style={{ marginTop: "10px" }}>
+        <div className="h-[40px] flex items-center px-3 bg-slate-100 dark:bg-slate-900/30">
           <span className="text-sm font-semibold text-black dark:text-white">Staff</span>
         </div>
       </div>
