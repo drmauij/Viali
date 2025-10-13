@@ -303,10 +303,9 @@ export default function Op() {
           </div>
 
           {/* Vitals & Timeline Tab */}
-          <TabsContent value="vitals" className="flex-1 overflow-hidden mt-0">
-            <div className="h-full flex flex-col">
-              {/* Professional Timeline Container */}
-              <div className="h-full border-t bg-card overflow-hidden flex flex-col">
+          <TabsContent value="vitals" className="flex-1 overflow-hidden mt-0 flex flex-col">
+            {/* Professional Timeline Container */}
+            <div className="flex-1 border-t bg-card overflow-hidden flex flex-col">
                 {/* Timeline Header with Navigation & Time Markers */}
                 <div className="border-b bg-muted/30 shrink-0">
                   <div className="flex">
@@ -826,7 +825,6 @@ export default function Op() {
                   </div>
                 </div>
               </div>
-            </div>
           </TabsContent>
 
           {/* Anesthesia Documentation Tab */}
