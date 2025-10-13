@@ -292,7 +292,7 @@ export default function Op() {
           </div>
 
           {/* Vitals & Timeline Tab */}
-          <TabsContent value="vitals" className="flex-1 overflow-hidden flex flex-col mt-0">
+          <TabsContent value="vitals" className="data-[state=active]:flex-1 overflow-hidden flex flex-col mt-0">
             {/* Professional Timeline Container */}
             <div className="flex-1 border-t bg-card overflow-hidden flex flex-col relative z-0">
                 {/* Timeline Header with Navigation & Time Markers */}
