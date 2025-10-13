@@ -303,7 +303,7 @@ export default function Op() {
           </div>
 
           {/* Vitals & Timeline Tab */}
-          <TabsContent value="vitals" className="flex-1 overflow-hidden !mt-0 flex flex-col pt-1">
+          <TabsContent value="vitals" className="flex-1 overflow-hidden mt-0 flex flex-col pt-0">
             {/* Professional Timeline Container */}
             <div className="flex-1 border-t bg-card overflow-hidden flex flex-col relative z-0">
                 {/* Timeline Header with Navigation & Time Markers */}
@@ -828,7 +828,7 @@ export default function Op() {
           </TabsContent>
 
           {/* Anesthesia Documentation Tab */}
-          <TabsContent value="anesthesia" className="flex-1 overflow-y-auto px-6 pb-6 !mt-0 pt-3">
+          <TabsContent value="anesthesia" className="flex-1 overflow-y-auto px-4 md:px-6 pb-6 mt-0 pt-4">
             <Card>
               <CardHeader>
                 <CardTitle>Anesthesia Type & Installations</CardTitle>
@@ -856,7 +856,7 @@ export default function Op() {
           </TabsContent>
 
           {/* WHO Checklists Tab */}
-          <TabsContent value="checklists" className="flex-1 overflow-y-auto px-6 pb-6 !mt-0 pt-3 space-y-4">
+          <TabsContent value="checklists" className="flex-1 overflow-y-auto px-4 md:px-6 pb-6 mt-0 pt-4 space-y-4">
             {/* Sign-In Checklist */}
             <Card>
               <CardHeader>
@@ -938,7 +938,7 @@ export default function Op() {
           </TabsContent>
 
           {/* Post-op Management Tab */}
-          <TabsContent value="postop" className="flex-1 overflow-y-auto px-6 pb-6 !mt-0 pt-3">
+          <TabsContent value="postop" className="flex-1 overflow-y-auto px-4 md:px-6 pb-6 mt-0 pt-4">
             <Card>
               <CardHeader>
                 <CardTitle>Post-Operative Management</CardTitle>
