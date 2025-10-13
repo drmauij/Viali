@@ -404,43 +404,43 @@ export function UnifiedTimeline({
     <div className="w-full h-full relative" style={{ height }}>
       {/* Left sidebar with swimlane labels */}
       <div className="absolute left-0 top-0 w-[140px] h-full border-r border-border z-10 bg-background">
-        {/* Vitals label */}
-        <div className="h-[320px] flex items-center justify-center px-3 border-b border-border">
+        {/* Vitals label - matches grid 0: top 40, height 280 */}
+        <div className="absolute top-[40px] h-[280px] w-full flex items-center justify-center px-3 border-b border-border">
           <span className="text-base font-semibold">Vitals</span>
         </div>
         
-        {/* Times */}
-        <div className="h-[40px] flex items-center px-3 border-b border-border bg-purple-100 dark:bg-purple-900/30">
+        {/* Times - matches grid 1: top 340, height 40 */}
+        <div className="absolute top-[340px] h-[40px] w-full flex items-center px-3 border-b border-border bg-purple-100 dark:bg-purple-900/30">
           <span className="text-sm font-semibold text-black dark:text-white">Times</span>
         </div>
         
-        {/* Events */}
-        <div className="h-[40px] flex items-center px-3 border-b border-border bg-blue-100 dark:bg-blue-900/30">
+        {/* Events - matches grid 2: top 390, height 40 */}
+        <div className="absolute top-[390px] h-[40px] w-full flex items-center px-3 border-b border-border bg-blue-100 dark:bg-blue-900/30">
           <span className="text-sm font-semibold text-black dark:text-white">Events</span>
         </div>
         
-        {/* Heart Rhythm */}
-        <div className="h-[40px] flex items-center px-3 border-b border-border bg-pink-100 dark:bg-pink-900/30">
+        {/* Heart Rhythm - matches grid 3: top 440, height 40 */}
+        <div className="absolute top-[440px] h-[40px] w-full flex items-center px-3 border-b border-border bg-pink-100 dark:bg-pink-900/30">
           <span className="text-sm font-semibold text-black dark:text-white">Heart Rhythm</span>
         </div>
         
-        {/* Medications */}
-        <div className="h-[90px] flex items-center px-3 border-b border-border bg-green-100 dark:bg-green-900/30">
+        {/* Medications - matches grid 4: top 490, height 90 */}
+        <div className="absolute top-[490px] h-[90px] w-full flex items-center px-3 border-b border-border bg-green-100 dark:bg-green-900/30">
           <span className="text-sm font-semibold text-black dark:text-white">Medications</span>
         </div>
         
-        {/* Infusions/Perfusors */}
-        <div className="h-[40px] flex items-center px-3 border-b border-border bg-cyan-100 dark:bg-cyan-900/30">
+        {/* Infusions - matches grid 5: top 590, height 40 */}
+        <div className="absolute top-[590px] h-[40px] w-full flex items-center px-3 border-b border-border bg-cyan-100 dark:bg-cyan-900/30">
           <span className="text-sm font-semibold text-black dark:text-white">Infusions</span>
         </div>
         
-        {/* Ventilation */}
-        <div className="h-[40px] flex items-center px-3 border-b border-border bg-amber-100 dark:bg-amber-900/30">
+        {/* Ventilation - matches grid 6: top 640, height 40 */}
+        <div className="absolute top-[640px] h-[40px] w-full flex items-center px-3 border-b border-border bg-amber-100 dark:bg-amber-900/30">
           <span className="text-sm font-semibold text-black dark:text-white">Ventilation</span>
         </div>
         
-        {/* Staff */}
-        <div className="h-[40px] flex items-center px-3 bg-slate-100 dark:bg-slate-900/30">
+        {/* Staff - matches grid 7: top 690, height 40 */}
+        <div className="absolute top-[690px] h-[40px] w-full flex items-center px-3 bg-slate-100 dark:bg-slate-900/30">
           <span className="text-sm font-semibold text-black dark:text-white">Staff</span>
         </div>
       </div>
