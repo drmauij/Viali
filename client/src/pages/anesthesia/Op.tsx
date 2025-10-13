@@ -562,7 +562,7 @@ export default function Op() {
                             ))}
                           </div>
                           
-                          <svg className="absolute inset-0 w-full h-full">
+                          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 1000 384" preserveAspectRatio="none">
                             {/* Sample integrated vitals data - 15 data points with standard medical values */}
                             {[
                               { x: 5, sys: 118, dia: 78, hr: 58, spo2: 99 },
@@ -581,48 +581,62 @@ export default function Op() {
                               { x: 83, sys: 119, dia: 79, hr: 60, spo2: 100 },
                               { x: 89, sys: 121, dia: 81, hr: 62, spo2: 100 }
                             ].map((data, i, arr) => {
-                              const xPos = `${data.x}%`;
+                              // Convert to viewBox coordinates (1000 wide, 384 tall)
+                              const xPx = (data.x / 100) * 1000;
                               // Using 0-240 scale for BP/HR (standard values around 120/80 and 60)
-                              const sysY = `${100 - (data.sys / 240) * 100}%`;
-                              const diaY = `${100 - (data.dia / 240) * 100}%`;
-                              const hrY = `${100 - (data.hr / 240) * 100}%`;
+                              const sysYPx = (1 - (data.sys / 240)) * 384;
+                              const diaYPx = (1 - (data.dia / 240)) * 384;
+                              const hrYPx = (1 - (data.hr / 240)) * 384;
                               // Using 50-100 scale for SpO2 (values around 100)
-                              const spo2Y = `${100 - ((data.spo2 - 50) / 50) * 100}%`;
+                              const spo2YPx = (1 - ((data.spo2 - 50) / 50)) * 384;
                               const mapValue = (data.sys + 2 * data.dia) / 3;
-                              const mapY = `${100 - (mapValue / 240) * 100}%`;
+                              const mapYPx = (1 - (mapValue / 240)) * 384;
                               
                               return (
                                 <g key={i}>
                                   {/* BP: Shaded area between systolic and diastolic */}
-                                  {i < arr.length - 1 && (
-                                    <polygon
-                                      points={`${xPos} ${sysY}, ${arr[i+1].x}% ${100 - (arr[i+1].sys / 240) * 100}%, ${arr[i+1].x}% ${100 - (arr[i+1].dia / 240) * 100}%, ${xPos} ${diaY}`}
-                                      fill="#bfdbfe"
-                                      opacity="0.4"
-                                    />
-                                  )}
+                                  {i < arr.length - 1 && (() => {
+                                    const nextXPx = (arr[i+1].x / 100) * 1000;
+                                    const nextSysYPx = (1 - (arr[i+1].sys / 240)) * 384;
+                                    const nextDiaYPx = (1 - (arr[i+1].dia / 240)) * 384;
+                                    return (
+                                      <polygon
+                                        points={`${xPx},${sysYPx} ${nextXPx},${nextSysYPx} ${nextXPx},${nextDiaYPx} ${xPx},${diaYPx}`}
+                                        fill="#bfdbfe"
+                                        opacity="0.4"
+                                      />
+                                    );
+                                  })()}
                                   
                                   {/* BP: Systolic caret DOWN (v shape) - LARGER */}
-                                  <path d={`M ${xPos} ${sysY} l -8 -12 l 8 8 l 8 -8 z`} fill="#3b82f6" stroke="#1e40af" strokeWidth="1" />
+                                  <polygon 
+                                    points={`${xPx},${sysYPx} ${xPx-8},${sysYPx-12} ${xPx+8},${sysYPx-12}`} 
+                                    fill="#3b82f6" 
+                                    stroke="#1e40af" 
+                                    strokeWidth="1" 
+                                  />
                                   
                                   {/* BP: Diastolic caret UP (^ shape) - LARGER */}
-                                  <path d={`M ${xPos} ${diaY} l -8 12 l 8 -8 l 8 8 z`} fill="#3b82f6" stroke="#1e40af" strokeWidth="1" />
+                                  <polygon 
+                                    points={`${xPx},${diaYPx} ${xPx-8},${diaYPx+12} ${xPx+8},${diaYPx+12}`} 
+                                    fill="#3b82f6" 
+                                    stroke="#1e40af" 
+                                    strokeWidth="1" 
+                                  />
                                   
                                   {/* BP: MAP small point */}
-                                  <circle cx={xPos} cy={mapY} r="4" fill="#3b82f6" stroke="#1e40af" strokeWidth="1" />
+                                  <circle cx={xPx} cy={mapYPx} r="4" fill="#3b82f6" stroke="#1e40af" strokeWidth="1" />
                                   
                                   {/* Heart Rate: Red heart icon - SIMPLER & LARGER */}
-                                  <g transform={`translate(${xPos}, ${hrY})`}>
-                                    <path 
-                                      d="M 0,-4 L -6,-10 L -10,-6 L 0,4 L 10,-6 L 6,-10 Z"
-                                      fill="#dc2626"
-                                      stroke="#991b1b"
-                                      strokeWidth="1"
-                                    />
-                                  </g>
+                                  <polygon
+                                    points={`${xPx},${hrYPx-4} ${xPx-6},${hrYPx-10} ${xPx-10},${hrYPx-6} ${xPx},${hrYPx+4} ${xPx+10},${hrYPx-6} ${xPx+6},${hrYPx-10}`}
+                                    fill="#dc2626"
+                                    stroke="#991b1b"
+                                    strokeWidth="1"
+                                  />
                                   
-                                  {/* SpO2: Small blue circle at 100 (or near) */}
-                                  <circle cx={xPos} cy={spo2Y} r="5" fill="#06b6d4" stroke="#0891b2" strokeWidth="1" />
+                                  {/* SpO2: Small cyan circle at 100 (or near) */}
+                                  <circle cx={xPx} cy={spo2YPx} r="5" fill="#06b6d4" stroke="#0891b2" strokeWidth="1" />
                                 </g>
                               );
                             })}
@@ -778,7 +792,7 @@ export default function Op() {
           </TabsContent>
 
           {/* Anesthesia Documentation Tab */}
-          <TabsContent value="anesthesia" className="overflow-y-auto px-6 pb-6 space-y-4 mt-0 flex flex-col items-start">
+          <TabsContent value="anesthesia" className="flex-1 overflow-y-auto px-6 pb-6 pt-6 space-y-4 mt-0">
             <Accordion type="multiple" className="space-y-4 w-full">
               {/* Installations Section */}
               <AccordionItem value="installations">
@@ -1331,7 +1345,7 @@ export default function Op() {
           </TabsContent>
 
           {/* WHO Checklists Tab */}
-          <TabsContent value="checklists" className="overflow-y-auto px-6 pb-6 space-y-4 mt-0">
+          <TabsContent value="checklists" className="flex-1 overflow-y-auto px-6 pb-6 pt-6 space-y-4 mt-0">
             {/* Sign-In Checklist */}
             <Card className="mb-4">
               <CardHeader>
@@ -1467,7 +1481,7 @@ export default function Op() {
           </TabsContent>
 
           {/* Post-op Management Tab */}
-          <TabsContent value="postop" className="overflow-y-auto px-6 pb-6 space-y-4 mt-0">
+          <TabsContent value="postop" className="flex-1 overflow-y-auto px-6 pb-6 pt-6 space-y-4 mt-0">
             <Card>
             <CardHeader>
               <CardTitle>Post-Operative Management</CardTitle>
