@@ -284,7 +284,7 @@ export function UnifiedTimeline({
               const event = pointEvents[params.dataIndex];
               return `${event?.icon || "●"} ${event?.label || ""}`;
             },
-            fontSize: 9,
+            fontSize: 11,
             fontFamily: "Poppins, sans-serif",
             color: "var(--foreground)",
           },
@@ -332,7 +332,7 @@ export function UnifiedTimeline({
                       text: `${event.icon || ""} ${event.label}`,
                       x: start[0] + 4,
                       y: y + height / 2,
-                      fontSize: 9,
+                      fontSize: 11,
                       fontFamily: "Poppins, sans-serif",
                       fill: "#ffffff",
                       fontWeight: "600",
