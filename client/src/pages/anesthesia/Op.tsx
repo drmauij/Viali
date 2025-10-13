@@ -388,54 +388,34 @@ export default function Op() {
                   <div className="flex">
                     {/* Sticky Left Column with Icons & Scales */}
                     <div className="w-44 shrink-0 border-r bg-gray-50 dark:bg-gray-900 sticky left-0 z-10 flex flex-col">
-                      {/* NIBP Icon & Scale */}
-                      <div className="h-48 border-b flex items-center justify-center px-3 relative">
-                        <div className="absolute left-2 top-0 bottom-0 flex flex-col justify-between py-3 text-[9px] font-medium text-purple-600 dark:text-purple-400">
-                          <span>220</span>
-                          <span>100</span>
-                          <span>40</span>
-                        </div>
-                        <Gauge className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                        <div className="absolute right-2 text-[10px] font-semibold text-muted-foreground">NIBP</div>
-                      </div>
-                      
-                      {/* Heart Icon & Scale */}
-                      <div className="h-40 border-b flex items-center justify-center px-3 relative">
-                        <div className="absolute left-2 top-0 bottom-0 flex flex-col justify-between py-3 text-[9px] font-medium text-red-600 dark:text-red-400">
+                      {/* Integrated Vitals with Unified Scale */}
+                      <div className="h-96 border-b flex items-center justify-between px-3 relative bg-slate-50 dark:bg-slate-900">
+                        {/* Unified 0-240 Scale */}
+                        <div className="absolute left-2 top-0 bottom-0 flex flex-col justify-between py-4 text-[10px] font-semibold text-slate-700 dark:text-slate-300">
+                          <span>240</span>
                           <span>200</span>
+                          <span>160</span>
+                          <span>120</span>
                           <span>80</span>
-                          <span>30</span>
-                        </div>
-                        <Heart className="h-6 w-6 text-red-600 dark:text-red-400" />
-                        <div className="absolute right-2 text-[10px] font-semibold text-muted-foreground">HR</div>
-                      </div>
-                      
-                      {/* Target Icon & Scale */}
-                      <div className="h-32 border-b flex items-center justify-center px-3 relative">
-                        <div className="absolute left-2 top-0 bottom-0 flex flex-col justify-between py-3 text-[9px] font-medium text-purple-600 dark:text-purple-400">
-                          <span>100</span>
-                          <span>80</span>
-                          <span>30</span>
-                        </div>
-                        <Activity className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                        <div className="absolute right-2 text-[10px] font-semibold text-muted-foreground">MAP</div>
-                      </div>
-                      
-                      {/* Thermometer Icon & Scale */}
-                      <div className="h-32 border-b flex items-center justify-center px-3 relative">
-                        <div className="absolute left-2 top-0 bottom-0 flex flex-col justify-between py-3 text-[9px] font-medium text-orange-600 dark:text-orange-400">
                           <span>40</span>
-                          <span>38</span>
-                          <span>35</span>
+                          <span>0</span>
                         </div>
-                        <Thermometer className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-                        <div className="absolute right-2 text-[10px] font-semibold text-muted-foreground">°C</div>
-                      </div>
-                      
-                      {/* IV/Person Icon */}
-                      <div className="h-20 border-b flex items-center justify-center px-3 relative">
-                        <Droplet className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                        <div className="absolute right-2 text-[10px] font-semibold text-muted-foreground">SpO2</div>
+                        
+                        {/* Parameter Icons on right */}
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3">
+                          <div className="flex flex-col items-center gap-1">
+                            <Gauge className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                            <span className="text-[9px] font-medium text-muted-foreground">NIBP</span>
+                          </div>
+                          <div className="flex flex-col items-center gap-1">
+                            <Heart className="h-5 w-5 text-red-600 dark:text-red-400" />
+                            <span className="text-[9px] font-medium text-muted-foreground">HR</span>
+                          </div>
+                          <div className="flex flex-col items-center gap-1">
+                            <Droplet className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+                            <span className="text-[9px] font-medium text-muted-foreground">SpO2</span>
+                          </div>
+                        </div>
                       </div>
                       
                       {/* Zeiten (Times) */}
@@ -545,127 +525,87 @@ export default function Op() {
                     {/* Scrollable Timeline Content */}
                     <div className="flex-1 overflow-x-auto">
                       <div className="min-w-[1400px]">
-                        {/* NIBP Row with BP Visualization */}
-                        <div className="h-48 border-b relative">
+                        {/* Integrated Vitals Swimlane - BP, HR, SpO2 on unified 0-240 scale */}
+                        <div className="h-96 border-b relative bg-slate-50 dark:bg-slate-900">
                           {/* Grid lines */}
                           <div className="absolute inset-0 flex">
                             {getTimeIntervals().map((_, i) => (
-                              <div key={i} className="flex-1 border-r last:border-r-0 border-gray-200 dark:border-gray-700" />
+                              <div key={i} className="flex-1 border-r last:border-r-0 border-slate-200 dark:border-slate-700" />
                             ))}
                           </div>
-                          {/* BP Visualization with dual arrows and shaded band */}
+                          
+                          {/* Horizontal guide lines for scale */}
+                          <div className="absolute inset-0 pointer-events-none">
+                            {[240, 200, 160, 120, 80, 40, 0].map((value, i) => (
+                              <div
+                                key={value}
+                                className="absolute w-full border-t border-slate-300/40 dark:border-slate-600/40"
+                                style={{ top: `${(i / 6) * 100}%` }}
+                              />
+                            ))}
+                          </div>
+                          
                           <svg className="absolute inset-0 w-full h-full">
-                            {/* Sample BP data points */}
+                            {/* Sample integrated vitals data */}
                             {[
-                              { x: 10, sys: 120, dia: 70, map: 85 },
-                              { x: 20, sys: 125, dia: 75, map: 90 },
-                              { x: 30, sys: 115, dia: 70, map: 85 },
-                              { x: 40, sys: 130, dia: 80, map: 95 },
-                              { x: 50, sys: 120, dia: 75, map: 90 }
-                            ].map((bp, i, arr) => {
-                              const xPos = `${bp.x}%`;
-                              const sysY = `${100 - ((bp.sys - 40) / 180) * 100}%`;
-                              const diaY = `${100 - ((bp.dia - 40) / 180) * 100}%`;
-                              const mapY = `${100 - ((bp.map - 40) / 180) * 100}%`;
+                              { x: 10, sys: 130, dia: 75, hr: 72, spo2: 98 },
+                              { x: 20, sys: 135, dia: 78, hr: 68, spo2: 99 },
+                              { x: 30, sys: 125, dia: 72, hr: 75, spo2: 98 },
+                              { x: 40, sys: 140, dia: 82, hr: 70, spo2: 97 },
+                              { x: 50, sys: 132, dia: 76, hr: 73, spo2: 98 },
+                              { x: 60, sys: 128, dia: 74, hr: 71, spo2: 99 }
+                            ].map((data, i, arr) => {
+                              const xPos = `${data.x}%`;
+                              // Using 0-240 scale for all values
+                              const sysY = `${100 - (data.sys / 240) * 100}%`;
+                              const diaY = `${100 - (data.dia / 240) * 100}%`;
+                              const hrY = `${100 - (data.hr / 240) * 100}%`;
+                              const spo2Y = `${100 - (data.spo2 / 240) * 100}%`;
                               
                               return (
                                 <g key={i}>
-                                  {/* Shaded band between systolic and diastolic */}
+                                  {/* BP: Shaded area between systolic and diastolic */}
                                   {i < arr.length - 1 && (
                                     <polygon
-                                      points={`${xPos} ${sysY}, ${bp.x + 10}% ${100 - ((arr[i+1].sys - 40) / 180) * 100}%, ${bp.x + 10}% ${100 - ((arr[i+1].dia - 40) / 180) * 100}%, ${xPos} ${diaY}`}
-                                      fill="#93c5fd"
-                                      opacity="0.3"
+                                      points={`${xPos} ${sysY}, ${arr[i+1].x}% ${100 - (arr[i+1].sys / 240) * 100}%, ${arr[i+1].x}% ${100 - (arr[i+1].dia / 240) * 100}%, ${xPos} ${diaY}`}
+                                      fill="#bfdbfe"
+                                      opacity="0.4"
                                     />
                                   )}
-                                  {/* Systolic arrow up */}
-                                  <path d={`M ${xPos} ${sysY} l -3 -8 l 3 2 l 3 -2 z`} fill="#9333ea" />
-                                  {/* Diastolic arrow down */}
-                                  <path d={`M ${xPos} ${diaY} l -3 8 l 3 -2 l 3 2 z`} fill="#9333ea" />
-                                  {/* Systolic trend line */}
+                                  
+                                  {/* BP: Systolic arrow (up) */}
+                                  <path d={`M ${xPos} ${sysY} l -4 -10 l 4 3 l 4 -3 z`} fill="#3b82f6" />
+                                  
+                                  {/* BP: Diastolic arrow (down) */}
+                                  <path d={`M ${xPos} ${diaY} l -4 10 l 4 -3 l 4 3 z`} fill="#3b82f6" />
+                                  
+                                  {/* Heart Rate: Red diamond/heart symbol */}
+                                  <path 
+                                    d={`M ${xPos} ${hrY} l -5 -5 l 2.5 0 l 2.5 -2.5 l 2.5 2.5 l 2.5 0 z`} 
+                                    fill="#dc2626" 
+                                    stroke="#dc2626"
+                                    strokeWidth="1"
+                                  />
+                                  
+                                  {/* HR connecting line */}
                                   {i < arr.length - 1 && (
                                     <line
                                       x1={xPos}
-                                      y1={sysY}
+                                      y1={hrY}
                                       x2={`${arr[i+1].x}%`}
-                                      y2={`${100 - ((arr[i+1].sys - 40) / 180) * 100}%`}
-                                      stroke="#9333ea"
-                                      strokeWidth="2"
-                                    />
-                                  )}
-                                  {/* Systolic circle marker */}
-                                  <circle cx={xPos} cy={sysY} r="4" fill="#9333ea" />
-                                  {/* MAP small arrow at bottom */}
-                                  <path d={`M ${xPos} ${mapY} l -2 4 l 2 -1 l 2 1 z`} fill="#9333ea" opacity="0.6" />
-                                </g>
-                              );
-                            })}
-                          </svg>
-                        </div>
-                        
-                        {/* HR Row */}
-                        <div className="h-40 border-b relative">
-                          <div className="absolute inset-0 flex">
-                            {getTimeIntervals().map((_, i) => (
-                              <div key={i} className="flex-1 border-r last:border-r-0 border-gray-200 dark:border-gray-700" />
-                            ))}
-                          </div>
-                          <svg className="absolute inset-0 w-full h-full">
-                            {/* Sample HR data - red line with circles */}
-                            {[
-                              { x: 10, hr: 72 },
-                              { x: 20, hr: 68 },
-                              { x: 30, hr: 75 },
-                              { x: 40, hr: 70 },
-                              { x: 50, hr: 73 }
-                            ].map((point, i, arr) => {
-                              const xPos = `${point.x}%`;
-                              const yPos = `${100 - ((point.hr - 30) / 170) * 100}%`;
-                              
-                              return (
-                                <g key={i}>
-                                  {i < arr.length - 1 && (
-                                    <line
-                                      x1={xPos}
-                                      y1={yPos}
-                                      x2={`${arr[i+1].x}%`}
-                                      y2={`${100 - ((arr[i+1].hr - 30) / 170) * 100}%`}
+                                      y2={`${100 - (arr[i+1].hr / 240) * 100}%`}
                                       stroke="#dc2626"
-                                      strokeWidth="2"
+                                      strokeWidth="1.5"
+                                      opacity="0.6"
                                     />
                                   )}
-                                  <circle cx={xPos} cy={yPos} r="4" fill="#dc2626" />
+                                  
+                                  {/* SpO2: Small cyan circle */}
+                                  <circle cx={xPos} cy={spo2Y} r="3" fill="#06b6d4" />
                                 </g>
                               );
                             })}
                           </svg>
-                        </div>
-                        
-                        {/* MAP Row */}
-                        <div className="h-32 border-b relative">
-                          <div className="absolute inset-0 flex">
-                            {getTimeIntervals().map((_, i) => (
-                              <div key={i} className="flex-1 border-r last:border-r-0 border-gray-200 dark:border-gray-700" />
-                            ))}
-                          </div>
-                        </div>
-                        
-                        {/* Temperature Row */}
-                        <div className="h-32 border-b relative">
-                          <div className="absolute inset-0 flex">
-                            {getTimeIntervals().map((_, i) => (
-                              <div key={i} className="flex-1 border-r last:border-r-0 border-gray-200 dark:border-gray-700" />
-                            ))}
-                          </div>
-                        </div>
-                        
-                        {/* SpO2 Row */}
-                        <div className="h-20 border-b relative">
-                          <div className="absolute inset-0 flex">
-                            {getTimeIntervals().map((_, i) => (
-                              <div key={i} className="flex-1 border-r last:border-r-0 border-gray-200 dark:border-gray-700" />
-                            ))}
-                          </div>
                         </div>
                         
                         {/* Zeiten (Times) Swimlane */}
