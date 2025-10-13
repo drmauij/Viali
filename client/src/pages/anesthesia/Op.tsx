@@ -824,11 +824,12 @@ export default function Op() {
             <CardContent className="space-y-4">
               <div>
                 <Label>Anesthesia Type</Label>
-                <Input
+                <Textarea
                   value={opData.anesthesiaType}
                   onChange={(e) => setOpData({ ...opData, anesthesiaType: e.target.value })}
                   placeholder="e.g., General, Regional, Combined..."
-                  data-testid="input-anesthesia-type"
+                  rows={6}
+                  data-testid="textarea-anesthesia-type"
                 />
               </div>
               <div>
@@ -839,6 +840,9 @@ export default function Op() {
                   data-testid="textarea-installations"
                 />
               </div>
+              <Button className="w-full" size="lg" data-testid="button-save-anesthesia">
+                Save Anesthesia Record
+              </Button>
             </CardContent>
           </Card>
           </TabsContent>
