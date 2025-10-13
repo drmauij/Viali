@@ -816,7 +816,7 @@ export default function Op() {
           </TabsContent>
 
           {/* Anesthesia Documentation Tab */}
-          <TabsContent value="anesthesia" className="flex-1 overflow-y-auto px-6 pb-6 mt-0 space-y-4">
+          <TabsContent value="anesthesia" className="flex-1 overflow-y-auto px-6 pb-6 mt-0 space-y-4 items-start">
             <div>
               <Card>
               <CardHeader>
@@ -846,7 +846,7 @@ export default function Op() {
           </TabsContent>
 
           {/* WHO Checklists Tab */}
-          <TabsContent value="checklists" className="flex-1 overflow-y-auto px-6 pb-6 mt-0 space-y-4">
+          <TabsContent value="checklists" className="flex-1 overflow-y-auto px-6 pb-6 mt-0 space-y-4 items-start">
             <div>
               {/* Sign-In Checklist */}
               <Card>
@@ -930,7 +930,7 @@ export default function Op() {
           </TabsContent>
 
           {/* Post-op Management Tab */}
-          <TabsContent value="postop" className="flex-1 overflow-y-auto px-6 pb-6 mt-0 space-y-4">
+          <TabsContent value="postop" className="flex-1 overflow-y-auto px-6 pb-6 mt-0 space-y-4 items-start">
             <div>
               <Card>
               <CardHeader>
