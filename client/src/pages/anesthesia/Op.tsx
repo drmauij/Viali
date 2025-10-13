@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
-import { AnesthesiaTimeline, type AnesthesiaData, type VitalPoint, type EventItem, type Band } from "@/components/anesthesia/AnesthesiaTimeline";
+import { UnifiedTimeline, type UnifiedTimelineData, type TimelineVitals, type TimelineEvent } from "@/components/anesthesia/UnifiedTimeline";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -108,10 +108,10 @@ export default function Op() {
   }
   
   // Generate mock timeline data - memoized
-  const timelineData = useMemo((): AnesthesiaData => {
+  const timelineData = useMemo((): UnifiedTimelineData => {
     const t0 = +new Date();
     const startTime = new Date(t0);
-    startTime.setHours(11, 35, 0, 0);
+    startTime.setHours(8, 30, 0, 0);
     const t0Ms = +startTime;
     const step = 5 * 60 * 1000; // 5-minute intervals
     
@@ -119,117 +119,47 @@ export default function Op() {
     const seq = (n: number) => Array.from({ length: n }, (_, i) => i);
     const jitter = (base: number, amp = 5) => base + Math.round((Math.random() - .5) * 2 * amp);
     
-    const times = seq(36).map(i => t0Ms + i * step);
+    const times = seq(48).map(i => t0Ms + i * step); // 4 hours of data
     
     // Vitals data
-    const vitals = {
-      hr: times.map((t, i) => [t, jitter(78 + Math.round(6 * Math.sin(i / 3)), 3)] as VitalPoint),
-      map: times.map((t, i) => [t, jitter(75 + Math.round(5 * Math.cos(i / 4)), 3)] as VitalPoint),
-      spo2: times.map((t) => [t, 97 + Math.round(Math.random())] as VitalPoint),
-      etco2: times.map((t, i) => [t, jitter(34 + Math.round(3 * Math.sin(i / 5)), 2)] as VitalPoint),
-      rr: times.map((t, i) => [t, jitter(12 + Math.round(2 * Math.cos(i / 6)), 1)] as VitalPoint),
+    const vitals: TimelineVitals = {
+      sysBP: times.map((t, i) => [t, jitter(120 + Math.round(8 * Math.sin(i / 4)), 4)] as [number, number]),
+      diaBP: times.map((t, i) => [t, jitter(75 + Math.round(6 * Math.cos(i / 5)), 3)] as [number, number]),
+      hr: times.map((t, i) => [t, jitter(68 + Math.round(5 * Math.sin(i / 3)), 3)] as [number, number]),
+      spo2: times.map((t) => [t, jitter(98, 1)] as [number, number]),
     };
     
-    // Target bands
-    const bands: Band[] = [
-      { axis: "right", yMin: 65, yMax: 85, label: "MAP Target" },
-      { axis: "left", yMin: 30, yMax: 45, label: "EtCO₂ Target" },
-    ];
-    
-    // Events - use vis-timeline built-in types: 'range' for durations, 'point' for instants
-    const events: EventItem[] = [
-      // Infusions (ranges)
-      { 
-        id: 1, 
-        start: t0Ms + 6 * step, 
-        end: t0Ms + 19 * step, 
-        group: "Infusions", 
-        content: "Ringer Acetat", 
-        dose: "1000 ml", 
-        icon: "🧪",
-        className: "vis-item-range"
-      },
-      { 
-        id: 2, 
-        start: t0Ms + 7 * step, 
-        end: t0Ms + 22 * step, 
-        group: "Infusions", 
-        content: "Propofol 1%", 
-        dose: "5→6 mg/kg/h", 
-        icon: "💤",
-        className: "vis-item-range"
-      },
-      // Bolus drugs (points)
-      { 
-        id: 3, 
-        start: t0Ms + 8 * step, 
-        group: "Drugs", 
-        content: "Fentanyl", 
-        dose: "50 µg", 
-        icon: "💊",
-        className: "vis-item-point"
-      },
-      { 
-        id: 4, 
-        start: t0Ms + 12 * step, 
-        group: "Drugs", 
-        content: "Ephedrin", 
-        dose: "10 mg", 
-        icon: "💊",
-        className: "vis-item-point"
-      },
-      { 
-        id: 5, 
-        start: t0Ms + 20 * step, 
-        group: "Drugs", 
-        content: "Ondansetron", 
-        dose: "4 mg", 
-        icon: "💊",
-        className: "vis-item-point"
-      },
-      // Ventilation settings (ranges)
-      { 
-        id: 6, 
-        start: t0Ms + 6 * step, 
-        end: t0Ms + 25 * step, 
-        group: "Ventilation", 
-        content: "FiO₂ 40%", 
-        icon: "🫁",
-        className: "vis-item-range"
-      },
-      { 
-        id: 7, 
-        start: t0Ms + 10 * step, 
-        end: t0Ms + 18 * step, 
-        group: "Ventilation", 
-        content: "PEEP 5", 
-        icon: "🫁",
-        className: "vis-item-range"
-      },
-      // Notes/Events (points)
-      { 
-        id: 8, 
-        start: t0Ms + 5 * step, 
-        group: "Events", 
-        content: "Incision", 
-        icon: "✂️",
-        className: "vis-item-point"
-      },
-      { 
-        id: 9, 
-        start: t0Ms + 23 * step, 
-        group: "Events", 
-        content: "Emergence", 
-        icon: "⏏",
-        className: "vis-item-point"
-      },
+    // Events
+    const events: TimelineEvent[] = [
+      // Zeiten
+      { time: t0Ms + 2 * step, swimlane: "zeiten", label: "Anästhesie Start", icon: "⏱", color: "#8b5cf6" },
+      { time: t0Ms + 8 * step, swimlane: "zeiten", label: "Schnitt", icon: "✂️", color: "#8b5cf6" },
+      { time: t0Ms + 35 * step, swimlane: "zeiten", label: "Naht", icon: "🧵", color: "#8b5cf6" },
+      
+      // Ereignisse
+      { time: t0Ms + 5 * step, swimlane: "ereignisse", label: "Intubation", icon: "🫁", color: "#3b82f6" },
+      { time: t0Ms + 15 * step, swimlane: "ereignisse", label: "Position change", icon: "🔄", color: "#3b82f6" },
+      
+      // Medikamente (bolus)
+      { time: t0Ms + 3 * step, swimlane: "medikamente", label: "Propofol 200mg", icon: "💉", color: "#10b981", row: 0 },
+      { time: t0Ms + 3 * step, swimlane: "medikamente", label: "Fentanyl 200µg", icon: "💉", color: "#10b981", row: 1 },
+      { time: t0Ms + 12 * step, swimlane: "medikamente", label: "Rocuronium 50mg", icon: "💉", color: "#10b981", row: 0 },
+      { time: t0Ms + 20 * step, swimlane: "medikamente", label: "Ephedrin 10mg", icon: "💉", color: "#10b981", row: 2 },
+      
+      // Infusionen (duration)
+      { time: t0Ms + 5 * step, swimlane: "infusionen", label: "Ringer 1000ml", duration: 25 * step, color: "#06b6d4" },
+      { time: t0Ms + 6 * step, swimlane: "perfusors", label: "Propofol 1% 5ml/h", duration: 35 * step, color: "#06b6d4" },
+      { time: t0Ms + 6 * step, swimlane: "perfusors", label: "Remifentanil 0.2µg/kg/min", duration: 35 * step, color: "#06b6d4" },
+      
+      // Ventilation
+      { time: t0Ms + 5 * step, swimlane: "ventilation", label: "FiO₂ 50%", duration: 40 * step, color: "#f59e0b" },
+      { time: t0Ms + 10 * step, swimlane: "ventilation", label: "PEEP 5", duration: 30 * step, color: "#f59e0b" },
     ];
     
     return {
-      tStart: t0Ms,
-      tEnd: t0Ms + 35 * step,
+      startTime: t0Ms,
+      endTime: t0Ms + 47 * step,
       vitals,
-      bands,
       events,
     };
   }, []);
@@ -403,7 +333,7 @@ export default function Op() {
           {/* Vitals & Timeline Tab */}
           <TabsContent value="vitals" className="data-[state=active]:flex-1 overflow-hidden flex flex-col mt-0 px-0" data-testid="tab-content-vitals">
             <div className="flex-1 border-t bg-card overflow-hidden">
-              <AnesthesiaTimeline data={timelineData} height={600} />
+              <UnifiedTimeline data={timelineData} height={700} />
             </div>
           </TabsContent>
 
