@@ -565,6 +565,8 @@ export default function Op() {
                               const diaY = `${100 - (data.dia / 240) * 100}%`;
                               const hrY = `${100 - (data.hr / 240) * 100}%`;
                               const spo2Y = `${100 - (data.spo2 / 240) * 100}%`;
+                              const mapValue = (data.sys + 2 * data.dia) / 3;
+                              const mapY = `${100 - (mapValue / 240) * 100}%`;
                               
                               return (
                                 <g key={i}>
@@ -577,35 +579,23 @@ export default function Op() {
                                     />
                                   )}
                                   
-                                  {/* BP: Systolic arrow (up) */}
-                                  <path d={`M ${xPos} ${sysY} l -4 -10 l 4 3 l 4 -3 z`} fill="#3b82f6" />
+                                  {/* BP: Systolic caret DOWN (v shape) */}
+                                  <path d={`M ${xPos} ${sysY} l -5 -8 l 5 5 l 5 -5 z`} fill="#3b82f6" />
                                   
-                                  {/* BP: Diastolic arrow (down) */}
-                                  <path d={`M ${xPos} ${diaY} l -4 10 l 4 -3 l 4 3 z`} fill="#3b82f6" />
+                                  {/* BP: Diastolic caret UP (^ shape) */}
+                                  <path d={`M ${xPos} ${diaY} l -5 8 l 5 -5 l 5 5 z`} fill="#3b82f6" />
                                   
-                                  {/* Heart Rate: Red diamond/heart symbol */}
+                                  {/* BP: MAP small point */}
+                                  <circle cx={xPos} cy={mapY} r="2.5" fill="#3b82f6" />
+                                  
+                                  {/* Heart Rate: Red heart icon (no connecting line) */}
                                   <path 
-                                    d={`M ${xPos} ${hrY} l -5 -5 l 2.5 0 l 2.5 -2.5 l 2.5 2.5 l 2.5 0 z`} 
-                                    fill="#dc2626" 
-                                    stroke="#dc2626"
-                                    strokeWidth="1"
+                                    d={`M ${xPos} ${hrY} m -6 -2 q 0 -3 3 -3 q 2 0 3 2 q 1 -2 3 -2 q 3 0 3 3 q 0 4 -6 8 q -6 -4 -6 -8 z`}
+                                    fill="#dc2626"
                                   />
                                   
-                                  {/* HR connecting line */}
-                                  {i < arr.length - 1 && (
-                                    <line
-                                      x1={xPos}
-                                      y1={hrY}
-                                      x2={`${arr[i+1].x}%`}
-                                      y2={`${100 - (arr[i+1].hr / 240) * 100}%`}
-                                      stroke="#dc2626"
-                                      strokeWidth="1.5"
-                                      opacity="0.6"
-                                    />
-                                  )}
-                                  
-                                  {/* SpO2: Small cyan circle */}
-                                  <circle cx={xPos} cy={spo2Y} r="3" fill="#06b6d4" />
+                                  {/* SpO2: Small blue circle */}
+                                  <circle cx={xPos} cy={spo2Y} r="3" fill="#3b82f6" />
                                 </g>
                               );
                             })}
