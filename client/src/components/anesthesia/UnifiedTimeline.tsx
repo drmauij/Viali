@@ -409,37 +409,37 @@ export function UnifiedTimeline({
           <span className="text-base font-semibold">Vitals</span>
         </div>
         
-        {/* Times - matches grid 1: top 340, height 40 */}
-        <div className="absolute top-[340px] h-[40px] w-full flex items-center px-3 border-b border-border bg-purple-100 dark:bg-purple-900/30">
+        {/* Times - top 340, extends to 390 (50px total to meet Events) */}
+        <div className="absolute top-[340px] h-[50px] w-full flex items-center px-3 border-b border-border bg-purple-100 dark:bg-purple-900/30">
           <span className="text-sm font-semibold text-black dark:text-white">Times</span>
         </div>
         
-        {/* Events - matches grid 2: top 390, height 40 */}
-        <div className="absolute top-[390px] h-[40px] w-full flex items-center px-3 border-b border-border bg-blue-100 dark:bg-blue-900/30">
+        {/* Events - top 390, extends to 440 (50px total to meet Heart Rhythm) */}
+        <div className="absolute top-[390px] h-[50px] w-full flex items-center px-3 border-b border-border bg-blue-100 dark:bg-blue-900/30">
           <span className="text-sm font-semibold text-black dark:text-white">Events</span>
         </div>
         
-        {/* Heart Rhythm - matches grid 3: top 440, height 40 */}
-        <div className="absolute top-[440px] h-[40px] w-full flex items-center px-3 border-b border-border bg-pink-100 dark:bg-pink-900/30">
+        {/* Heart Rhythm - top 440, extends to 490 (50px total to meet Medications) */}
+        <div className="absolute top-[440px] h-[50px] w-full flex items-center px-3 border-b border-border bg-pink-100 dark:bg-pink-900/30">
           <span className="text-sm font-semibold text-black dark:text-white">Heart Rhythm</span>
         </div>
         
-        {/* Medications - matches grid 4: top 490, height 90 */}
-        <div className="absolute top-[490px] h-[90px] w-full flex items-center px-3 border-b border-border bg-green-100 dark:bg-green-900/30">
+        {/* Medications - top 490, extends to 590 (100px total to meet Infusions) */}
+        <div className="absolute top-[490px] h-[100px] w-full flex items-center px-3 border-b border-border bg-green-100 dark:bg-green-900/30">
           <span className="text-sm font-semibold text-black dark:text-white">Medications</span>
         </div>
         
-        {/* Infusions - matches grid 5: top 590, height 40 */}
-        <div className="absolute top-[590px] h-[40px] w-full flex items-center px-3 border-b border-border bg-cyan-100 dark:bg-cyan-900/30">
+        {/* Infusions - top 590, extends to 640 (50px total to meet Ventilation) */}
+        <div className="absolute top-[590px] h-[50px] w-full flex items-center px-3 border-b border-border bg-cyan-100 dark:bg-cyan-900/30">
           <span className="text-sm font-semibold text-black dark:text-white">Infusions</span>
         </div>
         
-        {/* Ventilation - matches grid 6: top 640, height 40 */}
-        <div className="absolute top-[640px] h-[40px] w-full flex items-center px-3 border-b border-border bg-amber-100 dark:bg-amber-900/30">
+        {/* Ventilation - top 640, extends to 690 (50px total to meet Staff) */}
+        <div className="absolute top-[640px] h-[50px] w-full flex items-center px-3 border-b border-border bg-amber-100 dark:bg-amber-900/30">
           <span className="text-sm font-semibold text-black dark:text-white">Ventilation</span>
         </div>
         
-        {/* Staff - matches grid 7: top 690, height 40 */}
+        {/* Staff - top 690, height 40px (last swimlane) */}
         <div className="absolute top-[690px] h-[40px] w-full flex items-center px-3 bg-slate-100 dark:bg-slate-900/30">
           <span className="text-sm font-semibold text-black dark:text-white">Staff</span>
         </div>
