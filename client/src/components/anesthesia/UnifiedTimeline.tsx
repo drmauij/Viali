@@ -71,19 +71,19 @@ export function UnifiedTimeline({
     // Grid layout configuration - continuous rows with no gaps
     // Left margin: 150px for both scales side by side + header labels
     // Right margin: 10px for minimal padding
-    
+
     // Dynamically determine medication drugs from events
     const medicationEvents = data.events.filter(e => e.swimlane === "medikamente");
     const uniqueRows = new Set(medicationEvents.map(e => e.row ?? 0));
     const numMedicationRows = Math.max(uniqueRows.size, 1);
     const medicationRowHeight = 30;
     const medicationColor = isDark ? "hsl(150, 45%, 18%)" : "rgba(220, 252, 231, 0.8)";
-    
+
     // Calculate dynamic positions
     const medicationStart = 510;
     const medicationHeaderHeight = 30;
     const medicationEnd = medicationStart + medicationHeaderHeight + (numMedicationRows * medicationRowHeight);
-    
+
     const grids = [
       // Grid 0: Vitals chart (taller for better visibility)
       { left: 150, right: 10, top: 40, height: 340, backgroundColor: "transparent" },
@@ -312,7 +312,7 @@ export function UnifiedTimeline({
     const infusionenGridIndex = 5 + numMedicationRows;
     const ventilationGridIndex = infusionenGridIndex + 1;
     const staffGridIndex = ventilationGridIndex + 1;
-    
+
     const swimlaneMap: Record<string, number> = {
       zeiten: 1,
       ereignisse: 2,
@@ -330,14 +330,14 @@ export function UnifiedTimeline({
       if (event.swimlane === "medikamente" && event.row === undefined) {
         return acc;
       }
-      
+
       let gridIndex = swimlaneMap[event.swimlane];
-      
+
       // For medications, map to specific drug grid based on row
       if (event.swimlane === "medikamente" && event.row !== undefined) {
         gridIndex = 5 + event.row; // Grid 4 is header, row 0->grid 5, row 1->grid 6, row 2->grid 7
       }
-      
+
       if (!acc[gridIndex]) acc[gridIndex] = [];
       acc[gridIndex].push(event);
       return acc;
@@ -346,7 +346,7 @@ export function UnifiedTimeline({
     // Create scatter series for each swimlane
     Object.entries(eventsBySwimlane).forEach(([gridIndex, events]) => {
       const idx = parseInt(gridIndex);
-      
+
       // Point events (no duration)
       const pointEvents = events.filter(e => !e.duration);
       if (pointEvents.length > 0) {
@@ -384,7 +384,7 @@ export function UnifiedTimeline({
         rangeEvents.forEach((event) => {
           // All swimlanes now use single row
           const yValue = "";
-          
+
           series.push({
             type: "custom",
             xAxisIndex: idx,
@@ -394,7 +394,7 @@ export function UnifiedTimeline({
               const end = api.coord([event.time + (event.duration || 0), yValue]);
               const height = api.size([0, 1])[1] * 0.5;
               const y = start[1] - height / 2;
-              
+
               return {
                 type: "group",
                 children: [
@@ -449,7 +449,7 @@ export function UnifiedTimeline({
           xAxisIndex: "all", // Apply to all x-axes
           start: 0,
           end: 100,
-          minValueSpan: 15 * 60 * 1000, // Minimum 15 minutes visible
+          minValueSpan: 10 * 60 * 1000, // Minimum 10 minutes visible
           maxValueSpan: 12 * 60 * 60 * 1000, // Maximum 12 hours visible
           throttle: 50,
         },
@@ -460,7 +460,7 @@ export function UnifiedTimeline({
           bottom: 10,
           start: 0,
           end: 100,
-          minValueSpan: 15 * 60 * 1000, // Minimum 15 minutes
+          minValueSpan: 10 * 60 * 1000, // Minimum 10 minutes
           maxValueSpan: 12 * 60 * 60 * 1000, // Maximum 12 hours
           handleIcon: "M10.7,11.9v-1.3H9.3v1.3c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4v1.3h1.3v-1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z",
         }
@@ -479,7 +479,7 @@ export function UnifiedTimeline({
   const medicationDrugs = useMemo(() => {
     const medicationEvents = data.events.filter(e => e.swimlane === "medikamente");
     const drugsByRow = new Map<number, string>();
-    
+
     medicationEvents.forEach(e => {
       const row = e.row ?? 0;
       if (!drugsByRow.has(row)) {
@@ -488,7 +488,7 @@ export function UnifiedTimeline({
         drugsByRow.set(row, drugName);
       }
     });
-    
+
     return Array.from(drugsByRow.entries()).sort((a, b) => a[0] - b[0]).map(([_, name]) => name);
   }, [data.events]);
 
@@ -499,7 +499,7 @@ export function UnifiedTimeline({
   const medicationEnd = medicationStart + medicationHeaderHeight + (numMedicationRows * medicationRowHeight);
   const medicationColor = isDark ? "hsl(150, 45%, 18%)" : "rgba(220, 252, 231, 0.8)";
 
-  // Zoom and pan controls with 15-minute intervals
+  // Zoom and pan controls with 10-minute intervals
   const handleZoomIn = () => {
     const chart = chartRef.current?.getEchartsInstance();
     if (chart) {
@@ -507,9 +507,9 @@ export function UnifiedTimeline({
       const currentMin = option.xAxis[0].min;
       const currentMax = option.xAxis[0].max;
       const currentSpan = currentMax - currentMin;
-      const newSpan = Math.max(currentSpan * 0.5, 15 * 60 * 1000); // Min 15 minutes
+      const newSpan = Math.max(currentSpan * 0.5, 10 * 60 * 1000); // Min 10 minutes
       const center = (currentMin + currentMax) / 2;
-      
+
       chart.dispatchAction({
         type: 'dataZoom',
         startValue: center - newSpan / 2,
@@ -527,7 +527,7 @@ export function UnifiedTimeline({
       const currentSpan = currentMax - currentMin;
       const newSpan = Math.min(currentSpan * 2, 12 * 60 * 60 * 1000); // Max 12 hours
       const center = (currentMin + currentMax) / 2;
-      
+
       chart.dispatchAction({
         type: 'dataZoom',
         startValue: center - newSpan / 2,
@@ -543,8 +543,8 @@ export function UnifiedTimeline({
       const currentMin = option.xAxis[0].min;
       const currentMax = option.xAxis[0].max;
       const span = currentMax - currentMin;
-      const panStep = Math.max(span * 0.1, 15 * 60 * 1000); // Pan by 10% or 15 min minimum
-      
+      const panStep = Math.max(span * 0.1, 10 * 60 * 1000); // Pan by 10% or 10 min minimum
+
       chart.dispatchAction({
         type: 'dataZoom',
         startValue: currentMin - panStep,
@@ -560,8 +560,8 @@ export function UnifiedTimeline({
       const currentMin = option.xAxis[0].min;
       const currentMax = option.xAxis[0].max;
       const span = currentMax - currentMin;
-      const panStep = Math.max(span * 0.1, 15 * 60 * 1000); // Pan by 10% or 15 min minimum
-      
+      const panStep = Math.max(span * 0.1, 10 * 60 * 1000); // Pan by 10% or 10 min minimum
+
       chart.dispatchAction({
         type: 'dataZoom',
         startValue: currentMin + panStep,
@@ -686,22 +686,22 @@ export function UnifiedTimeline({
             <Combine className="w-5 h-5" />
           </button>
         </div>
-        
+
         {/* Times - matches grid 1: top 380, height 50 */}
         <div className="absolute top-[380px] h-[50px] w-full flex items-center px-2 border-b" style={{ backgroundColor: isDark ? "hsl(270, 55%, 20%)" : "rgba(243, 232, 255, 0.8)", borderColor: isDark ? "#444444" : "#d1d5db" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Times</span>
         </div>
-        
+
         {/* Events - matches grid 2: top 430, height 40 */}
         <div className="absolute top-[430px] h-[40px] w-full flex items-center px-2 border-b" style={{ backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)", borderColor: isDark ? "#444444" : "#d1d5db" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Events</span>
         </div>
-        
+
         {/* Heart Rhythm - matches grid 3: top 470, height 40 */}
         <div className="absolute top-[470px] h-[40px] w-full flex items-center px-2 border-b" style={{ backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)", borderColor: isDark ? "#444444" : "#d1d5db" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Heart Rhythm</span>
         </div>
-        
+
         {/* Medications Header */}
         <div 
           className="absolute h-[30px] w-full flex items-center px-2 border-b" 
@@ -713,7 +713,7 @@ export function UnifiedTimeline({
         >
           <span className="text-sm font-semibold text-black dark:text-white">Medications</span>
         </div>
-        
+
         {/* Medications Container - dynamic height based on drug count */}
         <div 
           className="absolute w-full" 
@@ -739,7 +739,7 @@ export function UnifiedTimeline({
             ))}
           </div>
         </div>
-        
+
         {/* Infusions - dynamic position */}
         <div 
           className="absolute h-[40px] w-full flex items-center px-2 border-b" 
@@ -751,7 +751,7 @@ export function UnifiedTimeline({
         >
           <span className="text-sm font-semibold text-black dark:text-white">Infusions</span>
         </div>
-        
+
         {/* Ventilation - dynamic position */}
         <div 
           className="absolute h-[40px] w-full flex items-center px-2 border-b" 
@@ -763,7 +763,7 @@ export function UnifiedTimeline({
         >
           <span className="text-sm font-semibold text-black dark:text-white">Ventilation</span>
         </div>
-        
+
         {/* Staff - dynamic position */}
         <div 
           className="absolute h-[40px] w-full flex items-center px-2 border-b" 
