@@ -361,7 +361,7 @@ export function UnifiedTimeline({
         if (!acc[gridIndex]) acc[gridIndex] = [];
         acc[gridIndex].push(event);
       }
-      
+
       return acc;
     }, {} as Record<number, TimelineEvent[]>);
 
@@ -765,11 +765,11 @@ export function UnifiedTimeline({
 
         {/* Medications Header */}
         <div 
-          className="absolute h-[30px] w-full flex items-center px-2 border-b" 
+          className="absolute h-[30px] w-full flex items-center px-2 border-b-2" 
           style={{ 
             top: `${medicationStart}px`,
             backgroundColor: medicationColor,
-            borderColor: isDark ? "#444444" : "#d1d5db"
+            borderColor: isDark ? "#666666" : "#999999"
           }}
         >
           <span className="text-sm font-semibold text-black dark:text-white">Medications</span>
@@ -851,16 +851,16 @@ export function UnifiedTimeline({
             dataZoom: (params: any) => {
               const chart = chartRef.current?.getEchartsInstance();
               if (!chart) return;
-              
+
               // Get current zoom state
               const option = chart.getOption() as any;
               const dataZoom = option.dataZoom?.[0];
               if (!dataZoom) return;
-              
+
               const currentSpan = dataZoom.endValue - dataZoom.startValue;
               const minSpan = 5 * 60 * 1000; // 5 minutes in milliseconds
               const maxSpan = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
-              
+
               // If zoom is too granular, reset to minimum
               if (currentSpan < minSpan) {
                 const center = (dataZoom.startValue + dataZoom.endValue) / 2;
