@@ -71,6 +71,7 @@ export function UnifiedTimeline({
     // Grid layout configuration - continuous rows with no gaps
     // Left margin: 150px for both scales side by side + header labels
     // Right margin: 10px for minimal padding
+    // All grids MUST have identical left/right positioning for perfect alignment
 
     // Dynamically determine medication drugs from events
     const medicationEvents = data.events.filter(e => e.swimlane === "medikamente");
@@ -84,31 +85,35 @@ export function UnifiedTimeline({
     const medicationHeaderHeight = 30;
     const medicationEnd = medicationStart + medicationHeaderHeight + (numMedicationRows * medicationRowHeight);
 
+    // CRITICAL: All grids must have IDENTICAL left/right values for perfect alignment
+    const gridLeft = 150;
+    const gridRight = 10;
+
     const grids = [
       // Grid 0: Vitals chart (taller for better visibility)
-      { left: 150, right: 10, top: 40, height: 340, backgroundColor: "transparent" },
+      { left: gridLeft, right: gridRight, top: 40, height: 340, backgroundColor: "transparent" },
       // Grid 1: Times (purple background) - taller to avoid text overlap
-      { left: 150, right: 10, top: 380, height: 50, backgroundColor: isDark ? "hsl(270, 55%, 20%)" : "rgba(243, 232, 255, 0.8)" },
+      { left: gridLeft, right: gridRight, top: 380, height: 50, backgroundColor: isDark ? "hsl(270, 55%, 20%)" : "rgba(243, 232, 255, 0.8)" },
       // Grid 2: Events (blue background)
-      { left: 150, right: 10, top: 430, height: 40, backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)" },
+      { left: gridLeft, right: gridRight, top: 430, height: 40, backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)" },
       // Grid 3: Heart Rhythm (pink background)
-      { left: 150, right: 10, top: 470, height: 40, backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)" },
+      { left: gridLeft, right: gridRight, top: 470, height: 40, backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)" },
       // Grid 4: Medications Header (green background)
-      { left: 150, right: 10, top: medicationStart, height: medicationHeaderHeight, backgroundColor: medicationColor },
+      { left: gridLeft, right: gridRight, top: medicationStart, height: medicationHeaderHeight, backgroundColor: medicationColor },
       // Grid 5+: Individual medication drugs (green background) - dynamic count
       ...Array.from({ length: numMedicationRows }, (_, i) => ({
-        left: 150,
-        right: 10,
+        left: gridLeft,
+        right: gridRight,
         top: medicationStart + medicationHeaderHeight + (i * medicationRowHeight),
         height: medicationRowHeight,
         backgroundColor: medicationColor,
       })),
       // Infusions/Perfusors (cyan background)
-      { left: 150, right: 10, top: medicationEnd, height: 40, backgroundColor: isDark ? "hsl(190, 60%, 18%)" : "rgba(207, 250, 254, 0.8)" },
+      { left: gridLeft, right: gridRight, top: medicationEnd, height: 40, backgroundColor: isDark ? "hsl(190, 60%, 18%)" : "rgba(207, 250, 254, 0.8)" },
       // Ventilation (amber background)
-      { left: 150, right: 10, top: medicationEnd + 40, height: 40, backgroundColor: isDark ? "hsl(35, 70%, 22%)" : "rgba(254, 243, 199, 0.8)" },
+      { left: gridLeft, right: gridRight, top: medicationEnd + 40, height: 40, backgroundColor: isDark ? "hsl(35, 70%, 22%)" : "rgba(254, 243, 199, 0.8)" },
       // Staff (slate background)
-      { left: 150, right: 10, top: medicationEnd + 80, height: 40, backgroundColor: isDark ? "hsl(220, 25%, 25%)" : "rgba(241, 245, 249, 0.8)" },
+      { left: gridLeft, right: gridRight, top: medicationEnd + 80, height: 40, backgroundColor: isDark ? "hsl(220, 25%, 25%)" : "rgba(241, 245, 249, 0.8)" },
     ];
 
     // Calculate current time and center the view around it
@@ -116,11 +121,14 @@ export function UnifiedTimeline({
     const defaultStart = now - (5 * 60 * 1000); // 5 minutes before now
     const defaultEnd = now + (5 * 60 * 1000);   // 5 minutes after now
 
-    // Time x-axes (one per grid) - no fixed min/max to allow free scrolling
+    // Time x-axes (one per grid) - IDENTICAL configuration for perfect synchronization
     // Create x-axis for each grid (including dynamically added medication grids)
     const xAxes = grids.map((_, index) => ({
       type: "time" as const,
       gridIndex: index,
+      // CRITICAL: All x-axes must have IDENTICAL time ranges and intervals
+      min: data.startTime,
+      max: data.endTime,
       axisLabel: {
         show: index === 0, // Only show labels on top grid
         formatter: "{HH}:{mm}",
@@ -128,13 +136,21 @@ export function UnifiedTimeline({
         fontFamily: "Poppins, sans-serif",
         interval: 0, // Show all labels
       },
-      axisLine: { show: true },
+      axisLine: { 
+        show: index === 0, // Only show line on top grid
+        lineStyle: {
+          color: isDark ? "#444444" : "#d1d5db",
+        }
+      },
       axisTick: { 
-        show: true,
+        show: index === 0, // Only show ticks on top grid
         interval: 0, // Show all ticks
+        lineStyle: {
+          color: isDark ? "#444444" : "#d1d5db",
+        }
       },
       splitLine: { 
-        show: true,
+        show: true, // Show grid lines on all swimlanes for alignment
         lineStyle: {
           color: isDark ? "#444444" : "#d1d5db",
           width: 1,
@@ -142,17 +158,20 @@ export function UnifiedTimeline({
         }
       },
       minorTick: {
-        show: true,
+        show: index === 0, // Only show minor ticks on top grid
         splitNumber: 4, // 15-minute intervals (4 splits per hour)
       },
       minorSplitLine: {
-        show: true,
+        show: true, // Show minor grid lines on all swimlanes
         lineStyle: {
           color: isDark ? "#333333" : "#e5e7eb",
           width: 0.5,
           type: "dashed" as const,
         }
       },
+      // CRITICAL: Ensure all axes use the same scale and positioning
+      position: "top",
+      inverse: false,
     }));
 
     // Y-axes
@@ -444,23 +463,27 @@ export function UnifiedTimeline({
       dataZoom: [
         {
           type: "inside",
-          xAxisIndex: "all", // Apply to all x-axes
+          xAxisIndex: Array.from({ length: grids.length }, (_, i) => i), // Explicitly list all x-axis indices
           startValue: data.startTime, // Use provided start time
           endValue: data.endTime, // Use provided end time
           minValueSpan: 5 * 60 * 1000, // Minimum 5 minutes visible (set by user)
           maxValueSpan: 6 * 60 * 60 * 1000, // Maximum 6 hours visible (set by user)
           throttle: 50,
+          // CRITICAL: Ensure synchronization across all axes
+          filterMode: "none", // Don't filter data, just zoom
         },
         {
           type: "slider",
-          xAxisIndex: 0, // Only show slider for main chart
+          xAxisIndex: Array.from({ length: grids.length }, (_, i) => i), // Apply slider to all x-axes for synchronization
           height: 20,
           bottom: 10,
           startValue: data.startTime, // Use provided start time
           endValue: data.endTime, // Use provided end time
           minValueSpan: 5 * 60 * 1000, // Minimum 5 minutes
           maxValueSpan: 6 * 60 * 60 * 1000, // Maximum 6 hours
-          handleIcon: "M10.7,11.9v-1.3H9.3v13c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4v1.3h1.3v-1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z",
+          handleIcon: "path://M10.7,11.9v-1.3H9.3v13c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4v1.3h1.3v-1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z",
+          // CRITICAL: Ensure synchronization across all axes
+          filterMode: "none", // Don't filter data, just zoom
         }
       ],
       tooltip: {
