@@ -420,8 +420,101 @@ export function UnifiedTimeline({
     } as echarts.EChartsOption;
   }, [data, isDark]);
 
+  // Zoom and pan controls
+  const handleZoomIn = () => {
+    const chart = chartRef.current?.getEchartsInstance();
+    if (chart) {
+      chart.dispatchAction({
+        type: 'dataZoom',
+        startValue: data.startTime,
+        endValue: data.startTime + (data.endTime - data.startTime) * 0.7,
+      });
+    }
+  };
+
+  const handleZoomOut = () => {
+    const chart = chartRef.current?.getEchartsInstance();
+    if (chart) {
+      chart.dispatchAction({
+        type: 'dataZoom',
+        startValue: data.startTime,
+        endValue: data.endTime,
+      });
+    }
+  };
+
+  const handlePanLeft = () => {
+    const chart = chartRef.current?.getEchartsInstance();
+    if (chart) {
+      const option = chart.getOption() as any;
+      const dataZoom = option.dataZoom?.[0];
+      if (dataZoom) {
+        const start = Math.max(0, (dataZoom.start || 0) - 10);
+        const end = Math.max(10, (dataZoom.end || 100) - 10);
+        chart.dispatchAction({
+          type: 'dataZoom',
+          start,
+          end,
+        });
+      }
+    }
+  };
+
+  const handlePanRight = () => {
+    const chart = chartRef.current?.getEchartsInstance();
+    if (chart) {
+      const option = chart.getOption() as any;
+      const dataZoom = option.dataZoom?.[0];
+      if (dataZoom) {
+        const start = Math.min(90, (dataZoom.start || 0) + 10);
+        const end = Math.min(100, (dataZoom.end || 100) + 10);
+        chart.dispatchAction({
+          type: 'dataZoom',
+          start,
+          end,
+        });
+      }
+    }
+  };
+
   return (
     <div className="w-full h-full relative" style={{ height }}>
+      {/* Zoom and Pan Controls */}
+      <div className="absolute top-2 right-4 z-30 flex gap-2">
+        <button
+          onClick={handlePanLeft}
+          className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
+          data-testid="button-pan-left"
+          title="Pan Left"
+        >
+          ◀
+        </button>
+        <button
+          onClick={handleZoomOut}
+          className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
+          data-testid="button-zoom-out"
+          title="Zoom Out"
+        >
+          −
+        </button>
+        <button
+          onClick={handleZoomIn}
+          className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
+          data-testid="button-zoom-in"
+          title="Zoom In"
+        >
+          +
+        </button>
+        <button
+          onClick={handlePanRight}
+          className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
+          data-testid="button-pan-right"
+          title="Pan Right"
+        >
+          ▶
+        </button>
+      </div>
+
       {/* Left sidebar with swimlane labels */}
       <div className="absolute left-0 top-0 w-[120px] h-full border-r border-border z-10 bg-background">
         {/* Vitals label - matches grid 0: top 40, height 340 */}
@@ -465,15 +558,17 @@ export function UnifiedTimeline({
         </div>
       </div>
 
-      {/* ECharts timeline */}
-      <ReactECharts
-        ref={chartRef}
-        option={option}
-        style={{ height: "100%", width: "100%" }}
-        opts={{ renderer: "canvas" }}
-        notMerge
-        lazyUpdate
-      />
+      {/* ECharts timeline - high z-index to stay on top */}
+      <div className="absolute inset-0 z-20">
+        <ReactECharts
+          ref={chartRef}
+          option={option}
+          style={{ height: "100%", width: "100%" }}
+          opts={{ renderer: "canvas" }}
+          notMerge
+          lazyUpdate
+        />
+      </div>
     </div>
   );
 }
