@@ -360,6 +360,10 @@ export function UnifiedTimeline({
     Object.entries(eventsBySwimlane).forEach(([gridIndex, events]) => {
       const idx = parseInt(gridIndex);
       
+      // Check if this is a ventilation parameter grid
+      const isVentilationGrid = idx >= ventilationHeaderGridIndex_map + 1 && 
+                                 idx <= ventilationHeaderGridIndex_map + numVentilationRows;
+      
       // Point events (no duration)
       const pointEvents = events.filter(e => !e.duration);
       if (pointEvents.length > 0) {
@@ -379,7 +383,7 @@ export function UnifiedTimeline({
           },
           label: {
             show: true,
-            position: "right",
+            position: isVentilationGrid ? "inside" : "right", // Center labels for ventilation
             formatter: (params: any) => {
               const event = pointEvents[params.dataIndex];
               return `${event?.icon || ""} ${event?.label || ""}`.trim();
