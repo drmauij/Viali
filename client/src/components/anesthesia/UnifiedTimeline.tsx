@@ -554,44 +554,48 @@ export function UnifiedTimeline({
       {/* Swimlane background colors - extend full width behind everything */}
       <div className="absolute left-0 top-0 right-0 h-full pointer-events-none z-0">
         {/* Times background */}
-        <div className="absolute top-[380px] h-[50px] w-full" style={{ backgroundColor: isDark ? "hsl(270, 55%, 20%)" : "rgba(243, 232, 255, 0.8)" }} />
+        <div className="absolute top-[380px] h-[50px] w-full border-b" style={{ backgroundColor: isDark ? "hsl(270, 55%, 20%)" : "rgba(243, 232, 255, 0.8)", borderColor: isDark ? "#444444" : "#d1d5db" }} />
         {/* Events background */}
-        <div className="absolute top-[430px] h-[40px] w-full" style={{ backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)" }} />
+        <div className="absolute top-[430px] h-[40px] w-full border-b" style={{ backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)", borderColor: isDark ? "#444444" : "#d1d5db" }} />
         {/* Heart Rhythm background */}
-        <div className="absolute top-[470px] h-[40px] w-full" style={{ backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)" }} />
+        <div className="absolute top-[470px] h-[40px] w-full border-b" style={{ backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)", borderColor: isDark ? "#444444" : "#d1d5db" }} />
         {/* Medications Header background */}
-        <div className="absolute h-[30px] w-full" style={{ top: `${medicationStart}px`, backgroundColor: medicationColor }} />
+        <div className="absolute h-[30px] w-full border-b" style={{ top: `${medicationStart}px`, backgroundColor: medicationColor, borderColor: isDark ? "#444444" : "#d1d5db" }} />
         {/* Medications drugs background - dynamic height based on drug count */}
         <div 
-          className="absolute w-full" 
+          className="absolute w-full border-b" 
           style={{ 
             top: `${medicationStart + 30}px`, 
             height: `${numMedicationRows * medicationRowHeight}px`,
-            backgroundColor: medicationColor
+            backgroundColor: medicationColor,
+            borderColor: isDark ? "#444444" : "#d1d5db"
           }} 
         />
         {/* Infusions background - dynamic position */}
         <div 
-          className="absolute h-[40px] w-full" 
+          className="absolute h-[40px] w-full border-b" 
           style={{ 
             top: `${medicationEnd}px`,
-            backgroundColor: isDark ? "hsl(190, 60%, 18%)" : "rgba(207, 250, 254, 0.8)"
+            backgroundColor: isDark ? "hsl(190, 60%, 18%)" : "rgba(207, 250, 254, 0.8)",
+            borderColor: isDark ? "#444444" : "#d1d5db"
           }} 
         />
         {/* Ventilation background - dynamic position */}
         <div 
-          className="absolute h-[40px] w-full" 
+          className="absolute h-[40px] w-full border-b" 
           style={{ 
             top: `${medicationEnd + 40}px`,
-            backgroundColor: isDark ? "hsl(35, 70%, 22%)" : "rgba(254, 243, 199, 0.8)"
+            backgroundColor: isDark ? "hsl(35, 70%, 22%)" : "rgba(254, 243, 199, 0.8)",
+            borderColor: isDark ? "#444444" : "#d1d5db"
           }} 
         />
         {/* Staff background - dynamic position */}
         <div 
-          className="absolute h-[40px] w-full" 
+          className="absolute h-[40px] w-full border-b" 
           style={{ 
             top: `${medicationEnd + 80}px`,
-            backgroundColor: isDark ? "hsl(220, 25%, 25%)" : "rgba(241, 245, 249, 0.8)"
+            backgroundColor: isDark ? "hsl(220, 25%, 25%)" : "rgba(241, 245, 249, 0.8)",
+            borderColor: isDark ? "#444444" : "#d1d5db"
           }} 
         />
       </div>
@@ -631,26 +635,27 @@ export function UnifiedTimeline({
         </div>
         
         {/* Times - matches grid 1: top 380, height 50 */}
-        <div className="absolute top-[380px] h-[50px] w-full flex items-center px-2" style={{ backgroundColor: isDark ? "hsl(270, 55%, 20%)" : "rgba(243, 232, 255, 0.8)" }}>
+        <div className="absolute top-[380px] h-[50px] w-full flex items-center px-2 border-b" style={{ backgroundColor: isDark ? "hsl(270, 55%, 20%)" : "rgba(243, 232, 255, 0.8)", borderColor: isDark ? "#444444" : "#d1d5db" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Times</span>
         </div>
         
         {/* Events - matches grid 2: top 430, height 40 */}
-        <div className="absolute top-[430px] h-[40px] w-full flex items-center px-2" style={{ backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)" }}>
+        <div className="absolute top-[430px] h-[40px] w-full flex items-center px-2 border-b" style={{ backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)", borderColor: isDark ? "#444444" : "#d1d5db" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Events</span>
         </div>
         
         {/* Heart Rhythm - matches grid 3: top 470, height 40 */}
-        <div className="absolute top-[470px] h-[40px] w-full flex items-center px-2" style={{ backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)" }}>
+        <div className="absolute top-[470px] h-[40px] w-full flex items-center px-2 border-b" style={{ backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)", borderColor: isDark ? "#444444" : "#d1d5db" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Heart Rhythm</span>
         </div>
         
         {/* Medications Header */}
         <div 
-          className="absolute h-[30px] w-full flex items-center px-2" 
+          className="absolute h-[30px] w-full flex items-center px-2 border-b" 
           style={{ 
             top: `${medicationStart}px`,
-            backgroundColor: medicationColor
+            backgroundColor: medicationColor,
+            borderColor: isDark ? "#444444" : "#d1d5db"
           }}
         >
           <span className="text-sm font-semibold text-black dark:text-white">Medications</span>
@@ -670,9 +675,10 @@ export function UnifiedTimeline({
             {medicationDrugs.map((drugName, index) => (
               <div 
                 key={index}
-                className="flex items-center px-2 pl-4"
+                className="flex items-center px-2 pl-4 border-b"
                 style={{ 
-                  height: `${medicationRowHeight}px`
+                  height: `${medicationRowHeight}px`,
+                  borderColor: isDark ? "#444444" : "#d1d5db"
                 }}
               >
                 <span className="text-xs text-black dark:text-white">{drugName}</span>
@@ -683,10 +689,11 @@ export function UnifiedTimeline({
         
         {/* Infusions - dynamic position */}
         <div 
-          className="absolute h-[40px] w-full flex items-center px-2" 
+          className="absolute h-[40px] w-full flex items-center px-2 border-b" 
           style={{ 
             top: `${medicationEnd}px`,
-            backgroundColor: isDark ? "hsl(190, 60%, 18%)" : "rgba(207, 250, 254, 0.8)"
+            backgroundColor: isDark ? "hsl(190, 60%, 18%)" : "rgba(207, 250, 254, 0.8)",
+            borderColor: isDark ? "#444444" : "#d1d5db"
           }}
         >
           <span className="text-sm font-semibold text-black dark:text-white">Infusions</span>
@@ -694,10 +701,11 @@ export function UnifiedTimeline({
         
         {/* Ventilation - dynamic position */}
         <div 
-          className="absolute h-[40px] w-full flex items-center px-2" 
+          className="absolute h-[40px] w-full flex items-center px-2 border-b" 
           style={{ 
             top: `${medicationEnd + 40}px`,
-            backgroundColor: isDark ? "hsl(35, 70%, 22%)" : "rgba(254, 243, 199, 0.8)"
+            backgroundColor: isDark ? "hsl(35, 70%, 22%)" : "rgba(254, 243, 199, 0.8)",
+            borderColor: isDark ? "#444444" : "#d1d5db"
           }}
         >
           <span className="text-sm font-semibold text-black dark:text-white">Ventilation</span>
@@ -705,10 +713,11 @@ export function UnifiedTimeline({
         
         {/* Staff - dynamic position */}
         <div 
-          className="absolute h-[40px] w-full flex items-center px-2" 
+          className="absolute h-[40px] w-full flex items-center px-2 border-b" 
           style={{ 
             top: `${medicationEnd + 80}px`,
-            backgroundColor: isDark ? "hsl(220, 25%, 25%)" : "rgba(241, 245, 249, 0.8)"
+            backgroundColor: isDark ? "hsl(220, 25%, 25%)" : "rgba(241, 245, 249, 0.8)",
+            borderColor: isDark ? "#444444" : "#d1d5db"
           }}
         >
           <span className="text-sm font-semibold text-black dark:text-white">Staff</span>
