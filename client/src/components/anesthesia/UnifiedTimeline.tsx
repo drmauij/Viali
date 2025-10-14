@@ -451,9 +451,10 @@ export function UnifiedTimeline({
 
   // Calculate dynamic positions for sidebar (reuse numMedicationRows from top)
   const medicationStart = 510;
+  const medicationHeaderHeight = 30;
   const medicationRowHeight = 30;
-  const medicationEnd = medicationStart + (numMedicationRows * medicationRowHeight);
-  const medicationColor = isDark ? "rgba(134, 239, 172, 0.15)" : "rgba(220, 252, 231, 0.8)";
+  const medicationEnd = medicationStart + medicationHeaderHeight + (numMedicationRows * medicationRowHeight);
+  const medicationColor = isDark ? "hsl(150, 45%, 18%)" : "rgba(220, 252, 231, 0.8)";
 
   // Zoom and pan controls
   const handleZoomIn = () => {
