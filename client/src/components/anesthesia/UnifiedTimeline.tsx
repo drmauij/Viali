@@ -533,8 +533,8 @@ export function UnifiedTimeline({
         <div className="absolute top-[670px] h-[40px] w-full" style={{ backgroundColor: isDark ? "rgba(203, 213, 225, 0.15)" : "rgba(241, 245, 249, 0.8)" }} />
       </div>
 
-      {/* Left sidebar with swimlane labels */}
-      <div className="absolute left-0 top-0 w-[120px] h-full border-r border-border z-10 bg-background">
+      {/* Left sidebar with swimlane labels - extends to chart start */}
+      <div className="absolute left-0 top-0 w-[160px] h-full border-r border-border z-10 bg-background">
         {/* Vitals label - matches grid 0: top 40, height 340 */}
         <div className="absolute top-[40px] h-[340px] w-full flex items-center justify-center px-2 border-b border-border">
           <span className="text-base font-semibold">Vitals</span>
