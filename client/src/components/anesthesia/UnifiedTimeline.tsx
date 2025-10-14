@@ -648,7 +648,7 @@ export function UnifiedTimeline({
           }}
         >
           {/* Medications header */}
-          <div className="text-xs font-bold text-black dark:text-white px-2 pt-1 pb-1">
+          <div className="text-sm font-semibold text-black dark:text-white px-2 pt-1 pb-1">
             Medications
           </div>
           
