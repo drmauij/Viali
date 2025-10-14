@@ -151,9 +151,12 @@ export default function Op() {
       { time: t0Ms + 6 * step, swimlane: "perfusors", label: "Propofol 1% 5ml/h", duration: 35 * step, color: "#06b6d4" },
       { time: t0Ms + 6 * step, swimlane: "perfusors", label: "Remifentanil 0.2µg/kg/min", duration: 35 * step, color: "#06b6d4" },
       
-      // Ventilation
-      { time: t0Ms + 5 * step, swimlane: "ventilation", label: "FiO₂ 50%", duration: 40 * step, color: "#f59e0b" },
-      { time: t0Ms + 10 * step, swimlane: "ventilation", label: "PEEP 5", duration: 30 * step, color: "#f59e0b" },
+      // Ventilation (with row parameters)
+      { time: t0Ms + 5 * step, swimlane: "ventilation", label: "FiO₂ 50%", duration: 40 * step, color: "#f59e0b", row: 0 },
+      { time: t0Ms + 10 * step, swimlane: "ventilation", label: "PEEP 5", duration: 30 * step, color: "#f59e0b", row: 1 },
+      { time: t0Ms + 7 * step, swimlane: "ventilation", label: "VT 450ml", duration: 38 * step, color: "#f59e0b", row: 2 },
+      { time: t0Ms + 8 * step, swimlane: "ventilation", label: "RR 12/min", duration: 37 * step, color: "#f59e0b", row: 3 },
+      { time: t0Ms + 9 * step, swimlane: "ventilation", label: "Pinsp 18cmH2O", duration: 36 * step, color: "#f59e0b", row: 4 },
     ];
     
     return {
