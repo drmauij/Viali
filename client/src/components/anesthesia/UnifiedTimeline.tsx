@@ -417,18 +417,7 @@ export function UnifiedTimeline({
       xAxis: xAxes,
       yAxis: yAxes,
       series,
-      dataZoom: [
-        {
-          type: "slider",
-          xAxisIndex: grids.map((_, i) => i),
-          bottom: 10,
-          height: 20,
-          handleSize: "80%",
-          textStyle: {
-            fontFamily: "Poppins, sans-serif",
-          },
-        },
-      ],
+      dataZoom: [],
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "line" },
