@@ -624,17 +624,17 @@ export function UnifiedTimeline({
         </div>
         
         {/* Times - matches grid 1: top 380, height 50 */}
-        <div className="absolute top-[380px] h-[50px] w-full flex items-center px-2" style={{ backgroundColor: isDark ? "hsl(250, 30%, 22%)" : "rgba(243, 232, 255, 0.8)" }}>
+        <div className="absolute top-[380px] h-[50px] w-full flex items-center px-2 border-b border-border" style={{ backgroundColor: isDark ? "hsl(250, 30%, 22%)" : "rgba(243, 232, 255, 0.8)" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Times</span>
         </div>
         
         {/* Events - matches grid 2: top 430, height 40 */}
-        <div className="absolute top-[430px] h-[40px] w-full flex items-center px-2" style={{ backgroundColor: isDark ? "hsl(215, 30%, 20%)" : "rgba(219, 234, 254, 0.8)" }}>
+        <div className="absolute top-[430px] h-[40px] w-full flex items-center px-2 border-b border-border" style={{ backgroundColor: isDark ? "hsl(215, 30%, 20%)" : "rgba(219, 234, 254, 0.8)" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Events</span>
         </div>
         
         {/* Heart Rhythm - matches grid 3: top 470, height 40 */}
-        <div className="absolute top-[470px] h-[40px] w-full flex items-center px-2" style={{ backgroundColor: isDark ? "hsl(340, 25%, 22%)" : "rgba(252, 231, 243, 0.8)" }}>
+        <div className="absolute top-[470px] h-[40px] w-full flex items-center px-2 border-b border-border" style={{ backgroundColor: isDark ? "hsl(340, 25%, 22%)" : "rgba(252, 231, 243, 0.8)" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Heart Rhythm</span>
         </div>
         
@@ -663,7 +663,7 @@ export function UnifiedTimeline({
         
         {/* Infusions - dynamic position */}
         <div 
-          className="absolute h-[40px] w-full flex items-center px-2" 
+          className="absolute h-[40px] w-full flex items-center px-2 border-b border-border" 
           style={{ 
             top: `${medicationEnd}px`,
             backgroundColor: isDark ? "hsl(190, 30%, 20%)" : "rgba(207, 250, 254, 0.8)" 
@@ -674,7 +674,7 @@ export function UnifiedTimeline({
         
         {/* Ventilation - dynamic position */}
         <div 
-          className="absolute h-[40px] w-full flex items-center px-2" 
+          className="absolute h-[40px] w-full flex items-center px-2 border-b border-border" 
           style={{ 
             top: `${medicationEnd + 40}px`,
             backgroundColor: isDark ? "hsl(35, 30%, 22%)" : "rgba(254, 243, 199, 0.8)" 
@@ -685,7 +685,7 @@ export function UnifiedTimeline({
         
         {/* Staff - dynamic position */}
         <div 
-          className="absolute h-[40px] w-full flex items-center px-2" 
+          className="absolute h-[40px] w-full flex items-center px-2 border-b border-border" 
           style={{ 
             top: `${medicationEnd + 80}px`,
             backgroundColor: isDark ? "hsl(215, 15%, 24%)" : "rgba(241, 245, 249, 0.8)" 
