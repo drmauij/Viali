@@ -620,13 +620,13 @@ export function UnifiedTimeline({
       {/* Swimlane background colors - extend full width behind everything */}
       <div className="absolute left-0 top-0 right-0 h-full pointer-events-none z-0">
         {/* Times background */}
-        <div className="absolute top-[380px] h-[50px] w-full border-b" style={{ backgroundColor: isDark ? "hsl(270, 55%, 20%)" : "rgba(243, 232, 255, 0.8)", borderColor: isDark ? "#444444" : "#d1d5db" }} />
+        <div className="absolute top-[380px] h-[50px] w-full" style={{ backgroundColor: isDark ? "hsl(270, 55%, 20%)" : "rgba(243, 232, 255, 0.8)" }} />
         {/* Events background */}
-        <div className="absolute top-[430px] h-[40px] w-full border-b" style={{ backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)", borderColor: isDark ? "#444444" : "#d1d5db" }} />
+        <div className="absolute top-[430px] h-[40px] w-full" style={{ backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)" }} />
         {/* Heart Rhythm background */}
-        <div className="absolute top-[470px] h-[40px] w-full border-b" style={{ backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)", borderColor: isDark ? "#444444" : "#d1d5db" }} />
+        <div className="absolute top-[470px] h-[40px] w-full" style={{ backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)" }} />
         {/* Medications Header background */}
-        <div className="absolute h-[30px] w-full border-b" style={{ top: `${medicationStart}px`, backgroundColor: medicationColor, borderColor: isDark ? "#444444" : "#d1d5db" }} />
+        <div className="absolute h-[30px] w-full" style={{ top: `${medicationStart}px`, backgroundColor: medicationColor }} />
         {/* Medications drugs background - dynamic height based on drug count */}
         <div 
           className="absolute w-full" 
@@ -645,7 +645,7 @@ export function UnifiedTimeline({
           }} 
         />
         {/* Ventilation Header background */}
-        <div className="absolute h-[30px] w-full border-b" style={{ top: `${ventilationStart}px`, backgroundColor: ventilationColor, borderColor: isDark ? "#444444" : "#d1d5db" }} />
+        <div className="absolute h-[30px] w-full" style={{ top: `${ventilationStart}px`, backgroundColor: ventilationColor }} />
         {/* Ventilation parameters background - dynamic height based on param count */}
         <div 
           className="absolute w-full" 
