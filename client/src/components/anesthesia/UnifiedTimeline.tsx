@@ -342,7 +342,7 @@ export function UnifiedTimeline({
             position: "right",
             formatter: (params: any) => {
               const event = pointEvents[params.dataIndex];
-              return `${event?.icon || "●"} ${event?.label || ""}`;
+              return `${event?.icon || ""} ${event?.label || ""}`.trim();
             },
             fontSize: 11,
             fontFamily: "Poppins, sans-serif",
