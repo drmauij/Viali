@@ -50,7 +50,7 @@ export function UnifiedTimeline({
   const medicationEvents = data.events.filter(e => e.swimlane === "medikamente");
   const uniqueRows = new Set(medicationEvents.map(e => e.row ?? 0));
   const numMedicationRows = Math.max(uniqueRows.size, 1);
-  const defaultHeight = 510 + (numMedicationRows * 30) + 120; // base + medications + other swimlanes
+  const defaultHeight = 510 + 30 + (numMedicationRows * 30) + 120; // base + medications header + medications + other swimlanes
   const componentHeight = height ?? defaultHeight;
   const chartRef = useRef<any>(null);
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
@@ -81,7 +81,8 @@ export function UnifiedTimeline({
     
     // Calculate dynamic positions
     const medicationStart = 510;
-    const medicationEnd = medicationStart + (numMedicationRows * medicationRowHeight);
+    const medicationHeaderHeight = 30;
+    const medicationEnd = medicationStart + medicationHeaderHeight + (numMedicationRows * medicationRowHeight);
     
     const grids = [
       // Grid 0: Vitals chart (taller for better visibility)
@@ -92,11 +93,13 @@ export function UnifiedTimeline({
       { left: 150, right: 10, top: 430, height: 40, backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)" },
       // Grid 3: Heart Rhythm (pink background)
       { left: 150, right: 10, top: 470, height: 40, backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)" },
-      // Grid 4+: Individual medication drugs (green background) - dynamic count
+      // Grid 4: Medications Header (green background)
+      { left: 150, right: 10, top: medicationStart, height: medicationHeaderHeight, backgroundColor: medicationColor },
+      // Grid 5+: Individual medication drugs (green background) - dynamic count
       ...Array.from({ length: numMedicationRows }, (_, i) => ({
         left: 150,
         right: 10,
-        top: medicationStart + (i * medicationRowHeight),
+        top: medicationStart + medicationHeaderHeight + (i * medicationRowHeight),
         height: medicationRowHeight,
         backgroundColor: medicationColor,
       })),
@@ -554,11 +557,13 @@ export function UnifiedTimeline({
         <div className="absolute top-[430px] h-[40px] w-full border-b" style={{ backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)", borderColor: isDark ? "#444444" : "#d1d5db" }} />
         {/* Heart Rhythm background */}
         <div className="absolute top-[470px] h-[40px] w-full border-b" style={{ backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)", borderColor: isDark ? "#444444" : "#d1d5db" }} />
-        {/* Medications background - dynamic height based on drug count */}
+        {/* Medications Header background */}
+        <div className="absolute h-[30px] w-full border-b" style={{ top: `${medicationStart}px`, backgroundColor: medicationColor, borderColor: isDark ? "#444444" : "#d1d5db" }} />
+        {/* Medications drugs background - dynamic height based on drug count */}
         <div 
           className="absolute w-full border-b" 
           style={{ 
-            top: `${medicationStart}px`, 
+            top: `${medicationStart + 30}px`, 
             height: `${numMedicationRows * medicationRowHeight}px`,
             backgroundColor: medicationColor,
             borderColor: isDark ? "#444444" : "#d1d5db"
@@ -642,11 +647,23 @@ export function UnifiedTimeline({
           <span className="text-sm font-semibold text-black dark:text-white">Heart Rhythm</span>
         </div>
         
+        {/* Medications Header */}
+        <div 
+          className="absolute h-[30px] w-full flex items-center px-2 border-b" 
+          style={{ 
+            top: `${medicationStart}px`,
+            backgroundColor: medicationColor,
+            borderColor: isDark ? "#444444" : "#d1d5db"
+          }}
+        >
+          <span className="text-sm font-semibold text-black dark:text-white">Medications</span>
+        </div>
+        
         {/* Medications Container - dynamic height based on drug count */}
         <div 
           className="absolute w-full" 
           style={{ 
-            top: `${medicationStart}px`, 
+            top: `${medicationStart + 30}px`, 
             height: `${numMedicationRows * medicationRowHeight}px`,
             backgroundColor: medicationColor 
           }}
