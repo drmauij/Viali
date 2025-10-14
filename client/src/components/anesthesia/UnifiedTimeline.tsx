@@ -444,10 +444,10 @@ export function UnifiedTimeline({
         {
           type: "inside",
           xAxisIndex: "all", // Apply to all x-axes
-          startValue: defaultStart, // Center around current time
-          endValue: defaultEnd, // 10-minute window around current time
-          minValueSpan: 1 * 60 * 1000, // Minimum 1 minute visible (allow more zoom in)
-          maxValueSpan: 12 * 60 * 60 * 1000, // Maximum 12 hours visible
+          startValue: data.startTime, // Use provided start time
+          endValue: data.endTime, // Use provided end time
+          minValueSpan: 5 * 60 * 1000, // Minimum 5 minutes visible (set by user)
+          maxValueSpan: 6 * 60 * 60 * 1000, // Maximum 6 hours visible (set by user)
           throttle: 50,
         },
         {
@@ -455,10 +455,10 @@ export function UnifiedTimeline({
           xAxisIndex: 0, // Only show slider for main chart
           height: 20,
           bottom: 10,
-          startValue: defaultStart, // Center around current time
-          endValue: defaultEnd, // 10-minute window around current time
-          minValueSpan: 1 * 60 * 1000, // Minimum 1 minute
-          maxValueSpan: 12 * 60 * 60 * 1000, // Maximum 12 hours
+          startValue: data.startTime, // Use provided start time
+          endValue: data.endTime, // Use provided end time
+          minValueSpan: 5 * 60 * 1000, // Minimum 5 minutes
+          maxValueSpan: 6 * 60 * 60 * 1000, // Maximum 6 hours
           handleIcon: "M10.7,11.9v-1.3H9.3v13c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4v1.3h1.3v-1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z",
         }
       ],
@@ -496,7 +496,7 @@ export function UnifiedTimeline({
   const medicationEnd = medicationStart + medicationHeaderHeight + (numMedicationRows * medicationRowHeight);
   const medicationColor = isDark ? "hsl(150, 45%, 18%)" : "rgba(220, 252, 231, 0.8)";
 
-  // Zoom and pan controls with 1-minute minimum intervals
+  // Zoom and pan controls with 5-minute minimum intervals
   const handleZoomIn = () => {
     const chart = chartRef.current?.getEchartsInstance();
     if (chart) {
@@ -506,7 +506,7 @@ export function UnifiedTimeline({
         const currentMin = dataZoom.startValue;
         const currentMax = dataZoom.endValue;
         const currentSpan = currentMax - currentMin;
-        const newSpan = Math.max(currentSpan * 0.5, 1 * 60 * 1000); // Min 1 minute
+        const newSpan = Math.max(currentSpan * 0.5, 5 * 60 * 1000); // Min 5 minutes
         const center = (currentMin + currentMax) / 2;
 
         chart.dispatchAction({
@@ -527,7 +527,7 @@ export function UnifiedTimeline({
         const currentMin = dataZoom.startValue;
         const currentMax = dataZoom.endValue;
         const currentSpan = currentMax - currentMin;
-        const newSpan = Math.min(currentSpan * 2, 12 * 60 * 60 * 1000); // Max 12 hours
+        const newSpan = Math.min(currentSpan * 2, 6 * 60 * 60 * 1000); // Max 6 hours
         const center = (currentMin + currentMax) / 2;
 
         chart.dispatchAction({
@@ -548,7 +548,7 @@ export function UnifiedTimeline({
         const currentMin = dataZoom.startValue;
         const currentMax = dataZoom.endValue;
         const span = currentMax - currentMin;
-        const panStep = Math.max(span * 0.1, 1 * 60 * 1000); // Pan by 10% or 1 min minimum
+        const panStep = Math.max(span * 0.1, 5 * 60 * 1000); // Pan by 10% or 5 min minimum
 
         chart.dispatchAction({
           type: 'dataZoom',
@@ -568,7 +568,7 @@ export function UnifiedTimeline({
         const currentMin = dataZoom.startValue;
         const currentMax = dataZoom.endValue;
         const span = currentMax - currentMin;
-        const panStep = Math.max(span * 0.1, 1 * 60 * 1000); // Pan by 10% or 1 min minimum
+        const panStep = Math.max(span * 0.1, 5 * 60 * 1000); // Pan by 10% or 5 min minimum
 
         chart.dispatchAction({
           type: 'dataZoom',
