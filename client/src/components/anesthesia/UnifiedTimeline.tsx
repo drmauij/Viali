@@ -332,8 +332,12 @@ export function UnifiedTimeline({
             // All swimlanes now use single row
             return [e.time, ""];
           }),
-          symbol: "none",
-          symbolSize: 0,
+          symbol: "circle",
+          symbolSize: 1,
+          itemStyle: {
+            color: "transparent",
+            borderWidth: 0,
+          },
           label: {
             show: true,
             position: "right",
