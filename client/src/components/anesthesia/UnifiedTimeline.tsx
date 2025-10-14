@@ -1,8 +1,7 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Activity, Heart, Wind, Combine, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Activity, Heart, Wind, Combine } from "lucide-react";
 
 /**
  * UnifiedTimeline
@@ -47,14 +46,6 @@ export function UnifiedTimeline({
   data: UnifiedTimelineData;
   height?: number;
 }) {
-  // State declarations first
-  const chartRef = useRef<any>(null);
-  const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
-  const [medicationsCollapsed, setMedicationsCollapsed] = useState(false);
-  const [ventilationCollapsed, setVentilationCollapsed] = useState(false);
-
   // Calculate dynamic height based on medication and ventilation counts
   const medicationEvents = data.events.filter(e => e.swimlane === "medikamente");
   const uniqueMedRows = new Set(medicationEvents.map(e => e.row ?? 0));
@@ -64,12 +55,10 @@ export function UnifiedTimeline({
   const uniqueVentRows = new Set(ventilationEvents.map(e => e.row ?? 0));
   const numVentilationRows = Math.max(uniqueVentRows.size, 1);
   
-  // Calculate dynamic height based on collapse state
-  const visibleMedRowsForHeight = medicationsCollapsed ? 0 : numMedicationRows;
-  const visibleVentRowsForHeight = ventilationCollapsed ? 0 : numVentilationRows;
-  const sliderHeight = 45; // Height for dataZoom slider at bottom (25px slider + 20px padding)
-  const defaultHeight = 510 + 30 + (visibleMedRowsForHeight * 30) + 40 + 30 + (visibleVentRowsForHeight * 30) + 40 + sliderHeight; // base + medications header + visible medications + infusions + ventilation header + visible ventilation rows + staff + slider
+  const defaultHeight = 510 + 30 + (numMedicationRows * 30) + 40 + 30 + (numVentilationRows * 30) + 40; // base + medications header + medications + infusions + ventilation header + ventilation rows + staff
   const componentHeight = height ?? defaultHeight;
+  const chartRef = useRef<any>(null);
+  const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
 
   // Listen for theme changes
   useEffect(() => {
@@ -83,24 +72,10 @@ export function UnifiedTimeline({
     return () => observer.disconnect();
   }, []);
 
-  // Listen for screen size changes
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 640);
-    };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
   const option = useMemo(() => {
     // Grid layout configuration - continuous rows with no gaps
-    // Left margin: 220px when sidebar visible (70px for y-axes + 150px sidebar), 70px when collapsed (for y-axis labels only)
+    // Left margin: 150px for both scales side by side + header labels
     // Right margin: 10px for minimal padding
-    const leftMargin = sidebarCollapsed ? 70 : 220;
-    
-    // Responsive font sizes: smaller on mobile devices
-    const baseFontSize = isMobile ? 9 : 11;
-    const smallFontSize = isMobile ? 8 : 10;
     
     // Dynamically determine medication drugs from events
     const medicationEvents = data.events.filter(e => e.swimlane === "medikamente");
@@ -116,57 +91,54 @@ export function UnifiedTimeline({
     const ventilationRowHeight = 30;
     const ventilationColor = isDark ? "hsl(35, 70%, 22%)" : "rgba(254, 243, 199, 0.8)";
     
-    // Calculate dynamic positions based on collapse state
+    // Calculate dynamic positions
     const medicationStart = 510;
     const medicationHeaderHeight = 30;
-    const visibleMedicationRows = medicationsCollapsed ? 0 : numMedicationRows;
-    const medicationEnd = medicationStart + medicationHeaderHeight + (visibleMedicationRows * medicationRowHeight);
+    const medicationEnd = medicationStart + medicationHeaderHeight + (numMedicationRows * medicationRowHeight);
     
     const infusionsTop = medicationEnd;
     const ventilationStart = infusionsTop + 40;
     const ventilationHeaderHeight = 30;
-    const visibleVentilationRows = ventilationCollapsed ? 0 : numVentilationRows;
-    const ventilationEnd = ventilationStart + ventilationHeaderHeight + (visibleVentilationRows * ventilationRowHeight);
+    const ventilationEnd = ventilationStart + ventilationHeaderHeight + (numVentilationRows * ventilationRowHeight);
     
     const grids = [
       // Grid 0: Vitals chart (taller for better visibility)
-      { left: leftMargin, right: 10, top: 40, height: 340, backgroundColor: "transparent" },
+      { left: 150, right: 10, top: 40, height: 340, backgroundColor: "transparent" },
       // Grid 1: Times (purple background) - taller to avoid text overlap
-      { left: leftMargin, right: 10, top: 380, height: 50, backgroundColor: isDark ? "hsl(270, 55%, 20%)" : "rgba(243, 232, 255, 0.8)" },
+      { left: 150, right: 10, top: 380, height: 50, backgroundColor: isDark ? "hsl(270, 55%, 20%)" : "rgba(243, 232, 255, 0.8)" },
       // Grid 2: Events (blue background)
-      { left: leftMargin, right: 10, top: 430, height: 40, backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)" },
+      { left: 150, right: 10, top: 430, height: 40, backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)" },
       // Grid 3: Heart Rhythm (pink background)
-      { left: leftMargin, right: 10, top: 470, height: 40, backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)" },
+      { left: 150, right: 10, top: 470, height: 40, backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)" },
       // Grid 4: Medications Header (green background) - no content, just header
-      { left: leftMargin, right: 10, top: medicationStart, height: medicationHeaderHeight, backgroundColor: medicationColor },
-      // Grid 5+: Individual medication drugs (green background) - dynamic count, hidden when collapsed
-      ...(!medicationsCollapsed ? Array.from({ length: numMedicationRows }, (_, i) => ({
-        left: leftMargin,
+      { left: 150, right: 10, top: medicationStart, height: medicationHeaderHeight, backgroundColor: medicationColor },
+      // Grid 5+: Individual medication drugs (green background) - dynamic count
+      ...Array.from({ length: numMedicationRows }, (_, i) => ({
+        left: 150,
         right: 10,
         top: medicationStart + medicationHeaderHeight + (i * medicationRowHeight),
         height: medicationRowHeight,
         backgroundColor: medicationColor,
-      })) : []),
+      })),
       // Infusions/Perfusors (cyan background)
-      { left: leftMargin, right: 10, top: infusionsTop, height: 40, backgroundColor: isDark ? "hsl(190, 60%, 18%)" : "rgba(207, 250, 254, 0.8)" },
+      { left: 150, right: 10, top: infusionsTop, height: 40, backgroundColor: isDark ? "hsl(190, 60%, 18%)" : "rgba(207, 250, 254, 0.8)" },
       // Grid N: Ventilation Header (amber background) - no content, just header
-      { left: leftMargin, right: 10, top: ventilationStart, height: ventilationHeaderHeight, backgroundColor: ventilationColor },
-      // Grid N+1+: Individual ventilation parameters (amber background) - dynamic count, hidden when collapsed
-      ...(!ventilationCollapsed ? Array.from({ length: numVentilationRows }, (_, i) => ({
-        left: leftMargin,
+      { left: 150, right: 10, top: ventilationStart, height: ventilationHeaderHeight, backgroundColor: ventilationColor },
+      // Grid N+1+: Individual ventilation parameters (amber background) - dynamic count
+      ...Array.from({ length: numVentilationRows }, (_, i) => ({
+        left: 150,
         right: 10,
         top: ventilationStart + ventilationHeaderHeight + (i * ventilationRowHeight),
         height: ventilationRowHeight,
         backgroundColor: ventilationColor,
-      })) : []),
+      })),
       // Staff (slate background)
-      { left: leftMargin, right: 10, top: ventilationEnd, height: 40, backgroundColor: isDark ? "hsl(220, 25%, 25%)" : "rgba(241, 245, 249, 0.8)" },
+      { left: 150, right: 10, top: ventilationEnd, height: 40, backgroundColor: isDark ? "hsl(220, 25%, 25%)" : "rgba(241, 245, 249, 0.8)" },
     ];
 
     // Identify parent header grids (Medications and Ventilation headers)
     const medicationsHeaderGridIndex = 4;
-    const visibleMedRows = medicationsCollapsed ? 0 : numMedicationRows;
-    const ventilationHeaderGridIndex = 5 + visibleMedRows + 1; // After medications rows + infusions
+    const ventilationHeaderGridIndex = 5 + numMedicationRows + 1; // After medications rows + infusions
     
     // Time x-axes (one per grid)
     const xAxes = grids.map((_, index) => ({
@@ -177,7 +149,7 @@ export function UnifiedTimeline({
       axisLabel: {
         show: index === 0, // Only show labels on top grid
         formatter: "{HH}:{mm}",
-        fontSize: smallFontSize,
+        fontSize: 10,
         fontFamily: "Poppins, sans-serif",
       },
       axisLine: { show: true },
@@ -205,10 +177,10 @@ export function UnifiedTimeline({
             max: 240,
             interval: 40,
             position: "left" as const,
-            offset: 40,
+            offset: 30,
             axisLabel: { 
               show: true,
-              fontSize: baseFontSize,
+              fontSize: 11,
               fontFamily: "Poppins, sans-serif",
               color: isDark ? "#ffffff" : "#000000",
             },
@@ -238,7 +210,7 @@ export function UnifiedTimeline({
             offset: 0,
             axisLabel: { 
               show: true,
-              fontSize: baseFontSize,
+              fontSize: 11,
               fontFamily: "Poppins, sans-serif",
               color: "#8b5cf6",
             },
@@ -343,13 +315,11 @@ export function UnifiedTimeline({
     }
 
     // Swimlane events - render as scatter or custom elements
-    // Dynamic swimlane mapping based on number of visible medication and ventilation rows
-    // Grid 4 is Medications header, Grids 5 to (5+visibleMedRows-1) are drug rows (if not collapsed)
-    const visibleMedRowsForMapping = medicationsCollapsed ? 0 : numMedicationRows;
-    const visibleVentRowsForMapping = ventilationCollapsed ? 0 : numVentilationRows;
-    const infusionenGridIndex = 5 + visibleMedRowsForMapping;
+    // Dynamic swimlane mapping based on number of medication and ventilation rows
+    // Grid 4 is Medications header, Grids 5 to (5+numMedicationRows-1) are drug rows
+    const infusionenGridIndex = 5 + numMedicationRows;
     const ventilationHeaderGridIndex_map = infusionenGridIndex + 1;
-    const staffGridIndex = ventilationHeaderGridIndex_map + 1 + visibleVentRowsForMapping;
+    const staffGridIndex = ventilationHeaderGridIndex_map + 1 + numVentilationRows;
     
     const swimlaneMap: Record<string, number> = {
       zeiten: 1,
@@ -366,16 +336,6 @@ export function UnifiedTimeline({
     const eventsBySwimlane = data.events.reduce((acc, event) => {
       // Skip parent header events (no row defined) for medications and ventilation
       if ((event.swimlane === "medikamente" || event.swimlane === "ventilation") && event.row === undefined) {
-        return acc;
-      }
-      
-      // Skip medication events if medications are collapsed
-      if (event.swimlane === "medikamente" && medicationsCollapsed) {
-        return acc;
-      }
-      
-      // Skip ventilation events if ventilation is collapsed
-      if (event.swimlane === "ventilation" && ventilationCollapsed) {
         return acc;
       }
       
@@ -431,7 +391,7 @@ export function UnifiedTimeline({
               const event = pointEvents[params.dataIndex];
               return `${event?.icon || ""} ${event?.label || ""}`.trim();
             },
-            fontSize: baseFontSize,
+            fontSize: 11,
             fontFamily: "Poppins, sans-serif",
             color: isDark ? "#ffffff" : "#000000",
           },
@@ -481,7 +441,7 @@ export function UnifiedTimeline({
                       text: `${event.icon || ""} ${event.label}`,
                       x: start[0] + 4,
                       y: y + height / 2,
-                      fontSize: baseFontSize,
+                      fontSize: 11,
                       fontFamily: "Poppins, sans-serif",
                       fill: isDark ? "#ffffff" : "#000000",
                       fontWeight: "600",
@@ -505,54 +465,7 @@ export function UnifiedTimeline({
       xAxis: xAxes,
       yAxis: yAxes,
       series,
-      dataZoom: [
-        // Inside zoom - enables pinch-to-zoom and drag-to-pan on touch devices
-        {
-          type: "inside",
-          xAxisIndex: Array.from({ length: grids.length }, (_, i) => i), // Apply to all x-axes
-          zoomOnMouseWheel: true,
-          moveOnMouseMove: false,
-          moveOnMouseWheel: true,
-          preventDefaultMouseMove: true,
-          // Touch gesture support
-          zoomLock: false, // Allow zoom
-          throttle: 50,
-          minValueSpan: 5 * 60 * 1000, // Minimum 5 minutes visible
-          maxValueSpan: 12 * 60 * 60 * 1000, // Maximum 12 hours visible
-        },
-        // Slider zoom - shows a slider at the bottom for precise control (desktop-friendly)
-        {
-          type: "slider",
-          xAxisIndex: Array.from({ length: grids.length }, (_, i) => i),
-          show: true,
-          height: 25,
-          bottom: 10,
-          left: leftMargin,
-          right: 10,
-          start: 0,
-          end: 100,
-          handleSize: "80%",
-          textStyle: {
-            fontFamily: "Poppins, sans-serif",
-            fontSize: smallFontSize,
-          },
-          borderColor: isDark ? "#444444" : "#d1d5db",
-          fillerColor: isDark ? "rgba(99, 102, 241, 0.2)" : "rgba(99, 102, 241, 0.15)",
-          handleStyle: {
-            color: isDark ? "#6366f1" : "#818cf8",
-            borderColor: isDark ? "#818cf8" : "#6366f1",
-          },
-          dataBackground: {
-            lineStyle: {
-              color: isDark ? "#444444" : "#d1d5db",
-            },
-            areaStyle: {
-              color: isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)",
-            },
-          },
-          backgroundColor: isDark ? "rgba(0, 0, 0, 0.1)" : "rgba(255, 255, 255, 0.1)",
-        },
-      ],
+      dataZoom: [],
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "line" },
@@ -561,7 +474,7 @@ export function UnifiedTimeline({
         },
       },
     } as echarts.EChartsOption;
-  }, [data, isDark, sidebarCollapsed, isMobile, medicationsCollapsed, ventilationCollapsed]);
+  }, [data, isDark]);
 
   // Extract medication drug names dynamically for sidebar
   const medicationDrugs = useMemo(() => {
@@ -604,20 +517,18 @@ export function UnifiedTimeline({
     return Array.from(paramsByRow.entries()).sort((a, b) => a[0] - b[0]).map(([_, name]) => name);
   }, [data.events]);
 
-  // Calculate dynamic positions for sidebar - use visible row counts based on collapse state
+  // Calculate dynamic positions for sidebar (reuse numMedicationRows from top)
   const medicationStart = 510;
   const medicationHeaderHeight = 30;
   const medicationRowHeight = 30;
-  const visibleMedRowsForSidebar = medicationsCollapsed ? 0 : numMedicationRows;
-  const medicationEnd = medicationStart + medicationHeaderHeight + (visibleMedRowsForSidebar * medicationRowHeight);
+  const medicationEnd = medicationStart + medicationHeaderHeight + (numMedicationRows * medicationRowHeight);
   const medicationColor = isDark ? "hsl(150, 45%, 18%)" : "rgba(220, 252, 231, 0.8)";
   
   const infusionsTop = medicationEnd;
   const ventilationStart = infusionsTop + 40;
   const ventilationHeaderHeight = 30;
   const ventilationRowHeight = 30;
-  const visibleVentRowsForSidebar = ventilationCollapsed ? 0 : numVentilationRows;
-  const ventilationEnd = ventilationStart + ventilationHeaderHeight + (visibleVentRowsForSidebar * ventilationRowHeight);
+  const ventilationEnd = ventilationStart + ventilationHeaderHeight + (numVentilationRows * ventilationRowHeight);
   const ventilationColor = isDark ? "hsl(35, 70%, 22%)" : "rgba(254, 243, 199, 0.8)";
 
   // Zoom and pan controls
@@ -679,17 +590,6 @@ export function UnifiedTimeline({
 
   return (
     <div className="w-full relative" style={{ height: componentHeight }}>
-      {/* Sidebar Toggle Button - Positioned at sidebar edge */}
-      <button
-        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-        className="absolute top-2 z-40 p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
-        style={{ left: sidebarCollapsed ? '72px' : '212px' }}
-        data-testid="button-toggle-sidebar"
-        title={sidebarCollapsed ? "Show Labels" : "Hide Labels"}
-      >
-        {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-      </button>
-
       {/* Zoom and Pan Controls - Centered */}
       <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-30 flex gap-2">
         <button
@@ -736,17 +636,15 @@ export function UnifiedTimeline({
         <div className="absolute top-[470px] h-[40px] w-full" style={{ backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)" }} />
         {/* Medications Header background */}
         <div className="absolute h-[30px] w-full" style={{ top: `${medicationStart}px`, backgroundColor: medicationColor }} />
-        {/* Medications drugs background - dynamic height based on visible drug count */}
-        {!medicationsCollapsed && (
+        {/* Medications drugs background - dynamic height based on drug count */}
         <div 
           className="absolute w-full" 
           style={{ 
             top: `${medicationStart + 30}px`, 
-            height: `${visibleMedRowsForSidebar * medicationRowHeight}px`,
+            height: `${numMedicationRows * medicationRowHeight}px`,
             backgroundColor: medicationColor
           }} 
         />
-        )}
         {/* Infusions background - dynamic position */}
         <div 
           className="absolute h-[40px] w-full" 
@@ -757,17 +655,15 @@ export function UnifiedTimeline({
         />
         {/* Ventilation Header background */}
         <div className="absolute h-[30px] w-full" style={{ top: `${ventilationStart}px`, backgroundColor: ventilationColor }} />
-        {/* Ventilation parameters background - dynamic height based on visible param count */}
-        {!ventilationCollapsed && (
+        {/* Ventilation parameters background - dynamic height based on param count */}
         <div 
           className="absolute w-full" 
           style={{ 
             top: `${ventilationStart + 30}px`, 
-            height: `${visibleVentRowsForSidebar * ventilationRowHeight}px`,
+            height: `${numVentilationRows * ventilationRowHeight}px`,
             backgroundColor: ventilationColor
           }} 
         />
-        )}
         {/* Staff background - dynamic position */}
         <div 
           className="absolute h-[40px] w-full" 
@@ -778,9 +674,8 @@ export function UnifiedTimeline({
         />
       </div>
 
-      {/* Left sidebar with swimlane labels - positioned after y-axes */}
-      {!sidebarCollapsed && (
-        <div className="absolute left-[70px] top-0 w-[150px] h-full border-r border-border z-30 bg-background">
+      {/* Left sidebar with swimlane labels - extends to chart start */}
+      <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-30 bg-background">
         {/* Vitals icon buttons - matches grid 0: top 40, height 340 */}
         <div className="absolute top-[40px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
           <button
@@ -854,7 +749,7 @@ export function UnifiedTimeline({
         
         {/* Medications Header */}
         <div 
-          className="absolute h-[30px] w-full flex items-center justify-between px-2 border-b"
+          className="absolute h-[30px] w-full flex items-center px-2 border-b"
           style={{ 
             top: `${medicationStart}px`,
             backgroundColor: medicationColor,
@@ -864,22 +759,9 @@ export function UnifiedTimeline({
           }}
         >
           <span className="text-sm font-semibold text-black dark:text-white">Medications</span>
-          <button
-            onClick={() => setMedicationsCollapsed(!medicationsCollapsed)}
-            className="p-0.5 hover:bg-black/10 dark:hover:bg-white/10 rounded transition-colors"
-            data-testid="button-toggle-medications"
-            title={medicationsCollapsed ? "Expand Medications" : "Collapse Medications"}
-          >
-            {medicationsCollapsed ? (
-              <ChevronDown className="w-4 h-4 text-black dark:text-white" />
-            ) : (
-              <ChevronUp className="w-4 h-4 text-black dark:text-white" />
-            )}
-          </button>
         </div>
         
-        {/* Medications Container - dynamic height based on drug count, hidden when collapsed */}
-        {!medicationsCollapsed && (
+        {/* Medications Container - dynamic height based on drug count */}
         <div 
           className="absolute w-full" 
           style={{ 
@@ -908,7 +790,6 @@ export function UnifiedTimeline({
             ))}
           </div>
         </div>
-        )}
         
         {/* Infusions - dynamic position */}
         <div 
@@ -926,7 +807,7 @@ export function UnifiedTimeline({
         
         {/* Ventilation Header */}
         <div 
-          className="absolute h-[30px] w-full flex items-center justify-between px-2 border-b"
+          className="absolute h-[30px] w-full flex items-center px-2 border-b"
           style={{ 
             top: `${ventilationStart}px`,
             backgroundColor: ventilationColor,
@@ -936,22 +817,9 @@ export function UnifiedTimeline({
           }}
         >
           <span className="text-sm font-semibold text-black dark:text-white">Ventilation</span>
-          <button
-            onClick={() => setVentilationCollapsed(!ventilationCollapsed)}
-            className="p-0.5 hover:bg-black/10 dark:hover:bg-white/10 rounded transition-colors"
-            data-testid="button-toggle-ventilation"
-            title={ventilationCollapsed ? "Expand Ventilation" : "Collapse Ventilation"}
-          >
-            {ventilationCollapsed ? (
-              <ChevronDown className="w-4 h-4 text-black dark:text-white" />
-            ) : (
-              <ChevronUp className="w-4 h-4 text-black dark:text-white" />
-            )}
-          </button>
         </div>
         
-        {/* Ventilation Container - dynamic height based on parameter count, hidden when collapsed */}
-        {!ventilationCollapsed && (
+        {/* Ventilation Container - dynamic height based on parameter count */}
         <div 
           className="absolute w-full" 
           style={{ 
@@ -980,7 +848,6 @@ export function UnifiedTimeline({
             ))}
           </div>
         </div>
-        )}
         
         {/* Staff - dynamic position */}
         <div 
@@ -995,8 +862,7 @@ export function UnifiedTimeline({
         >
           <span className="text-sm font-semibold text-black dark:text-white">Staff</span>
         </div>
-        </div>
-      )}
+      </div>
 
       {/* ECharts timeline - high z-index to stay on top */}
       <div className="absolute inset-0 z-20">
