@@ -675,8 +675,11 @@ export function UnifiedTimeline({
             {medicationDrugs.map((drugName, index) => (
               <div 
                 key={index}
-                className="flex items-center px-2 pl-4"
-                style={{ height: `${medicationRowHeight}px` }}
+                className="flex items-center px-2 pl-4 border-b"
+                style={{ 
+                  height: `${medicationRowHeight}px`,
+                  borderColor: isDark ? "#444444" : "#d1d5db"
+                }}
               >
                 <span className="text-xs text-black dark:text-white">{drugName}</span>
               </div>
