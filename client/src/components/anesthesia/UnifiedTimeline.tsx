@@ -468,7 +468,51 @@ export function UnifiedTimeline({
       xAxis: xAxes,
       yAxis: yAxes,
       series,
-      dataZoom: [],
+      dataZoom: [
+        // Inside zoom - enables pinch-to-zoom and drag-to-pan on touch devices
+        {
+          type: "inside",
+          xAxisIndex: Array.from({ length: grids.length }, (_, i) => i), // Apply to all x-axes
+          zoomOnMouseWheel: true,
+          moveOnMouseMove: false,
+          moveOnMouseWheel: true,
+          preventDefaultMouseMove: true,
+          // Touch gesture support
+          zoomLock: false, // Allow zoom
+          throttle: 50,
+          minValueSpan: 5 * 60 * 1000, // Minimum 5 minutes visible
+          maxValueSpan: 12 * 60 * 60 * 1000, // Maximum 12 hours visible
+        },
+        // Slider zoom - shows a slider at the bottom for precise control (desktop-friendly)
+        {
+          type: "slider",
+          xAxisIndex: Array.from({ length: grids.length }, (_, i) => i),
+          show: true,
+          height: 20,
+          bottom: 5,
+          start: 0,
+          end: 100,
+          handleSize: "80%",
+          textStyle: {
+            fontFamily: "Poppins, sans-serif",
+            fontSize: 10,
+          },
+          borderColor: isDark ? "#444444" : "#d1d5db",
+          fillerColor: isDark ? "rgba(99, 102, 241, 0.2)" : "rgba(99, 102, 241, 0.15)",
+          handleStyle: {
+            color: isDark ? "#6366f1" : "#818cf8",
+            borderColor: isDark ? "#818cf8" : "#6366f1",
+          },
+          dataBackground: {
+            lineStyle: {
+              color: isDark ? "#444444" : "#d1d5db",
+            },
+            areaStyle: {
+              color: isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)",
+            },
+          },
+        },
+      ],
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "line" },
