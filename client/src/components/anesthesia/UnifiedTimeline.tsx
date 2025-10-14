@@ -592,7 +592,7 @@ export function UnifiedTimeline({
       {/* Left sidebar with swimlane labels - extends to chart start */}
       <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-10 bg-background">
         {/* Vitals icon buttons - matches grid 0: top 40, height 340 */}
-        <div className="absolute top-[40px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4 border-b border-border">
+        <div className="absolute top-[40px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
           <button
             className="p-2 rounded-md border border-border bg-background hover:bg-accent/50 transition-colors flex items-center justify-center shadow-sm"
             data-testid="button-vitals-bp"
@@ -624,23 +624,23 @@ export function UnifiedTimeline({
         </div>
         
         {/* Times - matches grid 1: top 380, height 50 */}
-        <div className="absolute top-[380px] h-[50px] w-full flex items-center px-2 border-b border-border" style={{ backgroundColor: isDark ? "rgba(168, 85, 247, 0.25)" : "rgba(243, 232, 255, 0.8)" }}>
+        <div className="absolute top-[380px] h-[50px] w-full flex items-center px-2" style={{ backgroundColor: isDark ? "rgba(168, 85, 247, 0.25)" : "rgba(243, 232, 255, 0.8)" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Times</span>
         </div>
         
         {/* Events - matches grid 2: top 430, height 40 */}
-        <div className="absolute top-[430px] h-[40px] w-full flex items-center px-2 border-b border-border" style={{ backgroundColor: isDark ? "rgba(59, 130, 246, 0.25)" : "rgba(219, 234, 254, 0.8)" }}>
+        <div className="absolute top-[430px] h-[40px] w-full flex items-center px-2" style={{ backgroundColor: isDark ? "rgba(59, 130, 246, 0.25)" : "rgba(219, 234, 254, 0.8)" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Events</span>
         </div>
         
         {/* Heart Rhythm - matches grid 3: top 470, height 40 */}
-        <div className="absolute top-[470px] h-[40px] w-full flex items-center px-2 border-b border-border" style={{ backgroundColor: isDark ? "rgba(236, 72, 153, 0.25)" : "rgba(252, 231, 243, 0.8)" }}>
+        <div className="absolute top-[470px] h-[40px] w-full flex items-center px-2" style={{ backgroundColor: isDark ? "rgba(236, 72, 153, 0.25)" : "rgba(252, 231, 243, 0.8)" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Heart Rhythm</span>
         </div>
         
         {/* Medications Container - dynamic height based on drug count */}
         <div 
-          className="absolute w-full border-b border-border" 
+          className="absolute w-full" 
           style={{ 
             top: `${medicationStart}px`, 
             height: `${numMedicationRows * medicationRowHeight}px`,
@@ -668,7 +668,7 @@ export function UnifiedTimeline({
         
         {/* Infusions - dynamic position */}
         <div 
-          className="absolute h-[40px] w-full flex items-center px-2 border-b border-border" 
+          className="absolute h-[40px] w-full flex items-center px-2" 
           style={{ 
             top: `${medicationEnd}px`,
             backgroundColor: isDark ? "rgba(6, 182, 212, 0.25)" : "rgba(207, 250, 254, 0.8)" 
@@ -679,7 +679,7 @@ export function UnifiedTimeline({
         
         {/* Ventilation - dynamic position */}
         <div 
-          className="absolute h-[40px] w-full flex items-center px-2 border-b border-border" 
+          className="absolute h-[40px] w-full flex items-center px-2" 
           style={{ 
             top: `${medicationEnd + 40}px`,
             backgroundColor: isDark ? "rgba(245, 158, 11, 0.25)" : "rgba(254, 243, 199, 0.8)" 
