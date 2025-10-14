@@ -543,7 +543,7 @@ export function UnifiedTimeline({
       const currentMin = option.xAxis[0].min;
       const currentMax = option.xAxis[0].max;
       const span = currentMax - currentMin;
-      const panStep = Math.max(span * 0.1, 10 * 60 * 1000); // Pan by 10% or 10 min minimum
+      const panStep = Math.max(span * 0.1, 1 * 60 * 1000); // Pan by 10% or 1 min minimum
 
       chart.dispatchAction({
         type: 'dataZoom',
@@ -560,7 +560,7 @@ export function UnifiedTimeline({
       const currentMin = option.xAxis[0].min;
       const currentMax = option.xAxis[0].max;
       const span = currentMax - currentMin;
-      const panStep = Math.max(span * 0.1, 10 * 60 * 1000); // Pan by 10% or 10 min minimum
+      const panStep = Math.max(span * 0.1, 1 * 60 * 1000); // Pan by 10% or 1 min minimum
 
       chart.dispatchAction({
         type: 'dataZoom',

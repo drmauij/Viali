@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
-import { UnifiedTimeline, type UnifiedTimelineData, type TimelineVitals, type TimelineEvent } from "@/components/anesthesia/UnifiedTimeline";
+import { UnifiedTimeline, type UnifiedTimelineData, type TimelineVitals, type TimelineEvent, type VitalPoint } from "@/components/anesthesia/UnifiedTimeline";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,12 +10,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { 
-  X, 
-  Gauge, 
-  Heart, 
+import {
+  X,
+  Gauge,
+  Heart,
   Thermometer,
-  Wind, 
+  Wind,
   Syringe,
   Users,
   Clock,
@@ -74,7 +74,7 @@ const mockCases = [
     status: "in-progress",
   },
   {
-    id: "case-2", 
+    id: "case-2",
     patientId: "2",
     plannedSurgery: "Total Hip Replacement",
     surgeon: "Dr. Smith",
@@ -87,11 +87,11 @@ export default function Op() {
   const params = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(true);
-  
+
   // Get case data from params
   const caseId = params.id;
   const currentCase = mockCases.find(c => c.id === caseId);
-  
+
   // If no case found, redirect back
   useEffect(() => {
     if (!currentCase) {
@@ -99,117 +99,129 @@ export default function Op() {
       setTimeout(() => setLocation("/anesthesia/patients"), 100);
     }
   }, [currentCase, setLocation]);
-  
+
   // Get patient data for this case
   const currentPatient = currentCase ? mockPatients.find(p => p.id === currentCase.patientId) : null;
-  
+
   if (!currentCase || !currentPatient) {
     return null;
   }
-  
+
   // Generate mock timeline data - memoized
   const timelineData = useMemo((): UnifiedTimelineData => {
-    const t0 = +new Date();
-    const startTime = new Date(t0);
-    startTime.setHours(7, 0, 0, 0);
-    const t0Ms = +startTime;
-    const step = 5 * 60 * 1000; // 5-minute intervals
-    
+    const now = new Date().getTime(); // Current time
+    const anesthesiaDuration = 1.5 * 60 * 60 * 1000; // 1.5 hours in milliseconds
+    const anesthesiaStart = now - anesthesiaDuration; // Start time 1.5 hours ago
+    const step = 1 * 60 * 1000; // 1-minute intervals for data generation
+
     // Helper functions
     const seq = (n: number) => Array.from({ length: n }, (_, i) => i);
     const jitter = (base: number, amp = 5) => base + Math.round((Math.random() - .5) * 2 * amp);
-    
-    const times = seq(60).map(i => t0Ms + i * step); // 5 hours of data (7 AM to 12 PM)
-    
-    // Vitals data with realistic anesthesia patterns
+
+    const times = seq(90).map(i => anesthesiaStart + i * step); // 90 minutes of data (1.5 hours)
+
+    // Vitals data with realistic anesthesia patterns over 90 minutes
     const vitals: TimelineVitals = {
       sysBP: times.map((t, i) => {
-        // Pre-induction: normal, induction: drop, maintenance: stable, emergence: rise
+        // Pre-induction (0-10min): normal, induction (10-20min): drop, maintenance (20-80min): stable, emergence (80-90min): rise
         let base = 130;
-        if (i < 6) base = 135; // Pre-induction
-        else if (i < 12) base = 95; // Induction drop
-        else if (i < 45) base = 115; // Maintenance
-        else base = 125; // Emergence
-        return [t, jitter(base + Math.round(5 * Math.sin(i / 6)), 6)] as [number, number];
+        if (i < 10) base = 125; // Pre-induction
+        else if (i < 20) base = 90; // Induction drop
+        else if (i < 80) base = 105; // Maintenance
+        else base = 120; // Emergence
+        return [t, jitter(base, 8)] as VitalPoint;
       }),
+
       diaBP: times.map((t, i) => {
         let base = 80;
-        if (i < 6) base = 85;
-        else if (i < 12) base = 55;
-        else if (i < 45) base = 70;
-        else base = 80;
-        return [t, jitter(base + Math.round(4 * Math.cos(i / 7)), 4)] as [number, number];
-      }),
-      hr: times.map((t, i) => {
-        // Heart rate changes during anesthesia
-        let base = 72;
-        if (i < 6) base = 78; // Pre-induction anxiety
-        else if (i < 12) base = 85; // Induction tachycardia
-        else if (i < 20) base = 65; // Deep anesthesia
-        else if (i < 45) base = 70; // Maintenance
+        if (i < 10) base = 75; // Pre-induction
+        else if (i < 20) base = 55; // Induction drop
+        else if (i < 80) base = 65; // Maintenance
         else base = 75; // Emergence
-        return [t, jitter(base + Math.round(4 * Math.sin(i / 4)), 3)] as [number, number];
+        return [t, jitter(base, 6)] as VitalPoint;
       }),
+
+      hr: times.map((t, i) => {
+        let base = 72;
+        if (i < 10) base = 78; // Pre-induction slight elevation
+        else if (i < 20) base = 65; // Induction decrease
+        else if (i < 80) base = 68; // Maintenance stable
+        else base = 75; // Emergence
+        return [t, jitter(base, 5)] as VitalPoint;
+      }),
+
       spo2: times.map((t, i) => {
-        // Usually stable, occasional dips
         let base = 98;
-        if (i === 8 || i === 9) base = 95; // Brief desaturation during intubation
-        if (i === 25) base = 96; // Position change
-        return [t, jitter(base, 1)] as [number, number];
+        if (i > 35 && i < 40) base = 94; // Brief desaturation during surgery
+        if (i > 60 && i < 65) base = 96; // Another minor dip
+        return [t, jitter(base, 2)] as VitalPoint;
       }),
     };
-    
-    // Events for a complete 5-hour anesthesia record (7 AM - 12 PM)
+
+    // Timeline events with realistic anesthesia workflow over 90 minutes
     const events: TimelineEvent[] = [
-      // Zeiten (Times)
-      { time: t0Ms + 0 * step, swimlane: "zeiten", label: "Patient Arrival", icon: "🚪", color: "#8b5cf6" },
-      { time: t0Ms + 6 * step, swimlane: "zeiten", label: "Anästhesie Start", icon: "⏱", color: "#8b5cf6" },
-      { time: t0Ms + 18 * step, swimlane: "zeiten", label: "Schnitt", icon: "✂️", color: "#8b5cf6" },
-      { time: t0Ms + 45 * step, swimlane: "zeiten", label: "Naht", icon: "🧵", color: "#8b5cf6" },
-      { time: t0Ms + 52 * step, swimlane: "zeiten", label: "Extubation", icon: "🫁", color: "#8b5cf6" },
-      { time: t0Ms + 58 * step, swimlane: "zeiten", label: "Recovery", icon: "🛏️", color: "#8b5cf6" },
-      
-      // Ereignisse (Events)
-      { time: t0Ms + 2 * step, swimlane: "ereignisse", label: "IV Access", icon: "🩸", color: "#3b82f6" },
-      { time: t0Ms + 4 * step, swimlane: "ereignisse", label: "Monitoring", icon: "📊", color: "#3b82f6" },
-      { time: t0Ms + 8 * step, swimlane: "ereignisse", label: "Intubation", icon: "🫁", color: "#3b82f6" },
-      { time: t0Ms + 22 * step, swimlane: "ereignisse", label: "Position Change", icon: "🔄", color: "#3b82f6" },
-      { time: t0Ms + 30 * step, swimlane: "ereignisse", label: "Blood Loss 200ml", icon: "🩸", color: "#ef4444" },
-      { time: t0Ms + 38 * step, swimlane: "ereignisse", label: "Fluid Challenge", icon: "💧", color: "#3b82f6" },
-      
-      // Herzrhythmus (Heart Rhythm)
-      { time: t0Ms + 25 * step, swimlane: "herzrhythmus", label: "Sinus Rhythm", icon: "💓", color: "#ec4899" },
-      
-      // Medikamente (Medications - bolus)
-      { time: t0Ms + 6 * step, swimlane: "medikamente", label: "Propofol 200mg", icon: "💉", color: "#10b981", row: 0 },
-      { time: t0Ms + 6 * step, swimlane: "medikamente", label: "Fentanyl 200µg", icon: "💉", color: "#10b981", row: 1 },
-      { time: t0Ms + 7 * step, swimlane: "medikamente", label: "Rocuronium 50mg", icon: "💉", color: "#10b981", row: 2 },
-      { time: t0Ms + 15 * step, swimlane: "medikamente", label: "Propofol 100mg", icon: "💉", color: "#10b981", row: 0 },
-      { time: t0Ms + 28 * step, swimlane: "medikamente", label: "Ephedrin 10mg", icon: "💉", color: "#10b981", row: 3 },
-      { time: t0Ms + 32 * step, swimlane: "medikamente", label: "Fentanyl 100µg", icon: "💉", color: "#10b981", row: 1 },
-      { time: t0Ms + 42 * step, swimlane: "medikamente", label: "Sugammadex 200mg", icon: "💉", color: "#10b981", row: 2 },
-      { time: t0Ms + 50 * step, swimlane: "medikamente", label: "Ondansetron 4mg", icon: "💉", color: "#10b981", row: 4 },
-      
-      // Infusionen (Infusions - duration)
-      { time: t0Ms + 2 * step, swimlane: "infusionen", label: "Ringer 1000ml", duration: 50 * step, color: "#06b6d4" },
-      { time: t0Ms + 30 * step, swimlane: "infusionen", label: "Gelofusine 500ml", duration: 20 * step, color: "#06b6d4" },
-      { time: t0Ms + 8 * step, swimlane: "perfusors", label: "Propofol 1% 6ml/h", duration: 40 * step, color: "#06b6d4" },
-      { time: t0Ms + 8 * step, swimlane: "perfusors", label: "Remifentanil 0.25µg/kg/min", duration: 35 * step, color: "#06b6d4" },
-      
-      // Ventilation
-      { time: t0Ms + 8 * step, swimlane: "ventilation", label: "FiO₂ 50%", duration: 44 * step, color: "#f59e0b" },
-      { time: t0Ms + 12 * step, swimlane: "ventilation", label: "PEEP 5", duration: 36 * step, color: "#f59e0b" },
-      { time: t0Ms + 20 * step, swimlane: "ventilation", label: "Vt 450ml", duration: 28 * step, color: "#f59e0b" },
-      
-      // Staff
-      { time: t0Ms + 0 * step, swimlane: "staff", label: "Dr. Schmidt (Anesthesiologist)", duration: 60 * step, color: "#64748b" },
-      { time: t0Ms + 15 * step, swimlane: "staff", label: "Dr. Romano (Surgeon)", duration: 35 * step, color: "#64748b" },
-      { time: t0Ms + 0 * step, swimlane: "staff", label: "Nurse Maria", duration: 60 * step, color: "#64748b" },
+      // Times (Zeiten) - key procedural milestones
+      { time: anesthesiaStart + 0 * step, swimlane: "zeiten", label: "Patient arrival", icon: "🏥" },
+      { time: anesthesiaStart + 2 * step, swimlane: "zeiten", label: "Monitors connected", icon: "📊" },
+      { time: anesthesiaStart + 5 * step, swimlane: "zeiten", label: "Pre-oxygenation start", icon: "💨" },
+      { time: anesthesiaStart + 10 * step, swimlane: "zeiten", label: "Induction start", icon: "💉" },
+      { time: anesthesiaStart + 15 * step, swimlane: "zeiten", label: "Intubation", icon: "🔌" },
+      { time: anesthesiaStart + 20 * step, swimlane: "zeiten", label: "Surgery start", icon: "🔪" },
+      { time: anesthesiaStart + 75 * step, swimlane: "zeiten", label: "Surgery end", icon: "✅" },
+      { time: anesthesiaStart + 80 * step, swimlane: "zeiten", label: "Emergence", icon: "👁️" },
+      { time: anesthesiaStart + 87 * step, swimlane: "zeiten", label: "Extubation", icon: "🌬️" },
+
+      // Events (Ereignisse) - clinical events
+      { time: anesthesiaStart + 3 * step, swimlane: "ereignisse", label: "IV access 18G left", icon: "🩸" },
+      { time: anesthesiaStart + 7 * step, swimlane: "ereignisse", label: "A-line insertion", icon: "📈" },
+      { time: anesthesiaStart + 22 * step, swimlane: "ereignisse", label: "Patient positioned", icon: "↔️" },
+      { time: anesthesiaStart + 35 * step, swimlane: "ereignisse", label: "Temp 36.2°C", icon: "🌡️" },
+      { time: anesthesiaStart + 50 * step, swimlane: "ereignisse", label: "EBL 150ml", icon: "🩸" },
+      { time: anesthesiaStart + 65 * step, swimlane: "ereignisse", label: "Urine 200ml", icon: "💧" },
+
+      // Heart Rhythm (Herzrhythmus)
+      { time: anesthesiaStart + 8 * step, swimlane: "herzrhythmus", label: "NSR 65-75", duration: 75 * step, color: "#10b981" },
+      { time: anesthesiaStart + 40 * step, swimlane: "herzrhythmus", label: "Brief bradycardia", duration: 5 * step, color: "#f59e0b" },
+
+      // Medications - realistic anesthesia drug protocol with different rows
+      { time: anesthesiaStart + 10 * step, swimlane: "medikamente", label: "Propofol 200mg", icon: "💉", row: 0 },
+      { time: anesthesiaStart + 11 * step, swimlane: "medikamente", label: "Rocuronium 50mg", icon: "💪", row: 1 },
+      { time: anesthesiaStart + 12 * step, swimlane: "medikamente", label: "Fentanyl 100µg", icon: "😴", row: 2 },
+      { time: anesthesiaStart + 25 * step, swimlane: "medikamente", label: "Propofol 50mg", icon: "💉", row: 0 },
+      { time: anesthesiaStart + 30 * step, swimlane: "medikamente", label: "Fentanyl 50µg", icon: "😴", row: 2 },
+      { time: anesthesiaStart + 45 * step, swimlane: "medikamente", label: "Rocuronium 20mg", icon: "💪", row: 1 },
+      { time: anesthesiaStart + 60 * step, swimlane: "medikamente", label: "Fentanyl 25µg", icon: "😴", row: 2 },
+      { time: anesthesiaStart + 78 * step, swimlane: "medikamente", label: "Neostigmine 2.5mg", icon: "🔄", row: 3 },
+      { time: anesthesiaStart + 79 * step, swimlane: "medikamente", label: "Glycopyrrolate 0.4mg", icon: "🫀", row: 4 },
+      { time: anesthesiaStart + 85 * step, swimlane: "medikamente", label: "Ondansetron 4mg", icon: "🤢", row: 5 },
+
+      // Infusions - continuous fluid management
+      { time: anesthesiaStart + 5 * step, swimlane: "infusionen", label: "Ringer's Lactate 1000ml", duration: 85 * step, color: "#06b6d4" },
+      { time: anesthesiaStart + 30 * step, swimlane: "infusionen", label: "Albumin 5% 250ml", duration: 20 * step, color: "#10b981" },
+
+      // Perfusors - continuous drug infusions
+      { time: anesthesiaStart + 15 * step, swimlane: "perfusors", label: "Propofol 8mg/kg/h", duration: 60 * step, color: "#8b5cf6" },
+      { time: anesthesiaStart + 18 * step, swimlane: "perfusors", label: "Remifentanil 0.3µg/kg/min", duration: 55 * step, color: "#06b6d4" },
+      { time: anesthesiaStart + 40 * step, swimlane: "perfusors", label: "Norepinephrine 0.05µg/kg/min", duration: 20 * step, color: "#ef4444" },
+
+      // Ventilation - mechanical ventilation parameters
+      { time: anesthesiaStart + 15 * step, swimlane: "ventilation", label: "FiO₂ 50%", duration: 70 * step, color: "#f59e0b" },
+      { time: anesthesiaStart + 15 * step, swimlane: "ventilation", label: "PEEP 5 cmH₂O", duration: 70 * step, color: "#f59e0b" },
+      { time: anesthesiaStart + 15 * step, swimlane: "ventilation", label: "Vt 450ml (7ml/kg)", duration: 70 * step, color: "#f59e0b" },
+      { time: anesthesiaStart + 15 * step, swimlane: "ventilation", label: "RR 12/min", duration: 70 * step, color: "#f59e0b" },
+      { time: anesthesiaStart + 35 * step, swimlane: "ventilation", label: "FiO₂ → 40%", duration: 50 * step, color: "#f59e0b" },
+      { time: anesthesiaStart + 80 * step, swimlane: "ventilation", label: "Spontaneous breathing", duration: 10 * step, color: "#84cc16" },
+
+      // Staff - anesthesia team
+      { time: anesthesiaStart + 0 * step, swimlane: "staff", label: "Dr. Schmidt (Anesthesiologist)", duration: 90 * step, color: "#64748b" },
+      { time: anesthesiaStart + 5 * step, swimlane: "staff", label: "CRNA Johnson", duration: 85 * step, color: "#64748b" },
+      { time: anesthesiaStart + 20 * step, swimlane: "staff", label: "Dr. Williams (Surgeon)", duration: 55 * step, color: "#64748b" },
+      { time: anesthesiaStart + 0 * step, swimlane: "staff", label: "RN Martinez (Circulating)", duration: 90 * step, color: "#64748b" },
     ];
-    
+
     return {
-      startTime: t0Ms,
-      endTime: t0Ms + 59 * step, // 5 hours total
+      startTime: anesthesiaStart,
+      endTime: now, // Current time (end of anesthesia record)
       vitals,
       events,
     };
@@ -223,11 +235,11 @@ export default function Op() {
     infusions: [] as any[],
     medications: [] as any[],
     staff: [] as any[],
-    
+
     // Anesthesia documentation
     anesthesiaType: "",
     installations: [] as string[],
-    
+
     // WHO Checklists
     signIn: {
       patientIdentity: false,
@@ -254,7 +266,7 @@ export default function Op() {
       equipment: false,
       concerns: false,
     },
-    
+
     // Post-op
     postOpNotes: "",
     complications: "",
@@ -270,7 +282,7 @@ export default function Op() {
       }, 100);
     }
   };
-  
+
   // Close dialog handler
   const handleClose = () => {
     handleDialogChange(false);
@@ -408,7 +420,7 @@ export default function Op() {
                             Add Entry
                           </Button>
                         </div>
-                        
+
                         {/* Entry 1 */}
                         <div className="border rounded-lg p-4 space-y-3 bg-slate-50 dark:bg-slate-900">
                           <div className="flex items-center justify-between">
@@ -971,7 +983,7 @@ export default function Op() {
                     <Label htmlFor="sign-in-allergies" className="cursor-pointer">Known allergies reviewed</Label>
                   </div>
                 </div>
-                
+
                 <div className="pt-4 border-t">
                   <Label>Notes</Label>
                   <Textarea
@@ -980,7 +992,7 @@ export default function Op() {
                     data-testid="textarea-signin-notes"
                   />
                 </div>
-                
+
                 <div>
                   <Label>Verified By (Signature)</Label>
                   <div className="border rounded-md p-2 bg-white dark:bg-slate-950 h-24" data-testid="signature-signin">
@@ -1014,7 +1026,7 @@ export default function Op() {
                     <Label htmlFor="timeout-imaging" className="cursor-pointer">Essential imaging displayed</Label>
                   </div>
                 </div>
-                
+
                 <div className="pt-4 border-t">
                   <Label>Notes</Label>
                   <Textarea
@@ -1023,7 +1035,7 @@ export default function Op() {
                     data-testid="textarea-timeout-notes"
                   />
                 </div>
-                
+
                 <div>
                   <Label>Verified By (Signature)</Label>
                   <div className="border rounded-md p-2 bg-white dark:bg-slate-950 h-24" data-testid="signature-timeout">
@@ -1057,7 +1069,7 @@ export default function Op() {
                     <Label htmlFor="signout-equipment" className="cursor-pointer">Equipment problems addressed</Label>
                   </div>
                 </div>
-                
+
                 <div className="pt-4 border-t">
                   <Label>Notes</Label>
                   <Textarea
@@ -1066,7 +1078,7 @@ export default function Op() {
                     data-testid="textarea-signout-notes"
                   />
                 </div>
-                
+
                 <div>
                   <Label>Verified By (Signature)</Label>
                   <div className="border rounded-md p-2 bg-white dark:bg-slate-950 h-24" data-testid="signature-signout">
