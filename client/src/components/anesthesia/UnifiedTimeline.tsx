@@ -400,11 +400,8 @@ export function UnifiedTimeline({
             position: "right",
             formatter: (params: any) => {
               const event = pointEvents[params.dataIndex];
-              // For medication events, show drug name and dose more clearly
-              if (event && events.length > 0 && events[0].swimlane === "medikamente") {
-                return `${event.icon || "💉"} ${event.label || ""}`.trim();
-              }
-              return `${event?.icon || ""} ${event?.label || ""}`.trim();
+              // Just show the label text without icons
+              return event?.label || "";
             },
             fontSize: 11,
             fontFamily: "Poppins, sans-serif",
@@ -454,7 +451,7 @@ export function UnifiedTimeline({
                   {
                     type: "text",
                     style: {
-                      text: `${event.icon || ""} ${event.label}`,
+                      text: event.label,
                       x: start[0] + 6,
                       y: y + barHeight / 2,
                       fontSize: 10,
