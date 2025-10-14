@@ -573,35 +573,32 @@ export function UnifiedTimeline({
         />
         {/* Infusions background - dynamic position */}
         <div 
-          className="absolute h-[40px] w-full border-b" 
+          className="absolute h-[40px] w-full" 
           style={{ 
             top: `${medicationEnd}px`,
-            backgroundColor: isDark ? "hsl(190, 60%, 18%)" : "rgba(207, 250, 254, 0.8)",
-            borderColor: isDark ? "#444444" : "#d1d5db"
+            backgroundColor: isDark ? "hsl(190, 60%, 18%)" : "rgba(207, 250, 254, 0.8)"
           }} 
         />
         {/* Ventilation background - dynamic position */}
         <div 
-          className="absolute h-[40px] w-full border-b" 
+          className="absolute h-[40px] w-full" 
           style={{ 
             top: `${medicationEnd + 40}px`,
-            backgroundColor: isDark ? "hsl(35, 70%, 22%)" : "rgba(254, 243, 199, 0.8)",
-            borderColor: isDark ? "#444444" : "#d1d5db"
+            backgroundColor: isDark ? "hsl(35, 70%, 22%)" : "rgba(254, 243, 199, 0.8)"
           }} 
         />
         {/* Staff background - dynamic position */}
         <div 
-          className="absolute h-[40px] w-full border-b" 
+          className="absolute h-[40px] w-full" 
           style={{ 
             top: `${medicationEnd + 80}px`,
-            backgroundColor: isDark ? "hsl(220, 25%, 25%)" : "rgba(241, 245, 249, 0.8)",
-            borderColor: isDark ? "#444444" : "#d1d5db"
+            backgroundColor: isDark ? "hsl(220, 25%, 25%)" : "rgba(241, 245, 249, 0.8)"
           }} 
         />
       </div>
 
       {/* Left sidebar with swimlane labels - extends to chart start */}
-      <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-10 bg-background">
+      <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-30 bg-background">
         {/* Vitals icon buttons - matches grid 0: top 40, height 340 */}
         <div className="absolute top-[40px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
           <button
