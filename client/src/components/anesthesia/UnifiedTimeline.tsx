@@ -322,7 +322,7 @@ export function UnifiedTimeline({
           },
           label: {
             show: true,
-            position: "top",
+            position: "right",
             formatter: (params: any) => {
               const event = pointEvents[params.dataIndex];
               return `${event?.icon || "●"} ${event?.label || ""}`;
