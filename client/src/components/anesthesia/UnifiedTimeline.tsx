@@ -286,7 +286,8 @@ export function UnifiedTimeline({
 
     // Swimlane events - render as scatter or custom elements
     // Dynamic swimlane mapping based on number of medication rows
-    const infusionenGridIndex = 4 + numMedicationRows;
+    // Grid 4 is Medications header, Grids 5 to (5+numMedicationRows-1) are drug rows
+    const infusionenGridIndex = 5 + numMedicationRows;
     const ventilationGridIndex = infusionenGridIndex + 1;
     const staffGridIndex = ventilationGridIndex + 1;
     
@@ -312,7 +313,7 @@ export function UnifiedTimeline({
       
       // For medications, map to specific drug grid based on row
       if (event.swimlane === "medikamente" && event.row !== undefined) {
-        gridIndex = 4 + event.row; // row 0->grid 4, row 1->grid 5, row 2->grid 6
+        gridIndex = 5 + event.row; // Grid 4 is header, row 0->grid 5, row 1->grid 6, row 2->grid 7
       }
       
       if (!acc[gridIndex]) acc[gridIndex] = [];
@@ -512,7 +513,7 @@ export function UnifiedTimeline({
   };
 
   return (
-    <div className="w-full h-full relative" style={{ height: componentHeight }}>
+    <div className="w-full relative" style={{ height: componentHeight }}>
       {/* Zoom and Pan Controls - Centered */}
       <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-30 flex gap-2">
         <button
