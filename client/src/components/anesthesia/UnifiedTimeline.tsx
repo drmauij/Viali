@@ -62,25 +62,25 @@ export function UnifiedTimeline({
 
   const option = useMemo(() => {
     // Grid layout configuration - continuous rows with no gaps
-    // Left margin: 200px for both scales side by side + header labels
+    // Left margin: 150px for both scales side by side + header labels
     // Right margin: 10px for minimal padding
     const grids = [
       // Grid 0: Vitals chart (taller for better visibility)
-      { left: 200, right: 10, top: 40, height: 340, backgroundColor: "transparent" },
+      { left: 150, right: 10, top: 40, height: 340, backgroundColor: "transparent" },
       // Grid 1: Times (purple background) - taller to avoid text overlap, continuous from 380 to 430
-      { left: 200, right: 10, top: 380, height: 50, backgroundColor: isDark ? "rgba(216, 180, 254, 0.15)" : "rgba(243, 232, 255, 0.8)" },
+      { left: 150, right: 10, top: 380, height: 50, backgroundColor: isDark ? "rgba(216, 180, 254, 0.15)" : "rgba(243, 232, 255, 0.8)" },
       // Grid 2: Events (blue background) - continuous from 430 to 470
-      { left: 200, right: 10, top: 430, height: 40, backgroundColor: isDark ? "rgba(147, 197, 253, 0.15)" : "rgba(219, 234, 254, 0.8)" },
+      { left: 150, right: 10, top: 430, height: 40, backgroundColor: isDark ? "rgba(147, 197, 253, 0.15)" : "rgba(219, 234, 254, 0.8)" },
       // Grid 3: Heart Rhythm (pink background) - continuous from 470 to 510
-      { left: 200, right: 10, top: 470, height: 40, backgroundColor: isDark ? "rgba(244, 114, 182, 0.15)" : "rgba(252, 231, 243, 0.8)" },
+      { left: 150, right: 10, top: 470, height: 40, backgroundColor: isDark ? "rgba(244, 114, 182, 0.15)" : "rgba(252, 231, 243, 0.8)" },
       // Grid 4: Medications (green background) - continuous from 510 to 600
-      { left: 200, right: 10, top: 510, height: 90, backgroundColor: isDark ? "rgba(134, 239, 172, 0.15)" : "rgba(220, 252, 231, 0.8)" },
+      { left: 150, right: 10, top: 510, height: 90, backgroundColor: isDark ? "rgba(134, 239, 172, 0.15)" : "rgba(220, 252, 231, 0.8)" },
       // Grid 5: Infusions/Perfusors (cyan background) - continuous from 600 to 640
-      { left: 200, right: 10, top: 600, height: 40, backgroundColor: isDark ? "rgba(103, 232, 249, 0.15)" : "rgba(207, 250, 254, 0.8)" },
+      { left: 150, right: 10, top: 600, height: 40, backgroundColor: isDark ? "rgba(103, 232, 249, 0.15)" : "rgba(207, 250, 254, 0.8)" },
       // Grid 6: Ventilation (amber background) - continuous from 640 to 680
-      { left: 200, right: 10, top: 640, height: 40, backgroundColor: isDark ? "rgba(251, 191, 36, 0.15)" : "rgba(254, 243, 199, 0.8)" },
+      { left: 150, right: 10, top: 640, height: 40, backgroundColor: isDark ? "rgba(251, 191, 36, 0.15)" : "rgba(254, 243, 199, 0.8)" },
       // Grid 7: Staff (slate background) - continuous from 680 to 720
-      { left: 200, right: 10, top: 680, height: 40, backgroundColor: isDark ? "rgba(203, 213, 225, 0.15)" : "rgba(241, 245, 249, 0.8)" },
+      { left: 150, right: 10, top: 680, height: 40, backgroundColor: isDark ? "rgba(203, 213, 225, 0.15)" : "rgba(241, 245, 249, 0.8)" },
     ];
 
     // Time x-axes (one per grid)
@@ -117,7 +117,7 @@ export function UnifiedTimeline({
         max: 240,
         interval: 40,
         position: "left" as const,
-        offset: 40, // Offset to make room for second scale
+        offset: 30, // Offset to make room for second scale
         axisLabel: { 
           show: true,
           fontSize: 11,
@@ -528,7 +528,7 @@ export function UnifiedTimeline({
       </div>
 
       {/* Left sidebar with swimlane labels - extends to chart start */}
-      <div className="absolute left-0 top-0 w-[200px] h-full border-r border-border z-10 bg-background">
+      <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-10 bg-background">
         {/* Vitals label - matches grid 0: top 40, height 340 */}
         <div className="absolute top-[40px] h-[340px] w-full flex items-center justify-center px-2 border-b border-border">
           <span className="text-base font-semibold">Vitals</span>
