@@ -64,6 +64,10 @@ export function UnifiedTimeline({
     // Grid layout configuration - continuous rows with no gaps
     // Left margin: 150px for both scales side by side + header labels
     // Right margin: 10px for minimal padding
+    // Medication drugs for individual swimlanes
+    const medicationDrugs = ["Propofol", "Fentanyl", "Midazolam"];
+    const medicationColor = isDark ? "rgba(134, 239, 172, 0.15)" : "rgba(220, 252, 231, 0.8)";
+    
     const grids = [
       // Grid 0: Vitals chart (taller for better visibility)
       { left: 150, right: 10, top: 40, height: 340, backgroundColor: "transparent" },
@@ -73,13 +77,15 @@ export function UnifiedTimeline({
       { left: 150, right: 10, top: 430, height: 40, backgroundColor: isDark ? "rgba(147, 197, 253, 0.15)" : "rgba(219, 234, 254, 0.8)" },
       // Grid 3: Heart Rhythm (pink background) - continuous from 470 to 510
       { left: 150, right: 10, top: 470, height: 40, backgroundColor: isDark ? "rgba(244, 114, 182, 0.15)" : "rgba(252, 231, 243, 0.8)" },
-      // Grid 4: Medications (green background) - continuous from 510 to 600
-      { left: 150, right: 10, top: 510, height: 90, backgroundColor: isDark ? "rgba(134, 239, 172, 0.15)" : "rgba(220, 252, 231, 0.8)" },
-      // Grid 5: Infusions/Perfusors (cyan background) - continuous from 600 to 640
+      // Grid 4-6: Individual medication drugs (green background) - continuous from 510 to 600
+      { left: 150, right: 10, top: 510, height: 30, backgroundColor: medicationColor }, // Propofol
+      { left: 150, right: 10, top: 540, height: 30, backgroundColor: medicationColor }, // Fentanyl
+      { left: 150, right: 10, top: 570, height: 30, backgroundColor: medicationColor }, // Midazolam
+      // Grid 7: Infusions/Perfusors (cyan background) - continuous from 600 to 640
       { left: 150, right: 10, top: 600, height: 40, backgroundColor: isDark ? "rgba(103, 232, 249, 0.15)" : "rgba(207, 250, 254, 0.8)" },
-      // Grid 6: Ventilation (amber background) - continuous from 640 to 680
+      // Grid 8: Ventilation (amber background) - continuous from 640 to 680
       { left: 150, right: 10, top: 640, height: 40, backgroundColor: isDark ? "rgba(251, 191, 36, 0.15)" : "rgba(254, 243, 199, 0.8)" },
-      // Grid 7: Staff (slate background) - continuous from 680 to 720
+      // Grid 9: Staff (slate background) - continuous from 680 to 720
       { left: 150, right: 10, top: 680, height: 40, backgroundColor: isDark ? "rgba(203, 213, 225, 0.15)" : "rgba(241, 245, 249, 0.8)" },
     ];
 
@@ -517,7 +523,7 @@ export function UnifiedTimeline({
         <div className="absolute top-[430px] h-[40px] w-full" style={{ backgroundColor: isDark ? "rgba(147, 197, 253, 0.15)" : "rgba(219, 234, 254, 0.8)" }} />
         {/* Heart Rhythm background */}
         <div className="absolute top-[470px] h-[40px] w-full" style={{ backgroundColor: isDark ? "rgba(244, 114, 182, 0.15)" : "rgba(252, 231, 243, 0.8)" }} />
-        {/* Medications background */}
+        {/* Medications background - all drug rows */}
         <div className="absolute top-[510px] h-[90px] w-full" style={{ backgroundColor: isDark ? "rgba(134, 239, 172, 0.15)" : "rgba(220, 252, 231, 0.8)" }} />
         {/* Infusions background */}
         <div className="absolute top-[600px] h-[40px] w-full" style={{ backgroundColor: isDark ? "rgba(103, 232, 249, 0.15)" : "rgba(207, 250, 254, 0.8)" }} />
@@ -549,22 +555,43 @@ export function UnifiedTimeline({
           <span className="text-sm font-semibold text-black dark:text-white">Heart Rhythm</span>
         </div>
         
-        {/* Medications - matches grid 4: top 510, height 90 */}
-        <div className="absolute top-[510px] h-[90px] w-full flex items-center px-2 border-b border-border" style={{ backgroundColor: isDark ? "rgba(134, 239, 172, 0.15)" : "rgba(220, 252, 231, 0.8)" }}>
-          <span className="text-sm font-semibold text-black dark:text-white">Medications</span>
+        {/* Medications Container - top 510, total height 90 */}
+        <div className="absolute top-[510px] h-[90px] w-full border-b border-border" style={{ backgroundColor: isDark ? "rgba(134, 239, 172, 0.15)" : "rgba(220, 252, 231, 0.8)" }}>
+          {/* Medications header */}
+          <div className="text-xs font-bold text-black dark:text-white px-2 pt-1 pb-1">
+            Medications
+          </div>
+          
+          {/* Individual drug swimlanes - Propofol: top 0-30, Fentanyl: 30-60, Midazolam: 60-90 */}
+          <div className="relative">
+            {/* Propofol - matches grid 4: height 30 */}
+            <div className="h-[30px] flex items-center px-2 pl-4 border-t border-border/30">
+              <span className="text-xs text-black dark:text-white">Propofol</span>
+            </div>
+            
+            {/* Fentanyl - matches grid 5: height 30 */}
+            <div className="h-[30px] flex items-center px-2 pl-4 border-t border-border/30">
+              <span className="text-xs text-black dark:text-white">Fentanyl</span>
+            </div>
+            
+            {/* Midazolam - matches grid 6: height 30 */}
+            <div className="h-[30px] flex items-center px-2 pl-4 border-t border-border/30">
+              <span className="text-xs text-black dark:text-white">Midazolam</span>
+            </div>
+          </div>
         </div>
         
-        {/* Infusions - matches grid 5: top 600, height 40 */}
+        {/* Infusions - matches grid 7: top 600, height 40 */}
         <div className="absolute top-[600px] h-[40px] w-full flex items-center px-2 border-b border-border" style={{ backgroundColor: isDark ? "rgba(103, 232, 249, 0.15)" : "rgba(207, 250, 254, 0.8)" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Infusions</span>
         </div>
         
-        {/* Ventilation - matches grid 6: top 640, height 40 */}
+        {/* Ventilation - matches grid 8: top 640, height 40 */}
         <div className="absolute top-[640px] h-[40px] w-full flex items-center px-2 border-b border-border" style={{ backgroundColor: isDark ? "rgba(251, 191, 36, 0.15)" : "rgba(254, 243, 199, 0.8)" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Ventilation</span>
         </div>
         
-        {/* Staff - matches grid 7: top 680, height 40 */}
+        {/* Staff - matches grid 9: top 680, height 40 */}
         <div className="absolute top-[680px] h-[40px] w-full flex items-center px-2" style={{ backgroundColor: isDark ? "rgba(203, 213, 225, 0.15)" : "rgba(241, 245, 249, 0.8)" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Staff</span>
         </div>
