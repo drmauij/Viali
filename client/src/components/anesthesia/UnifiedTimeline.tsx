@@ -341,9 +341,9 @@ export function UnifiedTimeline({
       staff: staffGridIndex,
     };
 
-    // Group events by swimlane
+    // Group events by swimlane - ensure each medication drug gets its own swimlane
     const eventsBySwimlane = data.events.reduce((acc, event) => {
-      // Skip medication events that don't have a row (they shouldn't appear in the container)
+      // Skip medication events that don't have a row (they shouldn't appear anywhere)
       if (event.swimlane === "medikamente" && event.row === undefined) {
         return acc;
       }
@@ -352,11 +352,15 @@ export function UnifiedTimeline({
 
       // For medications, map to specific drug grid based on row
       if (event.swimlane === "medikamente" && event.row !== undefined) {
-        gridIndex = 5 + event.row; // Grid 4 is header, row 0->grid 5, row 1->grid 6, row 2->grid 7
+        gridIndex = 5 + event.row; // Grid 4 is header, row 0->grid 5, row 1->grid 6, etc.
       }
 
-      if (!acc[gridIndex]) acc[gridIndex] = [];
-      acc[gridIndex].push(event);
+      // Ensure we have a valid grid index
+      if (gridIndex !== undefined) {
+        if (!acc[gridIndex]) acc[gridIndex] = [];
+        acc[gridIndex].push(event);
+      }
+      
       return acc;
     }, {} as Record<number, TimelineEvent[]>);
 
@@ -386,11 +390,16 @@ export function UnifiedTimeline({
             position: "right",
             formatter: (params: any) => {
               const event = pointEvents[params.dataIndex];
+              // For medication events, show drug name and dose more clearly
+              if (event && events.length > 0 && events[0].swimlane === "medikamente") {
+                return `${event.icon || "💉"} ${event.label || ""}`.trim();
+              }
               return `${event?.icon || ""} ${event?.label || ""}`.trim();
             },
             fontSize: 11,
             fontFamily: "Poppins, sans-serif",
             color: isDark ? "#ffffff" : "#000000",
+            fontWeight: "500",
           },
         });
       }
@@ -498,19 +507,22 @@ export function UnifiedTimeline({
 
   // Extract medication drug names dynamically for sidebar
   const medicationDrugs = useMemo(() => {
-    const medicationEvents = data.events.filter(e => e.swimlane === "medikamente");
+    const medicationEvents = data.events.filter(e => e.swimlane === "medikamente" && e.row !== undefined);
     const drugsByRow = new Map<number, string>();
 
     medicationEvents.forEach(e => {
-      const row = e.row ?? 0;
+      const row = e.row!; // We know row is defined due to filter above
       if (!drugsByRow.has(row)) {
         // Extract drug name from label (e.g., "Propofol 200mg" -> "Propofol")
-        const drugName = e.label.split(/\s+/)[0];
+        const drugName = e.label.split(/\s+|\d/)[0].trim();
         drugsByRow.set(row, drugName);
       }
     });
 
-    return Array.from(drugsByRow.entries()).sort((a, b) => a[0] - b[0]).map(([_, name]) => name);
+    // Sort by row number and return drug names
+    return Array.from(drugsByRow.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([_, name]) => name);
   }, [data.events]);
 
   // Calculate dynamic positions for sidebar (reuse numMedicationRows from top)
