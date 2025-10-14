@@ -759,12 +759,14 @@ export function UnifiedTimeline({
             {medicationDrugs.map((drugName, index) => (
               <div 
                 key={index}
-                className="flex items-center px-2 pl-4 border-b"
+                className={`flex items-center px-2 pl-4 ${index < medicationDrugs.length - 1 ? 'border-b' : ''}`}
                 style={{ 
                   height: `${medicationRowHeight}px`,
-                  borderColor: isDark ? "#444444" : "#d1d5db",
-                  borderBottomWidth: '1px',
-                  borderBottomStyle: 'solid'
+                  ...(index < medicationDrugs.length - 1 && {
+                    borderColor: isDark ? "#444444" : "#d1d5db",
+                    borderBottomWidth: '1px',
+                    borderBottomStyle: 'solid'
+                  })
                 }}
               >
                 <span className="text-xs text-black dark:text-white">{drugName}</span>
@@ -815,12 +817,14 @@ export function UnifiedTimeline({
             {ventilationParams.map((paramName, index) => (
               <div 
                 key={index}
-                className="flex items-center px-2 pl-4 border-b"
+                className={`flex items-center px-2 pl-4 ${index < ventilationParams.length - 1 ? 'border-b' : ''}`}
                 style={{ 
                   height: `${ventilationRowHeight}px`,
-                  borderColor: isDark ? "#444444" : "#d1d5db",
-                  borderBottomWidth: '1px',
-                  borderBottomStyle: 'solid'
+                  ...(index < ventilationParams.length - 1 && {
+                    borderColor: isDark ? "#444444" : "#d1d5db",
+                    borderBottomWidth: '1px',
+                    borderBottomStyle: 'solid'
+                  })
                 }}
               >
                 <span className="text-xs text-black dark:text-white">{paramName}</span>
