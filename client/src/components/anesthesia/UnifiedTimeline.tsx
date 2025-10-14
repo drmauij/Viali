@@ -647,17 +647,12 @@ export function UnifiedTimeline({
             backgroundColor: medicationColor 
           }}
         >
-          {/* Medications header */}
-          <div className="text-sm font-semibold text-black dark:text-white px-2 pt-1 pb-1">
-            Medications
-          </div>
-          
           {/* Individual drug swimlanes - dynamically generated */}
           <div className="relative">
             {medicationDrugs.map((drugName, index) => (
               <div 
                 key={index}
-                className="flex items-center px-2 pl-4 border-t border-border/30"
+                className="flex items-center px-2 pl-4"
                 style={{ height: `${medicationRowHeight}px` }}
               >
                 <span className="text-xs text-black dark:text-white">{drugName}</span>
