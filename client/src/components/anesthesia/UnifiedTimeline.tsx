@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
+import { Activity, Heart, Wind, Combine } from "lucide-react";
 
 /**
  * UnifiedTimeline
@@ -535,9 +536,36 @@ export function UnifiedTimeline({
 
       {/* Left sidebar with swimlane labels - extends to chart start */}
       <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-10 bg-background">
-        {/* Vitals label - matches grid 0: top 40, height 340 */}
-        <div className="absolute top-[40px] h-[340px] w-full flex items-center justify-center px-2 border-b border-border">
-          <span className="text-base font-semibold">Vitals</span>
+        {/* Vitals icon buttons - matches grid 0: top 40, height 340 */}
+        <div className="absolute top-[40px] h-[340px] w-full flex flex-col items-center justify-center gap-3 px-2 border-b border-border">
+          <button
+            className="p-2 rounded hover:bg-accent transition-colors"
+            data-testid="button-vitals-bp"
+            title="Blood Pressure"
+          >
+            <Activity className="w-5 h-5" />
+          </button>
+          <button
+            className="p-2 rounded hover:bg-accent transition-colors"
+            data-testid="button-vitals-heart"
+            title="Heart Rate"
+          >
+            <Heart className="w-5 h-5" />
+          </button>
+          <button
+            className="p-2 rounded hover:bg-accent transition-colors"
+            data-testid="button-vitals-oxygen"
+            title="Oxygenation"
+          >
+            <Wind className="w-5 h-5" />
+          </button>
+          <button
+            className="p-2 rounded hover:bg-accent transition-colors"
+            data-testid="button-vitals-combo"
+            title="Combined View"
+          >
+            <Combine className="w-5 h-5" />
+          </button>
         </div>
         
         {/* Times - matches grid 1: top 380, height 50 */}
