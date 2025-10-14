@@ -94,9 +94,9 @@ export function UnifiedTimeline({
 
   const option = useMemo(() => {
     // Grid layout configuration - continuous rows with no gaps
-    // Left margin: 150px when sidebar visible, 40px when collapsed (for y-axis labels only)
+    // Left margin: 220px when sidebar visible (70px for y-axes + 150px sidebar), 70px when collapsed (for y-axis labels only)
     // Right margin: 10px for minimal padding
-    const leftMargin = sidebarCollapsed ? 40 : 150;
+    const leftMargin = sidebarCollapsed ? 70 : 220;
     
     // Responsive font sizes: smaller on mobile devices
     const baseFontSize = isMobile ? 9 : 11;
@@ -205,7 +205,7 @@ export function UnifiedTimeline({
             max: 240,
             interval: 40,
             position: "left" as const,
-            offset: 30,
+            offset: 40,
             axisLabel: { 
               show: true,
               fontSize: baseFontSize,
@@ -679,10 +679,11 @@ export function UnifiedTimeline({
 
   return (
     <div className="w-full relative" style={{ height: componentHeight }}>
-      {/* Sidebar Toggle Button - Top Left */}
+      {/* Sidebar Toggle Button - Positioned at sidebar edge */}
       <button
         onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-        className="absolute top-2 left-2 z-30 p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
+        className="absolute top-2 z-40 p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
+        style={{ left: sidebarCollapsed ? '72px' : '212px' }}
         data-testid="button-toggle-sidebar"
         title={sidebarCollapsed ? "Show Labels" : "Hide Labels"}
       >
@@ -777,9 +778,9 @@ export function UnifiedTimeline({
         />
       </div>
 
-      {/* Left sidebar with swimlane labels - extends to chart start */}
+      {/* Left sidebar with swimlane labels - positioned after y-axes */}
       {!sidebarCollapsed && (
-        <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-30 bg-background">
+        <div className="absolute left-[70px] top-0 w-[150px] h-full border-r border-border z-30 bg-background">
         {/* Vitals icon buttons - matches grid 0: top 40, height 340 */}
         <div className="absolute top-[40px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
           <button
