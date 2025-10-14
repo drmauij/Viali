@@ -165,77 +165,77 @@ export function UnifiedTimeline({
       },
     }));
 
-    // Y-axes
-    const yAxes = [
-      // Grid 0 - Left side 1: BP/HR (0-240) - first scale on left
-      {
-        type: "value" as const,
-        gridIndex: 0,
-        min: 0,
-        max: 240,
-        interval: 40,
-        position: "left" as const,
-        offset: 30, // Offset to make room for second scale
-        axisLabel: { 
-          show: true,
-          fontSize: 11,
-          fontFamily: "Poppins, sans-serif",
-          color: isDark ? "#ffffff" : "#000000",
-        },
-        axisLine: { 
-          show: true,
-          lineStyle: {
-            color: isDark ? "#444444" : "#d1d5db",
+    // Y-axes - one per grid
+    const yAxes = grids.map((_, index) => {
+      if (index === 0) {
+        // Grid 0 - Vitals dual axes (BP/HR and SpO2)
+        return [
+          {
+            type: "value" as const,
+            gridIndex: 0,
+            min: 0,
+            max: 240,
+            interval: 40,
+            position: "left" as const,
+            offset: 30,
+            axisLabel: { 
+              show: true,
+              fontSize: 11,
+              fontFamily: "Poppins, sans-serif",
+              color: isDark ? "#ffffff" : "#000000",
+            },
+            axisLine: { 
+              show: true,
+              lineStyle: {
+                color: isDark ? "#444444" : "#d1d5db",
+              }
+            },
+            axisTick: { show: true },
+            splitLine: { 
+              show: true,
+              lineStyle: {
+                color: isDark ? "#444444" : "#d1d5db",
+                width: 1,
+                type: "solid" as const,
+              }
+            },
+          },
+          {
+            type: "value" as const,
+            gridIndex: 0,
+            min: 50,
+            max: 100,
+            interval: 10,
+            position: "left" as const,
+            offset: 0,
+            axisLabel: { 
+              show: true,
+              fontSize: 11,
+              fontFamily: "Poppins, sans-serif",
+              color: "#8b5cf6",
+            },
+            axisLine: { 
+              show: true,
+              lineStyle: {
+                color: "#8b5cf6",
+              }
+            },
+            axisTick: { show: true },
+            splitLine: { show: false },
           }
-        },
-        axisTick: { show: true },
-        splitLine: { 
-          show: true,
-          lineStyle: {
-            color: isDark ? "#444444" : "#d1d5db",
-            width: 1,
-            type: "solid" as const,
-          }
-        },
-      },
-      // Grid 0 - Left side 2: SpO2 (50-100) - second scale on left, side by side
-      {
-        type: "value" as const,
-        gridIndex: 0,
-        min: 50,
-        max: 100,
-        interval: 10,
-        position: "left" as const,
-        offset: 0, // No offset for innermost scale
-        axisLabel: { 
-          show: true,
-          fontSize: 11,
-          fontFamily: "Poppins, sans-serif",
-          color: "#8b5cf6",
-        },
-        axisLine: { 
-          show: true,
-          lineStyle: {
-            color: "#8b5cf6",
-          }
-        },
-        axisTick: { show: true },
-        splitLine: { show: false },
-      },
-      // Swimlane y-axes (categorical or numeric for positioning)
-      ...grids.slice(1).map((_, index) => {
-        const gridIdx = index + 1;
-        // All swimlanes now have single row (medications split into individual grids)
+        ];
+      } else {
+        // All other grids - single category axis
         return {
           type: "category" as const,
-          gridIndex: gridIdx,
+          gridIndex: index,
           data: [""],
           show: false,
-          axisLine: { show: false },
+          axisLine: { show: false }, // Disable to remove thick top border
           axisTick: { show: false },
         };
-      }),
-    ];
+      }
+    }).flat();
 
     // Series
     const series: any[] = [];
@@ -367,10 +367,13 @@ export function UnifiedTimeline({
       // Point events (no duration)
       const pointEvents = events.filter(e => !e.duration);
       if (pointEvents.length > 0) {
+        // Calculate correct yAxisIndex (grid 0 has 2 axes, others have 1)
+        const yAxisIdx = idx === 0 ? 0 : idx + 1;
+        
         series.push({
           type: "scatter",
           xAxisIndex: idx,
-          yAxisIndex: idx + 1,
+          yAxisIndex: yAxisIdx,
           data: pointEvents.map(e => {
             // All swimlanes now use single row
             return [e.time, ""];
@@ -401,11 +404,13 @@ export function UnifiedTimeline({
         rangeEvents.forEach((event) => {
           // All swimlanes now use single row
           const yValue = "";
+          // Calculate correct yAxisIndex (grid 0 has 2 axes, others have 1)
+          const yAxisIdx = idx === 0 ? 0 : idx + 1;
           
           series.push({
             type: "custom",
             xAxisIndex: idx,
-            yAxisIndex: idx + 1,
+            yAxisIndex: yAxisIdx,
             renderItem: (params: any, api: any) => {
               const start = api.coord([event.time, yValue]);
               const end = api.coord([event.time + (event.duration || 0), yValue]);
