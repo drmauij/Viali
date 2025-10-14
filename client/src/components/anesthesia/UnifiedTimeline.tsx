@@ -300,6 +300,11 @@ export function UnifiedTimeline({
 
     // Group events by swimlane
     const eventsBySwimlane = data.events.reduce((acc, event) => {
+      // Skip medication events that don't have a row (they shouldn't appear in the container)
+      if (event.swimlane === "medikamente" && event.row === undefined) {
+        return acc;
+      }
+      
       let gridIndex = swimlaneMap[event.swimlane];
       
       // For medications, map to specific drug grid based on row
