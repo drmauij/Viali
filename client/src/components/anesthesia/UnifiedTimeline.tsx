@@ -41,11 +41,17 @@ export type UnifiedTimelineData = {
 
 export function UnifiedTimeline({
   data,
-  height = 750,
+  height,
 }: {
   data: UnifiedTimelineData;
   height?: number;
 }) {
+  // Calculate dynamic height based on medication count
+  const medicationEvents = data.events.filter(e => e.swimlane === "medikamente");
+  const uniqueRows = new Set(medicationEvents.map(e => e.row ?? 0));
+  const numMedicationRows = Math.max(uniqueRows.size, 1);
+  const defaultHeight = 510 + (numMedicationRows * 30) + 120; // base + medications + other swimlanes
+  const componentHeight = height ?? defaultHeight;
   const chartRef = useRef<any>(null);
   const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"));
 
@@ -65,29 +71,41 @@ export function UnifiedTimeline({
     // Grid layout configuration - continuous rows with no gaps
     // Left margin: 150px for both scales side by side + header labels
     // Right margin: 10px for minimal padding
-    // Medication drugs for individual swimlanes
-    const medicationDrugs = ["Propofol", "Fentanyl", "Midazolam"];
+    
+    // Dynamically determine medication drugs from events
+    const medicationEvents = data.events.filter(e => e.swimlane === "medikamente");
+    const uniqueRows = new Set(medicationEvents.map(e => e.row ?? 0));
+    const numMedicationRows = Math.max(uniqueRows.size, 1);
+    const medicationRowHeight = 30;
     const medicationColor = isDark ? "rgba(134, 239, 172, 0.15)" : "rgba(220, 252, 231, 0.8)";
+    
+    // Calculate dynamic positions
+    const medicationStart = 510;
+    const medicationEnd = medicationStart + (numMedicationRows * medicationRowHeight);
     
     const grids = [
       // Grid 0: Vitals chart (taller for better visibility)
       { left: 150, right: 10, top: 40, height: 340, backgroundColor: "transparent" },
-      // Grid 1: Times (purple background) - taller to avoid text overlap, continuous from 380 to 430
+      // Grid 1: Times (purple background) - taller to avoid text overlap
       { left: 150, right: 10, top: 380, height: 50, backgroundColor: isDark ? "rgba(216, 180, 254, 0.15)" : "rgba(243, 232, 255, 0.8)" },
-      // Grid 2: Events (blue background) - continuous from 430 to 470
+      // Grid 2: Events (blue background)
       { left: 150, right: 10, top: 430, height: 40, backgroundColor: isDark ? "rgba(147, 197, 253, 0.15)" : "rgba(219, 234, 254, 0.8)" },
-      // Grid 3: Heart Rhythm (pink background) - continuous from 470 to 510
+      // Grid 3: Heart Rhythm (pink background)
       { left: 150, right: 10, top: 470, height: 40, backgroundColor: isDark ? "rgba(244, 114, 182, 0.15)" : "rgba(252, 231, 243, 0.8)" },
-      // Grid 4-6: Individual medication drugs (green background) - continuous from 510 to 600
-      { left: 150, right: 10, top: 510, height: 30, backgroundColor: medicationColor }, // Propofol
-      { left: 150, right: 10, top: 540, height: 30, backgroundColor: medicationColor }, // Fentanyl
-      { left: 150, right: 10, top: 570, height: 30, backgroundColor: medicationColor }, // Midazolam
-      // Grid 7: Infusions/Perfusors (cyan background) - continuous from 600 to 640
-      { left: 150, right: 10, top: 600, height: 40, backgroundColor: isDark ? "rgba(103, 232, 249, 0.15)" : "rgba(207, 250, 254, 0.8)" },
-      // Grid 8: Ventilation (amber background) - continuous from 640 to 680
-      { left: 150, right: 10, top: 640, height: 40, backgroundColor: isDark ? "rgba(251, 191, 36, 0.15)" : "rgba(254, 243, 199, 0.8)" },
-      // Grid 9: Staff (slate background) - continuous from 680 to 720
-      { left: 150, right: 10, top: 680, height: 40, backgroundColor: isDark ? "rgba(203, 213, 225, 0.15)" : "rgba(241, 245, 249, 0.8)" },
+      // Grid 4+: Individual medication drugs (green background) - dynamic count
+      ...Array.from({ length: numMedicationRows }, (_, i) => ({
+        left: 150,
+        right: 10,
+        top: medicationStart + (i * medicationRowHeight),
+        height: medicationRowHeight,
+        backgroundColor: medicationColor,
+      })),
+      // Infusions/Perfusors (cyan background)
+      { left: 150, right: 10, top: medicationEnd, height: 40, backgroundColor: isDark ? "rgba(103, 232, 249, 0.15)" : "rgba(207, 250, 254, 0.8)" },
+      // Ventilation (amber background)
+      { left: 150, right: 10, top: medicationEnd + 40, height: 40, backgroundColor: isDark ? "rgba(251, 191, 36, 0.15)" : "rgba(254, 243, 199, 0.8)" },
+      // Staff (slate background)
+      { left: 150, right: 10, top: medicationEnd + 80, height: 40, backgroundColor: isDark ? "rgba(203, 213, 225, 0.15)" : "rgba(241, 245, 249, 0.8)" },
     ];
 
     // Time x-axes (one per grid)
@@ -264,15 +282,20 @@ export function UnifiedTimeline({
     }
 
     // Swimlane events - render as scatter or custom elements
+    // Dynamic swimlane mapping based on number of medication rows
+    const infusionenGridIndex = 4 + numMedicationRows;
+    const ventilationGridIndex = infusionenGridIndex + 1;
+    const staffGridIndex = ventilationGridIndex + 1;
+    
     const swimlaneMap: Record<string, number> = {
       zeiten: 1,
       ereignisse: 2,
       herzrhythmus: 3,
-      medikamente: 4, // Will use grids 4-6 based on row
-      infusionen: 7,
-      perfusors: 7,
-      ventilation: 8,
-      staff: 9,
+      medikamente: 4, // Will use grids 4 to 4+numRows based on row
+      infusionen: infusionenGridIndex,
+      perfusors: infusionenGridIndex,
+      ventilation: ventilationGridIndex,
+      staff: staffGridIndex,
     };
 
     // Group events by swimlane
@@ -415,6 +438,29 @@ export function UnifiedTimeline({
     } as echarts.EChartsOption;
   }, [data, isDark]);
 
+  // Extract medication drug names dynamically for sidebar
+  const medicationDrugs = useMemo(() => {
+    const medicationEvents = data.events.filter(e => e.swimlane === "medikamente");
+    const drugsByRow = new Map<number, string>();
+    
+    medicationEvents.forEach(e => {
+      const row = e.row ?? 0;
+      if (!drugsByRow.has(row)) {
+        // Extract drug name from label (e.g., "Propofol 200mg" -> "Propofol")
+        const drugName = e.label.split(/\s+/)[0];
+        drugsByRow.set(row, drugName);
+      }
+    });
+    
+    return Array.from(drugsByRow.entries()).sort((a, b) => a[0] - b[0]).map(([_, name]) => name);
+  }, [data.events]);
+
+  // Calculate dynamic positions for sidebar (reuse numMedicationRows from top)
+  const medicationStart = 510;
+  const medicationRowHeight = 30;
+  const medicationEnd = medicationStart + (numMedicationRows * medicationRowHeight);
+  const medicationColor = isDark ? "rgba(134, 239, 172, 0.15)" : "rgba(220, 252, 231, 0.8)";
+
   // Zoom and pan controls
   const handleZoomIn = () => {
     const chart = chartRef.current?.getEchartsInstance();
@@ -473,7 +519,7 @@ export function UnifiedTimeline({
   };
 
   return (
-    <div className="w-full h-full relative" style={{ height }}>
+    <div className="w-full h-full relative" style={{ height: componentHeight }}>
       {/* Zoom and Pan Controls - Centered */}
       <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-30 flex gap-2">
         <button
@@ -518,14 +564,39 @@ export function UnifiedTimeline({
         <div className="absolute top-[430px] h-[40px] w-full" style={{ backgroundColor: isDark ? "rgba(147, 197, 253, 0.15)" : "rgba(219, 234, 254, 0.8)" }} />
         {/* Heart Rhythm background */}
         <div className="absolute top-[470px] h-[40px] w-full" style={{ backgroundColor: isDark ? "rgba(244, 114, 182, 0.15)" : "rgba(252, 231, 243, 0.8)" }} />
-        {/* Medications background - all drug rows */}
-        <div className="absolute top-[510px] h-[90px] w-full" style={{ backgroundColor: isDark ? "rgba(134, 239, 172, 0.15)" : "rgba(220, 252, 231, 0.8)" }} />
-        {/* Infusions background */}
-        <div className="absolute top-[600px] h-[40px] w-full" style={{ backgroundColor: isDark ? "rgba(103, 232, 249, 0.15)" : "rgba(207, 250, 254, 0.8)" }} />
-        {/* Ventilation background */}
-        <div className="absolute top-[640px] h-[40px] w-full" style={{ backgroundColor: isDark ? "rgba(251, 191, 36, 0.15)" : "rgba(254, 243, 199, 0.8)" }} />
-        {/* Staff background */}
-        <div className="absolute top-[680px] h-[40px] w-full" style={{ backgroundColor: isDark ? "rgba(203, 213, 225, 0.15)" : "rgba(241, 245, 249, 0.8)" }} />
+        {/* Medications background - dynamic height based on drug count */}
+        <div 
+          className="absolute w-full" 
+          style={{ 
+            top: `${medicationStart}px`, 
+            height: `${numMedicationRows * medicationRowHeight}px`,
+            backgroundColor: medicationColor 
+          }} 
+        />
+        {/* Infusions background - dynamic position */}
+        <div 
+          className="absolute h-[40px] w-full" 
+          style={{ 
+            top: `${medicationEnd}px`,
+            backgroundColor: isDark ? "rgba(103, 232, 249, 0.15)" : "rgba(207, 250, 254, 0.8)" 
+          }} 
+        />
+        {/* Ventilation background - dynamic position */}
+        <div 
+          className="absolute h-[40px] w-full" 
+          style={{ 
+            top: `${medicationEnd + 40}px`,
+            backgroundColor: isDark ? "rgba(251, 191, 36, 0.15)" : "rgba(254, 243, 199, 0.8)" 
+          }} 
+        />
+        {/* Staff background - dynamic position */}
+        <div 
+          className="absolute h-[40px] w-full" 
+          style={{ 
+            top: `${medicationEnd + 80}px`,
+            backgroundColor: isDark ? "rgba(203, 213, 225, 0.15)" : "rgba(241, 245, 249, 0.8)" 
+          }} 
+        />
       </div>
 
       {/* Left sidebar with swimlane labels - extends to chart start */}
@@ -577,44 +648,64 @@ export function UnifiedTimeline({
           <span className="text-sm font-semibold text-black dark:text-white">Heart Rhythm</span>
         </div>
         
-        {/* Medications Container - top 510, total height 90 */}
-        <div className="absolute top-[510px] h-[90px] w-full border-b border-border" style={{ backgroundColor: isDark ? "rgba(134, 239, 172, 0.15)" : "rgba(220, 252, 231, 0.8)" }}>
+        {/* Medications Container - dynamic height based on drug count */}
+        <div 
+          className="absolute w-full border-b border-border" 
+          style={{ 
+            top: `${medicationStart}px`, 
+            height: `${numMedicationRows * medicationRowHeight}px`,
+            backgroundColor: medicationColor 
+          }}
+        >
           {/* Medications header */}
           <div className="text-xs font-bold text-black dark:text-white px-2 pt-1 pb-1">
             Medications
           </div>
           
-          {/* Individual drug swimlanes - Propofol: top 0-30, Fentanyl: 30-60, Midazolam: 60-90 */}
+          {/* Individual drug swimlanes - dynamically generated */}
           <div className="relative">
-            {/* Propofol - matches grid 4: height 30 */}
-            <div className="h-[30px] flex items-center px-2 pl-4 border-t border-border/30">
-              <span className="text-xs text-black dark:text-white">Propofol</span>
-            </div>
-            
-            {/* Fentanyl - matches grid 5: height 30 */}
-            <div className="h-[30px] flex items-center px-2 pl-4 border-t border-border/30">
-              <span className="text-xs text-black dark:text-white">Fentanyl</span>
-            </div>
-            
-            {/* Midazolam - matches grid 6: height 30 */}
-            <div className="h-[30px] flex items-center px-2 pl-4 border-t border-border/30">
-              <span className="text-xs text-black dark:text-white">Midazolam</span>
-            </div>
+            {medicationDrugs.map((drugName, index) => (
+              <div 
+                key={index}
+                className="flex items-center px-2 pl-4 border-t border-border/30"
+                style={{ height: `${medicationRowHeight}px` }}
+              >
+                <span className="text-xs text-black dark:text-white">{drugName}</span>
+              </div>
+            ))}
           </div>
         </div>
         
-        {/* Infusions - matches grid 7: top 600, height 40 */}
-        <div className="absolute top-[600px] h-[40px] w-full flex items-center px-2 border-b border-border" style={{ backgroundColor: isDark ? "rgba(103, 232, 249, 0.15)" : "rgba(207, 250, 254, 0.8)" }}>
+        {/* Infusions - dynamic position */}
+        <div 
+          className="absolute h-[40px] w-full flex items-center px-2 border-b border-border" 
+          style={{ 
+            top: `${medicationEnd}px`,
+            backgroundColor: isDark ? "rgba(103, 232, 249, 0.15)" : "rgba(207, 250, 254, 0.8)" 
+          }}
+        >
           <span className="text-sm font-semibold text-black dark:text-white">Infusions</span>
         </div>
         
-        {/* Ventilation - matches grid 8: top 640, height 40 */}
-        <div className="absolute top-[640px] h-[40px] w-full flex items-center px-2 border-b border-border" style={{ backgroundColor: isDark ? "rgba(251, 191, 36, 0.15)" : "rgba(254, 243, 199, 0.8)" }}>
+        {/* Ventilation - dynamic position */}
+        <div 
+          className="absolute h-[40px] w-full flex items-center px-2 border-b border-border" 
+          style={{ 
+            top: `${medicationEnd + 40}px`,
+            backgroundColor: isDark ? "rgba(251, 191, 36, 0.15)" : "rgba(254, 243, 199, 0.8)" 
+          }}
+        >
           <span className="text-sm font-semibold text-black dark:text-white">Ventilation</span>
         </div>
         
-        {/* Staff - matches grid 9: top 680, height 40 */}
-        <div className="absolute top-[680px] h-[40px] w-full flex items-center px-2" style={{ backgroundColor: isDark ? "rgba(203, 213, 225, 0.15)" : "rgba(241, 245, 249, 0.8)" }}>
+        {/* Staff - dynamic position */}
+        <div 
+          className="absolute h-[40px] w-full flex items-center px-2" 
+          style={{ 
+            top: `${medicationEnd + 80}px`,
+            backgroundColor: isDark ? "rgba(203, 213, 225, 0.15)" : "rgba(241, 245, 249, 0.8)" 
+          }}
+        >
           <span className="text-sm font-semibold text-black dark:text-white">Staff</span>
         </div>
       </div>
