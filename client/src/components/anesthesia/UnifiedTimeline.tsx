@@ -489,12 +489,19 @@ export function UnifiedTimeline({
     const ventilationEvents = data.events.filter(e => e.swimlane === "ventilation");
     const paramsByRow = new Map<number, string>();
     
+    // Parameter names by row index
+    const paramNames: Record<number, string> = {
+      0: "FiO₂",
+      1: "PEEP",
+      2: "VT",
+      3: "BF",
+      4: "PI"
+    };
+    
     ventilationEvents.forEach(e => {
       const row = e.row ?? 0;
-      if (!paramsByRow.has(row)) {
-        // Extract parameter name from label
-        const paramName = e.label.split(/\s+/)[0];
-        paramsByRow.set(row, paramName);
+      if (!paramsByRow.has(row) && paramNames[row]) {
+        paramsByRow.set(row, paramNames[row]);
       }
     });
     
