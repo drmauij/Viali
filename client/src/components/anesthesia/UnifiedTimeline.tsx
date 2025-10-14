@@ -53,16 +53,16 @@ export function UnifiedTimeline({
   const defaultHeight = 510 + (numMedicationRows * 30) + 120; // base + medications + other swimlanes
   const componentHeight = height ?? defaultHeight;
   const chartRef = useRef<any>(null);
-  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains("dark"));
+  const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
 
   // Listen for theme changes
   useEffect(() => {
     const observer = new MutationObserver(() => {
-      setIsDark(document.documentElement.classList.contains("dark"));
+      setIsDark(document.documentElement.getAttribute("data-theme") === "dark");
     });
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["class"],
+      attributeFilter: ["data-theme"],
     });
     return () => observer.disconnect();
   }, []);
@@ -77,7 +77,7 @@ export function UnifiedTimeline({
     const uniqueRows = new Set(medicationEvents.map(e => e.row ?? 0));
     const numMedicationRows = Math.max(uniqueRows.size, 1);
     const medicationRowHeight = 30;
-    const medicationColor = isDark ? "hsl(150, 25%, 20%)" : "rgba(220, 252, 231, 0.8)";
+    const medicationColor = isDark ? "hsl(150, 45%, 18%)" : "rgba(220, 252, 231, 0.8)";
     
     // Calculate dynamic positions
     const medicationStart = 510;
@@ -87,11 +87,11 @@ export function UnifiedTimeline({
       // Grid 0: Vitals chart (taller for better visibility)
       { left: 150, right: 10, top: 40, height: 340, backgroundColor: "transparent" },
       // Grid 1: Times (purple background) - taller to avoid text overlap
-      { left: 150, right: 10, top: 380, height: 50, backgroundColor: isDark ? "hsl(250, 30%, 22%)" : "rgba(243, 232, 255, 0.8)" },
+      { left: 150, right: 10, top: 380, height: 50, backgroundColor: isDark ? "hsl(270, 55%, 20%)" : "rgba(243, 232, 255, 0.8)" },
       // Grid 2: Events (blue background)
-      { left: 150, right: 10, top: 430, height: 40, backgroundColor: isDark ? "hsl(215, 30%, 20%)" : "rgba(219, 234, 254, 0.8)" },
+      { left: 150, right: 10, top: 430, height: 40, backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)" },
       // Grid 3: Heart Rhythm (pink background)
-      { left: 150, right: 10, top: 470, height: 40, backgroundColor: isDark ? "hsl(340, 25%, 22%)" : "rgba(252, 231, 243, 0.8)" },
+      { left: 150, right: 10, top: 470, height: 40, backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)" },
       // Grid 4+: Individual medication drugs (green background) - dynamic count
       ...Array.from({ length: numMedicationRows }, (_, i) => ({
         left: 150,
@@ -101,11 +101,11 @@ export function UnifiedTimeline({
         backgroundColor: medicationColor,
       })),
       // Infusions/Perfusors (cyan background)
-      { left: 150, right: 10, top: medicationEnd, height: 40, backgroundColor: isDark ? "hsl(190, 30%, 20%)" : "rgba(207, 250, 254, 0.8)" },
+      { left: 150, right: 10, top: medicationEnd, height: 40, backgroundColor: isDark ? "hsl(190, 60%, 18%)" : "rgba(207, 250, 254, 0.8)" },
       // Ventilation (amber background)
-      { left: 150, right: 10, top: medicationEnd + 40, height: 40, backgroundColor: isDark ? "hsl(35, 30%, 22%)" : "rgba(254, 243, 199, 0.8)" },
+      { left: 150, right: 10, top: medicationEnd + 40, height: 40, backgroundColor: isDark ? "hsl(35, 70%, 22%)" : "rgba(254, 243, 199, 0.8)" },
       // Staff (slate background)
-      { left: 150, right: 10, top: medicationEnd + 80, height: 40, backgroundColor: isDark ? "hsl(215, 15%, 24%)" : "rgba(241, 245, 249, 0.8)" },
+      { left: 150, right: 10, top: medicationEnd + 80, height: 40, backgroundColor: isDark ? "hsl(220, 25%, 25%)" : "rgba(241, 245, 249, 0.8)" },
     ];
 
     // Time x-axes (one per grid)
@@ -549,11 +549,11 @@ export function UnifiedTimeline({
       {/* Swimlane background colors - extend full width behind everything */}
       <div className="absolute left-0 top-0 right-0 h-full pointer-events-none z-0">
         {/* Times background */}
-        <div className="absolute top-[380px] h-[50px] w-full" style={{ backgroundColor: isDark ? "hsl(250, 30%, 22%)" : "rgba(243, 232, 255, 0.8)" }} />
+        <div className="absolute top-[380px] h-[50px] w-full" style={{ backgroundColor: isDark ? "hsl(270, 55%, 20%)" : "rgba(243, 232, 255, 0.8)" }} />
         {/* Events background */}
-        <div className="absolute top-[430px] h-[40px] w-full" style={{ backgroundColor: isDark ? "hsl(215, 30%, 20%)" : "rgba(219, 234, 254, 0.8)" }} />
+        <div className="absolute top-[430px] h-[40px] w-full" style={{ backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)" }} />
         {/* Heart Rhythm background */}
-        <div className="absolute top-[470px] h-[40px] w-full" style={{ backgroundColor: isDark ? "hsl(340, 25%, 22%)" : "rgba(252, 231, 243, 0.8)" }} />
+        <div className="absolute top-[470px] h-[40px] w-full" style={{ backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)" }} />
         {/* Medications background - dynamic height based on drug count */}
         <div 
           className="absolute w-full" 
@@ -568,7 +568,7 @@ export function UnifiedTimeline({
           className="absolute h-[40px] w-full" 
           style={{ 
             top: `${medicationEnd}px`,
-            backgroundColor: isDark ? "hsl(190, 30%, 20%)" : "rgba(207, 250, 254, 0.8)" 
+            backgroundColor: isDark ? "hsl(190, 60%, 18%)" : "rgba(207, 250, 254, 0.8)" 
           }} 
         />
         {/* Ventilation background - dynamic position */}
@@ -576,7 +576,7 @@ export function UnifiedTimeline({
           className="absolute h-[40px] w-full" 
           style={{ 
             top: `${medicationEnd + 40}px`,
-            backgroundColor: isDark ? "hsl(35, 30%, 22%)" : "rgba(254, 243, 199, 0.8)" 
+            backgroundColor: isDark ? "hsl(35, 70%, 22%)" : "rgba(254, 243, 199, 0.8)" 
           }} 
         />
         {/* Staff background - dynamic position */}
@@ -584,7 +584,7 @@ export function UnifiedTimeline({
           className="absolute h-[40px] w-full" 
           style={{ 
             top: `${medicationEnd + 80}px`,
-            backgroundColor: isDark ? "hsl(215, 15%, 24%)" : "rgba(241, 245, 249, 0.8)" 
+            backgroundColor: isDark ? "hsl(220, 25%, 25%)" : "rgba(241, 245, 249, 0.8)" 
           }} 
         />
       </div>
@@ -624,17 +624,17 @@ export function UnifiedTimeline({
         </div>
         
         {/* Times - matches grid 1: top 380, height 50 */}
-        <div className="absolute top-[380px] h-[50px] w-full flex items-center px-2 border-b border-border" style={{ backgroundColor: isDark ? "hsl(250, 30%, 22%)" : "rgba(243, 232, 255, 0.8)" }}>
+        <div className="absolute top-[380px] h-[50px] w-full flex items-center px-2 border-b border-border" style={{ backgroundColor: isDark ? "hsl(270, 55%, 20%)" : "rgba(243, 232, 255, 0.8)" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Times</span>
         </div>
         
         {/* Events - matches grid 2: top 430, height 40 */}
-        <div className="absolute top-[430px] h-[40px] w-full flex items-center px-2 border-b border-border" style={{ backgroundColor: isDark ? "hsl(215, 30%, 20%)" : "rgba(219, 234, 254, 0.8)" }}>
+        <div className="absolute top-[430px] h-[40px] w-full flex items-center px-2 border-b border-border" style={{ backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Events</span>
         </div>
         
         {/* Heart Rhythm - matches grid 3: top 470, height 40 */}
-        <div className="absolute top-[470px] h-[40px] w-full flex items-center px-2 border-b border-border" style={{ backgroundColor: isDark ? "hsl(340, 25%, 22%)" : "rgba(252, 231, 243, 0.8)" }}>
+        <div className="absolute top-[470px] h-[40px] w-full flex items-center px-2 border-b border-border" style={{ backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)" }}>
           <span className="text-sm font-semibold text-black dark:text-white">Heart Rhythm</span>
         </div>
         
