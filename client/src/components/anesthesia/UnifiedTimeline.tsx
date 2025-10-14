@@ -238,10 +238,11 @@ export function UnifiedTimeline({
         return {
           type: "category" as const,
           gridIndex: gridIdx,
-          data: [""],
+          data: [""], // Single category for each swimlane
           show: false,
           axisLine: { show: false },
           axisTick: { show: false },
+          splitLine: { show: false },
         };
       }),
     ];
@@ -376,14 +377,23 @@ export function UnifiedTimeline({
           xAxisIndex: idx,
           yAxisIndex: idx + 1,
           data: pointEvents.map(e => {
-            // All swimlanes now use single row
-            return [e.time, ""];
+            // All swimlanes use single category positioned at center
+            return [e.time, 0]; // Use numeric 0 instead of empty string for better positioning
           }),
           symbol: "circle",
-          symbolSize: 1,
+          symbolSize: 6, // Make symbol slightly visible for better alignment
           itemStyle: {
-            color: "transparent",
-            borderWidth: 0,
+            color: event => {
+              // For medication events, use a subtle color per drug type
+              const evt = pointEvents[event.dataIndex];
+              if (evt && events.length > 0 && events[0].swimlane === "medikamente") {
+                const drugColors = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4"];
+                return drugColors[(evt.row || 0) % drugColors.length];
+              }
+              return isDark ? "#ffffff" : "#333333";
+            },
+            borderWidth: 1,
+            borderColor: isDark ? "#666666" : "#cccccc",
           },
           label: {
             show: true,
@@ -400,6 +410,7 @@ export function UnifiedTimeline({
             fontFamily: "Poppins, sans-serif",
             color: isDark ? "#ffffff" : "#000000",
             fontWeight: "500",
+            offset: [8, 0], // Add horizontal offset for better readability
           },
         });
       }
@@ -408,8 +419,8 @@ export function UnifiedTimeline({
       const rangeEvents = events.filter(e => e.duration);
       if (rangeEvents.length > 0) {
         rangeEvents.forEach((event) => {
-          // All swimlanes now use single row
-          const yValue = "";
+          // Use numeric positioning for better control
+          const yValue = 0;
 
           series.push({
             type: "custom",
@@ -418,8 +429,9 @@ export function UnifiedTimeline({
             renderItem: (params: any, api: any) => {
               const start = api.coord([event.time, yValue]);
               const end = api.coord([event.time + (event.duration || 0), yValue]);
-              const height = api.size([0, 1])[1] * 0.5;
-              const y = start[1] - height / 2;
+              const gridHeight = api.size([0, 1])[1];
+              const barHeight = gridHeight * 0.6; // 60% of grid height for better visibility
+              const y = start[1] - barHeight / 2;
 
               return {
                 type: "group",
@@ -429,23 +441,23 @@ export function UnifiedTimeline({
                     shape: {
                       x: start[0],
                       y,
-                      width: Math.max(end[0] - start[0], 2),
-                      height,
+                      width: Math.max(end[0] - start[0], 3), // Minimum 3px width
+                      height: barHeight,
                     },
                     style: {
                       fill: event.color || "#10b981",
                       opacity: 0.8,
-                      stroke: "transparent",
-                      lineWidth: 0,
+                      stroke: isDark ? "#333333" : "#ffffff",
+                      lineWidth: 1,
                     },
                   },
                   {
                     type: "text",
                     style: {
                       text: `${event.icon || ""} ${event.label}`,
-                      x: start[0] + 4,
-                      y: y + height / 2,
-                      fontSize: 11,
+                      x: start[0] + 6,
+                      y: y + barHeight / 2,
+                      fontSize: 10,
                       fontFamily: "Poppins, sans-serif",
                       fill: isDark ? "#ffffff" : "#000000",
                       fontWeight: "600",
@@ -663,15 +675,19 @@ export function UnifiedTimeline({
         <div className="absolute top-[470px] h-[40px] w-full" style={{ backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)" }} />
         {/* Medications Header background */}
         <div className="absolute h-[30px] w-full" style={{ top: `${medicationStart}px`, backgroundColor: medicationColor }} />
-        {/* Medications drugs background - dynamic height based on drug count */}
-        <div 
-          className="absolute w-full" 
-          style={{ 
-            top: `${medicationStart + 30}px`, 
-            height: `${numMedicationRows * medicationRowHeight}px`,
-            backgroundColor: medicationColor
-          }} 
-        />
+        {/* Individual medication drug backgrounds - each gets its own row with separator */}
+        {Array.from({ length: numMedicationRows }, (_, i) => (
+          <div 
+            key={i}
+            className="absolute w-full border-b" 
+            style={{ 
+              top: `${medicationStart + 30 + (i * medicationRowHeight)}px`, 
+              height: `${medicationRowHeight}px`,
+              backgroundColor: medicationColor,
+              borderColor: isDark ? "#444444" : "#d1d5db"
+            }} 
+          />
+        ))}
         {/* Infusions background - dynamic position */}
         <div 
           className="absolute h-[40px] w-full" 
