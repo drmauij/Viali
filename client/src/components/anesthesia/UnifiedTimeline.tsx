@@ -62,24 +62,24 @@ export function UnifiedTimeline({
 
   const option = useMemo(() => {
     // Grid layout configuration - continuous rows with no gaps
-    // Left margin: 120px for scales + 40px for header labels = 160px total
+    // Left margin: 200px for both scales side by side + header labels
     const grids = [
       // Grid 0: Vitals chart (taller for better visibility)
-      { left: 160, right: 100, top: 40, height: 340, backgroundColor: "transparent" },
+      { left: 200, right: 60, top: 40, height: 340, backgroundColor: "transparent" },
       // Grid 1: Times (purple background) - continuous from 380 to 420
-      { left: 160, right: 100, top: 380, height: 40, backgroundColor: isDark ? "rgba(216, 180, 254, 0.15)" : "rgba(243, 232, 255, 0.8)" },
+      { left: 200, right: 60, top: 380, height: 40, backgroundColor: isDark ? "rgba(216, 180, 254, 0.15)" : "rgba(243, 232, 255, 0.8)" },
       // Grid 2: Events (blue background) - continuous from 420 to 460
-      { left: 160, right: 100, top: 420, height: 40, backgroundColor: isDark ? "rgba(147, 197, 253, 0.15)" : "rgba(219, 234, 254, 0.8)" },
+      { left: 200, right: 60, top: 420, height: 40, backgroundColor: isDark ? "rgba(147, 197, 253, 0.15)" : "rgba(219, 234, 254, 0.8)" },
       // Grid 3: Heart Rhythm (pink background) - continuous from 460 to 500
-      { left: 160, right: 100, top: 460, height: 40, backgroundColor: isDark ? "rgba(244, 114, 182, 0.15)" : "rgba(252, 231, 243, 0.8)" },
+      { left: 200, right: 60, top: 460, height: 40, backgroundColor: isDark ? "rgba(244, 114, 182, 0.15)" : "rgba(252, 231, 243, 0.8)" },
       // Grid 4: Medications (green background) - continuous from 500 to 590
-      { left: 160, right: 100, top: 500, height: 90, backgroundColor: isDark ? "rgba(134, 239, 172, 0.15)" : "rgba(220, 252, 231, 0.8)" },
+      { left: 200, right: 60, top: 500, height: 90, backgroundColor: isDark ? "rgba(134, 239, 172, 0.15)" : "rgba(220, 252, 231, 0.8)" },
       // Grid 5: Infusions/Perfusors (cyan background) - continuous from 590 to 630
-      { left: 160, right: 100, top: 590, height: 40, backgroundColor: isDark ? "rgba(103, 232, 249, 0.15)" : "rgba(207, 250, 254, 0.8)" },
+      { left: 200, right: 60, top: 590, height: 40, backgroundColor: isDark ? "rgba(103, 232, 249, 0.15)" : "rgba(207, 250, 254, 0.8)" },
       // Grid 6: Ventilation (amber background) - continuous from 630 to 670
-      { left: 160, right: 100, top: 630, height: 40, backgroundColor: isDark ? "rgba(251, 191, 36, 0.15)" : "rgba(254, 243, 199, 0.8)" },
+      { left: 200, right: 60, top: 630, height: 40, backgroundColor: isDark ? "rgba(251, 191, 36, 0.15)" : "rgba(254, 243, 199, 0.8)" },
       // Grid 7: Staff (slate background) - continuous from 670 to 710
-      { left: 160, right: 100, top: 670, height: 40, backgroundColor: isDark ? "rgba(203, 213, 225, 0.15)" : "rgba(241, 245, 249, 0.8)" },
+      { left: 200, right: 60, top: 670, height: 40, backgroundColor: isDark ? "rgba(203, 213, 225, 0.15)" : "rgba(241, 245, 249, 0.8)" },
     ];
 
     // Time x-axes (one per grid)
@@ -108,7 +108,7 @@ export function UnifiedTimeline({
 
     // Y-axes
     const yAxes = [
-      // Grid 0 - Left: BP/HR (0-240) - visible scale outside graphic
+      // Grid 0 - Left side 1: BP/HR (0-240) - first scale on left
       {
         type: "value" as const,
         gridIndex: 0,
@@ -116,6 +116,7 @@ export function UnifiedTimeline({
         max: 240,
         interval: 40,
         position: "left" as const,
+        offset: 40, // Offset to make room for second scale
         axisLabel: { 
           show: true,
           fontSize: 11,
@@ -138,14 +139,15 @@ export function UnifiedTimeline({
           }
         },
       },
-      // Grid 0 - Right: SpO2 (50-100) - visible scale outside graphic
+      // Grid 0 - Left side 2: SpO2 (50-100) - second scale on left, side by side
       {
         type: "value" as const,
         gridIndex: 0,
         min: 50,
         max: 100,
         interval: 10,
-        position: "right" as const,
+        position: "left" as const,
+        offset: 0, // No offset for innermost scale
         axisLabel: { 
           show: true,
           fontSize: 11,
@@ -534,7 +536,7 @@ export function UnifiedTimeline({
       </div>
 
       {/* Left sidebar with swimlane labels - extends to chart start */}
-      <div className="absolute left-0 top-0 w-[160px] h-full border-r border-border z-10 bg-background">
+      <div className="absolute left-0 top-0 w-[200px] h-full border-r border-border z-10 bg-background">
         {/* Vitals label - matches grid 0: top 40, height 340 */}
         <div className="absolute top-[40px] h-[340px] w-full flex items-center justify-center px-2 border-b border-border">
           <span className="text-base font-semibold">Vitals</span>
