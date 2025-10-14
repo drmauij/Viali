@@ -494,7 +494,7 @@ export function UnifiedTimeline({
       0: "FiO₂",
       1: "PEEP",
       2: "VT",
-      3: "BF",
+      3: "RR",
       4: "PI"
     };
     

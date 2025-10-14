@@ -176,7 +176,7 @@ export default function Op() {
       { time: t0Ms + 25 * step, swimlane: "ventilation", label: "480", color: "#f59e0b", row: 2 },
       { time: t0Ms + 30 * step, swimlane: "ventilation", label: "480", color: "#f59e0b", row: 2 },
       
-      // BF (Breathing Frequency) values (row 3)
+      // RR (Respiratory Rate) values (row 3)
       { time: t0Ms + 5 * step, swimlane: "ventilation", label: "12", color: "#f59e0b", row: 3 },
       { time: t0Ms + 10 * step, swimlane: "ventilation", label: "12", color: "#f59e0b", row: 3 },
       { time: t0Ms + 15 * step, swimlane: "ventilation", label: "12", color: "#f59e0b", row: 3 },
