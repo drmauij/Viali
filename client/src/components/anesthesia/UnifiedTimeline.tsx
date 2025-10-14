@@ -539,32 +539,32 @@ export function UnifiedTimeline({
         {/* Vitals icon buttons - matches grid 0: top 40, height 340 */}
         <div className="absolute top-[40px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4 border-b border-border">
           <button
-            className="px-3 py-2 rounded-md border border-border bg-background hover:bg-accent/50 transition-colors flex items-center gap-2 w-[110px] shadow-sm"
+            className="p-2 rounded-md border border-border bg-background hover:bg-accent/50 transition-colors flex items-center justify-center shadow-sm"
             data-testid="button-vitals-bp"
+            title="Blood Pressure"
           >
-            <Activity className="w-4 h-4" />
-            <span className="text-xs font-medium">BP</span>
+            <Activity className="w-5 h-5" />
           </button>
           <button
-            className="px-3 py-2 rounded-md border border-border bg-background hover:bg-accent/50 transition-colors flex items-center gap-2 w-[110px] shadow-sm"
+            className="p-2 rounded-md border border-border bg-background hover:bg-accent/50 transition-colors flex items-center justify-center shadow-sm"
             data-testid="button-vitals-heart"
+            title="Heart Rate"
           >
-            <Heart className="w-4 h-4" />
-            <span className="text-xs font-medium">HR</span>
+            <Heart className="w-5 h-5" />
           </button>
           <button
-            className="px-3 py-2 rounded-md border border-border bg-background hover:bg-accent/50 transition-colors flex items-center gap-2 w-[110px] shadow-sm"
+            className="p-2 rounded-md border border-border bg-background hover:bg-accent/50 transition-colors flex items-center justify-center shadow-sm"
             data-testid="button-vitals-oxygen"
+            title="Oxygenation"
           >
-            <Wind className="w-4 h-4" />
-            <span className="text-xs font-medium">SpO2</span>
+            <Wind className="w-5 h-5" />
           </button>
           <button
-            className="px-3 py-2 rounded-md border border-border bg-background hover:bg-accent/50 transition-colors flex items-center gap-2 w-[110px] shadow-sm"
+            className="p-2 rounded-md border border-border bg-background hover:bg-accent/50 transition-colors flex items-center justify-center shadow-sm"
             data-testid="button-vitals-combo"
+            title="Combined View"
           >
-            <Combine className="w-4 h-4" />
-            <span className="text-xs font-medium">All</span>
+            <Combine className="w-5 h-5" />
           </button>
         </div>
         
