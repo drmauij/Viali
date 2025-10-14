@@ -174,18 +174,7 @@ export function UnifiedTimeline({
       // Swimlane y-axes (categorical or numeric for positioning)
       ...grids.slice(1).map((_, index) => {
         const gridIdx = index + 1;
-        // Medikamente grid needs multiple rows
-        if (gridIdx === 4) {
-          return {
-            type: "category" as const,
-            gridIndex: gridIdx,
-            data: ["Row 0", "Row 1", "Row 2"],
-            show: false,
-            axisLine: { show: false },
-            axisTick: { show: false },
-          };
-        }
-        // Other swimlanes have single row
+        // All swimlanes now have single row (medications split into individual grids)
         return {
           type: "category" as const,
           gridIndex: gridIdx,
@@ -279,16 +268,22 @@ export function UnifiedTimeline({
       zeiten: 1,
       ereignisse: 2,
       herzrhythmus: 3,
-      medikamente: 4,
-      infusionen: 5,
-      perfusors: 5,
-      ventilation: 6,
-      staff: 7,
+      medikamente: 4, // Will use grids 4-6 based on row
+      infusionen: 7,
+      perfusors: 7,
+      ventilation: 8,
+      staff: 9,
     };
 
     // Group events by swimlane
     const eventsBySwimlane = data.events.reduce((acc, event) => {
-      const gridIndex = swimlaneMap[event.swimlane];
+      let gridIndex = swimlaneMap[event.swimlane];
+      
+      // For medications, map to specific drug grid based on row
+      if (event.swimlane === "medikamente" && event.row !== undefined) {
+        gridIndex = 4 + event.row; // row 0->grid 4, row 1->grid 5, row 2->grid 6
+      }
+      
       if (!acc[gridIndex]) acc[gridIndex] = [];
       acc[gridIndex].push(event);
       return acc;
@@ -306,9 +301,8 @@ export function UnifiedTimeline({
           xAxisIndex: idx,
           yAxisIndex: idx + 1,
           data: pointEvents.map(e => {
-            // For medikamente grid, use row number; otherwise use empty string
-            const yValue = idx === 4 && e.row !== undefined ? `Row ${e.row}` : "";
-            return [e.time, yValue];
+            // All swimlanes now use single row
+            return [e.time, ""];
           }),
           symbol: "circle",
           symbolSize: 12,
@@ -338,8 +332,8 @@ export function UnifiedTimeline({
       const rangeEvents = events.filter(e => e.duration);
       if (rangeEvents.length > 0) {
         rangeEvents.forEach((event) => {
-          // For medikamente grid, use row number; otherwise use empty string
-          const yValue = idx === 4 && event.row !== undefined ? `Row ${event.row}` : "";
+          // All swimlanes now use single row
+          const yValue = "";
           
           series.push({
             type: "custom",
