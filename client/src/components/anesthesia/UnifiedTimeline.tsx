@@ -126,7 +126,12 @@ export function UnifiedTimeline({
       axisLine: { show: true },
       axisTick: { show: true },
       splitLine: { 
-        show: false,
+        show: true,
+        lineStyle: {
+          color: isDark ? "#444444" : "#d1d5db",
+          width: 1,
+          type: "solid" as const,
+        }
       },
     }));
 
@@ -155,7 +160,12 @@ export function UnifiedTimeline({
         },
         axisTick: { show: true },
         splitLine: { 
-          show: false,
+          show: true,
+          lineStyle: {
+            color: isDark ? "#444444" : "#d1d5db",
+            width: 1,
+            type: "solid" as const,
+          }
         },
       },
       // Grid 0 - Left side 2: SpO2 (50-100) - second scale on left, side by side
