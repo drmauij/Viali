@@ -537,34 +537,34 @@ export function UnifiedTimeline({
       {/* Left sidebar with swimlane labels - extends to chart start */}
       <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-10 bg-background">
         {/* Vitals icon buttons - matches grid 0: top 40, height 340 */}
-        <div className="absolute top-[40px] h-[340px] w-full flex flex-col items-center justify-center gap-3 px-2 border-b border-border">
+        <div className="absolute top-[40px] h-[340px] w-full flex flex-col items-center justify-center gap-2 px-2 border-b border-border">
           <button
-            className="p-2 rounded hover:bg-accent transition-colors"
+            className="p-2 rounded hover:bg-accent transition-colors flex items-center gap-2"
             data-testid="button-vitals-bp"
-            title="Blood Pressure"
           >
-            <Activity className="w-5 h-5" />
+            <Activity className="w-4 h-4" />
+            <span className="text-xs">BP</span>
           </button>
           <button
-            className="p-2 rounded hover:bg-accent transition-colors"
+            className="p-2 rounded hover:bg-accent transition-colors flex items-center gap-2"
             data-testid="button-vitals-heart"
-            title="Heart Rate"
           >
-            <Heart className="w-5 h-5" />
+            <Heart className="w-4 h-4" />
+            <span className="text-xs">HR</span>
           </button>
           <button
-            className="p-2 rounded hover:bg-accent transition-colors"
+            className="p-2 rounded hover:bg-accent transition-colors flex items-center gap-2"
             data-testid="button-vitals-oxygen"
-            title="Oxygenation"
           >
-            <Wind className="w-5 h-5" />
+            <Wind className="w-4 h-4" />
+            <span className="text-xs">SpO2</span>
           </button>
           <button
-            className="p-2 rounded hover:bg-accent transition-colors"
+            className="p-2 rounded hover:bg-accent transition-colors flex items-center gap-2"
             data-testid="button-vitals-combo"
-            title="Combined View"
           >
-            <Combine className="w-5 h-5" />
+            <Combine className="w-4 h-4" />
+            <span className="text-xs">All</span>
           </button>
         </div>
         
