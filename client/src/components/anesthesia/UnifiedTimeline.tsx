@@ -61,6 +61,7 @@ export function UnifiedTimeline({
   const chartRef = useRef<any>(null);
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
 
   // Listen for theme changes
   useEffect(() => {
@@ -74,11 +75,24 @@ export function UnifiedTimeline({
     return () => observer.disconnect();
   }, []);
 
+  // Listen for screen size changes
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const option = useMemo(() => {
     // Grid layout configuration - continuous rows with no gaps
     // Left margin: 150px when sidebar visible, 40px when collapsed (for y-axis labels only)
     // Right margin: 10px for minimal padding
     const leftMargin = sidebarCollapsed ? 40 : 150;
+    
+    // Responsive font sizes: smaller on mobile devices
+    const baseFontSize = isMobile ? 9 : 11;
+    const smallFontSize = isMobile ? 8 : 10;
     
     // Dynamically determine medication drugs from events
     const medicationEvents = data.events.filter(e => e.swimlane === "medikamente");
@@ -152,7 +166,7 @@ export function UnifiedTimeline({
       axisLabel: {
         show: index === 0, // Only show labels on top grid
         formatter: "{HH}:{mm}",
-        fontSize: 10,
+        fontSize: smallFontSize,
         fontFamily: "Poppins, sans-serif",
       },
       axisLine: { show: true },
@@ -183,7 +197,7 @@ export function UnifiedTimeline({
             offset: 30,
             axisLabel: { 
               show: true,
-              fontSize: 11,
+              fontSize: baseFontSize,
               fontFamily: "Poppins, sans-serif",
               color: isDark ? "#ffffff" : "#000000",
             },
@@ -213,7 +227,7 @@ export function UnifiedTimeline({
             offset: 0,
             axisLabel: { 
               show: true,
-              fontSize: 11,
+              fontSize: baseFontSize,
               fontFamily: "Poppins, sans-serif",
               color: "#8b5cf6",
             },
@@ -394,7 +408,7 @@ export function UnifiedTimeline({
               const event = pointEvents[params.dataIndex];
               return `${event?.icon || ""} ${event?.label || ""}`.trim();
             },
-            fontSize: 11,
+            fontSize: baseFontSize,
             fontFamily: "Poppins, sans-serif",
             color: isDark ? "#ffffff" : "#000000",
           },
@@ -444,7 +458,7 @@ export function UnifiedTimeline({
                       text: `${event.icon || ""} ${event.label}`,
                       x: start[0] + 4,
                       y: y + height / 2,
-                      fontSize: 11,
+                      fontSize: baseFontSize,
                       fontFamily: "Poppins, sans-serif",
                       fill: isDark ? "#ffffff" : "#000000",
                       fontWeight: "600",
@@ -495,7 +509,7 @@ export function UnifiedTimeline({
           handleSize: "80%",
           textStyle: {
             fontFamily: "Poppins, sans-serif",
-            fontSize: 10,
+            fontSize: smallFontSize,
           },
           borderColor: isDark ? "#444444" : "#d1d5db",
           fillerColor: isDark ? "rgba(99, 102, 241, 0.2)" : "rgba(99, 102, 241, 0.15)",
