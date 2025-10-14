@@ -67,7 +67,8 @@ export function UnifiedTimeline({
   // Calculate dynamic height based on collapse state
   const visibleMedRowsForHeight = medicationsCollapsed ? 0 : numMedicationRows;
   const visibleVentRowsForHeight = ventilationCollapsed ? 0 : numVentilationRows;
-  const defaultHeight = 510 + 30 + (visibleMedRowsForHeight * 30) + 40 + 30 + (visibleVentRowsForHeight * 30) + 40; // base + medications header + visible medications + infusions + ventilation header + visible ventilation rows + staff
+  const sliderHeight = 45; // Height for dataZoom slider at bottom (25px slider + 20px padding)
+  const defaultHeight = 510 + 30 + (visibleMedRowsForHeight * 30) + 40 + 30 + (visibleVentRowsForHeight * 30) + 40 + sliderHeight; // base + medications header + visible medications + infusions + ventilation header + visible ventilation rows + staff + slider
   const componentHeight = height ?? defaultHeight;
 
   // Listen for theme changes
@@ -524,8 +525,10 @@ export function UnifiedTimeline({
           type: "slider",
           xAxisIndex: Array.from({ length: grids.length }, (_, i) => i),
           show: true,
-          height: 20,
-          bottom: 5,
+          height: 25,
+          bottom: 10,
+          left: leftMargin,
+          right: 10,
           start: 0,
           end: 100,
           handleSize: "80%",
@@ -547,6 +550,7 @@ export function UnifiedTimeline({
               color: isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(0, 0, 0, 0.05)",
             },
           },
+          backgroundColor: isDark ? "rgba(0, 0, 0, 0.1)" : "rgba(255, 255, 255, 0.1)",
         },
       ],
       tooltip: {
