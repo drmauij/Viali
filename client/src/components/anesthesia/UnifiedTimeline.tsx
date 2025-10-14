@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Activity, Heart, Wind, Combine } from "lucide-react";
+import { Activity, Heart, Wind, Combine, ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 /**
  * UnifiedTimeline
@@ -59,6 +60,7 @@ export function UnifiedTimeline({
   const componentHeight = height ?? defaultHeight;
   const chartRef = useRef<any>(null);
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Listen for theme changes
   useEffect(() => {
@@ -74,8 +76,9 @@ export function UnifiedTimeline({
 
   const option = useMemo(() => {
     // Grid layout configuration - continuous rows with no gaps
-    // Left margin: 150px for both scales side by side + header labels
+    // Left margin: 150px when sidebar visible, 40px when collapsed (for y-axis labels only)
     // Right margin: 10px for minimal padding
+    const leftMargin = sidebarCollapsed ? 40 : 150;
     
     // Dynamically determine medication drugs from events
     const medicationEvents = data.events.filter(e => e.swimlane === "medikamente");
@@ -103,37 +106,37 @@ export function UnifiedTimeline({
     
     const grids = [
       // Grid 0: Vitals chart (taller for better visibility)
-      { left: 150, right: 10, top: 40, height: 340, backgroundColor: "transparent" },
+      { left: leftMargin, right: 10, top: 40, height: 340, backgroundColor: "transparent" },
       // Grid 1: Times (purple background) - taller to avoid text overlap
-      { left: 150, right: 10, top: 380, height: 50, backgroundColor: isDark ? "hsl(270, 55%, 20%)" : "rgba(243, 232, 255, 0.8)" },
+      { left: leftMargin, right: 10, top: 380, height: 50, backgroundColor: isDark ? "hsl(270, 55%, 20%)" : "rgba(243, 232, 255, 0.8)" },
       // Grid 2: Events (blue background)
-      { left: 150, right: 10, top: 430, height: 40, backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)" },
+      { left: leftMargin, right: 10, top: 430, height: 40, backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)" },
       // Grid 3: Heart Rhythm (pink background)
-      { left: 150, right: 10, top: 470, height: 40, backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)" },
+      { left: leftMargin, right: 10, top: 470, height: 40, backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)" },
       // Grid 4: Medications Header (green background) - no content, just header
-      { left: 150, right: 10, top: medicationStart, height: medicationHeaderHeight, backgroundColor: medicationColor },
+      { left: leftMargin, right: 10, top: medicationStart, height: medicationHeaderHeight, backgroundColor: medicationColor },
       // Grid 5+: Individual medication drugs (green background) - dynamic count
       ...Array.from({ length: numMedicationRows }, (_, i) => ({
-        left: 150,
+        left: leftMargin,
         right: 10,
         top: medicationStart + medicationHeaderHeight + (i * medicationRowHeight),
         height: medicationRowHeight,
         backgroundColor: medicationColor,
       })),
       // Infusions/Perfusors (cyan background)
-      { left: 150, right: 10, top: infusionsTop, height: 40, backgroundColor: isDark ? "hsl(190, 60%, 18%)" : "rgba(207, 250, 254, 0.8)" },
+      { left: leftMargin, right: 10, top: infusionsTop, height: 40, backgroundColor: isDark ? "hsl(190, 60%, 18%)" : "rgba(207, 250, 254, 0.8)" },
       // Grid N: Ventilation Header (amber background) - no content, just header
-      { left: 150, right: 10, top: ventilationStart, height: ventilationHeaderHeight, backgroundColor: ventilationColor },
+      { left: leftMargin, right: 10, top: ventilationStart, height: ventilationHeaderHeight, backgroundColor: ventilationColor },
       // Grid N+1+: Individual ventilation parameters (amber background) - dynamic count
       ...Array.from({ length: numVentilationRows }, (_, i) => ({
-        left: 150,
+        left: leftMargin,
         right: 10,
         top: ventilationStart + ventilationHeaderHeight + (i * ventilationRowHeight),
         height: ventilationRowHeight,
         backgroundColor: ventilationColor,
       })),
       // Staff (slate background)
-      { left: 150, right: 10, top: ventilationEnd, height: 40, backgroundColor: isDark ? "hsl(220, 25%, 25%)" : "rgba(241, 245, 249, 0.8)" },
+      { left: leftMargin, right: 10, top: ventilationEnd, height: 40, backgroundColor: isDark ? "hsl(220, 25%, 25%)" : "rgba(241, 245, 249, 0.8)" },
     ];
 
     // Identify parent header grids (Medications and Ventilation headers)
@@ -474,7 +477,7 @@ export function UnifiedTimeline({
         },
       },
     } as echarts.EChartsOption;
-  }, [data, isDark]);
+  }, [data, isDark, sidebarCollapsed]);
 
   // Extract medication drug names dynamically for sidebar
   const medicationDrugs = useMemo(() => {
@@ -590,6 +593,16 @@ export function UnifiedTimeline({
 
   return (
     <div className="w-full relative" style={{ height: componentHeight }}>
+      {/* Sidebar Toggle Button - Top Left */}
+      <button
+        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+        className="absolute top-2 left-2 z-30 p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
+        data-testid="button-toggle-sidebar"
+        title={sidebarCollapsed ? "Show Labels" : "Hide Labels"}
+      >
+        {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+      </button>
+
       {/* Zoom and Pan Controls - Centered */}
       <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-30 flex gap-2">
         <button
@@ -675,7 +688,8 @@ export function UnifiedTimeline({
       </div>
 
       {/* Left sidebar with swimlane labels - extends to chart start */}
-      <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-30 bg-background">
+      {!sidebarCollapsed && (
+        <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-30 bg-background">
         {/* Vitals icon buttons - matches grid 0: top 40, height 340 */}
         <div className="absolute top-[40px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
           <button
@@ -862,7 +876,8 @@ export function UnifiedTimeline({
         >
           <span className="text-sm font-semibold text-black dark:text-white">Staff</span>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* ECharts timeline - high z-index to stay on top */}
       <div className="absolute inset-0 z-20">
