@@ -410,15 +410,6 @@ export function UnifiedTimeline({
           fontFamily: "Poppins, sans-serif",
         },
       },
-      legend: {
-        data: ["Systolic BP", "Diastolic BP", "HR", "SpO2"],
-        top: 10,
-        left: 140,
-        textStyle: {
-          fontFamily: "Poppins, sans-serif",
-          fontSize: 11,
-        },
-      },
     } as echarts.EChartsOption;
   }, [data, isDark]);
 
