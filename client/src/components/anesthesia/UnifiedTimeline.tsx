@@ -622,12 +622,11 @@ export function UnifiedTimeline({
         <div className="absolute h-[30px] w-full border-b" style={{ top: `${medicationStart}px`, backgroundColor: medicationColor, borderColor: isDark ? "#444444" : "#d1d5db" }} />
         {/* Medications drugs background - dynamic height based on drug count */}
         <div 
-          className="absolute w-full border-b" 
+          className="absolute w-full" 
           style={{ 
             top: `${medicationStart + 30}px`, 
             height: `${numMedicationRows * medicationRowHeight}px`,
-            backgroundColor: medicationColor,
-            borderColor: isDark ? "#444444" : "#d1d5db"
+            backgroundColor: medicationColor
           }} 
         />
         {/* Infusions background - dynamic position */}
@@ -642,12 +641,11 @@ export function UnifiedTimeline({
         <div className="absolute h-[30px] w-full border-b" style={{ top: `${ventilationStart}px`, backgroundColor: ventilationColor, borderColor: isDark ? "#444444" : "#d1d5db" }} />
         {/* Ventilation parameters background - dynamic height based on param count */}
         <div 
-          className="absolute w-full border-b" 
+          className="absolute w-full" 
           style={{ 
             top: `${ventilationStart + 30}px`, 
             height: `${numVentilationRows * ventilationRowHeight}px`,
-            backgroundColor: ventilationColor,
-            borderColor: isDark ? "#444444" : "#d1d5db"
+            backgroundColor: ventilationColor
           }} 
         />
         {/* Staff background - dynamic position */}
