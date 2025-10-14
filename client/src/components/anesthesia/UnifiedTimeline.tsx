@@ -111,26 +111,48 @@ export function UnifiedTimeline({
       { left: 150, right: 10, top: medicationEnd + 80, height: 40, backgroundColor: isDark ? "hsl(220, 25%, 25%)" : "rgba(241, 245, 249, 0.8)" },
     ];
 
+    // Calculate default 12-hour window (6 AM to 6 PM)
+    const defaultStart = new Date(data.startTime);
+    defaultStart.setHours(6, 0, 0, 0);
+    const defaultEnd = new Date(data.startTime);
+    defaultEnd.setHours(18, 0, 0, 0);
+
     // Time x-axes (one per grid)
     const xAxes = grids.map((_, index) => ({
       type: "time" as const,
       gridIndex: index,
-      min: data.startTime,
-      max: data.endTime,
+      min: +defaultStart,
+      max: +defaultEnd,
       axisLabel: {
         show: index === 0, // Only show labels on top grid
         formatter: "{HH}:{mm}",
         fontSize: 10,
         fontFamily: "Poppins, sans-serif",
+        interval: 0, // Show all labels
       },
       axisLine: { show: true },
-      axisTick: { show: true },
+      axisTick: { 
+        show: true,
+        interval: 0, // Show all ticks
+      },
       splitLine: { 
         show: true,
         lineStyle: {
           color: isDark ? "#444444" : "#d1d5db",
           width: 1,
           type: "solid" as const,
+        }
+      },
+      minorTick: {
+        show: true,
+        splitNumber: 4, // 15-minute intervals (4 splits per hour)
+      },
+      minorSplitLine: {
+        show: true,
+        lineStyle: {
+          color: isDark ? "#333333" : "#e5e7eb",
+          width: 0.5,
+          type: "dashed" as const,
         }
       },
     }));
@@ -421,7 +443,28 @@ export function UnifiedTimeline({
       xAxis: xAxes,
       yAxis: yAxes,
       series,
-      dataZoom: [],
+      dataZoom: [
+        {
+          type: "inside",
+          xAxisIndex: "all", // Apply to all x-axes
+          start: 0,
+          end: 100,
+          minValueSpan: 15 * 60 * 1000, // Minimum 15 minutes visible
+          maxValueSpan: 12 * 60 * 60 * 1000, // Maximum 12 hours visible
+          throttle: 50,
+        },
+        {
+          type: "slider",
+          xAxisIndex: 0, // Only show slider for main chart
+          height: 20,
+          bottom: 10,
+          start: 0,
+          end: 100,
+          minValueSpan: 15 * 60 * 1000, // Minimum 15 minutes
+          maxValueSpan: 12 * 60 * 60 * 1000, // Maximum 12 hours
+          handleIcon: "M10.7,11.9v-1.3H9.3v1.3c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4v1.3h1.3v-1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z",
+        }
+      ],
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "line" },
@@ -456,14 +499,21 @@ export function UnifiedTimeline({
   const medicationEnd = medicationStart + medicationHeaderHeight + (numMedicationRows * medicationRowHeight);
   const medicationColor = isDark ? "hsl(150, 45%, 18%)" : "rgba(220, 252, 231, 0.8)";
 
-  // Zoom and pan controls
+  // Zoom and pan controls with 15-minute intervals
   const handleZoomIn = () => {
     const chart = chartRef.current?.getEchartsInstance();
     if (chart) {
+      const option = chart.getOption() as any;
+      const currentMin = option.xAxis[0].min;
+      const currentMax = option.xAxis[0].max;
+      const currentSpan = currentMax - currentMin;
+      const newSpan = Math.max(currentSpan * 0.5, 15 * 60 * 1000); // Min 15 minutes
+      const center = (currentMin + currentMax) / 2;
+      
       chart.dispatchAction({
         type: 'dataZoom',
-        startValue: data.startTime,
-        endValue: data.startTime + (data.endTime - data.startTime) * 0.7,
+        startValue: center - newSpan / 2,
+        endValue: center + newSpan / 2,
       });
     }
   };
@@ -471,10 +521,17 @@ export function UnifiedTimeline({
   const handleZoomOut = () => {
     const chart = chartRef.current?.getEchartsInstance();
     if (chart) {
+      const option = chart.getOption() as any;
+      const currentMin = option.xAxis[0].min;
+      const currentMax = option.xAxis[0].max;
+      const currentSpan = currentMax - currentMin;
+      const newSpan = Math.min(currentSpan * 2, 12 * 60 * 60 * 1000); // Max 12 hours
+      const center = (currentMin + currentMax) / 2;
+      
       chart.dispatchAction({
         type: 'dataZoom',
-        startValue: data.startTime,
-        endValue: data.endTime,
+        startValue: center - newSpan / 2,
+        endValue: center + newSpan / 2,
       });
     }
   };
@@ -483,16 +540,16 @@ export function UnifiedTimeline({
     const chart = chartRef.current?.getEchartsInstance();
     if (chart) {
       const option = chart.getOption() as any;
-      const dataZoom = option.dataZoom?.[0];
-      if (dataZoom) {
-        const start = Math.max(0, (dataZoom.start || 0) - 10);
-        const end = Math.max(10, (dataZoom.end || 100) - 10);
-        chart.dispatchAction({
-          type: 'dataZoom',
-          start,
-          end,
-        });
-      }
+      const currentMin = option.xAxis[0].min;
+      const currentMax = option.xAxis[0].max;
+      const span = currentMax - currentMin;
+      const panStep = Math.max(span * 0.1, 15 * 60 * 1000); // Pan by 10% or 15 min minimum
+      
+      chart.dispatchAction({
+        type: 'dataZoom',
+        startValue: currentMin - panStep,
+        endValue: currentMax - panStep,
+      });
     }
   };
 
@@ -500,16 +557,16 @@ export function UnifiedTimeline({
     const chart = chartRef.current?.getEchartsInstance();
     if (chart) {
       const option = chart.getOption() as any;
-      const dataZoom = option.dataZoom?.[0];
-      if (dataZoom) {
-        const start = Math.min(90, (dataZoom.start || 0) + 10);
-        const end = Math.min(100, (dataZoom.end || 100) + 10);
-        chart.dispatchAction({
-          type: 'dataZoom',
-          start,
-          end,
-        });
-      }
+      const currentMin = option.xAxis[0].min;
+      const currentMax = option.xAxis[0].max;
+      const span = currentMax - currentMin;
+      const panStep = Math.max(span * 0.1, 15 * 60 * 1000); // Pan by 10% or 15 min minimum
+      
+      chart.dispatchAction({
+        type: 'dataZoom',
+        startValue: currentMin + panStep,
+        endValue: currentMax + panStep,
+      });
     }
   };
 
