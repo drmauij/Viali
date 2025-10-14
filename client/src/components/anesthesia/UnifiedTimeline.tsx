@@ -648,16 +648,32 @@ export function UnifiedTimeline({
           <span className="text-sm font-semibold text-black dark:text-white">Heart Rhythm</span>
         </div>
         
-        {/* Medications Container - header only, drug swimlanes are shown in chart */}
+        {/* Medications Container - dynamic height based on drug count */}
         <div 
-          className="absolute w-full border-b border-border flex items-center px-2" 
+          className="absolute w-full border-b border-border" 
           style={{ 
             top: `${medicationStart}px`, 
             height: `${numMedicationRows * medicationRowHeight}px`,
             backgroundColor: medicationColor 
           }}
         >
-          <span className="text-sm font-semibold text-black dark:text-white">Medications</span>
+          {/* Medications header */}
+          <div className="text-xs font-bold text-black dark:text-white px-2 pt-1 pb-1">
+            Medications
+          </div>
+          
+          {/* Individual drug swimlanes - dynamically generated */}
+          <div className="relative">
+            {medicationDrugs.map((drugName, index) => (
+              <div 
+                key={index}
+                className="flex items-center px-2 pl-4 border-t border-border/30"
+                style={{ height: `${medicationRowHeight}px` }}
+              >
+                <span className="text-xs text-black dark:text-white">{drugName}</span>
+              </div>
+            ))}
+          </div>
         </div>
         
         {/* Infusions - dynamic position */}
