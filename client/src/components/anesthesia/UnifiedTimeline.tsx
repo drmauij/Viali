@@ -844,40 +844,7 @@ export function UnifiedTimeline({
           opts={{ renderer: "canvas" }}
           notMerge
           lazyUpdate
-          onEvents={{
-            dataZoom: (params: any) => {
-              const chart = chartRef.current?.getEchartsInstance();
-              if (!chart) return;
-
-              // Get current zoom state
-              const option = chart.getOption() as any;
-              const dataZoom = option.dataZoom?.[0];
-              if (!dataZoom) return;
-
-              const currentSpan = dataZoom.endValue - dataZoom.startValue;
-              const minSpan = 5 * 60 * 1000; // 5 minutes in milliseconds
-              const maxSpan = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
-
-              // If zoom is too granular, reset to minimum
-              if (currentSpan < minSpan) {
-                const center = (dataZoom.startValue + dataZoom.endValue) / 2;
-                chart.dispatchAction({
-                  type: 'dataZoom',
-                  startValue: center - minSpan / 2,
-                  endValue: center + minSpan / 2,
-                });
-              }
-              // If zoom is too wide, reset to maximum
-              else if (currentSpan > maxSpan) {
-                const center = (dataZoom.startValue + dataZoom.endValue) / 2;
-                chart.dispatchAction({
-                  type: 'dataZoom',
-                  startValue: center - maxSpan / 2,
-                  endValue: center + maxSpan / 2,
-                });
-              }
-            }
-          }}
+          
         />
       </div>
     </div>
