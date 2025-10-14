@@ -117,6 +117,7 @@ export function UnifiedTimeline({
     const defaultEnd = now + (5 * 60 * 1000);   // 5 minutes after now
 
     // Time x-axes (one per grid) - no fixed min/max to allow free scrolling
+    // Create x-axis for each grid (including dynamically added medication grids)
     const xAxes = grids.map((_, index) => ({
       type: "time" as const,
       gridIndex: index,
