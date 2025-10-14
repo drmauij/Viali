@@ -332,16 +332,8 @@ export function UnifiedTimeline({
             // All swimlanes now use single row
             return [e.time, ""];
           }),
-          symbol: "circle",
-          symbolSize: 12,
-          itemStyle: {
-            color: (params: any) => pointEvents[params.dataIndex]?.color || "#3b82f6",
-            borderColor: (params: any) => {
-              // Use theme-aware border color
-              return "var(--background)";
-            },
-            borderWidth: 2,
-          },
+          symbol: "none",
+          symbolSize: 0,
           label: {
             show: true,
             position: "right",
