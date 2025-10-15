@@ -398,6 +398,26 @@ export default function Op() {
             <div className="border-t bg-card">
               <UnifiedTimeline data={timelineData} height={750} now={new Date().getTime()} />
             </div>
+            
+            {/* Test Chart with 30 Swimlanes */}
+            <div className="border-t mt-8 bg-card">
+              <div className="px-6 py-4 bg-muted/50">
+                <h3 className="text-lg font-semibold">Test Chart - 30 Swimlanes</h3>
+                <p className="text-sm text-muted-foreground">Fresh chart to test vertical grid line rendering</p>
+              </div>
+              <UnifiedTimeline 
+                data={timelineData} 
+                height={1200} 
+                now={new Date().getTime()}
+                swimlanes={Array.from({ length: 30 }, (_, i) => ({
+                  id: `test-lane-${i}`,
+                  label: `Test Swimlane ${i + 1}`,
+                  height: 35,
+                  colorLight: i % 2 === 0 ? "rgba(240, 240, 245, 0.8)" : "rgba(250, 250, 255, 0.8)",
+                  colorDark: i % 2 === 0 ? "hsl(220, 20%, 15%)" : "hsl(220, 20%, 18%)",
+                }))}
+              />
+            </div>
           </TabsContent>
 
           {/* Anesthesia Documentation Tab */}
