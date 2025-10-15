@@ -284,49 +284,25 @@ export function UnifiedTimeline({
       })),
     ];
 
+    // Series (empty for now - to be populated with data)
+    const series: any[] = [];
+
     // Calculate total height for vertical lines
     const chartBottom = currentTop;
     const chartHeight = chartBottom - VITALS_TOP;
     const timeRange = data.endTime - data.startTime;
     const oneHour = 60 * 60 * 1000;
     
-    // Calculate editable zone boundaries (relative to data.endTime, not Date.now())
-    const editableStartTime = data.endTime - (10 * 60 * 1000); // 10 minutes before end
-    const editableStartPercent = ((editableStartTime - data.startTime) / timeRange);
-
-    // Series (empty for now - to be populated with data)
-    const series: any[] = [];
-    
-    // Add disabled zone as a markArea on the first grid
-    if (editableStartPercent > 0 && editableStartPercent < 1) {
-      series.push({
-        type: 'line',
-        xAxisIndex: 0,
-        yAxisIndex: 0,
-        data: [],
-        markArea: {
-          silent: true,
-          itemStyle: {
-            color: isDark ? "rgba(60, 60, 60, 0.3)" : "rgba(200, 200, 200, 0.3)",
-          },
-          data: [[
-            { xAxis: data.startTime, yAxis: 0 },
-            { xAxis: editableStartTime, yAxis: 230 },
-          ]],
-        },
-      });
-    }
-    
     // Generate manual y-axis labels in the white space
     const yAxisLabels: any[] = [];
     
-    // First y-axis (0-220, interval 20) - positioned at x=95px, grid extends -10 to 230 for padding
+    // First y-axis (0-220, interval 20) - positioned at x=70px, grid extends -10 to 230 for padding
     for (let val = 0; val <= 220; val += 20) {
       const yPercent = ((230 - val) / 240) * 100; // Invert because top is 0, using 240 range (-10 to 230)
       const yPos = VITALS_TOP + (yPercent / 100) * VITALS_HEIGHT;
       yAxisLabels.push({
         type: "text",
-        left: 95,
+        left: 70,
         top: yPos - 6, // Center text vertically
         style: {
           text: val.toString(),
@@ -357,7 +333,7 @@ export function UnifiedTimeline({
         z: 100,
       });
     }
-
+    
     // Generate continuous vertical lines spanning all grids
     const verticalLines: any[] = [];
     for (let t = Math.ceil(data.startTime / oneHour) * oneHour; t <= data.endTime; t += oneHour) {
@@ -422,18 +398,8 @@ export function UnifiedTimeline({
       dataZoom: [{
         type: "inside",
         xAxisIndex: grids.map((_, i) => i),
-        startValue: (() => {
-          // Try to position 15 minutes before "now" (data.endTime), but clamp to valid range
-          const desiredStart = data.endTime - (15 * 60 * 1000);
-          return Math.max(data.startTime, desiredStart);
-        })(),
-        endValue: (() => {
-          // 5 minute window from start, clamped to data range
-          const desiredStart = data.endTime - (15 * 60 * 1000);
-          const actualStart = Math.max(data.startTime, desiredStart);
-          const desiredEnd = actualStart + (5 * 60 * 1000);
-          return Math.min(data.endTime, desiredEnd);
-        })(),
+        startValue: data.startTime,
+        endValue: data.endTime,
         minValueSpan: 5 * 60 * 1000, // 5 minutes minimum
         maxValueSpan: 6 * 60 * 60 * 1000, // 6 hours maximum
         throttle: 50,
@@ -536,22 +502,6 @@ export function UnifiedTimeline({
     }
   };
 
-  const handleResetZoom = () => {
-    const chart = chartRef.current?.getEchartsInstance();
-    if (chart) {
-      // Reset to default zoom: 5-minute window, 15 minutes before data.endTime
-      const desiredStart = data.endTime - (15 * 60 * 1000);
-      const actualStart = Math.max(data.startTime, desiredStart);
-      const desiredEnd = actualStart + (5 * 60 * 1000);
-      const actualEnd = Math.min(data.endTime, desiredEnd);
-      chart.dispatchAction({
-        type: 'dataZoom',
-        startValue: actualStart,
-        endValue: actualEnd,
-      });
-    }
-  };
-
   // Calculate swimlane positions for sidebar
   const SWIMLANE_START = VITALS_TOP_POS + VITALS_HEIGHT;
   let currentTop = SWIMLANE_START;
@@ -570,11 +520,6 @@ export function UnifiedTimeline({
         currentStart={currentZoomStart}
         currentEnd={currentZoomEnd}
         isDark={isDark}
-        onPanLeft={handlePanLeft}
-        onPanRight={handlePanRight}
-        onZoomIn={handleZoomIn}
-        onZoomOut={handleZoomOut}
-        onResetZoom={handleResetZoom}
       />
       
       {/* Swimlane backgrounds */}
@@ -605,7 +550,7 @@ export function UnifiedTimeline({
                 key={`scale1-${val}`}
                 className="absolute text-xs font-medium text-foreground"
                 style={{ 
-                  right: '30px',
+                  right: '50px',
                   top: `${yPercent}%`,
                   transform: 'translateY(-50%)'
                 }}
