@@ -79,6 +79,26 @@ export function UnifiedTimeline({
   const [currentZoomStart, setCurrentZoomStart] = useState<number | undefined>(undefined);
   const [currentZoomEnd, setCurrentZoomEnd] = useState<number | undefined>(undefined);
 
+  // State for current time indicator - updates every minute
+  const [currentTime, setCurrentTime] = useState<number>(now || Date.now());
+
+  // Update current time every minute
+  useEffect(() => {
+    const updateTime = () => {
+      setCurrentTime(Date.now());
+    };
+
+    // Update immediately if now prop changes
+    if (now) {
+      setCurrentTime(now);
+    }
+
+    // Set up interval to update every minute
+    const interval = setInterval(updateTime, 60000); // 60000ms = 1 minute
+
+    return () => clearInterval(interval);
+  }, [now]);
+
   // Toggle collapsed state for parent swimlanes
   const toggleSwimlane = (id: string) => {
     setCollapsedSwimlanes(prev => {
@@ -237,7 +257,6 @@ export function UnifiedTimeline({
 
     const updateZones = () => {
       try {
-        const currentTime = now || data.endTime;
         const tenMinutes = 10 * 60 * 1000;
         const editableBoundary = currentTime - tenMinutes;
         
@@ -255,6 +274,9 @@ export function UnifiedTimeline({
         const SWIMLANE_START = VITALS_TOP + VITALS_HEIGHT;
         const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
         const chartHeight = VITALS_HEIGHT + swimlanesHeight;
+        
+        // Calculate position for current time indicator
+        const nowPx = chart.convertToPixel({ xAxisIndex: 0 }, currentTime);
         
         // Update graphic elements
         chart.setOption({
@@ -296,6 +318,24 @@ export function UnifiedTimeline({
                 z: 0,
                 cursor: 'pointer',
               },
+              {
+                $action: 'replace',
+                type: "line",
+                left: nowPx,
+                top: VITALS_TOP,
+                shape: {
+                  x1: 0,
+                  y1: 0,
+                  x2: 0,
+                  y2: chartHeight,
+                },
+                style: {
+                  stroke: isDark ? '#ef4444' : '#dc2626',
+                  lineWidth: 2,
+                },
+                silent: true,
+                z: 100,
+              },
             ],
           },
         }, { replaceMerge: ['graphic'] });
@@ -314,7 +354,7 @@ export function UnifiedTimeline({
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [chartRef, data, isDark, activeSwimlanes, now, currentZoomStart, currentZoomEnd]);
+  }, [chartRef, data, isDark, activeSwimlanes, now, currentZoomStart, currentZoomEnd, currentTime]);
 
   const option = useMemo(() => {
     // Layout constants
