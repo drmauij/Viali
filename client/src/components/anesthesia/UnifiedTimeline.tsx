@@ -281,6 +281,7 @@ export function UnifiedTimeline({
           moveOnMouseWheel: false,
           moveOnMouseMove: false,
           filterMode: "none",
+          disabled: true, // Disable inside dataZoom to allow page scrolling
         }
       ],
       tooltip: {
@@ -405,7 +406,7 @@ export function UnifiedTimeline({
   return (
     <div className="w-full relative" style={{ height: componentHeight }}>
       {/* Zoom and Pan Controls */}
-      <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-30 flex gap-2">
+      <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-30 flex gap-2" style={{ pointerEvents: "auto" }}>
         <button
           onClick={handlePanLeft}
           className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
@@ -457,7 +458,7 @@ export function UnifiedTimeline({
       </div>
 
       {/* Left sidebar with swimlane labels */}
-      <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-10 bg-background">
+      <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-10 bg-background" style={{ pointerEvents: "auto" }}>
         {/* Vitals icon buttons */}
         <div className="absolute top-[40px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
           <button
@@ -514,10 +515,16 @@ export function UnifiedTimeline({
         <ReactECharts
           ref={chartRef}
           option={option}
-          style={{ height: "100%", width: "100%" }}
+          style={{ height: "100%", width: "100%", pointerEvents: "none" }}
           opts={{ renderer: "canvas" }}
           notMerge
           lazyUpdate
+          onEvents={{
+            // Allow specific chart interactions while keeping scroll disabled
+            click: (params: any) => {
+              // Handle chart clicks if needed
+            }
+          }}
         />
       </div>
     </div>
