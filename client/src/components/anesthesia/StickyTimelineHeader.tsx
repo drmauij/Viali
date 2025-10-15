@@ -108,27 +108,96 @@ export function StickyTimelineHeader({
       
       {/* Control buttons overlaid on top of timeline */}
       <div className="absolute inset-0 pointer-events-none z-[100]">
-        {/* Left: Pan back button */}
-        {onPanLeft && (
-          <button
-            onClick={onPanLeft}
-            className="absolute left-[155px] top-1/2 -translate-y-1/2 pointer-events-auto w-7 h-7 rounded flex items-center justify-center bg-background/50 hover:bg-background/80 border border-border/50 transition-colors"
-            data-testid="button-pan-left"
-            title="Pan Left"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-        )}
-        
-        {/* Center: Zoom controls */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto flex gap-1">
+        {/* Desktop: buttons spread across timeline */}
+        <div className="hidden md:contents">
+          {/* Left: Pan back button */}
+          {onPanLeft && (
+            <button
+              onClick={onPanLeft}
+              className="absolute left-[155px] top-1/2 -translate-y-1/2 pointer-events-auto w-7 h-7 rounded flex items-center justify-center bg-background/85 hover:bg-background border border-border/50 transition-colors"
+              data-testid="button-pan-left"
+              title="Pan Left"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
+          
+          {/* Center: Zoom controls */}
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto flex gap-1">
+            {onZoomIn && (
+              <button
+                onClick={onZoomIn}
+                className="w-7 h-7 rounded flex items-center justify-center bg-background/85 hover:bg-background border border-border/50 transition-colors"
+                data-testid="button-zoom-in"
+                title="Zoom In"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+                </svg>
+              </button>
+            )}
+            {onResetZoom && (
+              <button
+                onClick={onResetZoom}
+                className="w-7 h-7 rounded flex items-center justify-center bg-background/85 hover:bg-background border border-border/50 transition-colors"
+                data-testid="button-reset-zoom"
+                title="Reset Zoom"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            )}
+            {onZoomOut && (
+              <button
+                onClick={onZoomOut}
+                className="w-7 h-7 rounded flex items-center justify-center bg-background/85 hover:bg-background border border-border/50 transition-colors"
+                data-testid="button-zoom-out"
+                title="Zoom Out"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+                </svg>
+              </button>
+            )}
+          </div>
+          
+          {/* Right: Pan forward button */}
+          {onPanRight && (
+            <button
+              onClick={onPanRight}
+              className="absolute right-[15px] top-1/2 -translate-y-1/2 pointer-events-auto w-7 h-7 rounded flex items-center justify-center bg-background/85 hover:bg-background border border-border/50 transition-colors"
+              data-testid="button-pan-right"
+              title="Pan Right"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* Mobile: all buttons on left side */}
+        <div className="md:hidden absolute left-2 top-1/2 -translate-y-1/2 pointer-events-auto flex gap-1">
+          {onPanLeft && (
+            <button
+              onClick={onPanLeft}
+              className="w-7 h-7 rounded flex items-center justify-center bg-background/85 hover:bg-background border border-border/50 transition-colors"
+              data-testid="button-pan-left-mobile"
+              title="Pan Left"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
           {onZoomIn && (
             <button
               onClick={onZoomIn}
-              className="w-7 h-7 rounded flex items-center justify-center bg-background/50 hover:bg-background/80 border border-border/50 transition-colors"
-              data-testid="button-zoom-in"
+              className="w-7 h-7 rounded flex items-center justify-center bg-background/85 hover:bg-background border border-border/50 transition-colors"
+              data-testid="button-zoom-in-mobile"
               title="Zoom In"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -139,8 +208,8 @@ export function StickyTimelineHeader({
           {onResetZoom && (
             <button
               onClick={onResetZoom}
-              className="w-7 h-7 rounded flex items-center justify-center bg-background/50 hover:bg-background/80 border border-border/50 transition-colors"
-              data-testid="button-reset-zoom"
+              className="w-7 h-7 rounded flex items-center justify-center bg-background/85 hover:bg-background border border-border/50 transition-colors"
+              data-testid="button-reset-zoom-mobile"
               title="Reset Zoom"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -151,8 +220,8 @@ export function StickyTimelineHeader({
           {onZoomOut && (
             <button
               onClick={onZoomOut}
-              className="w-7 h-7 rounded flex items-center justify-center bg-background/50 hover:bg-background/80 border border-border/50 transition-colors"
-              data-testid="button-zoom-out"
+              className="w-7 h-7 rounded flex items-center justify-center bg-background/85 hover:bg-background border border-border/50 transition-colors"
+              data-testid="button-zoom-out-mobile"
               title="Zoom Out"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -160,21 +229,19 @@ export function StickyTimelineHeader({
               </svg>
             </button>
           )}
+          {onPanRight && (
+            <button
+              onClick={onPanRight}
+              className="w-7 h-7 rounded flex items-center justify-center bg-background/85 hover:bg-background border border-border/50 transition-colors"
+              data-testid="button-pan-right-mobile"
+              title="Pan Right"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
         </div>
-        
-        {/* Right: Pan forward button */}
-        {onPanRight && (
-          <button
-            onClick={onPanRight}
-            className="absolute right-[15px] top-1/2 -translate-y-1/2 pointer-events-auto w-7 h-7 rounded flex items-center justify-center bg-background/50 hover:bg-background/80 border border-border/50 transition-colors"
-            data-testid="button-pan-right"
-            title="Pan Right"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        )}
       </div>
     </div>
   );
