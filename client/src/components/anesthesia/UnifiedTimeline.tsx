@@ -431,14 +431,25 @@ export function UnifiedTimeline({
     };
 
     // Update zones after chart finishes rendering
-    chart.on('finished', updateZones);
+    // Use requestAnimationFrame to avoid "setOption during main process" error
+    const handleFinished = () => {
+      requestAnimationFrame(() => {
+        updateZones();
+      });
+    };
+    
+    chart.on('finished', handleFinished);
     
     // Update on resize
-    const handleResize = () => updateZones();
+    const handleResize = () => {
+      requestAnimationFrame(() => {
+        updateZones();
+      });
+    };
     window.addEventListener('resize', handleResize);
     
     return () => {
-      chart.off('finished', updateZones);
+      chart.off('finished', handleFinished);
       window.removeEventListener('resize', handleResize);
     };
   }, [chartRef, data, isDark, activeSwimlanes, now, currentZoomStart, currentZoomEnd, currentTime]);
