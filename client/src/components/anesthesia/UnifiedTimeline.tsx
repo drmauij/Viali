@@ -139,7 +139,7 @@ export function UnifiedTimeline({
     const VITALS_TOP = 40;
     const VITALS_HEIGHT = 340;
     const SWIMLANE_START = VITALS_TOP + VITALS_HEIGHT; // 380px
-    const GRID_LEFT = 200; // Increased to make room for dual y-axes
+    const GRID_LEFT = 150; // Original value - y-axes will use existing white space
     const GRID_RIGHT = 10;
 
     // Calculate swimlane positions dynamically
