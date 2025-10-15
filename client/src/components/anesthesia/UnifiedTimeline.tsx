@@ -309,6 +309,8 @@ export function UnifiedTimeline({
           }
         }
         
+        console.log('[VerticalLines] chartHeight:', chartHeight, 'totalHeight:', totalHeight, 'grids:', grids.length, 'swimlanes:', activeSwimlanes.length);
+        
         for (let t = Math.ceil(data.startTime / oneHour) * oneHour; t <= data.endTime; t += oneHour) {
           const xPx = chart.convertToPixel({ xAxisIndex: 0 }, t);
           
@@ -359,6 +361,8 @@ export function UnifiedTimeline({
             });
           }
         }
+        
+        console.log('[VerticalLines] Created', verticalLineElements.length, 'line elements');
         
         // Get current graphic elements to preserve Y-axis labels  
         const currentGraphic = currentOption.graphic?.[0]?.elements || [];
