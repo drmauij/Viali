@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Activity, Heart, Wind, Combine, Plus, X } from "lucide-react";
+import { Activity, Heart, Wind, Combine, Plus, X, ChevronDown, ChevronRight } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,6 +67,9 @@ export function UnifiedTimeline({
   const chartRef = useRef<any>(null);
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
   
+  // State for collapsible parent swimlanes
+  const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<Set<string>>(new Set());
+  
   // State for dynamic medications
   const [medications, setMedications] = useState<string[]>([]);
   const [showAddMedDialog, setShowAddMedDialog] = useState(false);
@@ -96,7 +99,18 @@ export function UnifiedTimeline({
     return () => clearInterval(interval);
   }, [now]);
 
-  
+  // Toggle collapsed state for parent swimlanes
+  const toggleSwimlane = (id: string) => {
+    setCollapsedSwimlanes(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   // Listen for theme changes
   useEffect(() => {
@@ -150,7 +164,7 @@ export function UnifiedTimeline({
     { id: "staff", label: "Staff", height: 40, colorLight: "rgba(241, 245, 249, 0.8)", colorDark: "hsl(220, 25%, 25%)" },
   ];
 
-  // Build static swimlanes - all expanded
+  // Build active swimlanes with collapsible children
   const buildActiveSwimlanes = (): SwimlaneConfig[] => {
     if (swimlanes) return swimlanes; // Use custom if provided
     
@@ -161,8 +175,8 @@ export function UnifiedTimeline({
     for (const lane of baseSwimlanes) {
       lanes.push(lane);
       
-      // Always insert medication children after Medications parent
-      if (lane.id === "medikamente") {
+      // Insert medication children after Medications parent (if not collapsed)
+      if (lane.id === "medikamente" && !collapsedSwimlanes.has("medikamente")) {
         // Add predefined medications
         medicationsList.forEach((medName, index) => {
           lanes.push({
@@ -184,8 +198,8 @@ export function UnifiedTimeline({
         });
       }
 
-      // Always insert ventilation children after Ventilation parent
-      if (lane.id === "ventilation") {
+      // Insert ventilation children after Ventilation parent (if not collapsed)
+      if (lane.id === "ventilation" && !collapsedSwimlanes.has("ventilation")) {
         ventilationParams.forEach((paramName, index) => {
           lanes.push({
             id: `ventilation-${index}`,
@@ -200,7 +214,7 @@ export function UnifiedTimeline({
     return lanes;
   };
 
-  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [medications, swimlanes]);
+  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [collapsedSwimlanes, medications, swimlanes]);
 
   // Add medication handler
   const handleAddMedication = () => {
@@ -264,11 +278,7 @@ export function UnifiedTimeline({
       // Calculate heights outside try block for error logging
       const VITALS_TOP = 32;
       const VITALS_HEIGHT = 340;
-      const GRID_LEFT = 150;
-      const GRID_RIGHT = 10;
-      // Calculate current swimlanes height based on expanded/collapsed state
-      const currentSwimlanes = buildActiveSwimlanes();
-      const swimlanesHeight = currentSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
+      const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
       const chartHeight = VITALS_HEIGHT + swimlanesHeight;
       
       try {
@@ -287,74 +297,70 @@ export function UnifiedTimeline({
         // Calculate position for current time indicator
         const nowPx = chart.convertToPixel({ xAxisIndex: 0 }, currentTime);
         
-        // Get current graphic elements to preserve Y-axis labels  
+        // Get current graphic elements to preserve vertical lines and labels
         const currentOption = chart.getOption() as any;
         const currentGraphic = currentOption.graphic?.[0]?.elements || [];
-        const yAxisLabels = currentGraphic.filter((el: any) => el.id && el.id.startsWith('y-label-'));
         
-        // Update with zones, now indicator, and preserved labels
-        // Vertical grid lines are now rendered as HTML/CSS overlays
-        chart.setOption({
-          graphic: [
-            // Preserved Y-axis labels
-            ...yAxisLabels,
-            // Zones and indicator
-            {
-              id: 'non-editable-zone',
-              type: "rect",
+        // Find and update only the zone/indicator elements, preserve everything else
+        const updatedGraphic = currentGraphic.map((el: any) => {
+          if (el.id === 'non-editable-zone') {
+            return {
+              ...el,
               left: startPx,
               top: VITALS_TOP,
               shape: {
                 x: 0,
                 y: 0,
                 width: nonEditableWidth,
-                height: lineHeight,
+                height: chartHeight,
               },
               style: {
                 fill: isDark ? 'rgba(100, 100, 100, 0.15)' : 'rgba(200, 200, 200, 0.25)',
               },
-              silent: true,
-              z: 0,
-              cursor: 'not-allowed',
-            },
-            {
-              id: 'editable-zone',
-              type: "rect",
+            };
+          }
+          if (el.id === 'editable-zone') {
+            return {
+              ...el,
               left: boundaryPx,
               top: VITALS_TOP,
               shape: {
                 x: 0,
                 y: 0,
                 width: editableWidth,
-                height: lineHeight,
+                height: chartHeight,
               },
               style: {
                 fill: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.5)',
               },
-              silent: false,
-              z: 0,
-              cursor: 'pointer',
-            },
-            {
-              id: 'now-indicator',
-              type: "line",
+            };
+          }
+          if (el.id === 'now-indicator') {
+            return {
+              ...el,
               left: nowPx,
               top: VITALS_TOP,
               shape: {
                 x1: 0,
                 y1: 0,
                 x2: 0,
-                y2: lineHeight,
+                y2: chartHeight,
               },
               style: {
                 stroke: isDark ? '#ef4444' : '#dc2626',
                 lineWidth: 2,
               },
-              silent: true,
-              z: 100,
-            },
-          ],
-        }, { notMerge: false, lazyUpdate: false });
+            };
+          }
+          return el; // Preserve all other elements (vertical lines, labels)
+        });
+        
+        // Update with all elements preserved
+        chart.setOption({
+          graphic: {
+            elements: updatedGraphic,
+          },
+        }, { replaceMerge: ['graphic'] });
       } catch (e) {
         console.error('Error updating zones:', e);
         console.error('Error details:', {
@@ -366,26 +372,14 @@ export function UnifiedTimeline({
       }
     };
 
-    // Update zones after chart finishes rendering
-    // Use requestAnimationFrame to avoid "setOption during main process" error
-    const handleFinished = () => {
-      requestAnimationFrame(() => {
-        updateZones();
-      });
-    };
-    
-    chart.on('finished', handleFinished);
+    // Update zones after chart is ready
+    setTimeout(updateZones, 100);
     
     // Update on resize
-    const handleResize = () => {
-      requestAnimationFrame(() => {
-        updateZones();
-      });
-    };
+    const handleResize = () => updateZones();
     window.addEventListener('resize', handleResize);
     
     return () => {
-      chart.off('finished', handleFinished);
       window.removeEventListener('resize', handleResize);
     };
   }, [chartRef, data, isDark, activeSwimlanes, now, currentZoomStart, currentZoomEnd, currentTime]);
@@ -578,6 +572,45 @@ export function UnifiedTimeline({
       });
     }
     
+    // Generate continuous vertical lines spanning all grids (vitals + all swimlanes)
+    const verticalLines: any[] = [];
+    for (let t = Math.ceil(data.startTime / oneHour) * oneHour; t <= data.endTime; t += oneHour) {
+      const xPercent = ((t - data.startTime) / timeRange) * 100;
+      
+      // Major hourly line
+      verticalLines.push({
+        type: "line",
+        shape: { x1: 0, y1: 0, x2: 0, y2: chartHeight },
+        position: [`${xPercent}%`, VITALS_TOP],
+        style: {
+          stroke: isDark ? "#444444" : "#d1d5db",
+          lineWidth: 1,
+        },
+        silent: true,
+        z: 1,
+      });
+      
+      // Minor 15-minute lines
+      for (let minor = 1; minor < 4; minor++) {
+        const minorTime = t + (minor * 15 * 60 * 1000);
+        if (minorTime > data.endTime) break;
+        
+        const minorXPercent = ((minorTime - data.startTime) / timeRange) * 100;
+        verticalLines.push({
+          type: "line",
+          shape: { x1: 0, y1: 0, x2: 0, y2: chartHeight },
+          position: [`${minorXPercent}%`, VITALS_TOP],
+          style: {
+            stroke: isDark ? "#333333" : "#e5e7eb",
+            lineWidth: 0.5,
+            lineDash: [4, 4],
+          },
+          silent: true,
+          z: 1,
+        });
+      }
+    }
+
     return {
       backgroundColor: "transparent",
       animation: false,
@@ -586,6 +619,16 @@ export function UnifiedTimeline({
       yAxis: yAxes,
       series,
       graphic: [
+        // Vertical grid lines group (ID includes swimlane count to force recreation when height changes)
+        {
+          id: `vertical-lines-group-${activeSwimlanes.length}`,
+          type: "group",
+          left: GRID_LEFT,
+          width: `calc(100% - ${GRID_LEFT + GRID_RIGHT}px)`,
+          children: verticalLines,
+          silent: true,
+          z: 1,
+        },
         // Y-axis labels
         ...yAxisLabels.map((label, i) => ({ ...label, id: `y-label-${i}` })),
         // Zone placeholders (will be replaced by useEffect)
@@ -785,54 +828,6 @@ export function UnifiedTimeline({
         ))}
       </div>
 
-      {/* Vertical grid lines as CSS overlay */}
-      <div className="absolute left-[150px] right-[10px] top-[32px] pointer-events-none z-[2]" style={{ height: `${VITALS_HEIGHT + activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0)}px` }}>
-        {(() => {
-          const oneHour = 60 * 60 * 1000;
-          const timeRange = data.endTime - data.startTime;
-          const lines: JSX.Element[] = [];
-          
-          for (let t = Math.ceil(data.startTime / oneHour) * oneHour; t <= data.endTime; t += oneHour) {
-            const xPercent = ((t - data.startTime) / timeRange) * 100;
-            
-            // Major hourly line
-            lines.push(
-              <div
-                key={`vline-${t}`}
-                className="absolute h-full"
-                style={{
-                  left: `${xPercent}%`,
-                  width: '1px',
-                  backgroundColor: isDark ? '#444444' : '#d1d5db',
-                }}
-              />
-            );
-            
-            // Minor 15-minute lines
-            for (let minor = 1; minor < 4; minor++) {
-              const minorTime = t + (minor * 15 * 60 * 1000);
-              if (minorTime > data.endTime) break;
-              
-              const minorXPercent = ((minorTime - data.startTime) / timeRange) * 100;
-              lines.push(
-                <div
-                  key={`vline-minor-${minorTime}`}
-                  className="absolute h-full"
-                  style={{
-                    left: `${minorXPercent}%`,
-                    width: '0.5px',
-                    backgroundColor: isDark ? '#333333' : '#e5e7eb',
-                    opacity: 0.7,
-                  }}
-                />
-              );
-            }
-          }
-          
-          return lines;
-        })()}
-      </div>
-
       {/* Left sidebar */}
       <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-30 bg-background">
         {/* Y-axis scales - manually rendered on right side of white area */}
@@ -910,10 +905,12 @@ export function UnifiedTimeline({
         {/* Swimlane labels */}
         {swimlanePositions.map((lane, index) => {
           const isMedParent = lane.id === "medikamente";
+          const isVentParent = lane.id === "ventilation";
           const isMedChild = lane.id.startsWith("medication-");
           const isVentChild = lane.id.startsWith("ventilation-");
           const isDynamicMed = lane.id.startsWith("medication-dynamic-");
           const isChild = isMedChild || isVentChild;
+          const isParent = isMedParent || isVentParent;
           const medIndex = isDynamicMed ? parseInt(lane.id.split("-")[2]) : -1;
           
           return (
@@ -928,6 +925,20 @@ export function UnifiedTimeline({
               }}
             >
               <div className="flex items-center gap-1 flex-1">
+                {isParent && (
+                  <button
+                    onClick={() => toggleSwimlane(lane.id)}
+                    className="p-0.5 rounded hover:bg-background/50 transition-colors"
+                    data-testid={`button-toggle-${lane.id}`}
+                    title={collapsedSwimlanes.has(lane.id) ? "Expand" : "Collapse"}
+                  >
+                    {collapsedSwimlanes.has(lane.id) ? (
+                      <ChevronRight className="w-4 h-4 text-black dark:text-white" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-black dark:text-white" />
+                    )}
+                  </button>
+                )}
                 <span className={`${isChild ? 'text-xs' : 'text-sm font-semibold'} text-black dark:text-white`}>
                   {lane.label}
                 </span>

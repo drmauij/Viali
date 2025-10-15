@@ -168,33 +168,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    // First, check if user exists by ID
-    const existingById = await db.select().from(users).where(eq(users.id, userData.id)).limit(1);
-    
-    if (existingById.length > 0) {
-      // User exists with this ID - update it
-      const [updated] = await db
-        .update(users)
-        .set({
-          email: userData.email,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          profileImageUrl: userData.profileImageUrl,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, userData.id))
-        .returning();
-      return updated;
-    }
-    
-    // User doesn't exist by ID - try to insert with email conflict handling
     const [user] = await db
       .insert(users)
       .values(userData)
       .onConflictDoUpdate({
-        target: users.email, // Handle email conflict (OAuth provider merging)
+        target: users.email, // Use email as conflict target since it's unique
         set: {
-          // Update user info but keep original ID (can't update primary key)
+          id: userData.id, // Update ID if OAuth provider changes
           firstName: userData.firstName,
           lastName: userData.lastName,
           profileImageUrl: userData.profileImageUrl,
