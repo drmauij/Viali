@@ -62,6 +62,7 @@ export function UnifiedTimeline({
   swimlanes?: SwimlaneConfig[];
 }) {
   const chartRef = useRef<any>(null);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
   
   // State for dynamic medications
@@ -593,7 +594,7 @@ export function UnifiedTimeline({
       </div>
 
       {/* ECharts timeline */}
-      <div className="absolute inset-0 z-20">
+      <div ref={chartContainerRef} className="absolute inset-0 z-20">
         <ReactECharts
           ref={chartRef}
           option={option}
