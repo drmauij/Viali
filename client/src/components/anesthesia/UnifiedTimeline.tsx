@@ -297,13 +297,15 @@ export function UnifiedTimeline({
         // Calculate position for current time indicator
         const nowPx = chart.convertToPixel({ xAxisIndex: 0 }, currentTime);
         
-        // Update only zones and now indicator (vertical lines are managed by useMemo)
-        chart.setOption({
-          graphic: [
-            {
-              id: 'non-editable-zone',
-              $action: 'replace',
-              type: "rect",
+        // Get current graphic elements to preserve vertical lines and labels
+        const currentOption = chart.getOption() as any;
+        const currentGraphic = currentOption.graphic?.[0]?.elements || [];
+        
+        // Find and update only the zone/indicator elements, preserve everything else
+        const updatedGraphic = currentGraphic.map((el: any) => {
+          if (el.id === 'non-editable-zone') {
+            return {
+              ...el,
               left: startPx,
               top: VITALS_TOP,
               shape: {
@@ -315,14 +317,11 @@ export function UnifiedTimeline({
               style: {
                 fill: isDark ? 'rgba(100, 100, 100, 0.15)' : 'rgba(200, 200, 200, 0.25)',
               },
-              silent: true,
-              z: 0,
-              cursor: 'not-allowed',
-            },
-            {
-              id: 'editable-zone',
-              $action: 'replace',
-              type: "rect",
+            };
+          }
+          if (el.id === 'editable-zone') {
+            return {
+              ...el,
               left: boundaryPx,
               top: VITALS_TOP,
               shape: {
@@ -334,14 +333,11 @@ export function UnifiedTimeline({
               style: {
                 fill: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.5)',
               },
-              silent: false,
-              z: 0,
-              cursor: 'pointer',
-            },
-            {
-              id: 'now-indicator',
-              $action: 'replace',
-              type: "line",
+            };
+          }
+          if (el.id === 'now-indicator') {
+            return {
+              ...el,
               left: nowPx,
               top: VITALS_TOP,
               shape: {
@@ -354,11 +350,17 @@ export function UnifiedTimeline({
                 stroke: isDark ? '#ef4444' : '#dc2626',
                 lineWidth: 2,
               },
-              silent: true,
-              z: 100,
-            },
-          ],
+            };
+          }
+          return el; // Preserve all other elements (vertical lines, labels)
         });
+        
+        // Update with all elements preserved
+        chart.setOption({
+          graphic: {
+            elements: updatedGraphic,
+          },
+        }, { replaceMerge: ['graphic'] });
       } catch (e) {
         console.error('Error updating zones:', e);
         console.error('Error details:', {
