@@ -296,13 +296,13 @@ export function UnifiedTimeline({
     // Generate manual y-axis labels in the white space
     const yAxisLabels: any[] = [];
     
-    // First y-axis (0-220, interval 20) - positioned at x=70px, grid extends -20 to 240 for top and bottom padding
+    // First y-axis (0-220, interval 20) - positioned at x=90px, grid extends -20 to 240 for top and bottom padding
     for (let val = 0; val <= 220; val += 20) {
       const yPercent = ((240 - val) / 260) * 100; // Invert because top is 0, using 260 range (-20 to 240)
       const yPos = VITALS_TOP + (yPercent / 100) * VITALS_HEIGHT;
       yAxisLabels.push({
         type: "text",
-        left: 70,
+        left: 90,
         top: yPos - 6, // Center text vertically
         style: {
           text: val.toString(),
@@ -550,7 +550,7 @@ export function UnifiedTimeline({
                 key={`scale1-${val}`}
                 className="absolute text-xs font-medium text-foreground"
                 style={{ 
-                  right: '50px',
+                  right: '30px',
                   top: `${yPercent}%`,
                   transform: 'translateY(-50%)'
                 }}
