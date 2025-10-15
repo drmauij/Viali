@@ -796,6 +796,10 @@ export function UnifiedTimeline({
     return pos;
   });
   
+  // Calculate exact height needed for vertical lines (they start at VITALS_TOP and extend chartHeight down)
+  // chartHeight = VITALS_HEIGHT + swimlanesHeight (from the option calculation)
+  const backgroundsHeight = VITALS_TOP_POS + VITALS_HEIGHT + swimlanesHeight;
+  
   return (
     <div className="w-full relative" style={{ height: componentHeight }}>
       {/* Sticky Timeline Header */}
@@ -812,8 +816,8 @@ export function UnifiedTimeline({
         onResetZoom={handleResetZoom}
       />
       
-      {/* Swimlane backgrounds - no height constraint to allow vertical lines to extend fully */}
-      <div className="absolute left-0 top-0 right-0 bottom-0 pointer-events-none z-0">
+      {/* Swimlane backgrounds - explicit height matching vertical lines extent */}
+      <div className="absolute left-0 top-0 right-0 pointer-events-none z-0" style={{ height: `${backgroundsHeight}px` }}>
         {swimlanePositions.map((lane, index) => (
           <div 
             key={lane.id}
