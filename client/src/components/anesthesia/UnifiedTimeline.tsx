@@ -139,7 +139,7 @@ export function UnifiedTimeline({
     const VITALS_TOP = 40;
     const VITALS_HEIGHT = 340;
     const SWIMLANE_START = VITALS_TOP + VITALS_HEIGHT; // 380px
-    const GRID_LEFT = 150;
+    const GRID_LEFT = 200; // Increased to make room for dual y-axes
     const GRID_RIGHT = 10;
 
     // Calculate swimlane positions dynamically
@@ -225,7 +225,7 @@ export function UnifiedTimeline({
         max: 220,
         interval: 20,
         position: "left" as const,
-        offset: 30,
+        offset: 50, // Further from grid edge
         axisLabel: { 
           show: true,
           fontSize: 11,
@@ -234,9 +234,12 @@ export function UnifiedTimeline({
         },
         axisLine: { 
           show: true,
-          lineStyle: { color: isDark ? "#444444" : "#d1d5db" }
+          lineStyle: { color: isDark ? "#666666" : "#999999" }
         },
-        axisTick: { show: true },
+        axisTick: { 
+          show: true,
+          lineStyle: { color: isDark ? "#666666" : "#999999" }
+        },
         splitLine: { 
           show: true,
           lineStyle: {
@@ -254,7 +257,7 @@ export function UnifiedTimeline({
         max: 100,
         interval: 10,
         position: "left" as const,
-        offset: 0,
+        offset: 0, // Closest to grid edge
         axisLabel: { 
           show: true,
           fontSize: 11,
@@ -263,9 +266,12 @@ export function UnifiedTimeline({
         },
         axisLine: { 
           show: true,
+          lineStyle: { color: "#8b5cf6", width: 2 }
+        },
+        axisTick: { 
+          show: true,
           lineStyle: { color: "#8b5cf6" }
         },
-        axisTick: { show: true },
         splitLine: { show: false },
       },
       // Swimlane y-axes
