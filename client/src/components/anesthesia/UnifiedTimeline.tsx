@@ -62,7 +62,6 @@ export function UnifiedTimeline({
   swimlanes?: SwimlaneConfig[];
 }) {
   const chartRef = useRef<any>(null);
-  const chartContainerRef = useRef<HTMLDivElement>(null);
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
   
   // State for dynamic medications
@@ -218,13 +217,13 @@ export function UnifiedTimeline({
 
     // Y-axes: vitals (dual) + swimlanes (categorical)
     const yAxes = [
-      // Vitals grid - Dual y-axes (BP/HR + SpO2)
+      // Vitals grid - First y-axis (BP/HR: 0-220 with 20-unit steps = 11 segments)
       {
         type: "value" as const,
         gridIndex: 0,
         min: 0,
-        max: 240,
-        interval: 40,
+        max: 220,
+        interval: 20,
         position: "left" as const,
         offset: 30,
         axisLabel: { 
@@ -247,6 +246,7 @@ export function UnifiedTimeline({
           }
         },
       },
+      // Vitals grid - Second y-axis (SpO2: 50-100 range)
       {
         type: "value" as const,
         gridIndex: 0,
@@ -350,6 +350,7 @@ export function UnifiedTimeline({
         minValueSpan: 5 * 60 * 1000, // 5 minutes minimum
         maxValueSpan: 6 * 60 * 60 * 1000, // 6 hours maximum
         throttle: 50,
+        zoomLock: true, // Completely disable zoom to allow page scrolling
         zoomOnMouseWheel: false, // Disable scroll zoom
         moveOnMouseWheel: false, // Disable scroll pan
         moveOnMouseMove: false, // Disable drag pan
@@ -594,7 +595,7 @@ export function UnifiedTimeline({
       </div>
 
       {/* ECharts timeline */}
-      <div ref={chartContainerRef} className="absolute inset-0 z-20">
+      <div className="absolute inset-0 z-20">
         <ReactECharts
           ref={chartRef}
           option={option}
