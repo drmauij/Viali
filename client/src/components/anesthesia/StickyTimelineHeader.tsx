@@ -1,6 +1,7 @@
 import { useMemo, useEffect, useRef } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface StickyTimelineHeaderProps {
   startTime: number;
@@ -8,6 +9,8 @@ interface StickyTimelineHeaderProps {
   currentStart?: number;
   currentEnd?: number;
   isDark: boolean;
+  onNavigateBack?: () => void;
+  onNavigateForward?: () => void;
 }
 
 export function StickyTimelineHeader({
@@ -16,12 +19,14 @@ export function StickyTimelineHeader({
   currentStart,
   currentEnd,
   isDark,
+  onNavigateBack,
+  onNavigateForward,
 }: StickyTimelineHeaderProps) {
   const chartRef = useRef<any>(null);
 
   const option = useMemo(() => {
-    const GRID_LEFT = 150;
-    const GRID_RIGHT = 10;
+    const GRID_LEFT = 158; // 150 + 8 for back button
+    const GRID_RIGHT = 40; // Space for forward button
 
     return {
       backgroundColor: "transparent",
@@ -29,7 +34,7 @@ export function StickyTimelineHeader({
       grid: {
         left: GRID_LEFT,
         right: GRID_RIGHT,
-        top: 18,
+        top: 12,
         bottom: 0,
         backgroundColor: "transparent",
       },
@@ -45,7 +50,7 @@ export function StickyTimelineHeader({
           fontFamily: "Poppins, sans-serif",
           color: isDark ? "#ffffff" : "#000000",
           fontWeight: 500,
-          margin: 2,
+          margin: 6,
         },
         axisLine: {
           show: true,
@@ -88,13 +93,37 @@ export function StickyTimelineHeader({
   }, [currentStart, currentEnd, startTime, endTime]);
 
   return (
-    <div className="sticky top-0 z-50 bg-background border-b border-border" style={{ height: '32px' }}>
+    <div className="sticky top-0 z-50 bg-background border-b border-border relative" style={{ height: '32px' }}>
+      {/* Back button */}
+      {onNavigateBack && (
+        <button
+          onClick={onNavigateBack}
+          className="absolute left-0 top-0 h-full w-8 flex items-center justify-center hover:bg-accent/50 transition-colors z-10 border-r border-border"
+          data-testid="button-timeline-back"
+          title="Navigate backward"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+      )}
+      
       <ReactECharts
         ref={chartRef}
         option={option}
         style={{ height: '32px', width: '100%' }}
         opts={{ renderer: 'canvas' }}
       />
+      
+      {/* Forward button */}
+      {onNavigateForward && (
+        <button
+          onClick={onNavigateForward}
+          className="absolute right-0 top-0 h-full w-8 flex items-center justify-center hover:bg-accent/50 transition-colors z-10 border-l border-border"
+          data-testid="button-timeline-forward"
+          title="Navigate forward"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      )}
     </div>
   );
 }
