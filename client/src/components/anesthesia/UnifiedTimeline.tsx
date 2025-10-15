@@ -70,19 +70,9 @@ export function UnifiedTimeline({
   const [showAddMedDialog, setShowAddMedDialog] = useState(false);
   const [newMedName, setNewMedName] = useState("");
 
-  // Calculate initial zoom: 5 minutes window starting 15 minutes before now
-  const getInitialZoomValues = () => {
-    const now = Date.now();
-    const fifteenMinutes = 15 * 60 * 1000;
-    const fiveMinutes = 5 * 60 * 1000;
-    const initialStart = now - fifteenMinutes;
-    const initialEnd = initialStart + fiveMinutes;
-    return { initialStart, initialEnd };
-  };
-
-  // State for tracking current zoom/pan range - initialized with default zoom
-  const [currentZoomStart, setCurrentZoomStart] = useState<number>(() => getInitialZoomValues().initialStart);
-  const [currentZoomEnd, setCurrentZoomEnd] = useState<number>(() => getInitialZoomValues().initialEnd);
+  // State for tracking current zoom/pan range
+  const [currentZoomStart, setCurrentZoomStart] = useState<number | undefined>(undefined);
+  const [currentZoomEnd, setCurrentZoomEnd] = useState<number | undefined>(undefined);
 
   // Listen for theme changes
   useEffect(() => {
@@ -174,8 +164,8 @@ export function UnifiedTimeline({
     const VITALS_TOP = 32; // Space for sticky header (32px)
     const VITALS_HEIGHT = 340;
     const SWIMLANE_START = VITALS_TOP + VITALS_HEIGHT; // 372px
-    const GRID_LEFT = 158; // Match sticky header (150 + 8 for back button)
-    const GRID_RIGHT = 40; // Space for forward button
+    const GRID_LEFT = 150; // Original value - y-axes will use existing white space
+    const GRID_RIGHT = 10;
 
     // Calculate swimlane positions dynamically
     let currentTop = SWIMLANE_START;
@@ -383,8 +373,6 @@ export function UnifiedTimeline({
       }
     }
 
-    // No graphic zones here - will add as DOM overlay instead
-
     return {
       backgroundColor: "transparent",
       animation: false,
@@ -410,8 +398,8 @@ export function UnifiedTimeline({
       dataZoom: [{
         type: "inside",
         xAxisIndex: grids.map((_, i) => i),
-        startValue: currentZoomStart,
-        endValue: currentZoomEnd,
+        startValue: data.startTime,
+        endValue: data.endTime,
         minValueSpan: 5 * 60 * 1000, // 5 minutes minimum
         maxValueSpan: 6 * 60 * 60 * 1000, // 6 hours maximum
         throttle: 50,
@@ -532,8 +520,6 @@ export function UnifiedTimeline({
         currentStart={currentZoomStart}
         currentEnd={currentZoomEnd}
         isDark={isDark}
-        onNavigateBack={handlePanLeft}
-        onNavigateForward={handlePanRight}
       />
       
       {/* Swimlane backgrounds */}
@@ -564,7 +550,7 @@ export function UnifiedTimeline({
                 key={`scale1-${val}`}
                 className="absolute text-xs font-medium text-foreground"
                 style={{ 
-                  right: '30px',
+                  right: '50px',
                   top: `${yPercent}%`,
                   transform: 'translateY(-50%)'
                 }}
@@ -684,43 +670,6 @@ export function UnifiedTimeline({
           lazyUpdate
         />
       </div>
-
-      {/* Disabled/Editable zones overlay */}
-      {(() => {
-        const now = Date.now();
-        const tenMinutes = 10 * 60 * 1000;
-        const editableStartTime = now - tenMinutes;
-        const visibleRange = currentZoomEnd - currentZoomStart;
-        
-        // Calculate if disabled zone is visible in current view
-        if (editableStartTime > currentZoomStart) {
-          const disabledEndInView = Math.min(editableStartTime, currentZoomEnd);
-          const disabledWidthPercent = ((disabledEndInView - currentZoomStart) / visibleRange) * 100;
-          
-          if (disabledWidthPercent > 0) {
-            return (
-              <div 
-                className="absolute z-10 pointer-events-none"
-                style={{
-                  left: '158px',
-                  top: '32px',
-                  width: 'calc(100% - 198px)', // 158px left + 40px right
-                  height: `${VITALS_HEIGHT + swimlanesHeight}px`,
-                }}
-              >
-                <div
-                  className="h-full"
-                  style={{
-                    width: `${disabledWidthPercent}%`,
-                    backgroundColor: isDark ? 'rgba(60, 60, 60, 0.3)' : 'rgba(200, 200, 200, 0.3)',
-                  }}
-                />
-              </div>
-            );
-          }
-        }
-        return null;
-      })()}
 
       {/* Add Medication Dialog */}
       <Dialog open={showAddMedDialog} onOpenChange={setShowAddMedDialog}>
