@@ -433,14 +433,15 @@ export function UnifiedTimeline({
       }
     };
 
-    // Update zones after chart is ready
-    setTimeout(updateZones, 100);
+    // Update zones after chart finishes rendering
+    chart.on('finished', updateZones);
     
     // Update on resize
     const handleResize = () => updateZones();
     window.addEventListener('resize', handleResize);
     
     return () => {
+      chart.off('finished', updateZones);
       window.removeEventListener('resize', handleResize);
     };
   }, [chartRef, data, isDark, activeSwimlanes, now, currentZoomStart, currentZoomEnd, currentTime]);
