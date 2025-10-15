@@ -286,7 +286,7 @@ export function UnifiedTimeline({
           fill: isDark ? "#ffffff" : "#000000",
         },
         silent: true,
-        z: 10,
+        z: 100,
       });
     }
     
@@ -305,7 +305,7 @@ export function UnifiedTimeline({
           fill: "#8b5cf6",
         },
         silent: true,
-        z: 10,
+        z: 100,
       });
     }
     
