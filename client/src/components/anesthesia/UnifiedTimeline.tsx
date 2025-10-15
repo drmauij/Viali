@@ -299,66 +299,15 @@ export function UnifiedTimeline({
         // Calculate position for current time indicator
         const nowPx = chart.convertToPixel({ xAxisIndex: 0 }, currentTime);
         
-        // Generate vertical lines with dynamic chartHeight
-        const oneHour = 60 * 60 * 1000;
-        const timeRange = data.endTime - data.startTime;
-        const verticalLines: any[] = [];
-        
-        for (let t = Math.ceil(data.startTime / oneHour) * oneHour; t <= data.endTime; t += oneHour) {
-          const xPercent = ((t - data.startTime) / timeRange) * 100;
-          
-          // Major hourly line
-          verticalLines.push({
-            type: "line",
-            shape: { x1: 0, y1: 0, x2: 0, y2: chartHeight },
-            position: [`${xPercent}%`, VITALS_TOP],
-            style: {
-              stroke: isDark ? "#444444" : "#d1d5db",
-              lineWidth: 1,
-            },
-            silent: true,
-            z: 1,
-          });
-          
-          // Minor 15-minute lines
-          for (let minor = 1; minor < 4; minor++) {
-            const minorTime = t + (minor * 15 * 60 * 1000);
-            if (minorTime > data.endTime) break;
-            
-            const minorXPercent = ((minorTime - data.startTime) / timeRange) * 100;
-            verticalLines.push({
-              type: "line",
-              shape: { x1: 0, y1: 0, x2: 0, y2: chartHeight },
-              position: [`${minorXPercent}%`, VITALS_TOP],
-              style: {
-                stroke: isDark ? "#333333" : "#e5e7eb",
-                lineWidth: 0.5,
-                lineDash: [4, 4],
-              },
-              silent: true,
-              z: 1,
-            });
-          }
-        }
-        
         // Get current graphic elements to preserve Y-axis labels
         const currentOption = chart.getOption() as any;
         const currentGraphic = currentOption.graphic?.[0]?.elements || [];
         const yAxisLabels = currentGraphic.filter((el: any) => el.id && el.id.startsWith('y-label-'));
         
-        // Update with zones, now indicator, vertical lines, and preserved labels
+        // Update with zones, now indicator, and preserved labels
+        // Note: Vertical grid lines are now handled by ECharts' built-in splitLine on each xAxis
         chart.setOption({
           graphic: [
-            // Vertical grid lines group
-            {
-              id: 'vertical-lines-group',
-              type: "group",
-              left: GRID_LEFT,
-              width: `calc(100% - ${GRID_LEFT + GRID_RIGHT}px)`,
-              children: verticalLines,
-              silent: true,
-              z: 1,
-            },
             // Preserved Y-axis labels
             ...yAxisLabels,
             // Zones and indicator
@@ -637,16 +586,6 @@ export function UnifiedTimeline({
       yAxis: yAxes,
       series,
       graphic: [
-        // Vertical grid lines placeholder (will be created by useEffect with dynamic height)
-        {
-          id: 'vertical-lines-group',
-          type: "group",
-          left: GRID_LEFT,
-          width: `calc(100% - ${GRID_LEFT + GRID_RIGHT}px)`,
-          children: [],
-          silent: true,
-          z: 1,
-        },
         // Y-axis labels
         ...yAxisLabels.map((label, i) => ({ ...label, id: `y-label-${i}` })),
         // Zone placeholders (will be replaced by useEffect)
