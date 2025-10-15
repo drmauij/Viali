@@ -8,9 +8,8 @@ import { Activity, Heart, Wind, Combine } from "lucide-react";
  * 
  * A professional anesthesia timeline with:
  * - Top grid: Vitals chart with dual y-axes (BP/HR left, SpO2 right)
- * - Dynamic swimlanes that can be added/removed at runtime
+ * - Multiple swimlanes: Zeiten, Ereignisse, Herzrhythmus, Medikamente, Infusionen, Perfusors, Ventilation, Staff
  * - Unified zoom/pan controls
- * - Synchronized vertical grid lines across all swimlanes
  * - Dark/light theme support
  */
 
@@ -33,21 +32,11 @@ export type TimelineEvent = {
   row?: number; // for multiple medication rows
 };
 
-export type Swimlane = {
-  id: string;
-  name: string;
-  type: "header" | "data";
-  parentId?: string; // for child swimlanes
-  color?: string;
-  height?: number;
-};
-
 export type UnifiedTimelineData = {
   startTime: number;
   endTime: number;
   vitals: TimelineVitals;
   events: TimelineEvent[];
-  swimlanes?: Swimlane[]; // Dynamic swimlane configuration
 };
 
 export function UnifiedTimeline({
@@ -57,28 +46,10 @@ export function UnifiedTimeline({
   data: UnifiedTimelineData;
   height?: number;
 }) {
-  // Default swimlanes configuration
-  const defaultSwimlanes: Swimlane[] = [
-    { id: "zeiten", name: "Times", type: "data", color: "hsl(270, 55%, 20%)", height: 50 },
-    { id: "ereignisse", name: "Events", type: "data", color: "hsl(210, 60%, 18%)", height: 40 },
-    { id: "herzrhythmus", name: "Heart Rhythm", type: "data", color: "hsl(330, 50%, 20%)", height: 40 },
-    { id: "medikamente", name: "Medications", type: "header", color: "hsl(150, 45%, 18%)", height: 40 },
-    { id: "propofol", name: "Propofol 1%", type: "data", parentId: "medikamente", color: "hsl(150, 45%, 18%)", height: 30 },
-    { id: "fentanyl", name: "Fentanyl 50µg/ml", type: "data", parentId: "medikamente", color: "hsl(150, 45%, 18%)", height: 30 },
-    { id: "rocuronium", name: "Rocuronium 10mg/ml", type: "data", parentId: "medikamente", color: "hsl(150, 45%, 18%)", height: 30 },
-    { id: "sevoflurane", name: "Sevoflurane", type: "data", parentId: "medikamente", color: "hsl(150, 45%, 18%)", height: 30 },
-    { id: "midazolam", name: "Midazolam 5mg/ml", type: "data", parentId: "medikamente", color: "hsl(150, 45%, 18%)", height: 30 },
-    { id: "atracurium", name: "Atracurium 10mg/ml", type: "data", parentId: "medikamente", color: "hsl(150, 45%, 18%)", height: 30 },
-    { id: "remifentanil", name: "Remifentanil 2mg", type: "data", parentId: "medikamente", color: "hsl(150, 45%, 18%)", height: 30 },
-    { id: "succinylcholine", name: "Succinylcholine 20mg/ml", type: "data", parentId: "medikamente", color: "hsl(150, 45%, 18%)", height: 30 },
-    { id: "vecuronium", name: "Vecuronium 4mg", type: "data", parentId: "medikamente", color: "hsl(150, 45%, 18%)", height: 30 },
-    { id: "morphine", name: "Morphine 10mg/ml", type: "data", parentId: "medikamente", color: "hsl(150, 45%, 18%)", height: 30 },
-    { id: "infusionen", name: "Infusions", type: "data", color: "hsl(190, 60%, 18%)", height: 40 },
-    { id: "ventilation", name: "Ventilation", type: "data", color: "hsl(35, 70%, 22%)", height: 40 },
-    { id: "staff", name: "Staff", type: "data", color: "hsl(220, 25%, 25%)", height: 40 },
-  ];
-
-  const swimlanes = data.swimlanes ?? defaultSwimlanes;
+  // Default to 1 medication row for clean layout
+  const numMedicationRows = 1;
+  const defaultHeight = 510 + 30 + (numMedicationRows * 30) + 120; // base + medications header + medications + other swimlanes
+  const componentHeight = height ?? defaultHeight;
   const chartRef = useRef<any>(null);
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
 
@@ -95,113 +66,111 @@ export function UnifiedTimeline({
   }, []);
 
   const option = useMemo(() => {
-    // Calculate positions for all swimlanes
-    const vitalsHeight = 340;
-    const vitalsTop = 40;
+    // Grid layout configuration - continuous rows with no gaps
+    // Left margin: 150px for both scales side by side + header labels
+    // Right margin: 10px for minimal padding
+    // All grids MUST have identical left/right positioning for perfect alignment
+
+    // Medications swimlane - single row like other swimlanes
+    const medicationColor = isDark ? "hsl(150, 45%, 18%)" : "rgba(220, 252, 231, 0.8)";
+
+    // Calculate positions
+    const medicationStart = 510;
+    const medicationHeight = 40; // Same height as other swimlanes
+    const medicationEnd = medicationStart + medicationHeight;
+
+    // CRITICAL: All grids must have IDENTICAL left/right values for perfect alignment
     const gridLeft = 150;
     const gridRight = 10;
 
-    let currentTop = vitalsTop + vitalsHeight;
-    const swimlanePositions = [];
-
-    // Calculate positions for each swimlane
-    swimlanes.forEach((swimlane) => {
-      const bgColor = isDark 
-        ? swimlane.color || "hsl(220, 25%, 25%)"
-        : swimlane.color?.replace(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/, (_, h, s, l) => 
-            `hsla(${h}, ${s}%, ${Math.min(parseInt(l) + 40, 80)}%, 0.8)`
-          ) || "rgba(241, 245, 249, 0.8)";
-
-      swimlanePositions.push({
-        ...swimlane,
-        top: currentTop,
-        backgroundColor: bgColor
-      });
-      currentTop += swimlane.height || 40;
-    });
-
-    const totalHeight = currentTop;
-    const componentHeight = height ?? totalHeight + 50;
-
-    // Create grids - one for vitals, one per swimlane
     const grids = [
-      // Vitals grid
-      {
-        left: gridLeft,
-        right: gridRight,
-        top: vitalsTop,
-        height: vitalsHeight,
-        backgroundColor: "transparent"
-      },
-      // Swimlane grids
-      ...swimlanePositions.map(pos => ({
-        left: gridLeft,
-        right: gridRight,
-        top: pos.top,
-        height: pos.height,
-        backgroundColor: pos.backgroundColor
-      }))
+      // Grid 0: Vitals chart (taller for better visibility)
+      { left: gridLeft, right: gridRight, top: 40, height: 340, backgroundColor: "transparent" },
+      // Grid 1: Times (purple background) - taller to avoid text overlap
+      { left: gridLeft, right: gridRight, top: 380, height: 50, backgroundColor: isDark ? "hsl(270, 55%, 20%)" : "rgba(243, 232, 255, 0.8)" },
+      // Grid 2: Events (blue background)
+      { left: gridLeft, right: gridRight, top: 430, height: 40, backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)" },
+      // Grid 3: Heart Rhythm (pink background)
+      { left: gridLeft, right: gridRight, top: 470, height: 40, backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)" },
+      // Grid 4: Medications (green background) - single row like other swimlanes
+      { left: gridLeft, right: gridRight, top: medicationStart, height: medicationHeight, backgroundColor: medicationColor },
+      // Infusions/Perfusors (cyan background)
+      { left: gridLeft, right: gridRight, top: medicationEnd, height: 40, backgroundColor: isDark ? "hsl(190, 60%, 18%)" : "rgba(207, 250, 254, 0.8)" },
+      // Ventilation (amber background)
+      { left: gridLeft, right: gridRight, top: medicationEnd + 40, height: 40, backgroundColor: isDark ? "hsl(35, 70%, 22%)" : "rgba(254, 243, 199, 0.8)" },
+      // Staff (slate background)
+      { left: gridLeft, right: gridRight, top: medicationEnd + 80, height: 40, backgroundColor: isDark ? "hsl(220, 25%, 25%)" : "rgba(241, 245, 249, 0.8)" },
     ];
 
-    // Create x-axes - all synchronized to same time range
+    // Calculate current time and center the view around it
+    const now = Date.now();
+    const defaultStart = now - (5 * 60 * 1000); // 5 minutes before now
+    const defaultEnd = now + (5 * 60 * 1000);   // 5 minutes after now
+
+    // Time x-axes (one per grid) - IDENTICAL configuration for perfect synchronization
+    // Create x-axis for each grid (including dynamically added medication grids)
     const xAxes = grids.map((_, index) => ({
       type: "time" as const,
       gridIndex: index,
+      // CRITICAL: All x-axes must have IDENTICAL time ranges and intervals
       min: data.startTime,
       max: data.endTime,
-      boundaryGap: false,
       axisLabel: {
-        show: index === 0, // Only show on vitals grid
+        show: index === 0, // Only show labels on top grid
         formatter: "{HH}:{mm}",
         fontSize: 10,
         fontFamily: "Poppins, sans-serif",
+        interval: 0, // Show all labels
       },
       axisLine: { 
-        show: true, // Always show axis line for consistency
+        show: index === 0, // Only show line on top grid
         lineStyle: {
           color: isDark ? "#444444" : "#d1d5db",
         }
       },
       axisTick: { 
-        show: index === 0, // Only show ticks on vitals grid
+        show: index === 0, // Only show ticks on top grid
+        interval: 0, // Show all ticks
         lineStyle: {
           color: isDark ? "#444444" : "#d1d5db",
         }
       },
-      // CRITICAL: All x-axes have identical splitLine configuration for consistent time divisions
       splitLine: { 
-        show: true,
+        show: true, // Show grid lines on all swimlanes for alignment
         lineStyle: {
           color: isDark ? "#444444" : "#d1d5db",
           width: 1,
           type: "solid" as const,
-        },
+        }
       },
       minorTick: {
-        show: index === 0, // Only show minor ticks on vitals grid
-        splitNumber: 4, // Example: 4 divisions per hour
+        show: index === 0, // Only show minor ticks on top grid
+        splitNumber: 4, // 15-minute intervals (4 splits per hour)
       },
       minorSplitLine: {
-        show: true,
+        show: true, // Show minor grid lines on all swimlanes
         lineStyle: {
           color: isDark ? "#333333" : "#e5e7eb",
           width: 0.5,
           type: "dashed" as const,
-        },
+        }
       },
+      // CRITICAL: Ensure all axes use the same scale and positioning
+      position: "top",
+      inverse: false,
     }));
 
-    // Create y-axes
+    // Y-axes
     const yAxes = [
-      // Vitals grid - dual y-axes
+      // Grid 0 - Left side 1: BP/HR (0-240) - first scale on left
       {
         type: "value" as const,
         gridIndex: 0,
         min: 0,
         max: 240,
-        interval: 40, // BP/HR interval
+        interval: 40,
         position: "left" as const,
-        offset: 30,
+        offset: 30, // Offset to make room for second scale
         axisLabel: { 
           show: true,
           fontSize: 11,
@@ -224,19 +193,20 @@ export function UnifiedTimeline({
           }
         },
       },
+      // Grid 0 - Left side 2: SpO2 (50-100) - second scale on left, side by side
       {
         type: "value" as const,
         gridIndex: 0,
         min: 50,
         max: 100,
-        interval: 10, // SpO2 interval
+        interval: 10,
         position: "left" as const,
-        offset: 0,
+        offset: 0, // No offset for innermost scale
         axisLabel: { 
           show: true,
           fontSize: 11,
           fontFamily: "Poppins, sans-serif",
-          color: "#8b5cf6", // Original SpO2 color
+          color: "#8b5cf6",
         },
         axisLine: { 
           show: true,
@@ -247,19 +217,26 @@ export function UnifiedTimeline({
         axisTick: { show: true },
         splitLine: { show: false },
       },
-      // Swimlane y-axes
-      ...swimlanes.map((_, index) => ({
-        type: "category" as const,
-        gridIndex: index + 1,
-        data: [""],
-        show: false,
-        axisLine: { show: false },
-        axisTick: { show: false },
-        splitLine: { show: false },
-      })),
+      // Swimlane y-axes (categorical or numeric for positioning)
+      ...grids.slice(1).map((_, index) => {
+        const gridIdx = index + 1;
+        // All swimlanes now have single row (medications split into individual grids)
+        return {
+          type: "category" as const,
+          gridIndex: gridIdx,
+          data: [""], // Single category for each swimlane
+          show: false,
+          axisLine: { show: false },
+          axisTick: { show: false },
+          splitLine: { show: false },
+        };
+      }),
     ];
 
+    // Series - clean slate for vitals (no simulated data)
     const series: any[] = [];
+
+    // Swimlanes are now clean - no data points, just empty grids for future use
 
     return {
       backgroundColor: "transparent",
@@ -271,17 +248,14 @@ export function UnifiedTimeline({
       dataZoom: [
         {
           type: "inside",
-          xAxisIndex: Array.from({ length: grids.length }, (_, i) => i),
-          startValue: data.startTime,
-          endValue: data.endTime,
-          minValueSpan: 5 * 60 * 1000,
-          maxValueSpan: 6 * 60 * 60 * 1000,
+          xAxisIndex: Array.from({ length: grids.length }, (_, i) => i), // Explicitly list all x-axis indices
+          startValue: data.startTime, // Use provided start time
+          endValue: data.endTime, // Use provided end time
+          minValueSpan: 5 * 60 * 1000, // Minimum 5 minutes visible (set by user)
+          maxValueSpan: 6 * 60 * 60 * 1000, // Maximum 6 hours visible (set by user)
           throttle: 50,
-          zoomOnMouseWheel: false,
-          moveOnMouseWheel: false,
-          moveOnMouseMove: false,
-          filterMode: "none",
-          disabled: true, // Disable inside dataZoom to allow page scrolling
+          // CRITICAL: Ensure synchronization across all axes
+          filterMode: "none", // Don't filter data, just zoom
         }
       ],
       tooltip: {
@@ -292,35 +266,15 @@ export function UnifiedTimeline({
         },
       },
     } as echarts.EChartsOption;
-  }, [data, isDark, swimlanes, height]);
+  }, [data, isDark]);
 
-  // Calculate positions for UI elements
-  const vitalsHeight = 340;
-  const vitalsTop = 40;
-  let currentTop = vitalsTop + vitalsHeight;
+  // Calculate positions for sidebar
+  const medicationStart = 510;
+  const medicationHeight = 40;
+  const medicationEnd = medicationStart + medicationHeight;
+  const medicationColor = isDark ? "hsl(150, 45%, 18%)" : "rgba(220, 252, 231, 0.8)";
 
-  const swimlanePositions = swimlanes.map((swimlane) => {
-    // Original color palette logic for non-dark theme
-    const originalColor = swimlane.color || "hsl(220, 25%, 25%)"; // Default for dark
-    const lightThemeColor = isDark
-      ? originalColor
-      : originalColor.replace(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/, (_, h, s, l) =>
-          `hsla(${h}, ${s}%, ${Math.min(parseInt(l) + 40, 80)}%, 0.8)`
-        ) || "rgba(241, 245, 249, 0.8)";
-
-    const position = {
-      ...swimlane,
-      top: currentTop,
-      backgroundColor: lightThemeColor // Use calculated color
-    };
-    currentTop += swimlane.height || 40;
-    return position;
-  });
-
-  const totalHeight = currentTop;
-  const componentHeight = height ?? totalHeight + 50;
-
-  // Zoom and pan controls
+  // Zoom and pan controls with 5-minute minimum intervals
   const handleZoomIn = () => {
     const chart = chartRef.current?.getEchartsInstance();
     if (chart) {
@@ -330,7 +284,7 @@ export function UnifiedTimeline({
         const currentMin = dataZoom.startValue;
         const currentMax = dataZoom.endValue;
         const currentSpan = currentMax - currentMin;
-        const newSpan = Math.max(currentSpan * 0.5, 5 * 60 * 1000);
+        const newSpan = Math.max(currentSpan * 0.5, 5 * 60 * 1000); // Min 5 minutes
         const center = (currentMin + currentMax) / 2;
 
         chart.dispatchAction({
@@ -351,7 +305,7 @@ export function UnifiedTimeline({
         const currentMin = dataZoom.startValue;
         const currentMax = dataZoom.endValue;
         const currentSpan = currentMax - currentMin;
-        const newSpan = Math.min(currentSpan * 2, 6 * 60 * 60 * 1000);
+        const newSpan = Math.min(currentSpan * 2, 6 * 60 * 60 * 1000); // Max 6 hours
         const center = (currentMin + currentMax) / 2;
 
         chart.dispatchAction({
@@ -372,7 +326,7 @@ export function UnifiedTimeline({
         const currentMin = dataZoom.startValue;
         const currentMax = dataZoom.endValue;
         const span = currentMax - currentMin;
-        const panStep = Math.max(span * 0.1, 5 * 60 * 1000);
+        const panStep = Math.max(span * 0.1, 5 * 60 * 1000); // Pan by 10% or 5 min minimum
 
         chart.dispatchAction({
           type: 'dataZoom',
@@ -392,7 +346,7 @@ export function UnifiedTimeline({
         const currentMin = dataZoom.startValue;
         const currentMax = dataZoom.endValue;
         const span = currentMax - currentMin;
-        const panStep = Math.max(span * 0.1, 5 * 60 * 1000);
+        const panStep = Math.max(span * 0.1, 5 * 60 * 1000); // Pan by 10% or 5 min minimum
 
         chart.dispatchAction({
           type: 'dataZoom',
@@ -405,8 +359,8 @@ export function UnifiedTimeline({
 
   return (
     <div className="w-full relative" style={{ height: componentHeight }}>
-      {/* Zoom and Pan Controls */}
-      <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-30 flex gap-2" style={{ pointerEvents: "auto" }}>
+      {/* Zoom and Pan Controls - Centered */}
+      <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-30 flex gap-2">
         <button
           onClick={handlePanLeft}
           className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
@@ -441,25 +395,74 @@ export function UnifiedTimeline({
         </button>
       </div>
 
-      {/* Swimlane background colors with continuous bottom borders */}
+      {/* Swimlane background colors - extend full width behind everything with continuous bottom borders */}
       <div className="absolute left-0 top-0 right-0 h-full pointer-events-none z-0">
-        {swimlanePositions.map((pos) => (
-          <div 
-            key={pos.id}
-            className="absolute w-full border-b" 
-            style={{ 
-              top: `${pos.top}px`, 
-              height: `${pos.height}px`, 
-              backgroundColor: pos.backgroundColor,
-              borderColor: isDark ? "#444444" : "#d1d5db"
-            }} 
-          />
-        ))}
+        {/* Times background */}
+        <div 
+          className="absolute top-[380px] h-[50px] w-full border-b" 
+          style={{ 
+            backgroundColor: isDark ? "hsl(270, 55%, 20%)" : "rgba(243, 232, 255, 0.8)",
+            borderColor: isDark ? "#444444" : "#d1d5db"
+          }} 
+        />
+        {/* Events background */}
+        <div 
+          className="absolute top-[430px] h-[40px] w-full border-b" 
+          style={{ 
+            backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)",
+            borderColor: isDark ? "#444444" : "#d1d5db"
+          }} 
+        />
+        {/* Heart Rhythm background */}
+        <div 
+          className="absolute top-[470px] h-[40px] w-full border-b" 
+          style={{ 
+            backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)",
+            borderColor: isDark ? "#444444" : "#d1d5db"
+          }} 
+        />
+        {/* Medications background */}
+        <div 
+          className="absolute w-full border-b" 
+          style={{ 
+            top: `${medicationStart}px`, 
+            height: `${medicationHeight}px`, 
+            backgroundColor: medicationColor,
+            borderColor: isDark ? "#444444" : "#d1d5db"
+          }} 
+        />
+        {/* Infusions background - dynamic position */}
+        <div 
+          className="absolute h-[40px] w-full border-b" 
+          style={{ 
+            top: `${medicationEnd}px`,
+            backgroundColor: isDark ? "hsl(190, 60%, 18%)" : "rgba(207, 250, 254, 0.8)",
+            borderColor: isDark ? "#444444" : "#d1d5db"
+          }} 
+        />
+        {/* Ventilation background - dynamic position */}
+        <div 
+          className="absolute h-[40px] w-full border-b" 
+          style={{ 
+            top: `${medicationEnd + 40}px`,
+            backgroundColor: isDark ? "hsl(35, 70%, 22%)" : "rgba(254, 243, 199, 0.8)",
+            borderColor: isDark ? "#444444" : "#d1d5db"
+          }} 
+        />
+        {/* Staff background - dynamic position */}
+        <div 
+          className="absolute h-[40px] w-full border-b" 
+          style={{ 
+            top: `${medicationEnd + 80}px`,
+            backgroundColor: isDark ? "hsl(220, 25%, 25%)" : "rgba(241, 245, 249, 0.8)",
+            borderColor: isDark ? "#444444" : "#d1d5db"
+          }} 
+        />
       </div>
 
-      {/* Left sidebar with swimlane labels */}
-      <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-10 bg-background" style={{ pointerEvents: "auto" }}>
-        {/* Vitals icon buttons */}
+      {/* Left sidebar with swimlane labels - extends to chart start */}
+      <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-10 bg-background">
+        {/* Vitals icon buttons - matches grid 0: top 40, height 340 */}
         <div className="absolute top-[40px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
           <button
             className="p-2 rounded-md border border-border bg-background hover:bg-accent/50 transition-colors flex items-center justify-center shadow-sm"
@@ -491,40 +494,81 @@ export function UnifiedTimeline({
           </button>
         </div>
 
-        {/* Swimlane labels */}
-        {swimlanePositions.map((pos) => (
-          <div 
-            key={pos.id}
-            className="absolute w-full flex items-center px-2 border-b" 
-            style={{ 
-              top: `${pos.top}px`,
-              height: `${pos.height}px`,
-              backgroundColor: pos.backgroundColor,
-              borderColor: isDark ? "#444444" : "#d1d5db"
-            }}
-          >
-            <span className={`${pos.type === 'header' ? 'text-sm font-semibold' : 'text-xs'} text-white`}>
-              {pos.name}
-            </span>
-          </div>
-        ))}
+        {/* Times - matches grid 1: top 380, height 50 */}
+        <div className="absolute top-[380px] h-[50px] w-full flex items-center px-2 border-b" style={{ backgroundColor: isDark ? "hsl(270, 55%, 20%)" : "rgba(243, 232, 255, 0.8)", borderColor: isDark ? "#444444" : "#d1d5db" }}>
+          <span className="text-sm font-semibold text-black dark:text-white">Times</span>
+        </div>
+
+        {/* Events - matches grid 2: top 430, height 40 */}
+        <div className="absolute top-[430px] h-[40px] w-full flex items-center px-2 border-b" style={{ backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)", borderColor: isDark ? "#444444" : "#d1d5db" }}>
+          <span className="text-sm font-semibold text-black dark:text-white">Events</span>
+        </div>
+
+        {/* Heart Rhythm - matches grid 3: top 470, height 40 */}
+        <div className="absolute top-[470px] h-[40px] w-full flex items-center px-2 border-b" style={{ backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)", borderColor: isDark ? "#444444" : "#d1d5db" }}>
+          <span className="text-sm font-semibold text-black dark:text-white">Heart Rhythm</span>
+        </div>
+
+        {/* Medications - matches other swimlanes */}
+        <div 
+          className="absolute w-full flex items-center px-2 border-b" 
+          style={{ 
+            top: `${medicationStart}px`,
+            height: `${medicationHeight}px`,
+            backgroundColor: medicationColor,
+            borderColor: isDark ? "#444444" : "#d1d5db"
+          }}
+        >
+          <span className="text-sm font-semibold text-black dark:text-white">Medications</span>
+        </div>
+
+        {/* Infusions - dynamic position */}
+        <div 
+          className="absolute h-[40px] w-full flex items-center px-2 border-b" 
+          style={{ 
+            top: `${medicationEnd}px`,
+            backgroundColor: isDark ? "hsl(190, 60%, 18%)" : "rgba(207, 250, 254, 0.8)",
+            borderColor: isDark ? "#444444" : "#d1d5db"
+          }}
+        >
+          <span className="text-sm font-semibold text-black dark:text-white">Infusions</span>
+        </div>
+
+        {/* Ventilation - dynamic position */}
+        <div 
+          className="absolute h-[40px] w-full flex items-center px-2 border-b" 
+          style={{ 
+            top: `${medicationEnd + 40}px`,
+            backgroundColor: isDark ? "hsl(35, 70%, 22%)" : "rgba(254, 243, 199, 0.8)",
+            borderColor: isDark ? "#444444" : "#d1d5db"
+          }}
+        >
+          <span className="text-sm font-semibold text-black dark:text-white">Ventilation</span>
+        </div>
+
+        {/* Staff - dynamic position */}
+        <div 
+          className="absolute h-[40px] w-full flex items-center px-2 border-b" 
+          style={{ 
+            top: `${medicationEnd + 80}px`,
+            backgroundColor: isDark ? "hsl(220, 25%, 25%)" : "rgba(241, 245, 249, 0.8)",
+            borderColor: isDark ? "#444444" : "#d1d5db"
+          }}
+        >
+          <span className="text-sm font-semibold text-black dark:text-white">Staff</span>
+        </div>
       </div>
 
-      {/* ECharts timeline */}
+      {/* ECharts timeline - high z-index to stay on top */}
       <div className="absolute inset-0 z-20">
         <ReactECharts
           ref={chartRef}
           option={option}
-          style={{ height: "100%", width: "100%", pointerEvents: "none" }}
+          style={{ height: "100%", width: "100%" }}
           opts={{ renderer: "canvas" }}
           notMerge
           lazyUpdate
-          onEvents={{
-            // Allow specific chart interactions while keeping scroll disabled
-            click: (params: any) => {
-              // Handle chart clicks if needed
-            }
-          }}
+          
         />
       </div>
     </div>
