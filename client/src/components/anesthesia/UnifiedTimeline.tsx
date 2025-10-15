@@ -256,73 +256,12 @@ export function UnifiedTimeline({
 
     // Initialize on mount
     setTimeout(initializeZoom, 100);
-    
-    // Programmatically zoom in twice to get 5-minute intervals
-    setTimeout(() => {
-      // First zoom in
-      const option1 = chart.getOption() as any;
-      const dataZoom1 = option1.dataZoom?.[0];
-      if (dataZoom1) {
-        const currentMin1 = dataZoom1.startValue;
-        const currentMax1 = dataZoom1.endValue;
-        const currentSpan1 = currentMax1 - currentMin1;
-        const newSpan1 = Math.max(currentSpan1 * 0.5, 5 * 60 * 1000);
-        const center1 = (currentMin1 + currentMax1) / 2;
-        let newStart1 = center1 - newSpan1 / 2;
-        let newEnd1 = center1 + newSpan1 / 2;
-        
-        if (newStart1 < data.startTime) {
-          newStart1 = data.startTime;
-          newEnd1 = newStart1 + newSpan1;
-        }
-        if (newEnd1 > data.endTime) {
-          newEnd1 = data.endTime;
-          newStart1 = newEnd1 - newSpan1;
-        }
-        
-        chart.dispatchAction({
-          type: 'dataZoom',
-          startValue: newStart1,
-          endValue: newEnd1,
-        });
-      }
-      
-      // Second zoom in
-      setTimeout(() => {
-        const option2 = chart.getOption() as any;
-        const dataZoom2 = option2.dataZoom?.[0];
-        if (dataZoom2) {
-          const currentMin2 = dataZoom2.startValue;
-          const currentMax2 = dataZoom2.endValue;
-          const currentSpan2 = currentMax2 - currentMin2;
-          const newSpan2 = Math.max(currentSpan2 * 0.5, 5 * 60 * 1000);
-          const center2 = (currentMin2 + currentMax2) / 2;
-          let newStart2 = center2 - newSpan2 / 2;
-          let newEnd2 = center2 + newSpan2 / 2;
-          
-          if (newStart2 < data.startTime) {
-            newStart2 = data.startTime;
-            newEnd2 = newStart2 + newSpan2;
-          }
-          if (newEnd2 > data.endTime) {
-            newEnd2 = data.endTime;
-            newStart2 = newEnd2 - newSpan2;
-          }
-          
-          chart.dispatchAction({
-            type: 'dataZoom',
-            startValue: newStart2,
-            endValue: newEnd2,
-          });
-        }
-      }, 100);
-    }, 200);
 
     chart.on('datazoom', handleDataZoom);
     return () => {
       chart.off('datazoom', handleDataZoom);
     };
-  }, [data.startTime, data.endTime]);
+  }, []);
 
   // Update dataZoom xAxisIndex when swimlane structure changes
   useEffect(() => {
@@ -595,10 +534,11 @@ export function UnifiedTimeline({
     const currentTime = now || data.endTime; // Use provided "now" or fall back to endTime
     const fiveMinutes = 5 * 60 * 1000;
     const tenMinutes = 10 * 60 * 1000;
+    const twentyMinutes = 20 * 60 * 1000;
     
-    // Initial view: 10-minute window from -10min to NOW
+    // Initial view: 20-minute window from -10min to +10min around NOW
     const initialStartTime = currentTime - tenMinutes;
-    const initialEndTime = currentTime;
+    const initialEndTime = currentTime + tenMinutes;
 
     // Calculate swimlane positions dynamically
     let currentTop = SWIMLANE_START;
@@ -1038,7 +978,7 @@ export function UnifiedTimeline({
       const currentTime = now || data.endTime;
       const tenMinutes = 10 * 60 * 1000;
       const initialStartTime = currentTime - tenMinutes;
-      const initialEndTime = currentTime;
+      const initialEndTime = currentTime + tenMinutes;
       
       chart.dispatchAction({
         type: 'dataZoom',
