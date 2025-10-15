@@ -45,7 +45,7 @@ export function StickyTimelineHeader({
           fontFamily: "Poppins, sans-serif",
           color: isDark ? "#ffffff" : "#000000",
           fontWeight: 500,
-          margin: 1,
+          margin: -2,
         },
         axisLine: {
           show: true,
