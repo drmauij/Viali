@@ -421,9 +421,9 @@ export function UnifiedTimeline({
     const fiveMinutes = 5 * 60 * 1000;
     const tenMinutes = 10 * 60 * 1000;
     
-    // Initial view: 5-minute window starting 10 minutes before now (from -10min to -5min)
+    // Initial view: 10-minute window from -10min to NOW
     const initialStartTime = currentTime - tenMinutes;
-    const initialEndTime = currentTime - fiveMinutes;
+    const initialEndTime = currentTime;
 
     // Calculate swimlane positions dynamically
     let currentTop = SWIMLANE_START;
@@ -698,8 +698,8 @@ export function UnifiedTimeline({
         xAxisIndex: grids.map((_, i) => i),
         startValue: initialStartTime,
         endValue: initialEndTime,
-        minValueSpan: 5 * 60 * 1000, // 5 minutes minimum
-        maxValueSpan: 6 * 60 * 60 * 1000, // 6 hours maximum
+        minValueSpan: 1 * 60 * 1000, // 1 minute minimum zoom
+        maxValueSpan: 1 * 60 * 60 * 1000, // 1 hour maximum zoom
         throttle: 50,
         zoomLock: true, // Completely disable zoom to allow page scrolling
         zoomOnMouseWheel: false, // Disable scroll zoom
@@ -804,10 +804,9 @@ export function UnifiedTimeline({
     const chart = chartRef.current?.getEchartsInstance();
     if (chart) {
       const currentTime = now || data.endTime;
-      const fiveMinutes = 5 * 60 * 1000;
       const tenMinutes = 10 * 60 * 1000;
       const initialStartTime = currentTime - tenMinutes;
-      const initialEndTime = currentTime - fiveMinutes;
+      const initialEndTime = currentTime;
       
       chart.dispatchAction({
         type: 'dataZoom',
