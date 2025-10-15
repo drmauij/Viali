@@ -46,10 +46,8 @@ export function UnifiedTimeline({
   data: UnifiedTimelineData;
   height?: number;
 }) {
-  // Calculate dynamic height based on medication count
-  const medicationEvents = data.events.filter(e => e.swimlane === "medikamente");
-  const uniqueRows = new Set(medicationEvents.map(e => e.row ?? 0));
-  const numMedicationRows = Math.max(uniqueRows.size, 1);
+  // Default to 1 medication row for clean layout
+  const numMedicationRows = 1;
   const defaultHeight = 510 + 30 + (numMedicationRows * 30) + 120; // base + medications header + medications + other swimlanes
   const componentHeight = height ?? defaultHeight;
   const chartRef = useRef<any>(null);
@@ -324,152 +322,7 @@ export function UnifiedTimeline({
       });
     }
 
-    // Swimlane events - render as scatter or custom elements
-    // Dynamic swimlane mapping based on number of medication rows
-    // Grid 4 is Medications header, Grids 5 to (5+numMedicationRows-1) are drug rows
-    const infusionenGridIndex = 5 + numMedicationRows;
-    const ventilationGridIndex = infusionenGridIndex + 1;
-    const staffGridIndex = ventilationGridIndex + 1;
-
-    const swimlaneMap: Record<string, number> = {
-      zeiten: 1,
-      ereignisse: 2,
-      herzrhythmus: 3,
-      medikamente: 4, // Will use grids 4 to 4+numRows based on row
-      infusionen: infusionenGridIndex,
-      perfusors: infusionenGridIndex,
-      ventilation: ventilationGridIndex,
-      staff: staffGridIndex,
-    };
-
-    // Group events by swimlane - ensure each medication drug gets its own swimlane
-    const eventsBySwimlane = data.events.reduce((acc, event) => {
-      // Skip medication events that don't have a row (they shouldn't appear anywhere)
-      if (event.swimlane === "medikamente" && event.row === undefined) {
-        return acc;
-      }
-
-      let gridIndex = swimlaneMap[event.swimlane];
-
-      // For medications, map to specific drug grid based on row
-      if (event.swimlane === "medikamente" && event.row !== undefined) {
-        gridIndex = 5 + event.row; // Grid 4 is header, row 0->grid 5, row 1->grid 6, etc.
-      }
-
-      // Ensure we have a valid grid index
-      if (gridIndex !== undefined) {
-        if (!acc[gridIndex]) acc[gridIndex] = [];
-        acc[gridIndex].push(event);
-      }
-
-      return acc;
-    }, {} as Record<number, TimelineEvent[]>);
-
-    // Create scatter series for each swimlane
-    Object.entries(eventsBySwimlane).forEach(([gridIndex, events]) => {
-      const idx = parseInt(gridIndex);
-
-      // Point events (no duration)
-      const pointEvents = events.filter(e => !e.duration);
-      if (pointEvents.length > 0) {
-        series.push({
-          type: "scatter",
-          xAxisIndex: idx,
-          yAxisIndex: idx + 1,
-          data: pointEvents.map(e => {
-            // All swimlanes use single category positioned at center
-            return [e.time, 0]; // Use numeric 0 instead of empty string for better positioning
-          }),
-          symbol: "circle",
-          symbolSize: 6, // Make symbol slightly visible for better alignment
-          itemStyle: {
-            color: event => {
-              // For medication events, use a subtle color per drug type
-              const evt = pointEvents[event.dataIndex];
-              if (evt && events.length > 0 && events[0].swimlane === "medikamente") {
-                const drugColors = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4"];
-                return drugColors[(evt.row || 0) % drugColors.length];
-              }
-              return isDark ? "#ffffff" : "#333333";
-            },
-            borderWidth: 1,
-            borderColor: isDark ? "#666666" : "#cccccc",
-          },
-          label: {
-            show: true,
-            position: "right",
-            formatter: (params: any) => {
-              const event = pointEvents[params.dataIndex];
-              // Just show the label text without icons
-              return event?.label || "";
-            },
-            fontSize: 11,
-            fontFamily: "Poppins, sans-serif",
-            color: isDark ? "#ffffff" : "#000000",
-            fontWeight: "500",
-            offset: [8, 0], // Add horizontal offset for better readability
-          },
-        });
-      }
-
-      // Range events (with duration) - render as bars
-      const rangeEvents = events.filter(e => e.duration);
-      if (rangeEvents.length > 0) {
-        rangeEvents.forEach((event) => {
-          // Use numeric positioning for better control
-          const yValue = 0;
-
-          series.push({
-            type: "custom",
-            xAxisIndex: idx,
-            yAxisIndex: idx + 1,
-            renderItem: (params: any, api: any) => {
-              const start = api.coord([event.time, yValue]);
-              const end = api.coord([event.time + (event.duration || 0), yValue]);
-              const gridHeight = api.size([0, 1])[1];
-              const barHeight = gridHeight * 0.6; // 60% of grid height for better visibility
-              const y = start[1] - barHeight / 2;
-
-              return {
-                type: "group",
-                children: [
-                  {
-                    type: "rect",
-                    shape: {
-                      x: start[0],
-                      y,
-                      width: Math.max(end[0] - start[0], 3), // Minimum 3px width
-                      height: barHeight,
-                    },
-                    style: {
-                      fill: event.color || "#10b981",
-                      opacity: 0.8,
-                      stroke: isDark ? "#333333" : "#ffffff",
-                      lineWidth: 1,
-                    },
-                  },
-                  {
-                    type: "text",
-                    style: {
-                      text: event.label,
-                      x: start[0] + 6,
-                      y: y + barHeight / 2,
-                      fontSize: 10,
-                      fontFamily: "Poppins, sans-serif",
-                      fill: isDark ? "#ffffff" : "#000000",
-                      fontWeight: "600",
-                      textVerticalAlign: "middle",
-                    },
-                  },
-                ],
-              };
-            },
-            data: [[event.time, yValue]],
-            z: 2,
-          });
-        });
-      }
-    });
+    // Swimlanes are now clean - no data points, just empty grids for future use
 
     return {
       backgroundColor: "transparent",
@@ -514,25 +367,10 @@ export function UnifiedTimeline({
     } as echarts.EChartsOption;
   }, [data, isDark]);
 
-  // Extract medication drug names dynamically for sidebar
+  // Empty medication drugs for clean sidebar
   const medicationDrugs = useMemo(() => {
-    const medicationEvents = data.events.filter(e => e.swimlane === "medikamente" && e.row !== undefined);
-    const drugsByRow = new Map<number, string>();
-
-    medicationEvents.forEach(e => {
-      const row = e.row!; // We know row is defined due to filter above
-      if (!drugsByRow.has(row)) {
-        // Extract drug name from label (e.g., "Propofol 200mg" -> "Propofol")
-        const drugName = e.label.split(/\s+|\d/)[0].trim();
-        drugsByRow.set(row, drugName);
-      }
-    });
-
-    // Sort by row number and return drug names
-    return Array.from(drugsByRow.entries())
-      .sort((a, b) => a[0] - b[0])
-      .map(([_, name]) => name);
-  }, [data.events]);
+    return [""];
+  }, []);
 
   // Calculate dynamic positions for sidebar (reuse numMedicationRows from top)
   const medicationStart = 510;
