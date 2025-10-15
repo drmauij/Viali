@@ -1,7 +1,11 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Activity, Heart, Wind, Combine } from "lucide-react";
+import { Activity, Heart, Wind, Combine, Plus, X } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 /**
  * UnifiedTimeline - Refactored for robustness and flexibility
@@ -59,6 +63,11 @@ export function UnifiedTimeline({
 }) {
   const chartRef = useRef<any>(null);
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
+  
+  // State for dynamic medications
+  const [medications, setMedications] = useState<string[]>([]);
+  const [showAddMedDialog, setShowAddMedDialog] = useState(false);
+  const [newMedName, setNewMedName] = useState("");
 
   // Listen for theme changes
   useEffect(() => {
@@ -72,8 +81,22 @@ export function UnifiedTimeline({
     return () => observer.disconnect();
   }, []);
 
+  // Add medication handler
+  const handleAddMedication = () => {
+    if (newMedName.trim()) {
+      setMedications([...medications, newMedName.trim()]);
+      setNewMedName("");
+      setShowAddMedDialog(false);
+    }
+  };
+
+  // Remove medication handler
+  const handleRemoveMedication = (index: number) => {
+    setMedications(medications.filter((_, i) => i !== index));
+  };
+
   // Default swimlane configuration - can be overridden via props
-  const defaultSwimlanes: SwimlaneConfig[] = [
+  const baseSwimlanes: SwimlaneConfig[] = [
     { id: "zeiten", label: "Times", height: 50, colorLight: "rgba(243, 232, 255, 0.8)", colorDark: "hsl(270, 55%, 20%)" },
     { id: "ereignisse", label: "Events", height: 40, colorLight: "rgba(219, 234, 254, 0.8)", colorDark: "hsl(210, 60%, 18%)" },
     { id: "herzrhythmus", label: "Heart Rhythm", height: 40, colorLight: "rgba(252, 231, 243, 0.8)", colorDark: "hsl(330, 50%, 20%)" },
@@ -83,7 +106,33 @@ export function UnifiedTimeline({
     { id: "staff", label: "Staff", height: 40, colorLight: "rgba(241, 245, 249, 0.8)", colorDark: "hsl(220, 25%, 25%)" },
   ];
 
-  const activeSwimlanes = swimlanes || defaultSwimlanes;
+  // Build active swimlanes with dynamic medication children
+  const buildActiveSwimlanes = (): SwimlaneConfig[] => {
+    if (swimlanes) return swimlanes; // Use custom if provided
+    
+    const lanes: SwimlaneConfig[] = [];
+    const medColor = { colorLight: "rgba(220, 252, 231, 0.8)", colorDark: "hsl(150, 45%, 18%)" };
+    
+    for (const lane of baseSwimlanes) {
+      lanes.push(lane);
+      
+      // Insert medication children after Medications parent
+      if (lane.id === "medikamente" && medications.length > 0) {
+        medications.forEach((medName, index) => {
+          lanes.push({
+            id: `medication-${index}`,
+            label: medName,
+            height: 30,
+            ...medColor,
+          });
+        });
+      }
+    }
+    
+    return lanes;
+  };
+
+  const activeSwimlanes = buildActiveSwimlanes();
 
   const option = useMemo(() => {
     // Layout constants
@@ -497,20 +546,50 @@ export function UnifiedTimeline({
         </div>
 
         {/* Swimlane labels */}
-        {swimlanePositions.map((lane) => (
-          <div 
-            key={lane.id}
-            className="absolute w-full flex items-center px-2 border-b" 
-            style={{ 
-              top: `${lane.top}px`,
-              height: `${lane.height}px`,
-              backgroundColor: isDark ? lane.colorDark : lane.colorLight,
-              borderColor: isDark ? "#444444" : "#d1d5db"
-            }}
-          >
-            <span className="text-sm font-semibold text-black dark:text-white">{lane.label}</span>
-          </div>
-        ))}
+        {swimlanePositions.map((lane, index) => {
+          const isMedParent = lane.id === "medikamente";
+          const isMedChild = lane.id.startsWith("medication-");
+          const medIndex = isMedChild ? parseInt(lane.id.split("-")[1]) : -1;
+          
+          return (
+            <div 
+              key={lane.id}
+              className="absolute w-full flex items-center justify-between px-2 border-b" 
+              style={{ 
+                top: `${lane.top}px`,
+                height: `${lane.height}px`,
+                backgroundColor: isDark ? lane.colorDark : lane.colorLight,
+                borderColor: isDark ? "#444444" : "#d1d5db"
+              }}
+            >
+              <span className={`${isMedChild ? 'text-xs pl-2' : 'text-sm font-semibold'} text-black dark:text-white`}>
+                {lane.label}
+              </span>
+              
+              {isMedParent && (
+                <button
+                  onClick={() => setShowAddMedDialog(true)}
+                  className="p-1 rounded hover:bg-background/50 transition-colors"
+                  data-testid="button-add-medication"
+                  title="Add Medication"
+                >
+                  <Plus className="w-4 h-4 text-black dark:text-white" />
+                </button>
+              )}
+              
+              {isMedChild && (
+                <button
+                  onClick={() => handleRemoveMedication(medIndex)}
+                  className="p-1 rounded hover:bg-background/50 transition-colors"
+                  data-testid={`button-remove-medication-${medIndex}`}
+                  title="Remove Medication"
+                >
+                  <X className="w-3 h-3 text-black dark:text-white" />
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* ECharts timeline */}
@@ -524,6 +603,52 @@ export function UnifiedTimeline({
           lazyUpdate
         />
       </div>
+
+      {/* Add Medication Dialog */}
+      <Dialog open={showAddMedDialog} onOpenChange={setShowAddMedDialog}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-add-medication">
+          <DialogHeader>
+            <DialogTitle>Add Medication</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="medication-name">Medication Name</Label>
+              <Input
+                id="medication-name"
+                data-testid="input-medication-name"
+                value={newMedName}
+                onChange={(e) => setNewMedName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddMedication();
+                  }
+                }}
+                placeholder="e.g., Propofol 1%"
+                autoFocus
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddMedDialog(false);
+                setNewMedName("");
+              }}
+              data-testid="button-cancel-medication"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddMedication}
+              data-testid="button-confirm-add-medication"
+              disabled={!newMedName.trim()}
+            >
+              Add
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
