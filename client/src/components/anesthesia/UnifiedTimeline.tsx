@@ -144,6 +144,25 @@ export function UnifiedTimeline({
     };
   }, []);
 
+  // Update dataZoom xAxisIndex when swimlane structure changes
+  useEffect(() => {
+    const chart = chartRef.current?.getEchartsInstance();
+    if (!chart) return;
+
+    // Get current dataZoom state to preserve zoom level
+    const currentOption = chart.getOption() as any;
+    const currentDataZoom = currentOption.dataZoom?.[0];
+    
+    // Update dataZoom to include all current x-axes
+    const numGrids = activeSwimlanes.length + 1; // +1 for vitals grid
+    chart.setOption({
+      dataZoom: [{
+        ...currentDataZoom,
+        xAxisIndex: Array.from({ length: numGrids }, (_, i) => i),
+      }]
+    });
+  }, [activeSwimlanes]);
+
   // Add medication handler
   const handleAddMedication = () => {
     if (newMedName.trim()) {
