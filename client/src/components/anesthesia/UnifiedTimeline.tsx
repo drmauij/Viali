@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Activity, Heart, Wind, Combine, Plus, X, ChevronDown, ChevronRight } from "lucide-react";
+import { Activity, Heart, Wind, Combine, Plus, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,9 +67,6 @@ export function UnifiedTimeline({
   const chartRef = useRef<any>(null);
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
   
-  // State for collapsible parent swimlanes
-  const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<Set<string>>(new Set());
-  
   // State for dynamic medications
   const [medications, setMedications] = useState<string[]>([]);
   const [showAddMedDialog, setShowAddMedDialog] = useState(false);
@@ -99,18 +96,7 @@ export function UnifiedTimeline({
     return () => clearInterval(interval);
   }, [now]);
 
-  // Toggle collapsed state for parent swimlanes
-  const toggleSwimlane = (id: string) => {
-    setCollapsedSwimlanes(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
+  
 
   // Listen for theme changes
   useEffect(() => {
@@ -164,7 +150,7 @@ export function UnifiedTimeline({
     { id: "staff", label: "Staff", height: 40, colorLight: "rgba(241, 245, 249, 0.8)", colorDark: "hsl(220, 25%, 25%)" },
   ];
 
-  // Build active swimlanes with collapsible children
+  // Build static swimlanes - all expanded
   const buildActiveSwimlanes = (): SwimlaneConfig[] => {
     if (swimlanes) return swimlanes; // Use custom if provided
     
@@ -175,8 +161,8 @@ export function UnifiedTimeline({
     for (const lane of baseSwimlanes) {
       lanes.push(lane);
       
-      // Insert medication children after Medications parent (if not collapsed)
-      if (lane.id === "medikamente" && !collapsedSwimlanes.has("medikamente")) {
+      // Always insert medication children after Medications parent
+      if (lane.id === "medikamente") {
         // Add predefined medications
         medicationsList.forEach((medName, index) => {
           lanes.push({
@@ -198,8 +184,8 @@ export function UnifiedTimeline({
         });
       }
 
-      // Insert ventilation children after Ventilation parent (if not collapsed)
-      if (lane.id === "ventilation" && !collapsedSwimlanes.has("ventilation")) {
+      // Always insert ventilation children after Ventilation parent
+      if (lane.id === "ventilation") {
         ventilationParams.forEach((paramName, index) => {
           lanes.push({
             id: `ventilation-${index}`,
@@ -214,7 +200,7 @@ export function UnifiedTimeline({
     return lanes;
   };
 
-  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [collapsedSwimlanes, medications, swimlanes]);
+  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [medications, swimlanes]);
 
   // Add medication handler
   const handleAddMedication = () => {
@@ -446,7 +432,7 @@ export function UnifiedTimeline({
       chart.off('finished', updateZones);
       window.removeEventListener('resize', handleResize);
     };
-  }, [chartRef, data, isDark, activeSwimlanes, now, currentZoomStart, currentZoomEnd, currentTime, collapsedSwimlanes]);
+  }, [chartRef, data, isDark, activeSwimlanes, now, currentZoomStart, currentZoomEnd, currentTime]);
 
   const option = useMemo(() => {
     // Layout constants
@@ -920,12 +906,10 @@ export function UnifiedTimeline({
         {/* Swimlane labels */}
         {swimlanePositions.map((lane, index) => {
           const isMedParent = lane.id === "medikamente";
-          const isVentParent = lane.id === "ventilation";
           const isMedChild = lane.id.startsWith("medication-");
           const isVentChild = lane.id.startsWith("ventilation-");
           const isDynamicMed = lane.id.startsWith("medication-dynamic-");
           const isChild = isMedChild || isVentChild;
-          const isParent = isMedParent || isVentParent;
           const medIndex = isDynamicMed ? parseInt(lane.id.split("-")[2]) : -1;
           
           return (
@@ -940,20 +924,6 @@ export function UnifiedTimeline({
               }}
             >
               <div className="flex items-center gap-1 flex-1">
-                {isParent && (
-                  <button
-                    onClick={() => toggleSwimlane(lane.id)}
-                    className="p-0.5 rounded hover:bg-background/50 transition-colors"
-                    data-testid={`button-toggle-${lane.id}`}
-                    title={collapsedSwimlanes.has(lane.id) ? "Expand" : "Collapse"}
-                  >
-                    {collapsedSwimlanes.has(lane.id) ? (
-                      <ChevronRight className="w-4 h-4 text-black dark:text-white" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-black dark:text-white" />
-                    )}
-                  </button>
-                )}
                 <span className={`${isChild ? 'text-xs' : 'text-sm font-semibold'} text-black dark:text-white`}>
                   {lane.label}
                 </span>
