@@ -157,18 +157,18 @@ export function UnifiedTimeline({
         fontFamily: "Poppins, sans-serif",
       },
       axisLine: { 
-        show: index === 0,
+        show: true, // Always show axis line for consistency
         lineStyle: {
           color: isDark ? "#444444" : "#d1d5db",
         }
       },
       axisTick: { 
-        show: index === 0,
+        show: index === 0, // Only show ticks on vitals grid
         lineStyle: {
           color: isDark ? "#444444" : "#d1d5db",
         }
       },
-      // CRITICAL: All x-axes have identical splitLine configuration
+      // CRITICAL: All x-axes have identical splitLine configuration for consistent time divisions
       splitLine: { 
         show: true,
         lineStyle: {
@@ -178,8 +178,8 @@ export function UnifiedTimeline({
         },
       },
       minorTick: {
-        show: index === 0,
-        splitNumber: 4,
+        show: index === 0, // Only show minor ticks on vitals grid
+        splitNumber: 4, // Example: 4 divisions per hour
       },
       minorSplitLine: {
         show: true,
@@ -199,7 +199,7 @@ export function UnifiedTimeline({
         gridIndex: 0,
         min: 0,
         max: 240,
-        interval: 40,
+        interval: 40, // BP/HR interval
         position: "left" as const,
         offset: 30,
         axisLabel: { 
@@ -229,14 +229,14 @@ export function UnifiedTimeline({
         gridIndex: 0,
         min: 50,
         max: 100,
-        interval: 10,
+        interval: 10, // SpO2 interval
         position: "left" as const,
         offset: 0,
         axisLabel: { 
           show: true,
           fontSize: 11,
           fontFamily: "Poppins, sans-serif",
-          color: "#8b5cf6",
+          color: "#8b5cf6", // Original SpO2 color
         },
         axisLine: { 
           show: true,
@@ -299,16 +299,18 @@ export function UnifiedTimeline({
   let currentTop = vitalsTop + vitalsHeight;
 
   const swimlanePositions = swimlanes.map((swimlane) => {
-    const bgColor = isDark 
-      ? swimlane.color || "hsl(220, 25%, 25%)"
-      : swimlane.color?.replace(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/, (_, h, s, l) => 
+    // Original color palette logic for non-dark theme
+    const originalColor = swimlane.color || "hsl(220, 25%, 25%)"; // Default for dark
+    const lightThemeColor = isDark
+      ? originalColor
+      : originalColor.replace(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/, (_, h, s, l) =>
           `hsla(${h}, ${s}%, ${Math.min(parseInt(l) + 40, 80)}%, 0.8)`
         ) || "rgba(241, 245, 249, 0.8)";
 
     const position = {
       ...swimlane,
       top: currentTop,
-      backgroundColor: bgColor
+      backgroundColor: lightThemeColor // Use calculated color
     };
     currentTop += swimlane.height || 40;
     return position;
@@ -500,7 +502,7 @@ export function UnifiedTimeline({
               borderColor: isDark ? "#444444" : "#d1d5db"
             }}
           >
-            <span className={`${pos.type === 'header' ? 'text-sm font-semibold' : 'text-xs'} text-black dark:text-white`}>
+            <span className={`${pos.type === 'header' ? 'text-sm font-semibold' : 'text-xs'} text-white`}>
               {pos.name}
             </span>
           </div>
