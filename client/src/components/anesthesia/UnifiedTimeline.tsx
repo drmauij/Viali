@@ -275,6 +275,12 @@ export function UnifiedTimeline({
     if (!chart) return;
 
     const updateZones = () => {
+      // Calculate heights outside try block for error logging
+      const VITALS_TOP = 32;
+      const VITALS_HEIGHT = 340;
+      const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
+      const chartHeight = VITALS_HEIGHT + swimlanesHeight;
+      
       try {
         const tenMinutes = 10 * 60 * 1000;
         const editableBoundary = currentTime - tenMinutes;
@@ -288,16 +294,10 @@ export function UnifiedTimeline({
         const nonEditableWidth = Math.max(0, boundaryPx - startPx);
         const editableWidth = Math.max(0, endPx - boundaryPx);
         
-        const VITALS_TOP = 32;
-        const VITALS_HEIGHT = 340;
-        const SWIMLANE_START = VITALS_TOP + VITALS_HEIGHT;
-        const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
-        const chartHeight = VITALS_HEIGHT + swimlanesHeight;
-        
         // Calculate position for current time indicator
         const nowPx = chart.convertToPixel({ xAxisIndex: 0 }, currentTime);
         
-        // Update graphic elements with IDs for proper merge behavior
+        // Update only zones and now indicator (vertical lines are managed by useMemo)
         chart.setOption({
           graphic: [
             {
@@ -361,6 +361,12 @@ export function UnifiedTimeline({
         });
       } catch (e) {
         console.error('Error updating zones:', e);
+        console.error('Error details:', {
+          message: e instanceof Error ? e.message : String(e),
+          stack: e instanceof Error ? e.stack : undefined,
+          activeSwimlanes: activeSwimlanes.length,
+          chartHeight,
+        });
       }
     };
 
@@ -611,9 +617,9 @@ export function UnifiedTimeline({
       yAxis: yAxes,
       series,
       graphic: [
-        // Vertical grid lines group
+        // Vertical grid lines group (ID includes swimlane count to force recreation when height changes)
         {
-          id: 'vertical-lines-group',
+          id: `vertical-lines-group-${activeSwimlanes.length}`,
           type: "group",
           left: GRID_LEFT,
           width: `calc(100% - ${GRID_LEFT + GRID_RIGHT}px)`,
