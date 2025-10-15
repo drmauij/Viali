@@ -408,6 +408,107 @@ export function UnifiedTimeline({
     };
   }, [chartRef, data, isDark, activeSwimlanes, now, currentZoomStart, currentZoomEnd, currentTime]);
 
+  // Update vertical lines when zoom changes
+  useEffect(() => {
+    const chart = chartRef.current?.getEchartsInstance();
+    if (!chart) return;
+
+    const updateVerticalLines = () => {
+      const option = chart.getOption() as any;
+      const dataZoom = option.dataZoom?.[0];
+      if (!dataZoom) return;
+
+      const visibleStart = dataZoom.startValue;
+      const visibleEnd = dataZoom.endValue;
+      const visibleRange = visibleEnd - visibleStart;
+
+      // Constants (must match option calculation)
+      const VITALS_TOP = 32;
+      const VITALS_HEIGHT = 340;
+      const oneHour = 60 * 60 * 1000;
+      const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
+      const chartHeight = VITALS_HEIGHT + swimlanesHeight;
+
+      // Generate vertical lines for visible range with adaptive granularity
+      const verticalLines: any[] = [];
+      const fifteenMinutes = 15 * 60 * 1000;
+      const fiveMinutes = 5 * 60 * 1000;
+      
+      // Determine tick interval based on zoom level
+      const viewSpanMinutes = visibleRange / (60 * 1000);
+      const useFineTicks = viewSpanMinutes <= 30; // Use 5-min ticks when zoomed in
+      
+      // Draw major hour lines
+      for (let t = Math.floor(visibleStart / oneHour) * oneHour; t <= visibleEnd + oneHour; t += oneHour) {
+        const xPercent = ((t - visibleStart) / visibleRange) * 100;
+        const clampedPercent = Math.max(0, Math.min(100, xPercent));
+        
+        verticalLines.push({
+          type: "line",
+          shape: { x1: 0, y1: 0, x2: 0, y2: chartHeight },
+          position: [`${clampedPercent}%`, VITALS_TOP],
+          style: {
+            stroke: isDark ? "#444444" : "#d1d5db",
+            lineWidth: 1,
+          },
+          silent: true,
+          z: 1,
+        });
+      }
+      
+      // Draw minor ticks - adaptive based on zoom level
+      const minorInterval = useFineTicks ? fiveMinutes : fifteenMinutes;
+      for (let t = Math.floor(visibleStart / minorInterval) * minorInterval; t <= visibleEnd + minorInterval; t += minorInterval) {
+        // Skip if this is a major hour line
+        if (t % oneHour === 0) continue;
+        
+        const xPercent = ((t - visibleStart) / visibleRange) * 100;
+        const clampedPercent = Math.max(0, Math.min(100, xPercent));
+        
+        verticalLines.push({
+          type: "line",
+          shape: { x1: 0, y1: 0, x2: 0, y2: chartHeight },
+          position: [`${clampedPercent}%`, VITALS_TOP],
+          style: {
+            stroke: isDark ? "#333333" : "#e5e7eb",
+            lineWidth: 0.5,
+            lineDash: [4, 4],
+          },
+          silent: true,
+          z: 1,
+        });
+      }
+
+      // Update vertical lines group
+      const currentGraphic = option.graphic?.[0]?.elements || [];
+      const updatedGraphic = currentGraphic.map((el: any) => {
+        if (el.id?.startsWith('vertical-lines-group')) {
+          return {
+            ...el,
+            children: verticalLines,
+          };
+        }
+        return el;
+      });
+
+      chart.setOption({
+        graphic: {
+          elements: updatedGraphic,
+        },
+      }, { replaceMerge: ['graphic'] });
+    };
+
+    // Update immediately
+    setTimeout(updateVerticalLines, 50);
+
+    // Listen for zoom events (ECharts event is 'datazoom' lowercase)
+    chart.on('datazoom', updateVerticalLines);
+
+    return () => {
+      chart.off('datazoom', updateVerticalLines);
+    };
+  }, [chartRef, activeSwimlanes, isDark, currentZoomStart, currentZoomEnd]);
+
   const option = useMemo(() => {
     // Layout constants
     const VITALS_TOP = 32; // Space for sticky header (32px)
@@ -592,16 +693,23 @@ export function UnifiedTimeline({
       });
     }
     
-    // Generate continuous vertical lines spanning all grids (vitals + all swimlanes)
+    // Generate initial vertical lines for the initial visible range
     const verticalLines: any[] = [];
-    for (let t = Math.ceil(data.startTime / oneHour) * oneHour; t <= data.endTime; t += oneHour) {
-      const xPercent = ((t - data.startTime) / timeRange) * 100;
+    const initialVisibleRange = initialEndTime - initialStartTime;
+    const viewSpanMinutes = initialVisibleRange / (60 * 1000);
+    const useFineTicks = viewSpanMinutes <= 30;
+    const fifteenMin = 15 * 60 * 1000;
+    const fiveMin = 5 * 60 * 1000;
+    
+    // Draw major hour lines
+    for (let t = Math.floor(initialStartTime / oneHour) * oneHour; t <= initialEndTime + oneHour; t += oneHour) {
+      const xPercent = ((t - initialStartTime) / initialVisibleRange) * 100;
+      const clampedPercent = Math.max(0, Math.min(100, xPercent));
       
-      // Major hourly line
       verticalLines.push({
         type: "line",
         shape: { x1: 0, y1: 0, x2: 0, y2: chartHeight },
-        position: [`${xPercent}%`, VITALS_TOP],
+        position: [`${clampedPercent}%`, VITALS_TOP],
         style: {
           stroke: isDark ? "#444444" : "#d1d5db",
           lineWidth: 1,
@@ -609,26 +717,28 @@ export function UnifiedTimeline({
         silent: true,
         z: 1,
       });
+    }
+    
+    // Draw minor ticks - adaptive based on zoom level
+    const minorInterval = useFineTicks ? fiveMin : fifteenMin;
+    for (let t = Math.floor(initialStartTime / minorInterval) * minorInterval; t <= initialEndTime + minorInterval; t += minorInterval) {
+      if (t % oneHour === 0) continue; // Skip hour lines
       
-      // Minor 15-minute lines
-      for (let minor = 1; minor < 4; minor++) {
-        const minorTime = t + (minor * 15 * 60 * 1000);
-        if (minorTime > data.endTime) break;
-        
-        const minorXPercent = ((minorTime - data.startTime) / timeRange) * 100;
-        verticalLines.push({
-          type: "line",
-          shape: { x1: 0, y1: 0, x2: 0, y2: chartHeight },
-          position: [`${minorXPercent}%`, VITALS_TOP],
-          style: {
-            stroke: isDark ? "#333333" : "#e5e7eb",
-            lineWidth: 0.5,
-            lineDash: [4, 4],
-          },
-          silent: true,
-          z: 1,
-        });
-      }
+      const xPercent = ((t - initialStartTime) / initialVisibleRange) * 100;
+      const clampedPercent = Math.max(0, Math.min(100, xPercent));
+      
+      verticalLines.push({
+        type: "line",
+        shape: { x1: 0, y1: 0, x2: 0, y2: chartHeight },
+        position: [`${clampedPercent}%`, VITALS_TOP],
+        style: {
+          stroke: isDark ? "#333333" : "#e5e7eb",
+          lineWidth: 0.5,
+          lineDash: [4, 4],
+        },
+        silent: true,
+        z: 1,
+      });
     }
 
     return {

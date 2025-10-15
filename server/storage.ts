@@ -172,9 +172,9 @@ export class DatabaseStorage implements IStorage {
       .insert(users)
       .values(userData)
       .onConflictDoUpdate({
-        target: users.email, // Use email as conflict target since it's unique
+        target: users.id, // Use id as conflict target for OIDC re-login
         set: {
-          id: userData.id, // Update ID if OAuth provider changes
+          email: userData.email,
           firstName: userData.firstName,
           lastName: userData.lastName,
           profileImageUrl: userData.profileImageUrl,
