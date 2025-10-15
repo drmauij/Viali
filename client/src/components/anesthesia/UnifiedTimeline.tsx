@@ -216,6 +216,7 @@ export function UnifiedTimeline({
     const xAxes = grids.map((_, index) => createXAxis(index));
 
     // Y-axes: vitals (dual) + swimlanes (categorical)
+    // Note: Using hidden y-axes for grid lines, labels will be rendered as graphic elements
     const yAxes = [
       // Vitals grid - First y-axis (BP/HR: 0-220 with 20-unit steps = 11 segments)
       {
@@ -224,22 +225,7 @@ export function UnifiedTimeline({
         min: 0,
         max: 220,
         interval: 20,
-        position: "left" as const,
-        offset: 50, // Further from grid edge
-        axisLabel: { 
-          show: true,
-          fontSize: 11,
-          fontFamily: "Poppins, sans-serif",
-          color: isDark ? "#ffffff" : "#000000",
-        },
-        axisLine: { 
-          show: true,
-          lineStyle: { color: isDark ? "#666666" : "#999999" }
-        },
-        axisTick: { 
-          show: true,
-          lineStyle: { color: isDark ? "#666666" : "#999999" }
-        },
+        show: false, // Hide axis, we'll render labels manually
         splitLine: { 
           show: true,
           lineStyle: {
@@ -256,22 +242,7 @@ export function UnifiedTimeline({
         min: 50,
         max: 100,
         interval: 10,
-        position: "left" as const,
-        offset: 0, // Closest to grid edge
-        axisLabel: { 
-          show: true,
-          fontSize: 11,
-          fontFamily: "Poppins, sans-serif",
-          color: "#8b5cf6",
-        },
-        axisLine: { 
-          show: true,
-          lineStyle: { color: "#8b5cf6", width: 2 }
-        },
-        axisTick: { 
-          show: true,
-          lineStyle: { color: "#8b5cf6" }
-        },
+        show: false, // Hide axis, we'll render labels manually
         splitLine: { show: false },
       },
       // Swimlane y-axes
@@ -291,6 +262,47 @@ export function UnifiedTimeline({
     const chartHeight = chartBottom - VITALS_TOP;
     const timeRange = data.endTime - data.startTime;
     const oneHour = 60 * 60 * 1000;
+    
+    // Generate manual y-axis labels in the white space
+    const yAxisLabels: any[] = [];
+    
+    // First y-axis (0-220, interval 20) - positioned at x=70px
+    for (let val = 0; val <= 220; val += 20) {
+      const yPercent = ((220 - val) / 220) * 100; // Invert because top is 0
+      const yPos = VITALS_TOP + (yPercent / 100) * VITALS_HEIGHT;
+      yAxisLabels.push({
+        type: "text",
+        left: 70,
+        top: yPos - 6, // Center text vertically
+        style: {
+          text: val.toString(),
+          fontSize: 11,
+          fontFamily: "Poppins, sans-serif",
+          fill: isDark ? "#ffffff" : "#000000",
+        },
+        silent: true,
+        z: 10,
+      });
+    }
+    
+    // Second y-axis (50-100, interval 10) - positioned at x=125px
+    for (let val = 50; val <= 100; val += 10) {
+      const yPercent = ((100 - val) / 50) * 100; // Range is 50-100, so 50 units total
+      const yPos = VITALS_TOP + (yPercent / 100) * VITALS_HEIGHT;
+      yAxisLabels.push({
+        type: "text",
+        left: 125,
+        top: yPos - 6,
+        style: {
+          text: val.toString(),
+          fontSize: 11,
+          fontFamily: "Poppins, sans-serif",
+          fill: "#8b5cf6",
+        },
+        silent: true,
+        z: 10,
+      });
+    }
     
     // Generate continuous vertical lines spanning all grids
     const verticalLines: any[] = [];
@@ -339,14 +351,19 @@ export function UnifiedTimeline({
       yAxis: yAxes,
       series,
       graphic: {
-        elements: [{
-          type: "group",
-          left: GRID_LEFT,
-          width: `calc(100% - ${GRID_LEFT + GRID_RIGHT}px)`,
-          children: verticalLines,
-          silent: true,
-          z: 1,
-        }]
+        elements: [
+          // Vertical grid lines
+          {
+            type: "group",
+            left: GRID_LEFT,
+            width: `calc(100% - ${GRID_LEFT + GRID_RIGHT}px)`,
+            children: verticalLines,
+            silent: true,
+            z: 1,
+          },
+          // Manual y-axis labels
+          ...yAxisLabels,
+        ]
       },
       dataZoom: [{
         type: "inside",
