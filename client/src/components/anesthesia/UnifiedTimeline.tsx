@@ -256,19 +256,6 @@ export function UnifiedTimeline({
           throttle: 50,
           // CRITICAL: Ensure synchronization across all axes
           filterMode: "none", // Don't filter data, just zoom
-        },
-        {
-          type: "slider",
-          xAxisIndex: Array.from({ length: grids.length }, (_, i) => i), // Apply slider to all x-axes for synchronization
-          height: 20,
-          bottom: 10,
-          startValue: data.startTime, // Use provided start time
-          endValue: data.endTime, // Use provided end time
-          minValueSpan: 5 * 60 * 1000, // Minimum 5 minutes
-          maxValueSpan: 6 * 60 * 60 * 1000, // Maximum 6 hours
-          handleIcon: "path://M10.7,11.9v-1.3H9.3v13c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4v1.3h1.3v-1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z",
-          // CRITICAL: Ensure synchronization across all axes
-          filterMode: "none", // Don't filter data, just zoom
         }
       ],
       tooltip: {
