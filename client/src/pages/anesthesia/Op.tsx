@@ -112,23 +112,26 @@ export default function Op() {
     const now = new Date().getTime(); // Current time
     const anesthesiaDuration = 1.5 * 60 * 60 * 1000; // 1.5 hours in milliseconds
     const anesthesiaStart = now - anesthesiaDuration; // Start time 1.5 hours ago
+    const futureBuffer = 30 * 60 * 1000; // 30 minutes into the future
+    const anesthesiaEnd = now + futureBuffer; // End time 30 minutes from now
     const step = 1 * 60 * 1000; // 1-minute intervals for data generation
 
     // Helper functions
     const seq = (n: number) => Array.from({ length: n }, (_, i) => i);
     const jitter = (base: number, amp = 5) => base + Math.round((Math.random() - .5) * 2 * amp);
 
-    const times = seq(90).map(i => anesthesiaStart + i * step); // 90 minutes of data (1.5 hours)
+    const times = seq(120).map(i => anesthesiaStart + i * step); // 120 minutes of data (1.5 hours past + 30 min future)
 
-    // Vitals data with realistic anesthesia patterns over 90 minutes
+    // Vitals data with realistic anesthesia patterns over 120 minutes (90 past + 30 future)
     const vitals: TimelineVitals = {
       sysBP: times.map((t, i) => {
-        // Pre-induction (0-10min): normal, induction (10-20min): drop, maintenance (20-80min): stable, emergence (80-90min): rise
+        // Pre-induction (0-10min): normal, induction (10-20min): drop, maintenance (20-80min): stable, emergence (80-90min): rise, future (90+): stable recovery
         let base = 130;
         if (i < 10) base = 125; // Pre-induction
         else if (i < 20) base = 90; // Induction drop
         else if (i < 80) base = 105; // Maintenance
-        else base = 120; // Emergence
+        else if (i < 90) base = 120; // Emergence
+        else base = 125; // Future/recovery - stable
         return [t, jitter(base, 8)] as VitalPoint;
       }),
 
@@ -137,7 +140,8 @@ export default function Op() {
         if (i < 10) base = 75; // Pre-induction
         else if (i < 20) base = 55; // Induction drop
         else if (i < 80) base = 65; // Maintenance
-        else base = 75; // Emergence
+        else if (i < 90) base = 75; // Emergence
+        else base = 75; // Future/recovery
         return [t, jitter(base, 6)] as VitalPoint;
       }),
 
@@ -146,7 +150,8 @@ export default function Op() {
         if (i < 10) base = 78; // Pre-induction slight elevation
         else if (i < 20) base = 65; // Induction decrease
         else if (i < 80) base = 68; // Maintenance stable
-        else base = 75; // Emergence
+        else if (i < 90) base = 75; // Emergence
+        else base = 72; // Future/recovery
         return [t, jitter(base, 5)] as VitalPoint;
       }),
 
@@ -221,7 +226,7 @@ export default function Op() {
 
     return {
       startTime: anesthesiaStart,
-      endTime: now, // Current time (end of anesthesia record)
+      endTime: anesthesiaEnd, // Extended 30 minutes into the future
       vitals,
       events,
     };
