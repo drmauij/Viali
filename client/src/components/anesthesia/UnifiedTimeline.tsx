@@ -245,82 +245,8 @@ export function UnifiedTimeline({
       }),
     ];
 
-    // Series
+    // Series - clean slate for vitals (no simulated data)
     const series: any[] = [];
-
-    // Vitals - Systolic BP (red line with circles)
-    if (data.vitals.sysBP) {
-      series.push({
-        name: "Systolic BP",
-        type: "line",
-        xAxisIndex: 0,
-        yAxisIndex: 0,
-        data: data.vitals.sysBP,
-        smooth: true,
-        showSymbol: true,
-        symbol: "circle",
-        symbolSize: 8,
-        itemStyle: { color: "#ef4444" },
-        lineStyle: { color: "#ef4444", width: 2 },
-      });
-    }
-
-    // Vitals - Diastolic BP (red line with triangles, connected to systolic with area)
-    if (data.vitals.diaBP) {
-      series.push({
-        name: "Diastolic BP",
-        type: "line",
-        xAxisIndex: 0,
-        yAxisIndex: 0,
-        data: data.vitals.diaBP,
-        smooth: true,
-        showSymbol: true,
-        symbol: "triangle",
-        symbolSize: 8,
-        itemStyle: { color: "#ef4444" },
-        lineStyle: { color: "#ef4444", width: 2 },
-        areaStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: "rgba(239, 68, 68, 0.2)" },
-            { offset: 1, color: "rgba(239, 68, 68, 0.05)" },
-          ]),
-        },
-      });
-    }
-
-    // Vitals - Heart Rate (blue line with heart symbols)
-    if (data.vitals.hr) {
-      series.push({
-        name: "HR",
-        type: "line",
-        xAxisIndex: 0,
-        yAxisIndex: 0,
-        data: data.vitals.hr,
-        smooth: true,
-        showSymbol: true,
-        symbol: "path://M512 938L93 519a256 256 0 11362-362l57 57 57-57a256 256 0 01362 362L512 938z",
-        symbolSize: 10,
-        itemStyle: { color: "#3b82f6" },
-        lineStyle: { color: "#3b82f6", width: 2 },
-      });
-    }
-
-    // Vitals - SpO2 (purple line with circles on right axis)
-    if (data.vitals.spo2) {
-      series.push({
-        name: "SpO2",
-        type: "line",
-        xAxisIndex: 0,
-        yAxisIndex: 1,
-        data: data.vitals.spo2,
-        smooth: true,
-        showSymbol: true,
-        symbol: "circle",
-        symbolSize: 8,
-        itemStyle: { color: "#8b5cf6" },
-        lineStyle: { color: "#8b5cf6", width: 2 },
-      });
-    }
 
     // Swimlanes are now clean - no data points, just empty grids for future use
 
