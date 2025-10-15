@@ -124,59 +124,6 @@ export function UnifiedTimeline({
     return () => observer.disconnect();
   }, []);
 
-  // Listen for dataZoom changes to sync with sticky header
-  useEffect(() => {
-    const chart = chartRef.current?.getEchartsInstance();
-    if (!chart) return;
-
-    const handleDataZoom = (params: any) => {
-      const option = chart.getOption() as any;
-      const dataZoom = option.dataZoom?.[0];
-      if (dataZoom) {
-        setCurrentZoomStart(dataZoom.startValue);
-        setCurrentZoomEnd(dataZoom.endValue);
-      }
-    };
-
-    chart.on('datazoom', handleDataZoom);
-    return () => {
-      chart.off('datazoom', handleDataZoom);
-    };
-  }, []);
-
-  // Update dataZoom xAxisIndex when swimlane structure changes
-  useEffect(() => {
-    const chart = chartRef.current?.getEchartsInstance();
-    if (!chart) return;
-
-    // Get current dataZoom state to preserve zoom level
-    const currentOption = chart.getOption() as any;
-    const currentDataZoom = currentOption.dataZoom?.[0];
-    
-    // Update dataZoom to include all current x-axes
-    const numGrids = activeSwimlanes.length + 1; // +1 for vitals grid
-    chart.setOption({
-      dataZoom: [{
-        ...currentDataZoom,
-        xAxisIndex: Array.from({ length: numGrids }, (_, i) => i),
-      }]
-    });
-  }, [activeSwimlanes]);
-
-  // Add medication handler
-  const handleAddMedication = () => {
-    if (newMedName.trim()) {
-      setMedications([...medications, newMedName.trim()]);
-      setNewMedName("");
-      setShowAddMedDialog(false);
-    }
-  };
-
-  // Remove medication handler
-  const handleRemoveMedication = (index: number) => {
-    setMedications(medications.filter((_, i) => i !== index));
-  };
-
   // Predefined medications list
   const medicationsList = [
     "Ringer Acetate (ml, i.v./free-flow)",
@@ -268,6 +215,59 @@ export function UnifiedTimeline({
   };
 
   const activeSwimlanes = buildActiveSwimlanes();
+
+  // Add medication handler
+  const handleAddMedication = () => {
+    if (newMedName.trim()) {
+      setMedications([...medications, newMedName.trim()]);
+      setNewMedName("");
+      setShowAddMedDialog(false);
+    }
+  };
+
+  // Remove medication handler
+  const handleRemoveMedication = (index: number) => {
+    setMedications(medications.filter((_, i) => i !== index));
+  };
+
+  // Listen for dataZoom changes to sync with sticky header
+  useEffect(() => {
+    const chart = chartRef.current?.getEchartsInstance();
+    if (!chart) return;
+
+    const handleDataZoom = (params: any) => {
+      const option = chart.getOption() as any;
+      const dataZoom = option.dataZoom?.[0];
+      if (dataZoom) {
+        setCurrentZoomStart(dataZoom.startValue);
+        setCurrentZoomEnd(dataZoom.endValue);
+      }
+    };
+
+    chart.on('datazoom', handleDataZoom);
+    return () => {
+      chart.off('datazoom', handleDataZoom);
+    };
+  }, []);
+
+  // Update dataZoom xAxisIndex when swimlane structure changes
+  useEffect(() => {
+    const chart = chartRef.current?.getEchartsInstance();
+    if (!chart) return;
+
+    // Get current dataZoom state to preserve zoom level
+    const currentOption = chart.getOption() as any;
+    const currentDataZoom = currentOption.dataZoom?.[0];
+    
+    // Update dataZoom to include all current x-axes
+    const numGrids = activeSwimlanes.length + 1; // +1 for vitals grid
+    chart.setOption({
+      dataZoom: [{
+        ...currentDataZoom,
+        xAxisIndex: Array.from({ length: numGrids }, (_, i) => i),
+      }]
+    });
+  }, [activeSwimlanes]);
 
   // Update editable zone widths after chart is rendered
   useEffect(() => {
