@@ -107,126 +107,27 @@ export default function Op() {
     return null;
   }
 
-  // Generate mock timeline data - memoized
+  // Empty timeline data - starts with current time, no historical data
   const timelineData = useMemo((): UnifiedTimelineData => {
     const now = new Date().getTime(); // Current time
-    const anesthesiaDuration = 1.5 * 60 * 60 * 1000; // 1.5 hours in milliseconds
-    const anesthesiaStart = now - anesthesiaDuration; // Start time 1.5 hours ago
+    const tenMinutesAgo = now - 10 * 60 * 1000; // 10 minutes ago for initial view
     const futureBuffer = 30 * 60 * 1000; // 30 minutes into the future
-    const anesthesiaEnd = now + futureBuffer; // End time 30 minutes from now
-    const step = 1 * 60 * 1000; // 1-minute intervals for data generation
+    const endTime = now + futureBuffer; // End time 30 minutes from now
 
-    // Helper functions
-    const seq = (n: number) => Array.from({ length: n }, (_, i) => i);
-    const jitter = (base: number, amp = 5) => base + Math.round((Math.random() - .5) * 2 * amp);
-
-    const times = seq(120).map(i => anesthesiaStart + i * step); // 120 minutes of data (1.5 hours past + 30 min future)
-
-    // Vitals data with realistic anesthesia patterns over 120 minutes (90 past + 30 future)
+    // Empty vitals - no data points
     const vitals: TimelineVitals = {
-      sysBP: times.map((t, i) => {
-        // Pre-induction (0-10min): normal, induction (10-20min): drop, maintenance (20-80min): stable, emergence (80-90min): rise, future (90+): stable recovery
-        let base = 130;
-        if (i < 10) base = 125; // Pre-induction
-        else if (i < 20) base = 90; // Induction drop
-        else if (i < 80) base = 105; // Maintenance
-        else if (i < 90) base = 120; // Emergence
-        else base = 125; // Future/recovery - stable
-        return [t, jitter(base, 8)] as VitalPoint;
-      }),
-
-      diaBP: times.map((t, i) => {
-        let base = 80;
-        if (i < 10) base = 75; // Pre-induction
-        else if (i < 20) base = 55; // Induction drop
-        else if (i < 80) base = 65; // Maintenance
-        else if (i < 90) base = 75; // Emergence
-        else base = 75; // Future/recovery
-        return [t, jitter(base, 6)] as VitalPoint;
-      }),
-
-      hr: times.map((t, i) => {
-        let base = 72;
-        if (i < 10) base = 78; // Pre-induction slight elevation
-        else if (i < 20) base = 65; // Induction decrease
-        else if (i < 80) base = 68; // Maintenance stable
-        else if (i < 90) base = 75; // Emergence
-        else base = 72; // Future/recovery
-        return [t, jitter(base, 5)] as VitalPoint;
-      }),
-
-      spo2: times.map((t, i) => {
-        let base = 98;
-        if (i > 35 && i < 40) base = 94; // Brief desaturation during surgery
-        if (i > 60 && i < 65) base = 96; // Another minor dip
-        return [t, jitter(base, 2)] as VitalPoint;
-      }),
+      sysBP: [],
+      diaBP: [],
+      hr: [],
+      spo2: [],
     };
 
-    // Timeline events with realistic anesthesia workflow over 90 minutes
-    const events: TimelineEvent[] = [
-      // Times (Zeiten) - key procedural milestones
-      { time: anesthesiaStart + 0 * step, swimlane: "zeiten", label: "Patient arrival", icon: "🏥" },
-      { time: anesthesiaStart + 2 * step, swimlane: "zeiten", label: "Monitors connected", icon: "📊" },
-      { time: anesthesiaStart + 5 * step, swimlane: "zeiten", label: "Pre-oxygenation start", icon: "💨" },
-      { time: anesthesiaStart + 10 * step, swimlane: "zeiten", label: "Induction start", icon: "💉" },
-      { time: anesthesiaStart + 15 * step, swimlane: "zeiten", label: "Intubation", icon: "🔌" },
-      { time: anesthesiaStart + 20 * step, swimlane: "zeiten", label: "Surgery start", icon: "🔪" },
-      { time: anesthesiaStart + 75 * step, swimlane: "zeiten", label: "Surgery end", icon: "✅" },
-      { time: anesthesiaStart + 80 * step, swimlane: "zeiten", label: "Emergence", icon: "👁️" },
-      { time: anesthesiaStart + 87 * step, swimlane: "zeiten", label: "Extubation", icon: "🌬️" },
-
-      // Events (Ereignisse) - clinical events
-      { time: anesthesiaStart + 3 * step, swimlane: "ereignisse", label: "IV access 18G left", icon: "🩸" },
-      { time: anesthesiaStart + 7 * step, swimlane: "ereignisse", label: "A-line insertion", icon: "📈" },
-      { time: anesthesiaStart + 22 * step, swimlane: "ereignisse", label: "Patient positioned", icon: "↔️" },
-      { time: anesthesiaStart + 35 * step, swimlane: "ereignisse", label: "Temp 36.2°C", icon: "🌡️" },
-      { time: anesthesiaStart + 50 * step, swimlane: "ereignisse", label: "EBL 150ml", icon: "🩸" },
-      { time: anesthesiaStart + 65 * step, swimlane: "ereignisse", label: "Urine 200ml", icon: "💧" },
-
-      // Heart Rhythm (Herzrhythmus)
-      { time: anesthesiaStart + 8 * step, swimlane: "herzrhythmus", label: "NSR 65-75", duration: 75 * step, color: "#10b981" },
-      { time: anesthesiaStart + 40 * step, swimlane: "herzrhythmus", label: "Brief bradycardia", duration: 5 * step, color: "#f59e0b" },
-
-      // Medications - realistic anesthesia drug protocol with different rows
-      { time: anesthesiaStart + 10 * step, swimlane: "medikamente", label: "Propofol 200mg", icon: "💉", row: 0 },
-      { time: anesthesiaStart + 11 * step, swimlane: "medikamente", label: "Rocuronium 50mg", icon: "💪", row: 1 },
-      { time: anesthesiaStart + 12 * step, swimlane: "medikamente", label: "Fentanyl 100µg", icon: "😴", row: 2 },
-      { time: anesthesiaStart + 25 * step, swimlane: "medikamente", label: "Propofol 50mg", icon: "💉", row: 0 },
-      { time: anesthesiaStart + 30 * step, swimlane: "medikamente", label: "Fentanyl 50µg", icon: "😴", row: 2 },
-      { time: anesthesiaStart + 45 * step, swimlane: "medikamente", label: "Rocuronium 20mg", icon: "💪", row: 1 },
-      { time: anesthesiaStart + 60 * step, swimlane: "medikamente", label: "Fentanyl 25µg", icon: "😴", row: 2 },
-      { time: anesthesiaStart + 78 * step, swimlane: "medikamente", label: "Neostigmine 2.5mg", icon: "🔄", row: 3 },
-      { time: anesthesiaStart + 79 * step, swimlane: "medikamente", label: "Glycopyrrolate 0.4mg", icon: "🫀", row: 4 },
-      { time: anesthesiaStart + 85 * step, swimlane: "medikamente", label: "Ondansetron 4mg", icon: "🤢", row: 5 },
-
-      // Infusions - continuous fluid management
-      { time: anesthesiaStart + 5 * step, swimlane: "infusionen", label: "Ringer's Lactate 1000ml", duration: 85 * step, color: "#06b6d4" },
-      { time: anesthesiaStart + 30 * step, swimlane: "infusionen", label: "Albumin 5% 250ml", duration: 20 * step, color: "#10b981" },
-
-      // Perfusors - continuous drug infusions
-      { time: anesthesiaStart + 15 * step, swimlane: "perfusors", label: "Propofol 8mg/kg/h", duration: 60 * step, color: "#8b5cf6" },
-      { time: anesthesiaStart + 18 * step, swimlane: "perfusors", label: "Remifentanil 0.3µg/kg/min", duration: 55 * step, color: "#06b6d4" },
-      { time: anesthesiaStart + 40 * step, swimlane: "perfusors", label: "Norepinephrine 0.05µg/kg/min", duration: 20 * step, color: "#ef4444" },
-
-      // Ventilation - mechanical ventilation parameters
-      { time: anesthesiaStart + 15 * step, swimlane: "ventilation", label: "FiO₂ 50%", duration: 70 * step, color: "#f59e0b" },
-      { time: anesthesiaStart + 15 * step, swimlane: "ventilation", label: "PEEP 5 cmH₂O", duration: 70 * step, color: "#f59e0b" },
-      { time: anesthesiaStart + 15 * step, swimlane: "ventilation", label: "Vt 450ml (7ml/kg)", duration: 70 * step, color: "#f59e0b" },
-      { time: anesthesiaStart + 15 * step, swimlane: "ventilation", label: "RR 12/min", duration: 70 * step, color: "#f59e0b" },
-      { time: anesthesiaStart + 35 * step, swimlane: "ventilation", label: "FiO₂ → 40%", duration: 50 * step, color: "#f59e0b" },
-      { time: anesthesiaStart + 80 * step, swimlane: "ventilation", label: "Spontaneous breathing", duration: 10 * step, color: "#84cc16" },
-
-      // Staff - anesthesia team
-      { time: anesthesiaStart + 0 * step, swimlane: "staff", label: "Dr. Schmidt (Anesthesiologist)", duration: 90 * step, color: "#64748b" },
-      { time: anesthesiaStart + 5 * step, swimlane: "staff", label: "CRNA Johnson", duration: 85 * step, color: "#64748b" },
-      { time: anesthesiaStart + 20 * step, swimlane: "staff", label: "Dr. Williams (Surgeon)", duration: 55 * step, color: "#64748b" },
-      { time: anesthesiaStart + 0 * step, swimlane: "staff", label: "RN Martinez (Circulating)", duration: 90 * step, color: "#64748b" },
-    ];
+    // Empty events - no timeline events
+    const events: TimelineEvent[] = [];
 
     return {
-      startTime: anesthesiaStart,
-      endTime: anesthesiaEnd, // Extended 30 minutes into the future
+      startTime: tenMinutesAgo, // Start 10 minutes ago for initial view
+      endTime: endTime, // Extend into future for recording space
       vitals,
       events,
     };
