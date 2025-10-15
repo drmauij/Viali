@@ -161,9 +161,9 @@ export function UnifiedTimeline({
 
   const option = useMemo(() => {
     // Layout constants
-    const VITALS_TOP = 60; // Space for sticky header + time labels
+    const VITALS_TOP = 32; // Space for sticky header (32px)
     const VITALS_HEIGHT = 340;
-    const SWIMLANE_START = VITALS_TOP + VITALS_HEIGHT; // 400px
+    const SWIMLANE_START = VITALS_TOP + VITALS_HEIGHT; // 372px
     const GRID_LEFT = 150; // Original value - y-axes will use existing white space
     const GRID_RIGHT = 10;
 
@@ -419,7 +419,7 @@ export function UnifiedTimeline({
 
   // Calculate component height
   const VITALS_HEIGHT = 340;
-  const VITALS_TOP_POS = 60; // Position accounting for sticky header + time labels
+  const VITALS_TOP_POS = 32; // Position accounting for sticky header (32px)
   const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
   const componentHeight = height ?? (VITALS_TOP_POS + VITALS_HEIGHT + swimlanesHeight);
 
@@ -541,7 +541,7 @@ export function UnifiedTimeline({
       {/* Left sidebar */}
       <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-30 bg-background">
         {/* Y-axis scales - manually rendered on right side of white area */}
-        <div className="absolute top-[60px] h-[340px] w-full pointer-events-none z-50">
+        <div className="absolute top-[32px] h-[340px] w-full pointer-events-none z-50">
           {/* First scale: 0-220 with 20-unit steps (11 values) - close to grid */}
           {[0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220].map((val) => {
             const yPercent = ((220 - val) / 220) * 100;
@@ -581,7 +581,7 @@ export function UnifiedTimeline({
         </div>
         
         {/* Vitals icon buttons */}
-        <div className="absolute top-[60px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
+        <div className="absolute top-[32px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
           <button
             className="p-2 rounded-md border border-border bg-background hover:bg-accent/50 transition-colors flex items-center justify-center shadow-sm"
             data-testid="button-vitals-bp"
