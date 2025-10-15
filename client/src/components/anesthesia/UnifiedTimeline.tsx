@@ -62,6 +62,7 @@ export function UnifiedTimeline({
   swimlanes?: SwimlaneConfig[];
 }) {
   const chartRef = useRef<any>(null);
+  const stickyAxisRef = useRef<any>(null);
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
   
   // State for dynamic medications
@@ -177,19 +178,19 @@ export function UnifiedTimeline({
       max: data.endTime,
       boundaryGap: false,
       axisLabel: {
-        show: gridIndex === 0,
+        show: false, // Hidden - shown in sticky chart instead
         formatter: "{HH}:{mm}",
         fontSize: 11,
         fontFamily: "Poppins, sans-serif",
-        color: isDark ? "#ffffff" : "#000000", // Make more visible
+        color: isDark ? "#ffffff" : "#000000",
         fontWeight: 500,
       },
       axisLine: { 
-        show: gridIndex === 0,
+        show: false, // Hidden - shown in sticky chart instead
         lineStyle: { color: isDark ? "#444444" : "#d1d5db" }
       },
       axisTick: { 
-        show: gridIndex === 0,
+        show: false, // Hidden - shown in sticky chart instead
         lineStyle: { color: isDark ? "#444444" : "#d1d5db" }
       },
       splitLine: { 
@@ -392,15 +393,72 @@ export function UnifiedTimeline({
     } as echarts.EChartsOption;
   }, [data, isDark, activeSwimlanes]);
 
+  // Sticky axis chart option - small chart showing only the X-axis labels
+  const stickyAxisOption = useMemo(() => {
+    return {
+      grid: {
+        left: 150,
+        right: 10,
+        top: 20,
+        height: 30,
+        containLabel: false,
+      },
+      xAxis: {
+        type: "time" as const,
+        min: data.startTime,
+        max: data.endTime,
+        boundaryGap: false,
+        axisLabel: {
+          show: true,
+          formatter: "{HH}:{mm}",
+          fontSize: 11,
+          fontFamily: "Poppins, sans-serif",
+          color: isDark ? "#ffffff" : "#000000",
+          fontWeight: 500,
+        },
+        axisLine: { 
+          show: true,
+          lineStyle: { color: isDark ? "#444444" : "#d1d5db" }
+        },
+        axisTick: { 
+          show: true,
+          lineStyle: { color: isDark ? "#444444" : "#d1d5db" }
+        },
+        splitLine: { show: false },
+        position: "bottom",
+      },
+      yAxis: {
+        type: "value" as const,
+        show: false,
+      },
+      series: [], // No data series, just the axis
+      dataZoom: [{
+        type: "inside",
+        xAxisIndex: 0,
+        startValue: data.startTime,
+        endValue: data.endTime,
+        minValueSpan: 5 * 60 * 1000,
+        maxValueSpan: 6 * 60 * 60 * 1000,
+        throttle: 50,
+        zoomLock: true,
+        zoomOnMouseWheel: false,
+        moveOnMouseWheel: false,
+        moveOnMouseMove: false,
+        filterMode: "none",
+      }],
+    } as echarts.EChartsOption;
+  }, [data, isDark]);
+
   // Calculate component height
   const VITALS_HEIGHT = 340;
   const VITALS_TOP_POS = 60; // Position accounting for sticky header + time labels
   const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
   const componentHeight = height ?? (VITALS_TOP_POS + VITALS_HEIGHT + swimlanesHeight);
 
-  // Zoom and pan handlers
+  // Zoom and pan handlers - sync both charts
   const handleZoomIn = () => {
     const chart = chartRef.current?.getEchartsInstance();
+    const stickyChart = stickyAxisRef.current?.getEchartsInstance();
     if (chart) {
       const option = chart.getOption() as any;
       const dataZoom = option.dataZoom?.[0];
@@ -410,10 +468,20 @@ export function UnifiedTimeline({
         const currentSpan = currentMax - currentMin;
         const newSpan = Math.max(currentSpan * 0.5, 5 * 60 * 1000);
         const center = (currentMin + currentMax) / 2;
+        const newStart = center - newSpan / 2;
+        const newEnd = center + newSpan / 2;
+        
         chart.dispatchAction({
           type: 'dataZoom',
-          startValue: center - newSpan / 2,
-          endValue: center + newSpan / 2,
+          startValue: newStart,
+          endValue: newEnd,
+        });
+        
+        // Sync sticky chart
+        stickyChart?.dispatchAction({
+          type: 'dataZoom',
+          startValue: newStart,
+          endValue: newEnd,
         });
       }
     }
@@ -421,6 +489,7 @@ export function UnifiedTimeline({
 
   const handleZoomOut = () => {
     const chart = chartRef.current?.getEchartsInstance();
+    const stickyChart = stickyAxisRef.current?.getEchartsInstance();
     if (chart) {
       const option = chart.getOption() as any;
       const dataZoom = option.dataZoom?.[0];
@@ -430,10 +499,20 @@ export function UnifiedTimeline({
         const currentSpan = currentMax - currentMin;
         const newSpan = Math.min(currentSpan * 2, 6 * 60 * 60 * 1000);
         const center = (currentMin + currentMax) / 2;
+        const newStart = center - newSpan / 2;
+        const newEnd = center + newSpan / 2;
+        
         chart.dispatchAction({
           type: 'dataZoom',
-          startValue: center - newSpan / 2,
-          endValue: center + newSpan / 2,
+          startValue: newStart,
+          endValue: newEnd,
+        });
+        
+        // Sync sticky chart
+        stickyChart?.dispatchAction({
+          type: 'dataZoom',
+          startValue: newStart,
+          endValue: newEnd,
         });
       }
     }
@@ -441,6 +520,7 @@ export function UnifiedTimeline({
 
   const handlePanLeft = () => {
     const chart = chartRef.current?.getEchartsInstance();
+    const stickyChart = stickyAxisRef.current?.getEchartsInstance();
     if (chart) {
       const option = chart.getOption() as any;
       const dataZoom = option.dataZoom?.[0];
@@ -449,10 +529,20 @@ export function UnifiedTimeline({
         const currentMax = dataZoom.endValue;
         const span = currentMax - currentMin;
         const panStep = Math.max(span * 0.1, 5 * 60 * 1000);
+        const newStart = currentMin - panStep;
+        const newEnd = currentMax - panStep;
+        
         chart.dispatchAction({
           type: 'dataZoom',
-          startValue: currentMin - panStep,
-          endValue: currentMax - panStep,
+          startValue: newStart,
+          endValue: newEnd,
+        });
+        
+        // Sync sticky chart
+        stickyChart?.dispatchAction({
+          type: 'dataZoom',
+          startValue: newStart,
+          endValue: newEnd,
         });
       }
     }
@@ -460,6 +550,7 @@ export function UnifiedTimeline({
 
   const handlePanRight = () => {
     const chart = chartRef.current?.getEchartsInstance();
+    const stickyChart = stickyAxisRef.current?.getEchartsInstance();
     if (chart) {
       const option = chart.getOption() as any;
       const dataZoom = option.dataZoom?.[0];
@@ -468,10 +559,20 @@ export function UnifiedTimeline({
         const currentMax = dataZoom.endValue;
         const span = currentMax - currentMin;
         const panStep = Math.max(span * 0.1, 5 * 60 * 1000);
+        const newStart = currentMin + panStep;
+        const newEnd = currentMax + panStep;
+        
         chart.dispatchAction({
           type: 'dataZoom',
-          startValue: currentMin + panStep,
-          endValue: currentMax + panStep,
+          startValue: newStart,
+          endValue: newEnd,
+        });
+        
+        // Sync sticky chart
+        stickyChart?.dispatchAction({
+          type: 'dataZoom',
+          startValue: newStart,
+          endValue: newEnd,
         });
       }
     }
@@ -488,11 +589,19 @@ export function UnifiedTimeline({
 
   return (
     <div className="w-full relative" style={{ height: componentHeight }}>
-      {/* Sticky Timeline Header - Controls + Timeline Labels Area */}
-      <div className="sticky top-0 z-40 border-b border-border" style={{ height: '60px' }}>
-        {/* Background only behind controls */}
+      {/* Sticky Timeline Header - Controls + Time Labels */}
+      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border" style={{ height: '60px' }}>
+        {/* Sticky Time Axis Chart */}
+        <ReactECharts
+          ref={stickyAxisRef}
+          echarts={echarts}
+          option={stickyAxisOption}
+          style={{ width: '100%', height: '60px' }}
+          opts={{ renderer: 'svg' }}
+        />
+        
+        {/* Zoom and Pan Controls overlay */}
         <div className="absolute top-1 left-1/2 transform -translate-x-1/2 bg-background/95 backdrop-blur-sm rounded-lg border border-border shadow-lg">
-          {/* Zoom and Pan Controls */}
           <div className="flex gap-2 p-1.5">
             <button
               onClick={handlePanLeft}
