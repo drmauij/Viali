@@ -75,12 +75,12 @@ export function UnifiedTimeline({
   const [showAddMedDialog, setShowAddMedDialog] = useState(false);
   const [newMedName, setNewMedName] = useState("");
 
-  // State for tracking current zoom/pan range
-  const [currentZoomStart, setCurrentZoomStart] = useState<number | undefined>(undefined);
-  const [currentZoomEnd, setCurrentZoomEnd] = useState<number | undefined>(undefined);
-
   // State for current time indicator - updates every minute
   const [currentTime, setCurrentTime] = useState<number>(now || Date.now());
+  
+  // State for tracking current zoom/pan range - will be initialized from dataZoom
+  const [currentZoomStart, setCurrentZoomStart] = useState<number | undefined>(undefined);
+  const [currentZoomEnd, setCurrentZoomEnd] = useState<number | undefined>(undefined);
 
   // Update current time every minute
   useEffect(() => {
@@ -230,10 +230,20 @@ export function UnifiedTimeline({
     setMedications(medications.filter((_, i) => i !== index));
   };
 
-  // Listen for dataZoom changes to sync with sticky header
+  // Initialize and listen for dataZoom changes to sync with sticky header
   useEffect(() => {
     const chart = chartRef.current?.getEchartsInstance();
     if (!chart) return;
+
+    // Initialize zoom state from initial dataZoom values
+    const initializeZoom = () => {
+      const option = chart.getOption() as any;
+      const dataZoom = option.dataZoom?.[0];
+      if (dataZoom && dataZoom.startValue && dataZoom.endValue) {
+        setCurrentZoomStart(dataZoom.startValue);
+        setCurrentZoomEnd(dataZoom.endValue);
+      }
+    };
 
     const handleDataZoom = (params: any) => {
       const option = chart.getOption() as any;
@@ -243,6 +253,9 @@ export function UnifiedTimeline({
         setCurrentZoomEnd(dataZoom.endValue);
       }
     };
+
+    // Initialize on mount
+    setTimeout(initializeZoom, 100);
 
     chart.on('datazoom', handleDataZoom);
     return () => {
@@ -285,11 +298,11 @@ export function UnifiedTimeline({
         const fiveMinutes = 5 * 60 * 1000;
         
         // Zone boundaries:
-        // Zone 1 (past/non-editable): from data.startTime to (NOW - 5 min)
-        // Zone 2 (editable): from (NOW - 5 min) to NOW
-        // Zone 3 (future/non-editable): from NOW to data.endTime
-        const editableStartBoundary = currentTime - fiveMinutes;
-        const editableEndBoundary = currentTime;
+        // Zone 1 (past/non-editable): from data.startTime to NOW
+        // Zone 2 (editable): from NOW to (NOW + 5 min)
+        // Zone 3 (future/non-editable): from (NOW + 5 min) to data.endTime
+        const editableStartBoundary = currentTime;
+        const editableEndBoundary = currentTime + fiveMinutes;
         
         // Use convertToPixel to get accurate pixel positions based on current zoom
         const startPx = chart.convertToPixel({ xAxisIndex: 0 }, data.startTime);
@@ -843,10 +856,24 @@ export function UnifiedTimeline({
         const currentSpan = currentMax - currentMin;
         const newSpan = Math.max(currentSpan * 0.5, 5 * 60 * 1000);
         const center = (currentMin + currentMax) / 2;
+        
+        // Constrain to data bounds
+        let newStart = center - newSpan / 2;
+        let newEnd = center + newSpan / 2;
+        
+        if (newStart < data.startTime) {
+          newStart = data.startTime;
+          newEnd = newStart + newSpan;
+        }
+        if (newEnd > data.endTime) {
+          newEnd = data.endTime;
+          newStart = newEnd - newSpan;
+        }
+        
         chart.dispatchAction({
           type: 'dataZoom',
-          startValue: center - newSpan / 2,
-          endValue: center + newSpan / 2,
+          startValue: newStart,
+          endValue: newEnd,
         });
       }
     }
@@ -863,10 +890,24 @@ export function UnifiedTimeline({
         const currentSpan = currentMax - currentMin;
         const newSpan = Math.min(currentSpan * 2, 6 * 60 * 60 * 1000);
         const center = (currentMin + currentMax) / 2;
+        
+        // Constrain to data bounds
+        let newStart = center - newSpan / 2;
+        let newEnd = center + newSpan / 2;
+        
+        if (newStart < data.startTime) {
+          newStart = data.startTime;
+          newEnd = Math.min(newStart + newSpan, data.endTime);
+        }
+        if (newEnd > data.endTime) {
+          newEnd = data.endTime;
+          newStart = Math.max(newEnd - newSpan, data.startTime);
+        }
+        
         chart.dispatchAction({
           type: 'dataZoom',
-          startValue: center - newSpan / 2,
-          endValue: center + newSpan / 2,
+          startValue: newStart,
+          endValue: newEnd,
         });
       }
     }
@@ -882,10 +923,20 @@ export function UnifiedTimeline({
         const currentMax = dataZoom.endValue;
         const span = currentMax - currentMin;
         const panStep = Math.max(span * 0.1, 5 * 60 * 1000);
+        
+        // Constrain to data bounds
+        let newStart = currentMin - panStep;
+        let newEnd = currentMax - panStep;
+        
+        if (newStart < data.startTime) {
+          newStart = data.startTime;
+          newEnd = newStart + span;
+        }
+        
         chart.dispatchAction({
           type: 'dataZoom',
-          startValue: currentMin - panStep,
-          endValue: currentMax - panStep,
+          startValue: newStart,
+          endValue: newEnd,
         });
       }
     }
@@ -901,10 +952,20 @@ export function UnifiedTimeline({
         const currentMax = dataZoom.endValue;
         const span = currentMax - currentMin;
         const panStep = Math.max(span * 0.1, 5 * 60 * 1000);
+        
+        // Constrain to data bounds
+        let newStart = currentMin + panStep;
+        let newEnd = currentMax + panStep;
+        
+        if (newEnd > data.endTime) {
+          newEnd = data.endTime;
+          newStart = newEnd - span;
+        }
+        
         chart.dispatchAction({
           type: 'dataZoom',
-          startValue: currentMin + panStep,
-          endValue: currentMax + panStep,
+          startValue: newStart,
+          endValue: newEnd,
         });
       }
     }
