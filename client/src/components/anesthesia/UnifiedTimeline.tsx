@@ -484,8 +484,8 @@ export function UnifiedTimeline({
 
   return (
     <div className="w-full relative" style={{ height: componentHeight }}>
-      {/* Zoom and Pan Controls */}
-      <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-30 flex gap-2">
+      {/* Zoom and Pan Controls - Sticky */}
+      <div className="sticky top-0 left-1/2 transform -translate-x-1/2 z-40 flex gap-2 w-fit mx-auto bg-background/95 backdrop-blur-sm p-2 rounded-lg border border-border shadow-lg">
         <button
           onClick={handlePanLeft}
           className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
@@ -538,6 +538,46 @@ export function UnifiedTimeline({
 
       {/* Left sidebar */}
       <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-30 bg-background">
+        {/* Y-axis scales - manually rendered */}
+        <div className="absolute top-[40px] h-[340px] w-full pointer-events-none">
+          {/* First scale: 0-220 with 20-unit steps (11 values) */}
+          {[0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220].map((val) => {
+            const yPercent = ((220 - val) / 220) * 100;
+            return (
+              <div 
+                key={`scale1-${val}`}
+                className="absolute text-xs text-foreground"
+                style={{ 
+                  left: '8px',
+                  top: `${yPercent}%`,
+                  transform: 'translateY(-50%)'
+                }}
+              >
+                {val}
+              </div>
+            );
+          })}
+          
+          {/* Second scale: 50-100 with 10-unit steps (6 values) - purple */}
+          {[50, 60, 70, 80, 90, 100].map((val) => {
+            const yPercent = ((100 - val) / 50) * 100;
+            return (
+              <div 
+                key={`scale2-${val}`}
+                className="absolute text-xs font-medium"
+                style={{ 
+                  left: '38px',
+                  top: `${yPercent}%`,
+                  transform: 'translateY(-50%)',
+                  color: '#8b5cf6'
+                }}
+              >
+                {val}
+              </div>
+            );
+          })}
+        </div>
+        
         {/* Vitals icon buttons */}
         <div className="absolute top-[40px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
           <button
