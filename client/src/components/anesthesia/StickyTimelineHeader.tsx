@@ -127,8 +127,8 @@ export function StickyTimelineHeader({
         opts={{ renderer: "canvas" }}
       />
 
-      {/* Controls Positioned Absolutely in the Center */}
-      <div className="absolute left-1/2 transform -translate-x-1/2 top-0 flex items-center gap-1" style={{ height: '32px' }}>
+      {/* Controls Positioned Absolutely in the Center with Solid Background */}
+      <div className="absolute left-1/2 transform -translate-x-1/2 top-1 bg-background border border-border rounded shadow-sm px-2 py-0.5 flex items-center gap-1">
         <button
           data-testid="button-pan-left"
           onClick={onPanLeft}
