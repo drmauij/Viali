@@ -33,6 +33,16 @@ export function StickyTimelineHeader({
   const option = useMemo(() => {
     const GRID_LEFT = 200;
     const GRID_RIGHT = 10;
+    
+    // Calculate visible range and determine interval
+    const visibleStart = currentStart || startTime;
+    const visibleEnd = currentEnd || endTime;
+    const visibleRange = visibleEnd - visibleStart;
+    const viewSpanMinutes = visibleRange / (60 * 1000);
+    
+    // Adaptive interval: 5-min for <= 30 min view, 15-min for wider views
+    const useFineTicks = viewSpanMinutes <= 30;
+    const intervalMs = useFineTicks ? (5 * 60 * 1000) : (15 * 60 * 1000); // 5 or 15 minutes
 
     return {
       backgroundColor: "transparent",
@@ -46,9 +56,10 @@ export function StickyTimelineHeader({
       },
       xAxis: {
         type: "time" as const,
-        min: currentStart || startTime,
-        max: currentEnd || endTime,
+        min: visibleStart,
+        max: visibleEnd,
         boundaryGap: false,
+        interval: intervalMs,
         axisLabel: {
           show: true,
           formatter: "{HH}:{mm}",
@@ -70,8 +81,7 @@ export function StickyTimelineHeader({
           show: false,
         },
         minorTick: {
-          show: true,
-          splitNumber: 4,
+          show: false, // Disable minor ticks to use explicit interval
         },
         minorSplitLine: {
           show: false,
@@ -89,10 +99,20 @@ export function StickyTimelineHeader({
   useEffect(() => {
     if (chartRef.current && (currentStart || currentEnd)) {
       const chart = chartRef.current.getEchartsInstance();
+      
+      // Calculate interval for dynamic updates
+      const visibleStart = currentStart || startTime;
+      const visibleEnd = currentEnd || endTime;
+      const visibleRange = visibleEnd - visibleStart;
+      const viewSpanMinutes = visibleRange / (60 * 1000);
+      const useFineTicks = viewSpanMinutes <= 30;
+      const intervalMs = useFineTicks ? (5 * 60 * 1000) : (15 * 60 * 1000);
+      
       chart.setOption({
         xAxis: {
-          min: currentStart || startTime,
-          max: currentEnd || endTime,
+          min: visibleStart,
+          max: visibleEnd,
+          interval: intervalMs,
         },
       });
     }
