@@ -31,7 +31,7 @@ export function StickyTimelineHeader({
   const chartRef = useRef<any>(null);
 
   const option = useMemo(() => {
-    const GRID_LEFT = 150;
+    const GRID_LEFT = 200;
     const GRID_RIGHT = 10;
 
     return {
@@ -115,7 +115,7 @@ export function StickyTimelineHeader({
           {onPanLeft && (
             <button
               onClick={onPanLeft}
-              className="absolute left-[155px] top-1/2 -translate-y-1/2 pointer-events-auto w-7 h-7 rounded flex items-center justify-center bg-background/85 hover:bg-background border border-border/50 transition-colors"
+              className="absolute left-[205px] top-1/2 -translate-y-1/2 pointer-events-auto w-7 h-7 rounded flex items-center justify-center bg-background/85 hover:bg-background border border-border/50 transition-colors"
               data-testid="button-pan-left"
               title="Pan Left"
             >
