@@ -264,56 +264,54 @@ export function UnifiedTimeline({
     const totalHeight = chartBottom - chartTop;
     
     // Generate continuous vertical line positions based on time axis
-    // These will span the entire height of all swimlanes
     const timeRange = data.endTime - data.startTime;
     const oneHour = 60 * 60 * 1000;
-    const gridWidth = `calc(100% - ${gridLeft + gridRight}px)`;
+    const fifteenMin = 15 * 60 * 1000;
     
-    const verticalLineGraphics = [];
+    const verticalLines = [];
     
-    // Major lines (hourly)
+    // Major lines (hourly) - more prominent
     for (let t = Math.ceil(data.startTime / oneHour) * oneHour; t <= data.endTime; t += oneHour) {
       const xPercent = ((t - data.startTime) / timeRange) * 100;
       
-      verticalLineGraphics.push({
+      verticalLines.push({
         type: "line",
         shape: {
-          x1: 0,
+          x1: xPercent,
           y1: 0,
-          x2: 0,
+          x2: xPercent,
           y2: totalHeight
         },
-        position: [`${xPercent}%`, chartTop],
         style: {
           stroke: isDark ? "#444444" : "#d1d5db",
           lineWidth: 1
         },
         silent: true,
-        z: 1
+        z: 0
       });
-      
-      // Minor lines (15-minute intervals)
-      for (let minor = 1; minor < 4; minor++) {
-        const minorTime = t + (minor * 15 * 60 * 1000);
-        if (minorTime > data.endTime) break;
+    }
+    
+    // Minor lines (15-minute intervals) - lighter
+    for (let t = Math.ceil(data.startTime / fifteenMin) * fifteenMin; t <= data.endTime; t += fifteenMin) {
+      // Skip if this is already a major hourly line
+      if (t % oneHour !== 0) {
+        const xPercent = ((t - data.startTime) / timeRange) * 100;
         
-        const minorXPercent = ((minorTime - data.startTime) / timeRange) * 100;
-        verticalLineGraphics.push({
+        verticalLines.push({
           type: "line",
           shape: {
-            x1: 0,
+            x1: xPercent,
             y1: 0,
-            x2: 0,
+            x2: xPercent,
             y2: totalHeight
           },
-          position: [`${minorXPercent}%`, chartTop],
           style: {
             stroke: isDark ? "#333333" : "#e5e7eb",
             lineWidth: 0.5,
-            lineDash: [4, 4]
+            lineDash: [3, 3]
           },
           silent: true,
-          z: 1
+          z: 0
         });
       }
     }
@@ -325,15 +323,17 @@ export function UnifiedTimeline({
       xAxis: xAxes,
       yAxis: yAxes,
       series,
-      // Standard ECharts graphic configuration for continuous vertical lines
+      // Use graphic elements to draw continuous vertical lines spanning all swimlanes
       graphic: {
         elements: [{
           type: "group",
           left: gridLeft,
-          width: gridWidth,
-          children: verticalLineGraphics,
+          right: gridRight,
+          top: chartTop,
+          height: totalHeight,
+          children: verticalLines,
           silent: true,
-          z: 1
+          z: 0
         }]
       },
       dataZoom: [
