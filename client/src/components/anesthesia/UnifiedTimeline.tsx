@@ -283,6 +283,8 @@ export function UnifiedTimeline({
       const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
       const chartHeight = VITALS_HEIGHT + swimlanesHeight;
       
+      console.log('[UnifiedTimeline] Updating vertical lines with chartHeight:', chartHeight, 'swimlanesHeight:', swimlanesHeight, 'activeSwimlanes:', activeSwimlanes.length);
+      
       try {
         const tenMinutes = 10 * 60 * 1000;
         const editableBoundary = currentTime - tenMinutes;
@@ -417,7 +419,7 @@ export function UnifiedTimeline({
               z: 100,
             },
           ],
-        }, { replaceMerge: ['graphic'] });
+        }, { notMerge: false, lazyUpdate: false });
       } catch (e) {
         console.error('Error updating zones:', e);
         console.error('Error details:', {
