@@ -34,9 +34,15 @@ export function StickyTimelineHeader({
     const GRID_LEFT = 200;
     const GRID_RIGHT = 10;
     
-    // Calculate visible range
+    // Calculate visible range and determine interval
     const visibleStart = currentStart || startTime;
     const visibleEnd = currentEnd || endTime;
+    const visibleRange = visibleEnd - visibleStart;
+    const viewSpanMinutes = visibleRange / (60 * 1000);
+    
+    // Adaptive interval: 5-min for <= 30 min view, 15-min for wider views
+    const useFineTicks = viewSpanMinutes <= 30;
+    const intervalMs = useFineTicks ? (5 * 60 * 1000) : (15 * 60 * 1000); // 5 or 15 minutes
 
     return {
       backgroundColor: "transparent",
@@ -53,29 +59,10 @@ export function StickyTimelineHeader({
         min: visibleStart,
         max: visibleEnd,
         boundaryGap: false,
+        interval: intervalMs,
         axisLabel: {
           show: true,
-          formatter: (value: number, index: number, params: any) => {
-            // Calculate interval dynamically based on current axis range
-            const axisMin = params?.min || visibleStart;
-            const axisMax = params?.max || visibleEnd;
-            const visibleRange = axisMax - axisMin;
-            const viewSpanMinutes = visibleRange / (60 * 1000);
-            
-            // Adaptive interval: 5-min for <= 30 min view, 15-min for wider views
-            const targetInterval = viewSpanMinutes <= 30 ? 5 : 15;
-            
-            const date = new Date(value);
-            const minutes = date.getMinutes();
-            
-            // Only show labels at target interval boundaries
-            if (minutes % targetInterval === 0) {
-              const hours = String(date.getHours()).padStart(2, '0');
-              const mins = String(minutes).padStart(2, '0');
-              return `${hours}:${mins}`;
-            }
-            return ''; // Hide other tick labels
-          },
+          formatter: "{HH}:{mm}",
           fontSize: 11,
           fontFamily: "Poppins, sans-serif",
           color: isDark ? "#ffffff" : "#000000",
@@ -113,37 +100,19 @@ export function StickyTimelineHeader({
     if (chartRef.current && (currentStart || currentEnd)) {
       const chart = chartRef.current.getEchartsInstance();
       
-      // Calculate visible range for updates
+      // Calculate interval for dynamic updates
       const visibleStart = currentStart || startTime;
       const visibleEnd = currentEnd || endTime;
+      const visibleRange = visibleEnd - visibleStart;
+      const viewSpanMinutes = visibleRange / (60 * 1000);
+      const useFineTicks = viewSpanMinutes <= 30;
+      const intervalMs = useFineTicks ? (5 * 60 * 1000) : (15 * 60 * 1000);
       
       chart.setOption({
         xAxis: {
           min: visibleStart,
           max: visibleEnd,
-          axisLabel: {
-            formatter: (value: number, index: number, params: any) => {
-              // Calculate interval dynamically based on current axis range
-              const axisMin = params?.min || visibleStart;
-              const axisMax = params?.max || visibleEnd;
-              const visibleRange = axisMax - axisMin;
-              const viewSpanMinutes = visibleRange / (60 * 1000);
-              
-              // Adaptive interval: 5-min for <= 30 min view, 15-min for wider views
-              const targetInterval = viewSpanMinutes <= 30 ? 5 : 15;
-              
-              const date = new Date(value);
-              const minutes = date.getMinutes();
-              
-              // Only show labels at target interval boundaries
-              if (minutes % targetInterval === 0) {
-                const hours = String(date.getHours()).padStart(2, '0');
-                const mins = String(minutes).padStart(2, '0');
-                return `${hours}:${mins}`;
-              }
-              return ''; // Hide other tick labels
-            },
-          },
+          interval: intervalMs,
         },
       });
     }
@@ -154,72 +123,55 @@ export function StickyTimelineHeader({
       <ReactECharts
         ref={chartRef}
         option={option}
-        style={{ height: '32px', width: '100%' }}
-        opts={{ renderer: 'canvas' }}
+        style={{ height: "32px", width: "100%" }}
+        opts={{ renderer: "canvas" }}
       />
-      
-      {/* Control buttons centered with solid background */}
-      <div className="absolute inset-0 pointer-events-none z-[100]">
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto flex gap-1 bg-background border border-border rounded-md p-1">
-          {onPanLeft && (
-            <button
-              onClick={onPanLeft}
-              className="w-7 h-7 rounded flex items-center justify-center hover:bg-accent transition-colors"
-              data-testid="button-pan-left"
-              title="Pan Left"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-          )}
-          {onZoomIn && (
-            <button
-              onClick={onZoomIn}
-              className="w-7 h-7 rounded flex items-center justify-center hover:bg-accent transition-colors"
-              data-testid="button-zoom-in"
-              title="Zoom In"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
-              </svg>
-            </button>
-          )}
-          {onResetZoom && (
-            <button
-              onClick={onResetZoom}
-              className="w-7 h-7 rounded flex items-center justify-center hover:bg-accent transition-colors"
-              data-testid="button-reset-zoom"
-              title="Reset Zoom"
-            >
-              <Search className="w-4 h-4" />
-            </button>
-          )}
-          {onZoomOut && (
-            <button
-              onClick={onZoomOut}
-              className="w-7 h-7 rounded flex items-center justify-center hover:bg-accent transition-colors"
-              data-testid="button-zoom-out"
-              title="Zoom Out"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
-              </svg>
-            </button>
-          )}
-          {onPanRight && (
-            <button
-              onClick={onPanRight}
-              className="w-7 h-7 rounded flex items-center justify-center hover:bg-accent transition-colors"
-              data-testid="button-pan-right"
-              title="Pan Right"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          )}
-        </div>
+
+      {/* Controls Positioned Absolutely on the Left */}
+      <div className="absolute left-4 top-0 flex items-center gap-1" style={{ height: '32px' }}>
+        <button
+          data-testid="button-pan-left"
+          onClick={onPanLeft}
+          className="p-1 hover:bg-muted rounded text-xs h-6 w-6 flex items-center justify-center"
+          title="Pan Left"
+        >
+          ‹
+        </button>
+        <button
+          data-testid="button-pan-right"
+          onClick={onPanRight}
+          className="p-1 hover:bg-muted rounded text-xs h-6 w-6 flex items-center justify-center"
+          title="Pan Right"
+        >
+          ›
+        </button>
+        <div className="border-l border-border h-4 mx-1" />
+        <button
+          data-testid="button-zoom-in"
+          onClick={onZoomIn}
+          className="p-1 hover:bg-muted rounded text-xs h-6 w-6 flex items-center justify-center"
+          title="Zoom In"
+        >
+          <Search className="h-3 w-3" />
+          +
+        </button>
+        <button
+          data-testid="button-zoom-out"
+          onClick={onZoomOut}
+          className="p-1 hover:bg-muted rounded text-xs h-6 w-6 flex items-center justify-center"
+          title="Zoom Out"
+        >
+          <Search className="h-3 w-3" />
+          -
+        </button>
+        <button
+          data-testid="button-reset-zoom"
+          onClick={onResetZoom}
+          className="p-1 hover:bg-muted rounded text-xs h-6 px-2 flex items-center justify-center"
+          title="Reset Zoom"
+        >
+          Reset
+        </button>
       </div>
     </div>
   );
