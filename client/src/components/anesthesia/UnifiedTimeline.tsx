@@ -389,7 +389,7 @@ export function UnifiedTimeline({
     const VITALS_TOP = 32; // Space for sticky header (32px)
     const VITALS_HEIGHT = 340;
     const SWIMLANE_START = VITALS_TOP + VITALS_HEIGHT; // 372px
-    const GRID_LEFT = 150; // Original value - y-axes will use existing white space
+    const GRID_LEFT = 200; // Increased width to accommodate longer header text
     const GRID_RIGHT = 10;
 
     // Calculate initial zoom and editable zones based on "now"
@@ -534,13 +534,13 @@ export function UnifiedTimeline({
     // Generate manual y-axis labels in the white space
     const yAxisLabels: any[] = [];
     
-    // First y-axis (0-220, interval 20) - positioned at x=85px, grid extends -20 to 240 for top and bottom padding
+    // First y-axis (0-220, interval 20) - positioned at x=140px, grid extends -20 to 240 for top and bottom padding
     for (let val = 0; val <= 220; val += 20) {
       const yPercent = ((240 - val) / 260) * 100; // Invert because top is 0, using 260 range (-20 to 240)
       const yPos = VITALS_TOP + (yPercent / 100) * VITALS_HEIGHT;
       yAxisLabels.push({
         type: "text",
-        left: 85,
+        left: 140,
         top: yPos - 6, // Center text vertically
         style: {
           text: val.toString(),
@@ -553,13 +553,13 @@ export function UnifiedTimeline({
       });
     }
     
-    // Second y-axis (50-100, interval 10) - positioned at x=125px, grid extends 45 to 105 for padding
+    // Second y-axis (50-100, interval 10) - positioned at x=172px, grid extends 45 to 105 for padding
     for (let val = 50; val <= 100; val += 10) {
       const yPercent = ((105 - val) / 60) * 100; // Range is 45-105, so 60 units total
       const yPos = VITALS_TOP + (yPercent / 100) * VITALS_HEIGHT;
       yAxisLabels.push({
         type: "text",
-        left: 125,
+        left: 172,
         top: yPos - 6,
         style: {
           text: val.toString(),
@@ -833,7 +833,7 @@ export function UnifiedTimeline({
       </div>
 
       {/* Left sidebar */}
-      <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-30 bg-background">
+      <div className="absolute left-0 top-0 w-[200px] h-full border-r border-border z-30 bg-background">
         {/* Y-axis scales - manually rendered on right side of white area */}
         <div className="absolute top-[32px] h-[340px] w-full pointer-events-none z-50">
           {/* First scale: 0-220 with 20-unit steps (11 values) - close to grid, grid extends -20 to 240 for top and bottom padding */}
@@ -844,7 +844,7 @@ export function UnifiedTimeline({
                 key={`scale1-${val}`}
                 className="absolute text-xs font-medium text-foreground"
                 style={{ 
-                  right: '40px',
+                  right: '60px',
                   top: `${yPercent}%`,
                   transform: 'translateY(-50%)'
                 }}
@@ -862,7 +862,7 @@ export function UnifiedTimeline({
                 key={`scale2-${val}`}
                 className="absolute text-xs font-bold"
                 style={{ 
-                  right: '8px',
+                  right: '28px',
                   top: `${yPercent}%`,
                   transform: 'translateY(-50%)',
                   color: '#8b5cf6'
