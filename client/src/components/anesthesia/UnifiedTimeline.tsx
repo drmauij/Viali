@@ -136,9 +136,9 @@ export function UnifiedTimeline({
 
   const option = useMemo(() => {
     // Layout constants
-    const VITALS_TOP = 48; // Increased to account for sticky header
+    const VITALS_TOP = 60; // Space for sticky header + time labels
     const VITALS_HEIGHT = 340;
-    const SWIMLANE_START = VITALS_TOP + VITALS_HEIGHT; // 388px
+    const SWIMLANE_START = VITALS_TOP + VITALS_HEIGHT; // 400px
     const GRID_LEFT = 150; // Original value - y-axes will use existing white space
     const GRID_RIGHT = 10;
 
@@ -394,7 +394,7 @@ export function UnifiedTimeline({
 
   // Calculate component height
   const VITALS_HEIGHT = 340;
-  const VITALS_TOP_POS = 48; // Position accounting for sticky header
+  const VITALS_TOP_POS = 60; // Position accounting for sticky header + time labels
   const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
   const componentHeight = height ?? (VITALS_TOP_POS + VITALS_HEIGHT + swimlanesHeight);
 
@@ -489,41 +489,44 @@ export function UnifiedTimeline({
   return (
     <div className="w-full relative" style={{ height: componentHeight }}>
       {/* Sticky Timeline Header - Controls + Timeline Labels Area */}
-      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border" style={{ height: '48px' }}>
-        {/* Zoom and Pan Controls */}
-        <div className="absolute top-1 left-1/2 transform -translate-x-1/2 flex gap-2 w-fit bg-background/95 backdrop-blur-sm p-1.5 rounded-lg border border-border shadow-lg">
-          <button
-            onClick={handlePanLeft}
-            className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
-            data-testid="button-pan-left"
-            title="Pan Left"
-          >
-            ◀
-          </button>
-          <button
-            onClick={handleZoomOut}
-            className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
-            data-testid="button-zoom-out"
-            title="Zoom Out"
-          >
-            −
-          </button>
-          <button
-            onClick={handleZoomIn}
-            className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
-            data-testid="button-zoom-in"
-            title="Zoom In"
-          >
-            +
-          </button>
-          <button
-            onClick={handlePanRight}
-            className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
-            data-testid="button-pan-right"
-            title="Pan Right"
-          >
-            ▶
-          </button>
+      <div className="sticky top-0 z-40 border-b border-border" style={{ height: '60px' }}>
+        {/* Background only behind controls */}
+        <div className="absolute top-1 left-1/2 transform -translate-x-1/2 bg-background/95 backdrop-blur-sm rounded-lg border border-border shadow-lg">
+          {/* Zoom and Pan Controls */}
+          <div className="flex gap-2 p-1.5">
+            <button
+              onClick={handlePanLeft}
+              className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
+              data-testid="button-pan-left"
+              title="Pan Left"
+            >
+              ◀
+            </button>
+            <button
+              onClick={handleZoomOut}
+              className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
+              data-testid="button-zoom-out"
+              title="Zoom Out"
+            >
+              −
+            </button>
+            <button
+              onClick={handleZoomIn}
+              className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
+              data-testid="button-zoom-in"
+              title="Zoom In"
+            >
+              +
+            </button>
+            <button
+              onClick={handlePanRight}
+              className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
+              data-testid="button-pan-right"
+              title="Pan Right"
+            >
+              ▶
+            </button>
+          </div>
         </div>
       </div>
 
@@ -546,7 +549,7 @@ export function UnifiedTimeline({
       {/* Left sidebar */}
       <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-30 bg-background">
         {/* Y-axis scales - manually rendered on right side of white area */}
-        <div className="absolute top-[48px] h-[340px] w-full pointer-events-none">
+        <div className="absolute top-[60px] h-[340px] w-full pointer-events-none">
           {/* First scale: 0-220 with 20-unit steps (11 values) - close to grid */}
           {[0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220].map((val) => {
             const yPercent = ((220 - val) / 220) * 100;
@@ -586,7 +589,7 @@ export function UnifiedTimeline({
         </div>
         
         {/* Vitals icon buttons */}
-        <div className="absolute top-[48px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
+        <div className="absolute top-[60px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
           <button
             className="p-2 rounded-md border border-border bg-background hover:bg-accent/50 transition-colors flex items-center justify-center shadow-sm"
             data-testid="button-vitals-bp"
