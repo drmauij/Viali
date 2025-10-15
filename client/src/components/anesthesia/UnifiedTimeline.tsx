@@ -244,12 +244,12 @@ export function UnifiedTimeline({
 
     // Y-axes: vitals (dual) + swimlanes (categorical)
     const yAxes = [
-      // Vitals grid - First y-axis (BP/HR: 10 to 230 range for top and bottom padding, showing 0-220 labels)
+      // Vitals grid - First y-axis (BP/HR: -20 to 240 range for top and bottom padding, showing 0-220 labels)
       {
         type: "value" as const,
         gridIndex: 0,
-        min: 10,
-        max: 230,
+        min: -20,
+        max: 240,
         interval: 20,
         axisLabel: { show: false }, // Hide labels (we render manually)
         axisLine: { show: false }, // Hide axis line
@@ -296,9 +296,9 @@ export function UnifiedTimeline({
     // Generate manual y-axis labels in the white space
     const yAxisLabels: any[] = [];
     
-    // First y-axis (0-220, interval 20) - positioned at x=70px, grid extends 10 to 230 for top and bottom padding
+    // First y-axis (0-220, interval 20) - positioned at x=70px, grid extends -20 to 240 for top and bottom padding
     for (let val = 0; val <= 220; val += 20) {
-      const yPercent = ((230 - val) / 220) * 100; // Invert because top is 0, using 220 range for labels
+      const yPercent = ((240 - val) / 260) * 100; // Invert because top is 0, using 260 range (-20 to 240)
       const yPos = VITALS_TOP + (yPercent / 100) * VITALS_HEIGHT;
       yAxisLabels.push({
         type: "text",
@@ -542,9 +542,9 @@ export function UnifiedTimeline({
       <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-30 bg-background">
         {/* Y-axis scales - manually rendered on right side of white area */}
         <div className="absolute top-[32px] h-[340px] w-full pointer-events-none z-50">
-          {/* First scale: 0-220 with 20-unit steps (11 values) - close to grid, grid extends 10 to 230 for top and bottom padding */}
+          {/* First scale: 0-220 with 20-unit steps (11 values) - close to grid, grid extends -20 to 240 for top and bottom padding */}
           {[0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220].map((val) => {
-            const yPercent = ((230 - val) / 220) * 100;
+            const yPercent = ((240 - val) / 260) * 100;
             return (
               <div 
                 key={`scale1-${val}`}
