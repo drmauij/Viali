@@ -71,17 +71,13 @@ export function UnifiedTimeline({
     // Right margin: 10px for minimal padding
     // All grids MUST have identical left/right positioning for perfect alignment
 
-    // Dynamically determine medication drugs from events
-    const medicationEvents = data.events.filter(e => e.swimlane === "medikamente");
-    const uniqueRows = new Set(medicationEvents.map(e => e.row ?? 0));
-    const numMedicationRows = Math.max(uniqueRows.size, 1);
-    const medicationRowHeight = 30;
+    // Medications swimlane - single row like other swimlanes
     const medicationColor = isDark ? "hsl(150, 45%, 18%)" : "rgba(220, 252, 231, 0.8)";
 
-    // Calculate dynamic positions
+    // Calculate positions
     const medicationStart = 510;
-    const medicationHeaderHeight = 30;
-    const medicationEnd = medicationStart + medicationHeaderHeight + (numMedicationRows * medicationRowHeight);
+    const medicationHeight = 40; // Same height as other swimlanes
+    const medicationEnd = medicationStart + medicationHeight;
 
     // CRITICAL: All grids must have IDENTICAL left/right values for perfect alignment
     const gridLeft = 150;
@@ -96,16 +92,8 @@ export function UnifiedTimeline({
       { left: gridLeft, right: gridRight, top: 430, height: 40, backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)" },
       // Grid 3: Heart Rhythm (pink background)
       { left: gridLeft, right: gridRight, top: 470, height: 40, backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)" },
-      // Grid 4: Medications Header (green background)
-      { left: gridLeft, right: gridRight, top: medicationStart, height: medicationHeaderHeight, backgroundColor: medicationColor },
-      // Grid 5+: Individual medication drugs (green background) - dynamic count
-      ...Array.from({ length: numMedicationRows }, (_, i) => ({
-        left: gridLeft,
-        right: gridRight,
-        top: medicationStart + medicationHeaderHeight + (i * medicationRowHeight),
-        height: medicationRowHeight,
-        backgroundColor: medicationColor,
-      })),
+      // Grid 4: Medications (green background) - single row like other swimlanes
+      { left: gridLeft, right: gridRight, top: medicationStart, height: medicationHeight, backgroundColor: medicationColor },
       // Infusions/Perfusors (cyan background)
       { left: gridLeft, right: gridRight, top: medicationEnd, height: 40, backgroundColor: isDark ? "hsl(190, 60%, 18%)" : "rgba(207, 250, 254, 0.8)" },
       // Ventilation (amber background)
@@ -293,16 +281,10 @@ export function UnifiedTimeline({
     } as echarts.EChartsOption;
   }, [data, isDark]);
 
-  // Empty medication drugs for clean sidebar
-  const medicationDrugs = useMemo(() => {
-    return [""];
-  }, []);
-
-  // Calculate dynamic positions for sidebar (reuse numMedicationRows from top)
+  // Calculate positions for sidebar
   const medicationStart = 510;
-  const medicationHeaderHeight = 30;
-  const medicationRowHeight = 30;
-  const medicationEnd = medicationStart + medicationHeaderHeight + (numMedicationRows * medicationRowHeight);
+  const medicationHeight = 40;
+  const medicationEnd = medicationStart + medicationHeight;
   const medicationColor = isDark ? "hsl(150, 45%, 18%)" : "rgba(220, 252, 231, 0.8)";
 
   // Zoom and pan controls with 5-minute minimum intervals
@@ -434,21 +416,8 @@ export function UnifiedTimeline({
         <div className="absolute top-[430px] h-[40px] w-full" style={{ backgroundColor: isDark ? "hsl(210, 60%, 18%)" : "rgba(219, 234, 254, 0.8)" }} />
         {/* Heart Rhythm background */}
         <div className="absolute top-[470px] h-[40px] w-full" style={{ backgroundColor: isDark ? "hsl(330, 50%, 20%)" : "rgba(252, 231, 243, 0.8)" }} />
-        {/* Medications Header background */}
-        <div className="absolute h-[30px] w-full" style={{ top: `${medicationStart}px`, backgroundColor: medicationColor }} />
-        {/* Individual medication drug backgrounds - each gets its own row with separator */}
-        {Array.from({ length: numMedicationRows }, (_, i) => (
-          <div 
-            key={i}
-            className="absolute w-full border-b" 
-            style={{ 
-              top: `${medicationStart + 30 + (i * medicationRowHeight)}px`, 
-              height: `${medicationRowHeight}px`,
-              backgroundColor: medicationColor,
-              borderColor: isDark ? "#444444" : "#d1d5db"
-            }} 
-          />
-        ))}
+        {/* Medications background */}
+        <div className="absolute w-full" style={{ top: `${medicationStart}px`, height: `${medicationHeight}px`, backgroundColor: medicationColor }} />
         {/* Infusions background - dynamic position */}
         <div 
           className="absolute h-[40px] w-full" 
@@ -524,42 +493,17 @@ export function UnifiedTimeline({
           <span className="text-sm font-semibold text-black dark:text-white">Heart Rhythm</span>
         </div>
 
-        {/* Medications Header */}
+        {/* Medications - matches other swimlanes */}
         <div 
-          className="absolute h-[30px] w-full flex items-center px-2 border-b-2" 
+          className="absolute w-full flex items-center px-2 border-b" 
           style={{ 
             top: `${medicationStart}px`,
+            height: `${medicationHeight}px`,
             backgroundColor: medicationColor,
-            borderColor: isDark ? "#666666" : "#999999"
+            borderColor: isDark ? "#444444" : "#d1d5db"
           }}
         >
           <span className="text-sm font-semibold text-black dark:text-white">Medications</span>
-        </div>
-
-        {/* Medications Container - dynamic height based on drug count */}
-        <div 
-          className="absolute w-full" 
-          style={{ 
-            top: `${medicationStart + 30}px`, 
-            height: `${numMedicationRows * medicationRowHeight}px`,
-            backgroundColor: medicationColor 
-          }}
-        >
-          {/* Individual drug swimlanes - dynamically generated */}
-          <div className="relative">
-            {medicationDrugs.map((drugName, index) => (
-              <div 
-                key={index}
-                className="flex items-center px-2 pl-4 border-b"
-                style={{ 
-                  height: `${medicationRowHeight}px`,
-                  borderColor: isDark ? "#444444" : "#d1d5db"
-                }}
-              >
-                <span className="text-xs text-black dark:text-white">{drugName}</span>
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* Infusions - dynamic position */}
