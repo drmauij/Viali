@@ -259,6 +259,10 @@ export function UnifiedTimeline({
 
     // Swimlanes are now clean - no data points, just empty grids for future use
 
+    // Use a simpler approach: ensure splitLines are visible on ALL x-axes
+    // This will create vertical grid lines that naturally align across all grids
+    // No need for custom graphics - just ensure consistent configuration
+
     return {
       backgroundColor: "transparent",
       animation: false,
@@ -266,19 +270,6 @@ export function UnifiedTimeline({
       xAxis: xAxes,
       yAxis: yAxes,
       series,
-      graphic: [
-        {
-          type: "group",
-          left: gridLeft,
-          right: gridRight,
-          top: 40,
-          bottom: 40,
-          children: [],
-          silent: true,
-          z: -10, // Behind everything else
-          invisible: true // Don't interfere with interactions
-        }
-      ],
       dataZoom: [
         {
           type: "inside",
@@ -288,6 +279,9 @@ export function UnifiedTimeline({
           minValueSpan: 5 * 60 * 1000, // Minimum 5 minutes visible (set by user)
           maxValueSpan: 6 * 60 * 60 * 1000, // Maximum 6 hours visible (set by user)
           throttle: 50,
+          zoomOnMouseWheel: false, // Disable scroll zoom - use page scroll instead
+          moveOnMouseWheel: false, // Disable scroll pan
+          moveOnMouseMove: false, // Disable drag pan (use buttons instead)
           // CRITICAL: Ensure synchronization across all axes
           filterMode: "none", // Don't filter data, just zoom
         }
