@@ -263,12 +263,12 @@ export function UnifiedTimeline({
           }
         },
       },
-      // Vitals grid - Second y-axis (SpO2: 50-100 range)
+      // Vitals grid - Second y-axis (SpO2: 45-105 range for top and bottom padding, showing 50-100 labels)
       {
         type: "value" as const,
         gridIndex: 0,
-        min: 50,
-        max: 100,
+        min: 45,
+        max: 105,
         interval: 10,
         axisLabel: { show: false }, // Hide labels (we render manually)
         axisLine: { show: false }, // Hide axis line
@@ -315,9 +315,9 @@ export function UnifiedTimeline({
       });
     }
     
-    // Second y-axis (50-100, interval 10) - positioned at x=125px
+    // Second y-axis (50-100, interval 10) - positioned at x=125px, grid extends 45 to 105 for padding
     for (let val = 50; val <= 100; val += 10) {
-      const yPercent = ((100 - val) / 50) * 100; // Range is 50-100, so 50 units total
+      const yPercent = ((105 - val) / 60) * 100; // Range is 45-105, so 60 units total
       const yPos = VITALS_TOP + (yPercent / 100) * VITALS_HEIGHT;
       yAxisLabels.push({
         type: "text",
@@ -560,9 +560,9 @@ export function UnifiedTimeline({
             );
           })}
           
-          {/* Second scale: 50-100 with 10-unit steps (6 values) - purple, closest to grid */}
+          {/* Second scale: 50-100 with 10-unit steps (6 values) - purple, closest to grid, extends 45 to 105 for padding */}
           {[50, 60, 70, 80, 90, 100].map((val) => {
-            const yPercent = ((100 - val) / 50) * 100;
+            const yPercent = ((105 - val) / 60) * 100;
             return (
               <div 
                 key={`scale2-${val}`}
