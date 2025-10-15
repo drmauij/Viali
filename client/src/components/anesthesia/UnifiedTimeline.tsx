@@ -287,28 +287,35 @@ export function UnifiedTimeline({
         // Calculate position for current time indicator
         const nowPx = chart.convertToPixel({ xAxisIndex: 0 }, currentTime);
         
-        // Generate vertical grid lines as individual elements with pixel positioning
+        // Generate vertical grid lines using a single SVG path for better performance
         const oneHour = 60 * 60 * 1000;
-        const verticalLineElements: any[] = [];
+        const lineHeight = 2000;
         
-        // Use a large fixed height that will extend beyond any reasonable chart
-        // This avoids calculation issues with dynamic grid layouts
-        const lineHeight = 2000; // Large enough for any chart configuration
+        // Build SVG path data for all vertical lines
+        let majorLinesPath = '';
+        let minorLinesPath = '';
         
         for (let t = Math.ceil(data.startTime / oneHour) * oneHour; t <= data.endTime; t += oneHour) {
           const xPx = chart.convertToPixel({ xAxisIndex: 0 }, t);
+          majorLinesPath += `M${xPx},${VITALS_TOP} L${xPx},${VITALS_TOP + lineHeight} `;
           
-          // Major hourly line - use fixed large height
-          verticalLineElements.push({
-            id: `vline-${t}`,
-            type: "line",
-            left: xPx,
-            top: VITALS_TOP,
+          // Minor 15-minute lines
+          for (let minor = 1; minor < 4; minor++) {
+            const minorTime = t + (minor * 15 * 60 * 1000);
+            if (minorTime > data.endTime) break;
+            
+            const minorXPx = chart.convertToPixel({ xAxisIndex: 0 }, minorTime);
+            minorLinesPath += `M${minorXPx},${VITALS_TOP} L${minorXPx},${VITALS_TOP + lineHeight} `;
+          }
+        }
+        
+        const verticalLineElements: any[] = [
+          // All major hourly lines as a single path
+          {
+            id: 'vlines-major',
+            type: 'path',
             shape: {
-              x1: 0,
-              y1: 0,
-              x2: 0,
-              y2: lineHeight,
+              pathData: majorLinesPath,
             },
             style: {
               stroke: isDark ? "#444444" : "#d1d5db",
@@ -316,35 +323,23 @@ export function UnifiedTimeline({
             },
             silent: true,
             z: 1,
-          });
-          
-          // Minor 15-minute lines - use fixed large height
-          for (let minor = 1; minor < 4; minor++) {
-            const minorTime = t + (minor * 15 * 60 * 1000);
-            if (minorTime > data.endTime) break;
-            
-            const minorXPx = chart.convertToPixel({ xAxisIndex: 0 }, minorTime);
-            verticalLineElements.push({
-              id: `vline-minor-${minorTime}`,
-              type: "line",
-              left: minorXPx,
-              top: VITALS_TOP,
-              shape: {
-                x1: 0,
-                y1: 0,
-                x2: 0,
-                y2: lineHeight,
-              },
-              style: {
-                stroke: isDark ? "#333333" : "#e5e7eb",
-                lineWidth: 0.5,
-                lineDash: [4, 4],
-              },
-              silent: true,
-              z: 1,
-            });
-          }
-        }
+          },
+          // All minor lines as a single path
+          {
+            id: 'vlines-minor',
+            type: 'path',
+            shape: {
+              pathData: minorLinesPath,
+            },
+            style: {
+              stroke: isDark ? "#333333" : "#e5e7eb",
+              lineWidth: 0.5,
+              lineDash: [4, 4],
+            },
+            silent: true,
+            z: 1,
+          },
+        ];
         
         // Get current graphic elements to preserve Y-axis labels  
         const currentOption = chart.getOption() as any;
