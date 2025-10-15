@@ -361,7 +361,6 @@ export function UnifiedTimeline({
         }
         
         // Get current graphic elements to preserve Y-axis labels  
-        const currentOption = chart.getOption() as any;
         const currentGraphic = currentOption.graphic?.[0]?.elements || [];
         const yAxisLabels = currentGraphic.filter((el: any) => el.id && el.id.startsWith('y-label-'));
         
