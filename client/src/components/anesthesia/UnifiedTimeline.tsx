@@ -136,9 +136,9 @@ export function UnifiedTimeline({
 
   const option = useMemo(() => {
     // Layout constants
-    const VITALS_TOP = 40;
+    const VITALS_TOP = 48; // Increased to account for sticky header
     const VITALS_HEIGHT = 340;
-    const SWIMLANE_START = VITALS_TOP + VITALS_HEIGHT; // 380px
+    const SWIMLANE_START = VITALS_TOP + VITALS_HEIGHT; // 388px
     const GRID_LEFT = 150; // Original value - y-axes will use existing white space
     const GRID_RIGHT = 10;
 
@@ -179,8 +179,10 @@ export function UnifiedTimeline({
       axisLabel: {
         show: gridIndex === 0,
         formatter: "{HH}:{mm}",
-        fontSize: 10,
+        fontSize: 11,
         fontFamily: "Poppins, sans-serif",
+        color: isDark ? "#ffffff" : "#000000", // Make more visible
+        fontWeight: 500,
       },
       axisLine: { 
         show: gridIndex === 0,
@@ -216,18 +218,19 @@ export function UnifiedTimeline({
     const xAxes = grids.map((_, index) => createXAxis(index));
 
     // Y-axes: vitals (dual) + swimlanes (categorical)
-    // Note: Using hidden y-axes for grid lines, labels will be rendered as graphic elements
     const yAxes = [
-      // Vitals grid - First y-axis (BP/HR: 0-220 with 20-unit steps = 11 segments)
+      // Vitals grid - First y-axis (BP/HR: 0-220 with 20-unit steps = 11 horizontal grid lines)
       {
         type: "value" as const,
         gridIndex: 0,
         min: 0,
         max: 220,
         interval: 20,
-        show: false, // Hide axis, we'll render labels manually
+        axisLabel: { show: false }, // Hide labels (we render manually)
+        axisLine: { show: false }, // Hide axis line
+        axisTick: { show: false }, // Hide ticks
         splitLine: { 
-          show: true,
+          show: true, // Show horizontal grid lines!
           lineStyle: {
             color: isDark ? "#444444" : "#d1d5db",
             width: 1,
@@ -242,8 +245,10 @@ export function UnifiedTimeline({
         min: 50,
         max: 100,
         interval: 10,
-        show: false, // Hide axis, we'll render labels manually
-        splitLine: { show: false },
+        axisLabel: { show: false }, // Hide labels (we render manually)
+        axisLine: { show: false }, // Hide axis line
+        axisTick: { show: false }, // Hide ticks
+        splitLine: { show: false }, // Don't show grid lines for this axis
       },
       // Swimlane y-axes
       ...activeSwimlanes.map((_, index) => ({
@@ -389,9 +394,9 @@ export function UnifiedTimeline({
 
   // Calculate component height
   const VITALS_HEIGHT = 340;
-  const VITALS_TOP = 40;
+  const VITALS_TOP_POS = 48; // Position accounting for sticky header
   const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
-  const componentHeight = height ?? (VITALS_TOP + VITALS_HEIGHT + swimlanesHeight);
+  const componentHeight = height ?? (VITALS_TOP_POS + VITALS_HEIGHT + swimlanesHeight);
 
   // Zoom and pan handlers
   const handleZoomIn = () => {
@@ -473,7 +478,6 @@ export function UnifiedTimeline({
   };
 
   // Calculate swimlane positions for sidebar
-  const VITALS_TOP_POS = 40;
   const SWIMLANE_START = VITALS_TOP_POS + VITALS_HEIGHT;
   let currentTop = SWIMLANE_START;
   const swimlanePositions = activeSwimlanes.map((lane) => {
@@ -484,40 +488,43 @@ export function UnifiedTimeline({
 
   return (
     <div className="w-full relative" style={{ height: componentHeight }}>
-      {/* Zoom and Pan Controls - Sticky */}
-      <div className="sticky top-0 left-1/2 transform -translate-x-1/2 z-40 flex gap-2 w-fit mx-auto bg-background/95 backdrop-blur-sm p-2 rounded-lg border border-border shadow-lg">
-        <button
-          onClick={handlePanLeft}
-          className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
-          data-testid="button-pan-left"
-          title="Pan Left"
-        >
-          ◀
-        </button>
-        <button
-          onClick={handleZoomOut}
-          className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
-          data-testid="button-zoom-out"
-          title="Zoom Out"
-        >
-          −
-        </button>
-        <button
-          onClick={handleZoomIn}
-          className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
-          data-testid="button-zoom-in"
-          title="Zoom In"
-        >
-          +
-        </button>
-        <button
-          onClick={handlePanRight}
-          className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
-          data-testid="button-pan-right"
-          title="Pan Right"
-        >
-          ▶
-        </button>
+      {/* Sticky Timeline Header - Controls + Timeline Labels Area */}
+      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border" style={{ height: '48px' }}>
+        {/* Zoom and Pan Controls */}
+        <div className="absolute top-1 left-1/2 transform -translate-x-1/2 flex gap-2 w-fit bg-background/95 backdrop-blur-sm p-1.5 rounded-lg border border-border shadow-lg">
+          <button
+            onClick={handlePanLeft}
+            className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
+            data-testid="button-pan-left"
+            title="Pan Left"
+          >
+            ◀
+          </button>
+          <button
+            onClick={handleZoomOut}
+            className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
+            data-testid="button-zoom-out"
+            title="Zoom Out"
+          >
+            −
+          </button>
+          <button
+            onClick={handleZoomIn}
+            className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
+            data-testid="button-zoom-in"
+            title="Zoom In"
+          >
+            +
+          </button>
+          <button
+            onClick={handlePanRight}
+            className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
+            data-testid="button-pan-right"
+            title="Pan Right"
+          >
+            ▶
+          </button>
+        </div>
       </div>
 
       {/* Swimlane backgrounds */}
@@ -538,17 +545,17 @@ export function UnifiedTimeline({
 
       {/* Left sidebar */}
       <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-30 bg-background">
-        {/* Y-axis scales - manually rendered */}
-        <div className="absolute top-[40px] h-[340px] w-full pointer-events-none">
-          {/* First scale: 0-220 with 20-unit steps (11 values) */}
+        {/* Y-axis scales - manually rendered on right side of white area */}
+        <div className="absolute top-[48px] h-[340px] w-full pointer-events-none">
+          {/* First scale: 0-220 with 20-unit steps (11 values) - close to grid */}
           {[0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220].map((val) => {
             const yPercent = ((220 - val) / 220) * 100;
             return (
               <div 
                 key={`scale1-${val}`}
-                className="absolute text-xs text-foreground"
+                className="absolute text-xs font-medium text-foreground"
                 style={{ 
-                  left: '8px',
+                  right: '50px',
                   top: `${yPercent}%`,
                   transform: 'translateY(-50%)'
                 }}
@@ -558,15 +565,15 @@ export function UnifiedTimeline({
             );
           })}
           
-          {/* Second scale: 50-100 with 10-unit steps (6 values) - purple */}
+          {/* Second scale: 50-100 with 10-unit steps (6 values) - purple, closest to grid */}
           {[50, 60, 70, 80, 90, 100].map((val) => {
             const yPercent = ((100 - val) / 50) * 100;
             return (
               <div 
                 key={`scale2-${val}`}
-                className="absolute text-xs font-medium"
+                className="absolute text-xs font-bold"
                 style={{ 
-                  left: '38px',
+                  right: '8px',
                   top: `${yPercent}%`,
                   transform: 'translateY(-50%)',
                   color: '#8b5cf6'
@@ -579,7 +586,7 @@ export function UnifiedTimeline({
         </div>
         
         {/* Vitals icon buttons */}
-        <div className="absolute top-[40px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
+        <div className="absolute top-[48px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
           <button
             className="p-2 rounded-md border border-border bg-background hover:bg-accent/50 transition-colors flex items-center justify-center shadow-sm"
             data-testid="button-vitals-bp"
