@@ -287,79 +287,15 @@ export function UnifiedTimeline({
         // Calculate position for current time indicator
         const nowPx = chart.convertToPixel({ xAxisIndex: 0 }, currentTime);
         
-        // Generate vertical grid lines - wrapped in a single group for better control
-        const oneHour = 60 * 60 * 1000;
-        const lineHeight = 2000;
-        
-        const lineChildren: any[] = [];
-        
-        for (let t = Math.ceil(data.startTime / oneHour) * oneHour; t <= data.endTime; t += oneHour) {
-          const xPx = chart.convertToPixel({ xAxisIndex: 0 }, t);
-          
-          // Major hourly line
-          lineChildren.push({
-            type: "line",
-            x: xPx,
-            y: VITALS_TOP,
-            shape: {
-              x1: 0,
-              y1: 0,
-              x2: 0,
-              y2: lineHeight,
-            },
-            style: {
-              stroke: isDark ? "#444444" : "#d1d5db",
-              lineWidth: 1,
-            },
-          });
-          
-          // Minor 15-minute lines
-          for (let minor = 1; minor < 4; minor++) {
-            const minorTime = t + (minor * 15 * 60 * 1000);
-            if (minorTime > data.endTime) break;
-            
-            const minorXPx = chart.convertToPixel({ xAxisIndex: 0 }, minorTime);
-            lineChildren.push({
-              type: "line",
-              x: minorXPx,
-              y: VITALS_TOP,
-              shape: {
-                x1: 0,
-                y1: 0,
-                x2: 0,
-                y2: lineHeight,
-              },
-              style: {
-                stroke: isDark ? "#333333" : "#e5e7eb",
-                lineWidth: 0.5,
-                lineDash: [4, 4],
-              },
-            });
-          }
-        }
-        
-        // Wrap all lines in a single group element
-        const verticalLineElements: any[] = [
-          {
-            id: 'vertical-grid-lines',
-            type: 'group',
-            left: 0,
-            top: 0,
-            silent: true,
-            z: 1,
-            children: lineChildren,
-          },
-        ];
-        
         // Get current graphic elements to preserve Y-axis labels  
         const currentOption = chart.getOption() as any;
         const currentGraphic = currentOption.graphic?.[0]?.elements || [];
         const yAxisLabels = currentGraphic.filter((el: any) => el.id && el.id.startsWith('y-label-'));
         
-        // Update with vertical lines, zones, now indicator, and preserved labels
+        // Update with zones, now indicator, and preserved labels
+        // Vertical grid lines are now rendered as HTML/CSS overlays
         chart.setOption({
           graphic: [
-            ...verticalLineElements,
             // Preserved Y-axis labels
             ...yAxisLabels,
             // Zones and indicator
@@ -847,6 +783,54 @@ export function UnifiedTimeline({
             }} 
           />
         ))}
+      </div>
+
+      {/* Vertical grid lines as CSS overlay */}
+      <div className="absolute left-[150px] right-[10px] top-[32px] pointer-events-none z-[2]" style={{ height: `${VITALS_HEIGHT + activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0)}px` }}>
+        {(() => {
+          const oneHour = 60 * 60 * 1000;
+          const timeRange = data.endTime - data.startTime;
+          const lines: JSX.Element[] = [];
+          
+          for (let t = Math.ceil(data.startTime / oneHour) * oneHour; t <= data.endTime; t += oneHour) {
+            const xPercent = ((t - data.startTime) / timeRange) * 100;
+            
+            // Major hourly line
+            lines.push(
+              <div
+                key={`vline-${t}`}
+                className="absolute h-full"
+                style={{
+                  left: `${xPercent}%`,
+                  width: '1px',
+                  backgroundColor: isDark ? '#444444' : '#d1d5db',
+                }}
+              />
+            );
+            
+            // Minor 15-minute lines
+            for (let minor = 1; minor < 4; minor++) {
+              const minorTime = t + (minor * 15 * 60 * 1000);
+              if (minorTime > data.endTime) break;
+              
+              const minorXPercent = ((minorTime - data.startTime) / timeRange) * 100;
+              lines.push(
+                <div
+                  key={`vline-minor-${minorTime}`}
+                  className="absolute h-full"
+                  style={{
+                    left: `${minorXPercent}%`,
+                    width: '0.5px',
+                    backgroundColor: isDark ? '#333333' : '#e5e7eb',
+                    opacity: 0.7,
+                  }}
+                />
+              );
+            }
+          }
+          
+          return lines;
+        })()}
       </div>
 
       {/* Left sidebar */}
