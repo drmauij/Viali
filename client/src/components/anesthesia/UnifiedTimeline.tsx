@@ -590,18 +590,26 @@ export function UnifiedTimeline({
   return (
     <div className="w-full relative" style={{ height: componentHeight }}>
       {/* Sticky Timeline Header - Controls + Time Labels */}
-      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border" style={{ height: '60px' }}>
+      <div className="sticky top-0 z-40 border-b border-border" style={{ height: '60px' }}>
+        {/* Background for entire header */}
+        <div className="absolute inset-0 bg-background pointer-events-none"></div>
+        
+        {/* Left sidebar area in sticky header */}
+        <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border bg-background pointer-events-none" style={{ zIndex: 5 }}></div>
+        
         {/* Sticky Time Axis Chart */}
-        <ReactECharts
-          ref={stickyAxisRef}
-          echarts={echarts}
-          option={stickyAxisOption}
-          style={{ width: '100%', height: '60px' }}
-          opts={{ renderer: 'svg' }}
-        />
+        <div className="relative z-10">
+          <ReactECharts
+            ref={stickyAxisRef}
+            echarts={echarts}
+            option={stickyAxisOption}
+            style={{ width: '100%', height: '60px' }}
+            opts={{ renderer: 'svg' }}
+          />
+        </div>
         
         {/* Zoom and Pan Controls overlay */}
-        <div className="absolute top-1 left-1/2 transform -translate-x-1/2 bg-background/95 backdrop-blur-sm rounded-lg border border-border shadow-lg">
+        <div className="absolute top-1 left-1/2 transform -translate-x-1/2 z-20 bg-background/95 backdrop-blur-sm rounded-lg border border-border shadow-lg">
           <div className="flex gap-2 p-1.5">
             <button
               onClick={handlePanLeft}
@@ -655,10 +663,10 @@ export function UnifiedTimeline({
         ))}
       </div>
 
-      {/* Left sidebar */}
-      <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-30 bg-background">
+      {/* Left sidebar - starts below sticky header */}
+      <div className="absolute left-0 top-[60px] w-[150px] border-r border-border z-30 bg-background" style={{ height: 'calc(100% - 60px)' }}>
         {/* Y-axis scales - manually rendered on right side of white area */}
-        <div className="absolute top-[60px] h-[340px] w-full pointer-events-none z-50">
+        <div className="absolute top-0 h-[340px] w-full pointer-events-none z-50">
           {/* First scale: 0-220 with 20-unit steps (11 values) - close to grid */}
           {[0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220].map((val) => {
             const yPercent = ((220 - val) / 220) * 100;
@@ -698,7 +706,7 @@ export function UnifiedTimeline({
         </div>
         
         {/* Vitals icon buttons */}
-        <div className="absolute top-[60px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
+        <div className="absolute top-0 h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
           <button
             className="p-2 rounded-md border border-border bg-background hover:bg-accent/50 transition-colors flex items-center justify-center shadow-sm"
             data-testid="button-vitals-bp"
@@ -777,7 +785,7 @@ export function UnifiedTimeline({
       </div>
 
       {/* ECharts timeline */}
-      <div className="absolute inset-0 z-20">
+      <div className="absolute top-[60px] left-0 right-0 bottom-0 z-20">
         <ReactECharts
           ref={chartRef}
           option={option}
