@@ -32,11 +32,18 @@ export type TimelineEvent = {
   row?: number; // for multiple medication rows
 };
 
+export type DrugSwimlane = {
+  id: string;
+  name: string;
+  color?: string;
+};
+
 export type UnifiedTimelineData = {
   startTime: number;
   endTime: number;
   vitals: TimelineVitals;
   events: TimelineEvent[];
+  drugs?: DrugSwimlane[]; // Optional dynamic drug list
 };
 
 export function UnifiedTimeline({
@@ -46,8 +53,22 @@ export function UnifiedTimeline({
   data: UnifiedTimelineData;
   height?: number;
 }) {
-  // Calculate height including individual drug swimlanes
-  const numDrugs = 10;
+  // Use dynamic drug list or fallback to default
+  const defaultDrugs: DrugSwimlane[] = [
+    { id: "propofol", name: "Propofol 1%" },
+    { id: "fentanyl", name: "Fentanyl 50µg/ml" },
+    { id: "rocuronium", name: "Rocuronium 10mg/ml" },
+    { id: "sevoflurane", name: "Sevoflurane" },
+    { id: "midazolam", name: "Midazolam 5mg/ml" },
+    { id: "atracurium", name: "Atracurium 10mg/ml" },
+    { id: "remifentanil", name: "Remifentanil 2mg" },
+    { id: "succinylcholine", name: "Succinylcholine 20mg/ml" },
+    { id: "vecuronium", name: "Vecuronium 4mg" },
+    { id: "morphine", name: "Morphine 10mg/ml" }
+  ];
+  
+  const drugs = data.drugs ?? defaultDrugs;
+  const numDrugs = drugs.length;
   const drugHeight = 30;
   const defaultHeight = 510 + 40 + (numDrugs * drugHeight) + 120; // base + medications header + drug swimlanes + other swimlanes
   const componentHeight = height ?? defaultHeight;
@@ -74,8 +95,6 @@ export function UnifiedTimeline({
 
     // Medications swimlane - parent header plus individual drug swimlanes
     const medicationColor = isDark ? "hsl(150, 45%, 18%)" : "rgba(220, 252, 231, 0.8)";
-    const numDrugs = 10; // Number of individual drug swimlanes
-    const drugHeight = 30; // Height for each drug swimlane
 
     // Calculate positions
     const medicationStart = 510;
@@ -527,14 +546,14 @@ export function UnifiedTimeline({
           }} 
         />
         {/* Individual drug swimlane backgrounds */}
-        {Array.from({ length: numDrugs }, (_, i) => (
+        {drugs.map((drug, i) => (
           <div 
-            key={i}
+            key={drug.id}
             className="absolute w-full border-b" 
             style={{ 
               top: `${medicationStart + medicationHeaderHeight + (i * drugHeight)}px`, 
               height: `${drugHeight}px`, 
-              backgroundColor: medicationColor,
+              backgroundColor: drug.color || medicationColor,
               borderColor: isDark ? "#444444" : "#d1d5db"
             }} 
           />
@@ -631,29 +650,18 @@ export function UnifiedTimeline({
         </div>
 
         {/* Individual drug swimlane headers */}
-        {[
-          "Propofol 1%",
-          "Fentanyl 50µg/ml", 
-          "Rocuronium 10mg/ml",
-          "Sevoflurane",
-          "Midazolam 5mg/ml",
-          "Atracurium 10mg/ml",
-          "Remifentanil 2mg",
-          "Succinylcholine 20mg/ml",
-          "Vecuronium 4mg",
-          "Morphine 10mg/ml"
-        ].map((drugName, i) => (
+        {drugs.map((drug, i) => (
           <div 
-            key={i}
+            key={drug.id}
             className="absolute w-full flex items-center px-2 border-b" 
             style={{ 
               top: `${medicationStart + medicationHeaderHeight + (i * drugHeight)}px`,
               height: `${drugHeight}px`,
-              backgroundColor: medicationColor,
+              backgroundColor: drug.color || medicationColor,
               borderColor: isDark ? "#444444" : "#d1d5db"
             }}
           >
-            <span className="text-xs text-black dark:text-white">{drugName}</span>
+            <span className="text-xs text-black dark:text-white">{drug.name}</span>
           </div>
         ))}
 
