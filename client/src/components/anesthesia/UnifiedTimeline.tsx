@@ -214,7 +214,7 @@ export function UnifiedTimeline({
     return lanes;
   };
 
-  const activeSwimlanes = buildActiveSwimlanes();
+  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [collapsedSwimlanes, medications, swimlanes]);
 
   // Add medication handler
   const handleAddMedication = () => {
