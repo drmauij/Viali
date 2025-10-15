@@ -30,7 +30,7 @@ export function StickyTimelineHeader({
         left: GRID_LEFT,
         right: GRID_RIGHT,
         top: 0,
-        height: 40,
+        bottom: 20,
         backgroundColor: "transparent",
       },
       xAxis: {
@@ -45,6 +45,7 @@ export function StickyTimelineHeader({
           fontFamily: "Poppins, sans-serif",
           color: isDark ? "#ffffff" : "#000000",
           fontWeight: 500,
+          margin: 8,
         },
         axisLine: {
           show: true,
@@ -64,7 +65,7 @@ export function StickyTimelineHeader({
         minorSplitLine: {
           show: false,
         },
-        position: "top",
+        position: "bottom",
       },
       yAxis: {
         type: "value" as const,
