@@ -278,6 +278,8 @@ export function UnifiedTimeline({
       // Calculate heights outside try block for error logging
       const VITALS_TOP = 32;
       const VITALS_HEIGHT = 340;
+      const GRID_LEFT = 150;
+      const GRID_RIGHT = 10;
       const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
       const chartHeight = VITALS_HEIGHT + swimlanesHeight;
       
@@ -297,15 +299,72 @@ export function UnifiedTimeline({
         // Calculate position for current time indicator
         const nowPx = chart.convertToPixel({ xAxisIndex: 0 }, currentTime);
         
-        // Get current graphic elements to preserve vertical lines and labels
+        // Generate vertical lines with dynamic chartHeight
+        const oneHour = 60 * 60 * 1000;
+        const timeRange = data.endTime - data.startTime;
+        const verticalLines: any[] = [];
+        
+        for (let t = Math.ceil(data.startTime / oneHour) * oneHour; t <= data.endTime; t += oneHour) {
+          const xPercent = ((t - data.startTime) / timeRange) * 100;
+          
+          // Major hourly line
+          verticalLines.push({
+            type: "line",
+            shape: { x1: 0, y1: 0, x2: 0, y2: chartHeight },
+            position: [`${xPercent}%`, VITALS_TOP],
+            style: {
+              stroke: isDark ? "#444444" : "#d1d5db",
+              lineWidth: 1,
+            },
+            silent: true,
+            z: 1,
+          });
+          
+          // Minor 15-minute lines
+          for (let minor = 1; minor < 4; minor++) {
+            const minorTime = t + (minor * 15 * 60 * 1000);
+            if (minorTime > data.endTime) break;
+            
+            const minorXPercent = ((minorTime - data.startTime) / timeRange) * 100;
+            verticalLines.push({
+              type: "line",
+              shape: { x1: 0, y1: 0, x2: 0, y2: chartHeight },
+              position: [`${minorXPercent}%`, VITALS_TOP],
+              style: {
+                stroke: isDark ? "#333333" : "#e5e7eb",
+                lineWidth: 0.5,
+                lineDash: [4, 4],
+              },
+              silent: true,
+              z: 1,
+            });
+          }
+        }
+        
+        // Get current graphic elements to preserve Y-axis labels
         const currentOption = chart.getOption() as any;
         const currentGraphic = currentOption.graphic?.[0]?.elements || [];
+        const yAxisLabels = currentGraphic.filter((el: any) => el.id && el.id.startsWith('y-label-'));
         
-        // Find and update only the zone/indicator elements, preserve everything else
-        const updatedGraphic = currentGraphic.map((el: any) => {
-          if (el.id === 'non-editable-zone') {
-            return {
-              ...el,
+        // Update with zones, now indicator, vertical lines, and preserved labels
+        chart.setOption({
+          graphic: [
+            // Vertical grid lines group
+            {
+              id: 'vertical-lines-group',
+              type: "group",
+              left: GRID_LEFT,
+              width: `calc(100% - ${GRID_LEFT + GRID_RIGHT}px)`,
+              children: verticalLines,
+              silent: true,
+              z: 1,
+            },
+            // Preserved Y-axis labels
+            ...yAxisLabels,
+            // Zones and indicator
+            {
+              id: 'non-editable-zone',
+              type: "rect",
               left: startPx,
               top: VITALS_TOP,
               shape: {
@@ -317,11 +376,13 @@ export function UnifiedTimeline({
               style: {
                 fill: isDark ? 'rgba(100, 100, 100, 0.15)' : 'rgba(200, 200, 200, 0.25)',
               },
-            };
-          }
-          if (el.id === 'editable-zone') {
-            return {
-              ...el,
+              silent: true,
+              z: 0,
+              cursor: 'not-allowed',
+            },
+            {
+              id: 'editable-zone',
+              type: "rect",
               left: boundaryPx,
               top: VITALS_TOP,
               shape: {
@@ -333,11 +394,13 @@ export function UnifiedTimeline({
               style: {
                 fill: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.5)',
               },
-            };
-          }
-          if (el.id === 'now-indicator') {
-            return {
-              ...el,
+              silent: false,
+              z: 0,
+              cursor: 'pointer',
+            },
+            {
+              id: 'now-indicator',
+              type: "line",
               left: nowPx,
               top: VITALS_TOP,
               shape: {
@@ -350,16 +413,10 @@ export function UnifiedTimeline({
                 stroke: isDark ? '#ef4444' : '#dc2626',
                 lineWidth: 2,
               },
-            };
-          }
-          return el; // Preserve all other elements (vertical lines, labels)
-        });
-        
-        // Update with all elements preserved
-        chart.setOption({
-          graphic: {
-            elements: updatedGraphic,
-          },
+              silent: true,
+              z: 100,
+            },
+          ],
         }, { replaceMerge: ['graphic'] });
       } catch (e) {
         console.error('Error updating zones:', e);
@@ -572,45 +629,6 @@ export function UnifiedTimeline({
       });
     }
     
-    // Generate continuous vertical lines spanning all grids (vitals + all swimlanes)
-    const verticalLines: any[] = [];
-    for (let t = Math.ceil(data.startTime / oneHour) * oneHour; t <= data.endTime; t += oneHour) {
-      const xPercent = ((t - data.startTime) / timeRange) * 100;
-      
-      // Major hourly line
-      verticalLines.push({
-        type: "line",
-        shape: { x1: 0, y1: 0, x2: 0, y2: chartHeight },
-        position: [`${xPercent}%`, VITALS_TOP],
-        style: {
-          stroke: isDark ? "#444444" : "#d1d5db",
-          lineWidth: 1,
-        },
-        silent: true,
-        z: 1,
-      });
-      
-      // Minor 15-minute lines
-      for (let minor = 1; minor < 4; minor++) {
-        const minorTime = t + (minor * 15 * 60 * 1000);
-        if (minorTime > data.endTime) break;
-        
-        const minorXPercent = ((minorTime - data.startTime) / timeRange) * 100;
-        verticalLines.push({
-          type: "line",
-          shape: { x1: 0, y1: 0, x2: 0, y2: chartHeight },
-          position: [`${minorXPercent}%`, VITALS_TOP],
-          style: {
-            stroke: isDark ? "#333333" : "#e5e7eb",
-            lineWidth: 0.5,
-            lineDash: [4, 4],
-          },
-          silent: true,
-          z: 1,
-        });
-      }
-    }
-
     return {
       backgroundColor: "transparent",
       animation: false,
@@ -619,13 +637,13 @@ export function UnifiedTimeline({
       yAxis: yAxes,
       series,
       graphic: [
-        // Vertical grid lines group (ID includes swimlane count to force recreation when height changes)
+        // Vertical grid lines placeholder (will be created by useEffect with dynamic height)
         {
-          id: `vertical-lines-group-${activeSwimlanes.length}`,
+          id: 'vertical-lines-group',
           type: "group",
           left: GRID_LEFT,
           width: `calc(100% - ${GRID_LEFT + GRID_RIGHT}px)`,
-          children: verticalLines,
+          children: [],
           silent: true,
           z: 1,
         },
