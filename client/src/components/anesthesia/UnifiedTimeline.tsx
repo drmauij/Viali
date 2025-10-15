@@ -57,10 +57,12 @@ export function UnifiedTimeline({
   data,
   height,
   swimlanes, // Optional: allow custom swimlane configuration
+  now, // Current time for determining editable zones and initial zoom
 }: {
   data: UnifiedTimelineData;
   height?: number;
   swimlanes?: SwimlaneConfig[];
+  now?: number;
 }) {
   const chartRef = useRef<any>(null);
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
@@ -159,6 +161,91 @@ export function UnifiedTimeline({
 
   const activeSwimlanes = buildActiveSwimlanes();
 
+  // Update editable zone widths after chart is rendered
+  useEffect(() => {
+    const chart = chartRef.current?.getEchartsInstance();
+    if (!chart || !now) return;
+
+    const updateZones = () => {
+      try {
+        const currentTime = now || data.endTime;
+        const tenMinutes = 10 * 60 * 1000;
+        const editableBoundary = currentTime - tenMinutes;
+        
+        // Get chart width to calculate pixel positions
+        const chartWidth = chart.getWidth() - 150 - 10; // Subtract left and right margins
+        const timeRange = data.endTime - data.startTime;
+        
+        // Calculate pixel widths
+        const nonEditableWidth = Math.max(0, ((editableBoundary - data.startTime) / timeRange) * chartWidth);
+        const editableWidth = Math.max(0, ((currentTime - editableBoundary) / timeRange) * chartWidth);
+        
+        const VITALS_TOP = 32;
+        const VITALS_HEIGHT = 340;
+        const SWIMLANE_START = VITALS_TOP + VITALS_HEIGHT;
+        const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
+        const chartHeight = VITALS_HEIGHT + swimlanesHeight;
+        
+        // Update graphic elements
+        chart.setOption({
+          graphic: {
+            elements: [
+              {
+                $action: 'replace',
+                type: "rect",
+                left: 150,
+                top: VITALS_TOP,
+                shape: {
+                  x: 0,
+                  y: 0,
+                  width: nonEditableWidth,
+                  height: chartHeight,
+                },
+                style: {
+                  fill: isDark ? 'rgba(100, 100, 100, 0.15)' : 'rgba(200, 200, 200, 0.25)',
+                },
+                silent: true,
+                z: 0,
+                cursor: 'not-allowed',
+              },
+              {
+                $action: 'replace',
+                type: "rect",
+                left: 150 + nonEditableWidth,
+                top: VITALS_TOP,
+                shape: {
+                  x: 0,
+                  y: 0,
+                  width: editableWidth,
+                  height: chartHeight,
+                },
+                style: {
+                  fill: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.5)',
+                },
+                silent: false,
+                z: 0,
+                cursor: 'pointer',
+              },
+            ],
+          },
+        }, { replaceMerge: ['graphic'] });
+      } catch (e) {
+        console.error('Error updating zones:', e);
+      }
+    };
+
+    // Update zones after chart is ready
+    setTimeout(updateZones, 100);
+    
+    // Update on resize
+    const handleResize = () => updateZones();
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [chartRef, data, isDark, activeSwimlanes, now]);
+
   const option = useMemo(() => {
     // Layout constants
     const VITALS_TOP = 32; // Space for sticky header (32px)
@@ -166,6 +253,19 @@ export function UnifiedTimeline({
     const SWIMLANE_START = VITALS_TOP + VITALS_HEIGHT; // 372px
     const GRID_LEFT = 150; // Original value - y-axes will use existing white space
     const GRID_RIGHT = 10;
+
+    // Calculate initial zoom and editable zones based on "now"
+    const currentTime = now || data.endTime; // Use provided "now" or fall back to endTime
+    const fiveMinutes = 5 * 60 * 1000;
+    const tenMinutes = 10 * 60 * 1000;
+    const fifteenMinutes = 15 * 60 * 1000;
+    
+    // Initial view: 5 minutes starting 15 minutes before now
+    const initialStartTime = currentTime - fifteenMinutes;
+    const initialEndTime = initialStartTime + fiveMinutes;
+    
+    // Editable zone boundary: 10 minutes before now
+    const editableBoundary = currentTime - tenMinutes;
 
     // Calculate swimlane positions dynamically
     let currentTop = SWIMLANE_START;
@@ -296,13 +396,13 @@ export function UnifiedTimeline({
     // Generate manual y-axis labels in the white space
     const yAxisLabels: any[] = [];
     
-    // First y-axis (0-220, interval 20) - positioned at x=90px, grid extends -20 to 240 for top and bottom padding
+    // First y-axis (0-220, interval 20) - positioned at x=85px, grid extends -20 to 240 for top and bottom padding
     for (let val = 0; val <= 220; val += 20) {
       const yPercent = ((240 - val) / 260) * 100; // Invert because top is 0, using 260 range (-20 to 240)
       const yPos = VITALS_TOP + (yPercent / 100) * VITALS_HEIGHT;
       yAxisLabels.push({
         type: "text",
-        left: 90,
+        left: 85,
         top: yPos - 6, // Center text vertically
         style: {
           text: val.toString(),
@@ -398,8 +498,8 @@ export function UnifiedTimeline({
       dataZoom: [{
         type: "inside",
         xAxisIndex: grids.map((_, i) => i),
-        startValue: data.startTime,
-        endValue: data.endTime,
+        startValue: initialStartTime,
+        endValue: initialEndTime,
         minValueSpan: 5 * 60 * 1000, // 5 minutes minimum
         maxValueSpan: 6 * 60 * 60 * 1000, // 6 hours maximum
         throttle: 50,
@@ -415,7 +515,7 @@ export function UnifiedTimeline({
         textStyle: { fontFamily: "Poppins, sans-serif" },
       },
     } as echarts.EChartsOption;
-  }, [data, isDark, activeSwimlanes]);
+  }, [data, isDark, activeSwimlanes, now]);
 
   // Calculate component height
   const VITALS_HEIGHT = 340;
@@ -550,7 +650,7 @@ export function UnifiedTimeline({
                 key={`scale1-${val}`}
                 className="absolute text-xs font-medium text-foreground"
                 style={{ 
-                  right: '30px',
+                  right: '40px',
                   top: `${yPercent}%`,
                   transform: 'translateY(-50%)'
                 }}

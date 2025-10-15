@@ -396,7 +396,7 @@ export default function Op() {
           {/* Vitals & Timeline Tab */}
           <TabsContent value="vitals" className="data-[state=active]:flex-1 overflow-y-auto flex flex-col mt-0 px-0" data-testid="tab-content-vitals">
             <div className="border-t bg-card">
-              <UnifiedTimeline data={timelineData} height={750} />
+              <UnifiedTimeline data={timelineData} height={750} now={new Date().getTime()} />
             </div>
           </TabsContent>
 
