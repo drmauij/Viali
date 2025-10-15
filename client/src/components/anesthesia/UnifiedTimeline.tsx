@@ -536,9 +536,9 @@ export function UnifiedTimeline({
     const tenMinutes = 10 * 60 * 1000;
     const twentyMinutes = 20 * 60 * 1000;
     
-    // Initial view: 20-minute window from -10min to +10min around NOW
-    const initialStartTime = currentTime - tenMinutes;
-    const initialEndTime = currentTime + tenMinutes;
+    // Initial view: 40-minute window from -20min to +20min around NOW
+    const initialStartTime = currentTime - twentyMinutes;
+    const initialEndTime = currentTime + twentyMinutes;
 
     // Calculate swimlane positions dynamically
     let currentTop = SWIMLANE_START;
@@ -976,9 +976,9 @@ export function UnifiedTimeline({
     const chart = chartRef.current?.getEchartsInstance();
     if (chart) {
       const currentTime = now || data.endTime;
-      const tenMinutes = 10 * 60 * 1000;
-      const initialStartTime = currentTime - tenMinutes;
-      const initialEndTime = currentTime + tenMinutes;
+      const twentyMinutes = 20 * 60 * 1000;
+      const initialStartTime = currentTime - twentyMinutes;
+      const initialEndTime = currentTime + twentyMinutes;
       
       chart.dispatchAction({
         type: 'dataZoom',
