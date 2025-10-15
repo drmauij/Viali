@@ -291,10 +291,28 @@ export function UnifiedTimeline({
         const oneHour = 60 * 60 * 1000;
         const verticalLineElements: any[] = [];
         
+        // Calculate the actual total height by getting the last grid's bottom position
+        const chartInstance = chart;
+        const currentOption = chartInstance.getOption() as any;
+        const grids = currentOption.grid || [];
+        
+        // Find the bottom-most grid to calculate total height
+        let totalHeight = VITALS_HEIGHT; // Start with vitals height
+        if (grids.length > 1) {
+          // Get the last grid (swimlanes)
+          const lastGrid = grids[grids.length - 1];
+          if (lastGrid && typeof lastGrid.top === 'number' && typeof lastGrid.height === 'number') {
+            totalHeight = (lastGrid.top - VITALS_TOP) + lastGrid.height;
+          } else {
+            // Fallback: calculate from swimlanes data
+            totalHeight = VITALS_HEIGHT + swimlanesHeight;
+          }
+        }
+        
         for (let t = Math.ceil(data.startTime / oneHour) * oneHour; t <= data.endTime; t += oneHour) {
           const xPx = chart.convertToPixel({ xAxisIndex: 0 }, t);
           
-          // Major hourly line - use dynamic chart height
+          // Major hourly line - use calculated total height
           verticalLineElements.push({
             id: `vline-${t}`,
             type: "line",
@@ -304,7 +322,7 @@ export function UnifiedTimeline({
               x1: 0,
               y1: 0,
               x2: 0,
-              y2: chartHeight,
+              y2: totalHeight,
             },
             style: {
               stroke: isDark ? "#444444" : "#d1d5db",
@@ -314,7 +332,7 @@ export function UnifiedTimeline({
             z: 1,
           });
           
-          // Minor 15-minute lines - use dynamic chart height
+          // Minor 15-minute lines - use calculated total height
           for (let minor = 1; minor < 4; minor++) {
             const minorTime = t + (minor * 15 * 60 * 1000);
             if (minorTime > data.endTime) break;
@@ -329,7 +347,7 @@ export function UnifiedTimeline({
                 x1: 0,
                 y1: 0,
                 x2: 0,
-                y2: chartHeight,
+                y2: totalHeight,
               },
               style: {
                 stroke: isDark ? "#333333" : "#e5e7eb",
@@ -363,7 +381,7 @@ export function UnifiedTimeline({
                 x: 0,
                 y: 0,
                 width: nonEditableWidth,
-                height: chartHeight,
+                height: totalHeight,
               },
               style: {
                 fill: isDark ? 'rgba(100, 100, 100, 0.15)' : 'rgba(200, 200, 200, 0.25)',
@@ -381,7 +399,7 @@ export function UnifiedTimeline({
                 x: 0,
                 y: 0,
                 width: editableWidth,
-                height: chartHeight,
+                height: totalHeight,
               },
               style: {
                 fill: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.5)',
@@ -399,7 +417,7 @@ export function UnifiedTimeline({
                 x1: 0,
                 y1: 0,
                 x2: 0,
-                y2: chartHeight,
+                y2: totalHeight,
               },
               style: {
                 stroke: isDark ? '#ef4444' : '#dc2626',
