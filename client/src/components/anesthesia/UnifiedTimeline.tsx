@@ -283,11 +283,9 @@ export function UnifiedTimeline({
     } as echarts.EChartsOption;
   }, [data, isDark]);
 
-  // Calculate positions for sidebar
+  // Calculate positions for sidebar (reuse values from component top)
   const medicationStart = 510;
   const medicationHeaderHeight = 40;
-  const numDrugs = 10;
-  const drugHeight = 30;
   const totalDrugHeight = numDrugs * drugHeight;
   const medicationEnd = medicationStart + medicationHeaderHeight + totalDrugHeight;
   const medicationColor = isDark ? "hsl(150, 45%, 18%)" : "rgba(220, 252, 231, 0.8)";
