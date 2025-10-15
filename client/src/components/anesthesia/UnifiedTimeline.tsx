@@ -130,6 +130,7 @@ export function UnifiedTimeline({
       // CRITICAL: All x-axes must have IDENTICAL time ranges and intervals
       min: data.startTime,
       max: data.endTime,
+      boundaryGap: false, // Ensure no gaps at boundaries
       axisLabel: {
         show: index === 0, // Only show labels on top grid
         formatter: "{HH}:{mm}",
@@ -151,24 +152,24 @@ export function UnifiedTimeline({
         }
       },
       splitLine: { 
-        show: true, // Show grid lines on all swimlanes for alignment
+        show: true, // CRITICAL: Show vertical grid lines on ALL grids for alignment through all swimlanes
         lineStyle: {
           color: isDark ? "#444444" : "#d1d5db",
           width: 1,
           type: "solid" as const,
-        }
+        },
       },
       minorTick: {
         show: index === 0, // Only show minor ticks on top grid
         splitNumber: 4, // 15-minute intervals (4 splits per hour)
       },
       minorSplitLine: {
-        show: true, // Show minor grid lines on all swimlanes
+        show: true, // CRITICAL: Show minor vertical lines on ALL grids
         lineStyle: {
           color: isDark ? "#333333" : "#e5e7eb",
           width: 0.5,
           type: "dashed" as const,
-        }
+        },
       },
       // CRITICAL: Ensure all axes use the same scale and positioning
       position: "top",
@@ -257,11 +258,65 @@ export function UnifiedTimeline({
     // Series - clean slate for vitals (no simulated data)
     const series: any[] = [];
 
-    // Swimlanes are now clean - no data points, just empty grids for future use
-
-    // Use a simpler approach: ensure splitLines are visible on ALL x-axes
-    // This will create vertical grid lines that naturally align across all grids
-    // No need for custom graphics - just ensure consistent configuration
+    // Calculate total chart height for continuous vertical lines
+    const chartBottom = medicationEnd + 120; // Bottom of last grid
+    const chartTop = 40; // Top of first grid  
+    const totalHeight = chartBottom - chartTop;
+    
+    // Generate continuous vertical line positions based on time axis
+    // These will span the entire height of all swimlanes
+    const timeRange = data.endTime - data.startTime;
+    const oneHour = 60 * 60 * 1000;
+    const gridWidth = `calc(100% - ${gridLeft + gridRight}px)`;
+    
+    const verticalLineGraphics = [];
+    
+    // Major lines (hourly)
+    for (let t = Math.ceil(data.startTime / oneHour) * oneHour; t <= data.endTime; t += oneHour) {
+      const xPercent = ((t - data.startTime) / timeRange) * 100;
+      
+      verticalLineGraphics.push({
+        type: "line",
+        shape: {
+          x1: 0,
+          y1: 0,
+          x2: 0,
+          y2: totalHeight
+        },
+        position: [`${xPercent}%`, chartTop],
+        style: {
+          stroke: isDark ? "#444444" : "#d1d5db",
+          lineWidth: 1
+        },
+        silent: true,
+        z: 1
+      });
+      
+      // Minor lines (15-minute intervals)
+      for (let minor = 1; minor < 4; minor++) {
+        const minorTime = t + (minor * 15 * 60 * 1000);
+        if (minorTime > data.endTime) break;
+        
+        const minorXPercent = ((minorTime - data.startTime) / timeRange) * 100;
+        verticalLineGraphics.push({
+          type: "line",
+          shape: {
+            x1: 0,
+            y1: 0,
+            x2: 0,
+            y2: totalHeight
+          },
+          position: [`${minorXPercent}%`, chartTop],
+          style: {
+            stroke: isDark ? "#333333" : "#e5e7eb",
+            lineWidth: 0.5,
+            lineDash: [4, 4]
+          },
+          silent: true,
+          z: 1
+        });
+      }
+    }
 
     return {
       backgroundColor: "transparent",
@@ -270,6 +325,17 @@ export function UnifiedTimeline({
       xAxis: xAxes,
       yAxis: yAxes,
       series,
+      // Standard ECharts graphic configuration for continuous vertical lines
+      graphic: {
+        elements: [{
+          type: "group",
+          left: gridLeft,
+          width: gridWidth,
+          children: verticalLineGraphics,
+          silent: true,
+          z: 1
+        }]
+      },
       dataZoom: [
         {
           type: "inside",
