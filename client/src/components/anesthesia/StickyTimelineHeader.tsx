@@ -107,13 +107,13 @@ export function StickyTimelineHeader({
         opts={{ renderer: 'canvas' }}
       />
       
-      {/* Control buttons centered */}
+      {/* Control buttons centered with solid background */}
       <div className="absolute inset-0 pointer-events-none z-[100]">
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto flex gap-1">
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-auto flex gap-1 bg-background border border-border rounded-md p-1">
           {onPanLeft && (
             <button
               onClick={onPanLeft}
-              className="w-7 h-7 rounded flex items-center justify-center bg-background/85 hover:bg-background border border-border/50 transition-colors"
+              className="w-7 h-7 rounded flex items-center justify-center hover:bg-accent transition-colors"
               data-testid="button-pan-left"
               title="Pan Left"
             >
@@ -125,7 +125,7 @@ export function StickyTimelineHeader({
           {onZoomIn && (
             <button
               onClick={onZoomIn}
-              className="w-7 h-7 rounded flex items-center justify-center bg-background/85 hover:bg-background border border-border/50 transition-colors"
+              className="w-7 h-7 rounded flex items-center justify-center hover:bg-accent transition-colors"
               data-testid="button-zoom-in"
               title="Zoom In"
             >
@@ -137,7 +137,7 @@ export function StickyTimelineHeader({
           {onResetZoom && (
             <button
               onClick={onResetZoom}
-              className="w-7 h-7 rounded flex items-center justify-center bg-background/85 hover:bg-background border border-border/50 transition-colors"
+              className="w-7 h-7 rounded flex items-center justify-center hover:bg-accent transition-colors"
               data-testid="button-reset-zoom"
               title="Reset Zoom"
             >
@@ -147,7 +147,7 @@ export function StickyTimelineHeader({
           {onZoomOut && (
             <button
               onClick={onZoomOut}
-              className="w-7 h-7 rounded flex items-center justify-center bg-background/85 hover:bg-background border border-border/50 transition-colors"
+              className="w-7 h-7 rounded flex items-center justify-center hover:bg-accent transition-colors"
               data-testid="button-zoom-out"
               title="Zoom Out"
             >
@@ -159,7 +159,7 @@ export function StickyTimelineHeader({
           {onPanRight && (
             <button
               onClick={onPanRight}
-              className="w-7 h-7 rounded flex items-center justify-center bg-background/85 hover:bg-background border border-border/50 transition-colors"
+              className="w-7 h-7 rounded flex items-center justify-center hover:bg-accent transition-colors"
               data-testid="button-pan-right"
               title="Pan Right"
             >
