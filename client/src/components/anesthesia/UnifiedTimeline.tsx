@@ -243,7 +243,13 @@ export function UnifiedTimeline({
           show: false,
           axisLine: { show: false },
           axisTick: { show: false },
-          splitLine: { show: false },
+          splitLine: { 
+            show: true, // Enable splitLine to allow vertical grid lines to pass through
+            lineStyle: {
+              color: "transparent", // Make invisible but still allow grid lines to extend
+              width: 0
+            }
+          },
         };
       }),
     ];
@@ -260,6 +266,19 @@ export function UnifiedTimeline({
       xAxis: xAxes,
       yAxis: yAxes,
       series,
+      graphic: [
+        {
+          type: "group",
+          left: gridLeft,
+          right: gridRight,
+          top: 40,
+          bottom: 40,
+          children: [],
+          silent: true,
+          z: -10, // Behind everything else
+          invisible: true // Don't interfere with interactions
+        }
+      ],
       dataZoom: [
         {
           type: "inside",
