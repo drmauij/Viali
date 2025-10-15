@@ -658,7 +658,7 @@ export function UnifiedTimeline({
       {/* Left sidebar */}
       <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-30 bg-background">
         {/* Y-axis scales - manually rendered on right side of white area */}
-        <div className="absolute top-[60px] h-[340px] w-full pointer-events-none">
+        <div className="absolute top-[60px] h-[340px] w-full pointer-events-none z-50">
           {/* First scale: 0-220 with 20-unit steps (11 values) - close to grid */}
           {[0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220].map((val) => {
             const yPercent = ((220 - val) / 220) * 100;
