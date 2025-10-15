@@ -517,9 +517,9 @@ export function UnifiedTimeline({
     // Series (empty for now - to be populated with data)
     const series: any[] = [];
 
-    // Calculate total height for vertical lines
-    const chartBottom = currentTop;
-    const chartHeight = chartBottom - VITALS_TOP;
+    // Calculate total height for vertical lines - dynamically based on current swimlanes
+    const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
+    const chartHeight = VITALS_HEIGHT + swimlanesHeight;
     const timeRange = data.endTime - data.startTime;
     const oneHour = 60 * 60 * 1000;
     
@@ -564,7 +564,7 @@ export function UnifiedTimeline({
       });
     }
     
-    // Generate continuous vertical lines spanning all grids
+    // Generate continuous vertical lines spanning all grids (vitals + all swimlanes)
     const verticalLines: any[] = [];
     for (let t = Math.ceil(data.startTime / oneHour) * oneHour; t <= data.endTime; t += oneHour) {
       const xPercent = ((t - data.startTime) / timeRange) * 100;
