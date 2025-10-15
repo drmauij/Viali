@@ -280,7 +280,9 @@ export function UnifiedTimeline({
       const VITALS_HEIGHT = 340;
       const GRID_LEFT = 150;
       const GRID_RIGHT = 10;
-      const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
+      // Calculate current swimlanes height based on expanded/collapsed state
+      const currentSwimlanes = buildActiveSwimlanes();
+      const swimlanesHeight = currentSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
       const chartHeight = VITALS_HEIGHT + swimlanesHeight;
       
       try {
@@ -306,7 +308,7 @@ export function UnifiedTimeline({
         for (let t = Math.ceil(data.startTime / oneHour) * oneHour; t <= data.endTime; t += oneHour) {
           const xPx = chart.convertToPixel({ xAxisIndex: 0 }, t);
           
-          // Major hourly line
+          // Major hourly line - use dynamic chart height
           verticalLineElements.push({
             id: `vline-${t}`,
             type: "line",
@@ -326,7 +328,7 @@ export function UnifiedTimeline({
             z: 1,
           });
           
-          // Minor 15-minute lines
+          // Minor 15-minute lines - use dynamic chart height
           for (let minor = 1; minor < 4; minor++) {
             const minorTime = t + (minor * 15 * 60 * 1000);
             if (minorTime > data.endTime) break;
@@ -444,7 +446,7 @@ export function UnifiedTimeline({
       chart.off('finished', updateZones);
       window.removeEventListener('resize', handleResize);
     };
-  }, [chartRef, data, isDark, activeSwimlanes, now, currentZoomStart, currentZoomEnd, currentTime]);
+  }, [chartRef, data, isDark, activeSwimlanes, now, currentZoomStart, currentZoomEnd, currentTime, collapsedSwimlanes]);
 
   const option = useMemo(() => {
     // Layout constants
