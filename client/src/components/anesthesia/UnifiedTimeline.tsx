@@ -512,7 +512,7 @@ export function UnifiedTimeline({
       </div>
 
       {/* Left sidebar */}
-      <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-10 bg-background">
+      <div className="absolute left-0 top-0 w-[150px] h-full border-r border-border z-30 bg-background">
         {/* Vitals icon buttons */}
         <div className="absolute top-[40px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
           <button
