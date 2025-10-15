@@ -282,19 +282,27 @@ export function UnifiedTimeline({
       const chartHeight = VITALS_HEIGHT + swimlanesHeight;
       
       try {
-        const tenMinutes = 10 * 60 * 1000;
-        const editableBoundary = currentTime - tenMinutes;
+        const fiveMinutes = 5 * 60 * 1000;
+        
+        // Zone boundaries:
+        // Zone 1 (past/non-editable): from data.startTime to (NOW - 5 min)
+        // Zone 2 (editable): from (NOW - 5 min) to NOW
+        // Zone 3 (future/non-editable): from NOW to data.endTime
+        const editableStartBoundary = currentTime - fiveMinutes;
+        const editableEndBoundary = currentTime;
         
         // Use convertToPixel to get accurate pixel positions based on current zoom
         const startPx = chart.convertToPixel({ xAxisIndex: 0 }, data.startTime);
-        const boundaryPx = chart.convertToPixel({ xAxisIndex: 0 }, editableBoundary);
+        const editableStartPx = chart.convertToPixel({ xAxisIndex: 0 }, editableStartBoundary);
+        const editableEndPx = chart.convertToPixel({ xAxisIndex: 0 }, editableEndBoundary);
         const endPx = chart.convertToPixel({ xAxisIndex: 0 }, data.endTime);
         
-        // Calculate pixel widths based on zoom-aware positions
-        const nonEditableWidth = Math.max(0, boundaryPx - startPx);
-        const editableWidth = Math.max(0, endPx - boundaryPx);
+        // Calculate pixel widths for three zones
+        const pastNonEditableWidth = Math.max(0, editableStartPx - startPx);
+        const editableWidth = Math.max(0, editableEndPx - editableStartPx);
+        const futureNonEditableWidth = Math.max(0, endPx - editableEndPx);
         
-        // Calculate position for current time indicator
+        // Calculate position for current time indicator (NOW line)
         const nowPx = chart.convertToPixel({ xAxisIndex: 0 }, currentTime);
         
         // Get current graphic elements to preserve vertical lines and labels
@@ -303,7 +311,7 @@ export function UnifiedTimeline({
         
         // Find and update only the zone/indicator elements, preserve everything else
         const updatedGraphic = currentGraphic.map((el: any) => {
-          if (el.id === 'non-editable-zone') {
+          if (el.id === 'past-non-editable-zone') {
             return {
               ...el,
               left: startPx,
@@ -311,7 +319,7 @@ export function UnifiedTimeline({
               shape: {
                 x: 0,
                 y: 0,
-                width: nonEditableWidth,
+                width: pastNonEditableWidth,
                 height: chartHeight,
               },
               style: {
@@ -322,7 +330,7 @@ export function UnifiedTimeline({
           if (el.id === 'editable-zone') {
             return {
               ...el,
-              left: boundaryPx,
+              left: editableStartPx,
               top: VITALS_TOP,
               shape: {
                 x: 0,
@@ -332,6 +340,22 @@ export function UnifiedTimeline({
               },
               style: {
                 fill: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.5)',
+              },
+            };
+          }
+          if (el.id === 'future-non-editable-zone') {
+            return {
+              ...el,
+              left: editableEndPx,
+              top: VITALS_TOP,
+              shape: {
+                x: 0,
+                y: 0,
+                width: futureNonEditableWidth,
+                height: chartHeight,
+              },
+              style: {
+                fill: isDark ? 'rgba(100, 100, 100, 0.15)' : 'rgba(200, 200, 200, 0.25)',
               },
             };
           }
@@ -396,14 +420,10 @@ export function UnifiedTimeline({
     const currentTime = now || data.endTime; // Use provided "now" or fall back to endTime
     const fiveMinutes = 5 * 60 * 1000;
     const tenMinutes = 10 * 60 * 1000;
-    const fifteenMinutes = 15 * 60 * 1000;
     
-    // Initial view: 5 minutes starting 15 minutes before now
-    const initialStartTime = currentTime - fifteenMinutes;
-    const initialEndTime = initialStartTime + fiveMinutes;
-    
-    // Editable zone boundary: 10 minutes before now
-    const editableBoundary = currentTime - tenMinutes;
+    // Initial view: 5-minute window starting 10 minutes before now (from -10min to -5min)
+    const initialStartTime = currentTime - tenMinutes;
+    const initialEndTime = currentTime - fiveMinutes;
 
     // Calculate swimlane positions dynamically
     let currentTop = SWIMLANE_START;
@@ -633,7 +653,7 @@ export function UnifiedTimeline({
         ...yAxisLabels.map((label, i) => ({ ...label, id: `y-label-${i}` })),
         // Zone placeholders (will be replaced by useEffect)
         {
-          id: 'non-editable-zone',
+          id: 'past-non-editable-zone',
           type: "rect",
           left: 0,
           top: VITALS_TOP,
@@ -644,6 +664,16 @@ export function UnifiedTimeline({
         },
         {
           id: 'editable-zone',
+          type: "rect",
+          left: 0,
+          top: VITALS_TOP,
+          shape: { x: 0, y: 0, width: 0, height: 0 },
+          style: { fill: 'transparent' },
+          silent: true,
+          z: 0,
+        },
+        {
+          id: 'future-non-editable-zone',
           type: "rect",
           left: 0,
           top: VITALS_TOP,
@@ -775,9 +805,9 @@ export function UnifiedTimeline({
     if (chart) {
       const currentTime = now || data.endTime;
       const fiveMinutes = 5 * 60 * 1000;
-      const fifteenMinutes = 15 * 60 * 1000;
-      const initialStartTime = currentTime - fifteenMinutes;
-      const initialEndTime = initialStartTime + fiveMinutes;
+      const tenMinutes = 10 * 60 * 1000;
+      const initialStartTime = currentTime - tenMinutes;
+      const initialEndTime = currentTime - fiveMinutes;
       
       chart.dispatchAction({
         type: 'dataZoom',
