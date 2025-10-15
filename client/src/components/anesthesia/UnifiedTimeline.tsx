@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { StickyTimelineHeader } from "./StickyTimelineHeader";
 
 /**
  * UnifiedTimeline - Refactored for robustness and flexibility
@@ -69,6 +70,10 @@ export function UnifiedTimeline({
   const [showAddMedDialog, setShowAddMedDialog] = useState(false);
   const [newMedName, setNewMedName] = useState("");
 
+  // State for tracking current zoom/pan range
+  const [currentZoomStart, setCurrentZoomStart] = useState<number | undefined>(undefined);
+  const [currentZoomEnd, setCurrentZoomEnd] = useState<number | undefined>(undefined);
+
   // Listen for theme changes
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -79,6 +84,26 @@ export function UnifiedTimeline({
       attributeFilter: ["data-theme"],
     });
     return () => observer.disconnect();
+  }, []);
+
+  // Listen for dataZoom changes to sync with sticky header
+  useEffect(() => {
+    const chart = chartRef.current?.getEchartsInstance();
+    if (!chart) return;
+
+    const handleDataZoom = (params: any) => {
+      const option = chart.getOption() as any;
+      const dataZoom = option.dataZoom?.[0];
+      if (dataZoom) {
+        setCurrentZoomStart(dataZoom.startValue);
+        setCurrentZoomEnd(dataZoom.endValue);
+      }
+    };
+
+    chart.on('datazoom', handleDataZoom);
+    return () => {
+      chart.off('datazoom', handleDataZoom);
+    };
   }, []);
 
   // Add medication handler
@@ -177,19 +202,19 @@ export function UnifiedTimeline({
       max: data.endTime,
       boundaryGap: false,
       axisLabel: {
-        show: gridIndex === 0,
+        show: false, // Hide labels - they're shown in the sticky header
         formatter: "{HH}:{mm}",
         fontSize: 11,
         fontFamily: "Poppins, sans-serif",
-        color: isDark ? "#ffffff" : "#000000", // Make more visible
+        color: isDark ? "#ffffff" : "#000000",
         fontWeight: 500,
       },
       axisLine: { 
-        show: gridIndex === 0,
+        show: false, // Hide axis line
         lineStyle: { color: isDark ? "#444444" : "#d1d5db" }
       },
       axisTick: { 
-        show: gridIndex === 0,
+        show: false, // Hide ticks
         lineStyle: { color: isDark ? "#444444" : "#d1d5db" }
       },
       splitLine: { 
@@ -488,6 +513,15 @@ export function UnifiedTimeline({
 
   return (
     <div className="w-full relative" style={{ height: componentHeight }}>
+      {/* Sticky Timeline Header */}
+      <StickyTimelineHeader
+        startTime={data.startTime}
+        endTime={data.endTime}
+        currentStart={currentZoomStart}
+        currentEnd={currentZoomEnd}
+        isDark={isDark}
+      />
+      
       {/* Swimlane backgrounds */}
       <div className="absolute left-0 top-0 right-0 h-full pointer-events-none z-0">
         {swimlanePositions.map((lane, index) => (
