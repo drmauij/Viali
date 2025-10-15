@@ -34,15 +34,9 @@ export function StickyTimelineHeader({
     const GRID_LEFT = 200;
     const GRID_RIGHT = 10;
     
-    // Calculate visible range and determine interval
+    // Calculate visible range
     const visibleStart = currentStart || startTime;
     const visibleEnd = currentEnd || endTime;
-    const visibleRange = visibleEnd - visibleStart;
-    const viewSpanMinutes = visibleRange / (60 * 1000);
-    
-    // Adaptive interval: 5-min for <= 30 min view, 15-min for wider views
-    const useFineTicks = viewSpanMinutes <= 30;
-    const intervalMs = useFineTicks ? (5 * 60 * 1000) : (15 * 60 * 1000); // 5 or 15 minutes
 
     return {
       backgroundColor: "transparent",
@@ -59,10 +53,29 @@ export function StickyTimelineHeader({
         min: visibleStart,
         max: visibleEnd,
         boundaryGap: false,
-        interval: intervalMs,
         axisLabel: {
           show: true,
-          formatter: "{HH}:{mm}",
+          formatter: (value: number, index: number, params: any) => {
+            // Calculate interval dynamically based on current axis range
+            const axisMin = params?.min || visibleStart;
+            const axisMax = params?.max || visibleEnd;
+            const visibleRange = axisMax - axisMin;
+            const viewSpanMinutes = visibleRange / (60 * 1000);
+            
+            // Adaptive interval: 5-min for <= 30 min view, 15-min for wider views
+            const targetInterval = viewSpanMinutes <= 30 ? 5 : 15;
+            
+            const date = new Date(value);
+            const minutes = date.getMinutes();
+            
+            // Only show labels at target interval boundaries
+            if (minutes % targetInterval === 0) {
+              const hours = String(date.getHours()).padStart(2, '0');
+              const mins = String(minutes).padStart(2, '0');
+              return `${hours}:${mins}`;
+            }
+            return ''; // Hide other tick labels
+          },
           fontSize: 11,
           fontFamily: "Poppins, sans-serif",
           color: isDark ? "#ffffff" : "#000000",
@@ -100,19 +113,37 @@ export function StickyTimelineHeader({
     if (chartRef.current && (currentStart || currentEnd)) {
       const chart = chartRef.current.getEchartsInstance();
       
-      // Calculate interval for dynamic updates
+      // Calculate visible range for updates
       const visibleStart = currentStart || startTime;
       const visibleEnd = currentEnd || endTime;
-      const visibleRange = visibleEnd - visibleStart;
-      const viewSpanMinutes = visibleRange / (60 * 1000);
-      const useFineTicks = viewSpanMinutes <= 30;
-      const intervalMs = useFineTicks ? (5 * 60 * 1000) : (15 * 60 * 1000);
       
       chart.setOption({
         xAxis: {
           min: visibleStart,
           max: visibleEnd,
-          interval: intervalMs,
+          axisLabel: {
+            formatter: (value: number, index: number, params: any) => {
+              // Calculate interval dynamically based on current axis range
+              const axisMin = params?.min || visibleStart;
+              const axisMax = params?.max || visibleEnd;
+              const visibleRange = axisMax - axisMin;
+              const viewSpanMinutes = visibleRange / (60 * 1000);
+              
+              // Adaptive interval: 5-min for <= 30 min view, 15-min for wider views
+              const targetInterval = viewSpanMinutes <= 30 ? 5 : 15;
+              
+              const date = new Date(value);
+              const minutes = date.getMinutes();
+              
+              // Only show labels at target interval boundaries
+              if (minutes % targetInterval === 0) {
+                const hours = String(date.getHours()).padStart(2, '0');
+                const mins = String(minutes).padStart(2, '0');
+                return `${hours}:${mins}`;
+              }
+              return ''; // Hide other tick labels
+            },
+          },
         },
       });
     }

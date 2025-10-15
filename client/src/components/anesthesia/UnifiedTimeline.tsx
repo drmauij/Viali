@@ -295,14 +295,14 @@ export function UnifiedTimeline({
       const chartHeight = VITALS_HEIGHT + swimlanesHeight;
       
       try {
-        const fiveMinutes = 5 * 60 * 1000;
+        const tenMinutes = 10 * 60 * 1000;
         
         // Zone boundaries:
-        // Zone 1 (past/non-editable): from data.startTime to NOW
-        // Zone 2 (editable): from NOW to (NOW + 5 min)
-        // Zone 3 (future/non-editable): from (NOW + 5 min) to data.endTime
-        const editableStartBoundary = currentTime;
-        const editableEndBoundary = currentTime + fiveMinutes;
+        // Zone 1 (past/non-editable): from data.startTime to (NOW - 10 min)
+        // Zone 2 (editable): from (NOW - 10 min) to (NOW + 10 min)
+        // Zone 3 (future/non-editable): from (NOW + 10 min) to data.endTime
+        const editableStartBoundary = currentTime - tenMinutes;
+        const editableEndBoundary = currentTime + tenMinutes;
         
         // Use convertToPixel to get accurate pixel positions based on current zoom
         const startPx = chart.convertToPixel({ xAxisIndex: 0 }, data.startTime);
