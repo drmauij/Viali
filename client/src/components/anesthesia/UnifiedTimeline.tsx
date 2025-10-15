@@ -488,48 +488,6 @@ export function UnifiedTimeline({
 
   return (
     <div className="w-full relative" style={{ height: componentHeight }}>
-      {/* Sticky Timeline Header - Controls + Timeline Labels Area */}
-      <div className="sticky top-0 z-40 border-b border-border" style={{ height: '60px' }}>
-        {/* Background only behind controls */}
-        <div className="absolute top-1 left-1/2 transform -translate-x-1/2 bg-background/95 backdrop-blur-sm rounded-lg border border-border shadow-lg">
-          {/* Zoom and Pan Controls */}
-          <div className="flex gap-2 p-1.5">
-            <button
-              onClick={handlePanLeft}
-              className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
-              data-testid="button-pan-left"
-              title="Pan Left"
-            >
-              ◀
-            </button>
-            <button
-              onClick={handleZoomOut}
-              className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
-              data-testid="button-zoom-out"
-              title="Zoom Out"
-            >
-              −
-            </button>
-            <button
-              onClick={handleZoomIn}
-              className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
-              data-testid="button-zoom-in"
-              title="Zoom In"
-            >
-              +
-            </button>
-            <button
-              onClick={handlePanRight}
-              className="p-2 rounded bg-background border border-border hover:bg-accent transition-colors"
-              data-testid="button-pan-right"
-              title="Pan Right"
-            >
-              ▶
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Swimlane backgrounds */}
       <div className="absolute left-0 top-0 right-0 h-full pointer-events-none z-0">
         {swimlanePositions.map((lane, index) => (
