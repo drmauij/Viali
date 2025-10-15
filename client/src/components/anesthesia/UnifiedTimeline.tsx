@@ -795,6 +795,9 @@ export function UnifiedTimeline({
     currentTop += lane.height;
     return pos;
   });
+  
+  // Calculate total height for backgrounds container (must match chart height calculation)
+  const totalChartHeight = VITALS_TOP_POS + VITALS_HEIGHT + swimlanesHeight;
 
   return (
     <div className="w-full relative" style={{ height: componentHeight }}>
@@ -812,8 +815,8 @@ export function UnifiedTimeline({
         onResetZoom={handleResetZoom}
       />
       
-      {/* Swimlane backgrounds */}
-      <div className="absolute left-0 top-0 right-0 h-full pointer-events-none z-0">
+      {/* Swimlane backgrounds - explicit height to ensure vertical lines aren't clipped */}
+      <div className="absolute left-0 top-0 right-0 pointer-events-none z-0" style={{ height: `${totalChartHeight}px` }}>
         {swimlanePositions.map((lane, index) => (
           <div 
             key={lane.id}
