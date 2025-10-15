@@ -164,7 +164,7 @@ export function UnifiedTimeline({
   // Update editable zone widths after chart is rendered
   useEffect(() => {
     const chart = chartRef.current?.getEchartsInstance();
-    if (!chart || !now) return;
+    if (!chart) return;
 
     const updateZones = () => {
       try {
@@ -172,13 +172,14 @@ export function UnifiedTimeline({
         const tenMinutes = 10 * 60 * 1000;
         const editableBoundary = currentTime - tenMinutes;
         
-        // Get chart width to calculate pixel positions
-        const chartWidth = chart.getWidth() - 150 - 10; // Subtract left and right margins
-        const timeRange = data.endTime - data.startTime;
+        // Use convertToPixel to get accurate pixel positions based on current zoom
+        const startPx = chart.convertToPixel({ xAxisIndex: 0 }, data.startTime);
+        const boundaryPx = chart.convertToPixel({ xAxisIndex: 0 }, editableBoundary);
+        const endPx = chart.convertToPixel({ xAxisIndex: 0 }, data.endTime);
         
-        // Calculate pixel widths
-        const nonEditableWidth = Math.max(0, ((editableBoundary - data.startTime) / timeRange) * chartWidth);
-        const editableWidth = Math.max(0, ((currentTime - editableBoundary) / timeRange) * chartWidth);
+        // Calculate pixel widths based on zoom-aware positions
+        const nonEditableWidth = Math.max(0, boundaryPx - startPx);
+        const editableWidth = Math.max(0, endPx - boundaryPx);
         
         const VITALS_TOP = 32;
         const VITALS_HEIGHT = 340;
@@ -193,7 +194,7 @@ export function UnifiedTimeline({
               {
                 $action: 'replace',
                 type: "rect",
-                left: 150,
+                left: startPx,
                 top: VITALS_TOP,
                 shape: {
                   x: 0,
@@ -211,7 +212,7 @@ export function UnifiedTimeline({
               {
                 $action: 'replace',
                 type: "rect",
-                left: 150 + nonEditableWidth,
+                left: boundaryPx,
                 top: VITALS_TOP,
                 shape: {
                   x: 0,
@@ -244,7 +245,7 @@ export function UnifiedTimeline({
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [chartRef, data, isDark, activeSwimlanes, now]);
+  }, [chartRef, data, isDark, activeSwimlanes, now, currentZoomStart, currentZoomEnd]);
 
   const option = useMemo(() => {
     // Layout constants
@@ -602,6 +603,23 @@ export function UnifiedTimeline({
     }
   };
 
+  const handleResetZoom = () => {
+    const chart = chartRef.current?.getEchartsInstance();
+    if (chart) {
+      const currentTime = now || data.endTime;
+      const fiveMinutes = 5 * 60 * 1000;
+      const fifteenMinutes = 15 * 60 * 1000;
+      const initialStartTime = currentTime - fifteenMinutes;
+      const initialEndTime = initialStartTime + fiveMinutes;
+      
+      chart.dispatchAction({
+        type: 'dataZoom',
+        startValue: initialStartTime,
+        endValue: initialEndTime,
+      });
+    }
+  };
+
   // Calculate swimlane positions for sidebar
   const SWIMLANE_START = VITALS_TOP_POS + VITALS_HEIGHT;
   let currentTop = SWIMLANE_START;
@@ -620,6 +638,11 @@ export function UnifiedTimeline({
         currentStart={currentZoomStart}
         currentEnd={currentZoomEnd}
         isDark={isDark}
+        onPanLeft={handlePanLeft}
+        onPanRight={handlePanRight}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onResetZoom={handleResetZoom}
       />
       
       {/* Swimlane backgrounds */}
