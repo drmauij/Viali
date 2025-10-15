@@ -297,67 +297,68 @@ export function UnifiedTimeline({
         // Calculate position for current time indicator
         const nowPx = chart.convertToPixel({ xAxisIndex: 0 }, currentTime);
         
-        // Update graphic elements
+        // Update graphic elements with IDs for proper merge behavior
         chart.setOption({
-          graphic: {
-            elements: [
-              {
-                $action: 'replace',
-                type: "rect",
-                left: startPx,
-                top: VITALS_TOP,
-                shape: {
-                  x: 0,
-                  y: 0,
-                  width: nonEditableWidth,
-                  height: chartHeight,
-                },
-                style: {
-                  fill: isDark ? 'rgba(100, 100, 100, 0.15)' : 'rgba(200, 200, 200, 0.25)',
-                },
-                silent: true,
-                z: 0,
-                cursor: 'not-allowed',
+          graphic: [
+            {
+              id: 'non-editable-zone',
+              $action: 'replace',
+              type: "rect",
+              left: startPx,
+              top: VITALS_TOP,
+              shape: {
+                x: 0,
+                y: 0,
+                width: nonEditableWidth,
+                height: chartHeight,
               },
-              {
-                $action: 'replace',
-                type: "rect",
-                left: boundaryPx,
-                top: VITALS_TOP,
-                shape: {
-                  x: 0,
-                  y: 0,
-                  width: editableWidth,
-                  height: chartHeight,
-                },
-                style: {
-                  fill: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.5)',
-                },
-                silent: false,
-                z: 0,
-                cursor: 'pointer',
+              style: {
+                fill: isDark ? 'rgba(100, 100, 100, 0.15)' : 'rgba(200, 200, 200, 0.25)',
               },
-              {
-                $action: 'replace',
-                type: "line",
-                left: nowPx,
-                top: VITALS_TOP,
-                shape: {
-                  x1: 0,
-                  y1: 0,
-                  x2: 0,
-                  y2: chartHeight,
-                },
-                style: {
-                  stroke: isDark ? '#ef4444' : '#dc2626',
-                  lineWidth: 2,
-                },
-                silent: true,
-                z: 100,
+              silent: true,
+              z: 0,
+              cursor: 'not-allowed',
+            },
+            {
+              id: 'editable-zone',
+              $action: 'replace',
+              type: "rect",
+              left: boundaryPx,
+              top: VITALS_TOP,
+              shape: {
+                x: 0,
+                y: 0,
+                width: editableWidth,
+                height: chartHeight,
               },
-            ],
-          },
-        }, { replaceMerge: ['graphic'] });
+              style: {
+                fill: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(255, 255, 255, 0.5)',
+              },
+              silent: false,
+              z: 0,
+              cursor: 'pointer',
+            },
+            {
+              id: 'now-indicator',
+              $action: 'replace',
+              type: "line",
+              left: nowPx,
+              top: VITALS_TOP,
+              shape: {
+                x1: 0,
+                y1: 0,
+                x2: 0,
+                y2: chartHeight,
+              },
+              style: {
+                stroke: isDark ? '#ef4444' : '#dc2626',
+                lineWidth: 2,
+              },
+              silent: true,
+              z: 100,
+            },
+          ],
+        });
       } catch (e) {
         console.error('Error updating zones:', e);
       }
@@ -609,21 +610,51 @@ export function UnifiedTimeline({
       xAxis: xAxes,
       yAxis: yAxes,
       series,
-      graphic: {
-        elements: [
-          // Vertical grid lines
-          {
-            type: "group",
-            left: GRID_LEFT,
-            width: `calc(100% - ${GRID_LEFT + GRID_RIGHT}px)`,
-            children: verticalLines,
-            silent: true,
-            z: 1,
-          },
-          // Manual y-axis labels
-          ...yAxisLabels,
-        ]
-      },
+      graphic: [
+        // Vertical grid lines group
+        {
+          id: 'vertical-lines-group',
+          type: "group",
+          left: GRID_LEFT,
+          width: `calc(100% - ${GRID_LEFT + GRID_RIGHT}px)`,
+          children: verticalLines,
+          silent: true,
+          z: 1,
+        },
+        // Y-axis labels
+        ...yAxisLabels.map((label, i) => ({ ...label, id: `y-label-${i}` })),
+        // Zone placeholders (will be replaced by useEffect)
+        {
+          id: 'non-editable-zone',
+          type: "rect",
+          left: 0,
+          top: VITALS_TOP,
+          shape: { x: 0, y: 0, width: 0, height: 0 },
+          style: { fill: 'transparent' },
+          silent: true,
+          z: 0,
+        },
+        {
+          id: 'editable-zone',
+          type: "rect",
+          left: 0,
+          top: VITALS_TOP,
+          shape: { x: 0, y: 0, width: 0, height: 0 },
+          style: { fill: 'transparent' },
+          silent: true,
+          z: 0,
+        },
+        {
+          id: 'now-indicator',
+          type: "line",
+          left: 0,
+          top: VITALS_TOP,
+          shape: { x1: 0, y1: 0, x2: 0, y2: 0 },
+          style: { stroke: 'transparent', lineWidth: 0 },
+          silent: true,
+          z: 100,
+        },
+      ],
       dataZoom: [{
         type: "inside",
         xAxisIndex: grids.map((_, i) => i),
