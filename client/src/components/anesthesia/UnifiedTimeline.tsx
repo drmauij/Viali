@@ -660,7 +660,7 @@ export function UnifiedTimeline({
       </div>
 
       {/* ECharts timeline */}
-      <div className="absolute inset-0 z-20">
+      <div className="absolute inset-0 z-20 pointer-events-none">
         <ReactECharts
           ref={chartRef}
           option={option}
