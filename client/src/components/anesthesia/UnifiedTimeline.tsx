@@ -283,8 +283,6 @@ export function UnifiedTimeline({
       const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
       const chartHeight = VITALS_HEIGHT + swimlanesHeight;
       
-      console.log('[UnifiedTimeline] Updating vertical lines with chartHeight:', chartHeight, 'swimlanesHeight:', swimlanesHeight, 'activeSwimlanes:', activeSwimlanes.length);
-      
       try {
         const tenMinutes = 10 * 60 * 1000;
         const editableBoundary = currentTime - tenMinutes;
@@ -301,19 +299,25 @@ export function UnifiedTimeline({
         // Calculate position for current time indicator
         const nowPx = chart.convertToPixel({ xAxisIndex: 0 }, currentTime);
         
-        // Generate vertical grid lines with dynamic chartHeight
+        // Generate vertical grid lines as individual elements with pixel positioning
         const oneHour = 60 * 60 * 1000;
-        const timeRange = data.endTime - data.startTime;
-        const verticalLines: any[] = [];
+        const verticalLineElements: any[] = [];
         
         for (let t = Math.ceil(data.startTime / oneHour) * oneHour; t <= data.endTime; t += oneHour) {
-          const xPercent = ((t - data.startTime) / timeRange) * 100;
+          const xPx = chart.convertToPixel({ xAxisIndex: 0 }, t);
           
           // Major hourly line
-          verticalLines.push({
+          verticalLineElements.push({
+            id: `vline-${t}`,
             type: "line",
-            shape: { x1: 0, y1: 0, x2: 0, y2: chartHeight },
-            position: [`${xPercent}%`, VITALS_TOP],
+            left: xPx,
+            top: VITALS_TOP,
+            shape: {
+              x1: 0,
+              y1: 0,
+              x2: 0,
+              y2: chartHeight,
+            },
             style: {
               stroke: isDark ? "#444444" : "#d1d5db",
               lineWidth: 1,
@@ -327,11 +331,18 @@ export function UnifiedTimeline({
             const minorTime = t + (minor * 15 * 60 * 1000);
             if (minorTime > data.endTime) break;
             
-            const minorXPercent = ((minorTime - data.startTime) / timeRange) * 100;
-            verticalLines.push({
+            const minorXPx = chart.convertToPixel({ xAxisIndex: 0 }, minorTime);
+            verticalLineElements.push({
+              id: `vline-minor-${minorTime}`,
               type: "line",
-              shape: { x1: 0, y1: 0, x2: 0, y2: chartHeight },
-              position: [`${minorXPercent}%`, VITALS_TOP],
+              left: minorXPx,
+              top: VITALS_TOP,
+              shape: {
+                x1: 0,
+                y1: 0,
+                x2: 0,
+                y2: chartHeight,
+              },
               style: {
                 stroke: isDark ? "#333333" : "#e5e7eb",
                 lineWidth: 0.5,
@@ -343,7 +354,7 @@ export function UnifiedTimeline({
           }
         }
         
-        // Get current graphic elements to preserve Y-axis labels
+        // Get current graphic elements to preserve Y-axis labels  
         const currentOption = chart.getOption() as any;
         const currentGraphic = currentOption.graphic?.[0]?.elements || [];
         const yAxisLabels = currentGraphic.filter((el: any) => el.id && el.id.startsWith('y-label-'));
@@ -351,16 +362,7 @@ export function UnifiedTimeline({
         // Update with vertical lines, zones, now indicator, and preserved labels
         chart.setOption({
           graphic: [
-            // Vertical grid lines group with dynamic height
-            {
-              id: 'vertical-lines-group',
-              type: "group",
-              left: GRID_LEFT,
-              width: `calc(100% - ${GRID_LEFT + GRID_RIGHT}px)`,
-              children: verticalLines,
-              silent: true,
-              z: 1,
-            },
+            ...verticalLineElements,
             // Preserved Y-axis labels
             ...yAxisLabels,
             // Zones and indicator
