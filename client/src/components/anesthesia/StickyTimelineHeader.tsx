@@ -99,16 +99,18 @@ export function StickyTimelineHeader({
   }, [currentStart, currentEnd, startTime, endTime]);
 
   return (
-    <div className="sticky top-0 z-50 bg-background border-b border-border relative" style={{ height: '32px' }}>
-      <ReactECharts
-        ref={chartRef}
-        option={option}
-        style={{ height: '32px', width: '100%' }}
-        opts={{ renderer: 'canvas' }}
-      />
+    <div className="sticky top-0 z-50 bg-background border-b border-border relative" style={{ height: '56px' }}>
+      <div className="absolute bottom-0 left-0 right-0" style={{ height: '32px' }}>
+        <ReactECharts
+          ref={chartRef}
+          option={option}
+          style={{ height: '32px', width: '100%' }}
+          opts={{ renderer: 'canvas' }}
+        />
+      </div>
       
-      {/* Navigation and zoom controls - overlay with light transparent background */}
-      <div className="absolute inset-0 pointer-events-none flex items-center justify-between px-2">
+      {/* Navigation and zoom controls - positioned above timeline labels */}
+      <div className="absolute top-0 left-0 right-0 pointer-events-none flex items-center justify-between px-2" style={{ height: '24px' }}>
         {/* Left: Back button */}
         <button
           onClick={onPanLeft}
