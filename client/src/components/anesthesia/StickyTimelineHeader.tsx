@@ -29,9 +29,8 @@ export function StickyTimelineHeader({
       grid: {
         left: GRID_LEFT,
         right: GRID_RIGHT,
-        top: 5,
-        bottom: 0,
-        height: 12,
+        top: 0,
+        bottom: 18,
         backgroundColor: "transparent",
       },
       xAxis: {
@@ -89,11 +88,11 @@ export function StickyTimelineHeader({
   }, [currentStart, currentEnd, startTime, endTime]);
 
   return (
-    <div className="sticky top-0 z-50 bg-background border-b border-border pb-1" style={{ height: '30px' }}>
+    <div className="sticky top-0 z-50 bg-background border-b border-border" style={{ height: '32px' }}>
       <ReactECharts
         ref={chartRef}
         option={option}
-        style={{ height: '30px', width: '100%' }}
+        style={{ height: '32px', width: '100%' }}
         opts={{ renderer: 'canvas' }}
       />
     </div>
