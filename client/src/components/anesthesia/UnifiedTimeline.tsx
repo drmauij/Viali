@@ -1661,8 +1661,8 @@ export function UnifiedTimeline({
         />
       )}
 
-      {/* Tooltip for vitals entry */}
-      {hoverInfo && (
+      {/* Tooltip for vitals entry - only show on non-touch devices */}
+      {hoverInfo && !isTouchDevice && (
         <div
           className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
           style={{
