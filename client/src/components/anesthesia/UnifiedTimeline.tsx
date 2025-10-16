@@ -1003,9 +1003,40 @@ export function UnifiedTimeline({
         filterMode: "none",
       }],
       tooltip: {
-        trigger: "axis",
-        axisPointer: { type: "line" },
+        trigger: "item", // Changed from "axis" to "item" to show on hover over data points
         textStyle: { fontFamily: "Poppins, sans-serif" },
+        formatter: (params: any) => {
+          if (Array.isArray(params)) params = params[0];
+          if (!params || !params.data) return '';
+          
+          const [timestamp, value] = params.data;
+          const time = new Date(timestamp).toLocaleTimeString('de-DE', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          });
+          
+          let label = '';
+          let unit = '';
+          
+          if (params.seriesName.includes('Heart Rate')) {
+            label = 'HR';
+            unit = ' bpm';
+          } else if (params.seriesName.includes('Systolic')) {
+            label = 'Systolic BP';
+            unit = ' mmHg';
+          } else if (params.seriesName.includes('Diastolic')) {
+            label = 'Diastolic BP';
+            unit = ' mmHg';
+          } else if (params.seriesName.includes('SpO2')) {
+            label = 'SpO₂';
+            unit = '%';
+          }
+          
+          return `<div style="padding: 4px 8px;">
+            <div style="font-weight: 600; margin-bottom: 2px;">${label}: ${value}${unit}</div>
+            <div style="font-size: 11px; opacity: 0.8;">${time}</div>
+          </div>`;
+        },
       },
     } as echarts.EChartsOption;
   }, [data, isDark, activeSwimlanes, now, hrDataPoints, bpDataPoints, spo2DataPoints, zoomPercent, pendingSysValue, bpEntryMode]);
