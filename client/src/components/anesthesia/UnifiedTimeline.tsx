@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Activity, Heart, Wind, Combine, Plus, X, ChevronDown, ChevronRight, Undo2 } from "lucide-react";
+import { Activity, Heart, Wind, Combine, Plus, X, ChevronDown, ChevronRight, Undo2, Clock } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,28 @@ export type UnifiedTimelineData = {
   vitals: TimelineVitals;
   events: TimelineEvent[];
 };
+
+// Anesthesia time markers configuration
+export type AnesthesiaTimeMarker = {
+  id: string;
+  code: string; // A1, X1, F, etc.
+  label: string;
+  color: string;
+  bgColor: string;
+  time: number | null; // null if not yet placed
+};
+
+// Predefined anesthesia time markers in sequence
+export const ANESTHESIA_TIME_MARKERS: Omit<AnesthesiaTimeMarker, 'time'>[] = [
+  { id: 'A1', code: 'A1', label: 'Anesthesia Presence Start', color: '#FFFFFF', bgColor: '#EF4444' }, // Red
+  { id: 'X1', code: 'X1', label: 'Anesthesia Start', color: '#FFFFFF', bgColor: '#F97316' }, // Orange
+  { id: 'F', code: 'F', label: 'OR Release', color: '#FFFFFF', bgColor: '#10B981' }, // Green
+  { id: 'B1', code: 'B1', label: 'Surgical Measures Start', color: '#000000', bgColor: '#06B6D4' }, // Cyan
+  { id: 'O1', code: 'O1', label: 'Surgical Incision', color: '#FFFFFF', bgColor: '#8B5CF6' }, // Purple
+  { id: 'O2', code: 'O2', label: 'Surgical Suture', color: '#FFFFFF', bgColor: '#8B5CF6' }, // Purple
+  { id: 'B2', code: 'B2', label: 'Surgical Measures End', color: '#000000', bgColor: '#06B6D4' }, // Cyan
+  { id: 'X2', code: 'X2', label: 'Anesthesia End', color: '#FFFFFF', bgColor: '#F97316' }, // Orange
+];
 
 // Centralized swimlane configuration - easy to add/remove swimlanes
 type SwimlaneConfig = {
@@ -122,6 +144,12 @@ export function UnifiedTimeline({
     index: number;
   } | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+
+  // State for anesthesia time markers
+  const [timeMarkers, setTimeMarkers] = useState<AnesthesiaTimeMarker[]>(
+    ANESTHESIA_TIME_MARKERS.map(marker => ({ ...marker, time: null }))
+  );
+  const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
 
   // Detect touch device on mount
   useEffect(() => {
@@ -343,6 +371,46 @@ export function UnifiedTimeline({
 
     setEditDialogOpen(false);
     setEditingValue(null);
+  };
+
+  // Handle clicking on Zeiten swimlane to place next time marker
+  const handleZeitenClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    
+    // Find next unplaced marker
+    const nextMarkerIndex = timeMarkers.findIndex(m => m.time === null);
+    if (nextMarkerIndex === -1) {
+      toast({
+        title: "All markers placed",
+        description: "All anesthesia time markers have been placed. Use the clock icon to edit times.",
+        duration: 3000,
+      });
+      return;
+    }
+    
+    // Use tracked zoom state (updated by dataZoom event listener)
+    const visibleStart = currentZoomStart ?? data.startTime;
+    const visibleEnd = currentZoomEnd ?? data.endTime;
+    const visibleRange = visibleEnd - visibleStart;
+    
+    // Convert x-position to time
+    const xPercent = x / rect.width;
+    let time = visibleStart + (xPercent * visibleRange);
+    
+    // Snap to nearest vertical grid line - use the current snap interval (already calculated)
+    time = Math.round(time / currentSnapInterval) * currentSnapInterval;
+    
+    // Update the marker with the time
+    const updated = [...timeMarkers];
+    updated[nextMarkerIndex] = { ...updated[nextMarkerIndex], time };
+    setTimeMarkers(updated);
+    
+    toast({
+      title: `${updated[nextMarkerIndex].code} placed`,
+      description: `${updated[nextMarkerIndex].label} at ${new Date(time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
+      duration: 2000,
+    });
   };
 
   // Undo last vital entry
@@ -1431,6 +1499,7 @@ export function UnifiedTimeline({
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
         onResetZoom={handleResetZoom}
+        onClockClick={() => setBulkEditDialogOpen(true)}
       />
       
       {/* Swimlane backgrounds - explicit height matching vertical lines extent */}
@@ -1853,6 +1922,66 @@ export function UnifiedTimeline({
         </div>
       )}
 
+      {/* Interactive layer for Zeiten swimlane - to place time markers */}
+      {!activeToolMode && (() => {
+        const zeitenLane = swimlanePositions.find(lane => lane.id === 'zeiten');
+        if (!zeitenLane) return null;
+        
+        return (
+          <div
+            className="absolute z-25 cursor-pointer hover:bg-primary/5"
+            style={{
+              left: '200px',
+              right: '10px',
+              top: `${zeitenLane.top}px`,
+              height: `${zeitenLane.height}px`,
+            }}
+            onClick={handleZeitenClick}
+            data-testid="interactive-zeiten-lane"
+          />
+        );
+      })()}
+
+      {/* Time marker badges on the timeline */}
+      {timeMarkers.filter(m => m.time !== null).map((marker) => {
+        const visibleStart = currentZoomStart ?? data.startTime;
+        const visibleEnd = currentZoomEnd ?? data.endTime;
+        const visibleRange = visibleEnd - visibleStart;
+        
+        // Calculate x position from time
+        const xPercent = ((marker.time! - visibleStart) / visibleRange) * 100;
+        
+        // Only render if in visible range
+        if (xPercent < 0 || xPercent > 100) return null;
+        
+        const zeitenLane = swimlanePositions.find(lane => lane.id === 'zeiten');
+        if (!zeitenLane) return null;
+        
+        return (
+          <div
+            key={marker.id}
+            className="absolute z-40 pointer-events-none flex items-center justify-center"
+            style={{
+              left: `calc(200px + ${xPercent}% - 16px)`, // 200px offset + xPercent - half badge width
+              top: `${zeitenLane.top + 4}px`,
+              width: '32px',
+              height: '32px',
+            }}
+          >
+            <div
+              className="w-8 h-8 rounded flex items-center justify-center text-xs font-bold shadow-md"
+              style={{
+                backgroundColor: marker.bgColor,
+                color: marker.color,
+              }}
+              data-testid={`time-marker-${marker.code}`}
+            >
+              {marker.code}
+            </div>
+          </div>
+        );
+      })}
+
       {/* Add Medication Dialog */}
       <Dialog open={showAddMedDialog} onOpenChange={setShowAddMedDialog}>
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-add-medication">
@@ -1918,6 +2047,85 @@ export function UnifiedTimeline({
               }}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Edit Anesthesia Times Dialog */}
+      <Dialog open={bulkEditDialogOpen} onOpenChange={setBulkEditDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]" data-testid="dialog-bulk-edit-times">
+          <DialogHeader>
+            <DialogTitle>Edit Anesthesia Times</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+            {timeMarkers.map((marker, index) => (
+              <div key={marker.id} className="grid grid-cols-[auto_1fr_auto] gap-3 items-center">
+                <div
+                  className="w-10 h-10 rounded flex items-center justify-center text-xs font-bold shadow-md"
+                  style={{
+                    backgroundColor: marker.bgColor,
+                    color: marker.color,
+                  }}
+                >
+                  {marker.code}
+                </div>
+                <div className="grid gap-1">
+                  <Label htmlFor={`time-${marker.id}`} className="text-sm font-medium">
+                    {marker.label}
+                  </Label>
+                  <Input
+                    id={`time-${marker.id}`}
+                    type="time"
+                    value={marker.time ? new Date(marker.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : ''}
+                    onChange={(e) => {
+                      if (!e.target.value) return;
+                      const [hours, minutes] = e.target.value.split(':').map(Number);
+                      const date = new Date(marker.time || Date.now());
+                      date.setHours(hours, minutes, 0, 0);
+                      const updated = [...timeMarkers];
+                      updated[index] = { ...updated[index], time: date.getTime() };
+                      setTimeMarkers(updated);
+                    }}
+                    data-testid={`input-time-${marker.code}`}
+                  />
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const updated = [...timeMarkers];
+                    updated[index] = { ...updated[index], time: null };
+                    setTimeMarkers(updated);
+                  }}
+                  data-testid={`button-clear-${marker.code}`}
+                  disabled={marker.time === null}
+                >
+                  Clear
+                </Button>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setBulkEditDialogOpen(false)}
+              data-testid="button-close-bulk-edit"
+            >
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                setBulkEditDialogOpen(false);
+                toast({
+                  title: "Times saved",
+                  description: "Anesthesia times have been updated",
+                  duration: 2000,
+                });
+              }}
+              data-testid="button-save-bulk-edit"
+            >
+              Save
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

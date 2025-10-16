@@ -1,7 +1,7 @@
 import { useMemo, useEffect, useRef, useState, useCallback } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Search, GripVertical } from "lucide-react";
+import { Search, GripVertical, Clock } from "lucide-react";
 
 interface StickyTimelineHeaderProps {
   startTime: number;
@@ -14,6 +14,7 @@ interface StickyTimelineHeaderProps {
   onZoomIn?: () => void;
   onZoomOut?: () => void;
   onResetZoom?: () => void;
+  onClockClick?: () => void;
 }
 
 export function StickyTimelineHeader({
@@ -27,6 +28,7 @@ export function StickyTimelineHeader({
   onZoomIn,
   onZoomOut,
   onResetZoom,
+  onClockClick,
 }: StickyTimelineHeaderProps) {
   const chartRef = useRef<any>(null);
   const dragRef = useRef<{ isDragging: boolean; startX: number; startY: number }>({
@@ -179,13 +181,24 @@ export function StickyTimelineHeader({
 
   return (
     <>
-      <div className="sticky top-0 z-50 bg-background -mt-px" style={{ height: '32px' }}>
+      <div className="sticky top-0 z-50 bg-background -mt-px relative" style={{ height: '32px' }}>
         <ReactECharts
           ref={chartRef}
           option={option}
           style={{ height: "32px", width: "100%" }}
           opts={{ renderer: "canvas" }}
         />
+        {/* Clock icon for editing anesthesia times */}
+        {onClockClick && (
+          <button
+            onClick={onClockClick}
+            className="absolute top-1 right-4 p-1 hover:bg-muted rounded-md transition-colors z-[60]"
+            data-testid="button-edit-anesthesia-times"
+            title="Edit Anesthesia Times"
+          >
+            <Clock className="w-5 h-5 text-foreground" />
+          </button>
+        )}
       </div>
 
       {/* Touch-Friendly Draggable Controls with Glass Effect - Fixed positioning for unrestricted dragging */}
