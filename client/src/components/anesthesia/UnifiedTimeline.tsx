@@ -998,8 +998,13 @@ export function UnifiedTimeline({
       const option = chart.getOption() as any;
       const dataZoom = option.dataZoom?.[0];
       if (dataZoom) {
-        const currentMin = dataZoom.startValue;
-        const currentMax = dataZoom.endValue;
+        // Calculate actual values from percentages
+        const start = dataZoom.start ?? 0;
+        const end = dataZoom.end ?? 100;
+        const fullRange = data.endTime - data.startTime;
+        
+        const currentMin = data.startTime + (start / 100) * fullRange;
+        const currentMax = data.startTime + (end / 100) * fullRange;
         const currentSpan = currentMax - currentMin;
         
         // Find current level and go one step smaller
@@ -1037,8 +1042,13 @@ export function UnifiedTimeline({
       const option = chart.getOption() as any;
       const dataZoom = option.dataZoom?.[0];
       if (dataZoom) {
-        const currentMin = dataZoom.startValue;
-        const currentMax = dataZoom.endValue;
+        // Calculate actual values from percentages
+        const start = dataZoom.start ?? 0;
+        const end = dataZoom.end ?? 100;
+        const fullRange = data.endTime - data.startTime;
+        
+        const currentMin = data.startTime + (start / 100) * fullRange;
+        const currentMax = data.startTime + (end / 100) * fullRange;
         const currentSpan = currentMax - currentMin;
         
         // Find current level and go one step larger
@@ -1076,8 +1086,13 @@ export function UnifiedTimeline({
       const option = chart.getOption() as any;
       const dataZoom = option.dataZoom?.[0];
       if (dataZoom) {
-        const currentMin = dataZoom.startValue;
-        const currentMax = dataZoom.endValue;
+        // Calculate actual values from percentages
+        const start = dataZoom.start ?? 0;
+        const end = dataZoom.end ?? 100;
+        const fullRange = data.endTime - data.startTime;
+        
+        const currentMin = data.startTime + (start / 100) * fullRange;
+        const currentMax = data.startTime + (end / 100) * fullRange;
         const span = currentMax - currentMin;
         const panStep = Math.max(span * 0.1, 5 * 60 * 1000);
         
@@ -1105,8 +1120,13 @@ export function UnifiedTimeline({
       const option = chart.getOption() as any;
       const dataZoom = option.dataZoom?.[0];
       if (dataZoom) {
-        const currentMin = dataZoom.startValue;
-        const currentMax = dataZoom.endValue;
+        // Calculate actual values from percentages
+        const start = dataZoom.start ?? 0;
+        const end = dataZoom.end ?? 100;
+        const fullRange = data.endTime - data.startTime;
+        
+        const currentMin = data.startTime + (start / 100) * fullRange;
+        const currentMax = data.startTime + (end / 100) * fullRange;
         const span = currentMax - currentMin;
         const panStep = Math.max(span * 0.1, 5 * 60 * 1000);
         
