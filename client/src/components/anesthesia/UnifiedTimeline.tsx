@@ -282,19 +282,17 @@ export function UnifiedTimeline({
   // Track initial zoom state
   const hasSetInitialZoomRef = useRef(false);
 
-  // Handle chart ready - set initial 120-minute zoom (24 cells × 5min intervals)
+  // Handle chart ready - set initial 60-minute zoom (1 hour)
   const handleChartReady = (chart: any) => {
     if (hasSetInitialZoomRef.current) return;
 
     const currentTime = now || data.endTime;
-    const sixtyMinutes = 60 * 60 * 1000;
-    const initialStartTime = currentTime - sixtyMinutes;
-    const initialEndTime = currentTime + sixtyMinutes;
+    const thirtyMinutes = 30 * 60 * 1000;
+    const initialStartTime = currentTime - thirtyMinutes;
+    const initialEndTime = currentTime + thirtyMinutes;
     
     const startPercent = ((initialStartTime - data.startTime) / (data.endTime - data.startTime)) * 100;
     const endPercent = ((initialEndTime - data.startTime) / (data.endTime - data.startTime)) * 100;
-    
-    console.log('Setting initial 120-min zoom:', startPercent, 'to', endPercent);
     
     // Set zoom state first so useMemo picks it up
     setZoomPercent({ start: startPercent, end: endPercent });
@@ -470,21 +468,15 @@ export function UnifiedTimeline({
     };
   }, [chartRef, data, isDark, activeSwimlanes, now, currentZoomStart, currentZoomEnd, currentTime]);
 
-  // Update vertical lines when zoom changes
+  // Update zoom state when zoom changes
   useEffect(() => {
     const chart = chartRef.current?.getEchartsInstance();
     if (!chart) return;
 
-    const updateVerticalLines = () => {
-      console.log('updateVerticalLines called');
-      // Get visible range from dataZoom percentages
+    const updateZoomState = () => {
       const option = chart.getOption() as any;
       const dataZoom = option.dataZoom?.[0];
-      
-      if (!dataZoom) {
-        console.log('No dataZoom found in updateVerticalLines');
-        return;
-      }
+      if (!dataZoom) return;
       
       const start = dataZoom.start ?? 0;
       const end = dataZoom.end ?? 100;
@@ -492,77 +484,25 @@ export function UnifiedTimeline({
       
       const visibleStart = data.startTime + (start / 100) * fullRange;
       const visibleEnd = data.startTime + (end / 100) * fullRange;
-      const visibleRange = visibleEnd - visibleStart;
-      const viewSpanMinutes = visibleRange / (60 * 1000);
       
-      // Update zoom state for interactive layer to use
+      // Update zoom state for interactive layer
       setCurrentZoomStart(visibleStart);
       setCurrentZoomEnd(visibleEnd);
       
-      // Calculate splitNumber for 24-cell grid (splitNumber = divisions per hour)
-      let splitNumber: number;
-      let minorInterval: number;
-      
-      if (viewSpanMinutes <= 36) {
-        minorInterval = 1 * 60 * 1000; // 1 min intervals
-        splitNumber = 60; // 60 divisions per hour
-      } else if (viewSpanMinutes <= 84) {
-        minorInterval = 2 * 60 * 1000; // 2 min intervals
-        splitNumber = 30; // 30 divisions per hour
-      } else if (viewSpanMinutes <= 180) {
-        minorInterval = 5 * 60 * 1000; // 5 min intervals - DEFAULT
-        splitNumber = 12; // 12 divisions per hour
-      } else if (viewSpanMinutes <= 300) {
-        minorInterval = 10 * 60 * 1000; // 10 min intervals
-        splitNumber = 6; // 6 divisions per hour
-      } else if (viewSpanMinutes <= 540) {
-        minorInterval = 15 * 60 * 1000; // 15 min intervals
-        splitNumber = 4; // 4 divisions per hour
-      } else if (viewSpanMinutes <= 1080) {
-        minorInterval = 30 * 60 * 1000; // 30 min intervals
-        splitNumber = 2; // 2 divisions per hour
-      } else {
-        minorInterval = 60 * 60 * 1000; // 60 min intervals
-        splitNumber = 1; // 1 division per hour (no minor lines, only hours)
-      }
-      
-      console.log('Updating splitNumber - viewSpanMinutes:', viewSpanMinutes, 'splitNumber:', splitNumber, 'interval (min):', minorInterval / 60000);
-      setCurrentSnapInterval(minorInterval);
-      
-      // Update x-axis splitNumber for all grids
-      const grids = option.grid;
-      const updatedXAxis = option.xAxis.map((axis: any) => ({
-        ...axis,
-        minorTick: {
-          ...axis.minorTick,
-          splitNumber: splitNumber,
-        },
-      }));
-      
-      chart.setOption({
-        xAxis: updatedXAxis,
-      });
-
-      // Constants (must match option calculation)
-      const VITALS_TOP = 32;
-      const VITALS_HEIGHT = 340;
-      const oneHour = 60 * 60 * 1000;
-      const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
-      const chartHeight = VITALS_HEIGHT + swimlanesHeight;
-
-      // ECharts splitNumber is now dynamically updated above - no custom graphics needed
+      // Set snap interval to 5 minutes (simple fixed interval)
+      setCurrentSnapInterval(5 * 60 * 1000);
     };
 
     // Update immediately
-    setTimeout(updateVerticalLines, 50);
+    setTimeout(updateZoomState, 50);
 
-    // Listen for zoom events (ECharts event is 'datazoom' lowercase)
-    chart.on('datazoom', updateVerticalLines);
+    // Listen for zoom events
+    chart.on('datazoom', updateZoomState);
 
     return () => {
-      chart.off('datazoom', updateVerticalLines);
+      chart.off('datazoom', updateZoomState);
     };
-  }, [chartRef, activeSwimlanes, isDark, currentZoomStart, currentZoomEnd]);
+  }, [chartRef, data.startTime, data.endTime]);
 
   const option = useMemo(() => {
     // Layout constants
@@ -576,11 +516,11 @@ export function UnifiedTimeline({
     const currentTime = now || data.endTime; // Use provided "now" or fall back to endTime
     const fiveMinutes = 5 * 60 * 1000;
     const tenMinutes = 10 * 60 * 1000;
-    const sixtyMinutes = 60 * 60 * 1000;
+    const thirtyMinutes = 30 * 60 * 1000;
     
-    // Initial view: 120-minute window from -60min to +60min around NOW (24 cells × 5min)
-    const initialStartTime = currentTime - sixtyMinutes;
-    const initialEndTime = currentTime + sixtyMinutes;
+    // Initial view: 60-minute window (1 hour) from -30min to +30min around NOW
+    const initialStartTime = currentTime - thirtyMinutes;
+    const initialEndTime = currentTime + thirtyMinutes;
 
     // Calculate swimlane positions dynamically
     let currentTop = SWIMLANE_START;
@@ -632,6 +572,7 @@ export function UnifiedTimeline({
         show: false, // Hide ticks
         lineStyle: { color: isDark ? "#444444" : "#d1d5db" }
       },
+      splitNumber: 12, // Fixed grid density - 12 major divisions
       splitLine: { 
         show: true, // Show hour lines
         lineStyle: {
@@ -642,7 +583,7 @@ export function UnifiedTimeline({
       },
       minorTick: {
         show: true,
-        splitNumber: 12, // Will be updated dynamically
+        splitNumber: 12, // 12 minor divisions between major lines
       },
       minorSplitLine: {
         show: true, // Show minor grid lines
@@ -800,71 +741,8 @@ export function UnifiedTimeline({
       });
     }
     
-    // Generate initial vertical lines for the initial visible range
-    const verticalLines: any[] = [];
-    const initialVisibleRange = initialEndTime - initialStartTime;
-    const viewSpanMinutes = initialVisibleRange / (60 * 1000);
-    
-    console.log('Initial grid calc - viewSpanMinutes:', viewSpanMinutes);
-    
-    // Determine tick interval to maintain 24 cells
-    let minorInterval: number;
-    if (viewSpanMinutes <= 36) {
-      minorInterval = 1 * 60 * 1000; // 1 min intervals → 24-min span (24 cells)
-    } else if (viewSpanMinutes <= 84) {
-      minorInterval = 2 * 60 * 1000; // 2 min intervals → 48-min span (24 cells)
-    } else if (viewSpanMinutes <= 180) {
-      minorInterval = 5 * 60 * 1000; // 5 min intervals → 120-min span (24 cells) DEFAULT
-    } else if (viewSpanMinutes <= 300) {
-      minorInterval = 10 * 60 * 1000; // 10 min intervals → 240-min span (24 cells)
-    } else if (viewSpanMinutes <= 540) {
-      minorInterval = 15 * 60 * 1000; // 15 min intervals → 360-min span (24 cells)
-    } else if (viewSpanMinutes <= 1080) {
-      minorInterval = 30 * 60 * 1000; // 30 min intervals → 720-min span (24 cells)
-    } else {
-      minorInterval = 60 * 60 * 1000; // 60 min intervals → 1440-min span (24 cells)
-    }
-    
-    console.log('Initial grid interval (min):', minorInterval / 60000);
-    
-    // Draw major hour lines
-    for (let t = Math.floor(initialStartTime / oneHour) * oneHour; t <= initialEndTime + oneHour; t += oneHour) {
-      const xPercent = ((t - initialStartTime) / initialVisibleRange) * 100;
-      const clampedPercent = Math.max(0, Math.min(100, xPercent));
-      
-      verticalLines.push({
-        type: "line",
-        shape: { x1: 0, y1: 0, x2: 0, y2: chartHeight },
-        position: [`${clampedPercent}%`, VITALS_TOP],
-        style: {
-          stroke: isDark ? "#444444" : "#d1d5db",
-          lineWidth: 1,
-        },
-        silent: true,
-        z: 1,
-      });
-    }
-    
-    // Draw minor ticks - use the adaptive interval calculated above
-    for (let t = Math.floor(initialStartTime / minorInterval) * minorInterval; t <= initialEndTime + minorInterval; t += minorInterval) {
-      if (t % oneHour === 0) continue; // Skip hour lines
-      
-      const xPercent = ((t - initialStartTime) / initialVisibleRange) * 100;
-      const clampedPercent = Math.max(0, Math.min(100, xPercent));
-      
-      verticalLines.push({
-        type: "line",
-        shape: { x1: 0, y1: 0, x2: 0, y2: chartHeight },
-        position: [`${clampedPercent}%`, VITALS_TOP],
-        style: {
-          stroke: isDark ? "#333333" : "#e5e7eb",
-          lineWidth: 0.5,
-          lineDash: [4, 4],
-        },
-        silent: true,
-        z: 1,
-      });
-    }
+    // ECharts automatically generates vertical grid lines via splitLine/minorSplitLine in x-axis config
+    // No need for custom graphics anymore
 
     return {
       backgroundColor: "transparent",
@@ -874,16 +752,6 @@ export function UnifiedTimeline({
       yAxis: yAxes,
       series,
       graphic: [
-        // Vertical grid lines group (ID includes swimlane count to force recreation when height changes)
-        {
-          id: `vertical-lines-group-${activeSwimlanes.length}`,
-          type: "group",
-          left: GRID_LEFT,
-          width: `calc(100% - ${GRID_LEFT + GRID_RIGHT}px)`,
-          children: verticalLines,
-          silent: true,
-          z: 1,
-        },
         // Y-axis labels
         ...yAxisLabels.map((label, i) => ({ ...label, id: `y-label-${i}` })),
         // Zone placeholders (will be replaced by useEffect)
@@ -954,15 +822,15 @@ export function UnifiedTimeline({
   const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
   const componentHeight = height ?? (VITALS_TOP_POS + VITALS_HEIGHT + swimlanesHeight);
 
-  // Zoom levels maintaining 24 cells: intervals × 24
+  // Zoom levels: time spans for different viewing granularities
   const zoomLevels = [
-    24 * 60 * 1000,      // 24 min (1-min intervals, 24 cells)
-    48 * 60 * 1000,      // 48 min (2-min intervals, 24 cells)
-    2 * 60 * 60 * 1000,  // 120 min (5-min intervals, 24 cells) - DEFAULT
-    4 * 60 * 60 * 1000,  // 240 min (10-min intervals, 24 cells)
-    6 * 60 * 60 * 1000,  // 360 min (15-min intervals, 24 cells)
-    12 * 60 * 60 * 1000, // 720 min (30-min intervals, 24 cells)
-    24 * 60 * 60 * 1000, // 1440 min (60-min intervals, 24 cells)
+    5 * 60 * 1000,       // 5 min
+    10 * 60 * 1000,      // 10 min
+    30 * 60 * 1000,      // 30 min
+    60 * 60 * 1000,      // 60 min (1 hour) - DEFAULT
+    2 * 60 * 60 * 1000,  // 120 min (2 hours)
+    4 * 60 * 60 * 1000,  // 240 min (4 hours)
+    8 * 60 * 60 * 1000,  // 480 min (8 hours)
   ];
 
   // Find closest zoom level to current span
@@ -1000,8 +868,6 @@ export function UnifiedTimeline({
         const currentLevelIndex = findClosestZoomLevel(currentSpan);
         const newLevelIndex = Math.max(0, currentLevelIndex - 1);
         const newSpan = zoomLevels[newLevelIndex];
-        
-        console.log('Zoom In - currentSpan (min):', currentSpan / 60000, 'currentLevelIndex:', currentLevelIndex, 'newLevelIndex:', newLevelIndex, 'newSpan (min):', newSpan / 60000);
         
         const center = (currentMin + currentMax) / 2;
         
@@ -1050,8 +916,6 @@ export function UnifiedTimeline({
         const currentLevelIndex = findClosestZoomLevel(currentSpan);
         const newLevelIndex = Math.min(zoomLevels.length - 1, currentLevelIndex + 1);
         const newSpan = zoomLevels[newLevelIndex];
-        
-        console.log('Zoom Out - currentSpan (min):', currentSpan / 60000, 'currentLevelIndex:', currentLevelIndex, 'newLevelIndex:', newLevelIndex, 'newSpan (min):', newSpan / 60000);
         
         const center = (currentMin + currentMax) / 2;
         
@@ -1161,9 +1025,9 @@ export function UnifiedTimeline({
     const chart = chartRef.current?.getEchartsInstance();
     if (chart) {
       const currentTime = now || data.endTime;
-      const sixtyMinutes = 60 * 60 * 1000;
-      const initialStartTime = currentTime - sixtyMinutes;
-      const initialEndTime = currentTime + sixtyMinutes;
+      const thirtyMinutes = 30 * 60 * 1000;
+      const initialStartTime = currentTime - thirtyMinutes;
+      const initialEndTime = currentTime + thirtyMinutes;
       
       // Convert to percentages for dataZoom
       const fullRange = data.endTime - data.startTime;
