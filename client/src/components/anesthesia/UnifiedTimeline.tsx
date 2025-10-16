@@ -245,6 +245,9 @@ export function UnifiedTimeline({
     setMedications(medications.filter((_, i) => i !== index));
   };
 
+  // Track zoom percentages for useMemo
+  const [zoomPercent, setZoomPercent] = useState<{ start: number; end: number } | null>(null);
+
   // Listen for dataZoom changes to sync with sticky header
   useEffect(() => {
     const chart = chartRef.current?.getEchartsInstance();
@@ -264,6 +267,9 @@ export function UnifiedTimeline({
         
         setCurrentZoomStart(visibleStart);
         setCurrentZoomEnd(visibleEnd);
+        
+        // Track zoom percentages
+        setZoomPercent({ start, end });
       }
     };
 
@@ -291,6 +297,10 @@ export function UnifiedTimeline({
     
     console.log('Setting initial 40-min zoom:', startPercent, 'to', endPercent);
     
+    // Set zoom state first so useMemo picks it up
+    setZoomPercent({ start: startPercent, end: endPercent });
+    
+    // Then set in chart
     chart.setOption({
       dataZoom: [{
         start: startPercent,
@@ -948,6 +958,8 @@ export function UnifiedTimeline({
       dataZoom: [{
         type: "inside",
         xAxisIndex: grids.map((_, i) => i),
+        // Preserve current zoom state if available
+        ...(zoomPercent ? { start: zoomPercent.start, end: zoomPercent.end } : {}),
         throttle: 50,
         zoomLock: true,
         zoomOnMouseWheel: false,
@@ -961,7 +973,7 @@ export function UnifiedTimeline({
         textStyle: { fontFamily: "Poppins, sans-serif" },
       },
     } as echarts.EChartsOption;
-  }, [data, isDark, activeSwimlanes, now, hrDataPoints, bpDataPoints, spo2DataPoints]);
+  }, [data, isDark, activeSwimlanes, now, hrDataPoints, bpDataPoints, spo2DataPoints, zoomPercent]);
 
   // Calculate component height
   const VITALS_HEIGHT = 340;
