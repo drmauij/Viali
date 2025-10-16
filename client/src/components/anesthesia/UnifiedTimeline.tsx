@@ -1482,23 +1482,118 @@ export function UnifiedTimeline({
     }
   };
 
-  // Handle camera capture
+  // Handle camera capture with hybrid detection
   const handleCameraCapture = async (imageBase64: string, timestamp: number) => {
     setIsProcessingImage(true);
     
     try {
-      const response = await fetch('/api/analyze-monitor', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: imageBase64 }),
+      // Step 1: Preprocess image (resize, grayscale, compress)
+      const { preprocessImage } = await import('@/lib/imagePreprocessing');
+      const preprocessed = await preprocessImage(imageBase64, {
+        maxWidth: 768,
+        quality: 0.75,
+        grayscale: true,
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to analyze image');
+      toast({
+        title: "Image Preprocessed",
+        description: `Optimized: ${preprocessed.sizeReduction}% smaller`,
+      });
+      
+      // Step 2: Try fast seven-segment detection first
+      const { detectVitalsFromImage, validateVitalRange, clampToRange } = await import('@/lib/sevenSegmentOCR');
+      const localDetection = await detectVitalsFromImage(preprocessed.base64);
+      
+      // Step 3: Determine if we need AI fallback
+      const highConfidenceThreshold = 0.9;
+      const needsAI = 
+        !localDetection.hr || localDetection.hr.confidence < highConfidenceThreshold ||
+        !localDetection.spo2 || localDetection.spo2.confidence < highConfidenceThreshold ||
+        !localDetection.sysBP || localDetection.sysBP.confidence < highConfidenceThreshold ||
+        !localDetection.diaBP || localDetection.diaBP.confidence < highConfidenceThreshold;
+      
+      let finalData: any = {};
+      
+      if (needsAI) {
+        // Step 4: Fall back to OpenAI Vision for low confidence or missing values
+        const response = await fetch('/api/analyze-monitor', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: preprocessed.base64 }),
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to analyze image with AI');
+        }
+        
+        const aiData = await response.json();
+        
+        // Merge local and AI results, preferring high-confidence local values
+        let hr = (localDetection.hr && localDetection.hr.confidence >= highConfidenceThreshold) 
+          ? localDetection.hr.value 
+          : aiData.vitals?.hr;
+        let sysBP = (localDetection.sysBP && localDetection.sysBP.confidence >= highConfidenceThreshold)
+          ? localDetection.sysBP.value
+          : aiData.vitals?.sysBP;
+        let diaBP = (localDetection.diaBP && localDetection.diaBP.confidence >= highConfidenceThreshold)
+          ? localDetection.diaBP.value
+          : aiData.vitals?.diaBP;
+        let spo2 = (localDetection.spo2 && localDetection.spo2.confidence >= highConfidenceThreshold)
+          ? localDetection.spo2.value
+          : aiData.vitals?.spo2;
+        
+        // Apply range validation and clamping
+        if (hr !== null && hr !== undefined && !validateVitalRange('hr', hr)) {
+          hr = clampToRange('hr', hr);
+        }
+        if (sysBP !== null && sysBP !== undefined && !validateVitalRange('sysBP', sysBP)) {
+          sysBP = clampToRange('sysBP', sysBP);
+        }
+        if (diaBP !== null && diaBP !== undefined && !validateVitalRange('diaBP', diaBP)) {
+          diaBP = clampToRange('diaBP', diaBP);
+        }
+        if (spo2 !== null && spo2 !== undefined && !validateVitalRange('spo2', spo2)) {
+          spo2 = clampToRange('spo2', spo2);
+        }
+        
+        finalData = {
+          vitals: { hr, sysBP, diaBP, spo2 },
+          ventilation: aiData.ventilation,
+          tof: aiData.tof,
+          pumps: aiData.pumps,
+          detectionMethod: 'hybrid-ai',
+        };
+      } else {
+        // Use local detection only with range validation
+        let hr = localDetection.hr?.value;
+        let sysBP = localDetection.sysBP?.value;
+        let diaBP = localDetection.diaBP?.value;
+        let spo2 = localDetection.spo2?.value;
+        
+        // Apply range validation and clamping
+        if (hr !== null && hr !== undefined && !validateVitalRange('hr', hr)) {
+          hr = clampToRange('hr', hr);
+        }
+        if (sysBP !== null && sysBP !== undefined && !validateVitalRange('sysBP', sysBP)) {
+          sysBP = clampToRange('sysBP', sysBP);
+        }
+        if (diaBP !== null && diaBP !== undefined && !validateVitalRange('diaBP', diaBP)) {
+          diaBP = clampToRange('diaBP', diaBP);
+        }
+        if (spo2 !== null && spo2 !== undefined && !validateVitalRange('spo2', spo2)) {
+          spo2 = clampToRange('spo2', spo2);
+        }
+        
+        finalData = {
+          vitals: { hr, sysBP, diaBP, spo2 },
+          ventilation: null,
+          tof: null,
+          pumps: null,
+          detectionMethod: 'local-ocr',
+        };
       }
       
-      const data = await response.json();
-      setExtractedData({ ...data, timestamp });
+      setExtractedData({ ...finalData, timestamp });
       setConfirmationDialogOpen(true);
     } catch (error) {
       toast({
@@ -1511,28 +1606,56 @@ export function UnifiedTimeline({
     }
   };
 
-  // Confirm and add extracted data to timeline
-  const handleConfirmExtractedData = () => {
+  // Confirm and add extracted data to timeline with validation
+  const handleConfirmExtractedData = async () => {
     if (!extractedData) return;
 
     const { vitals, ventilation, tof, pumps, timestamp } = extractedData;
     
+    // Import validation utilities
+    const { validateVitalRange, clampToRange } = await import('@/lib/sevenSegmentOCR');
+    
     let addedItems: string[] = [];
+    let warningItems: string[] = [];
 
-    // Add vitals to timeline (0 is a valid critical value - e.g., asystole)
+    // Add vitals to timeline with range validation (0 is a valid critical value - e.g., asystole)
     if (vitals?.hr !== null && vitals?.hr !== undefined) {
-      setHrDataPoints(prev => [...prev, [timestamp, vitals.hr]]);
+      let hr = vitals.hr;
+      if (!validateVitalRange('hr', hr)) {
+        const clamped = clampToRange('hr', hr);
+        warningItems.push(`HR ${hr}→${clamped} (out of range)`);
+        hr = clamped;
+      }
+      setHrDataPoints(prev => [...prev, [timestamp, hr]]);
       addedItems.push('HR');
     }
     if ((vitals?.sysBP !== null && vitals?.sysBP !== undefined) && (vitals?.diaBP !== null && vitals?.diaBP !== undefined)) {
+      let sysBP = vitals.sysBP;
+      let diaBP = vitals.diaBP;
+      if (!validateVitalRange('sysBP', sysBP)) {
+        const clamped = clampToRange('sysBP', sysBP);
+        warningItems.push(`SysBP ${sysBP}→${clamped}`);
+        sysBP = clamped;
+      }
+      if (!validateVitalRange('diaBP', diaBP)) {
+        const clamped = clampToRange('diaBP', diaBP);
+        warningItems.push(`DiaBP ${diaBP}→${clamped}`);
+        diaBP = clamped;
+      }
       setBpDataPoints(prev => ({
-        sys: [...prev.sys, [timestamp, vitals.sysBP]],
-        dia: [...prev.dia, [timestamp, vitals.diaBP]],
+        sys: [...prev.sys, [timestamp, sysBP]],
+        dia: [...prev.dia, [timestamp, diaBP]],
       }));
       addedItems.push('BP');
     }
     if (vitals?.spo2 !== null && vitals?.spo2 !== undefined) {
-      setSpo2DataPoints(prev => [...prev, [timestamp, vitals.spo2]]);
+      let spo2 = vitals.spo2;
+      if (!validateVitalRange('spo2', spo2)) {
+        const clamped = clampToRange('spo2', spo2);
+        warningItems.push(`SpO2 ${spo2}→${clamped}`);
+        spo2 = clamped;
+      }
+      setSpo2DataPoints(prev => [...prev, [timestamp, spo2]]);
       addedItems.push('SpO2');
     }
 
@@ -1560,14 +1683,20 @@ export function UnifiedTimeline({
       addedItems.push('Pumps (logged)');
     }
 
-    const description = addedItems.length > 0 
+    let description = addedItems.length > 0 
       ? `Added: ${addedItems.join(', ')}` 
       : 'No data extracted from image';
+    
+    // Add warning items if any values were clamped
+    if (warningItems.length > 0) {
+      description += ` | Adjusted: ${warningItems.join(', ')}`;
+    }
 
     toast({
       title: "Data Processed",
       description,
-      duration: 3000,
+      duration: 4000,
+      variant: warningItems.length > 0 ? "default" : "default",
     });
 
     setConfirmationDialogOpen(false);
@@ -2374,13 +2503,23 @@ export function UnifiedTimeline({
                 </div>
               )}
 
-              <div className="text-xs text-muted-foreground">
-                Time: {new Date(extractedData.timestamp).toLocaleString('en-US', { 
-                  hour: '2-digit', 
-                  minute: '2-digit',
-                  second: '2-digit',
-                  hour12: false 
-                })}
+              <div className="flex justify-between items-center text-xs text-muted-foreground">
+                <div>
+                  Time: {new Date(extractedData.timestamp).toLocaleString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false 
+                  })}
+                </div>
+                <div className="flex items-center gap-1">
+                  {extractedData.detectionMethod === 'local-ocr' && (
+                    <span className="text-green-600 dark:text-green-400 font-medium">⚡ Fast OCR</span>
+                  )}
+                  {extractedData.detectionMethod === 'hybrid-ai' && (
+                    <span className="text-blue-600 dark:text-blue-400 font-medium">🤖 AI Enhanced</span>
+                  )}
+                </div>
               </div>
             </div>
           )}
