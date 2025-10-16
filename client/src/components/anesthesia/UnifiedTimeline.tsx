@@ -1121,16 +1121,15 @@ export function UnifiedTimeline({
       });
     }
 
-    // Add ventilation parameter scatter series
+    // Add ventilation parameter text labels
     // Note: ventilationParams order: ["etCO2 (mmHg)", "P insp (mbar)", "PEEP (mbar)", "Tidal Volume (ml)", "Respiratory Rate (/min)", "Minute Volume (l/min)", "FiO2 (%)"]
     // Find the ventilation parent swimlane index to calculate correct xAxisIndex and yAxisIndex
     const ventilationParentIndex = activeSwimlanes.findIndex(lane => lane.id === 'ventilation');
     
     if (ventilationParentIndex !== -1 && !collapsedSwimlanes.has('ventilation')) {
-      // Define colors for each ventilation parameter
-      const ventilationColors = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6', '#14b8a6', '#f97316'];
+      const textColor = isDark ? '#ffffff' : '#000000';
       
-      // Add etCO2 scatter series (index 0)
+      // Add etCO2 text labels (index 0)
       if (ventilationData.etCO2.length > 0) {
         const paramIndex = ventilationParentIndex + 1; // First child after parent
         series.push({
@@ -1139,16 +1138,20 @@ export function UnifiedTimeline({
           xAxisIndex: paramIndex + 1, // +1 because vitals is grid 0
           yAxisIndex: paramIndex + 1,
           data: ventilationData.etCO2,
-          symbol: 'circle',
-          symbolSize: 8,
-          itemStyle: { color: ventilationColors[0] },
-          emphasis: { scale: 1.5 },
+          symbol: 'none',
+          label: {
+            show: true,
+            formatter: (params: any) => params.value[1].toString(),
+            fontSize: 12,
+            fontWeight: 'bold',
+            color: textColor,
+          },
           cursor: 'pointer',
           z: 10,
         });
       }
       
-      // Add PIP scatter series (index 1)
+      // Add PIP text labels (index 1)
       if (ventilationData.pip.length > 0) {
         const paramIndex = ventilationParentIndex + 2;
         series.push({
@@ -1157,16 +1160,20 @@ export function UnifiedTimeline({
           xAxisIndex: paramIndex + 1,
           yAxisIndex: paramIndex + 1,
           data: ventilationData.pip,
-          symbol: 'circle',
-          symbolSize: 8,
-          itemStyle: { color: ventilationColors[1] },
-          emphasis: { scale: 1.5 },
+          symbol: 'none',
+          label: {
+            show: true,
+            formatter: (params: any) => params.value[1].toString(),
+            fontSize: 12,
+            fontWeight: 'bold',
+            color: textColor,
+          },
           cursor: 'pointer',
           z: 10,
         });
       }
       
-      // Add PEEP scatter series (index 2)
+      // Add PEEP text labels (index 2)
       if (ventilationData.peep.length > 0) {
         const paramIndex = ventilationParentIndex + 3;
         series.push({
@@ -1175,16 +1182,20 @@ export function UnifiedTimeline({
           xAxisIndex: paramIndex + 1,
           yAxisIndex: paramIndex + 1,
           data: ventilationData.peep,
-          symbol: 'circle',
-          symbolSize: 8,
-          itemStyle: { color: ventilationColors[2] },
-          emphasis: { scale: 1.5 },
+          symbol: 'none',
+          label: {
+            show: true,
+            formatter: (params: any) => params.value[1].toString(),
+            fontSize: 12,
+            fontWeight: 'bold',
+            color: textColor,
+          },
           cursor: 'pointer',
           z: 10,
         });
       }
       
-      // Add Tidal Volume scatter series (index 3)
+      // Add Tidal Volume text labels (index 3)
       if (ventilationData.tidalVolume.length > 0) {
         const paramIndex = ventilationParentIndex + 4;
         series.push({
@@ -1193,16 +1204,20 @@ export function UnifiedTimeline({
           xAxisIndex: paramIndex + 1,
           yAxisIndex: paramIndex + 1,
           data: ventilationData.tidalVolume,
-          symbol: 'circle',
-          symbolSize: 8,
-          itemStyle: { color: ventilationColors[3] },
-          emphasis: { scale: 1.5 },
+          symbol: 'none',
+          label: {
+            show: true,
+            formatter: (params: any) => params.value[1].toString(),
+            fontSize: 12,
+            fontWeight: 'bold',
+            color: textColor,
+          },
           cursor: 'pointer',
           z: 10,
         });
       }
       
-      // Add Respiratory Rate scatter series (index 4)
+      // Add Respiratory Rate text labels (index 4)
       if (ventilationData.respiratoryRate.length > 0) {
         const paramIndex = ventilationParentIndex + 5;
         series.push({
@@ -1211,16 +1226,20 @@ export function UnifiedTimeline({
           xAxisIndex: paramIndex + 1,
           yAxisIndex: paramIndex + 1,
           data: ventilationData.respiratoryRate,
-          symbol: 'circle',
-          symbolSize: 8,
-          itemStyle: { color: ventilationColors[4] },
-          emphasis: { scale: 1.5 },
+          symbol: 'none',
+          label: {
+            show: true,
+            formatter: (params: any) => params.value[1].toString(),
+            fontSize: 12,
+            fontWeight: 'bold',
+            color: textColor,
+          },
           cursor: 'pointer',
           z: 10,
         });
       }
       
-      // Add Minute Volume scatter series (index 5)
+      // Add Minute Volume text labels (index 5)
       if (ventilationData.minuteVolume.length > 0) {
         const paramIndex = ventilationParentIndex + 6;
         series.push({
@@ -1229,16 +1248,20 @@ export function UnifiedTimeline({
           xAxisIndex: paramIndex + 1,
           yAxisIndex: paramIndex + 1,
           data: ventilationData.minuteVolume,
-          symbol: 'circle',
-          symbolSize: 8,
-          itemStyle: { color: ventilationColors[5] },
-          emphasis: { scale: 1.5 },
+          symbol: 'none',
+          label: {
+            show: true,
+            formatter: (params: any) => params.value[1].toString(),
+            fontSize: 12,
+            fontWeight: 'bold',
+            color: textColor,
+          },
           cursor: 'pointer',
           z: 10,
         });
       }
       
-      // Add FiO2 scatter series (index 6)
+      // Add FiO2 text labels (index 6)
       if (ventilationData.fiO2.length > 0) {
         const paramIndex = ventilationParentIndex + 7;
         series.push({
@@ -1247,10 +1270,14 @@ export function UnifiedTimeline({
           xAxisIndex: paramIndex + 1,
           yAxisIndex: paramIndex + 1,
           data: ventilationData.fiO2,
-          symbol: 'circle',
-          symbolSize: 8,
-          itemStyle: { color: ventilationColors[6] },
-          emphasis: { scale: 1.5 },
+          symbol: 'none',
+          label: {
+            show: true,
+            formatter: (params: any) => params.value[1].toString(),
+            fontSize: 12,
+            fontWeight: 'bold',
+            color: textColor,
+          },
           cursor: 'pointer',
           z: 10,
         });
