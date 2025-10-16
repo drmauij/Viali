@@ -822,8 +822,8 @@ export function UnifiedTimeline({
         xAxisIndex: grids.map((_, i) => i),
         startValue: initialStartTime,
         endValue: initialEndTime,
-        minValueSpan: 1 * 60 * 1000, // 1 minute minimum zoom
-        maxValueSpan: 1 * 60 * 60 * 1000, // 1 hour maximum zoom
+        minValueSpan: 10 * 60 * 1000, // 10 minutes minimum zoom (max zoom in)
+        maxValueSpan: 10 * 60 * 60 * 1000, // 10 hours maximum zoom (max zoom out)
         throttle: 50,
         zoomLock: true, // Completely disable zoom to allow page scrolling
         zoomOnMouseWheel: false, // Disable scroll zoom
@@ -845,6 +845,32 @@ export function UnifiedTimeline({
   const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
   const componentHeight = height ?? (VITALS_TOP_POS + VITALS_HEIGHT + swimlanesHeight);
 
+  // Zoom levels in milliseconds: 10min, 20min, 40min (default), 1hr, 2hr, 4hr, 10hr
+  const zoomLevels = [
+    10 * 60 * 1000,      // 10 minutes (max zoom in)
+    20 * 60 * 1000,      // 20 minutes
+    40 * 60 * 1000,      // 40 minutes (initial/reset)
+    60 * 60 * 1000,      // 1 hour
+    2 * 60 * 60 * 1000,  // 2 hours
+    4 * 60 * 60 * 1000,  // 4 hours
+    10 * 60 * 60 * 1000, // 10 hours (max zoom out)
+  ];
+
+  // Find closest zoom level to current span
+  const findClosestZoomLevel = (currentSpan: number): number => {
+    let closest = zoomLevels[0];
+    let minDiff = Math.abs(currentSpan - closest);
+    
+    for (const level of zoomLevels) {
+      const diff = Math.abs(currentSpan - level);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = level;
+      }
+    }
+    return zoomLevels.indexOf(closest);
+  };
+
   // Zoom and pan handlers
   const handleZoomIn = () => {
     const chart = chartRef.current?.getEchartsInstance();
@@ -855,7 +881,12 @@ export function UnifiedTimeline({
         const currentMin = dataZoom.startValue;
         const currentMax = dataZoom.endValue;
         const currentSpan = currentMax - currentMin;
-        const newSpan = Math.max(currentSpan * 0.5, 5 * 60 * 1000);
+        
+        // Find current level and go one step smaller
+        const currentLevelIndex = findClosestZoomLevel(currentSpan);
+        const newLevelIndex = Math.max(0, currentLevelIndex - 1);
+        const newSpan = zoomLevels[newLevelIndex];
+        
         const center = (currentMin + currentMax) / 2;
         
         // Constrain to data bounds
@@ -889,7 +920,12 @@ export function UnifiedTimeline({
         const currentMin = dataZoom.startValue;
         const currentMax = dataZoom.endValue;
         const currentSpan = currentMax - currentMin;
-        const newSpan = Math.min(currentSpan * 2, 6 * 60 * 60 * 1000);
+        
+        // Find current level and go one step larger
+        const currentLevelIndex = findClosestZoomLevel(currentSpan);
+        const newLevelIndex = Math.min(zoomLevels.length - 1, currentLevelIndex + 1);
+        const newSpan = zoomLevels[newLevelIndex];
+        
         const center = (currentMin + currentMax) / 2;
         
         // Constrain to data bounds
