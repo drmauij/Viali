@@ -525,7 +525,7 @@ export function UnifiedTimeline({
 
   const option = useMemo(() => {
     // Layout constants
-    const VITALS_TOP = 56; // Space for sticky header (56px)
+    const VITALS_TOP = 32; // Space for sticky header (32px)
     const VITALS_HEIGHT = 340;
     const SWIMLANE_START = VITALS_TOP + VITALS_HEIGHT; // 396px
     const GRID_LEFT = 200; // Increased width to accommodate longer header text
@@ -1073,7 +1073,7 @@ export function UnifiedTimeline({
       {/* Left sidebar */}
       <div className="absolute left-0 top-0 w-[200px] h-full border-r border-border z-30 bg-background">
         {/* Y-axis scales - manually rendered on right side of white area */}
-        <div className="absolute top-[56px] h-[340px] w-full pointer-events-none z-50">
+        <div className="absolute top-[32px] h-[340px] w-full pointer-events-none z-50">
           {/* First scale: 0-220 with 20-unit steps (11 values) - close to grid, grid extends -20 to 240 for top and bottom padding */}
           {[0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220].map((val) => {
             const yPercent = ((240 - val) / 260) * 100;
@@ -1113,7 +1113,7 @@ export function UnifiedTimeline({
         </div>
         
         {/* Vitals icon buttons */}
-        <div className="absolute top-[56px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
+        <div className="absolute top-[32px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
           <button
             className="p-2 rounded-md border border-border bg-background hover:bg-accent/50 transition-colors flex items-center justify-center shadow-sm"
             data-testid="button-vitals-bp"
