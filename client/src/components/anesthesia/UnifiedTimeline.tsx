@@ -826,6 +826,7 @@ export function UnifiedTimeline({
     10 * 60 * 1000,      // 10 min
     30 * 60 * 1000,      // 30 min
     60 * 60 * 1000,      // 60 min (1 hour) - DEFAULT
+    100 * 60 * 1000,     // 100 min - added to produce 10-min intervals
     2 * 60 * 60 * 1000,  // 120 min (2 hours)
     4 * 60 * 60 * 1000,  // 240 min (4 hours)
     8 * 60 * 60 * 1000,  // 480 min (8 hours)
