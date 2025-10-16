@@ -1127,27 +1127,43 @@ export function UnifiedTimeline({
         {/* Vitals icon buttons */}
         <div className="absolute top-[32px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
           <button
-            className="p-2 rounded-md border border-border bg-background hover:bg-accent/50 transition-colors flex items-center justify-center shadow-sm"
+            onClick={() => setActiveToolMode(activeToolMode === 'bp' ? null : 'bp')}
+            className={`p-2 rounded-md border transition-colors flex items-center justify-center shadow-sm ${
+              activeToolMode === 'bp' 
+                ? 'border-red-500 bg-red-500/20' 
+                : 'border-border bg-background hover:bg-accent/50'
+            }`}
             data-testid="button-vitals-bp"
             title="Blood Pressure"
           >
-            <Activity className="w-5 h-5" />
+            <Activity className={`w-5 h-5 ${activeToolMode === 'bp' ? 'text-red-500' : ''}`} />
           </button>
           <button
-            className="p-2 rounded-md border border-border bg-background hover:bg-accent/50 transition-colors flex items-center justify-center shadow-sm"
+            onClick={() => setActiveToolMode(activeToolMode === 'hr' ? null : 'hr')}
+            className={`p-2 rounded-md border transition-colors flex items-center justify-center shadow-sm ${
+              activeToolMode === 'hr' 
+                ? 'border-red-500 bg-red-500/20' 
+                : 'border-border bg-background hover:bg-accent/50'
+            }`}
             data-testid="button-vitals-heart"
             title="Heart Rate"
           >
-            <Heart className="w-5 h-5" />
+            <Heart className={`w-5 h-5 ${activeToolMode === 'hr' ? 'text-red-500' : ''}`} />
           </button>
           <button
-            className="p-2 rounded-md border border-border bg-background hover:bg-accent/50 transition-colors flex items-center justify-center shadow-sm"
+            onClick={() => setActiveToolMode(activeToolMode === 'spo2' ? null : 'spo2')}
+            className={`p-2 rounded-md border transition-colors flex items-center justify-center shadow-sm ${
+              activeToolMode === 'spo2' 
+                ? 'border-purple-500 bg-purple-500/20' 
+                : 'border-border bg-background hover:bg-accent/50'
+            }`}
             data-testid="button-vitals-oxygen"
             title="Oxygenation"
           >
-            <Wind className="w-5 h-5" />
+            <Wind className={`w-5 h-5 ${activeToolMode === 'spo2' ? 'text-purple-500' : ''}`} />
           </button>
           <button
+            onClick={() => setActiveToolMode(null)}
             className="p-2 rounded-md border border-border bg-background hover:bg-accent/50 transition-colors flex items-center justify-center shadow-sm"
             data-testid="button-vitals-combo"
             title="Combined View"
