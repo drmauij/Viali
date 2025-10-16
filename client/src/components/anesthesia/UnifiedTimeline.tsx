@@ -670,8 +670,59 @@ export function UnifiedTimeline({
       })),
     ];
 
-    // Series (empty for now - to be populated with data)
+    // Series - HR data points with heart symbols
     const series: any[] = [];
+    
+    // Add HR series if there are data points
+    if (hrDataPoints.length > 0) {
+      series.push({
+        type: 'scatter',
+        name: 'Heart Rate',
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        data: hrDataPoints,
+        symbol: 'path://M23.6,0c-3.4,0-6.3,2.7-7.6,5.6C14.7,2.7,11.8,0,8.4,0C3.8,0,0,3.8,0,8.4c0,9.4,9.5,11.9,16,21.2 c6.1-9.3,16-12.1,16-21.2C32,3.8,28.2,0,23.6,0z',
+        symbolSize: 12,
+        itemStyle: {
+          color: '#ef4444', // Red color for heart
+        },
+        z: 10,
+      });
+    }
+    
+    // Add BP series if there are data points
+    if (bpDataPoints.sys.length > 0) {
+      series.push({
+        type: 'scatter',
+        name: 'Systolic BP',
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        data: bpDataPoints.sys,
+        symbol: 'triangle',
+        symbolSize: 10,
+        itemStyle: {
+          color: '#ef4444', // Red color for BP
+        },
+        z: 10,
+      });
+    }
+    
+    // Add SpO2 series if there are data points
+    if (spo2DataPoints.length > 0) {
+      series.push({
+        type: 'scatter',
+        name: 'SpO2',
+        xAxisIndex: 0,
+        yAxisIndex: 1, // Use second y-axis (45-105 range)
+        data: spo2DataPoints,
+        symbol: 'circle',
+        symbolSize: 8,
+        itemStyle: {
+          color: '#8b5cf6', // Purple color for SpO2
+        },
+        z: 10,
+      });
+    }
 
     // Calculate total height for vertical lines - dynamically based on current swimlanes
     const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
@@ -850,7 +901,7 @@ export function UnifiedTimeline({
         textStyle: { fontFamily: "Poppins, sans-serif" },
       },
     } as echarts.EChartsOption;
-  }, [data, isDark, activeSwimlanes, now]);
+  }, [data, isDark, activeSwimlanes, now, hrDataPoints, bpDataPoints, spo2DataPoints]);
 
   // Calculate component height
   const VITALS_HEIGHT = 340;
@@ -1291,20 +1342,20 @@ export function UnifiedTimeline({
             
             // Convert y-position to value based on active tool
             let value: number;
-            let minVal: number, maxVal: number;
+            const yPercent = y / rect.height;
             
             if (activeToolMode === 'hr' || activeToolMode === 'bp') {
               // BP/HR scale: -20 to 240
-              minVal = -20;
-              maxVal = 240;
-              const yPercent = y / rect.height;
+              const minVal = -20;
+              const maxVal = 240;
+              value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+            } else if (activeToolMode === 'spo2') {
+              // SpO2 scale: 45 to 105
+              const minVal = 45;
+              const maxVal = 105;
               value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
             } else {
-              // SpO2 scale: 45 to 105
-              minVal = 45;
-              maxVal = 105;
-              const yPercent = y / rect.height;
-              value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+              return; // No active tool mode
             }
             
             // Check if in editable zone (NOW - 10min to NOW + 60min)
