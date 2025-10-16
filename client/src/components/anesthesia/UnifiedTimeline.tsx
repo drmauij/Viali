@@ -114,18 +114,6 @@ export function UnifiedTimeline({
     bpData?: { sys: VitalPoint; dia: VitalPoint };
   } | null>(null);
 
-  // State for edit dialog
-  const [editingValue, setEditingValue] = useState<{
-    type: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2';
-    index: number;
-    value: number;
-    time: number;
-    bpPairIndex?: number; // For BP, to find the paired value
-  } | null>(null);
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [editValue, setEditValue] = useState<string>("");
-  const [editTime, setEditTime] = useState<string>("");
-
   // Detect touch device on mount
   useEffect(() => {
     const checkTouch = () => {
@@ -317,118 +305,6 @@ export function UnifiedTimeline({
     setLastAction(null);
   };
 
-  // Handle opening edit dialog for a value
-  const handleOpenEdit = (type: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2', index: number, value: number, time: number, bpPairIndex?: number) => {
-    setEditingValue({ type, index, value, time, bpPairIndex });
-    setEditValue(value.toString());
-    setEditTime(new Date(time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }));
-    setShowEditDialog(true);
-  };
-
-  // Handle saving edited value
-  const handleSaveEdit = () => {
-    if (!editingValue) return;
-
-    const newValue = parseFloat(editValue);
-    if (isNaN(newValue)) {
-      toast({
-        title: "Invalid value",
-        description: "Please enter a valid number",
-        variant: "destructive",
-        duration: 2000,
-      });
-      return;
-    }
-
-    // Parse time (format: HH:MM)
-    const [hours, minutes] = editTime.split(':').map(Number);
-    if (isNaN(hours) || isNaN(minutes)) {
-      toast({
-        title: "Invalid time",
-        description: "Please enter time in HH:MM format",
-        variant: "destructive",
-        duration: 2000,
-      });
-      return;
-    }
-
-    const originalDate = new Date(editingValue.time);
-    const newTime = new Date(originalDate);
-    newTime.setHours(hours, minutes, 0, 0);
-
-    if (editingValue.type === 'hr') {
-      setHrDataPoints(prev => {
-        const updated = [...prev];
-        updated[editingValue.index] = [newTime.getTime(), newValue];
-        return updated;
-      });
-    } else if (editingValue.type === 'bp-sys') {
-      setBpDataPoints(prev => {
-        const updated = { ...prev };
-        updated.sys = [...prev.sys];
-        updated.sys[editingValue.index] = [newTime.getTime(), newValue];
-        // Update paired diastolic time if it exists
-        if (editingValue.bpPairIndex !== undefined) {
-          updated.dia = [...prev.dia];
-          updated.dia[editingValue.bpPairIndex] = [newTime.getTime(), prev.dia[editingValue.bpPairIndex][1]];
-        }
-        return updated;
-      });
-    } else if (editingValue.type === 'bp-dia') {
-      setBpDataPoints(prev => {
-        const updated = { ...prev };
-        updated.dia = [...prev.dia];
-        updated.dia[editingValue.index] = [newTime.getTime(), newValue];
-        // Update paired systolic time if it exists
-        if (editingValue.bpPairIndex !== undefined) {
-          updated.sys = [...prev.sys];
-          updated.sys[editingValue.bpPairIndex] = [newTime.getTime(), prev.sys[editingValue.bpPairIndex][1]];
-        }
-        return updated;
-      });
-    } else if (editingValue.type === 'spo2') {
-      setSpo2DataPoints(prev => {
-        const updated = [...prev];
-        updated[editingValue.index] = [newTime.getTime(), newValue];
-        return updated;
-      });
-    }
-
-    setShowEditDialog(false);
-    setEditingValue(null);
-  };
-
-  // Handle deleting a value
-  const handleDeleteValue = () => {
-    if (!editingValue) return;
-
-    if (editingValue.type === 'hr') {
-      setHrDataPoints(prev => prev.filter((_, i) => i !== editingValue.index));
-    } else if (editingValue.type === 'bp-sys' || editingValue.type === 'bp-dia') {
-      // Delete both systolic and diastolic when deleting either
-      setBpDataPoints(prev => {
-        const updated = { ...prev };
-        if (editingValue.type === 'bp-sys') {
-          updated.sys = prev.sys.filter((_, i) => i !== editingValue.index);
-          if (editingValue.bpPairIndex !== undefined) {
-            updated.dia = prev.dia.filter((_, i) => i !== editingValue.bpPairIndex);
-          }
-        } else {
-          updated.dia = prev.dia.filter((_, i) => i !== editingValue.index);
-          if (editingValue.bpPairIndex !== undefined) {
-            updated.sys = prev.sys.filter((_, i) => i !== editingValue.bpPairIndex);
-          }
-        }
-        return updated;
-      });
-    } else if (editingValue.type === 'spo2') {
-      setSpo2DataPoints(prev => prev.filter((_, i) => i !== editingValue.index));
-    }
-
-    setShowEditDialog(false);
-    setEditingValue(null);
-  };
-
   // Track zoom percentages for useMemo
   const [zoomPercent, setZoomPercent] = useState<{ start: number; end: number } | null>(null);
 
@@ -518,10 +394,6 @@ export function UnifiedTimeline({
     if (!chart) return;
 
     const updateZones = () => {
-      // Check if chart is still valid before proceeding
-      const currentChart = chartRef.current?.getEchartsInstance();
-      if (!currentChart) return;
-      
       // Calculate heights outside try block for error logging
       const VITALS_TOP = 32;
       const VITALS_HEIGHT = 340;
@@ -540,10 +412,10 @@ export function UnifiedTimeline({
         const editableEndBoundary = currentTime + oneHour;
         
         // Use convertToPixel to get accurate pixel positions based on current zoom
-        const startPx = currentChart.convertToPixel({ xAxisIndex: 0 }, data.startTime);
-        const editableStartPx = currentChart.convertToPixel({ xAxisIndex: 0 }, editableStartBoundary);
-        const editableEndPx = currentChart.convertToPixel({ xAxisIndex: 0 }, editableEndBoundary);
-        const endPx = currentChart.convertToPixel({ xAxisIndex: 0 }, data.endTime);
+        const startPx = chart.convertToPixel({ xAxisIndex: 0 }, data.startTime);
+        const editableStartPx = chart.convertToPixel({ xAxisIndex: 0 }, editableStartBoundary);
+        const editableEndPx = chart.convertToPixel({ xAxisIndex: 0 }, editableEndBoundary);
+        const endPx = chart.convertToPixel({ xAxisIndex: 0 }, data.endTime);
         
         // Calculate pixel widths for three zones
         const pastNonEditableWidth = Math.max(0, editableStartPx - startPx);
@@ -551,10 +423,10 @@ export function UnifiedTimeline({
         const futureNonEditableWidth = Math.max(0, endPx - editableEndPx);
         
         // Calculate position for current time indicator (NOW line)
-        const nowPx = currentChart.convertToPixel({ xAxisIndex: 0 }, currentTime);
+        const nowPx = chart.convertToPixel({ xAxisIndex: 0 }, currentTime);
         
         // Get current graphic elements to preserve vertical lines and labels
-        const currentOption = currentChart.getOption() as any;
+        const currentOption = chart.getOption() as any;
         const currentGraphic = currentOption.graphic?.[0]?.elements || [];
         
         // Find and update only the zone/indicator elements, preserve everything else
@@ -628,7 +500,7 @@ export function UnifiedTimeline({
         });
         
         // Update with all elements preserved
-        currentChart.setOption({
+        chart.setOption({
           graphic: {
             elements: updatedGraphic,
           },
@@ -662,11 +534,7 @@ export function UnifiedTimeline({
     if (!chart) return;
 
     const updateZoomState = () => {
-      // Check if chart is still valid before proceeding
-      const currentChart = chartRef.current?.getEchartsInstance();
-      if (!currentChart) return;
-      
-      const option = currentChart.getOption() as any;
+      const option = chart.getOption() as any;
       const dataZoom = option.dataZoom?.[0];
       if (!dataZoom) return;
       
@@ -1583,38 +1451,13 @@ export function UnifiedTimeline({
       </div>
 
       {/* ECharts timeline */}
-      <div className="absolute inset-0 z-20" style={{ pointerEvents: 'auto' }}>
+      <div className="absolute inset-0 z-20 pointer-events-none">
         <ReactECharts
           ref={chartRef}
           option={option}
           style={{ height: "100%", width: "100%" }}
           opts={{ renderer: "canvas" }}
           onChartReady={handleChartReady}
-          onEvents={{
-            click: (params: any) => {
-              // Only handle clicks on scatter points (HR, BP, SpO2)
-              if (params.componentType === 'series' && params.seriesType === 'scatter') {
-                const seriesName = params.seriesName;
-                const dataIndex = params.dataIndex;
-                const dataPoint = params.data as [number, number];
-
-                // Determine which vital type was clicked
-                if (seriesName === 'Heart Rate') {
-                  handleOpenEdit('hr', dataIndex, dataPoint[1], dataPoint[0]);
-                } else if (seriesName === 'Systolic BP') {
-                  // Find matching diastolic BP at the same time
-                  const matchingDiaIndex = bpDataPoints.dia.findIndex(d => d[0] === dataPoint[0]);
-                  handleOpenEdit('bp-sys', dataIndex, dataPoint[1], dataPoint[0], matchingDiaIndex >= 0 ? matchingDiaIndex : undefined);
-                } else if (seriesName === 'Diastolic BP') {
-                  // Find matching systolic BP at the same time
-                  const matchingSysIndex = bpDataPoints.sys.findIndex(s => s[0] === dataPoint[0]);
-                  handleOpenEdit('bp-dia', dataIndex, dataPoint[1], dataPoint[0], matchingSysIndex >= 0 ? matchingSysIndex : undefined);
-                } else if (seriesName === 'SpO2') {
-                  handleOpenEdit('spo2', dataIndex, dataPoint[1], dataPoint[0]);
-                }
-              }
-            }
-          }}
           lazyUpdate
         />
       </div>
@@ -1723,28 +1566,23 @@ export function UnifiedTimeline({
               setLastAction({ type: 'hr', data: newPoint });
               setHoverInfo(null);
               
-              // Show toast with undo - only on touch devices
-              if (isTouchDevice) {
-                toast({
-                  title: `❤️ HR ${clickInfo.value} added`,
-                  description: new Date(clickInfo.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
-                  duration: 3000,
-                  action: (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleUndo();
-                      }}
-                      data-testid="button-undo-hr"
-                    >
-                      <Undo2 className="w-4 h-4 mr-1" />
-                      Undo
-                    </Button>
-                  ),
-                });
-              }
+              // Show toast with undo
+              toast({
+                title: `❤️ HR ${clickInfo.value} added`,
+                description: new Date(clickInfo.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+                duration: 3000,
+                action: (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleUndo}
+                    data-testid="button-undo-hr"
+                  >
+                    <Undo2 className="w-4 h-4 mr-1" />
+                    Undo
+                  </Button>
+                ),
+              });
               
               setTimeout(() => setIsProcessingClick(false), 100);
             } else if (activeToolMode === 'bp') {
@@ -1769,28 +1607,23 @@ export function UnifiedTimeline({
                   
                   setLastAction({ type: 'bp', bpData: { sys: sysPoint, dia: diaPoint } });
                   
-                  // Show toast with undo - only on touch devices
-                  if (isTouchDevice) {
-                    toast({
-                      title: `🩺 BP ${pendingSysValue.value}/${clickInfo.value} added`,
-                      description: new Date(pendingSysValue.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
-                      duration: 3000,
-                      action: (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleUndo();
-                          }}
-                          data-testid="button-undo-bp"
-                        >
-                          <Undo2 className="w-4 h-4 mr-1" />
-                          Undo
-                        </Button>
-                      ),
-                    });
-                  }
+                  // Show toast with undo
+                  toast({
+                    title: `🩺 BP ${pendingSysValue.value}/${clickInfo.value} added`,
+                    description: new Date(pendingSysValue.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+                    duration: 3000,
+                    action: (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleUndo}
+                        data-testid="button-undo-bp"
+                      >
+                        <Undo2 className="w-4 h-4 mr-1" />
+                        Undo
+                      </Button>
+                    ),
+                  });
                 }
                 // Reset to systolic mode
                 setPendingSysValue(null);
@@ -1804,28 +1637,23 @@ export function UnifiedTimeline({
               setLastAction({ type: 'spo2', data: newPoint });
               setHoverInfo(null);
               
-              // Show toast with undo - only on touch devices
-              if (isTouchDevice) {
-                toast({
-                  title: `💜 SpO2 ${clickInfo.value}% added`,
-                  description: new Date(clickInfo.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
-                  duration: 3000,
-                  action: (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleUndo();
-                      }}
-                      data-testid="button-undo-spo2"
-                    >
-                      <Undo2 className="w-4 h-4 mr-1" />
-                      Undo
-                    </Button>
-                  ),
-                });
-              }
+              // Show toast with undo
+              toast({
+                title: `💜 SpO2 ${clickInfo.value}% added`,
+                description: new Date(clickInfo.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+                duration: 3000,
+                action: (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleUndo}
+                    data-testid="button-undo-spo2"
+                  >
+                    <Undo2 className="w-4 h-4 mr-1" />
+                    Undo
+                  </Button>
+                ),
+              });
               
               setTimeout(() => setIsProcessingClick(false), 100);
             }
@@ -1900,72 +1728,6 @@ export function UnifiedTimeline({
             >
               Add
             </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Value Dialog */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-edit-value">
-          <DialogHeader>
-            <DialogTitle>
-              Edit {editingValue?.type === 'hr' ? 'Heart Rate' : 
-                    editingValue?.type === 'spo2' ? 'SpO2' : 
-                    editingValue?.type === 'bp-sys' ? 'Systolic BP' : 
-                    'Diastolic BP'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="edit-value">Value</Label>
-              <Input
-                id="edit-value"
-                data-testid="input-edit-value"
-                type="number"
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                placeholder="Enter value"
-                autoFocus
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-time">Time (HH:MM)</Label>
-              <Input
-                id="edit-time"
-                data-testid="input-edit-time"
-                type="time"
-                value={editTime}
-                onChange={(e) => setEditTime(e.target.value)}
-                placeholder="HH:MM"
-              />
-            </div>
-          </div>
-          <div className="flex justify-between gap-2">
-            <Button
-              variant="destructive"
-              onClick={handleDeleteValue}
-              data-testid="button-delete-value"
-            >
-              Delete
-            </Button>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowEditDialog(false);
-                  setEditingValue(null);
-                }}
-                data-testid="button-cancel-edit"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSaveEdit}
-                data-testid="button-save-edit"
-              >
-                Save
-              </Button>
-            </div>
           </div>
         </DialogContent>
       </Dialog>
