@@ -940,8 +940,8 @@ export function UnifiedTimeline({
       dataZoom: [{
         type: "inside",
         xAxisIndex: grids.map((_, i) => i),
-        startValue: initialStartTime,
-        endValue: initialEndTime,
+        start: ((initialStartTime - data.startTime) / (data.endTime - data.startTime)) * 100,
+        end: ((initialEndTime - data.startTime) / (data.endTime - data.startTime)) * 100,
         minValueSpan: 10 * 60 * 1000, // 10 minutes minimum zoom (max zoom in)
         maxValueSpan: 10 * 60 * 60 * 1000, // 10 hours maximum zoom (max zoom out)
         throttle: 50,
