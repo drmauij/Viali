@@ -114,6 +114,15 @@ export function UnifiedTimeline({
     bpData?: { sys: VitalPoint; dia: VitalPoint };
   } | null>(null);
 
+  // State for edit dialog
+  const [editingValue, setEditingValue] = useState<{
+    type: 'hr' | 'sys' | 'dia' | 'spo2';
+    time: number;
+    value: number;
+    index: number;
+  } | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+
   // Detect touch device on mount
   useEffect(() => {
     const checkTouch = () => {
@@ -269,6 +278,71 @@ export function UnifiedTimeline({
   // Remove medication handler
   const handleRemoveMedication = (index: number) => {
     setMedications(medications.filter((_, i) => i !== index));
+  };
+
+  // Handle editing vital values
+  const handleSaveEdit = (newValue: number, newTime: number) => {
+    if (!editingValue) return;
+
+    const { type, index } = editingValue;
+
+    if (type === 'hr') {
+      const updated = [...hrDataPoints];
+      updated[index] = [newTime, newValue];
+      setHrDataPoints(updated);
+    } else if (type === 'sys') {
+      const updated = [...bpDataPoints.sys];
+      updated[index] = [newTime, newValue];
+      setBpDataPoints({ ...bpDataPoints, sys: updated });
+    } else if (type === 'dia') {
+      const updated = [...bpDataPoints.dia];
+      updated[index] = [newTime, newValue];
+      setBpDataPoints({ ...bpDataPoints, dia: updated });
+    } else if (type === 'spo2') {
+      const updated = [...spo2DataPoints];
+      updated[index] = [newTime, newValue];
+      setSpo2DataPoints(updated);
+    }
+
+    toast({
+      title: "Value updated",
+      description: "Vital sign value has been saved",
+      duration: 2000,
+    });
+
+    setEditDialogOpen(false);
+    setEditingValue(null);
+  };
+
+  const handleDeleteValue = () => {
+    if (!editingValue) return;
+
+    const { type, index } = editingValue;
+
+    if (type === 'hr') {
+      setHrDataPoints(hrDataPoints.filter((_, i) => i !== index));
+    } else if (type === 'sys') {
+      setBpDataPoints({
+        ...bpDataPoints,
+        sys: bpDataPoints.sys.filter((_, i) => i !== index),
+      });
+    } else if (type === 'dia') {
+      setBpDataPoints({
+        ...bpDataPoints,
+        dia: bpDataPoints.dia.filter((_, i) => i !== index),
+      });
+    } else if (type === 'spo2') {
+      setSpo2DataPoints(spo2DataPoints.filter((_, i) => i !== index));
+    }
+
+    toast({
+      title: "Value deleted",
+      description: "Vital sign value has been removed",
+      duration: 2000,
+    });
+
+    setEditDialogOpen(false);
+    setEditingValue(null);
   };
 
   // Undo last vital entry
@@ -529,6 +603,51 @@ export function UnifiedTimeline({
     };
   }, [chartRef, data, isDark, activeSwimlanes, now, currentZoomStart, currentZoomEnd, currentTime, hrDataPoints, bpDataPoints, spo2DataPoints]);
 
+  // Add click handler for editing data points
+  useEffect(() => {
+    const chart = chartRef.current?.getEchartsInstance();
+    if (!chart) return;
+
+    const handleChartClick = (params: any) => {
+      // Only handle clicks on scatter data points, not when actively placing new values
+      if (params.componentType === 'series' && params.seriesType === 'scatter' && !activeToolMode) {
+        const [timestamp, value] = params.data;
+        const seriesName = params.seriesName;
+        
+        let type: 'hr' | 'sys' | 'dia' | 'spo2';
+        let dataArray: VitalPoint[];
+        
+        if (seriesName.includes('Heart Rate')) {
+          type = 'hr';
+          dataArray = hrDataPoints;
+        } else if (seriesName.includes('Systolic')) {
+          type = 'sys';
+          dataArray = bpDataPoints.sys;
+        } else if (seriesName.includes('Diastolic')) {
+          type = 'dia';
+          dataArray = bpDataPoints.dia;
+        } else if (seriesName.includes('SpO2')) {
+          type = 'spo2';
+          dataArray = spo2DataPoints;
+        } else {
+          return;
+        }
+        
+        // Find the index of this data point
+        const index = dataArray.findIndex(p => p[0] === timestamp && p[1] === value);
+        if (index !== -1) {
+          setEditingValue({ type, time: timestamp, value, index });
+          setEditDialogOpen(true);
+        }
+      }
+    };
+
+    chart.on('click', handleChartClick);
+    return () => {
+      chart.off('click', handleChartClick);
+    };
+  }, [chartRef, activeToolMode, hrDataPoints, bpDataPoints, spo2DataPoints]);
+
   // Update zoom state when zoom changes
   useEffect(() => {
     const chart = chartRef.current?.getEchartsInstance();
@@ -755,6 +874,10 @@ export function UnifiedTimeline({
         itemStyle: {
           color: '#ef4444', // Red color for heart
         },
+        emphasis: {
+          scale: 1.5,
+        },
+        cursor: 'pointer',
         z: 20,
       });
     }
@@ -849,6 +972,10 @@ export function UnifiedTimeline({
         itemStyle: {
           color: '#000000', // Black color for BP
         },
+        emphasis: {
+          scale: 1.5,
+        },
+        cursor: 'pointer',
         z: 10,
       });
     }
@@ -867,6 +994,10 @@ export function UnifiedTimeline({
         itemStyle: {
           color: '#000000', // Black color for BP
         },
+        emphasis: {
+          scale: 1.5,
+        },
+        cursor: 'pointer',
         z: 10,
       });
     }
@@ -884,6 +1015,10 @@ export function UnifiedTimeline({
         itemStyle: {
           color: '#8b5cf6', // Purple color for SpO2
         },
+        emphasis: {
+          scale: 1.5,
+        },
+        cursor: 'pointer',
         z: 10,
       });
     }
@@ -1039,7 +1174,7 @@ export function UnifiedTimeline({
         },
       },
     } as echarts.EChartsOption;
-  }, [data, isDark, activeSwimlanes, now, hrDataPoints, bpDataPoints, spo2DataPoints, zoomPercent, pendingSysValue, bpEntryMode]);
+  }, [data, isDark, activeSwimlanes, now, hrDataPoints, bpDataPoints, spo2DataPoints, zoomPercent, pendingSysValue, bpEntryMode, currentTime]);
 
   // Calculate component height
   const VITALS_HEIGHT = 340;
@@ -1763,6 +1898,120 @@ export function UnifiedTimeline({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Value Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-edit-value">
+          <DialogHeader>
+            <DialogTitle>Edit Vital Sign Value</DialogTitle>
+          </DialogHeader>
+          {editingValue && (
+            <EditValueForm
+              type={editingValue.type}
+              initialValue={editingValue.value}
+              initialTime={editingValue.time}
+              onSave={handleSaveEdit}
+              onDelete={handleDeleteValue}
+              onCancel={() => {
+                setEditDialogOpen(false);
+                setEditingValue(null);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+// Edit Value Form Component
+function EditValueForm({
+  type,
+  initialValue,
+  initialTime,
+  onSave,
+  onDelete,
+  onCancel,
+}: {
+  type: 'hr' | 'sys' | 'dia' | 'spo2';
+  initialValue: number;
+  initialTime: number;
+  onSave: (value: number, time: number) => void;
+  onDelete: () => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(initialValue.toString());
+  const [timeStr, setTimeStr] = useState(() => {
+    const date = new Date(initialTime);
+    return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  });
+
+  const getLabel = () => {
+    if (type === 'hr') return 'Heart Rate (bpm)';
+    if (type === 'sys') return 'Systolic BP (mmHg)';
+    if (type === 'dia') return 'Diastolic BP (mmHg)';
+    return 'SpO₂ (%)';
+  };
+
+  const handleSave = () => {
+    const numValue = parseInt(value);
+    if (isNaN(numValue)) return;
+
+    // Parse time string (HH:MM) and combine with original date
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const date = new Date(initialTime);
+    date.setHours(hours, minutes, 0, 0);
+
+    onSave(numValue, date.getTime());
+  };
+
+  return (
+    <div className="grid gap-4 py-4">
+      <div className="grid gap-2">
+        <Label htmlFor="edit-value">{getLabel()}</Label>
+        <Input
+          id="edit-value"
+          type="number"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          data-testid="input-edit-value"
+        />
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="edit-time">Time (HH:MM)</Label>
+        <Input
+          id="edit-time"
+          type="time"
+          value={timeStr}
+          onChange={(e) => setTimeStr(e.target.value)}
+          data-testid="input-edit-time"
+        />
+      </div>
+      <div className="flex justify-between gap-2">
+        <Button
+          variant="destructive"
+          onClick={onDelete}
+          data-testid="button-delete-value"
+        >
+          Delete
+        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={onCancel}
+            data-testid="button-cancel-edit"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            data-testid="button-save-edit"
+            disabled={!value || isNaN(parseInt(value))}
+          >
+            Save
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
