@@ -704,6 +704,7 @@ export function UnifiedTimeline({
     
     // Add pending systolic BP (light gray bookmark) if in diastolic entry mode
     if (pendingSysValue) {
+      console.log('Rendering pending systolic bookmark:', pendingSysValue);
       series.push({
         type: 'scatter',
         name: 'Pending Systolic BP',
@@ -1409,11 +1410,14 @@ export function UnifiedTimeline({
               // Sequential BP entry: first systolic, then diastolic at same time
               if (bpEntryMode === 'sys') {
                 // Save systolic value and switch to diastolic mode
-                setPendingSysValue({ time: hoverInfo.time, value: hoverInfo.value });
+                const pendingValue = { time: hoverInfo.time, value: hoverInfo.value };
+                console.log('Setting pending systolic:', pendingValue);
+                setPendingSysValue(pendingValue);
                 setBpEntryMode('dia');
                 setHoverInfo(null);
               } else {
                 // Save diastolic value with the same time as systolic
+                console.log('Adding diastolic with pending:', pendingSysValue);
                 if (pendingSysValue) {
                   setBpDataPoints(prev => ({
                     sys: [...prev.sys, [pendingSysValue.time, pendingSysValue.value]],
