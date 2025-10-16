@@ -1130,8 +1130,11 @@ export function UnifiedTimeline({
       const textColor = isDark ? '#ffffff' : '#000000';
       const modernMonoFont = '"SF Mono", "JetBrains Mono", "Roboto Mono", "Fira Code", Monaco, Consolas, monospace';
       
+      console.log('[Ventilation Chart] Building series. Data:', ventilationData);
+      
       // Add etCO2 text labels (index 0)
       if (ventilationData.etCO2.length > 0) {
+        console.log(`[Ventilation Chart] Adding etCO2 series with ${ventilationData.etCO2.length} points`);
         const paramIndex = ventilationParentIndex + 1; // First child after parent
         const gridIdx = paramIndex + 1; // +1 because vitals is grid 0
         series.push({
@@ -1975,11 +1978,14 @@ export function UnifiedTimeline({
                              param.standardName === 'FiO2' ? 'fiO2' : null;
             
             if (paramKey && typeof param.value === 'number') {
+              console.log(`[Ventilation] Storing ${param.standardName} (${paramKey}): ${param.value} at ${new Date(timestamp).toLocaleTimeString()}`);
               setVentilationData(prev => ({
                 ...prev,
                 [paramKey]: [...prev[paramKey as keyof typeof prev], [timestamp, param.value as number]]
               }));
               addedItems.push(param.standardName);
+            } else {
+              console.warn(`[Ventilation] Skipped ${param.standardName}: paramKey=${paramKey}, value type=${typeof param.value}`);
             }
           }
         });
