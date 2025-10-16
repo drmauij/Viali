@@ -1318,18 +1318,16 @@ export function UnifiedTimeline({
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
             
-            // Get current visible time range from chart using convertFromPixel
+            // Get current visible time range from chart
             const chart = chartRef.current?.getEchartsInstance();
             if (!chart) return;
             
-            // Get actual visible time range by converting pixel positions
-            const leftTime = chart.convertFromPixel({ xAxisIndex: 0 }, [0, 0])?.[0];
-            const rightTime = chart.convertFromPixel({ xAxisIndex: 0 }, [rect.width, 0])?.[0];
+            const option = chart.getOption() as any;
+            if (!option || !option.xAxis || !option.xAxis[0]) return;
             
-            if (!leftTime || !rightTime) return;
-            
-            const visibleStart = leftTime;
-            const visibleEnd = rightTime;
+            const xAxis = option.xAxis[0];
+            const visibleStart = xAxis.min || data.startTime;
+            const visibleEnd = xAxis.max || data.endTime;
             const visibleRange = visibleEnd - visibleStart;
             
             // Convert x-position to time
