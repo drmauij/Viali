@@ -1500,7 +1500,6 @@ export function UnifiedTimeline({
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
         onResetZoom={handleResetZoom}
-        onClockClick={() => setBulkEditDialogOpen(true)}
       />
       
       {/* Swimlane backgrounds - explicit height matching vertical lines extent */}
@@ -1621,6 +1620,7 @@ export function UnifiedTimeline({
 
         {/* Swimlane labels */}
         {swimlanePositions.map((lane, index) => {
+          const isZeitenLane = lane.id === "zeiten";
           const isMedParent = lane.id === "medikamente";
           const isVentParent = lane.id === "ventilation";
           const isMedChild = lane.id.startsWith("medication-");
@@ -1660,6 +1660,17 @@ export function UnifiedTimeline({
                   {lane.label}
                 </span>
               </div>
+              
+              {isZeitenLane && (
+                <button
+                  onClick={() => setBulkEditDialogOpen(true)}
+                  className="p-1 rounded hover:bg-background/50 transition-colors"
+                  data-testid="button-edit-anesthesia-times"
+                  title="Edit Anesthesia Times"
+                >
+                  <Clock className="w-4 h-4 text-black dark:text-white" />
+                </button>
+              )}
               
               {isMedParent && (
                 <button
