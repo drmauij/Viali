@@ -518,6 +518,10 @@ export function UnifiedTimeline({
     if (!chart) return;
 
     const updateZones = () => {
+      // Check if chart is still valid before proceeding
+      const currentChart = chartRef.current?.getEchartsInstance();
+      if (!currentChart) return;
+      
       // Calculate heights outside try block for error logging
       const VITALS_TOP = 32;
       const VITALS_HEIGHT = 340;
@@ -536,10 +540,10 @@ export function UnifiedTimeline({
         const editableEndBoundary = currentTime + oneHour;
         
         // Use convertToPixel to get accurate pixel positions based on current zoom
-        const startPx = chart.convertToPixel({ xAxisIndex: 0 }, data.startTime);
-        const editableStartPx = chart.convertToPixel({ xAxisIndex: 0 }, editableStartBoundary);
-        const editableEndPx = chart.convertToPixel({ xAxisIndex: 0 }, editableEndBoundary);
-        const endPx = chart.convertToPixel({ xAxisIndex: 0 }, data.endTime);
+        const startPx = currentChart.convertToPixel({ xAxisIndex: 0 }, data.startTime);
+        const editableStartPx = currentChart.convertToPixel({ xAxisIndex: 0 }, editableStartBoundary);
+        const editableEndPx = currentChart.convertToPixel({ xAxisIndex: 0 }, editableEndBoundary);
+        const endPx = currentChart.convertToPixel({ xAxisIndex: 0 }, data.endTime);
         
         // Calculate pixel widths for three zones
         const pastNonEditableWidth = Math.max(0, editableStartPx - startPx);
@@ -547,10 +551,10 @@ export function UnifiedTimeline({
         const futureNonEditableWidth = Math.max(0, endPx - editableEndPx);
         
         // Calculate position for current time indicator (NOW line)
-        const nowPx = chart.convertToPixel({ xAxisIndex: 0 }, currentTime);
+        const nowPx = currentChart.convertToPixel({ xAxisIndex: 0 }, currentTime);
         
         // Get current graphic elements to preserve vertical lines and labels
-        const currentOption = chart.getOption() as any;
+        const currentOption = currentChart.getOption() as any;
         const currentGraphic = currentOption.graphic?.[0]?.elements || [];
         
         // Find and update only the zone/indicator elements, preserve everything else
@@ -624,7 +628,7 @@ export function UnifiedTimeline({
         });
         
         // Update with all elements preserved
-        chart.setOption({
+        currentChart.setOption({
           graphic: {
             elements: updatedGraphic,
           },
@@ -658,7 +662,11 @@ export function UnifiedTimeline({
     if (!chart) return;
 
     const updateZoomState = () => {
-      const option = chart.getOption() as any;
+      // Check if chart is still valid before proceeding
+      const currentChart = chartRef.current?.getEchartsInstance();
+      if (!currentChart) return;
+      
+      const option = currentChart.getOption() as any;
       const dataZoom = option.dataZoom?.[0];
       if (!dataZoom) return;
       
