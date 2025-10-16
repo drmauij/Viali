@@ -724,28 +724,11 @@ export function UnifiedTimeline({
     
     // Add BP line connections with filled area BETWEEN systolic and diastolic
     if (sortedSysData.length > 0 && sortedDiaData.length > 0) {
-      // Systolic line (top boundary)
-      const sysSeriesId = 'bp-systolic-line';
-      series.push({
-        id: sysSeriesId,
-        type: 'line',
-        name: 'Systolic BP Line',
-        xAxisIndex: 0,
-        yAxisIndex: 0,
-        data: sortedSysData,
-        symbol: 'none',
-        lineStyle: {
-          color: '#000000',
-          width: 1,
-          opacity: 0.3,
-        },
-        z: 8,
-      });
-      
-      // Diastolic line (bottom boundary) with area fill between it and systolic
+      // Create area between systolic and diastolic using stacked approach
+      // First, add the diastolic as base (stack: 'bp')
       series.push({
         type: 'line',
-        name: 'Diastolic BP Area',
+        name: 'Diastolic BP Base',
         xAxisIndex: 0,
         yAxisIndex: 0,
         data: sortedDiaData,
@@ -755,6 +738,33 @@ export function UnifiedTimeline({
           width: 1,
           opacity: 0.3,
         },
+        stack: 'bp',
+        z: 7,
+      });
+      
+      // Then add the DIFFERENCE (systolic - diastolic) on top with area fill
+      const diffData = sortedSysData.map((sysPoint, idx) => {
+        const diaPoint = sortedDiaData[idx];
+        if (diaPoint && sysPoint[0] === diaPoint[0]) {
+          // Same timestamp - calculate difference
+          return [sysPoint[0], sysPoint[1] - diaPoint[1]];
+        }
+        return null;
+      }).filter(p => p !== null);
+      
+      series.push({
+        type: 'line',
+        name: 'BP Range Area',
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        data: diffData,
+        symbol: 'none',
+        lineStyle: {
+          color: '#000000',
+          width: 1,
+          opacity: 0.3,
+        },
+        stack: 'bp', // Stack on top of diastolic
         areaStyle: {
           color: {
             type: 'linear',
@@ -763,10 +773,9 @@ export function UnifiedTimeline({
               { offset: 0, color: 'rgba(0, 0, 0, 0.15)' },
               { offset: 1, color: 'rgba(0, 0, 0, 0.08)' }
             ]
-          },
-          origin: sysSeriesId, // Fill UP to the systolic line
+          }
         },
-        z: 7,
+        z: 8,
       });
     }
     
