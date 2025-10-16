@@ -299,18 +299,13 @@ export function UnifiedTimeline({
     const chart = chartRef.current?.getEchartsInstance();
     if (!chart) return;
 
-    // Get current dataZoom state to preserve zoom level
-    const currentOption = chart.getOption() as any;
-    const currentDataZoom = currentOption.dataZoom?.[0];
-    
-    // Update dataZoom to include all current x-axes
+    // Update dataZoom to include all current x-axes without resetting zoom state
     const numGrids = activeSwimlanes.length + 1; // +1 for vitals grid
     chart.setOption({
       dataZoom: [{
-        ...currentDataZoom,
         xAxisIndex: Array.from({ length: numGrids }, (_, i) => i),
       }]
-    });
+    }, { replaceMerge: ['dataZoom'] }); // Use replaceMerge to update only xAxisIndex
   }, [activeSwimlanes]);
 
   // Update editable zone widths after chart is rendered
@@ -942,8 +937,6 @@ export function UnifiedTimeline({
         xAxisIndex: grids.map((_, i) => i),
         start: ((initialStartTime - data.startTime) / (data.endTime - data.startTime)) * 100,
         end: ((initialEndTime - data.startTime) / (data.endTime - data.startTime)) * 100,
-        minValueSpan: 10 * 60 * 1000, // 10 minutes minimum zoom (max zoom in)
-        maxValueSpan: 10 * 60 * 60 * 1000, // 10 hours maximum zoom (max zoom out)
         throttle: 50,
         zoomLock: true, // Completely disable zoom to allow page scrolling
         zoomOnMouseWheel: false, // Disable scroll zoom
