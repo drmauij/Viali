@@ -1,7 +1,7 @@
-import { useMemo, useEffect, useRef } from "react";
+import { useMemo, useEffect, useRef, useState } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Search } from "lucide-react";
+import { Search, GripVertical } from "lucide-react";
 
 interface StickyTimelineHeaderProps {
   startTime: number;
@@ -29,6 +29,77 @@ export function StickyTimelineHeader({
   onResetZoom,
 }: StickyTimelineHeaderProps) {
   const chartRef = useRef<any>(null);
+  const dragRef = useRef<{ isDragging: boolean; startX: number; startY: number }>({
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+  });
+
+  // Load position from localStorage or use default centered position
+  const [position, setPosition] = useState<{ x: number; y: number }>(() => {
+    const saved = localStorage.getItem('timeline-controls-position');
+    if (saved) return JSON.parse(saved);
+    // Default: centered horizontally (50% of window width), 4px from top
+    return { x: window.innerWidth / 2, y: 4 };
+  });
+
+  // Save position to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('timeline-controls-position', JSON.stringify(position));
+  }, [position]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    dragRef.current = {
+      isDragging: true,
+      startX: e.clientX - position.x,
+      startY: e.clientY - position.y,
+    };
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    dragRef.current = {
+      isDragging: true,
+      startX: touch.clientX - position.x,
+      startY: touch.clientY - position.y,
+    };
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (dragRef.current.isDragging) {
+      setPosition({
+        x: e.clientX - dragRef.current.startX,
+        y: e.clientY - dragRef.current.startY,
+      });
+    }
+  };
+
+  const handleTouchMove = (e: TouchEvent) => {
+    if (dragRef.current.isDragging) {
+      const touch = e.touches[0];
+      setPosition({
+        x: touch.clientX - dragRef.current.startX,
+        y: touch.clientY - dragRef.current.startY,
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    dragRef.current.isDragging = false;
+  };
+
+  useEffect(() => {
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('touchmove', handleTouchMove);
+    window.addEventListener('touchend', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleMouseUp);
+    };
+  }, []);
 
   const option = useMemo(() => {
     const GRID_LEFT = 200;
@@ -127,8 +198,21 @@ export function StickyTimelineHeader({
         opts={{ renderer: "canvas" }}
       />
 
-      {/* Touch-Friendly Controls - Centered with Larger Touch Targets & Glass Effect */}
-      <div className="absolute left-1/2 transform -translate-x-1/2 top-1 bg-background/80 backdrop-blur-md border-2 border-border/50 rounded-lg shadow-lg px-3 py-1.5 flex items-center gap-4">
+      {/* Touch-Friendly Draggable Controls with Glass Effect */}
+      <div 
+        className="absolute bg-background/80 backdrop-blur-md border-2 border-border/50 rounded-lg shadow-lg px-3 py-1.5 flex items-center gap-4 cursor-move"
+        style={{ left: `${position.x}px`, top: `${position.y}px`, transform: 'translate(-50%, 0)' }}
+      >
+        {/* Drag Handle */}
+        <div 
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
+          className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-muted-foreground hover:text-foreground transition-colors touch-manipulation"
+          title="Drag to reposition"
+        >
+          <GripVertical className="h-5 w-5" />
+        </div>
+        
         <button
           data-testid="button-pan-left"
           onClick={onPanLeft}
