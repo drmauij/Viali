@@ -94,6 +94,10 @@ export function UnifiedTimeline({
   });
   const [spo2DataPoints, setSpo2DataPoints] = useState<VitalPoint[]>(data.vitals.spo2 || []);
   
+  // State for BP dual entry (systolic then diastolic)
+  const [bpEntryMode, setBpEntryMode] = useState<'sys' | 'dia'>('sys');
+  const [pendingSysValue, setPendingSysValue] = useState<{ time: number; value: number } | null>(null);
+  
   // State for hover tooltip
   const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; value: number; time: number } | null>(null);
 
@@ -489,21 +493,23 @@ export function UnifiedTimeline({
       setCurrentZoomStart(visibleStart);
       setCurrentZoomEnd(visibleEnd);
       
-      // Calculate adaptive snap interval based on zoom span
+      // Calculate adaptive snap interval based on zoom span (finer granularity)
       const timeSpan = visibleEnd - visibleStart;
       const spanMinutes = timeSpan / (60 * 1000);
       
       let snapInterval: number;
       if (spanMinutes <= 10) {
-        snapInterval = 1 * 60 * 1000; // 1-minute snap for very fine zoom
+        snapInterval = 1 * 60 * 1000; // 1-minute snap for very fine zoom (5, 10 min spans)
       } else if (spanMinutes <= 30) {
-        snapInterval = 2 * 60 * 1000; // 2-minute snap for fine zoom
+        snapInterval = 1 * 60 * 1000; // 1-minute snap for fine zoom (30 min span)
       } else if (spanMinutes <= 60) {
-        snapInterval = 5 * 60 * 1000; // 5-minute snap for medium zoom
+        snapInterval = 5 * 60 * 1000; // 5-minute snap for medium zoom (50 min span)
       } else if (spanMinutes <= 120) {
-        snapInterval = 10 * 60 * 1000; // 10-minute snap for coarse zoom
+        snapInterval = 5 * 60 * 1000; // 5-minute snap for coarse zoom (80, 120 min spans)
+      } else if (spanMinutes <= 480) {
+        snapInterval = 10 * 60 * 1000; // 10-minute snap for very coarse zoom (240, 480 min spans)
       } else {
-        snapInterval = 15 * 60 * 1000; // 15-minute snap for very coarse zoom
+        snapInterval = 15 * 60 * 1000; // 15-minute snap for ultra coarse zoom (1200+ min spans)
       }
       
       setCurrentSnapInterval(snapInterval);
@@ -657,16 +663,38 @@ export function UnifiedTimeline({
     // Series - HR data points with heart symbols
     const series: any[] = [];
     
+    // Sort vitals data chronologically to prevent zigzag lines when backfilling
+    const sortedHrData = [...hrDataPoints].sort((a, b) => a[0] - b[0]);
+    const sortedSysData = [...bpDataPoints.sys].sort((a, b) => a[0] - b[0]);
+    const sortedDiaData = [...bpDataPoints.dia].sort((a, b) => a[0] - b[0]);
+    const sortedSpo2Data = [...spo2DataPoints].sort((a, b) => a[0] - b[0]);
+    
     // Add HR series if there are data points
-    if (hrDataPoints.length > 0) {
+    if (sortedHrData.length > 0) {
+      // Add line connecting HR points (chronologically sorted)
+      series.push({
+        type: 'line',
+        name: 'Heart Rate Line',
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        data: sortedHrData,
+        lineStyle: {
+          color: '#ef4444',
+          width: 2,
+        },
+        symbol: 'none',
+        z: 9,
+      });
+      
+      // Add heart symbols
       series.push({
         type: 'scatter',
         name: 'Heart Rate',
         xAxisIndex: 0,
         yAxisIndex: 0,
-        data: hrDataPoints,
+        data: sortedHrData,
         symbol: 'path://M23.6,0c-3.4,0-6.3,2.7-7.6,5.6C14.7,2.7,11.8,0,8.4,0C3.8,0,0,3.8,0,8.4c0,9.4,9.5,11.9,16,21.2 c6.1-9.3,16-12.1,16-21.2C32,3.8,28.2,0,23.6,0z',
-        symbolSize: 12,
+        symbolSize: 18,
         itemStyle: {
           color: '#ef4444', // Red color for heart
         },
@@ -674,31 +702,50 @@ export function UnifiedTimeline({
       });
     }
     
-    // Add BP series if there are data points
-    if (bpDataPoints.sys.length > 0) {
+    // Add BP series if there are data points (chronologically sorted)
+    if (sortedSysData.length > 0) {
       series.push({
         type: 'scatter',
         name: 'Systolic BP',
         xAxisIndex: 0,
         yAxisIndex: 0,
-        data: bpDataPoints.sys,
+        data: sortedSysData,
         symbol: 'triangle',
-        symbolSize: 10,
+        symbolSize: 12,
+        symbolRotate: 0, // Point up for systolic
         itemStyle: {
-          color: '#ef4444', // Red color for BP
+          color: '#000000', // Black color for BP
         },
         z: 10,
       });
     }
     
-    // Add SpO2 series if there are data points
-    if (spo2DataPoints.length > 0) {
+    // Add diastolic BP series if there are data points (chronologically sorted)
+    if (sortedDiaData.length > 0) {
+      series.push({
+        type: 'scatter',
+        name: 'Diastolic BP',
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        data: sortedDiaData,
+        symbol: 'triangle',
+        symbolSize: 12,
+        symbolRotate: 180, // Point down for diastolic
+        itemStyle: {
+          color: '#000000', // Black color for BP
+        },
+        z: 10,
+      });
+    }
+    
+    // Add SpO2 series if there are data points (chronologically sorted)
+    if (sortedSpo2Data.length > 0) {
       series.push({
         type: 'scatter',
         name: 'SpO2',
         xAxisIndex: 0,
         yAxisIndex: 1, // Use second y-axis (45-105 range)
-        data: spo2DataPoints,
+        data: sortedSpo2Data,
         symbol: 'circle',
         symbolSize: 8,
         itemStyle: {
@@ -1148,40 +1195,50 @@ export function UnifiedTimeline({
         {/* Vitals icon buttons */}
         <div className="absolute top-[32px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
           <button
-            onClick={() => setActiveToolMode(activeToolMode === 'bp' ? null : 'bp')}
+            onClick={() => {
+              if (activeToolMode === 'bp') {
+                setActiveToolMode(null);
+                setBpEntryMode('sys');
+                setPendingSysValue(null);
+              } else {
+                setActiveToolMode('bp');
+                setBpEntryMode('sys');
+                setPendingSysValue(null);
+              }
+            }}
             className={`p-2 rounded-md border transition-colors flex items-center justify-center shadow-sm ${
               activeToolMode === 'bp' 
-                ? 'border-red-500 bg-red-500/20' 
-                : 'border-border bg-background hover:bg-accent/50'
+                ? 'border-black bg-black/20' 
+                : 'border-border bg-background hover:border-black hover:bg-black/10'
             }`}
             data-testid="button-vitals-bp"
-            title="Blood Pressure"
+            title="Blood Pressure (NIBP)"
           >
-            <Activity className={`w-5 h-5 ${activeToolMode === 'bp' ? 'text-red-500' : ''}`} />
+            <Activity className={`w-5 h-5 transition-colors ${activeToolMode === 'bp' ? 'text-black dark:text-white' : 'hover:text-black dark:hover:text-white'}`} />
           </button>
           <button
             onClick={() => setActiveToolMode(activeToolMode === 'hr' ? null : 'hr')}
             className={`p-2 rounded-md border transition-colors flex items-center justify-center shadow-sm ${
               activeToolMode === 'hr' 
                 ? 'border-red-500 bg-red-500/20' 
-                : 'border-border bg-background hover:bg-accent/50'
+                : 'border-border bg-background hover:border-red-500 hover:bg-red-500/10'
             }`}
             data-testid="button-vitals-heart"
             title="Heart Rate"
           >
-            <Heart className={`w-5 h-5 ${activeToolMode === 'hr' ? 'text-red-500' : ''}`} />
+            <Heart className={`w-5 h-5 transition-colors ${activeToolMode === 'hr' ? 'text-red-500' : 'hover:text-red-500'}`} />
           </button>
           <button
             onClick={() => setActiveToolMode(activeToolMode === 'spo2' ? null : 'spo2')}
             className={`p-2 rounded-md border transition-colors flex items-center justify-center shadow-sm ${
               activeToolMode === 'spo2' 
-                ? 'border-purple-500 bg-purple-500/20' 
-                : 'border-border bg-background hover:bg-accent/50'
+                ? 'border-blue-500 bg-blue-500/20' 
+                : 'border-border bg-background hover:border-blue-500 hover:bg-blue-500/10'
             }`}
             data-testid="button-vitals-oxygen"
-            title="Oxygenation"
+            title="Oxygenation (SpO2)"
           >
-            <Wind className={`w-5 h-5 ${activeToolMode === 'spo2' ? 'text-purple-500' : ''}`} />
+            <Wind className={`w-5 h-5 transition-colors ${activeToolMode === 'spo2' ? 'text-blue-500' : 'hover:text-blue-500'}`} />
           </button>
           <button
             onClick={() => setActiveToolMode(null)}
@@ -1329,18 +1386,31 @@ export function UnifiedTimeline({
             // Add data point based on active tool mode
             if (activeToolMode === 'hr') {
               setHrDataPoints(prev => [...prev, [hoverInfo.time, hoverInfo.value]]);
+              setHoverInfo(null);
             } else if (activeToolMode === 'bp') {
-              // For BP, add to sys for now (later can add UI for sys/dia selection)
-              setBpDataPoints(prev => ({
-                ...prev,
-                sys: [...prev.sys, [hoverInfo.time, hoverInfo.value]]
-              }));
+              // Sequential BP entry: first systolic, then diastolic at same time
+              if (bpEntryMode === 'sys') {
+                // Save systolic value and switch to diastolic mode
+                setPendingSysValue({ time: hoverInfo.time, value: hoverInfo.value });
+                setBpEntryMode('dia');
+                setHoverInfo(null);
+              } else {
+                // Save diastolic value with the same time as systolic
+                if (pendingSysValue) {
+                  setBpDataPoints(prev => ({
+                    sys: [...prev.sys, [pendingSysValue.time, pendingSysValue.value]],
+                    dia: [...prev.dia, [pendingSysValue.time, hoverInfo.value]]
+                  }));
+                }
+                // Reset to systolic mode
+                setPendingSysValue(null);
+                setBpEntryMode('sys');
+                setHoverInfo(null);
+              }
             } else if (activeToolMode === 'spo2') {
               setSpo2DataPoints(prev => [...prev, [hoverInfo.time, hoverInfo.value]]);
+              setHoverInfo(null);
             }
-            
-            // Clear hover info after adding
-            setHoverInfo(null);
           }}
         />
       )}
@@ -1356,9 +1426,14 @@ export function UnifiedTimeline({
         >
           <div className="text-sm font-semibold">
             {activeToolMode === 'hr' && `HR: ${hoverInfo.value}`}
-            {activeToolMode === 'bp' && `BP: ${hoverInfo.value}`}
+            {activeToolMode === 'bp' && `${bpEntryMode === 'sys' ? 'Systolic' : 'Diastolic'}: ${hoverInfo.value}`}
             {activeToolMode === 'spo2' && `SpO2: ${hoverInfo.value}%`}
           </div>
+          {activeToolMode === 'bp' && pendingSysValue && bpEntryMode === 'dia' && (
+            <div className="text-xs text-muted-foreground">
+              Systolic: {pendingSysValue.value} (already set)
+            </div>
+          )}
           <div className="text-xs text-muted-foreground">
             {new Date(hoverInfo.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
           </div>
