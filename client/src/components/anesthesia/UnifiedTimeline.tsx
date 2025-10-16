@@ -852,12 +852,12 @@ export function UnifiedTimeline({
       const rowY = currentY + (paramIndex - 1) * 35 + 17.5; // Center of row
       const gridIdx = ventilationParentIndex + paramIndex + 1;
       
-      data.forEach(([timestamp, value]) => {
+      data.forEach(([timestamp, value], index) => {
         const pixelX = timestampToPixel(timestamp, gridIdx);
         if (pixelX !== null) {
           graphics.push({
             type: 'text',
-            id: `vent-${name}-${timestamp}`,
+            id: `vent-${name}-${timestamp}-${value}-${index}`,
             left: pixelX,
             top: rowY,
             style: {
