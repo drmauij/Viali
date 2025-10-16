@@ -1,7 +1,7 @@
 import { useMemo, useEffect, useRef, useState, useCallback } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Search, GripVertical } from "lucide-react";
+import { Search, GripVertical, Camera } from "lucide-react";
 
 interface StickyTimelineHeaderProps {
   startTime: number;
@@ -256,6 +256,17 @@ export function StickyTimelineHeader({
           title="Reset Zoom"
         >
           Reset
+        </button>
+        <div className="border-l-2 border-border h-8 mx-1" />
+        <button
+          data-testid="button-camera"
+          onClick={(e) => { e.stopPropagation(); }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          className="hover:bg-muted active:bg-muted/80 rounded-md h-12 w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer"
+          title="Camera"
+        >
+          <Camera className="h-5 w-5" />
         </button>
       </div>
     </>
