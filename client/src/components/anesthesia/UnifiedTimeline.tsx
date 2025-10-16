@@ -282,19 +282,19 @@ export function UnifiedTimeline({
   // Track initial zoom state
   const hasSetInitialZoomRef = useRef(false);
 
-  // Handle chart ready - set initial 60-minute zoom (12 cells × 5min intervals)
+  // Handle chart ready - set initial 120-minute zoom (24 cells × 5min intervals)
   const handleChartReady = (chart: any) => {
     if (hasSetInitialZoomRef.current) return;
 
     const currentTime = now || data.endTime;
-    const thirtyMinutes = 30 * 60 * 1000;
-    const initialStartTime = currentTime - thirtyMinutes;
-    const initialEndTime = currentTime + thirtyMinutes;
+    const sixtyMinutes = 60 * 60 * 1000;
+    const initialStartTime = currentTime - sixtyMinutes;
+    const initialEndTime = currentTime + sixtyMinutes;
     
     const startPercent = ((initialStartTime - data.startTime) / (data.endTime - data.startTime)) * 100;
     const endPercent = ((initialEndTime - data.startTime) / (data.endTime - data.startTime)) * 100;
     
-    console.log('Setting initial 60-min zoom:', startPercent, 'to', endPercent);
+    console.log('Setting initial 120-min zoom:', startPercent, 'to', endPercent);
     
     // Set zoom state first so useMemo picks it up
     setZoomPercent({ start: startPercent, end: endPercent });
@@ -505,22 +505,22 @@ export function UnifiedTimeline({
       const verticalLines: any[] = [];
       const viewSpanMinutes = visibleRange / (60 * 1000);
       
-      // Determine tick interval to maintain 12 cells
+      // Determine tick interval to maintain 24 cells
       let minorInterval: number;
-      if (viewSpanMinutes <= 18) {
-        minorInterval = 1 * 60 * 1000; // 1 min intervals → 12-min span (12 cells)
-      } else if (viewSpanMinutes <= 42) {
-        minorInterval = 2 * 60 * 1000; // 2 min intervals → 24-min span (12 cells)
-      } else if (viewSpanMinutes <= 90) {
-        minorInterval = 5 * 60 * 1000; // 5 min intervals → 60-min span (12 cells) DEFAULT
-      } else if (viewSpanMinutes <= 150) {
-        minorInterval = 10 * 60 * 1000; // 10 min intervals → 120-min span (12 cells)
-      } else if (viewSpanMinutes <= 270) {
-        minorInterval = 15 * 60 * 1000; // 15 min intervals → 180-min span (12 cells)
+      if (viewSpanMinutes <= 36) {
+        minorInterval = 1 * 60 * 1000; // 1 min intervals → 24-min span (24 cells)
+      } else if (viewSpanMinutes <= 84) {
+        minorInterval = 2 * 60 * 1000; // 2 min intervals → 48-min span (24 cells)
+      } else if (viewSpanMinutes <= 180) {
+        minorInterval = 5 * 60 * 1000; // 5 min intervals → 120-min span (24 cells) DEFAULT
+      } else if (viewSpanMinutes <= 300) {
+        minorInterval = 10 * 60 * 1000; // 10 min intervals → 240-min span (24 cells)
       } else if (viewSpanMinutes <= 540) {
-        minorInterval = 30 * 60 * 1000; // 30 min intervals → 360-min span (12 cells)
+        minorInterval = 15 * 60 * 1000; // 15 min intervals → 360-min span (24 cells)
+      } else if (viewSpanMinutes <= 1080) {
+        minorInterval = 30 * 60 * 1000; // 30 min intervals → 720-min span (24 cells)
       } else {
-        minorInterval = 60 * 60 * 1000; // 60 min intervals → 720-min span (12 cells)
+        minorInterval = 60 * 60 * 1000; // 60 min intervals → 1440-min span (24 cells)
       }
       
       // Update snap interval for interactive layer to use (THIS IS THE KEY!)
@@ -610,11 +610,11 @@ export function UnifiedTimeline({
     const currentTime = now || data.endTime; // Use provided "now" or fall back to endTime
     const fiveMinutes = 5 * 60 * 1000;
     const tenMinutes = 10 * 60 * 1000;
-    const thirtyMinutes = 30 * 60 * 1000;
+    const sixtyMinutes = 60 * 60 * 1000;
     
-    // Initial view: 60-minute window from -30min to +30min around NOW (12 cells × 5min)
-    const initialStartTime = currentTime - thirtyMinutes;
-    const initialEndTime = currentTime + thirtyMinutes;
+    // Initial view: 120-minute window from -60min to +60min around NOW (24 cells × 5min)
+    const initialStartTime = currentTime - sixtyMinutes;
+    const initialEndTime = currentTime + sixtyMinutes;
 
     // Calculate swimlane positions dynamically
     let currentTop = SWIMLANE_START;
@@ -841,22 +841,22 @@ export function UnifiedTimeline({
     
     console.log('Initial grid calc - viewSpanMinutes:', viewSpanMinutes);
     
-    // Determine tick interval to maintain 12 cells
+    // Determine tick interval to maintain 24 cells
     let minorInterval: number;
-    if (viewSpanMinutes <= 18) {
-      minorInterval = 1 * 60 * 1000; // 1 min intervals → 12-min span (12 cells)
-    } else if (viewSpanMinutes <= 42) {
-      minorInterval = 2 * 60 * 1000; // 2 min intervals → 24-min span (12 cells)
-    } else if (viewSpanMinutes <= 90) {
-      minorInterval = 5 * 60 * 1000; // 5 min intervals → 60-min span (12 cells) DEFAULT
-    } else if (viewSpanMinutes <= 150) {
-      minorInterval = 10 * 60 * 1000; // 10 min intervals → 120-min span (12 cells)
-    } else if (viewSpanMinutes <= 270) {
-      minorInterval = 15 * 60 * 1000; // 15 min intervals → 180-min span (12 cells)
+    if (viewSpanMinutes <= 36) {
+      minorInterval = 1 * 60 * 1000; // 1 min intervals → 24-min span (24 cells)
+    } else if (viewSpanMinutes <= 84) {
+      minorInterval = 2 * 60 * 1000; // 2 min intervals → 48-min span (24 cells)
+    } else if (viewSpanMinutes <= 180) {
+      minorInterval = 5 * 60 * 1000; // 5 min intervals → 120-min span (24 cells) DEFAULT
+    } else if (viewSpanMinutes <= 300) {
+      minorInterval = 10 * 60 * 1000; // 10 min intervals → 240-min span (24 cells)
     } else if (viewSpanMinutes <= 540) {
-      minorInterval = 30 * 60 * 1000; // 30 min intervals → 360-min span (12 cells)
+      minorInterval = 15 * 60 * 1000; // 15 min intervals → 360-min span (24 cells)
+    } else if (viewSpanMinutes <= 1080) {
+      minorInterval = 30 * 60 * 1000; // 30 min intervals → 720-min span (24 cells)
     } else {
-      minorInterval = 60 * 60 * 1000; // 60 min intervals → 720-min span (12 cells)
+      minorInterval = 60 * 60 * 1000; // 60 min intervals → 1440-min span (24 cells)
     }
     
     console.log('Initial grid interval (min):', minorInterval / 60000);
@@ -988,15 +988,15 @@ export function UnifiedTimeline({
   const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
   const componentHeight = height ?? (VITALS_TOP_POS + VITALS_HEIGHT + swimlanesHeight);
 
-  // Zoom levels maintaining 12 cells: intervals × 12
+  // Zoom levels maintaining 24 cells: intervals × 24
   const zoomLevels = [
-    12 * 60 * 1000,      // 12 min (1-min intervals, 12 cells)
-    24 * 60 * 1000,      // 24 min (2-min intervals, 12 cells)
-    60 * 60 * 1000,      // 60 min (5-min intervals, 12 cells) - DEFAULT
-    2 * 60 * 60 * 1000,  // 120 min (10-min intervals, 12 cells)
-    3 * 60 * 60 * 1000,  // 180 min (15-min intervals, 12 cells)
-    6 * 60 * 60 * 1000,  // 360 min (30-min intervals, 12 cells)
-    12 * 60 * 60 * 1000, // 720 min (60-min intervals, 12 cells)
+    24 * 60 * 1000,      // 24 min (1-min intervals, 24 cells)
+    48 * 60 * 1000,      // 48 min (2-min intervals, 24 cells)
+    2 * 60 * 60 * 1000,  // 120 min (5-min intervals, 24 cells) - DEFAULT
+    4 * 60 * 60 * 1000,  // 240 min (10-min intervals, 24 cells)
+    6 * 60 * 60 * 1000,  // 360 min (15-min intervals, 24 cells)
+    12 * 60 * 60 * 1000, // 720 min (30-min intervals, 24 cells)
+    24 * 60 * 60 * 1000, // 1440 min (60-min intervals, 24 cells)
   ];
 
   // Find closest zoom level to current span
@@ -1193,9 +1193,9 @@ export function UnifiedTimeline({
     const chart = chartRef.current?.getEchartsInstance();
     if (chart) {
       const currentTime = now || data.endTime;
-      const thirtyMinutes = 30 * 60 * 1000;
-      const initialStartTime = currentTime - thirtyMinutes;
-      const initialEndTime = currentTime + thirtyMinutes;
+      const sixtyMinutes = 60 * 60 * 1000;
+      const initialStartTime = currentTime - sixtyMinutes;
+      const initialEndTime = currentTime + sixtyMinutes;
       
       // Convert to percentages for dataZoom
       const fullRange = data.endTime - data.startTime;
