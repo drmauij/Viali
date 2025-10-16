@@ -59,7 +59,7 @@ async function upsertUser(
 ) {
   const userId = claims["sub"];
   
-  await storage.upsertUser({
+  const user = await storage.upsertUser({
     id: userId,
     email: claims["email"],
     firstName: claims["first_name"],
@@ -67,8 +67,8 @@ async function upsertUser(
     profileImageUrl: claims["profile_image_url"],
   });
 
-  // Check if user has any hospitals assigned
-  const userHospitals = await storage.getUserHospitals(userId);
+  // Check if user has any hospitals assigned - use the returned user's id (handles email conflict)
+  const userHospitals = await storage.getUserHospitals(user.id);
   
   // If user has no hospitals, create one and assign them as admin (like signup flow)
   if (userHospitals.length === 0) {
@@ -107,9 +107,9 @@ async function upsertUser(
       parentId: null,
     });
 
-    // Assign user as admin to the first location (Anesthesy)
+    // Assign user as admin to the first location (Anesthesy) - use the returned user's id
     await storage.createUserHospitalRole({
-      userId: userId,
+      userId: user.id,
       hospitalId: hospital.id,
       locationId: anesthesyLocation.id,
       role: "admin",
