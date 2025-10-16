@@ -178,19 +178,21 @@ export function StickyTimelineHeader({
   }, [currentStart, currentEnd, startTime, endTime]);
 
   return (
-    <div className="sticky top-0 z-[100] bg-background border-b border-border relative" style={{ height: '56px' }}>
-      <ReactECharts
-        ref={chartRef}
-        option={option}
-        style={{ height: "56px", width: "100%" }}
-        opts={{ renderer: "canvas" }}
-      />
+    <>
+      <div className="sticky top-0 z-50 bg-background border-b border-border relative" style={{ height: '56px' }}>
+        <ReactECharts
+          ref={chartRef}
+          option={option}
+          style={{ height: "56px", width: "100%" }}
+          opts={{ renderer: "canvas" }}
+        />
+      </div>
 
-      {/* Touch-Friendly Draggable Controls with Glass Effect */}
+      {/* Touch-Friendly Draggable Controls with Glass Effect - Fixed positioning for unrestricted dragging */}
       <div 
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
-        className="absolute z-[110] bg-background/80 backdrop-blur-md border-2 border-border/50 rounded-lg shadow-lg px-3 py-1.5 flex items-center gap-4 cursor-grab active:cursor-grabbing select-none"
+        className="fixed z-[9999] bg-background/80 backdrop-blur-md border-2 border-border/50 rounded-lg shadow-lg px-3 py-1.5 flex items-center gap-4 cursor-grab active:cursor-grabbing select-none"
         style={{ left: `${position.x}px`, top: `${position.y}px`, transform: 'translate(-50%, 0)' }}
         data-testid="timeline-controls-panel"
       >
@@ -256,6 +258,6 @@ export function StickyTimelineHeader({
           Reset
         </button>
       </div>
-    </div>
+    </>
   );
 }
