@@ -296,13 +296,14 @@ export function UnifiedTimeline({
       
       try {
         const tenMinutes = 10 * 60 * 1000;
+        const oneHour = 60 * 60 * 1000;
         
         // Zone boundaries:
         // Zone 1 (past/non-editable): from data.startTime to (NOW - 10 min)
-        // Zone 2 (editable): from (NOW - 10 min) to (NOW + 10 min)
-        // Zone 3 (future/non-editable): from (NOW + 10 min) to data.endTime
+        // Zone 2 (editable): from (NOW - 10 min) to (NOW + 1 hour)
+        // Zone 3 (future/non-editable): from (NOW + 1 hour) to data.endTime
         const editableStartBoundary = currentTime - tenMinutes;
-        const editableEndBoundary = currentTime + tenMinutes;
+        const editableEndBoundary = currentTime + oneHour;
         
         // Use convertToPixel to get accurate pixel positions based on current zoom
         const startPx = chart.convertToPixel({ xAxisIndex: 0 }, data.startTime);
