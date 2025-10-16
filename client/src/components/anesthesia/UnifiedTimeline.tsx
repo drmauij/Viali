@@ -447,6 +447,10 @@ export function UnifiedTimeline({
       const visibleStart = dataZoom.startValue;
       const visibleEnd = dataZoom.endValue;
       const visibleRange = visibleEnd - visibleStart;
+      
+      // Update zoom state for interactive layer to use
+      setCurrentZoomStart(visibleStart);
+      setCurrentZoomEnd(visibleEnd);
 
       // Constants (must match option calculation)
       const VITALS_TOP = 32;
@@ -1318,26 +1322,9 @@ export function UnifiedTimeline({
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
             
-            // Get current visible time range from chart
-            const chart = chartRef.current?.getEchartsInstance();
-            if (!chart) return;
-            
-            // Try to get visible range from dataZoom (most reliable after zoom)
-            const option = chart.getOption() as any;
-            const dataZoom = option.dataZoom?.[0];
-            
-            let visibleStart: number;
-            let visibleEnd: number;
-            
-            if (dataZoom && dataZoom.startValue != null && dataZoom.endValue != null) {
-              visibleStart = dataZoom.startValue;
-              visibleEnd = dataZoom.endValue;
-            } else {
-              // Fallback to full data range
-              visibleStart = data.startTime;
-              visibleEnd = data.endTime;
-            }
-            
+            // Use tracked zoom state (updated by dataZoom event listener)
+            const visibleStart = currentZoomStart ?? data.startTime;
+            const visibleEnd = currentZoomEnd ?? data.endTime;
             const visibleRange = visibleEnd - visibleStart;
             
             // Convert x-position to time
