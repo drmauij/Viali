@@ -1,7 +1,7 @@
 import { useMemo, useEffect, useRef, useState, useCallback } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Search, GripVertical, Camera } from "lucide-react";
+import { Search, GripVertical, Camera, Mic, Square } from "lucide-react";
 
 interface StickyTimelineHeaderProps {
   startTime: number;
@@ -15,6 +15,7 @@ interface StickyTimelineHeaderProps {
   onZoomOut?: () => void;
   onResetZoom?: () => void;
   onCameraCapture?: (imageBase64: string, timestamp: number) => void;
+  onVoiceCommand?: (audioBlob: Blob, timestamp: number) => void;
 }
 
 export function StickyTimelineHeader({
@@ -29,6 +30,7 @@ export function StickyTimelineHeader({
   onZoomOut,
   onResetZoom,
   onCameraCapture,
+  onVoiceCommand,
 }: StickyTimelineHeaderProps) {
   const chartRef = useRef<any>(null);
   const dragRef = useRef<{ isDragging: boolean; startX: number; startY: number }>({
@@ -39,6 +41,12 @@ export function StickyTimelineHeader({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  
+  // Voice recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   // Load position from localStorage or use default centered position
   const [position, setPosition] = useState<{ x: number; y: number }>(() => {
@@ -100,11 +108,71 @@ export function StickyTimelineHeader({
     }
   };
 
+  // Start voice recording
+  const startRecording = async () => {
+    try {
+      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(audioStream, {
+        mimeType: 'audio/webm' // Use webm for broad browser support
+      });
+      
+      audioChunksRef.current = [];
+      
+      mediaRecorder.addEventListener('dataavailable', (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      });
+      
+      mediaRecorder.addEventListener('stop', async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const timestamp = Date.now();
+        
+        setIsProcessing(true);
+        
+        // Stop all audio tracks
+        audioStream.getTracks().forEach(track => track.stop());
+        
+        // Send to parent for processing
+        if (onVoiceCommand) {
+          await onVoiceCommand(audioBlob, timestamp);
+        }
+        
+        setIsProcessing(false);
+      });
+      
+      mediaRecorderRef.current = mediaRecorder;
+      mediaRecorder.start();
+      setIsRecording(true);
+      
+      // Auto-stop after 10 seconds
+      setTimeout(() => {
+        if (mediaRecorderRef.current?.state === 'recording') {
+          stopRecording();
+        }
+      }, 10000);
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      alert('Unable to access microphone. Please check permissions.');
+    }
+  };
+  
+  // Stop voice recording
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+  };
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
       }
     };
   }, [stream]);
@@ -328,6 +396,34 @@ export function StickyTimelineHeader({
           title="Camera"
         >
           <Camera className="h-4 w-4 sm:h-5 sm:w-5" />
+        </button>
+        <button
+          data-testid="button-voice"
+          onClick={(e) => { 
+            e.stopPropagation(); 
+            if (isRecording) {
+              stopRecording();
+            } else if (!isProcessing) {
+              startRecording();
+            }
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          disabled={isProcessing}
+          className={`rounded-md h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer ${
+            isRecording 
+              ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse' 
+              : isProcessing 
+                ? 'bg-muted/50 cursor-not-allowed' 
+                : 'hover:bg-muted active:bg-muted/80'
+          }`}
+          title={isRecording ? "Stop Recording" : isProcessing ? "Processing..." : "Voice Command"}
+        >
+          {isRecording ? (
+            <Square className="h-4 w-4 sm:h-5 sm:w-5" />
+          ) : (
+            <Mic className="h-4 w-4 sm:h-5 sm:w-5" />
+          )}
         </button>
       </div>
 

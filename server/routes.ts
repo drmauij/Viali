@@ -1362,6 +1362,106 @@ Example - German ventilation monitor:
     }
   });
 
+  // Voice transcription for drug administration commands
+  app.post('/api/transcribe-voice', isAuthenticated, async (req: any, res) => {
+    try {
+      const { audioData } = req.body;
+      if (!audioData) {
+        return res.status(400).json({ message: "Audio data is required" });
+      }
+
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+      // Convert base64 to buffer
+      const audioBuffer = Buffer.from(audioData, 'base64');
+      
+      // Create a Blob-like object that OpenAI SDK can handle
+      const blob = new Blob([audioBuffer], { type: 'audio/webm' });
+      const file = Object.assign(blob, {
+        name: 'audio.webm',
+        lastModified: Date.now(),
+      });
+
+      // Transcribe using Whisper
+      const transcription = await openai.audio.transcriptions.create({
+        file: file as any,
+        model: 'whisper-1',
+        language: 'de', // German language
+        response_format: 'text'
+      });
+
+      console.log('[Voice Transcription]:', transcription);
+      res.json({ transcription });
+    } catch (error: any) {
+      console.error("Error transcribing voice:", error);
+      res.status(500).json({ message: error.message || "Failed to transcribe voice" });
+    }
+  });
+
+  // Parse drug administration command
+  app.post('/api/parse-drug-command', isAuthenticated, async (req: any, res) => {
+    try {
+      const { transcription } = req.body;
+      if (!transcription) {
+        return res.status(400).json({ message: "Transcription is required" });
+      }
+
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+      const prompt = `You are a medical command parser for anesthesia drug administration in German hospitals.
+
+Parse the voice command and extract the drug name and dosage.
+
+COMMON GERMAN PATTERNS:
+- "gebe 5mg Ephedrin" → give 5mg ephedrine
+- "5mg Ephedrin sind drin" → 5mg ephedrine is in
+- "10mg Atropin gegeben" → 10mg atropine given
+- "Propofol 200mg" → propofol 200mg
+- "Fentanyl 100 Mikrogramm" → fentanyl 100mcg
+
+DRUG NAME NORMALIZATION:
+- Standardize to common drug names (Ephedrin → Ephedrine, Fentanyl → Fentanyl, etc.)
+- Keep original German name if standard
+
+DOSAGE EXTRACTION:
+- Extract numeric value and unit
+- Common units: mg, mcg/µg, g, ml, IE (international units)
+- Normalize: "Mikrogramm" → "mcg", "Milligramm" → "mg"
+
+INPUT: "${transcription}"
+
+Return ONLY a JSON object:
+{
+  "drug": "string (standardized drug name)",
+  "dose": "string (value + unit, e.g., '5mg', '100mcg')",
+  "confidence": "high" | "medium" | "low"
+}
+
+If unable to parse clearly, return:
+{
+  "drug": null,
+  "dose": null,
+  "confidence": "low",
+  "error": "Could not parse command"
+}`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 512,
+      });
+
+      const result = JSON.parse(response.choices[0].message.content || '{}');
+      
+      console.log('[Drug Command Parsed]:', result);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error parsing drug command:", error);
+      res.status(500).json({ message: error.message || "Failed to parse drug command" });
+    }
+  });
+
   // Bulk item creation
   app.post('/api/items/bulk', isAuthenticated, async (req: any, res) => {
     try {

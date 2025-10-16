@@ -2207,6 +2207,78 @@ export function UnifiedTimeline({
     setExtractedData(null);
   };
 
+  // Handle voice command for drug administration
+  const handleVoiceCommand = async (audioBlob: Blob, timestamp: number) => {
+    try {
+      // Convert blob to base64 (browser-compatible)
+      const reader = new FileReader();
+      const audioBase64 = await new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => {
+          const base64String = (reader.result as string).split(',')[1];
+          resolve(base64String);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(audioBlob);
+      });
+      
+      // Step 1: Transcribe audio using Whisper
+      const transcribeResponse = await fetch('/api/transcribe-voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audioData: audioBase64 }),
+      });
+      
+      if (!transcribeResponse.ok) {
+        throw new Error('Failed to transcribe voice');
+      }
+      
+      const { transcription } = await transcribeResponse.json();
+      console.log('[Voice] Transcription:', transcription);
+      
+      // Step 2: Parse drug command
+      const parseResponse = await fetch('/api/parse-drug-command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcription }),
+      });
+      
+      if (!parseResponse.ok) {
+        throw new Error('Failed to parse drug command');
+      }
+      
+      const drugCommand = await parseResponse.json();
+      console.log('[Voice] Parsed command:', drugCommand);
+      
+      if (!drugCommand.drug || !drugCommand.dose) {
+        toast({
+          title: "Could not understand command",
+          description: `Heard: "${transcription}"`,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Step 3: Add drug entry to medikamente swimlane
+      const drugEntry = `${drugCommand.drug} ${drugCommand.dose} (${new Date(timestamp).toLocaleTimeString()})`;
+      setMedications(prev => [...prev, drugEntry]);
+      
+      // TODO: Store in backend anesthesia case data for persistence
+      
+      toast({
+        title: "Drug Recorded",
+        description: `${drugCommand.drug} ${drugCommand.dose}`,
+      });
+      
+    } catch (error: any) {
+      console.error('[Voice] Error:', error);
+      toast({
+        title: "Voice command failed",
+        description: error.message || "Failed to process voice command",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Calculate swimlane positions for sidebar
   const SWIMLANE_START = VITALS_TOP_POS + VITALS_HEIGHT;
   let currentTop = SWIMLANE_START;
@@ -2235,6 +2307,7 @@ export function UnifiedTimeline({
         onZoomOut={handleZoomOut}
         onResetZoom={handleResetZoom}
         onCameraCapture={handleCameraCapture}
+        onVoiceCommand={handleVoiceCommand}
       />
       
       {/* Swimlane backgrounds - explicit height matching vertical lines extent */}
