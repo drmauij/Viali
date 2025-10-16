@@ -120,6 +120,25 @@ export function UnifiedTimeline({
   });
   const [spo2DataPoints, setSpo2DataPoints] = useState<VitalPoint[]>(data.vitals.spo2 || []);
   
+  // State for ventilation parameters
+  const [ventilationData, setVentilationData] = useState<{
+    etCO2: VitalPoint[];
+    pip: VitalPoint[];
+    peep: VitalPoint[];
+    tidalVolume: VitalPoint[];
+    respiratoryRate: VitalPoint[];
+    minuteVolume: VitalPoint[];
+    fiO2: VitalPoint[];
+  }>({
+    etCO2: [],
+    pip: [],
+    peep: [],
+    tidalVolume: [],
+    respiratoryRate: [],
+    minuteVolume: [],
+    fiO2: [],
+  });
+  
   // State for BP dual entry (systolic then diastolic)
   const [bpEntryMode, setBpEntryMode] = useState<'sys' | 'dia'>('sys');
   const [pendingSysValue, setPendingSysValue] = useState<{ time: number; value: number } | null>(null);
@@ -680,7 +699,7 @@ export function UnifiedTimeline({
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [chartRef, data, isDark, activeSwimlanes, now, currentZoomStart, currentZoomEnd, currentTime, hrDataPoints, bpDataPoints, spo2DataPoints]);
+  }, [chartRef, data, isDark, activeSwimlanes, now, currentZoomStart, currentZoomEnd, currentTime, hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData]);
 
   // Add click handler for editing data points
   useEffect(() => {
@@ -1102,6 +1121,142 @@ export function UnifiedTimeline({
       });
     }
 
+    // Add ventilation parameter scatter series
+    // Note: ventilationParams order: ["etCO2 (mmHg)", "P insp (mbar)", "PEEP (mbar)", "Tidal Volume (ml)", "Respiratory Rate (/min)", "Minute Volume (l/min)", "FiO2 (%)"]
+    // Find the ventilation parent swimlane index to calculate correct xAxisIndex and yAxisIndex
+    const ventilationParentIndex = activeSwimlanes.findIndex(lane => lane.id === 'ventilation');
+    
+    if (ventilationParentIndex !== -1 && !collapsedSwimlanes.has('ventilation')) {
+      // Define colors for each ventilation parameter
+      const ventilationColors = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6', '#14b8a6', '#f97316'];
+      
+      // Add etCO2 scatter series (index 0)
+      if (ventilationData.etCO2.length > 0) {
+        const paramIndex = ventilationParentIndex + 1; // First child after parent
+        series.push({
+          type: 'scatter',
+          name: 'etCO2',
+          xAxisIndex: paramIndex + 1, // +1 because vitals is grid 0
+          yAxisIndex: paramIndex + 1,
+          data: ventilationData.etCO2,
+          symbol: 'circle',
+          symbolSize: 8,
+          itemStyle: { color: ventilationColors[0] },
+          emphasis: { scale: 1.5 },
+          cursor: 'pointer',
+          z: 10,
+        });
+      }
+      
+      // Add PIP scatter series (index 1)
+      if (ventilationData.pip.length > 0) {
+        const paramIndex = ventilationParentIndex + 2;
+        series.push({
+          type: 'scatter',
+          name: 'PIP',
+          xAxisIndex: paramIndex + 1,
+          yAxisIndex: paramIndex + 1,
+          data: ventilationData.pip,
+          symbol: 'circle',
+          symbolSize: 8,
+          itemStyle: { color: ventilationColors[1] },
+          emphasis: { scale: 1.5 },
+          cursor: 'pointer',
+          z: 10,
+        });
+      }
+      
+      // Add PEEP scatter series (index 2)
+      if (ventilationData.peep.length > 0) {
+        const paramIndex = ventilationParentIndex + 3;
+        series.push({
+          type: 'scatter',
+          name: 'PEEP',
+          xAxisIndex: paramIndex + 1,
+          yAxisIndex: paramIndex + 1,
+          data: ventilationData.peep,
+          symbol: 'circle',
+          symbolSize: 8,
+          itemStyle: { color: ventilationColors[2] },
+          emphasis: { scale: 1.5 },
+          cursor: 'pointer',
+          z: 10,
+        });
+      }
+      
+      // Add Tidal Volume scatter series (index 3)
+      if (ventilationData.tidalVolume.length > 0) {
+        const paramIndex = ventilationParentIndex + 4;
+        series.push({
+          type: 'scatter',
+          name: 'Tidal Volume',
+          xAxisIndex: paramIndex + 1,
+          yAxisIndex: paramIndex + 1,
+          data: ventilationData.tidalVolume,
+          symbol: 'circle',
+          symbolSize: 8,
+          itemStyle: { color: ventilationColors[3] },
+          emphasis: { scale: 1.5 },
+          cursor: 'pointer',
+          z: 10,
+        });
+      }
+      
+      // Add Respiratory Rate scatter series (index 4)
+      if (ventilationData.respiratoryRate.length > 0) {
+        const paramIndex = ventilationParentIndex + 5;
+        series.push({
+          type: 'scatter',
+          name: 'Respiratory Rate',
+          xAxisIndex: paramIndex + 1,
+          yAxisIndex: paramIndex + 1,
+          data: ventilationData.respiratoryRate,
+          symbol: 'circle',
+          symbolSize: 8,
+          itemStyle: { color: ventilationColors[4] },
+          emphasis: { scale: 1.5 },
+          cursor: 'pointer',
+          z: 10,
+        });
+      }
+      
+      // Add Minute Volume scatter series (index 5)
+      if (ventilationData.minuteVolume.length > 0) {
+        const paramIndex = ventilationParentIndex + 6;
+        series.push({
+          type: 'scatter',
+          name: 'Minute Volume',
+          xAxisIndex: paramIndex + 1,
+          yAxisIndex: paramIndex + 1,
+          data: ventilationData.minuteVolume,
+          symbol: 'circle',
+          symbolSize: 8,
+          itemStyle: { color: ventilationColors[5] },
+          emphasis: { scale: 1.5 },
+          cursor: 'pointer',
+          z: 10,
+        });
+      }
+      
+      // Add FiO2 scatter series (index 6)
+      if (ventilationData.fiO2.length > 0) {
+        const paramIndex = ventilationParentIndex + 7;
+        series.push({
+          type: 'scatter',
+          name: 'FiO2',
+          xAxisIndex: paramIndex + 1,
+          yAxisIndex: paramIndex + 1,
+          data: ventilationData.fiO2,
+          symbol: 'circle',
+          symbolSize: 8,
+          itemStyle: { color: ventilationColors[6] },
+          emphasis: { scale: 1.5 },
+          cursor: 'pointer',
+          z: 10,
+        });
+      }
+    }
+
     // Calculate total height for vertical lines - dynamically based on current swimlanes
     const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
     const chartHeight = VITALS_HEIGHT + swimlanesHeight;
@@ -1256,7 +1411,7 @@ export function UnifiedTimeline({
         },
       },
     } as echarts.EChartsOption;
-  }, [data, isDark, activeSwimlanes, now, hrDataPoints, bpDataPoints, spo2DataPoints, zoomPercent, pendingSysValue, bpEntryMode, currentTime]);
+  }, [data, isDark, activeSwimlanes, now, hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, zoomPercent, pendingSysValue, bpEntryMode, currentTime, collapsedSwimlanes]);
 
   // Calculate component height
   const VITALS_HEIGHT = 340;
@@ -1767,12 +1922,25 @@ export function UnifiedTimeline({
           
           if (paramIndex !== -1) {
             const swimlaneId = `ventilation-${paramIndex}`;
-            console.log(`Adding ${param.standardName} (${param.value} ${param.unit}) to swimlane ${swimlaneId} at ${new Date(timestamp).toLocaleTimeString()}`);
-            // Note: Currently logging - full swimlane event implementation would add to data.events
-            // This would require a way to update the timeline data structure
+            
+            // Map standardName to state key
+            const paramKey = param.standardName === 'EtCO2' ? 'etCO2' :
+                             param.standardName === 'PIP' ? 'pip' :
+                             param.standardName === 'PEEP' ? 'peep' :
+                             param.standardName === 'TidalVolume' ? 'tidalVolume' :
+                             param.standardName === 'RR' ? 'respiratoryRate' :
+                             param.standardName === 'MinuteVolume' ? 'minuteVolume' :
+                             param.standardName === 'FiO2' ? 'fiO2' : null;
+            
+            if (paramKey && typeof param.value === 'number') {
+              setVentilationData(prev => ({
+                ...prev,
+                [paramKey]: [...prev[paramKey as keyof typeof prev], [timestamp, param.value as number]]
+              }));
+              addedItems.push(param.standardName);
+            }
           }
         });
-        addedItems.push(`Ventilation (${ventParams.length} params)`);
       }
       
       // Process TOF parameters
