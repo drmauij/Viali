@@ -1137,11 +1137,10 @@ export function UnifiedTimeline({
         console.log(`[Ventilation Chart] Adding etCO2 series with ${ventilationData.etCO2.length} points`);
         const paramIndex = ventilationParentIndex + 1; // First child after parent
         const gridIdx = paramIndex + 1; // +1 because vitals is grid 0
-        // Convert data format: [timestamp, value] -> [timestamp, "", value] where "" is the y-category
-        const seriesData = ventilationData.etCO2.map(([time, val]) => ({
-          value: [time, ""],
-          label: { formatter: () => val.toString() }
-        }));
+        // Map to store original values for the formatter
+        const valuesMap = new Map(ventilationData.etCO2.map(([time, val]) => [time, val]));
+        // Convert data format: [timestamp, value] -> [timestamp, ""] where "" is the y-category
+        const seriesData = ventilationData.etCO2.map(([time, val]) => [time, ""]);
         series.push({
           type: 'scatter',
           name: 'etCO2',
@@ -1151,6 +1150,10 @@ export function UnifiedTimeline({
           symbol: 'none',
           label: {
             show: true,
+            formatter: (params: any) => {
+              const timestamp = params.value[0];
+              return valuesMap.get(timestamp)?.toString() || '';
+            },
             fontSize: 13,
             fontWeight: '600',
             fontFamily: modernMonoFont,
@@ -1165,10 +1168,8 @@ export function UnifiedTimeline({
       if (ventilationData.pip.length > 0) {
         const paramIndex = ventilationParentIndex + 2;
         const gridIdx = paramIndex + 1;
-        const seriesData = ventilationData.pip.map(([time, val]) => ({
-          value: [time, ""],
-          label: { formatter: () => val.toString() }
-        }));
+        const valuesMap = new Map(ventilationData.pip.map(([time, val]) => [time, val]));
+        const seriesData = ventilationData.pip.map(([time, val]) => [time, ""]);
         series.push({
           type: 'scatter',
           name: 'PIP',
@@ -1178,6 +1179,10 @@ export function UnifiedTimeline({
           symbol: 'none',
           label: {
             show: true,
+            formatter: (params: any) => {
+              const timestamp = params.value[0];
+              return valuesMap.get(timestamp)?.toString() || '';
+            },
             fontSize: 13,
             fontWeight: '600',
             fontFamily: modernMonoFont,
@@ -1192,10 +1197,8 @@ export function UnifiedTimeline({
       if (ventilationData.peep.length > 0) {
         const paramIndex = ventilationParentIndex + 3;
         const gridIdx = paramIndex + 1;
-        const seriesData = ventilationData.peep.map(([time, val]) => ({
-          value: [time, ""],
-          label: { formatter: () => val.toString() }
-        }));
+        const valuesMap = new Map(ventilationData.peep.map(([time, val]) => [time, val]));
+        const seriesData = ventilationData.peep.map(([time, val]) => [time, ""]);
         series.push({
           type: 'scatter',
           name: 'PEEP',
@@ -1205,6 +1208,10 @@ export function UnifiedTimeline({
           symbol: 'none',
           label: {
             show: true,
+            formatter: (params: any) => {
+              const timestamp = params.value[0];
+              return valuesMap.get(timestamp)?.toString() || '';
+            },
             fontSize: 13,
             fontWeight: '600',
             fontFamily: modernMonoFont,
@@ -1219,10 +1226,8 @@ export function UnifiedTimeline({
       if (ventilationData.tidalVolume.length > 0) {
         const paramIndex = ventilationParentIndex + 4;
         const gridIdx = paramIndex + 1;
-        const seriesData = ventilationData.tidalVolume.map(([time, val]) => ({
-          value: [time, ""],
-          label: { formatter: () => val.toString() }
-        }));
+        const valuesMap = new Map(ventilationData.tidalVolume.map(([time, val]) => [time, val]));
+        const seriesData = ventilationData.tidalVolume.map(([time, val]) => [time, ""]);
         series.push({
           type: 'scatter',
           name: 'Tidal Volume',
@@ -1232,6 +1237,10 @@ export function UnifiedTimeline({
           symbol: 'none',
           label: {
             show: true,
+            formatter: (params: any) => {
+              const timestamp = params.value[0];
+              return valuesMap.get(timestamp)?.toString() || '';
+            },
             fontSize: 13,
             fontWeight: '600',
             fontFamily: modernMonoFont,
@@ -1246,10 +1255,8 @@ export function UnifiedTimeline({
       if (ventilationData.respiratoryRate.length > 0) {
         const paramIndex = ventilationParentIndex + 5;
         const gridIdx = paramIndex + 1;
-        const seriesData = ventilationData.respiratoryRate.map(([time, val]) => ({
-          value: [time, ""],
-          label: { formatter: () => val.toString() }
-        }));
+        const valuesMap = new Map(ventilationData.respiratoryRate.map(([time, val]) => [time, val]));
+        const seriesData = ventilationData.respiratoryRate.map(([time, val]) => [time, ""]);
         series.push({
           type: 'scatter',
           name: 'Respiratory Rate',
@@ -1259,6 +1266,10 @@ export function UnifiedTimeline({
           symbol: 'none',
           label: {
             show: true,
+            formatter: (params: any) => {
+              const timestamp = params.value[0];
+              return valuesMap.get(timestamp)?.toString() || '';
+            },
             fontSize: 13,
             fontWeight: '600',
             fontFamily: modernMonoFont,
@@ -1273,10 +1284,8 @@ export function UnifiedTimeline({
       if (ventilationData.minuteVolume.length > 0) {
         const paramIndex = ventilationParentIndex + 6;
         const gridIdx = paramIndex + 1;
-        const seriesData = ventilationData.minuteVolume.map(([time, val]) => ({
-          value: [time, ""],
-          label: { formatter: () => val.toString() }
-        }));
+        const valuesMap = new Map(ventilationData.minuteVolume.map(([time, val]) => [time, val]));
+        const seriesData = ventilationData.minuteVolume.map(([time, val]) => [time, ""]);
         series.push({
           type: 'scatter',
           name: 'Minute Volume',
@@ -1286,6 +1295,10 @@ export function UnifiedTimeline({
           symbol: 'none',
           label: {
             show: true,
+            formatter: (params: any) => {
+              const timestamp = params.value[0];
+              return valuesMap.get(timestamp)?.toString() || '';
+            },
             fontSize: 13,
             fontWeight: '600',
             fontFamily: modernMonoFont,
@@ -1300,10 +1313,8 @@ export function UnifiedTimeline({
       if (ventilationData.fiO2.length > 0) {
         const paramIndex = ventilationParentIndex + 7;
         const gridIdx = paramIndex + 1;
-        const seriesData = ventilationData.fiO2.map(([time, val]) => ({
-          value: [time, ""],
-          label: { formatter: () => val.toString() }
-        }));
+        const valuesMap = new Map(ventilationData.fiO2.map(([time, val]) => [time, val]));
+        const seriesData = ventilationData.fiO2.map(([time, val]) => [time, ""]);
         series.push({
           type: 'scatter',
           name: 'FiO2',
@@ -1313,6 +1324,10 @@ export function UnifiedTimeline({
           symbol: 'none',
           label: {
             show: true,
+            formatter: (params: any) => {
+              const timestamp = params.value[0];
+              return valuesMap.get(timestamp)?.toString() || '';
+            },
             fontSize: 13,
             fontWeight: '600',
             fontFamily: modernMonoFont,
