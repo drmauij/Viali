@@ -1400,6 +1400,12 @@ export function UnifiedTimeline({
           }}
           onMouseLeave={() => setHoverInfo(null)}
           onClick={(e) => {
+            console.log('=== CLICK HANDLER START ===');
+            console.log('hoverInfo:', hoverInfo);
+            console.log('activeToolMode:', activeToolMode);
+            console.log('bpEntryMode:', bpEntryMode);
+            console.log('pendingSysValue BEFORE:', pendingSysValue);
+            
             if (!hoverInfo) return;
             
             // Add data point based on active tool mode
@@ -1411,13 +1417,14 @@ export function UnifiedTimeline({
               if (bpEntryMode === 'sys') {
                 // Save systolic value and switch to diastolic mode
                 const pendingValue = { time: hoverInfo.time, value: hoverInfo.value };
-                console.log('Setting pending systolic:', pendingValue);
+                console.log('>>> SETTING PENDING SYSTOLIC:', pendingValue);
                 setPendingSysValue(pendingValue);
                 setBpEntryMode('dia');
                 setHoverInfo(null);
+                console.log('>>> After setState - should be dia mode now');
               } else {
                 // Save diastolic value with the same time as systolic
-                console.log('Adding diastolic with pending:', pendingSysValue);
+                console.log('>>> ADDING DIASTOLIC with pending:', pendingSysValue);
                 if (pendingSysValue) {
                   setBpDataPoints(prev => ({
                     sys: [...prev.sys, [pendingSysValue.time, pendingSysValue.value]],
@@ -1428,11 +1435,14 @@ export function UnifiedTimeline({
                 setPendingSysValue(null);
                 setBpEntryMode('sys');
                 setHoverInfo(null);
+                console.log('>>> Reset to sys mode');
               }
             } else if (activeToolMode === 'spo2') {
               setSpo2DataPoints(prev => [...prev, [hoverInfo.time, hoverInfo.value]]);
               setHoverInfo(null);
             }
+            
+            console.log('=== CLICK HANDLER END ===');
           }}
         />
       )}
