@@ -1517,6 +1517,9 @@ export function UnifiedTimeline({
 
     // Add medication dose series (text labels similar to ventilation)
     const medicationParentIndex = activeSwimlanes.findIndex(s => s.id === "medikamente");
+    console.log('[Med Debug] medicationParentIndex:', medicationParentIndex, 'collapsed:', collapsedSwimlanes.has("medikamente"));
+    console.log('[Med Debug] medicationDoseData:', medicationDoseData);
+    
     if (medicationParentIndex !== -1 && !collapsedSwimlanes.has("medikamente")) {
       const textColor = isDark ? '#ffffff' : '#000000';
       const modernMonoFont = '"SF Mono", "JetBrains Mono", "Roboto Mono", "Fira Code", Monaco, Consolas, monospace';
@@ -1529,6 +1532,8 @@ export function UnifiedTimeline({
           const dosePoints = medicationDoseData[lane.id];
           // Grid/axis index matches swimlane position (index is already correct, vitals is grid 0)
           const gridIdx = index + 1; // +1 because vitals is grid 0
+          
+          console.log('[Med Debug] Creating series for', lane.label, 'at gridIdx:', gridIdx, 'with data:', dosePoints);
           
           // Create values map and series data
           const valuesMap = new Map(dosePoints.map(([time, dose]) => [time, dose]));
