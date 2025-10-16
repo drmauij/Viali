@@ -247,22 +247,24 @@ export function UnifiedTimeline({
     const chart = chartRef.current?.getEchartsInstance();
     if (!chart) return;
 
-    // Initialize zoom state from initial dataZoom values
+    // Initialize zoom state from axis proxy (works with percentage-based dataZoom)
     const initializeZoom = () => {
-      const option = chart.getOption() as any;
-      const dataZoom = option.dataZoom?.[0];
-      if (dataZoom && dataZoom.startValue && dataZoom.endValue) {
-        setCurrentZoomStart(dataZoom.startValue);
-        setCurrentZoomEnd(dataZoom.endValue);
+      const dataZoomModel = chart.getModel().getComponent('dataZoom', 0) as any;
+      const dataWindow = dataZoomModel?.getAxisProxy('x')?.getDataWindow();
+      
+      if (dataWindow && dataWindow.length >= 2) {
+        setCurrentZoomStart(dataWindow[0]);
+        setCurrentZoomEnd(dataWindow[1]);
       }
     };
 
     const handleDataZoom = (params: any) => {
-      const option = chart.getOption() as any;
-      const dataZoom = option.dataZoom?.[0];
-      if (dataZoom) {
-        setCurrentZoomStart(dataZoom.startValue);
-        setCurrentZoomEnd(dataZoom.endValue);
+      const dataZoomModel = chart.getModel().getComponent('dataZoom', 0) as any;
+      const dataWindow = dataZoomModel?.getAxisProxy('x')?.getDataWindow();
+      
+      if (dataWindow && dataWindow.length >= 2) {
+        setCurrentZoomStart(dataWindow[0]);
+        setCurrentZoomEnd(dataWindow[1]);
       }
     };
 
@@ -440,12 +442,14 @@ export function UnifiedTimeline({
     if (!chart) return;
 
     const updateVerticalLines = () => {
-      const option = chart.getOption() as any;
-      const dataZoom = option.dataZoom?.[0];
-      if (!dataZoom) return;
-
-      const visibleStart = dataZoom.startValue;
-      const visibleEnd = dataZoom.endValue;
+      // Get actual visible data window from axis proxy (works with percentage-based dataZoom)
+      const dataZoomModel = chart.getModel().getComponent('dataZoom', 0) as any;
+      const dataWindow = dataZoomModel?.getAxisProxy('x')?.getDataWindow();
+      
+      if (!dataWindow || dataWindow.length < 2) return;
+      
+      const visibleStart = dataWindow[0];
+      const visibleEnd = dataWindow[1];
       const visibleRange = visibleEnd - visibleStart;
       
       // Update zoom state for interactive layer to use
@@ -510,7 +514,8 @@ export function UnifiedTimeline({
       }
 
       // Update vertical lines group
-      const currentGraphic = option.graphic?.[0]?.elements || [];
+      const graphicOption = option.graphic as any;
+      const currentGraphic = (Array.isArray(graphicOption) ? graphicOption[0]?.elements : graphicOption?.elements) || [];
       const updatedGraphic = currentGraphic.map((el: any) => {
         if (el.id?.startsWith('vertical-lines-group')) {
           return {
