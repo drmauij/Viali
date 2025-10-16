@@ -709,6 +709,12 @@ export function UnifiedTimeline({
       point => point[0] === pendingSysValue.time && point[1] === pendingSysValue.value
     );
     
+    if (pendingSysValue) {
+      console.log('Pending sys value:', pendingSysValue);
+      console.log('Sorted sys data:', sortedSysData);
+      console.log('Pending already exists?', pendingAlreadyExists);
+    }
+    
     if (pendingSysValue && !pendingAlreadyExists) {
       series.push({
         type: 'scatter',
