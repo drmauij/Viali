@@ -55,11 +55,27 @@ export const PARAMETER_MAPPINGS: ParameterAlias[] = [
   },
   {
     standardName: 'CVP',
-    aliases: ['CVP', 'ZVK', 'Central Venous Pressure', 'Zentralvenöser Druck'],
+    aliases: ['CVP', 'ZVK', 'ZVD', 'Central Venous Pressure', 'Zentralvenöser Druck', 'Zentraler Venendruck'],
     category: 'vitals',
     unit: 'mmHg',
     min: 0,
     max: 30
+  },
+  {
+    standardName: 'ART',
+    aliases: ['ART', 'IBP', 'Invasive BP', 'Arterieller Druck', 'Arterial Pressure', 'A-Line'],
+    category: 'vitals',
+    unit: 'mmHg',
+    min: 40,
+    max: 200
+  },
+  {
+    standardName: 'RR_Vitals',
+    aliases: ['AFi', 'AF (vitals)', 'RR (vitals)', 'Atemfrequenz (vitals)'],
+    category: 'vitals',
+    unit: '/min',
+    min: 4,
+    max: 60
   },
 
   // VENTILATION PARAMETERS
@@ -151,10 +167,18 @@ export const PARAMETER_MAPPINGS: ParameterAlias[] = [
   },
   {
     standardName: 'Paw',
-    aliases: ['Paw', 'PAW', 'Airway Pressure', 'Atemwegsdruck'],
+    aliases: ['Paw', 'PAW', 'Pmean', 'P mean', 'Mean Airway Pressure', 'Atemwegsdruck', 'Mittlerer Atemwegsdruck'],
     category: 'ventilation',
     unit: 'cmH2O',
     min: -10,
+    max: 60
+  },
+  {
+    standardName: 'Pinsp',
+    aliases: ['Pinsp', 'P insp', 'Inspiratory Pressure', 'Inspirationsdruck', 'P Insp'],
+    category: 'ventilation',
+    unit: 'cmH2O',
+    min: 0,
     max: 60
   },
 

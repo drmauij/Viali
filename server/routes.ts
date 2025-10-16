@@ -1185,30 +1185,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { findStandardParameter } = await import('@shared/monitorParameters');
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-      // Enhanced prompt with monitor type classification
+      // Enhanced prompt with German medical terminology and context persistence
       const prompt = `You are a medical monitor analysis AI. Analyze this medical monitor screenshot and perform TWO tasks:
 
 TASK 1: CLASSIFY THE MONITOR TYPE
-Determine what type of medical monitor this is:
-- "vitals": Shows vital signs (HR, BP, SpO2, etc.)
-- "ventilation": Shows ventilation parameters (respiratory rate, tidal volume, FiO2, PEEP, etc.)
-- "tof": Shows Train-of-Four neuromuscular monitoring
-- "perfusor": Shows infusion pumps with drug rates
+Determine what type of medical monitor this is based on visual indicators:
+
+VITALS MONITOR INDICATORS:
+- ECG waveforms (heart rhythm traces)
+- Blood pressure waveforms (arterial line, central venous pressure)
+- Parameters: HR/HF (heart rate), BP/RR (blood pressure), ART (invasive arterial BP), ZVD/CVP (central venous pressure), SpO2 (oxygen saturation)
+- Temperature, NIBP (non-invasive blood pressure)
+
+VENTILATION MONITOR INDICATORS:
+- Flow curves and pressure waveforms (breathing patterns)
+- Parameters appearing TOGETHER: VTe/VTi (tidal volume), MVe (minute volume), PEEP, PIP, Paw (airway pressure), FiO2, etCO2
+- Ventilator mode indicators (PC-BIPAP, SIMV, etc.)
+
+OTHER MONITOR TYPES:
+- "tof": Train-of-Four neuromuscular monitoring
+- "perfusor": Infusion pumps with drug rates
 - "mixed": Shows multiple types of parameters
 - "unknown": Cannot determine
 
-TASK 2: EXTRACT ALL VISIBLE PARAMETERS
-Extract ALL numeric parameters you can see on the monitor, regardless of language.
-For each parameter found, provide:
-- The exact name/label as shown on the monitor (in any language)
-- The numeric value
-- The unit if visible
+CRITICAL CONTEXT PERSISTENCE RULE:
+- If you identify a VITALS monitor, ALL parameters belong to vitals category - even if you see "RR" or "AF"
+- RR/AF on a vitals monitor = ECG-derived respiratory rate (VITALS parameter, NOT ventilation)
+- Only classify as "ventilation" if you see ventilation-specific indicators: flow/pressure curves + VTe/MVe/PEEP/PIP together
+- DO NOT switch context mid-analysis - maintain monitor type consistency
 
-IMPORTANT:
-- Extract parameters in ANY language (German, English, etc.)
-- Common German terms: HF=Heart Rate, AF=Respiratory Rate, FiO2=Oxygen %, VTe/VTi=Tidal Volume, MVe=Minute Volume
-- Look for ALL numeric values with labels, not just common ones
-- Include less common parameters if visible
+TASK 2: EXTRACT ALL VISIBLE PARAMETERS
+
+GERMAN-ENGLISH MEDICAL TERMINOLOGY REFERENCE:
+
+VITALS (Vitalparameter):
+- HF / HR → Heart Rate (Herzfrequenz)
+- ART / IBP → Invasive Arterial Blood Pressure (arterieller Druck)
+- ZVD / CVP → Central Venous Pressure (Zentraler Venendruck)
+- AFi / AF (on vitals monitor) → Respiratory Rate from ECG (Atemfrequenz, ECG-abgeleitet)
+- SpO2 → Oxygen Saturation (Sauerstoffsättigung)
+- NIBP / RR → Non-Invasive Blood Pressure (nicht-invasiver Blutdruck)
+- Temp → Temperature (Temperatur)
+- etCO2 → End-Tidal CO2 (endexspiratorisches CO2)
+
+VENTILATION (Beatmung):
+- AF / RR (on ventilation monitor) → Respiratory Rate (Atemfrequenz)
+- VTe / VT → Tidal Volume (Tidalvolumen)
+- MVe / MV → Minute Volume (Minutenvolumen)
+- PEEP → Positive End-Expiratory Pressure
+- PIP → Peak Inspiratory Pressure (Spitzendruck)
+- Paw / Pmean → Mean Airway Pressure (mittlerer Atemwegsdruck)
+- FiO2 → Fraction of Inspired Oxygen (inspiratorische Sauerstoffkonzentration)
+- Pinsp → Inspiratory Pressure (Inspirationsdruck)
+- I:E → Inspiration to Expiration Ratio
+- Compliance / C → Lung Compliance (Compliance)
+- Flow → Air Flow (Atemfluss)
+
+HEMODYNAMICS:
+- CO / HZV → Cardiac Output (Herzzeitvolumen)
+- SV / SV → Stroke Volume (Schlagvolumen)
+- SVR / SVR → Systemic Vascular Resistance (systemischer Gefäßwiderstand)
+
+UNIT HANDLING:
+- Extract units EXACTLY as shown on monitor (kPa, mmHg, mbar, cmH2O, L/min, mL, %, bpm, etc.)
+- DO NOT convert units - keep original values and units
+- Different hospitals use different units - all are valid
+
+PLAUSIBILITY RANGES (for validation):
+- HR/HF: 30-250 bpm
+- BP systolic: 50-250 mmHg
+- ART: 40-200 mmHg (invasive)
+- ZVD/CVP: 0-25 mmHg or 0-35 cmH2O
+- SpO2: 50-100%
+- Respiratory Rate: 4-60 /min
+- Tidal Volume: 100-1500 mL
+- Minute Volume: 2-30 L/min
+- PEEP: 0-25 mbar/cmH2O
+- PIP: 5-60 mbar/cmH2O
+- etCO2: 2-8 kPa OR 15-60 mmHg
+- FiO2: 21-100%
+
+EXTRACTION RULES:
+1. Extract ALL visible numeric parameters with labels
+2. Use exact label from monitor (German, English, or abbreviation)
+3. Include unit if visible, otherwise leave empty
+4. Maintain monitor type context - don't switch categories mid-analysis
+5. If uncertain about a parameter, still extract it with detected name
 
 Return ONLY a JSON object with this structure:
 {
@@ -1216,14 +1278,27 @@ Return ONLY a JSON object with this structure:
   "confidence": "high" | "medium" | "low",
   "parameters": [
     {
-      "detectedName": "string (exact label from monitor, any language)",
+      "detectedName": "string (exact label from monitor)",
       "value": number,
-      "unit": "string"
+      "unit": "string (exact unit shown, or empty)"
     }
   ]
 }
 
-Example for German ventilation monitor:
+Example - German vitals monitor (note: RR stays in vitals context):
+{
+  "monitorType": "vitals",
+  "confidence": "high",
+  "parameters": [
+    { "detectedName": "HF", "value": 119, "unit": "/min" },
+    { "detectedName": "AFi", "value": 18, "unit": "/min" },
+    { "detectedName": "SpO2", "value": 96, "unit": "%" },
+    { "detectedName": "ART", "value": 113, "unit": "mmHg" },
+    { "detectedName": "ZVD", "value": 35, "unit": "mmHg" }
+  ]
+}
+
+Example - German ventilation monitor:
 {
   "monitorType": "ventilation",
   "confidence": "high",
@@ -1232,7 +1307,8 @@ Example for German ventilation monitor:
     { "detectedName": "FiO2", "value": 60, "unit": "%" },
     { "detectedName": "VTe", "value": 443, "unit": "mL" },
     { "detectedName": "MVe", "value": 6.24, "unit": "L/min" },
-    { "detectedName": "PEEP", "value": 5, "unit": "cmH2O" }
+    { "detectedName": "PEEP", "value": 5, "unit": "mbar" },
+    { "detectedName": "etCO2", "value": 3.7, "unit": "kPa" }
   ]
 }`;
 
