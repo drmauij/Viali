@@ -110,9 +110,8 @@ export default function Op() {
   // Empty timeline data - starts with current time, no historical data
   const timelineData = useMemo((): UnifiedTimelineData => {
     const now = new Date().getTime(); // Current time
-    const tenMinutesAgo = now - 10 * 60 * 1000; // 10 minutes ago for initial view
-    const futureBuffer = 30 * 60 * 1000; // 30 minutes into the future
-    const endTime = now + futureBuffer; // End time 30 minutes from now
+    const sixHoursAgo = now - 6 * 60 * 60 * 1000; // 6 hours ago to allow zoom out
+    const sixHoursFuture = now + 6 * 60 * 60 * 1000; // 6 hours into future
 
     // Empty vitals - no data points
     const vitals: TimelineVitals = {
@@ -126,8 +125,8 @@ export default function Op() {
     const events: TimelineEvent[] = [];
 
     return {
-      startTime: tenMinutesAgo, // Start 10 minutes ago for initial view
-      endTime: endTime, // Extend into future for recording space
+      startTime: sixHoursAgo, // Wide range to allow full zoom out to 10 hours
+      endTime: sixHoursFuture, // Wide range to allow full zoom out
       vitals,
       events,
     };
