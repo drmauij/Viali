@@ -1,12 +1,13 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Activity, Heart, Wind, Combine, Plus, X, ChevronDown, ChevronRight } from "lucide-react";
+import { Activity, Heart, Wind, Combine, Plus, X, ChevronDown, ChevronRight, Undo2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StickyTimelineHeader } from "./StickyTimelineHeader";
+import { useToast } from "@/hooks/use-toast";
 
 /**
  * UnifiedTimeline - Refactored for robustness and flexibility
@@ -66,6 +67,7 @@ export function UnifiedTimeline({
 }) {
   const chartRef = useRef<any>(null);
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
+  const { toast } = useToast();
   
   // State for collapsible parent swimlanes
   const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<Set<string>>(new Set());
@@ -101,6 +103,25 @@ export function UnifiedTimeline({
   
   // State for hover tooltip
   const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; value: number; time: number } | null>(null);
+
+  // Touch device detection
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  
+  // Track last action for undo
+  const [lastAction, setLastAction] = useState<{
+    type: 'hr' | 'bp' | 'spo2';
+    data?: VitalPoint;
+    bpData?: { sys: VitalPoint; dia: VitalPoint };
+  } | null>(null);
+
+  // Detect touch device on mount
+  useEffect(() => {
+    const checkTouch = () => {
+      const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      setIsTouchDevice(hasTouch);
+    };
+    checkTouch();
+  }, []);
 
   // Update current time every minute
   useEffect(() => {
@@ -248,6 +269,40 @@ export function UnifiedTimeline({
   // Remove medication handler
   const handleRemoveMedication = (index: number) => {
     setMedications(medications.filter((_, i) => i !== index));
+  };
+
+  // Undo last vital entry
+  const handleUndo = () => {
+    if (!lastAction) return;
+
+    if (lastAction.type === 'hr' && lastAction.data) {
+      setHrDataPoints(prev => prev.filter(p => p[0] !== lastAction.data![0] || p[1] !== lastAction.data![1]));
+      toast({
+        title: "Value removed",
+        description: "HR value has been removed",
+        duration: 2000,
+      });
+    } else if (lastAction.type === 'bp' && lastAction.bpData) {
+      const { sys, dia } = lastAction.bpData;
+      setBpDataPoints(prev => ({
+        sys: prev.sys.filter(p => p[0] !== sys[0] || p[1] !== sys[1]),
+        dia: prev.dia.filter(p => p[0] !== dia[0] || p[1] !== dia[1])
+      }));
+      toast({
+        title: "Value removed",
+        description: "BP values have been removed",
+        duration: 2000,
+      });
+    } else if (lastAction.type === 'spo2' && lastAction.data) {
+      setSpo2DataPoints(prev => prev.filter(p => p[0] !== lastAction.data![0] || p[1] !== lastAction.data![1]));
+      toast({
+        title: "Value removed",
+        description: "SpO2 value has been removed",
+        duration: 2000,
+      });
+    }
+
+    setLastAction(null);
   };
 
   // Track zoom percentages for useMemo
@@ -1418,6 +1473,9 @@ export function UnifiedTimeline({
             height: '340px',
           }}
           onMouseMove={(e) => {
+            // Skip hover preview on touch devices
+            if (isTouchDevice) return;
+            
             const rect = e.currentTarget.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
@@ -1458,20 +1516,80 @@ export function UnifiedTimeline({
           }}
           onMouseLeave={() => setHoverInfo(null)}
           onClick={(e) => {
-            if (!hoverInfo || isProcessingClick) return;
+            if (isProcessingClick) return;
             
             setIsProcessingClick(true);
             
+            // On touch devices, calculate value directly from click position
+            let clickInfo = hoverInfo;
+            if (isTouchDevice) {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              const y = e.clientY - rect.top;
+              
+              const visibleStart = currentZoomStart ?? data.startTime;
+              const visibleEnd = currentZoomEnd ?? data.endTime;
+              const visibleRange = visibleEnd - visibleStart;
+              
+              const xPercent = x / rect.width;
+              let time = visibleStart + (xPercent * visibleRange);
+              time = Math.round(time / currentSnapInterval) * currentSnapInterval;
+              
+              const yPercent = y / rect.height;
+              let value: number;
+              
+              if (activeToolMode === 'hr' || activeToolMode === 'bp') {
+                const minVal = -20;
+                const maxVal = 240;
+                value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+              } else if (activeToolMode === 'spo2') {
+                const minVal = 45;
+                const maxVal = 105;
+                value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+              } else {
+                setIsProcessingClick(false);
+                return;
+              }
+              
+              clickInfo = { x: e.clientX, y: e.clientY, value, time };
+            }
+            
+            if (!clickInfo) {
+              setIsProcessingClick(false);
+              return;
+            }
+            
             // Add data point based on active tool mode
             if (activeToolMode === 'hr') {
-              setHrDataPoints(prev => [...prev, [hoverInfo.time, hoverInfo.value]]);
+              const newPoint: VitalPoint = [clickInfo.time, clickInfo.value];
+              setHrDataPoints(prev => [...prev, newPoint]);
+              setLastAction({ type: 'hr', data: newPoint });
               setHoverInfo(null);
+              
+              // Show toast with undo
+              toast({
+                title: `❤️ HR ${clickInfo.value} added`,
+                description: new Date(clickInfo.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+                duration: 3000,
+                action: (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleUndo}
+                    data-testid="button-undo-hr"
+                  >
+                    <Undo2 className="w-4 h-4 mr-1" />
+                    Undo
+                  </Button>
+                ),
+              });
+              
               setTimeout(() => setIsProcessingClick(false), 100);
             } else if (activeToolMode === 'bp') {
               // Sequential BP entry: first systolic, then diastolic at same time
               if (bpEntryMode === 'sys') {
                 // Save systolic value and switch to diastolic mode
-                const pendingValue = { time: hoverInfo.time, value: hoverInfo.value };
+                const pendingValue = { time: clickInfo.time, value: clickInfo.value };
                 setPendingSysValue(pendingValue);
                 setBpEntryMode('dia');
                 setHoverInfo(null);
@@ -1479,10 +1597,33 @@ export function UnifiedTimeline({
               } else {
                 // Save diastolic value with the same time as systolic
                 if (pendingSysValue) {
+                  const sysPoint: VitalPoint = [pendingSysValue.time, pendingSysValue.value];
+                  const diaPoint: VitalPoint = [pendingSysValue.time, clickInfo.value];
+                  
                   setBpDataPoints(prev => ({
-                    sys: [...prev.sys, [pendingSysValue.time, pendingSysValue.value]],
-                    dia: [...prev.dia, [pendingSysValue.time, hoverInfo.value]]
+                    sys: [...prev.sys, sysPoint],
+                    dia: [...prev.dia, diaPoint]
                   }));
+                  
+                  setLastAction({ type: 'bp', bpData: { sys: sysPoint, dia: diaPoint } });
+                  
+                  // Show toast with undo
+                  toast({
+                    title: `🩺 BP ${pendingSysValue.value}/${clickInfo.value} added`,
+                    description: new Date(pendingSysValue.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+                    duration: 3000,
+                    action: (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleUndo}
+                        data-testid="button-undo-bp"
+                      >
+                        <Undo2 className="w-4 h-4 mr-1" />
+                        Undo
+                      </Button>
+                    ),
+                  });
                 }
                 // Reset to systolic mode
                 setPendingSysValue(null);
@@ -1491,8 +1632,29 @@ export function UnifiedTimeline({
                 setTimeout(() => setIsProcessingClick(false), 100);
               }
             } else if (activeToolMode === 'spo2') {
-              setSpo2DataPoints(prev => [...prev, [hoverInfo.time, hoverInfo.value]]);
+              const newPoint: VitalPoint = [clickInfo.time, clickInfo.value];
+              setSpo2DataPoints(prev => [...prev, newPoint]);
+              setLastAction({ type: 'spo2', data: newPoint });
               setHoverInfo(null);
+              
+              // Show toast with undo
+              toast({
+                title: `💜 SpO2 ${clickInfo.value}% added`,
+                description: new Date(clickInfo.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+                duration: 3000,
+                action: (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleUndo}
+                    data-testid="button-undo-spo2"
+                  >
+                    <Undo2 className="w-4 h-4 mr-1" />
+                    Undo
+                  </Button>
+                ),
+              });
+              
               setTimeout(() => setIsProcessingClick(false), 100);
             }
           }}
