@@ -965,13 +965,14 @@ export function UnifiedTimeline({
   const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
   const componentHeight = height ?? (VITALS_TOP_POS + VITALS_HEIGHT + swimlanesHeight);
 
-  // Zoom levels in milliseconds: 10min, 20min, 40min (default), 1hr, 2hr, 4hr, 10hr
+  // Zoom levels in milliseconds: 10min, 20min, 40min (default), 1hr, 80min, 2hr, 4hr, 10hr
   const zoomLevels = [
     10 * 60 * 1000,      // 10 minutes (max zoom in)
     20 * 60 * 1000,      // 20 minutes
     40 * 60 * 1000,      // 40 minutes (initial/reset)
-    60 * 60 * 1000,      // 1 hour
-    2 * 60 * 60 * 1000,  // 2 hours
+    60 * 60 * 1000,      // 1 hour (60 minutes)
+    80 * 60 * 1000,      // 80 minutes
+    2 * 60 * 60 * 1000,  // 2 hours (120 minutes)
     4 * 60 * 60 * 1000,  // 4 hours
     10 * 60 * 60 * 1000, // 10 hours (max zoom out)
   ];
