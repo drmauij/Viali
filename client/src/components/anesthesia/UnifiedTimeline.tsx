@@ -1541,20 +1541,15 @@ export function UnifiedTimeline({
             xAxisIndex: gridIdx,
             yAxisIndex: gridIdx + 1, // +1 because yAxes has 2 vitals axes first
             data: seriesData,
-            symbol: 'circle',
-            symbolSize: 8,
-            itemStyle: {
-              color: isDark ? '#10b981' : '#059669', // Green color for medication doses
-            },
+            symbol: 'none', // No symbol - only text label
             label: {
               show: true,
-              position: 'top',
               formatter: (params: any) => {
                 const timestamp = params.value[0];
                 return valuesMap.get(timestamp)?.toString() || '';
               },
               fontSize: 13,
-              fontWeight: '600',
+              fontWeight: 'bold',
               fontFamily: modernMonoFont,
               color: textColor,
             },
