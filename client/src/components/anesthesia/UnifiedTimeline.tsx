@@ -486,17 +486,27 @@ export function UnifiedTimeline({
 
       // Generate vertical lines for visible range with adaptive granularity
       const verticalLines: any[] = [];
-      const fifteenMinutes = 15 * 60 * 1000;
-      const fiveMinutes = 5 * 60 * 1000;
-      
-      // Determine tick interval based on zoom level
       const viewSpanMinutes = visibleRange / (60 * 1000);
-      const useFineTicks = viewSpanMinutes <= 30; // Use 5-min ticks when zoomed in
+      
+      // Determine tick interval based on zoom level (adaptive)
+      let minorInterval: number;
+      if (viewSpanMinutes <= 5) {
+        minorInterval = 1 * 60 * 1000; // 1 minute for very zoomed in (≤5 min view)
+      } else if (viewSpanMinutes <= 15) {
+        minorInterval = 2 * 60 * 1000; // 2 minutes for (≤15 min view)
+      } else if (viewSpanMinutes <= 30) {
+        minorInterval = 5 * 60 * 1000; // 5 minutes for (≤30 min view)
+      } else if (viewSpanMinutes <= 90) {
+        minorInterval = 15 * 60 * 1000; // 15 minutes for (≤90 min view)
+      } else if (viewSpanMinutes <= 180) {
+        minorInterval = 30 * 60 * 1000; // 30 minutes for (≤3 hr view)
+      } else {
+        minorInterval = 60 * 60 * 1000; // 60 minutes for wide views
+      }
       
       // Update snap interval for interactive layer to use (THIS IS THE KEY!)
-      const snapInterval = useFineTicks ? fiveMinutes : fifteenMinutes;
-      console.log('Setting snap interval - viewSpanMinutes:', viewSpanMinutes, 'useFineTicks:', useFineTicks, 'snapInterval (min):', snapInterval / 60000);
-      setCurrentSnapInterval(snapInterval);
+      console.log('Setting snap interval - viewSpanMinutes:', viewSpanMinutes, 'snapInterval (min):', minorInterval / 60000);
+      setCurrentSnapInterval(minorInterval);
       
       // Draw major hour lines
       for (let t = Math.floor(visibleStart / oneHour) * oneHour; t <= visibleEnd + oneHour; t += oneHour) {
@@ -516,8 +526,7 @@ export function UnifiedTimeline({
         });
       }
       
-      // Draw minor ticks - adaptive based on zoom level
-      const minorInterval = useFineTicks ? fiveMinutes : fifteenMinutes;
+      // Draw minor ticks - use the adaptive interval calculated above
       for (let t = Math.floor(visibleStart / minorInterval) * minorInterval; t <= visibleEnd + minorInterval; t += minorInterval) {
         // Skip if this is a major hour line
         if (t % oneHour === 0) continue;
@@ -810,9 +819,22 @@ export function UnifiedTimeline({
     const verticalLines: any[] = [];
     const initialVisibleRange = initialEndTime - initialStartTime;
     const viewSpanMinutes = initialVisibleRange / (60 * 1000);
-    const useFineTicks = viewSpanMinutes <= 30;
-    const fifteenMin = 15 * 60 * 1000;
-    const fiveMin = 5 * 60 * 1000;
+    
+    // Determine tick interval based on zoom level (adaptive)
+    let minorInterval: number;
+    if (viewSpanMinutes <= 5) {
+      minorInterval = 1 * 60 * 1000; // 1 minute for very zoomed in (≤5 min view)
+    } else if (viewSpanMinutes <= 15) {
+      minorInterval = 2 * 60 * 1000; // 2 minutes for (≤15 min view)
+    } else if (viewSpanMinutes <= 30) {
+      minorInterval = 5 * 60 * 1000; // 5 minutes for (≤30 min view)
+    } else if (viewSpanMinutes <= 90) {
+      minorInterval = 15 * 60 * 1000; // 15 minutes for (≤90 min view)
+    } else if (viewSpanMinutes <= 180) {
+      minorInterval = 30 * 60 * 1000; // 30 minutes for (≤3 hr view)
+    } else {
+      minorInterval = 60 * 60 * 1000; // 60 minutes for wide views
+    }
     
     // Draw major hour lines
     for (let t = Math.floor(initialStartTime / oneHour) * oneHour; t <= initialEndTime + oneHour; t += oneHour) {
@@ -832,8 +854,7 @@ export function UnifiedTimeline({
       });
     }
     
-    // Draw minor ticks - adaptive based on zoom level
-    const minorInterval = useFineTicks ? fiveMin : fifteenMin;
+    // Draw minor ticks - use the adaptive interval calculated above
     for (let t = Math.floor(initialStartTime / minorInterval) * minorInterval; t <= initialEndTime + minorInterval; t += minorInterval) {
       if (t % oneHour === 0) continue; // Skip hour lines
       
