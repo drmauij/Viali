@@ -1515,6 +1515,56 @@ export function UnifiedTimeline({
       }
     }
 
+    // Add medication dose series (text labels similar to ventilation)
+    const medicationParentIndex = activeSwimlanes.findIndex(s => s.id === "medikamente");
+    if (medicationParentIndex !== -1 && !collapsedSwimlanes.has("medikamente")) {
+      const textColor = isDark ? '#ffffff' : '#000000';
+      const modernMonoFont = '"SF Mono", "JetBrains Mono", "Roboto Mono", "Fira Code", Monaco, Consolas, monospace';
+      
+      // Iterate through all medication swimlanes (predefined + dynamic)
+      activeSwimlanes.forEach((lane, index) => {
+        const isMedicationChild = lane.id.startsWith('medication-predefined-') || lane.id.startsWith('medication-dynamic-');
+        
+        if (isMedicationChild && medicationDoseData[lane.id]?.length > 0) {
+          const dosePoints = medicationDoseData[lane.id];
+          // Grid/axis index matches swimlane position (index is already correct, vitals is grid 0)
+          const gridIdx = index + 1; // +1 because vitals is grid 0
+          
+          // Create values map and series data
+          const valuesMap = new Map(dosePoints.map(([time, dose]) => [time, dose]));
+          // Use empty string to match axis data: [""] (identical to ventilation pattern)
+          const seriesData = dosePoints.map(([time, dose]) => [time, ""]);
+          
+          series.push({
+            type: 'scatter',
+            name: `${lane.label.trim()} Dose`,
+            xAxisIndex: gridIdx,
+            yAxisIndex: gridIdx + 1, // +1 because yAxes has 2 vitals axes first
+            data: seriesData,
+            symbol: 'circle',
+            symbolSize: 8,
+            itemStyle: {
+              color: isDark ? '#10b981' : '#059669', // Green color for medication doses
+            },
+            label: {
+              show: true,
+              position: 'top',
+              formatter: (params: any) => {
+                const timestamp = params.value[0];
+                return valuesMap.get(timestamp)?.toString() || '';
+              },
+              fontSize: 13,
+              fontWeight: '600',
+              fontFamily: modernMonoFont,
+              color: textColor,
+            },
+            cursor: 'pointer',
+            z: 10,
+          });
+        }
+      });
+    }
+
     // Calculate total height for vertical lines - dynamically based on current swimlanes
     const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
     const chartHeight = VITALS_HEIGHT + swimlanesHeight;
@@ -1669,7 +1719,7 @@ export function UnifiedTimeline({
         },
       },
     } as echarts.EChartsOption;
-  }, [data, isDark, activeSwimlanes, now, hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, zoomPercent, pendingSysValue, bpEntryMode, currentTime, collapsedSwimlanes]);
+  }, [data, isDark, activeSwimlanes, now, hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, medicationDoseData, medications, zoomPercent, pendingSysValue, bpEntryMode, currentTime, collapsedSwimlanes]);
 
   // Calculate component height
   const VITALS_HEIGHT = 340;
