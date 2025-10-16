@@ -694,7 +694,7 @@ export function UnifiedTimeline({
         yAxisIndex: 0,
         data: sortedHrData,
         symbol: 'path://M23.6,0c-3.4,0-6.3,2.7-7.6,5.6C14.7,2.7,11.8,0,8.4,0C3.8,0,0,3.8,0,8.4c0,9.4,9.5,11.9,16,21.2 c6.1-9.3,16-12.1,16-21.2C32,3.8,28.2,0,23.6,0z',
-        symbolSize: 18,
+        symbolSize: 14,
         itemStyle: {
           color: '#ef4444', // Red color for heart
         },
@@ -711,7 +711,7 @@ export function UnifiedTimeline({
         yAxisIndex: 0,
         data: [[pendingSysValue.time, pendingSysValue.value]],
         symbol: 'triangle',
-        symbolSize: 12,
+        symbolSize: 10,
         symbolRotate: 180, // Point down for systolic
         itemStyle: {
           color: '#d1d5db', // Light gray for pending
@@ -729,7 +729,7 @@ export function UnifiedTimeline({
         yAxisIndex: 0,
         data: sortedSysData,
         symbol: 'triangle',
-        symbolSize: 12,
+        symbolSize: 10,
         symbolRotate: 180, // Point down for systolic
         itemStyle: {
           color: '#000000', // Black color for BP
@@ -747,7 +747,7 @@ export function UnifiedTimeline({
         yAxisIndex: 0,
         data: sortedDiaData,
         symbol: 'triangle',
-        symbolSize: 12,
+        symbolSize: 10,
         symbolRotate: 0, // Point up for diastolic
         itemStyle: {
           color: '#000000', // Black color for BP
@@ -765,7 +765,7 @@ export function UnifiedTimeline({
         yAxisIndex: 1, // Use second y-axis (45-105 range)
         data: sortedSpo2Data,
         symbol: 'circle',
-        symbolSize: 8,
+        symbolSize: 7,
         itemStyle: {
           color: '#8b5cf6', // Purple color for SpO2
         },
