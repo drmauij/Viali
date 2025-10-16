@@ -1322,12 +1322,14 @@ export function UnifiedTimeline({
             const chart = chartRef.current?.getEchartsInstance();
             if (!chart) return;
             
-            const option = chart.getOption() as any;
-            if (!option || !option.xAxis || !option.xAxis[0]) return;
+            // Use convertFromPixel to get the actual visible time range dynamically
+            const pixelToValue0 = chart.convertFromPixel({ xAxisIndex: 0 }, [0, 0]);
+            const pixelToValue1 = chart.convertFromPixel({ xAxisIndex: 0 }, [rect.width, 0]);
             
-            const xAxis = option.xAxis[0];
-            const visibleStart = xAxis.min || data.startTime;
-            const visibleEnd = xAxis.max || data.endTime;
+            if (!pixelToValue0 || !pixelToValue1) return;
+            
+            const visibleStart = pixelToValue0[0];
+            const visibleEnd = pixelToValue1[0];
             const visibleRange = visibleEnd - visibleStart;
             
             // Convert x-position to time
