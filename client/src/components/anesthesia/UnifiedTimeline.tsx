@@ -1930,12 +1930,13 @@ export function UnifiedTimeline({
         
         return (
           <div
-            className="absolute z-25 cursor-pointer hover:bg-primary/5"
+            className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
             style={{
               left: '200px',
               right: '10px',
               top: `${zeitenLane.top}px`,
               height: `${zeitenLane.height}px`,
+              zIndex: 35,
             }}
             onClick={handleZeitenClick}
             data-testid="interactive-zeiten-lane"
