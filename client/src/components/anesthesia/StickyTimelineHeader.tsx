@@ -331,37 +331,37 @@ export function StickyTimelineHeader({
         </button>
       </div>
 
-      {/* Camera Modal */}
+      {/* Camera Modal - Responsive to portrait/landscape orientation */}
       {showCamera && (
-        <div className="fixed inset-0 z-[10000] bg-black/90 flex flex-col items-center justify-center">
-          {/* Warning Banner */}
-          <div className="absolute top-0 left-0 right-0 bg-yellow-500 text-black px-4 py-3 text-center font-semibold">
-            ⚠️ All photos will be sent to AI for analysis. Do not include any patient data of any kind.
+        <div className="fixed inset-0 z-[10000] bg-black/90 flex flex-col portrait:justify-center landscape:justify-start items-center">
+          {/* Warning Banner - Compact in landscape */}
+          <div className="w-full bg-yellow-500 text-black px-2 py-1.5 portrait:py-3 text-center text-xs portrait:text-sm font-semibold portrait:absolute portrait:top-0 landscape:relative landscape:flex-shrink-0">
+            ⚠️ All photos sent to AI. No patient data.
           </div>
 
-          {/* Video Preview */}
-          <div className="relative w-full max-w-4xl aspect-video">
+          {/* Video Preview - Flexible sizing for orientation */}
+          <div className="relative portrait:w-full portrait:max-w-4xl portrait:aspect-video landscape:flex-1 landscape:w-full landscape:h-full flex items-center justify-center portrait:mt-16">
             <video
               ref={videoRef}
               autoPlay
               playsInline
-              className="w-full h-full object-contain"
+              className="portrait:w-full portrait:h-full landscape:max-h-full landscape:max-w-full object-contain"
               data-testid="camera-preview"
             />
           </div>
 
-          {/* Controls */}
-          <div className="mt-6 flex gap-4">
+          {/* Controls - Positioned differently for portrait/landscape */}
+          <div className="portrait:mt-6 landscape:absolute landscape:bottom-4 landscape:left-1/2 landscape:-translate-x-1/2 flex gap-3 portrait:gap-4 portrait:mb-8 landscape:mb-0 z-10">
             <button
               onClick={capturePhoto}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-3 rounded-md font-medium text-lg"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 portrait:px-8 py-2.5 portrait:py-3 rounded-md font-medium text-base portrait:text-lg shadow-lg"
               data-testid="button-capture-photo"
             >
               Capture
             </button>
             <button
               onClick={closeCamera}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 px-8 py-3 rounded-md font-medium text-lg"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 px-6 portrait:px-8 py-2.5 portrait:py-3 rounded-md font-medium text-base portrait:text-lg shadow-lg"
               data-testid="button-close-camera"
             >
               Cancel
