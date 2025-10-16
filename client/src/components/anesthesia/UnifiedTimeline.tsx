@@ -245,28 +245,10 @@ export function UnifiedTimeline({
     setMedications(medications.filter((_, i) => i !== index));
   };
 
-  // Initialize and listen for dataZoom changes to sync with sticky header
+  // Listen for dataZoom changes to sync with sticky header
   useEffect(() => {
     const chart = chartRef.current?.getEchartsInstance();
     if (!chart) return;
-
-    // Initialize zoom state from dataZoom percentages
-    const initializeZoom = () => {
-      const option = chart.getOption() as any;
-      const dataZoom = option.dataZoom?.[0];
-      
-      if (dataZoom) {
-        const start = dataZoom.start ?? 0;
-        const end = dataZoom.end ?? 100;
-        const fullRange = data.endTime - data.startTime;
-        
-        const visibleStart = data.startTime + (start / 100) * fullRange;
-        const visibleEnd = data.startTime + (end / 100) * fullRange;
-        
-        setCurrentZoomStart(visibleStart);
-        setCurrentZoomEnd(visibleEnd);
-      }
-    };
 
     const handleDataZoom = (params: any) => {
       const option = chart.getOption() as any;
@@ -285,27 +267,38 @@ export function UnifiedTimeline({
       }
     };
 
-    // Initialize on mount
-    setTimeout(initializeZoom, 100);
-
     chart.on('datazoom', handleDataZoom);
     return () => {
       chart.off('datazoom', handleDataZoom);
     };
   }, []);
 
+  // Track if this is the first render to set initial zoom
+  const isFirstRenderRef = useRef(true);
+
   // Update dataZoom xAxisIndex when swimlane structure changes
   useEffect(() => {
     const chart = chartRef.current?.getEchartsInstance();
     if (!chart) return;
 
+    // Mark first render as complete after chart is ready
+    if (isFirstRenderRef.current) {
+      isFirstRenderRef.current = false;
+    }
+
     // Update dataZoom to include all current x-axes without resetting zoom state
     const numGrids = activeSwimlanes.length + 1; // +1 for vitals grid
+    const currentOption = chart.getOption() as any;
+    const currentDataZoom = currentOption.dataZoom?.[0];
+    
     chart.setOption({
       dataZoom: [{
         xAxisIndex: Array.from({ length: numGrids }, (_, i) => i),
+        // Preserve current zoom state
+        start: currentDataZoom?.start,
+        end: currentDataZoom?.end,
       }]
-    }, { replaceMerge: ['dataZoom'] }); // Use replaceMerge to update only xAxisIndex
+    });
   }, [activeSwimlanes]);
 
   // Update editable zone widths after chart is rendered
@@ -935,13 +928,16 @@ export function UnifiedTimeline({
       dataZoom: [{
         type: "inside",
         xAxisIndex: grids.map((_, i) => i),
-        start: ((initialStartTime - data.startTime) / (data.endTime - data.startTime)) * 100,
-        end: ((initialEndTime - data.startTime) / (data.endTime - data.startTime)) * 100,
+        // Only set initial zoom on first render, otherwise preserve current zoom
+        ...(isFirstRenderRef.current ? {
+          start: ((initialStartTime - data.startTime) / (data.endTime - data.startTime)) * 100,
+          end: ((initialEndTime - data.startTime) / (data.endTime - data.startTime)) * 100,
+        } : {}),
         throttle: 50,
-        zoomLock: true, // Completely disable zoom to allow page scrolling
-        zoomOnMouseWheel: false, // Disable scroll zoom
-        moveOnMouseWheel: false, // Disable scroll pan
-        moveOnMouseMove: false, // Disable drag pan
+        zoomLock: true,
+        zoomOnMouseWheel: false,
+        moveOnMouseWheel: false,
+        moveOnMouseMove: false,
         filterMode: "none",
       }],
       tooltip: {
@@ -1391,7 +1387,6 @@ export function UnifiedTimeline({
           option={option}
           style={{ height: "100%", width: "100%" }}
           opts={{ renderer: "canvas" }}
-          notMerge
           lazyUpdate
         />
       </div>
