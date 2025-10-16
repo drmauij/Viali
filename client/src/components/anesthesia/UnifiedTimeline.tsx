@@ -667,13 +667,24 @@ export function UnifiedTimeline({
         lineStyle: { color: isDark ? "#444444" : "#d1d5db" }
       },
       splitLine: { 
-        show: false, // Hide built-in split lines - we use custom graphics for 24-cell grid
+        show: true, // Show major hour lines
+        lineStyle: {
+          color: isDark ? "#444444" : "#d1d5db",
+          width: 1,
+          type: "solid" as const,
+        },
       },
       minorTick: {
-        show: false, // Disabled - we use custom graphics
+        show: true,
+        splitNumber: 12, // For 24 cells: 12 minor intervals between hours + hour lines = 24 total
       },
       minorSplitLine: {
-        show: false, // Disabled - we use custom graphics for adaptive intervals
+        show: true, // Show minor grid lines
+        lineStyle: {
+          color: isDark ? "#333333" : "#e5e7eb",
+          width: 0.5,
+          type: "dashed" as const,
+        },
       },
       position: "top",
     });
