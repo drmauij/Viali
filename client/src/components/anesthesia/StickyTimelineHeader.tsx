@@ -39,8 +39,8 @@ export function StickyTimelineHeader({
   const [position, setPosition] = useState<{ x: number; y: number }>(() => {
     const saved = localStorage.getItem('timeline-controls-position');
     if (saved) return JSON.parse(saved);
-    // Default: centered horizontally (50% of window width), 4px from top
-    return { x: window.innerWidth / 2, y: 4 };
+    // Default: centered both horizontally and vertically, slightly covering timeline header
+    return { x: window.innerWidth / 2, y: window.innerHeight / 2 - 40 };
   });
 
   // Save position to localStorage whenever it changes
@@ -178,7 +178,7 @@ export function StickyTimelineHeader({
   }, [currentStart, currentEnd, startTime, endTime]);
 
   return (
-    <div className="sticky top-0 z-50 bg-background border-b border-border relative" style={{ height: '56px' }}>
+    <div className="sticky top-0 z-[100] bg-background border-b border-border relative" style={{ height: '56px' }}>
       <ReactECharts
         ref={chartRef}
         option={option}
@@ -190,7 +190,7 @@ export function StickyTimelineHeader({
       <div 
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
-        className="absolute z-[100] bg-background/80 backdrop-blur-md border-2 border-border/50 rounded-lg shadow-lg px-3 py-1.5 flex items-center gap-4 cursor-grab active:cursor-grabbing select-none"
+        className="absolute z-[110] bg-background/80 backdrop-blur-md border-2 border-border/50 rounded-lg shadow-lg px-3 py-1.5 flex items-center gap-4 cursor-grab active:cursor-grabbing select-none"
         style={{ left: `${position.x}px`, top: `${position.y}px`, transform: 'translate(-50%, 0)' }}
         data-testid="timeline-controls-panel"
       >
