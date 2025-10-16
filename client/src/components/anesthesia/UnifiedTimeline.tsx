@@ -507,18 +507,20 @@ export function UnifiedTimeline({
       
       // Determine tick interval based on zoom level (adaptive)
       let minorInterval: number;
-      if (viewSpanMinutes <= 5) {
-        minorInterval = 1 * 60 * 1000; // 1 minute for very zoomed in (≤5 min view)
-      } else if (viewSpanMinutes <= 15) {
-        minorInterval = 2 * 60 * 1000; // 2 minutes for (≤15 min view)
+      if (viewSpanMinutes <= 15) {
+        minorInterval = 1 * 60 * 1000; // 1 minute for 10-min view
       } else if (viewSpanMinutes <= 30) {
-        minorInterval = 5 * 60 * 1000; // 5 minutes for (≤30 min view)
-      } else if (viewSpanMinutes <= 90) {
-        minorInterval = 15 * 60 * 1000; // 15 minutes for (≤90 min view)
+        minorInterval = 2 * 60 * 1000; // 2 minutes for 20-min view
+      } else if (viewSpanMinutes <= 50) {
+        minorInterval = 5 * 60 * 1000; // 5 minutes for 40-min view (DEFAULT)
+      } else if (viewSpanMinutes <= 100) {
+        minorInterval = 10 * 60 * 1000; // 10 minutes for 60-80 min view
       } else if (viewSpanMinutes <= 180) {
-        minorInterval = 30 * 60 * 1000; // 30 minutes for (≤3 hr view)
+        minorInterval = 15 * 60 * 1000; // 15 minutes for 120-min view
+      } else if (viewSpanMinutes <= 360) {
+        minorInterval = 30 * 60 * 1000; // 30 minutes for 240-min view
       } else {
-        minorInterval = 60 * 60 * 1000; // 60 minutes for wide views
+        minorInterval = 60 * 60 * 1000; // 60 minutes for 600-min view
       }
       
       // Update snap interval for interactive layer to use (THIS IS THE KEY!)
@@ -841,18 +843,20 @@ export function UnifiedTimeline({
     
     // Determine tick interval based on zoom level (adaptive)
     let minorInterval: number;
-    if (viewSpanMinutes <= 5) {
-      minorInterval = 1 * 60 * 1000; // 1 minute for very zoomed in (≤5 min view)
-    } else if (viewSpanMinutes <= 15) {
-      minorInterval = 2 * 60 * 1000; // 2 minutes for (≤15 min view)
+    if (viewSpanMinutes <= 15) {
+      minorInterval = 1 * 60 * 1000; // 1 minute for 10-min view
     } else if (viewSpanMinutes <= 30) {
-      minorInterval = 5 * 60 * 1000; // 5 minutes for (≤30 min view)
-    } else if (viewSpanMinutes <= 90) {
-      minorInterval = 15 * 60 * 1000; // 15 minutes for (≤90 min view)
+      minorInterval = 2 * 60 * 1000; // 2 minutes for 20-min view
+    } else if (viewSpanMinutes <= 50) {
+      minorInterval = 5 * 60 * 1000; // 5 minutes for 40-min view (DEFAULT)
+    } else if (viewSpanMinutes <= 100) {
+      minorInterval = 10 * 60 * 1000; // 10 minutes for 60-80 min view
     } else if (viewSpanMinutes <= 180) {
-      minorInterval = 30 * 60 * 1000; // 30 minutes for (≤3 hr view)
+      minorInterval = 15 * 60 * 1000; // 15 minutes for 120-min view
+    } else if (viewSpanMinutes <= 360) {
+      minorInterval = 30 * 60 * 1000; // 30 minutes for 240-min view
     } else {
-      minorInterval = 60 * 60 * 1000; // 60 minutes for wide views
+      minorInterval = 60 * 60 * 1000; // 60 minutes for 600-min view
     }
     
     console.log('Initial grid interval (min):', minorInterval / 60000);
