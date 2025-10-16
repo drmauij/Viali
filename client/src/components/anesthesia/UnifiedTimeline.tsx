@@ -125,6 +125,9 @@ export function UnifiedTimeline({
   
   // State for hover tooltip
   const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; value: number; time: number } | null>(null);
+  
+  // State for Zeiten hover tooltip
+  const [zeitenHoverInfo, setZeitenHoverInfo] = useState<{ x: number; y: number; time: number; nextMarker: string | null } | null>(null);
 
   // Touch device detection
   const [isTouchDevice, setIsTouchDevice] = useState(false);
@@ -1934,6 +1937,32 @@ export function UnifiedTimeline({
         </div>
       )}
 
+      {/* Tooltip for Zeiten swimlane - only show on non-touch devices */}
+      {zeitenHoverInfo && !isTouchDevice && (
+        <div
+          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
+          style={{
+            left: zeitenHoverInfo.x + 10,
+            top: zeitenHoverInfo.y - 40,
+          }}
+        >
+          {zeitenHoverInfo.nextMarker ? (
+            <>
+              <div className="text-sm font-semibold text-primary">
+                {zeitenHoverInfo.nextMarker}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {new Date(zeitenHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+              </div>
+            </>
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              All markers placed
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Interactive layer for Zeiten swimlane - to place time markers */}
       {!activeToolMode && (() => {
         const zeitenLane = swimlanePositions.find(lane => lane.id === 'zeiten');
@@ -1949,6 +1978,37 @@ export function UnifiedTimeline({
               height: `${zeitenLane.height}px`,
               zIndex: 35,
             }}
+            onMouseMove={(e) => {
+              // Skip hover preview on touch devices
+              if (isTouchDevice) return;
+              
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              
+              // Use tracked zoom state
+              const visibleStart = currentZoomStart ?? data.startTime;
+              const visibleEnd = currentZoomEnd ?? data.endTime;
+              const visibleRange = visibleEnd - visibleStart;
+              
+              // Convert x-position to time
+              const xPercent = x / rect.width;
+              let time = visibleStart + (xPercent * visibleRange);
+              
+              // Snap to nearest vertical grid line
+              time = Math.round(time / currentSnapInterval) * currentSnapInterval;
+              
+              // Find next unplaced marker
+              const nextMarkerIndex = timeMarkers.findIndex(m => m.time === null);
+              const nextMarker = nextMarkerIndex !== -1 ? timeMarkers[nextMarkerIndex] : null;
+              
+              setZeitenHoverInfo({ 
+                x: e.clientX, 
+                y: e.clientY, 
+                time,
+                nextMarker: nextMarker ? `${nextMarker.code} - ${nextMarker.label}` : null
+              });
+            }}
+            onMouseLeave={() => setZeitenHoverInfo(null)}
             onClick={handleZeitenClick}
             data-testid="interactive-zeiten-lane"
           />
@@ -1961,21 +2021,25 @@ export function UnifiedTimeline({
         const visibleEnd = currentZoomEnd ?? data.endTime;
         const visibleRange = visibleEnd - visibleStart;
         
-        // Calculate x position from time
-        const xPercent = ((marker.time! - visibleStart) / visibleRange) * 100;
+        // Calculate x position from time (as decimal 0-1)
+        const xFraction = (marker.time! - visibleStart) / visibleRange;
         
         // Only render if in visible range
-        if (xPercent < 0 || xPercent > 100) return null;
+        if (xFraction < 0 || xFraction > 1) return null;
         
         const zeitenLane = swimlanePositions.find(lane => lane.id === 'zeiten');
         if (!zeitenLane) return null;
+        
+        // Calculate exact pixel position: sidebar width (200px) + fraction of chart area - half badge width (16px)
+        // Chart area width is: calc(100% - 200px - 10px) = calc(100% - 210px)
+        const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 16px)`;
         
         return (
           <div
             key={marker.id}
             className="absolute z-40 pointer-events-none flex items-center justify-center"
             style={{
-              left: `calc(200px + ${xPercent}% - 16px)`, // 200px offset + xPercent - half badge width
+              left: leftPosition,
               top: `${zeitenLane.top + 4}px`,
               width: '32px',
               height: '32px',
