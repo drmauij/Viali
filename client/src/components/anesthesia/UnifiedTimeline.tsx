@@ -1252,6 +1252,115 @@ export function UnifiedTimeline({
         />
       </div>
 
+      {/* Interactive layer for vitals entry - only active when tool mode is selected */}
+      {activeToolMode && (
+        <div
+          className="absolute z-30 cursor-crosshair"
+          style={{
+            left: '200px',
+            right: '10px',
+            top: '32px',
+            height: '340px',
+          }}
+          onMouseMove={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Get current visible time range from chart
+            const chart = chartRef.current?.getEchartsInstance();
+            if (!chart) return;
+            
+            const option = chart.getOption() as any;
+            const dataZoom = option.dataZoom?.[0];
+            if (!dataZoom) return;
+            
+            const visibleStart = dataZoom.startValue;
+            const visibleEnd = dataZoom.endValue;
+            const visibleRange = visibleEnd - visibleStart;
+            
+            // Convert x-position to time
+            const xPercent = x / rect.width;
+            let time = visibleStart + (xPercent * visibleRange);
+            
+            // Snap to nearest vertical grid line
+            const viewSpanMinutes = visibleRange / (60 * 1000);
+            const useFineTicks = viewSpanMinutes <= 30;
+            const snapInterval = useFineTicks ? (5 * 60 * 1000) : (15 * 60 * 1000); // 5min or 15min
+            time = Math.round(time / snapInterval) * snapInterval;
+            
+            // Convert y-position to value based on active tool
+            let value: number;
+            let minVal: number, maxVal: number;
+            
+            if (activeToolMode === 'hr' || activeToolMode === 'bp') {
+              // BP/HR scale: -20 to 240
+              minVal = -20;
+              maxVal = 240;
+              const yPercent = y / rect.height;
+              value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+            } else {
+              // SpO2 scale: 45 to 105
+              minVal = 45;
+              maxVal = 105;
+              const yPercent = y / rect.height;
+              value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+            }
+            
+            // Check if in editable zone (NOW - 10min to NOW + 60min)
+            const nowTime = currentTime;
+            const editableStart = nowTime - (10 * 60 * 1000);
+            const editableEnd = nowTime + (60 * 60 * 1000);
+            
+            if (time >= editableStart && time <= editableEnd) {
+              setHoverInfo({ x: e.clientX, y: e.clientY, value, time });
+            } else {
+              setHoverInfo(null);
+            }
+          }}
+          onMouseLeave={() => setHoverInfo(null)}
+          onClick={(e) => {
+            if (!hoverInfo) return;
+            
+            // Add data point based on active tool mode
+            if (activeToolMode === 'hr') {
+              setHrDataPoints(prev => [...prev, [hoverInfo.time, hoverInfo.value]]);
+            } else if (activeToolMode === 'bp') {
+              // For BP, add to sys for now (later can add UI for sys/dia selection)
+              setBpDataPoints(prev => ({
+                ...prev,
+                sys: [...prev.sys, [hoverInfo.time, hoverInfo.value]]
+              }));
+            } else if (activeToolMode === 'spo2') {
+              setSpo2DataPoints(prev => [...prev, [hoverInfo.time, hoverInfo.value]]);
+            }
+            
+            // Clear hover info after adding
+            setHoverInfo(null);
+          }}
+        />
+      )}
+
+      {/* Tooltip for vitals entry */}
+      {hoverInfo && (
+        <div
+          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
+          style={{
+            left: hoverInfo.x + 10,
+            top: hoverInfo.y - 40,
+          }}
+        >
+          <div className="text-sm font-semibold">
+            {activeToolMode === 'hr' && `HR: ${hoverInfo.value}`}
+            {activeToolMode === 'bp' && `BP: ${hoverInfo.value}`}
+            {activeToolMode === 'spo2' && `SpO2: ${hoverInfo.value}%`}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {new Date(hoverInfo.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+          </div>
+        </div>
+      )}
+
       {/* Add Medication Dialog */}
       <Dialog open={showAddMedDialog} onOpenChange={setShowAddMedDialog}>
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-add-medication">
