@@ -703,8 +703,13 @@ export function UnifiedTimeline({
       });
     }
     
-    // Add pending systolic BP (light gray bookmark) if in diastolic entry mode
-    if (pendingSysValue) {
+    // Add pending systolic BP (darker gray bookmark) if in diastolic entry mode
+    // Only show if not already in the sys data (to prevent showing both gray and black at same location)
+    const pendingAlreadyExists = pendingSysValue && sortedSysData.some(
+      point => point[0] === pendingSysValue.time && point[1] === pendingSysValue.value
+    );
+    
+    if (pendingSysValue && !pendingAlreadyExists) {
       series.push({
         type: 'scatter',
         name: 'Pending Systolic BP',
@@ -715,7 +720,7 @@ export function UnifiedTimeline({
         symbolSize: 10,
         symbolRotate: 180, // Point down for systolic
         itemStyle: {
-          color: '#d1d5db', // Light gray for pending
+          color: '#9ca3af', // Darker gray for better visibility
         },
         z: 10,
       });
