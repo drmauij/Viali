@@ -401,8 +401,9 @@ export function UnifiedTimeline({
     const xPercent = x / rect.width;
     let time = visibleStart + (xPercent * visibleRange);
     
-    // Snap to nearest vertical grid line - use the current snap interval (already calculated)
-    time = Math.round(time / currentSnapInterval) * currentSnapInterval;
+    // Always snap to 1-minute intervals for time markers
+    const oneMinute = 60 * 1000;
+    time = Math.round(time / oneMinute) * oneMinute;
     
     // Update the marker with the time
     const updated = [...timeMarkers];
@@ -1994,8 +1995,9 @@ export function UnifiedTimeline({
               const xPercent = x / rect.width;
               let time = visibleStart + (xPercent * visibleRange);
               
-              // Snap to nearest vertical grid line
-              time = Math.round(time / currentSnapInterval) * currentSnapInterval;
+              // Always snap to 1-minute intervals for time markers
+              const oneMinute = 60 * 1000;
+              time = Math.round(time / oneMinute) * oneMinute;
               
               // Find next unplaced marker
               const nextMarkerIndex = timeMarkers.findIndex(m => m.time === null);
