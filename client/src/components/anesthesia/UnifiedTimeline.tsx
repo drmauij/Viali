@@ -493,10 +493,55 @@ export function UnifiedTimeline({
       const visibleStart = data.startTime + (start / 100) * fullRange;
       const visibleEnd = data.startTime + (end / 100) * fullRange;
       const visibleRange = visibleEnd - visibleStart;
+      const viewSpanMinutes = visibleRange / (60 * 1000);
       
       // Update zoom state for interactive layer to use
       setCurrentZoomStart(visibleStart);
       setCurrentZoomEnd(visibleEnd);
+      
+      // Calculate splitNumber for 24-cell grid (splitNumber = divisions per hour)
+      let splitNumber: number;
+      let minorInterval: number;
+      
+      if (viewSpanMinutes <= 36) {
+        minorInterval = 1 * 60 * 1000; // 1 min intervals
+        splitNumber = 60; // 60 divisions per hour
+      } else if (viewSpanMinutes <= 84) {
+        minorInterval = 2 * 60 * 1000; // 2 min intervals
+        splitNumber = 30; // 30 divisions per hour
+      } else if (viewSpanMinutes <= 180) {
+        minorInterval = 5 * 60 * 1000; // 5 min intervals - DEFAULT
+        splitNumber = 12; // 12 divisions per hour
+      } else if (viewSpanMinutes <= 300) {
+        minorInterval = 10 * 60 * 1000; // 10 min intervals
+        splitNumber = 6; // 6 divisions per hour
+      } else if (viewSpanMinutes <= 540) {
+        minorInterval = 15 * 60 * 1000; // 15 min intervals
+        splitNumber = 4; // 4 divisions per hour
+      } else if (viewSpanMinutes <= 1080) {
+        minorInterval = 30 * 60 * 1000; // 30 min intervals
+        splitNumber = 2; // 2 divisions per hour
+      } else {
+        minorInterval = 60 * 60 * 1000; // 60 min intervals
+        splitNumber = 1; // 1 division per hour (no minor lines, only hours)
+      }
+      
+      console.log('Updating splitNumber - viewSpanMinutes:', viewSpanMinutes, 'splitNumber:', splitNumber, 'interval (min):', minorInterval / 60000);
+      setCurrentSnapInterval(minorInterval);
+      
+      // Update x-axis splitNumber for all grids
+      const grids = option.grid;
+      const updatedXAxis = option.xAxis.map((axis: any) => ({
+        ...axis,
+        minorTick: {
+          ...axis.minorTick,
+          splitNumber: splitNumber,
+        },
+      }));
+      
+      chart.setOption({
+        xAxis: updatedXAxis,
+      });
 
       // Constants (must match option calculation)
       const VITALS_TOP = 32;
@@ -505,93 +550,7 @@ export function UnifiedTimeline({
       const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
       const chartHeight = VITALS_HEIGHT + swimlanesHeight;
 
-      // Generate vertical lines for visible range with adaptive granularity
-      const verticalLines: any[] = [];
-      const viewSpanMinutes = visibleRange / (60 * 1000);
-      
-      // Determine tick interval to maintain 24 cells
-      let minorInterval: number;
-      if (viewSpanMinutes <= 36) {
-        minorInterval = 1 * 60 * 1000; // 1 min intervals → 24-min span (24 cells)
-      } else if (viewSpanMinutes <= 84) {
-        minorInterval = 2 * 60 * 1000; // 2 min intervals → 48-min span (24 cells)
-      } else if (viewSpanMinutes <= 180) {
-        minorInterval = 5 * 60 * 1000; // 5 min intervals → 120-min span (24 cells) DEFAULT
-      } else if (viewSpanMinutes <= 300) {
-        minorInterval = 10 * 60 * 1000; // 10 min intervals → 240-min span (24 cells)
-      } else if (viewSpanMinutes <= 540) {
-        minorInterval = 15 * 60 * 1000; // 15 min intervals → 360-min span (24 cells)
-      } else if (viewSpanMinutes <= 1080) {
-        minorInterval = 30 * 60 * 1000; // 30 min intervals → 720-min span (24 cells)
-      } else {
-        minorInterval = 60 * 60 * 1000; // 60 min intervals → 1440-min span (24 cells)
-      }
-      
-      // Update snap interval for interactive layer to use (THIS IS THE KEY!)
-      console.log('Setting snap interval - viewSpanMinutes:', viewSpanMinutes, 'snapInterval (min):', minorInterval / 60000);
-      setCurrentSnapInterval(minorInterval);
-      
-      // Draw major hour lines
-      for (let t = Math.floor(visibleStart / oneHour) * oneHour; t <= visibleEnd + oneHour; t += oneHour) {
-        const xPercent = ((t - visibleStart) / visibleRange) * 100;
-        const clampedPercent = Math.max(0, Math.min(100, xPercent));
-        
-        verticalLines.push({
-          type: "line",
-          shape: { x1: 0, y1: 0, x2: 0, y2: chartHeight },
-          position: [`${clampedPercent}%`, VITALS_TOP],
-          style: {
-            stroke: isDark ? "#444444" : "#d1d5db",
-            lineWidth: 1,
-          },
-          silent: true,
-          z: 1,
-        });
-      }
-      
-      // Draw minor ticks - use the adaptive interval calculated above
-      for (let t = Math.floor(visibleStart / minorInterval) * minorInterval; t <= visibleEnd + minorInterval; t += minorInterval) {
-        // Skip if this is a major hour line
-        if (t % oneHour === 0) continue;
-        
-        const xPercent = ((t - visibleStart) / visibleRange) * 100;
-        const clampedPercent = Math.max(0, Math.min(100, xPercent));
-        
-        verticalLines.push({
-          type: "line",
-          shape: { x1: 0, y1: 0, x2: 0, y2: chartHeight },
-          position: [`${clampedPercent}%`, VITALS_TOP],
-          style: {
-            stroke: isDark ? "#333333" : "#e5e7eb",
-            lineWidth: 0.5,
-            lineDash: [4, 4],
-          },
-          silent: true,
-          z: 1,
-        });
-      }
-
-      console.log('Generated', verticalLines.length, 'vertical lines for', viewSpanMinutes, 'min span');
-      
-      // Update vertical lines group
-      const graphicOption = option.graphic as any;
-      const currentGraphic = (Array.isArray(graphicOption) ? graphicOption[0]?.elements : graphicOption?.elements) || [];
-      const updatedGraphic = currentGraphic.map((el: any) => {
-        if (el.id?.startsWith('vertical-lines-group')) {
-          console.log('Updating vertical-lines-group with', verticalLines.length, 'lines');
-          return {
-            ...el,
-            children: verticalLines,
-          };
-        }
-        return el;
-      });
-
-      chart.setOption({
-        graphic: {
-          elements: updatedGraphic,
-        },
-      }, { replaceMerge: ['graphic'] });
+      // ECharts splitNumber is now dynamically updated above - no custom graphics needed
     };
 
     // Update immediately
@@ -674,13 +633,24 @@ export function UnifiedTimeline({
         lineStyle: { color: isDark ? "#444444" : "#d1d5db" }
       },
       splitLine: { 
-        show: false, // Disabled - using custom adaptive graphics
+        show: true, // Show hour lines
+        lineStyle: {
+          color: isDark ? "#444444" : "#d1d5db",
+          width: 1,
+          type: "solid" as const,
+        },
       },
       minorTick: {
-        show: false,
+        show: true,
+        splitNumber: 12, // Will be updated dynamically
       },
       minorSplitLine: {
-        show: false, // Disabled - using custom adaptive graphics
+        show: true, // Show minor grid lines
+        lineStyle: {
+          color: isDark ? "#333333" : "#e5e7eb",
+          width: 0.5,
+          type: "dashed" as const,
+        },
       },
       position: "top",
     });
