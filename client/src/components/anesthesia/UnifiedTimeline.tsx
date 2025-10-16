@@ -2415,12 +2415,16 @@ export function UnifiedTimeline({
       }
       
       // Step 4: Add dose data point to the medication swimlane
-      setMedicationDoseData(prev => ({
-        ...prev,
-        [targetSwimlaneId]: [...(prev[targetSwimlaneId] || []), [timestamp, drugCommand.dose]]
-      }));
-      
-      console.log(`[Voice] Added dose ${drugCommand.dose} to ${targetSwimlaneId} at ${new Date(timestamp).toLocaleTimeString()}`);
+      setMedicationDoseData(prev => {
+        const existingData = prev[targetSwimlaneId] || [];
+        const newData = {
+          ...prev,
+          [targetSwimlaneId]: [...existingData, [timestamp, drugCommand.dose] as [number, string]]
+        };
+        console.log(`[Voice] Added dose ${drugCommand.dose} to ${targetSwimlaneId} at ${new Date(timestamp).toLocaleTimeString()}`);
+        console.log('[Voice] Updated medicationDoseData:', newData);
+        return newData;
+      });
       
       // TODO: Store in backend anesthesia case data for persistence
       
