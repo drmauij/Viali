@@ -61,14 +61,18 @@ export function StickyTimelineHeader({
       });
       setStream(mediaStream);
       setShowCamera(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
     } catch (error) {
       console.error('Error accessing camera:', error);
       alert('Unable to access camera. Please check permissions.');
     }
   };
+
+  // Set video source when stream is available
+  useEffect(() => {
+    if (stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream]);
 
   // Close camera
   const closeCamera = () => {
@@ -249,16 +253,16 @@ export function StickyTimelineHeader({
       <div 
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
-        className="fixed z-[9999] bg-background/80 backdrop-blur-md border-2 border-border/50 rounded-lg shadow-lg px-3 py-1.5 flex items-center gap-4 cursor-grab active:cursor-grabbing select-none"
+        className="fixed z-[9999] bg-background/80 backdrop-blur-md border-2 border-border/50 rounded-lg shadow-lg px-1.5 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1 sm:gap-2 md:gap-4 cursor-grab active:cursor-grabbing select-none"
         style={{ left: `${position.x}px`, top: `${position.y}px`, transform: 'translate(-50%, 0)' }}
         data-testid="timeline-controls-panel"
       >
         {/* Drag Handle */}
         <div 
-          className="p-1 -ml-1 text-muted-foreground hover:text-foreground transition-colors touch-manipulation"
+          className="p-0.5 sm:p-1 -ml-0.5 sm:-ml-1 text-muted-foreground hover:text-foreground transition-colors touch-manipulation"
           title="Drag to reposition"
         >
-          <GripVertical className="h-5 w-5" />
+          <GripVertical className="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
         
         <button
@@ -266,7 +270,7 @@ export function StickyTimelineHeader({
           onClick={(e) => { e.stopPropagation(); onPanLeft?.(); }}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
-          className="hover:bg-muted active:bg-muted/80 rounded-md text-2xl h-12 w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer"
+          className="hover:bg-muted active:bg-muted/80 rounded-md text-lg sm:text-xl md:text-2xl h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer"
           title="Pan Left"
         >
           ‹
@@ -276,21 +280,21 @@ export function StickyTimelineHeader({
           onClick={(e) => { e.stopPropagation(); onPanRight?.(); }}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
-          className="hover:bg-muted active:bg-muted/80 rounded-md text-2xl h-12 w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer"
+          className="hover:bg-muted active:bg-muted/80 rounded-md text-lg sm:text-xl md:text-2xl h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer"
           title="Pan Right"
         >
           ›
         </button>
-        <div className="border-l-2 border-border h-8 mx-1" />
+        <div className="border-l-2 border-border h-6 sm:h-8 mx-0.5 sm:mx-1" />
         <button
           data-testid="button-zoom-in"
           onClick={(e) => { e.stopPropagation(); onZoomIn?.(); }}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
-          className="hover:bg-muted active:bg-muted/80 rounded-md text-xl h-12 w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer"
+          className="hover:bg-muted active:bg-muted/80 rounded-md text-base sm:text-lg md:text-xl h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer"
           title="Zoom In"
         >
-          <Search className="h-5 w-5" />
+          <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5" />
           +
         </button>
         <button
@@ -298,10 +302,10 @@ export function StickyTimelineHeader({
           onClick={(e) => { e.stopPropagation(); onZoomOut?.(); }}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
-          className="hover:bg-muted active:bg-muted/80 rounded-md text-xl h-12 w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer"
+          className="hover:bg-muted active:bg-muted/80 rounded-md text-base sm:text-lg md:text-xl h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer"
           title="Zoom Out"
         >
-          <Search className="h-5 w-5" />
+          <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5" />
           -
         </button>
         <button
@@ -309,21 +313,21 @@ export function StickyTimelineHeader({
           onClick={(e) => { e.stopPropagation(); onResetZoom?.(); }}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
-          className="hover:bg-muted active:bg-muted/80 rounded-md text-sm font-medium h-12 px-4 flex items-center justify-center transition-colors touch-manipulation cursor-pointer"
+          className="hover:bg-muted active:bg-muted/80 rounded-md text-xs sm:text-sm font-medium h-8 sm:h-10 md:h-12 px-2 sm:px-3 md:px-4 flex items-center justify-center transition-colors touch-manipulation cursor-pointer"
           title="Reset Zoom"
         >
           Reset
         </button>
-        <div className="border-l-2 border-border h-8 mx-1" />
+        <div className="border-l-2 border-border h-6 sm:h-8 mx-0.5 sm:mx-1" />
         <button
           data-testid="button-camera"
           onClick={(e) => { e.stopPropagation(); openCamera(); }}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
-          className="hover:bg-muted active:bg-muted/80 rounded-md h-12 w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer"
+          className="hover:bg-muted active:bg-muted/80 rounded-md h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer"
           title="Camera"
         >
-          <Camera className="h-5 w-5" />
+          <Camera className="h-4 w-4 sm:h-5 sm:w-5" />
         </button>
       </div>
 
