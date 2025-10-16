@@ -1358,16 +1358,8 @@ export function UnifiedTimeline({
               return; // No active tool mode
             }
             
-            // Check if in editable zone (NOW - 10min to NOW + 60min)
-            const nowTime = currentTime;
-            const editableStart = nowTime - (10 * 60 * 1000);
-            const editableEnd = nowTime + (60 * 60 * 1000);
-            
-            if (time >= editableStart && time <= editableEnd) {
-              setHoverInfo({ x: e.clientX, y: e.clientY, value, time });
-            } else {
-              setHoverInfo(null);
-            }
+            // Allow adding data points anywhere in the timeline (no restrictions)
+            setHoverInfo({ x: e.clientX, y: e.clientY, value, time });
           }}
           onMouseLeave={() => setHoverInfo(null)}
           onClick={(e) => {
