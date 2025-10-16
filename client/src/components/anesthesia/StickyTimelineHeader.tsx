@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef, useState } from "react";
+import { useMemo, useEffect, useRef, useState, useCallback } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
 import { Search, GripVertical } from "lucide-react";
@@ -48,33 +48,35 @@ export function StickyTimelineHeader({
     localStorage.setItem('timeline-controls-position', JSON.stringify(position));
   }, [position]);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
     dragRef.current = {
       isDragging: true,
       startX: e.clientX - position.x,
       startY: e.clientY - position.y,
     };
-  };
+  }, [position]);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
     const touch = e.touches[0];
     dragRef.current = {
       isDragging: true,
       startX: touch.clientX - position.x,
       startY: touch.clientY - position.y,
     };
-  };
+  }, [position]);
 
-  const handleMouseMove = (e: MouseEvent) => {
+  const handleMouseMove = useCallback((e: MouseEvent) => {
     if (dragRef.current.isDragging) {
       setPosition({
         x: e.clientX - dragRef.current.startX,
         y: e.clientY - dragRef.current.startY,
       });
     }
-  };
+  }, []);
 
-  const handleTouchMove = (e: TouchEvent) => {
+  const handleTouchMove = useCallback((e: TouchEvent) => {
     if (dragRef.current.isDragging) {
       const touch = e.touches[0];
       setPosition({
@@ -82,11 +84,11 @@ export function StickyTimelineHeader({
         y: touch.clientY - dragRef.current.startY,
       });
     }
-  };
+  }, []);
 
-  const handleMouseUp = () => {
+  const handleMouseUp = useCallback(() => {
     dragRef.current.isDragging = false;
-  };
+  }, []);
 
   useEffect(() => {
     window.addEventListener('mousemove', handleMouseMove);
@@ -99,7 +101,7 @@ export function StickyTimelineHeader({
       window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchend', handleMouseUp);
     };
-  }, []);
+  }, [handleMouseMove, handleMouseUp, handleTouchMove]);
 
   const option = useMemo(() => {
     const GRID_LEFT = 200;
