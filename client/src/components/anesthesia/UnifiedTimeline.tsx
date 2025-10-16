@@ -800,6 +800,84 @@ export function UnifiedTimeline({
     };
   }, [chartRef, data.startTime, data.endTime]);
 
+  // Update graphic elements for ventilation parameters
+  useEffect(() => {
+    const chart = chartRef.current?.getEchartsInstance();
+    if (!chart) return;
+
+    const modernMonoFont = '"SF Mono", "JetBrains Mono", "Roboto Mono", "Fira Code", Monaco, Consolas, monospace';
+    const textColor = isDark ? '#ffffff' : '#000000';
+    
+    // Helper to convert timestamp to pixel position
+    const timestampToPixel = (timestamp: number, gridIndex: number): number | null => {
+      try {
+        const pixelX = chart.convertToPixel({ xAxisIndex: gridIndex }, timestamp);
+        return Array.isArray(pixelX) ? pixelX[0] : pixelX;
+      } catch {
+        return null;
+      }
+    };
+    
+    // Find ventilation swimlane index
+    const ventilationParentIndex = activeSwimlanes.findIndex(lane => lane.id === 'ventilation');
+    if (ventilationParentIndex === -1 || collapsedSwimlanes.has('ventilation')) {
+      chart.setOption({ graphic: [] });
+      return;
+    }
+    
+    // Calculate y-positions for each parameter row
+    const VITALS_HEIGHT = 340;
+    const VITALS_TOP = 32;
+    let currentY = VITALS_TOP + VITALS_HEIGHT;
+    
+    // Skip to ventilation parent row
+    for (let i = 0; i < ventilationParentIndex; i++) {
+      currentY += activeSwimlanes[i].height;
+    }
+    currentY += activeSwimlanes[ventilationParentIndex].height; // Skip parent row
+    
+    const paramData = [
+      { data: ventilationData.etCO2, paramIndex: 1, name: 'etCO2' },
+      { data: ventilationData.pip, paramIndex: 2, name: 'PIP' },
+      { data: ventilationData.peep, paramIndex: 3, name: 'PEEP' },
+      { data: ventilationData.tidalVolume, paramIndex: 4, name: 'TidalVol' },
+      { data: ventilationData.respiratoryRate, paramIndex: 5, name: 'RR' },
+      { data: ventilationData.minuteVolume, paramIndex: 6, name: 'MinVol' },
+      { data: ventilationData.fiO2, paramIndex: 7, name: 'FiO2' },
+    ];
+    
+    const graphics: any[] = [];
+    
+    paramData.forEach(({ data, paramIndex, name }) => {
+      const rowY = currentY + (paramIndex - 1) * 35 + 17.5; // Center of row
+      const gridIdx = ventilationParentIndex + paramIndex + 1;
+      
+      data.forEach(([timestamp, value]) => {
+        const pixelX = timestampToPixel(timestamp, gridIdx);
+        if (pixelX !== null) {
+          graphics.push({
+            type: 'text',
+            id: `vent-${name}-${timestamp}`,
+            left: pixelX,
+            top: rowY,
+            style: {
+              text: value.toString(),
+              font: `600 13px ${modernMonoFont}`,
+              fill: textColor,
+              textAlign: 'center',
+              textVerticalAlign: 'middle',
+            },
+            z: 100,
+          });
+        }
+      });
+    });
+    
+    console.log(`[Ventilation Graphics] Generated ${graphics.length} text elements`);
+    chart.setOption({ graphic: graphics }, { replaceMerge: ['graphic'] });
+    
+  }, [chartRef, ventilationData, activeSwimlanes, collapsedSwimlanes, isDark]);
+
   const option = useMemo(() => {
     // Layout constants
     const VITALS_TOP = 32; // Space for sticky header (32px)
