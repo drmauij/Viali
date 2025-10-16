@@ -119,20 +119,20 @@ export function StickyTimelineHeader({
   }, [currentStart, currentEnd, startTime, endTime]);
 
   return (
-    <div className="sticky top-0 z-50 bg-background border-b border-border relative" style={{ height: '32px' }}>
+    <div className="sticky top-0 z-50 bg-background border-b border-border relative" style={{ height: '56px' }}>
       <ReactECharts
         ref={chartRef}
         option={option}
-        style={{ height: "32px", width: "100%" }}
+        style={{ height: "56px", width: "100%" }}
         opts={{ renderer: "canvas" }}
       />
 
-      {/* Controls Positioned Absolutely in the Center with Solid Background */}
-      <div className="absolute left-1/2 transform -translate-x-1/2 top-1 bg-background border border-border rounded shadow-sm px-2 py-0.5 flex items-center gap-1">
+      {/* Touch-Friendly Controls - Centered with Larger Touch Targets */}
+      <div className="absolute left-1/2 transform -translate-x-1/2 top-1 bg-background border-2 border-border rounded-lg shadow-md px-3 py-1.5 flex items-center gap-4">
         <button
           data-testid="button-pan-left"
           onClick={onPanLeft}
-          className="p-1 hover:bg-muted rounded text-xs h-6 w-6 flex items-center justify-center"
+          className="hover:bg-muted active:bg-muted/80 rounded-md text-2xl h-12 w-12 flex items-center justify-center transition-colors touch-manipulation"
           title="Pan Left"
         >
           ‹
@@ -140,34 +140,34 @@ export function StickyTimelineHeader({
         <button
           data-testid="button-pan-right"
           onClick={onPanRight}
-          className="p-1 hover:bg-muted rounded text-xs h-6 w-6 flex items-center justify-center"
+          className="hover:bg-muted active:bg-muted/80 rounded-md text-2xl h-12 w-12 flex items-center justify-center transition-colors touch-manipulation"
           title="Pan Right"
         >
           ›
         </button>
-        <div className="border-l border-border h-4 mx-1" />
+        <div className="border-l-2 border-border h-8 mx-1" />
         <button
           data-testid="button-zoom-in"
           onClick={onZoomIn}
-          className="p-1 hover:bg-muted rounded text-xs h-6 w-6 flex items-center justify-center"
+          className="hover:bg-muted active:bg-muted/80 rounded-md text-xl h-12 w-12 flex items-center justify-center transition-colors touch-manipulation"
           title="Zoom In"
         >
-          <Search className="h-3 w-3" />
+          <Search className="h-5 w-5" />
           +
         </button>
         <button
           data-testid="button-zoom-out"
           onClick={onZoomOut}
-          className="p-1 hover:bg-muted rounded text-xs h-6 w-6 flex items-center justify-center"
+          className="hover:bg-muted active:bg-muted/80 rounded-md text-xl h-12 w-12 flex items-center justify-center transition-colors touch-manipulation"
           title="Zoom Out"
         >
-          <Search className="h-3 w-3" />
+          <Search className="h-5 w-5" />
           -
         </button>
         <button
           data-testid="button-reset-zoom"
           onClick={onResetZoom}
-          className="p-1 hover:bg-muted rounded text-xs h-6 px-2 flex items-center justify-center"
+          className="hover:bg-muted active:bg-muted/80 rounded-md text-sm font-medium h-12 px-4 flex items-center justify-center transition-colors touch-manipulation"
           title="Reset Zoom"
         >
           Reset
