@@ -1209,10 +1209,11 @@ export function UnifiedTimeline({
         ...(zoomPercent ? { start: zoomPercent.start, end: zoomPercent.end } : {}),
         throttle: 50,
         zoomLock: true,
-        orient: 'horizontal', // Only respond to horizontal gestures, allow vertical scrolling
+        orient: 'horizontal',
         zoomOnMouseWheel: false,
         moveOnMouseWheel: false,
         moveOnMouseMove: false,
+        disabled: true, // Disable all touch/mouse interactions - use external controls only
         filterMode: "none",
       }],
       tooltip: {
