@@ -476,11 +476,15 @@ export function UnifiedTimeline({
     if (!chart) return;
 
     const updateVerticalLines = () => {
+      console.log('updateVerticalLines called');
       // Get visible range from dataZoom percentages
       const option = chart.getOption() as any;
       const dataZoom = option.dataZoom?.[0];
       
-      if (!dataZoom) return;
+      if (!dataZoom) {
+        console.log('No dataZoom found in updateVerticalLines');
+        return;
+      }
       
       const start = dataZoom.start ?? 0;
       const end = dataZoom.end ?? 100;
@@ -567,11 +571,14 @@ export function UnifiedTimeline({
         });
       }
 
+      console.log('Generated', verticalLines.length, 'vertical lines for', viewSpanMinutes, 'min span');
+      
       // Update vertical lines group
       const graphicOption = option.graphic as any;
       const currentGraphic = (Array.isArray(graphicOption) ? graphicOption[0]?.elements : graphicOption?.elements) || [];
       const updatedGraphic = currentGraphic.map((el: any) => {
         if (el.id?.startsWith('vertical-lines-group')) {
+          console.log('Updating vertical-lines-group with', verticalLines.length, 'lines');
           return {
             ...el,
             children: verticalLines,
@@ -667,24 +674,13 @@ export function UnifiedTimeline({
         lineStyle: { color: isDark ? "#444444" : "#d1d5db" }
       },
       splitLine: { 
-        show: true, // Show major hour lines
-        lineStyle: {
-          color: isDark ? "#444444" : "#d1d5db",
-          width: 1,
-          type: "solid" as const,
-        },
+        show: false, // Disabled - using custom adaptive graphics
       },
       minorTick: {
-        show: true,
-        splitNumber: 12, // For 24 cells: 12 minor intervals between hours + hour lines = 24 total
+        show: false,
       },
       minorSplitLine: {
-        show: true, // Show minor grid lines
-        lineStyle: {
-          color: isDark ? "#333333" : "#e5e7eb",
-          width: 0.5,
-          type: "dashed" as const,
-        },
+        show: false, // Disabled - using custom adaptive graphics
       },
       position: "top",
     });
