@@ -127,8 +127,8 @@ export function StickyTimelineHeader({
         opts={{ renderer: "canvas" }}
       />
 
-      {/* Touch-Friendly Controls - Centered with Larger Touch Targets */}
-      <div className="absolute left-1/2 transform -translate-x-1/2 top-1 bg-background border-2 border-border rounded-lg shadow-md px-3 py-1.5 flex items-center gap-4">
+      {/* Touch-Friendly Controls - Centered with Larger Touch Targets & Glass Effect */}
+      <div className="absolute left-1/2 transform -translate-x-1/2 top-1 bg-background/80 backdrop-blur-md border-2 border-border/50 rounded-lg shadow-lg px-3 py-1.5 flex items-center gap-4">
         <button
           data-testid="button-pan-left"
           onClick={onPanLeft}
