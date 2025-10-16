@@ -97,6 +97,7 @@ export function UnifiedTimeline({
   // State for BP dual entry (systolic then diastolic)
   const [bpEntryMode, setBpEntryMode] = useState<'sys' | 'dia'>('sys');
   const [pendingSysValue, setPendingSysValue] = useState<{ time: number; value: number } | null>(null);
+  const [isProcessingClick, setIsProcessingClick] = useState(false);
   
   // State for hover tooltip
   const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; value: number; time: number } | null>(null);
@@ -893,7 +894,7 @@ export function UnifiedTimeline({
         textStyle: { fontFamily: "Poppins, sans-serif" },
       },
     } as echarts.EChartsOption;
-  }, [data, isDark, activeSwimlanes, now, hrDataPoints, bpDataPoints, spo2DataPoints, zoomPercent]);
+  }, [data, isDark, activeSwimlanes, now, hrDataPoints, bpDataPoints, spo2DataPoints, zoomPercent, pendingSysValue]);
 
   // Calculate component height
   const VITALS_HEIGHT = 340;
@@ -1399,15 +1400,15 @@ export function UnifiedTimeline({
           }}
           onMouseLeave={() => setHoverInfo(null)}
           onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
+            if (!hoverInfo || isProcessingClick) return;
             
-            if (!hoverInfo) return;
+            setIsProcessingClick(true);
             
             // Add data point based on active tool mode
             if (activeToolMode === 'hr') {
               setHrDataPoints(prev => [...prev, [hoverInfo.time, hoverInfo.value]]);
               setHoverInfo(null);
+              setTimeout(() => setIsProcessingClick(false), 100);
             } else if (activeToolMode === 'bp') {
               // Sequential BP entry: first systolic, then diastolic at same time
               if (bpEntryMode === 'sys') {
@@ -1416,6 +1417,7 @@ export function UnifiedTimeline({
                 setPendingSysValue(pendingValue);
                 setBpEntryMode('dia');
                 setHoverInfo(null);
+                setTimeout(() => setIsProcessingClick(false), 100);
               } else {
                 // Save diastolic value with the same time as systolic
                 if (pendingSysValue) {
@@ -1428,10 +1430,12 @@ export function UnifiedTimeline({
                 setPendingSysValue(null);
                 setBpEntryMode('sys');
                 setHoverInfo(null);
+                setTimeout(() => setIsProcessingClick(false), 100);
               }
             } else if (activeToolMode === 'spo2') {
               setSpo2DataPoints(prev => [...prev, [hoverInfo.time, hoverInfo.value]]);
               setHoverInfo(null);
+              setTimeout(() => setIsProcessingClick(false), 100);
             }
           }}
         />
