@@ -1028,10 +1028,14 @@ export function UnifiedTimeline({
           newStart = newEnd - newSpan;
         }
         
+        // Convert to percentages for dataZoom
+        const startPercent = ((newStart - data.startTime) / fullRange) * 100;
+        const endPercent = ((newEnd - data.startTime) / fullRange) * 100;
+        
         chart.dispatchAction({
           type: 'dataZoom',
-          startValue: newStart,
-          endValue: newEnd,
+          start: startPercent,
+          end: endPercent,
         });
       }
     }
@@ -1074,10 +1078,14 @@ export function UnifiedTimeline({
           newStart = Math.max(newEnd - newSpan, data.startTime);
         }
         
+        // Convert to percentages for dataZoom
+        const startPercent = ((newStart - data.startTime) / fullRange) * 100;
+        const endPercent = ((newEnd - data.startTime) / fullRange) * 100;
+        
         chart.dispatchAction({
           type: 'dataZoom',
-          startValue: newStart,
-          endValue: newEnd,
+          start: startPercent,
+          end: endPercent,
         });
       }
     }
@@ -1108,10 +1116,14 @@ export function UnifiedTimeline({
           newEnd = newStart + span;
         }
         
+        // Convert to percentages for dataZoom
+        const startPercent = ((newStart - data.startTime) / fullRange) * 100;
+        const endPercent = ((newEnd - data.startTime) / fullRange) * 100;
+        
         chart.dispatchAction({
           type: 'dataZoom',
-          startValue: newStart,
-          endValue: newEnd,
+          start: startPercent,
+          end: endPercent,
         });
       }
     }
@@ -1142,10 +1154,14 @@ export function UnifiedTimeline({
           newStart = newEnd - span;
         }
         
+        // Convert to percentages for dataZoom
+        const startPercent = ((newStart - data.startTime) / fullRange) * 100;
+        const endPercent = ((newEnd - data.startTime) / fullRange) * 100;
+        
         chart.dispatchAction({
           type: 'dataZoom',
-          startValue: newStart,
-          endValue: newEnd,
+          start: startPercent,
+          end: endPercent,
         });
       }
     }
@@ -1159,10 +1175,15 @@ export function UnifiedTimeline({
       const initialStartTime = currentTime - twentyMinutes;
       const initialEndTime = currentTime + twentyMinutes;
       
+      // Convert to percentages for dataZoom
+      const fullRange = data.endTime - data.startTime;
+      const startPercent = ((initialStartTime - data.startTime) / fullRange) * 100;
+      const endPercent = ((initialEndTime - data.startTime) / fullRange) * 100;
+      
       chart.dispatchAction({
         type: 'dataZoom',
-        startValue: initialStartTime,
-        endValue: initialEndTime,
+        start: startPercent,
+        end: endPercent,
       });
     }
   };
