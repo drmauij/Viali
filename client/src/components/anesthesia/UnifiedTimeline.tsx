@@ -825,25 +825,39 @@ export function UnifiedTimeline({
       return;
     }
     
-    // Calculate y-positions for each parameter row
+    console.log('[Ventilation Graphics] Active swimlanes:', activeSwimlanes.map((l, i) => `${i}: ${l.id} (${l.height}px)`));
+    console.log('[Ventilation Graphics] Ventilation parent index:', ventilationParentIndex);
+    
+    // Calculate y-positions - need to match the actual grid configuration
     const VITALS_HEIGHT = 340;
     const VITALS_TOP = 32;
+    
+    // Get the actual grid configuration for ventilation child rows
+    // Grid 0 is vitals, then we have all the swimlanes in order
+    // We need to find where ventilation child grids start
+    
+    // ventilationParentIndex tells us which swimlane is ventilation parent
+    // Grid index for first ventilation child = 1 (vitals) + ventilationParentIndex + 1
+    const firstVentChildGridIndex = 1 + ventilationParentIndex + 1;
+    
+    // Now calculate the actual y-position for the first ventilation child grid
     let currentY = VITALS_TOP + VITALS_HEIGHT;
     
-    // Skip to ventilation parent row
-    for (let i = 0; i < ventilationParentIndex; i++) {
+    // Add heights of all swimlanes up to and including ventilation parent
+    for (let i = 0; i <= ventilationParentIndex; i++) {
       currentY += activeSwimlanes[i].height;
     }
-    currentY += activeSwimlanes[ventilationParentIndex].height; // Skip parent row
+    
+    console.log('[Ventilation Graphics] First vent child starts at y:', currentY);
     
     const paramData = [
-      { data: ventilationData.etCO2, paramIndex: 1, name: 'etCO2' },
-      { data: ventilationData.pip, paramIndex: 2, name: 'PIP' },
-      { data: ventilationData.peep, paramIndex: 3, name: 'PEEP' },
-      { data: ventilationData.tidalVolume, paramIndex: 4, name: 'TidalVol' },
-      { data: ventilationData.respiratoryRate, paramIndex: 5, name: 'RR' },
-      { data: ventilationData.minuteVolume, paramIndex: 6, name: 'MinVol' },
-      { data: ventilationData.fiO2, paramIndex: 7, name: 'FiO2' },
+      { data: ventilationData.etCO2, paramIndex: 0, name: 'etCO2' },
+      { data: ventilationData.pip, paramIndex: 1, name: 'PIP' },
+      { data: ventilationData.peep, paramIndex: 2, name: 'PEEP' },
+      { data: ventilationData.tidalVolume, paramIndex: 3, name: 'TidalVol' },
+      { data: ventilationData.respiratoryRate, paramIndex: 4, name: 'RR' },
+      { data: ventilationData.minuteVolume, paramIndex: 5, name: 'MinVol' },
+      { data: ventilationData.fiO2, paramIndex: 6, name: 'FiO2' },
     ];
     
     const graphics: any[] = [];
