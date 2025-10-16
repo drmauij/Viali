@@ -494,6 +494,7 @@ export function UnifiedTimeline({
                 stroke: isDark ? '#ef4444' : '#dc2626',
                 lineWidth: 2,
               },
+              z: 999, // Very high z-index to always stay on top
             };
           }
           return el; // Preserve all other elements (vertical lines, labels)
@@ -526,7 +527,7 @@ export function UnifiedTimeline({
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [chartRef, data, isDark, activeSwimlanes, now, currentZoomStart, currentZoomEnd, currentTime]);
+  }, [chartRef, data, isDark, activeSwimlanes, now, currentZoomStart, currentZoomEnd, currentTime, hrDataPoints, bpDataPoints, spo2DataPoints]);
 
   // Update zoom state when zoom changes
   useEffect(() => {
@@ -986,7 +987,7 @@ export function UnifiedTimeline({
           shape: { x1: 0, y1: 0, x2: 0, y2: 0 },
           style: { stroke: 'transparent', lineWidth: 0 },
           silent: true,
-          z: 100,
+          z: 999, // Very high z-index to always stay on top
         },
       ],
       dataZoom: [{
