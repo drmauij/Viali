@@ -282,10 +282,9 @@ export function UnifiedTimeline({
   // Track initial zoom state
   const hasSetInitialZoomRef = useRef(false);
 
-  // Set initial zoom once after chart is ready
-  useEffect(() => {
-    const chart = chartRef.current?.getEchartsInstance();
-    if (!chart || hasSetInitialZoomRef.current) return;
+  // Handle chart ready - set initial 40-minute zoom
+  const handleChartReady = (chart: any) => {
+    if (hasSetInitialZoomRef.current) return;
 
     const currentTime = now || data.endTime;
     const twentyMinutes = 20 * 60 * 1000;
@@ -309,7 +308,7 @@ export function UnifiedTimeline({
     });
     
     hasSetInitialZoomRef.current = true;
-  }, []);
+  };
 
   // Update dataZoom xAxisIndex when swimlane structure changes
   useEffect(() => {
@@ -838,6 +837,8 @@ export function UnifiedTimeline({
     const initialVisibleRange = initialEndTime - initialStartTime;
     const viewSpanMinutes = initialVisibleRange / (60 * 1000);
     
+    console.log('Initial grid calc - viewSpanMinutes:', viewSpanMinutes);
+    
     // Determine tick interval based on zoom level (adaptive)
     let minorInterval: number;
     if (viewSpanMinutes <= 5) {
@@ -853,6 +854,8 @@ export function UnifiedTimeline({
     } else {
       minorInterval = 60 * 60 * 1000; // 60 minutes for wide views
     }
+    
+    console.log('Initial grid interval (min):', minorInterval / 60000);
     
     // Draw major hour lines
     for (let t = Math.floor(initialStartTime / oneHour) * oneHour; t <= initialEndTime + oneHour; t += oneHour) {
@@ -1414,6 +1417,7 @@ export function UnifiedTimeline({
           option={option}
           style={{ height: "100%", width: "100%" }}
           opts={{ renderer: "canvas" }}
+          onChartReady={handleChartReady}
           lazyUpdate
         />
       </div>
