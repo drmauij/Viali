@@ -1209,6 +1209,7 @@ export function UnifiedTimeline({
         ...(zoomPercent ? { start: zoomPercent.start, end: zoomPercent.end } : {}),
         throttle: 50,
         zoomLock: true,
+        orient: 'horizontal', // Only respond to horizontal gestures, allow vertical scrolling
         zoomOnMouseWheel: false,
         moveOnMouseWheel: false,
         moveOnMouseMove: false,
@@ -1487,12 +1488,12 @@ export function UnifiedTimeline({
     setIsProcessingImage(true);
     
     try {
-      // Step 1: Preprocess image (resize, grayscale, compress)
+      // Step 1: Preprocess image (resize and compress only - skip grayscale for performance)
       const { preprocessImage } = await import('@/lib/imagePreprocessing');
       const preprocessed = await preprocessImage(imageBase64, {
-        maxWidth: 768,
-        quality: 0.75,
-        grayscale: true,
+        maxWidth: 512, // Reduced from 768 for faster mobile processing
+        quality: 0.6,  // Reduced from 0.75 for faster compression
+        grayscale: false, // Skip pixel-by-pixel grayscale conversion - not needed for modern OCR/AI
       });
       
       toast({
@@ -1516,17 +1517,40 @@ export function UnifiedTimeline({
       
       if (needsAI) {
         // Step 4: Fall back to OpenAI Vision for low confidence or missing values
-        const response = await fetch('/api/analyze-monitor', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: preprocessed.base64 }),
+        toast({
+          title: "Analyzing with AI...",
+          description: "Using advanced detection for complex readings",
         });
         
-        if (!response.ok) {
-          throw new Error('Failed to analyze image with AI');
-        }
+        // Add timeout to prevent hanging
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
         
-        const aiData = await response.json();
+        let aiData: any = {};
+        try {
+          const response = await fetch('/api/analyze-monitor', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: preprocessed.base64 }),
+            signal: controller.signal,
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) {
+            throw new Error('Failed to analyze image with AI');
+          }
+          
+          aiData = await response.json();
+        
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          
+          if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+            throw new Error('AI analysis timed out after 30 seconds. Please try again.');
+          }
+          throw fetchError;
+        }
         
         // Merge local and AI results, preferring high-confidence local values
         let hr = (localDetection.hr && localDetection.hr.confidence >= highConfidenceThreshold) 
