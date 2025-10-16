@@ -247,24 +247,38 @@ export function UnifiedTimeline({
     const chart = chartRef.current?.getEchartsInstance();
     if (!chart) return;
 
-    // Initialize zoom state from axis proxy (works with percentage-based dataZoom)
+    // Initialize zoom state from dataZoom percentages
     const initializeZoom = () => {
-      const dataZoomModel = chart.getModel().getComponent('dataZoom', 0) as any;
-      const dataWindow = dataZoomModel?.getAxisProxy('x')?.getDataWindow();
+      const option = chart.getOption() as any;
+      const dataZoom = option.dataZoom?.[0];
       
-      if (dataWindow && dataWindow.length >= 2) {
-        setCurrentZoomStart(dataWindow[0]);
-        setCurrentZoomEnd(dataWindow[1]);
+      if (dataZoom) {
+        const start = dataZoom.start ?? 0;
+        const end = dataZoom.end ?? 100;
+        const fullRange = data.endTime - data.startTime;
+        
+        const visibleStart = data.startTime + (start / 100) * fullRange;
+        const visibleEnd = data.startTime + (end / 100) * fullRange;
+        
+        setCurrentZoomStart(visibleStart);
+        setCurrentZoomEnd(visibleEnd);
       }
     };
 
     const handleDataZoom = (params: any) => {
-      const dataZoomModel = chart.getModel().getComponent('dataZoom', 0) as any;
-      const dataWindow = dataZoomModel?.getAxisProxy('x')?.getDataWindow();
+      const option = chart.getOption() as any;
+      const dataZoom = option.dataZoom?.[0];
       
-      if (dataWindow && dataWindow.length >= 2) {
-        setCurrentZoomStart(dataWindow[0]);
-        setCurrentZoomEnd(dataWindow[1]);
+      if (dataZoom) {
+        const start = dataZoom.start ?? 0;
+        const end = dataZoom.end ?? 100;
+        const fullRange = data.endTime - data.startTime;
+        
+        const visibleStart = data.startTime + (start / 100) * fullRange;
+        const visibleEnd = data.startTime + (end / 100) * fullRange;
+        
+        setCurrentZoomStart(visibleStart);
+        setCurrentZoomEnd(visibleEnd);
       }
     };
 
@@ -442,14 +456,18 @@ export function UnifiedTimeline({
     if (!chart) return;
 
     const updateVerticalLines = () => {
-      // Get actual visible data window from axis proxy (works with percentage-based dataZoom)
-      const dataZoomModel = chart.getModel().getComponent('dataZoom', 0) as any;
-      const dataWindow = dataZoomModel?.getAxisProxy('x')?.getDataWindow();
+      // Get visible range from dataZoom percentages
+      const option = chart.getOption() as any;
+      const dataZoom = option.dataZoom?.[0];
       
-      if (!dataWindow || dataWindow.length < 2) return;
+      if (!dataZoom) return;
       
-      const visibleStart = dataWindow[0];
-      const visibleEnd = dataWindow[1];
+      const start = dataZoom.start ?? 0;
+      const end = dataZoom.end ?? 100;
+      const fullRange = data.endTime - data.startTime;
+      
+      const visibleStart = data.startTime + (start / 100) * fullRange;
+      const visibleEnd = data.startTime + (end / 100) * fullRange;
       const visibleRange = visibleEnd - visibleStart;
       
       // Update zoom state for interactive layer to use
