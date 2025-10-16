@@ -1024,6 +1024,8 @@ export function UnifiedTimeline({
         const newLevelIndex = Math.max(0, currentLevelIndex - 1);
         const newSpan = zoomLevels[newLevelIndex];
         
+        console.log('Zoom In - currentSpan (min):', currentSpan / 60000, 'currentLevelIndex:', currentLevelIndex, 'newLevelIndex:', newLevelIndex, 'newSpan (min):', newSpan / 60000);
+        
         const center = (currentMin + currentMax) / 2;
         
         // Constrain to data bounds
