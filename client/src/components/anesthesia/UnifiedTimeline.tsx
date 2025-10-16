@@ -1,13 +1,15 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Activity, Heart, Wind, Combine, Plus, X, ChevronDown, ChevronRight, Undo2, Clock } from "lucide-react";
+import { Activity, Heart, Wind, Combine, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { StickyTimelineHeader } from "./StickyTimelineHeader";
 import { useToast } from "@/hooks/use-toast";
+import type { MonitorAnalysisResult } from "@shared/monitorParameters";
 
 /**
  * UnifiedTimeline - Refactored for robustness and flexibility
@@ -1527,7 +1529,7 @@ export function UnifiedTimeline({
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
         
-        let aiData: any = {};
+        let aiData: MonitorAnalysisResult | any = {};
         try {
           const response = await fetch('/api/analyze-monitor', {
             method: 'POST',
@@ -1553,19 +1555,58 @@ export function UnifiedTimeline({
           throw fetchError;
         }
         
-        // Merge local and AI results, preferring high-confidence local values
-        let hr = (localDetection.hr && localDetection.hr.confidence >= highConfidenceThreshold) 
+        // Check if new API format (with parameters array) or old format
+        const isNewFormat = aiData.parameters && Array.isArray(aiData.parameters);
+        
+        let hr, sysBP, diaBP, spo2;
+        let transformedVitals: any = {};
+        let transformedVentilation: any = {};
+        
+        if (isNewFormat) {
+          // NEW FORMAT: Extract vitals from parameters array
+          const vitalParams = aiData.parameters.filter((p: any) => p.category === 'vitals');
+          const ventParams = aiData.parameters.filter((p: any) => p.category === 'ventilation');
+          
+          // Map vitals to old format
+          vitalParams.forEach((param: any) => {
+            if (param.standardName === 'HR') {
+              hr = param.value;
+            } else if (param.standardName === 'SysBP') {
+              sysBP = param.value;
+            } else if (param.standardName === 'DiaBP') {
+              diaBP = param.value;
+            } else if (param.standardName === 'SpO2') {
+              spo2 = param.value;
+            }
+          });
+          
+          // Map ventilation to old format
+          ventParams.forEach((param: any) => {
+            const key = param.standardName.charAt(0).toLowerCase() + param.standardName.slice(1);
+            transformedVentilation[key] = param.value;
+          });
+        } else {
+          // OLD FORMAT: Use directly
+          hr = aiData.vitals?.hr;
+          sysBP = aiData.vitals?.sysBP;
+          diaBP = aiData.vitals?.diaBP;
+          spo2 = aiData.vitals?.spo2;
+          transformedVentilation = aiData.ventilation || {};
+        }
+        
+        // Merge with local detection, preferring high-confidence local values
+        hr = (localDetection.hr && localDetection.hr.confidence >= highConfidenceThreshold) 
           ? localDetection.hr.value 
-          : aiData.vitals?.hr;
-        let sysBP = (localDetection.sysBP && localDetection.sysBP.confidence >= highConfidenceThreshold)
+          : hr;
+        sysBP = (localDetection.sysBP && localDetection.sysBP.confidence >= highConfidenceThreshold)
           ? localDetection.sysBP.value
-          : aiData.vitals?.sysBP;
-        let diaBP = (localDetection.diaBP && localDetection.diaBP.confidence >= highConfidenceThreshold)
+          : sysBP;
+        diaBP = (localDetection.diaBP && localDetection.diaBP.confidence >= highConfidenceThreshold)
           ? localDetection.diaBP.value
-          : aiData.vitals?.diaBP;
-        let spo2 = (localDetection.spo2 && localDetection.spo2.confidence >= highConfidenceThreshold)
+          : diaBP;
+        spo2 = (localDetection.spo2 && localDetection.spo2.confidence >= highConfidenceThreshold)
           ? localDetection.spo2.value
-          : aiData.vitals?.spo2;
+          : spo2;
         
         // Apply range validation and clamping
         if (hr !== null && hr !== undefined && !validateVitalRange('hr', hr)) {
@@ -1583,10 +1624,16 @@ export function UnifiedTimeline({
         
         finalData = {
           vitals: { hr, sysBP, diaBP, spo2 },
-          ventilation: aiData.ventilation,
+          ventilation: transformedVentilation,
           tof: aiData.tof,
           pumps: aiData.pumps,
-          detectionMethod: 'hybrid-ai',
+          detectionMethod: isNewFormat ? aiData.detectionMethod : 'hybrid-ai',
+          // Store new format data for enhanced confirmation dialog
+          ...(isNewFormat && {
+            monitorType: aiData.monitorType,
+            confidence: aiData.confidence,
+            parameters: aiData.parameters,
+          }),
         };
       } else {
         // Use local detection only with range validation
@@ -1635,77 +1682,164 @@ export function UnifiedTimeline({
   const handleConfirmExtractedData = async () => {
     if (!extractedData) return;
 
-    const { vitals, ventilation, tof, pumps, timestamp } = extractedData;
+    const { vitals, ventilation, tof, pumps, timestamp, parameters } = extractedData;
     
     // Import validation utilities
     const { validateVitalRange, clampToRange } = await import('@/lib/sevenSegmentOCR');
+    const { findStandardParameter } = await import('@shared/monitorParameters');
     
     let addedItems: string[] = [];
     let warningItems: string[] = [];
 
-    // Add vitals to timeline with range validation (0 is a valid critical value - e.g., asystole)
-    if (vitals?.hr !== null && vitals?.hr !== undefined) {
-      let hr = vitals.hr;
-      if (!validateVitalRange('hr', hr)) {
-        const clamped = clampToRange('hr', hr);
-        warningItems.push(`HR ${hr}→${clamped} (out of range)`);
-        hr = clamped;
+    // Handle NEW FORMAT with parameters array
+    if (parameters && Array.isArray(parameters)) {
+      // Process vitals from parameters
+      const vitalParams = parameters.filter((p: any) => p.category === 'vitals');
+      vitalParams.forEach((param: any) => {
+        const paramDef = findStandardParameter(param.standardName);
+        let value = param.value;
+        
+        // Validate and clamp if needed
+        if (paramDef?.min !== undefined && paramDef?.max !== undefined) {
+          if (value < paramDef.min || value > paramDef.max) {
+            const clamped = Math.max(paramDef.min, Math.min(paramDef.max, value));
+            warningItems.push(`${param.standardName} ${value}→${clamped}`);
+            value = clamped;
+          }
+        }
+        
+        // Route to appropriate state
+        if (param.standardName === 'HR') {
+          setHrDataPoints(prev => [...prev, [timestamp, value]]);
+          addedItems.push('HR');
+        } else if (param.standardName === 'SpO2') {
+          setSpo2DataPoints(prev => [...prev, [timestamp, value]]);
+          addedItems.push('SpO2');
+        }
+      });
+      
+      // Handle BP separately since it needs both sys and dia
+      const sysBP = vitalParams.find((p: any) => p.standardName === 'SysBP');
+      const diaBP = vitalParams.find((p: any) => p.standardName === 'DiaBP');
+      if (sysBP && diaBP) {
+        let sysValue = sysBP.value;
+        let diaValue = diaBP.value;
+        
+        const sysDef = findStandardParameter('SysBP');
+        const diaDef = findStandardParameter('DiaBP');
+        
+        if (sysDef?.min !== undefined && sysDef?.max !== undefined) {
+          if (sysValue < sysDef.min || sysValue > sysDef.max) {
+            const clamped = Math.max(sysDef.min, Math.min(sysDef.max, sysValue));
+            warningItems.push(`SysBP ${sysValue}→${clamped}`);
+            sysValue = clamped;
+          }
+        }
+        if (diaDef?.min !== undefined && diaDef?.max !== undefined) {
+          if (diaValue < diaDef.min || diaValue > diaDef.max) {
+            const clamped = Math.max(diaDef.min, Math.min(diaDef.max, diaValue));
+            warningItems.push(`DiaBP ${diaValue}→${clamped}`);
+            diaValue = clamped;
+          }
+        }
+        
+        setBpDataPoints(prev => ({
+          sys: [...prev.sys, [timestamp, sysValue]],
+          dia: [...prev.dia, [timestamp, diaValue]],
+        }));
+        addedItems.push('BP');
       }
-      setHrDataPoints(prev => [...prev, [timestamp, hr]]);
-      addedItems.push('HR');
-    }
-    if ((vitals?.sysBP !== null && vitals?.sysBP !== undefined) && (vitals?.diaBP !== null && vitals?.diaBP !== undefined)) {
-      let sysBP = vitals.sysBP;
-      let diaBP = vitals.diaBP;
-      if (!validateVitalRange('sysBP', sysBP)) {
-        const clamped = clampToRange('sysBP', sysBP);
-        warningItems.push(`SysBP ${sysBP}→${clamped}`);
-        sysBP = clamped;
+      
+      // Process ventilation parameters - add to swimlane events
+      const ventParams = parameters.filter((p: any) => p.category === 'ventilation');
+      if (ventParams.length > 0) {
+        ventParams.forEach((param: any) => {
+          // Find matching ventilation swimlane ID
+          const paramIndex = ventilationParams.findIndex(vp => 
+            vp.includes(param.standardName) || 
+            (param.standardName === 'RR' && vp.includes('Respiratory Rate')) ||
+            (param.standardName === 'TidalVolume' && vp.includes('Tidal Volume')) ||
+            (param.standardName === 'EtCO2' && vp.includes('etCO2')) ||
+            (param.standardName === 'FiO2' && vp.includes('FiO2')) ||
+            (param.standardName === 'PEEP' && vp.includes('PEEP')) ||
+            (param.standardName === 'PIP' && vp.includes('P insp'))
+          );
+          
+          if (paramIndex !== -1) {
+            const swimlaneId = `ventilation-${paramIndex}`;
+            console.log(`Adding ${param.standardName} (${param.value} ${param.unit}) to swimlane ${swimlaneId} at ${new Date(timestamp).toLocaleTimeString()}`);
+            // Note: Currently logging - full swimlane event implementation would add to data.events
+            // This would require a way to update the timeline data structure
+          }
+        });
+        addedItems.push(`Ventilation (${ventParams.length} params)`);
       }
-      if (!validateVitalRange('diaBP', diaBP)) {
-        const clamped = clampToRange('diaBP', diaBP);
-        warningItems.push(`DiaBP ${diaBP}→${clamped}`);
-        diaBP = clamped;
+      
+      // Process TOF parameters
+      const tofParams = parameters.filter((p: any) => p.category === 'tof');
+      if (tofParams.length > 0) {
+        console.log('TOF data captured at', new Date(timestamp).toLocaleTimeString(), tofParams);
+        addedItems.push('TOF (logged)');
       }
-      setBpDataPoints(prev => ({
-        sys: [...prev.sys, [timestamp, sysBP]],
-        dia: [...prev.dia, [timestamp, diaBP]],
-      }));
-      addedItems.push('BP');
-    }
-    if (vitals?.spo2 !== null && vitals?.spo2 !== undefined) {
-      let spo2 = vitals.spo2;
-      if (!validateVitalRange('spo2', spo2)) {
-        const clamped = clampToRange('spo2', spo2);
-        warningItems.push(`SpO2 ${spo2}→${clamped}`);
-        spo2 = clamped;
+    } else {
+      // OLD FORMAT: Handle vitals as before
+      if (vitals?.hr !== null && vitals?.hr !== undefined) {
+        let hr = vitals.hr;
+        if (!validateVitalRange('hr', hr)) {
+          const clamped = clampToRange('hr', hr);
+          warningItems.push(`HR ${hr}→${clamped} (out of range)`);
+          hr = clamped;
+        }
+        setHrDataPoints(prev => [...prev, [timestamp, hr]]);
+        addedItems.push('HR');
       }
-      setSpo2DataPoints(prev => [...prev, [timestamp, spo2]]);
-      addedItems.push('SpO2');
-    }
+      if ((vitals?.sysBP !== null && vitals?.sysBP !== undefined) && (vitals?.diaBP !== null && vitals?.diaBP !== undefined)) {
+        let sysBP = vitals.sysBP;
+        let diaBP = vitals.diaBP;
+        if (!validateVitalRange('sysBP', sysBP)) {
+          const clamped = clampToRange('sysBP', sysBP);
+          warningItems.push(`SysBP ${sysBP}→${clamped}`);
+          sysBP = clamped;
+        }
+        if (!validateVitalRange('diaBP', diaBP)) {
+          const clamped = clampToRange('diaBP', diaBP);
+          warningItems.push(`DiaBP ${diaBP}→${clamped}`);
+          diaBP = clamped;
+        }
+        setBpDataPoints(prev => ({
+          sys: [...prev.sys, [timestamp, sysBP]],
+          dia: [...prev.dia, [timestamp, diaBP]],
+        }));
+        addedItems.push('BP');
+      }
+      if (vitals?.spo2 !== null && vitals?.spo2 !== undefined) {
+        let spo2 = vitals.spo2;
+        if (!validateVitalRange('spo2', spo2)) {
+          const clamped = clampToRange('spo2', spo2);
+          warningItems.push(`SpO2 ${spo2}→${clamped}`);
+          spo2 = clamped;
+        }
+        setSpo2DataPoints(prev => [...prev, [timestamp, spo2]]);
+        addedItems.push('SpO2');
+      }
 
-    // Log ventilation parameters (to be displayed on ventilation swimlanes when implemented)
-    if (ventilation && Object.values(ventilation).some((v: any) => v !== null && v !== undefined)) {
-      console.log('Ventilation data captured at', new Date(timestamp).toLocaleTimeString(), ventilation);
-      // Store in local storage or state for future retrieval when ventilation swimlanes are active
-      const ventilationData = {
-        timestamp,
-        ...ventilation
-      };
-      // You can extend this to store in component state when ventilation swimlanes are added
-      addedItems.push('Ventilation (logged)');
-    }
+      // Log ventilation parameters (old format)
+      if (ventilation && Object.values(ventilation).some((v: any) => v !== null && v !== undefined)) {
+        console.log('Ventilation data captured at', new Date(timestamp).toLocaleTimeString(), ventilation);
+        addedItems.push('Ventilation (logged)');
+      }
 
-    // Log TOF monitoring data (0 is a valid value indicating complete blockade)
-    if (tof && ((tof.ratio !== null && tof.ratio !== undefined) || (tof.count !== null && tof.count !== undefined))) {
-      console.log('TOF data captured at', new Date(timestamp).toLocaleTimeString(), tof);
-      addedItems.push('TOF (logged)');
-    }
+      // Log TOF monitoring data
+      if (tof && ((tof.ratio !== null && tof.ratio !== undefined) || (tof.count !== null && tof.count !== undefined))) {
+        console.log('TOF data captured at', new Date(timestamp).toLocaleTimeString(), tof);
+        addedItems.push('TOF (logged)');
+      }
 
-    // Log pump/perfusion data
-    if (pumps && pumps.length > 0) {
-      console.log('Pump data captured at', new Date(timestamp).toLocaleTimeString(), pumps);
-      addedItems.push('Pumps (logged)');
+      // Log pump/perfusion data
+      if (pumps && pumps.length > 0) {
+        console.log('Pump data captured at', new Date(timestamp).toLocaleTimeString(), pumps);
+        addedItems.push('Pumps (logged)');
+      }
     }
 
     let description = addedItems.length > 0 
@@ -2462,73 +2596,155 @@ export function UnifiedTimeline({
 
       {/* AI Extracted Data Confirmation Dialog */}
       <Dialog open={confirmationDialogOpen} onOpenChange={setConfirmationDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]" data-testid="dialog-ai-confirmation">
+        <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto" data-testid="dialog-ai-confirmation">
           <DialogHeader>
             <DialogTitle>Confirm Extracted Monitor Data</DialogTitle>
           </DialogHeader>
           {extractedData && (
             <div className="grid gap-4 py-4">
+              {/* Monitor Type Badge and Confidence - shown for new format */}
+              {extractedData.monitorType && (
+                <div className="flex items-center justify-between gap-3 pb-2 border-b">
+                  <div className="flex items-center gap-2">
+                    <Monitor className="h-5 w-5 text-primary" />
+                    <Badge variant="outline" className="text-sm font-semibold">
+                      {extractedData.monitorType === 'vitals' && '🫀 Vitals Monitor'}
+                      {extractedData.monitorType === 'ventilation' && '🫁 Ventilation Monitor'}
+                      {extractedData.monitorType === 'tof' && '💉 TOF Monitor'}
+                      {extractedData.monitorType === 'perfusor' && '💊 Perfusor'}
+                      {extractedData.monitorType === 'mixed' && '📊 Mixed Monitor'}
+                      {extractedData.monitorType === 'unknown' && '❓ Unknown Monitor'}
+                    </Badge>
+                  </div>
+                  {extractedData.confidence && (
+                    <Badge 
+                      variant={extractedData.confidence === 'high' ? 'default' : extractedData.confidence === 'medium' ? 'secondary' : 'destructive'}
+                      className="text-xs"
+                    >
+                      {extractedData.confidence === 'high' && '✓ High Confidence'}
+                      {extractedData.confidence === 'medium' && '~ Medium Confidence'}
+                      {extractedData.confidence === 'low' && '! Low Confidence'}
+                    </Badge>
+                  )}
+                </div>
+              )}
+
               <div className="text-sm text-muted-foreground">
-                Review the AI-extracted data before adding to timeline:
+                Review the extracted data before adding to timeline:
               </div>
-              
-              {/* Vitals */}
-              {extractedData.vitals && Object.values(extractedData.vitals).some((v: any) => v !== null) && (
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-sm">Vitals:</h4>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    {extractedData.vitals.hr && <div>HR: {extractedData.vitals.hr} bpm</div>}
-                    {extractedData.vitals.sysBP && extractedData.vitals.diaBP && (
-                      <div>BP: {extractedData.vitals.sysBP}/{extractedData.vitals.diaBP} mmHg</div>
-                    )}
-                    {extractedData.vitals.spo2 && <div>SpO2: {extractedData.vitals.spo2}%</div>}
-                    {extractedData.vitals.temp && <div>Temp: {extractedData.vitals.temp}°C</div>}
-                    {extractedData.vitals.cvp && <div>CVP: {extractedData.vitals.cvp}</div>}
-                    {extractedData.vitals.ibp_sys && extractedData.vitals.ibp_dia && (
-                      <div>IBP: {extractedData.vitals.ibp_sys}/{extractedData.vitals.ibp_dia}</div>
-                    )}
-                  </div>
+
+              {/* NEW FORMAT: Show parameters grouped by category with mappings */}
+              {extractedData.parameters && extractedData.parameters.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Group parameters by category */}
+                  {['vitals', 'ventilation', 'tof', 'perfusor'].map(category => {
+                    const categoryParams = extractedData.parameters.filter((p: any) => p.category === category);
+                    if (categoryParams.length === 0) return null;
+
+                    const categoryIcon = {
+                      vitals: '🫀',
+                      ventilation: '🫁',
+                      tof: '💉',
+                      perfusor: '💊'
+                    }[category];
+
+                    const targetSwimlane = {
+                      vitals: 'Vitals Chart',
+                      ventilation: 'Ventilation Swimlanes',
+                      tof: 'TOF Log',
+                      perfusor: 'Infusion Swimlanes'
+                    }[category];
+
+                    return (
+                      <div key={category} className="space-y-2 border rounded-md p-3 bg-muted/30">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-semibold text-sm flex items-center gap-2">
+                            <span>{categoryIcon}</span>
+                            <span className="capitalize">{category}</span>
+                          </h4>
+                          <Badge variant="outline" className="text-xs">
+                            → {targetSwimlane}
+                          </Badge>
+                        </div>
+                        <div className="space-y-1.5">
+                          {categoryParams.map((param: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between text-sm bg-background rounded px-2 py-1">
+                              <div className="flex items-center gap-2">
+                                {param.detectedName !== param.standardName && (
+                                  <span className="text-muted-foreground">
+                                    {param.detectedName} →
+                                  </span>
+                                )}
+                                <span className="font-medium">{param.standardName}</span>
+                              </div>
+                              <span className="font-semibold text-primary">
+                                {param.value} {param.unit}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+              ) : (
+                <>
+                  {/* OLD FORMAT: Show vitals, ventilation, etc. as before */}
+                  {extractedData.vitals && Object.values(extractedData.vitals).some((v: any) => v !== null) && (
+                    <div className="space-y-2">
+                      <h4 className="font-semibold text-sm">Vitals:</h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        {extractedData.vitals.hr && <div>HR: {extractedData.vitals.hr} bpm</div>}
+                        {extractedData.vitals.sysBP && extractedData.vitals.diaBP && (
+                          <div>BP: {extractedData.vitals.sysBP}/{extractedData.vitals.diaBP} mmHg</div>
+                        )}
+                        {extractedData.vitals.spo2 && <div>SpO2: {extractedData.vitals.spo2}%</div>}
+                        {extractedData.vitals.temp && <div>Temp: {extractedData.vitals.temp}°C</div>}
+                        {extractedData.vitals.cvp && <div>CVP: {extractedData.vitals.cvp}</div>}
+                        {extractedData.vitals.ibp_sys && extractedData.vitals.ibp_dia && (
+                          <div>IBP: {extractedData.vitals.ibp_sys}/{extractedData.vitals.ibp_dia}</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {extractedData.ventilation && Object.values(extractedData.ventilation).some((v: any) => v !== null) && (
+                    <div className="space-y-2">
+                      <h4 className="font-semibold text-sm">Ventilation:</h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        {extractedData.ventilation.tidalVolume && <div>VT: {extractedData.ventilation.tidalVolume} mL</div>}
+                        {extractedData.ventilation.respiratoryRate && <div>RR: {extractedData.ventilation.respiratoryRate} /min</div>}
+                        {extractedData.ventilation.peep && <div>PEEP: {extractedData.ventilation.peep} cmH2O</div>}
+                        {extractedData.ventilation.fio2 && <div>FiO2: {extractedData.ventilation.fio2}%</div>}
+                        {extractedData.ventilation.peakPressure && <div>Peak: {extractedData.ventilation.peakPressure} cmH2O</div>}
+                      </div>
+                    </div>
+                  )}
+
+                  {extractedData.tof && (extractedData.tof.ratio || extractedData.tof.count) && (
+                    <div className="space-y-2">
+                      <h4 className="font-semibold text-sm">TOF:</h4>
+                      <div className="text-sm">
+                        {extractedData.tof.ratio && <div>Ratio: {extractedData.tof.ratio}</div>}
+                        {extractedData.tof.count && <div>Count: {extractedData.tof.count}</div>}
+                      </div>
+                    </div>
+                  )}
+
+                  {extractedData.pumps && extractedData.pumps.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="font-semibold text-sm">Pumps/Infusions:</h4>
+                      <div className="space-y-1 text-sm">
+                        {extractedData.pumps.map((pump: any, idx: number) => (
+                          <div key={idx}>{pump.drug}: {pump.rate} {pump.unit}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
-              {/* Ventilation */}
-              {extractedData.ventilation && Object.values(extractedData.ventilation).some((v: any) => v !== null) && (
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-sm">Ventilation:</h4>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    {extractedData.ventilation.tidalVolume && <div>VT: {extractedData.ventilation.tidalVolume} mL</div>}
-                    {extractedData.ventilation.respiratoryRate && <div>RR: {extractedData.ventilation.respiratoryRate} /min</div>}
-                    {extractedData.ventilation.peep && <div>PEEP: {extractedData.ventilation.peep} cmH2O</div>}
-                    {extractedData.ventilation.fio2 && <div>FiO2: {extractedData.ventilation.fio2}%</div>}
-                    {extractedData.ventilation.peakPressure && <div>Peak: {extractedData.ventilation.peakPressure} cmH2O</div>}
-                  </div>
-                </div>
-              )}
-
-              {/* TOF */}
-              {extractedData.tof && (extractedData.tof.ratio || extractedData.tof.count) && (
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-sm">TOF:</h4>
-                  <div className="text-sm">
-                    {extractedData.tof.ratio && <div>Ratio: {extractedData.tof.ratio}</div>}
-                    {extractedData.tof.count && <div>Count: {extractedData.tof.count}</div>}
-                  </div>
-                </div>
-              )}
-
-              {/* Pumps */}
-              {extractedData.pumps && extractedData.pumps.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="font-semibold text-sm">Pumps/Infusions:</h4>
-                  <div className="space-y-1 text-sm">
-                    {extractedData.pumps.map((pump: any, idx: number) => (
-                      <div key={idx}>{pump.drug}: {pump.rate} {pump.unit}</div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-between items-center text-xs text-muted-foreground">
+              <div className="flex justify-between items-center text-xs text-muted-foreground pt-2 border-t">
                 <div>
                   Time: {new Date(extractedData.timestamp).toLocaleString('en-US', { 
                     hour: '2-digit', 
@@ -2541,7 +2757,7 @@ export function UnifiedTimeline({
                   {extractedData.detectionMethod === 'local-ocr' && (
                     <span className="text-green-600 dark:text-green-400 font-medium">⚡ Fast OCR</span>
                   )}
-                  {extractedData.detectionMethod === 'hybrid-ai' && (
+                  {(extractedData.detectionMethod === 'hybrid-ai' || extractedData.detectionMethod === 'ai_vision') && (
                     <span className="text-blue-600 dark:text-blue-400 font-medium">🤖 AI Enhanced</span>
                   )}
                 </div>

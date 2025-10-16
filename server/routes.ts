@@ -1182,62 +1182,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Image data is required" });
       }
 
+      const { findStandardParameter } = await import('@shared/monitorParameters');
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-      const prompt = `Analyze this medical monitor screenshot and extract the following parameters if visible:
+      // Enhanced prompt with monitor type classification
+      const prompt = `You are a medical monitor analysis AI. Analyze this medical monitor screenshot and perform TWO tasks:
 
-VITALS:
-- HF (Heart Frequency/HR): numeric value in bpm
-- NIBP (Non-Invasive Blood Pressure): systolic/diastolic in mmHg
-- IBP (Invasive Blood Pressure): systolic/diastolic if present
-- ZVK (Central Venous Pressure): numeric value if present
-- Arteriell Line: pressure values if present  
-- Temperature: value in Celsius if present
-- SpO2: oxygen saturation percentage
+TASK 1: CLASSIFY THE MONITOR TYPE
+Determine what type of medical monitor this is:
+- "vitals": Shows vital signs (HR, BP, SpO2, etc.)
+- "ventilation": Shows ventilation parameters (respiratory rate, tidal volume, FiO2, PEEP, etc.)
+- "tof": Shows Train-of-Four neuromuscular monitoring
+- "perfusor": Shows infusion pumps with drug rates
+- "mixed": Shows multiple types of parameters
+- "unknown": Cannot determine
 
-VENTILATION PARAMETERS:
-- Tidal Volume (VT): in mL
-- Respiratory Rate (RR): breaths per minute
-- PEEP: in cmH2O
-- FiO2: percentage
-- Peak Pressure: in cmH2O
-- Any other ventilation settings visible
+TASK 2: EXTRACT ALL VISIBLE PARAMETERS
+Extract ALL numeric parameters you can see on the monitor, regardless of language.
+For each parameter found, provide:
+- The exact name/label as shown on the monitor (in any language)
+- The numeric value
+- The unit if visible
 
-TOF MONITORING:
-- TOF ratio or count if visible
-
-PUMPS/PERFUSION:
-- Drug names and infusion rates (mL/h or mg/h)
+IMPORTANT:
+- Extract parameters in ANY language (German, English, etc.)
+- Common German terms: HF=Heart Rate, AF=Respiratory Rate, FiO2=Oxygen %, VTe/VTi=Tidal Volume, MVe=Minute Volume
+- Look for ALL numeric values with labels, not just common ones
+- Include less common parameters if visible
 
 Return ONLY a JSON object with this structure:
 {
-  "vitals": {
-    "hr": number or null,
-    "sysBP": number or null,
-    "diaBP": number or null,
-    "spo2": number or null,
-    "temp": number or null,
-    "cvp": number or null,
-    "ibp_sys": number or null,
-    "ibp_dia": number or null
-  },
-  "ventilation": {
-    "tidalVolume": number or null,
-    "respiratoryRate": number or null,
-    "peep": number or null,
-    "fio2": number or null,
-    "peakPressure": number or null
-  },
-  "tof": {
-    "ratio": number or null,
-    "count": number or null
-  },
-  "pumps": [
-    { "drug": string, "rate": number, "unit": string }
+  "monitorType": "vitals" | "ventilation" | "tof" | "perfusor" | "mixed" | "unknown",
+  "confidence": "high" | "medium" | "low",
+  "parameters": [
+    {
+      "detectedName": "string (exact label from monitor, any language)",
+      "value": number,
+      "unit": "string"
+    }
   ]
 }
 
-If a parameter is not visible or cannot be determined, use null.`;
+Example for German ventilation monitor:
+{
+  "monitorType": "ventilation",
+  "confidence": "high",
+  "parameters": [
+    { "detectedName": "AF", "value": 14, "unit": "/min" },
+    { "detectedName": "FiO2", "value": 60, "unit": "%" },
+    { "detectedName": "VTe", "value": 443, "unit": "mL" },
+    { "detectedName": "MVe", "value": 6.24, "unit": "L/min" },
+    { "detectedName": "PEEP", "value": 5, "unit": "cmH2O" }
+  ]
+}`;
 
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -1257,8 +1254,32 @@ If a parameter is not visible or cannot be determined, use null.`;
         max_completion_tokens: 2048,
       });
 
-      const extractedData = JSON.parse(response.choices[0].message.content || '{}');
-      res.json(extractedData);
+      const aiResponse = JSON.parse(response.choices[0].message.content || '{}');
+      
+      // Map detected parameters to standard names using our alias system
+      const mappedParameters = (aiResponse.parameters || []).map((param: any) => {
+        const standardParam = findStandardParameter(param.detectedName);
+        
+        return {
+          detectedName: param.detectedName,
+          standardName: standardParam?.standardName || param.detectedName,
+          value: param.value,
+          unit: param.unit || standardParam?.unit || '',
+          category: standardParam?.category || 'unknown'
+        };
+      });
+
+      // Build response with monitor type and mapped parameters
+      const result = {
+        monitorType: aiResponse.monitorType || 'unknown',
+        detectionMethod: 'ai_vision' as const,
+        confidence: aiResponse.confidence || 'medium',
+        parameters: mappedParameters,
+        timestamp: Date.now()
+      };
+
+      console.log('[Monitor Analysis] Type:', result.monitorType, 'Parameters:', mappedParameters.length);
+      res.json(result);
     } catch (error: any) {
       console.error("Error analyzing monitor image:", error);
       res.status(500).json({ message: error.message || "Failed to analyze monitor image" });
