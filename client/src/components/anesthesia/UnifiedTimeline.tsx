@@ -1213,9 +1213,10 @@ export function UnifiedTimeline({
           if (!params || !params.data) return '';
           
           const [timestamp, value] = params.data;
-          const time = new Date(timestamp).toLocaleTimeString('de-DE', { 
+          const time = new Date(timestamp).toLocaleTimeString('en-US', { 
             hour: '2-digit', 
-            minute: '2-digit' 
+            minute: '2-digit',
+            hour12: false
           });
           
           let label = '';
@@ -1805,7 +1806,7 @@ export function UnifiedTimeline({
               // Show toast with undo
               toast({
                 title: `❤️ HR ${clickInfo.value} added`,
-                description: new Date(clickInfo.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+                description: new Date(clickInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
                 duration: 3000,
                 action: (
                   <Button
@@ -1846,7 +1847,7 @@ export function UnifiedTimeline({
                   // Show toast with undo
                   toast({
                     title: `🩺 BP ${pendingSysValue.value}/${clickInfo.value} added`,
-                    description: new Date(pendingSysValue.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+                    description: new Date(pendingSysValue.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
                     duration: 3000,
                     action: (
                       <Button
@@ -1876,7 +1877,7 @@ export function UnifiedTimeline({
               // Show toast with undo
               toast({
                 title: `💜 SpO2 ${clickInfo.value}% added`,
-                description: new Date(clickInfo.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+                description: new Date(clickInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
                 duration: 3000,
                 action: (
                   <Button
@@ -1917,7 +1918,7 @@ export function UnifiedTimeline({
             </div>
           )}
           <div className="text-xs text-muted-foreground">
-            {new Date(hoverInfo.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+            {new Date(hoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
           </div>
         </div>
       )}
@@ -2151,7 +2152,7 @@ function EditValueForm({
   const [value, setValue] = useState(initialValue.toString());
   const [timeStr, setTimeStr] = useState(() => {
     const date = new Date(initialTime);
-    return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
   });
 
   const getLabel = () => {
