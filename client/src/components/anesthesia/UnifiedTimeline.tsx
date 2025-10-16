@@ -495,6 +495,7 @@ export function UnifiedTimeline({
       
       // Update snap interval for interactive layer to use (THIS IS THE KEY!)
       const snapInterval = useFineTicks ? fiveMinutes : fifteenMinutes;
+      console.log('Setting snap interval - viewSpanMinutes:', viewSpanMinutes, 'useFineTicks:', useFineTicks, 'snapInterval (min):', snapInterval / 60000);
       setCurrentSnapInterval(snapInterval);
       
       // Draw major hour lines
@@ -1362,6 +1363,7 @@ export function UnifiedTimeline({
             let time = visibleStart + (xPercent * visibleRange);
             
             // Snap to nearest vertical grid line - use the current snap interval (already calculated)
+            console.log('Current snap interval (ms):', currentSnapInterval, 'minutes:', currentSnapInterval / 60000);
             time = Math.round(time / currentSnapInterval) * currentSnapInterval;
             
             // Convert y-position to value based on active tool
