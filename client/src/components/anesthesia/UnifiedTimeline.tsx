@@ -1137,16 +1137,20 @@ export function UnifiedTimeline({
         console.log(`[Ventilation Chart] Adding etCO2 series with ${ventilationData.etCO2.length} points`);
         const paramIndex = ventilationParentIndex + 1; // First child after parent
         const gridIdx = paramIndex + 1; // +1 because vitals is grid 0
+        // Convert data format: [timestamp, value] -> [timestamp, "", value] where "" is the y-category
+        const seriesData = ventilationData.etCO2.map(([time, val]) => ({
+          value: [time, ""],
+          label: { formatter: () => val.toString() }
+        }));
         series.push({
           type: 'scatter',
           name: 'etCO2',
           xAxisIndex: gridIdx,
           yAxisIndex: gridIdx + 1, // yAxis indices start at 2 (after 2 vitals axes)
-          data: ventilationData.etCO2,
+          data: seriesData,
           symbol: 'none',
           label: {
             show: true,
-            formatter: (params: any) => params.value[1].toString(),
             fontSize: 13,
             fontWeight: '600',
             fontFamily: modernMonoFont,
@@ -1161,16 +1165,19 @@ export function UnifiedTimeline({
       if (ventilationData.pip.length > 0) {
         const paramIndex = ventilationParentIndex + 2;
         const gridIdx = paramIndex + 1;
+        const seriesData = ventilationData.pip.map(([time, val]) => ({
+          value: [time, ""],
+          label: { formatter: () => val.toString() }
+        }));
         series.push({
           type: 'scatter',
           name: 'PIP',
           xAxisIndex: gridIdx,
           yAxisIndex: gridIdx + 1,
-          data: ventilationData.pip,
+          data: seriesData,
           symbol: 'none',
           label: {
             show: true,
-            formatter: (params: any) => params.value[1].toString(),
             fontSize: 13,
             fontWeight: '600',
             fontFamily: modernMonoFont,
@@ -1185,16 +1192,19 @@ export function UnifiedTimeline({
       if (ventilationData.peep.length > 0) {
         const paramIndex = ventilationParentIndex + 3;
         const gridIdx = paramIndex + 1;
+        const seriesData = ventilationData.peep.map(([time, val]) => ({
+          value: [time, ""],
+          label: { formatter: () => val.toString() }
+        }));
         series.push({
           type: 'scatter',
           name: 'PEEP',
           xAxisIndex: gridIdx,
           yAxisIndex: gridIdx + 1,
-          data: ventilationData.peep,
+          data: seriesData,
           symbol: 'none',
           label: {
             show: true,
-            formatter: (params: any) => params.value[1].toString(),
             fontSize: 13,
             fontWeight: '600',
             fontFamily: modernMonoFont,
@@ -1209,16 +1219,19 @@ export function UnifiedTimeline({
       if (ventilationData.tidalVolume.length > 0) {
         const paramIndex = ventilationParentIndex + 4;
         const gridIdx = paramIndex + 1;
+        const seriesData = ventilationData.tidalVolume.map(([time, val]) => ({
+          value: [time, ""],
+          label: { formatter: () => val.toString() }
+        }));
         series.push({
           type: 'scatter',
           name: 'Tidal Volume',
           xAxisIndex: gridIdx,
           yAxisIndex: gridIdx + 1,
-          data: ventilationData.tidalVolume,
+          data: seriesData,
           symbol: 'none',
           label: {
             show: true,
-            formatter: (params: any) => params.value[1].toString(),
             fontSize: 13,
             fontWeight: '600',
             fontFamily: modernMonoFont,
@@ -1233,16 +1246,19 @@ export function UnifiedTimeline({
       if (ventilationData.respiratoryRate.length > 0) {
         const paramIndex = ventilationParentIndex + 5;
         const gridIdx = paramIndex + 1;
+        const seriesData = ventilationData.respiratoryRate.map(([time, val]) => ({
+          value: [time, ""],
+          label: { formatter: () => val.toString() }
+        }));
         series.push({
           type: 'scatter',
           name: 'Respiratory Rate',
           xAxisIndex: gridIdx,
           yAxisIndex: gridIdx + 1,
-          data: ventilationData.respiratoryRate,
+          data: seriesData,
           symbol: 'none',
           label: {
             show: true,
-            formatter: (params: any) => params.value[1].toString(),
             fontSize: 13,
             fontWeight: '600',
             fontFamily: modernMonoFont,
@@ -1257,16 +1273,19 @@ export function UnifiedTimeline({
       if (ventilationData.minuteVolume.length > 0) {
         const paramIndex = ventilationParentIndex + 6;
         const gridIdx = paramIndex + 1;
+        const seriesData = ventilationData.minuteVolume.map(([time, val]) => ({
+          value: [time, ""],
+          label: { formatter: () => val.toString() }
+        }));
         series.push({
           type: 'scatter',
           name: 'Minute Volume',
           xAxisIndex: gridIdx,
           yAxisIndex: gridIdx + 1,
-          data: ventilationData.minuteVolume,
+          data: seriesData,
           symbol: 'none',
           label: {
             show: true,
-            formatter: (params: any) => params.value[1].toString(),
             fontSize: 13,
             fontWeight: '600',
             fontFamily: modernMonoFont,
@@ -1281,16 +1300,19 @@ export function UnifiedTimeline({
       if (ventilationData.fiO2.length > 0) {
         const paramIndex = ventilationParentIndex + 7;
         const gridIdx = paramIndex + 1;
+        const seriesData = ventilationData.fiO2.map(([time, val]) => ({
+          value: [time, ""],
+          label: { formatter: () => val.toString() }
+        }));
         series.push({
           type: 'scatter',
           name: 'FiO2',
           xAxisIndex: gridIdx,
           yAxisIndex: gridIdx + 1,
-          data: ventilationData.fiO2,
+          data: seriesData,
           symbol: 'none',
           label: {
             show: true,
-            formatter: (params: any) => params.value[1].toString(),
             fontSize: 13,
             fontWeight: '600',
             fontFamily: modernMonoFont,
