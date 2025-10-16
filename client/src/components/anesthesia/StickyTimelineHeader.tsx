@@ -179,7 +179,7 @@ export function StickyTimelineHeader({
 
   return (
     <>
-      <div className="sticky top-0 z-50 bg-background" style={{ height: '32px' }}>
+      <div className="sticky top-0 z-50 bg-background -mt-px" style={{ height: '32px' }}>
         <ReactECharts
           ref={chartRef}
           option={option}
