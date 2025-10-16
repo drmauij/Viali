@@ -99,6 +99,12 @@ export function UnifiedTimeline({
   // State for dynamic medications
   const [medications, setMedications] = useState<string[]>([]);
   const [showAddMedDialog, setShowAddMedDialog] = useState(false);
+  
+  // State for medication dose data points (similar to ventilation)
+  // Map medication swimlane ID to array of [timestamp, dose_string] points
+  const [medicationDoseData, setMedicationDoseData] = useState<{
+    [swimlaneId: string]: Array<[number, string]>; // [timestamp, "5mg"] format
+  }>({});
   const [newMedName, setNewMedName] = useState("");
 
   // State for current time indicator - updates every minute
@@ -248,6 +254,84 @@ export function UnifiedTimeline({
     "NaCl 0.9% (ml, infusion/free-flow)",
     "Glucose 5% 100 ml (ml, i.v./free-flow)",
   ];
+
+  // Extract drug name from full medication string (e.g., "Rocuronium (Esmeron) (mg, i.v.)" -> "Rocuronium")
+  const extractDrugName = (fullName: string): string => {
+    // Extract first word/compound before parentheses or special chars
+    const match = fullName.match(/^([A-Za-z]+)/);
+    return match ? match[1].toLowerCase() : fullName.toLowerCase();
+  };
+
+  // Calculate string similarity (0-1 score, 1 = exact match)
+  const calculateSimilarity = (str1: string, str2: string): number => {
+    const s1 = str1.toLowerCase();
+    const s2 = str2.toLowerCase();
+    
+    // Exact match
+    if (s1 === s2) return 1.0;
+    
+    // Check if one contains the other
+    if (s1.includes(s2) || s2.includes(s1)) return 0.85;
+    
+    // Simple Levenshtein-like distance calculation
+    const longer = s1.length > s2.length ? s1 : s2;
+    const shorter = s1.length > s2.length ? s2 : s1;
+    
+    if (longer.length === 0) return 1.0;
+    
+    let matches = 0;
+    for (let i = 0; i < shorter.length; i++) {
+      if (longer.includes(shorter[i])) matches++;
+    }
+    
+    return matches / longer.length;
+  };
+
+  // Find best matching medication from predefined list or dynamic medications
+  const findMatchingMedication = (voiceDrugName: string): { 
+    swimlaneId: string; 
+    fullName: string; 
+    isNew: boolean;
+    score: number;
+  } | null => {
+    const threshold = 0.6; // 60% similarity threshold
+    let bestMatch: { swimlaneId: string; fullName: string; isNew: boolean; score: number } | null = null;
+    let bestScore = 0;
+
+    // Check predefined medications
+    medicationsList.forEach((medFullName, index) => {
+      const medDrugName = extractDrugName(medFullName);
+      const score = calculateSimilarity(voiceDrugName, medDrugName);
+      
+      if (score > bestScore && score >= threshold) {
+        bestScore = score;
+        bestMatch = {
+          swimlaneId: `medication-predefined-${index}`,
+          fullName: medFullName,
+          isNew: false,
+          score
+        };
+      }
+    });
+
+    // Check dynamic medications
+    medications.forEach((medFullName, index) => {
+      const medDrugName = extractDrugName(medFullName);
+      const score = calculateSimilarity(voiceDrugName, medDrugName);
+      
+      if (score > bestScore && score >= threshold) {
+        bestScore = score;
+        bestMatch = {
+          swimlaneId: `medication-dynamic-${index}`,
+          fullName: medFullName,
+          isNew: false,
+          score
+        };
+      }
+    });
+
+    return bestMatch;
+  };
 
   // Predefined ventilation parameters list
   const ventilationParams = [
@@ -2258,15 +2342,40 @@ export function UnifiedTimeline({
         return;
       }
       
-      // Step 3: Add drug entry to medikamente swimlane
-      const drugEntry = `${drugCommand.drug} ${drugCommand.dose} (${new Date(timestamp).toLocaleTimeString()})`;
-      setMedications(prev => [...prev, drugEntry]);
+      // Step 3: Find matching medication swimlane or create new one
+      const match = findMatchingMedication(drugCommand.drug);
+      
+      let targetSwimlaneId: string;
+      let matchInfo = "";
+      
+      if (match) {
+        // Found a matching medication
+        targetSwimlaneId = match.swimlaneId;
+        matchInfo = ` → ${match.fullName} (${Math.round(match.score * 100)}% match)`;
+        console.log(`[Voice] Matched "${drugCommand.drug}" to "${match.fullName}" (score: ${match.score})`);
+      } else {
+        // No match found - create new medication swimlane
+        const newMedName = `${drugCommand.drug} (voice)`;
+        const newIndex = medications.length;
+        targetSwimlaneId = `medication-dynamic-${newIndex}`;
+        setMedications(prev => [...prev, newMedName]);
+        matchInfo = ` → New medication`;
+        console.log(`[Voice] No match found, creating new medication: ${newMedName}`);
+      }
+      
+      // Step 4: Add dose data point to the medication swimlane
+      setMedicationDoseData(prev => ({
+        ...prev,
+        [targetSwimlaneId]: [...(prev[targetSwimlaneId] || []), [timestamp, drugCommand.dose]]
+      }));
+      
+      console.log(`[Voice] Added dose ${drugCommand.dose} to ${targetSwimlaneId} at ${new Date(timestamp).toLocaleTimeString()}`);
       
       // TODO: Store in backend anesthesia case data for persistence
       
       toast({
         title: "Drug Recorded",
-        description: `${drugCommand.drug} ${drugCommand.dose}`,
+        description: `${drugCommand.drug} ${drugCommand.dose}${matchInfo}`,
       });
       
     } catch (error: any) {
