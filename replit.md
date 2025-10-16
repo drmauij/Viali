@@ -74,3 +74,59 @@ The system provides comprehensive inventory management, including:
 - nanoid
 - memoizee
 - jsPDF & jspdf-autotable
+
+## Universal Value Editing System
+
+### EditableValue Component
+The application includes a universal value editing system that allows any value to be edited by clicking on it. This provides a consistent editing experience across all modules.
+
+**Key Features:**
+- **Click-to-Edit**: Click or tap any wrapped value to open an edit dialog
+- **Time-Based Editing**: For vital signs and time-series data, edit both value and timestamp
+- **Type Support**: Handles text, numbers, dates, and vital points (value + time)
+- **Validation**: Built-in min/max constraints for numeric values
+- **Delete Functionality**: Optional delete button for removable values
+- **Responsive**: Works on both desktop and mobile devices
+
+**Usage Example:**
+```typescript
+import { EditableValue } from "@/components/EditableValue";
+
+// Simple number edit
+<EditableValue
+  type="number"
+  value={temperature}
+  label="Temperature"
+  onSave={(value) => setTemperature(value)}
+  min={30}
+  max={45}
+  step={0.1}
+>
+  <span>{temperature}°C</span>
+</EditableValue>
+
+// Vital sign with time editing
+<EditableValue
+  type="vital-point"
+  value={120}
+  time={Date.now()}
+  label="Heart Rate"
+  onSave={(value, time) => saveVital(value, time)}
+  onDelete={() => deleteVital()}
+  allowTimeEdit={true}
+  allowDelete={true}
+  min={40}
+  max={200}
+>
+  <span>{120} bpm</span>
+</EditableValue>
+```
+
+**Supported Types:**
+- `text` - String values
+- `number` - Numeric values with optional min/max/step validation
+- `date` - Date picker
+- `vital-point` - Numeric value with timestamp editing and optional delete
+
+**Demo Page:**
+A comprehensive demo showing all value types is available at `/demo/editable-values` when authenticated.
