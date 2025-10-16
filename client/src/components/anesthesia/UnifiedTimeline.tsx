@@ -672,7 +672,7 @@ export function UnifiedTimeline({
     
     // Add HR series if there are data points
     if (sortedHrData.length > 0) {
-      // Add line connecting HR points (chronologically sorted)
+      // Add line connecting HR points (chronologically sorted) - HIGH z-index to stay in front of BP
       series.push({
         type: 'line',
         name: 'Heart Rate Line',
@@ -684,10 +684,10 @@ export function UnifiedTimeline({
           width: 2,
         },
         symbol: 'none',
-        z: 9,
+        z: 15,
       });
       
-      // Add heart symbols
+      // Add heart symbols - HIGHEST z-index to always stay in front
       series.push({
         type: 'scatter',
         name: 'Heart Rate',
@@ -699,7 +699,7 @@ export function UnifiedTimeline({
         itemStyle: {
           color: '#ef4444', // Red color for heart
         },
-        z: 10,
+        z: 20,
       });
     }
     
@@ -722,10 +722,12 @@ export function UnifiedTimeline({
       });
     }
     
-    // Add BP line connections with filled area (systolic and diastolic)
+    // Add BP line connections with filled area BETWEEN systolic and diastolic
     if (sortedSysData.length > 0 && sortedDiaData.length > 0) {
-      // Line for systolic values
+      // Systolic line (top boundary)
+      const sysSeriesId = 'bp-systolic-line';
       series.push({
+        id: sysSeriesId,
         type: 'line',
         name: 'Systolic BP Line',
         xAxisIndex: 0,
@@ -737,13 +739,13 @@ export function UnifiedTimeline({
           width: 1,
           opacity: 0.3,
         },
-        z: 5,
+        z: 8,
       });
       
-      // Line for diastolic values
+      // Diastolic line (bottom boundary) with area fill between it and systolic
       series.push({
         type: 'line',
-        name: 'Diastolic BP Line',
+        name: 'Diastolic BP Area',
         xAxisIndex: 0,
         yAxisIndex: 0,
         data: sortedDiaData,
@@ -758,12 +760,13 @@ export function UnifiedTimeline({
             type: 'linear',
             x: 0, y: 0, x2: 0, y2: 1,
             colorStops: [
-              { offset: 0, color: 'rgba(0, 0, 0, 0.1)' },
-              { offset: 1, color: 'rgba(0, 0, 0, 0.05)' }
+              { offset: 0, color: 'rgba(0, 0, 0, 0.15)' },
+              { offset: 1, color: 'rgba(0, 0, 0, 0.08)' }
             ]
-          }
+          },
+          origin: sysSeriesId, // Fill UP to the systolic line
         },
-        z: 4,
+        z: 7,
       });
     }
     
