@@ -1318,23 +1318,25 @@ export function UnifiedTimeline({
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
             
-            // Get current visible time range from chart
+            // Get current visible time range from chart using convertFromPixel
             const chart = chartRef.current?.getEchartsInstance();
             if (!chart) return;
             
-            const option = chart.getOption() as any;
-            const dataZoom = option.dataZoom?.[0];
-            if (!dataZoom) return;
+            // Get actual visible time range by converting pixel positions
+            const leftTime = chart.convertFromPixel({ xAxisIndex: 0 }, [0, 0])?.[0];
+            const rightTime = chart.convertFromPixel({ xAxisIndex: 0 }, [rect.width, 0])?.[0];
             
-            const visibleStart = dataZoom.startValue;
-            const visibleEnd = dataZoom.endValue;
+            if (!leftTime || !rightTime) return;
+            
+            const visibleStart = leftTime;
+            const visibleEnd = rightTime;
             const visibleRange = visibleEnd - visibleStart;
             
             // Convert x-position to time
             const xPercent = x / rect.width;
             let time = visibleStart + (xPercent * visibleRange);
             
-            // Snap to nearest vertical grid line
+            // Snap to nearest vertical grid line - use same logic as grid rendering
             const viewSpanMinutes = visibleRange / (60 * 1000);
             const useFineTicks = viewSpanMinutes <= 30;
             const snapInterval = useFineTicks ? (5 * 60 * 1000) : (15 * 60 * 1000); // 5min or 15min
