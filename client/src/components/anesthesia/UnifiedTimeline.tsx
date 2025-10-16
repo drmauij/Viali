@@ -1128,6 +1128,7 @@ export function UnifiedTimeline({
     
     if (ventilationParentIndex !== -1 && !collapsedSwimlanes.has('ventilation')) {
       const textColor = isDark ? '#ffffff' : '#000000';
+      const modernMonoFont = '"SF Mono", "JetBrains Mono", "Roboto Mono", "Fira Code", Monaco, Consolas, monospace';
       
       // Add etCO2 text labels (index 0)
       if (ventilationData.etCO2.length > 0) {
@@ -1142,8 +1143,9 @@ export function UnifiedTimeline({
           label: {
             show: true,
             formatter: (params: any) => params.value[1].toString(),
-            fontSize: 12,
-            fontWeight: 'bold',
+            fontSize: 13,
+            fontWeight: '600',
+            fontFamily: modernMonoFont,
             color: textColor,
           },
           cursor: 'pointer',
@@ -1164,8 +1166,9 @@ export function UnifiedTimeline({
           label: {
             show: true,
             formatter: (params: any) => params.value[1].toString(),
-            fontSize: 12,
-            fontWeight: 'bold',
+            fontSize: 13,
+            fontWeight: '600',
+            fontFamily: modernMonoFont,
             color: textColor,
           },
           cursor: 'pointer',
@@ -1186,8 +1189,9 @@ export function UnifiedTimeline({
           label: {
             show: true,
             formatter: (params: any) => params.value[1].toString(),
-            fontSize: 12,
-            fontWeight: 'bold',
+            fontSize: 13,
+            fontWeight: '600',
+            fontFamily: modernMonoFont,
             color: textColor,
           },
           cursor: 'pointer',
@@ -1208,8 +1212,9 @@ export function UnifiedTimeline({
           label: {
             show: true,
             formatter: (params: any) => params.value[1].toString(),
-            fontSize: 12,
-            fontWeight: 'bold',
+            fontSize: 13,
+            fontWeight: '600',
+            fontFamily: modernMonoFont,
             color: textColor,
           },
           cursor: 'pointer',
@@ -1230,8 +1235,9 @@ export function UnifiedTimeline({
           label: {
             show: true,
             formatter: (params: any) => params.value[1].toString(),
-            fontSize: 12,
-            fontWeight: 'bold',
+            fontSize: 13,
+            fontWeight: '600',
+            fontFamily: modernMonoFont,
             color: textColor,
           },
           cursor: 'pointer',
@@ -1252,8 +1258,9 @@ export function UnifiedTimeline({
           label: {
             show: true,
             formatter: (params: any) => params.value[1].toString(),
-            fontSize: 12,
-            fontWeight: 'bold',
+            fontSize: 13,
+            fontWeight: '600',
+            fontFamily: modernMonoFont,
             color: textColor,
           },
           cursor: 'pointer',
@@ -1274,8 +1281,9 @@ export function UnifiedTimeline({
           label: {
             show: true,
             formatter: (params: any) => params.value[1].toString(),
-            fontSize: 12,
-            fontWeight: 'bold',
+            fontSize: 13,
+            fontWeight: '600',
+            fontFamily: modernMonoFont,
             color: textColor,
           },
           cursor: 'pointer',
