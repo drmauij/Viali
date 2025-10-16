@@ -561,8 +561,8 @@ export function UnifiedTimeline({
       { 
         left: GRID_LEFT, 
         right: GRID_RIGHT, 
-        top: VITALS_TOP + 1, 
-        height: VITALS_HEIGHT - 1, 
+        top: VITALS_TOP, 
+        height: VITALS_HEIGHT, 
         backgroundColor: "transparent" 
       },
       ...swimlaneGrids,

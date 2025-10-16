@@ -179,15 +179,13 @@ export function StickyTimelineHeader({
 
   return (
     <>
-      <div className="sticky top-0 z-50 bg-background border-b border-border" style={{ height: '32px' }}>
-        <div className="relative -top-px">
-          <ReactECharts
-            ref={chartRef}
-            option={option}
-            style={{ height: "32px", width: "100%" }}
-            opts={{ renderer: "canvas" }}
-          />
-        </div>
+      <div className="sticky top-0 z-50 bg-background" style={{ height: '32px' }}>
+        <ReactECharts
+          ref={chartRef}
+          option={option}
+          style={{ height: "32px", width: "100%" }}
+          opts={{ renderer: "canvas" }}
+        />
       </div>
 
       {/* Touch-Friendly Draggable Controls with Glass Effect - Fixed positioning for unrestricted dragging */}
