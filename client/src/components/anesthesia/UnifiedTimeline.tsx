@@ -1133,11 +1133,12 @@ export function UnifiedTimeline({
       // Add etCO2 text labels (index 0)
       if (ventilationData.etCO2.length > 0) {
         const paramIndex = ventilationParentIndex + 1; // First child after parent
+        const gridIdx = paramIndex + 1; // +1 because vitals is grid 0
         series.push({
           type: 'scatter',
           name: 'etCO2',
-          xAxisIndex: paramIndex + 1, // +1 because vitals is grid 0
-          yAxisIndex: paramIndex + 1,
+          xAxisIndex: gridIdx,
+          yAxisIndex: gridIdx + 1, // yAxis indices start at 2 (after 2 vitals axes)
           data: ventilationData.etCO2,
           symbol: 'none',
           label: {
@@ -1156,11 +1157,12 @@ export function UnifiedTimeline({
       // Add PIP text labels (index 1)
       if (ventilationData.pip.length > 0) {
         const paramIndex = ventilationParentIndex + 2;
+        const gridIdx = paramIndex + 1;
         series.push({
           type: 'scatter',
           name: 'PIP',
-          xAxisIndex: paramIndex + 1,
-          yAxisIndex: paramIndex + 1,
+          xAxisIndex: gridIdx,
+          yAxisIndex: gridIdx + 1,
           data: ventilationData.pip,
           symbol: 'none',
           label: {
@@ -1179,11 +1181,12 @@ export function UnifiedTimeline({
       // Add PEEP text labels (index 2)
       if (ventilationData.peep.length > 0) {
         const paramIndex = ventilationParentIndex + 3;
+        const gridIdx = paramIndex + 1;
         series.push({
           type: 'scatter',
           name: 'PEEP',
-          xAxisIndex: paramIndex + 1,
-          yAxisIndex: paramIndex + 1,
+          xAxisIndex: gridIdx,
+          yAxisIndex: gridIdx + 1,
           data: ventilationData.peep,
           symbol: 'none',
           label: {
@@ -1202,11 +1205,12 @@ export function UnifiedTimeline({
       // Add Tidal Volume text labels (index 3)
       if (ventilationData.tidalVolume.length > 0) {
         const paramIndex = ventilationParentIndex + 4;
+        const gridIdx = paramIndex + 1;
         series.push({
           type: 'scatter',
           name: 'Tidal Volume',
-          xAxisIndex: paramIndex + 1,
-          yAxisIndex: paramIndex + 1,
+          xAxisIndex: gridIdx,
+          yAxisIndex: gridIdx + 1,
           data: ventilationData.tidalVolume,
           symbol: 'none',
           label: {
@@ -1225,11 +1229,12 @@ export function UnifiedTimeline({
       // Add Respiratory Rate text labels (index 4)
       if (ventilationData.respiratoryRate.length > 0) {
         const paramIndex = ventilationParentIndex + 5;
+        const gridIdx = paramIndex + 1;
         series.push({
           type: 'scatter',
           name: 'Respiratory Rate',
-          xAxisIndex: paramIndex + 1,
-          yAxisIndex: paramIndex + 1,
+          xAxisIndex: gridIdx,
+          yAxisIndex: gridIdx + 1,
           data: ventilationData.respiratoryRate,
           symbol: 'none',
           label: {
@@ -1248,11 +1253,12 @@ export function UnifiedTimeline({
       // Add Minute Volume text labels (index 5)
       if (ventilationData.minuteVolume.length > 0) {
         const paramIndex = ventilationParentIndex + 6;
+        const gridIdx = paramIndex + 1;
         series.push({
           type: 'scatter',
           name: 'Minute Volume',
-          xAxisIndex: paramIndex + 1,
-          yAxisIndex: paramIndex + 1,
+          xAxisIndex: gridIdx,
+          yAxisIndex: gridIdx + 1,
           data: ventilationData.minuteVolume,
           symbol: 'none',
           label: {
@@ -1271,11 +1277,12 @@ export function UnifiedTimeline({
       // Add FiO2 text labels (index 6)
       if (ventilationData.fiO2.length > 0) {
         const paramIndex = ventilationParentIndex + 7;
+        const gridIdx = paramIndex + 1;
         series.push({
           type: 'scatter',
           name: 'FiO2',
-          xAxisIndex: paramIndex + 1,
-          yAxisIndex: paramIndex + 1,
+          xAxisIndex: gridIdx,
+          yAxisIndex: gridIdx + 1,
           data: ventilationData.fiO2,
           symbol: 'none',
           label: {
