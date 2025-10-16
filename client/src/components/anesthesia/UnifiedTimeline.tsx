@@ -289,7 +289,7 @@ export function UnifiedTimeline({
 
     const updateZones = () => {
       // Calculate heights outside try block for error logging
-      const VITALS_TOP = 56;
+      const VITALS_TOP = 32;
       const VITALS_HEIGHT = 340;
       const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
       const chartHeight = VITALS_HEIGHT + swimlanesHeight;
@@ -437,7 +437,7 @@ export function UnifiedTimeline({
       const visibleRange = visibleEnd - visibleStart;
 
       // Constants (must match option calculation)
-      const VITALS_TOP = 56;
+      const VITALS_TOP = 32;
       const VITALS_HEIGHT = 340;
       const oneHour = 60 * 60 * 1000;
       const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
@@ -842,7 +842,7 @@ export function UnifiedTimeline({
 
   // Calculate component height
   const VITALS_HEIGHT = 340;
-  const VITALS_TOP_POS = 56; // Position accounting for sticky header (56px)
+  const VITALS_TOP_POS = 32; // Position accounting for sticky header (32px)
   const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
   const componentHeight = height ?? (VITALS_TOP_POS + VITALS_HEIGHT + swimlanesHeight);
 
