@@ -81,6 +81,9 @@ export function UnifiedTimeline({
   // State for tracking current zoom/pan range - will be initialized from dataZoom
   const [currentZoomStart, setCurrentZoomStart] = useState<number | undefined>(undefined);
   const [currentZoomEnd, setCurrentZoomEnd] = useState<number | undefined>(undefined);
+  
+  // State for tracking current snap interval (in milliseconds) - matches vertical grid lines
+  const [currentSnapInterval, setCurrentSnapInterval] = useState<number>(15 * 60 * 1000); // Default 15 minutes
 
   // State for interactive vital entry
   const [activeToolMode, setActiveToolMode] = useState<'hr' | 'bp' | 'spo2' | null>(null);
@@ -489,6 +492,10 @@ export function UnifiedTimeline({
       // Determine tick interval based on zoom level
       const viewSpanMinutes = visibleRange / (60 * 1000);
       const useFineTicks = viewSpanMinutes <= 30; // Use 5-min ticks when zoomed in
+      
+      // Update snap interval for interactive layer to use (THIS IS THE KEY!)
+      const snapInterval = useFineTicks ? fiveMinutes : fifteenMinutes;
+      setCurrentSnapInterval(snapInterval);
       
       // Draw major hour lines
       for (let t = Math.floor(visibleStart / oneHour) * oneHour; t <= visibleEnd + oneHour; t += oneHour) {
@@ -1354,11 +1361,8 @@ export function UnifiedTimeline({
             const xPercent = x / rect.width;
             let time = visibleStart + (xPercent * visibleRange);
             
-            // Snap to nearest vertical grid line - use same logic as grid rendering
-            const viewSpanMinutes = visibleRange / (60 * 1000);
-            const useFineTicks = viewSpanMinutes <= 30;
-            const snapInterval = useFineTicks ? (5 * 60 * 1000) : (15 * 60 * 1000); // 5min or 15min
-            time = Math.round(time / snapInterval) * snapInterval;
+            // Snap to nearest vertical grid line - use the current snap interval (already calculated)
+            time = Math.round(time / currentSnapInterval) * currentSnapInterval;
             
             // Convert y-position to value based on active tool
             let value: number;
