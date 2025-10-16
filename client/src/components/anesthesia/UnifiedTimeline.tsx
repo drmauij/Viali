@@ -154,6 +154,11 @@ export function UnifiedTimeline({
   );
   const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
 
+  // State for AI-extracted data confirmation
+  const [extractedData, setExtractedData] = useState<any>(null);
+  const [confirmationDialogOpen, setConfirmationDialogOpen] = useState(false);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+
   // Detect touch device on mount
   useEffect(() => {
     const checkTouch = () => {
@@ -1477,6 +1482,98 @@ export function UnifiedTimeline({
     }
   };
 
+  // Handle camera capture
+  const handleCameraCapture = async (imageBase64: string, timestamp: number) => {
+    setIsProcessingImage(true);
+    
+    try {
+      const response = await fetch('/api/analyze-monitor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: imageBase64 }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to analyze image');
+      }
+      
+      const data = await response.json();
+      setExtractedData({ ...data, timestamp });
+      setConfirmationDialogOpen(true);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to analyze image",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessingImage(false);
+    }
+  };
+
+  // Confirm and add extracted data to timeline
+  const handleConfirmExtractedData = () => {
+    if (!extractedData) return;
+
+    const { vitals, ventilation, tof, pumps, timestamp } = extractedData;
+    
+    let addedItems: string[] = [];
+
+    // Add vitals to timeline (0 is a valid critical value - e.g., asystole)
+    if (vitals?.hr !== null && vitals?.hr !== undefined) {
+      setHrDataPoints(prev => [...prev, [timestamp, vitals.hr]]);
+      addedItems.push('HR');
+    }
+    if ((vitals?.sysBP !== null && vitals?.sysBP !== undefined) && (vitals?.diaBP !== null && vitals?.diaBP !== undefined)) {
+      setBpDataPoints(prev => ({
+        sys: [...prev.sys, [timestamp, vitals.sysBP]],
+        dia: [...prev.dia, [timestamp, vitals.diaBP]],
+      }));
+      addedItems.push('BP');
+    }
+    if (vitals?.spo2 !== null && vitals?.spo2 !== undefined) {
+      setSpo2DataPoints(prev => [...prev, [timestamp, vitals.spo2]]);
+      addedItems.push('SpO2');
+    }
+
+    // Log ventilation parameters (to be displayed on ventilation swimlanes when implemented)
+    if (ventilation && Object.values(ventilation).some((v: any) => v !== null && v !== undefined)) {
+      console.log('Ventilation data captured at', new Date(timestamp).toLocaleTimeString(), ventilation);
+      // Store in local storage or state for future retrieval when ventilation swimlanes are active
+      const ventilationData = {
+        timestamp,
+        ...ventilation
+      };
+      // You can extend this to store in component state when ventilation swimlanes are added
+      addedItems.push('Ventilation (logged)');
+    }
+
+    // Log TOF monitoring data (0 is a valid value indicating complete blockade)
+    if (tof && ((tof.ratio !== null && tof.ratio !== undefined) || (tof.count !== null && tof.count !== undefined))) {
+      console.log('TOF data captured at', new Date(timestamp).toLocaleTimeString(), tof);
+      addedItems.push('TOF (logged)');
+    }
+
+    // Log pump/perfusion data
+    if (pumps && pumps.length > 0) {
+      console.log('Pump data captured at', new Date(timestamp).toLocaleTimeString(), pumps);
+      addedItems.push('Pumps (logged)');
+    }
+
+    const description = addedItems.length > 0 
+      ? `Added: ${addedItems.join(', ')}` 
+      : 'No data extracted from image';
+
+    toast({
+      title: "Data Processed",
+      description,
+      duration: 3000,
+    });
+
+    setConfirmationDialogOpen(false);
+    setExtractedData(null);
+  };
+
   // Calculate swimlane positions for sidebar
   const SWIMLANE_START = VITALS_TOP_POS + VITALS_HEIGHT;
   let currentTop = SWIMLANE_START;
@@ -1504,6 +1601,7 @@ export function UnifiedTimeline({
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
         onResetZoom={handleResetZoom}
+        onCameraCapture={handleCameraCapture}
       />
       
       {/* Swimlane backgrounds - explicit height matching vertical lines extent */}
@@ -2207,6 +2305,115 @@ export function UnifiedTimeline({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* AI Extracted Data Confirmation Dialog */}
+      <Dialog open={confirmationDialogOpen} onOpenChange={setConfirmationDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]" data-testid="dialog-ai-confirmation">
+          <DialogHeader>
+            <DialogTitle>Confirm Extracted Monitor Data</DialogTitle>
+          </DialogHeader>
+          {extractedData && (
+            <div className="grid gap-4 py-4">
+              <div className="text-sm text-muted-foreground">
+                Review the AI-extracted data before adding to timeline:
+              </div>
+              
+              {/* Vitals */}
+              {extractedData.vitals && Object.values(extractedData.vitals).some((v: any) => v !== null) && (
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm">Vitals:</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    {extractedData.vitals.hr && <div>HR: {extractedData.vitals.hr} bpm</div>}
+                    {extractedData.vitals.sysBP && extractedData.vitals.diaBP && (
+                      <div>BP: {extractedData.vitals.sysBP}/{extractedData.vitals.diaBP} mmHg</div>
+                    )}
+                    {extractedData.vitals.spo2 && <div>SpO2: {extractedData.vitals.spo2}%</div>}
+                    {extractedData.vitals.temp && <div>Temp: {extractedData.vitals.temp}°C</div>}
+                    {extractedData.vitals.cvp && <div>CVP: {extractedData.vitals.cvp}</div>}
+                    {extractedData.vitals.ibp_sys && extractedData.vitals.ibp_dia && (
+                      <div>IBP: {extractedData.vitals.ibp_sys}/{extractedData.vitals.ibp_dia}</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Ventilation */}
+              {extractedData.ventilation && Object.values(extractedData.ventilation).some((v: any) => v !== null) && (
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm">Ventilation:</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    {extractedData.ventilation.tidalVolume && <div>VT: {extractedData.ventilation.tidalVolume} mL</div>}
+                    {extractedData.ventilation.respiratoryRate && <div>RR: {extractedData.ventilation.respiratoryRate} /min</div>}
+                    {extractedData.ventilation.peep && <div>PEEP: {extractedData.ventilation.peep} cmH2O</div>}
+                    {extractedData.ventilation.fio2 && <div>FiO2: {extractedData.ventilation.fio2}%</div>}
+                    {extractedData.ventilation.peakPressure && <div>Peak: {extractedData.ventilation.peakPressure} cmH2O</div>}
+                  </div>
+                </div>
+              )}
+
+              {/* TOF */}
+              {extractedData.tof && (extractedData.tof.ratio || extractedData.tof.count) && (
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm">TOF:</h4>
+                  <div className="text-sm">
+                    {extractedData.tof.ratio && <div>Ratio: {extractedData.tof.ratio}</div>}
+                    {extractedData.tof.count && <div>Count: {extractedData.tof.count}</div>}
+                  </div>
+                </div>
+              )}
+
+              {/* Pumps */}
+              {extractedData.pumps && extractedData.pumps.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm">Pumps/Infusions:</h4>
+                  <div className="space-y-1 text-sm">
+                    {extractedData.pumps.map((pump: any, idx: number) => (
+                      <div key={idx}>{pump.drug}: {pump.rate} {pump.unit}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="text-xs text-muted-foreground">
+                Time: {new Date(extractedData.timestamp).toLocaleString('en-US', { 
+                  hour: '2-digit', 
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: false 
+                })}
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setConfirmationDialogOpen(false);
+                setExtractedData(null);
+              }}
+              data-testid="button-cancel-ai-data"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmExtractedData}
+              data-testid="button-confirm-ai-data"
+            >
+              Add to Timeline
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Loading overlay for image processing */}
+      {isProcessingImage && (
+        <div className="fixed inset-0 z-[10001] bg-black/50 flex items-center justify-center">
+          <div className="bg-background rounded-lg p-6 flex flex-col items-center gap-3">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <p className="text-sm font-medium">Analyzing monitor image...</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

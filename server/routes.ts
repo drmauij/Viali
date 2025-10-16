@@ -1174,6 +1174,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI medical monitor analysis for anesthesia vitals and ventilation
+  app.post('/api/analyze-monitor', isAuthenticated, async (req: any, res) => {
+    try {
+      const { image } = req.body;
+      if (!image) {
+        return res.status(400).json({ message: "Image data is required" });
+      }
+
+      // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+      const prompt = `Analyze this medical monitor screenshot and extract the following parameters if visible:
+
+VITALS:
+- HF (Heart Frequency/HR): numeric value in bpm
+- NIBP (Non-Invasive Blood Pressure): systolic/diastolic in mmHg
+- IBP (Invasive Blood Pressure): systolic/diastolic if present
+- ZVK (Central Venous Pressure): numeric value if present
+- Arteriell Line: pressure values if present  
+- Temperature: value in Celsius if present
+- SpO2: oxygen saturation percentage
+
+VENTILATION PARAMETERS:
+- Tidal Volume (VT): in mL
+- Respiratory Rate (RR): breaths per minute
+- PEEP: in cmH2O
+- FiO2: percentage
+- Peak Pressure: in cmH2O
+- Any other ventilation settings visible
+
+TOF MONITORING:
+- TOF ratio or count if visible
+
+PUMPS/PERFUSION:
+- Drug names and infusion rates (mL/h or mg/h)
+
+Return ONLY a JSON object with this structure:
+{
+  "vitals": {
+    "hr": number or null,
+    "sysBP": number or null,
+    "diaBP": number or null,
+    "spo2": number or null,
+    "temp": number or null,
+    "cvp": number or null,
+    "ibp_sys": number or null,
+    "ibp_dia": number or null
+  },
+  "ventilation": {
+    "tidalVolume": number or null,
+    "respiratoryRate": number or null,
+    "peep": number or null,
+    "fio2": number or null,
+    "peakPressure": number or null
+  },
+  "tof": {
+    "ratio": number or null,
+    "count": number or null
+  },
+  "pumps": [
+    { "drug": string, "rate": number, "unit": string }
+  ]
+}
+
+If a parameter is not visible or cannot be determined, use null.`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-5",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              {
+                type: "image_url",
+                image_url: { url: `data:image/jpeg;base64,${image}` }
+              }
+            ]
+          }
+        ],
+        response_format: { type: "json_object" },
+        max_completion_tokens: 2048,
+      });
+
+      const extractedData = JSON.parse(response.choices[0].message.content || '{}');
+      res.json(extractedData);
+    } catch (error: any) {
+      console.error("Error analyzing monitor image:", error);
+      res.status(500).json({ message: error.message || "Failed to analyze monitor image" });
+    }
+  });
+
   // Bulk item creation
   app.post('/api/items/bulk', isAuthenticated, async (req: any, res) => {
     try {

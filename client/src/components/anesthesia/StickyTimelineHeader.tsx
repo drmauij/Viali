@@ -14,6 +14,7 @@ interface StickyTimelineHeaderProps {
   onZoomIn?: () => void;
   onZoomOut?: () => void;
   onResetZoom?: () => void;
+  onCameraCapture?: (imageBase64: string, timestamp: number) => void;
 }
 
 export function StickyTimelineHeader({
@@ -27,6 +28,7 @@ export function StickyTimelineHeader({
   onZoomIn,
   onZoomOut,
   onResetZoom,
+  onCameraCapture,
 }: StickyTimelineHeaderProps) {
   const chartRef = useRef<any>(null);
   const dragRef = useRef<{ isDragging: boolean; startX: number; startY: number }>({
@@ -34,6 +36,9 @@ export function StickyTimelineHeader({
     startX: 0,
     startY: 0,
   });
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
 
   // Load position from localStorage or use default centered position
   const [position, setPosition] = useState<{ x: number; y: number }>(() => {
@@ -47,6 +52,58 @@ export function StickyTimelineHeader({
   useEffect(() => {
     localStorage.setItem('timeline-controls-position', JSON.stringify(position));
   }, [position]);
+
+  // Open camera
+  const openCamera = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
+      setStream(mediaStream);
+      setShowCamera(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      alert('Unable to access camera. Please check permissions.');
+    }
+  };
+
+  // Close camera
+  const closeCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setShowCamera(false);
+  };
+
+  // Capture photo
+  const capturePhoto = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0);
+        const imageBase64 = canvas.toDataURL('image/jpeg').split(',')[1];
+        const timestamp = Date.now();
+        onCameraCapture?.(imageBase64, timestamp);
+        closeCamera();
+      }
+    }
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [stream]);
 
   const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -260,7 +317,7 @@ export function StickyTimelineHeader({
         <div className="border-l-2 border-border h-8 mx-1" />
         <button
           data-testid="button-camera"
-          onClick={(e) => { e.stopPropagation(); }}
+          onClick={(e) => { e.stopPropagation(); openCamera(); }}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
           className="hover:bg-muted active:bg-muted/80 rounded-md h-12 w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer"
@@ -269,6 +326,45 @@ export function StickyTimelineHeader({
           <Camera className="h-5 w-5" />
         </button>
       </div>
+
+      {/* Camera Modal */}
+      {showCamera && (
+        <div className="fixed inset-0 z-[10000] bg-black/90 flex flex-col items-center justify-center">
+          {/* Warning Banner */}
+          <div className="absolute top-0 left-0 right-0 bg-yellow-500 text-black px-4 py-3 text-center font-semibold">
+            ⚠️ All photos will be sent to AI for analysis. Do not include any patient data of any kind.
+          </div>
+
+          {/* Video Preview */}
+          <div className="relative w-full max-w-4xl aspect-video">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              className="w-full h-full object-contain"
+              data-testid="camera-preview"
+            />
+          </div>
+
+          {/* Controls */}
+          <div className="mt-6 flex gap-4">
+            <button
+              onClick={capturePhoto}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-3 rounded-md font-medium text-lg"
+              data-testid="button-capture-photo"
+            >
+              Capture
+            </button>
+            <button
+              onClick={closeCamera}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 px-8 py-3 rounded-md font-medium text-lg"
+              data-testid="button-close-camera"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
