@@ -1182,7 +1182,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Image data is required" });
       }
 
-      // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
       const prompt = `Analyze this medical monitor screenshot and extract the following parameters if visible:
@@ -1241,7 +1240,7 @@ Return ONLY a JSON object with this structure:
 If a parameter is not visible or cannot be determined, use null.`;
 
       const response = await openai.chat.completions.create({
-        model: "gpt-5",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "user",
