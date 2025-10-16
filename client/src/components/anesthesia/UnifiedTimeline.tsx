@@ -702,6 +702,24 @@ export function UnifiedTimeline({
       });
     }
     
+    // Add pending systolic BP (light gray bookmark) if in diastolic entry mode
+    if (pendingSysValue) {
+      series.push({
+        type: 'scatter',
+        name: 'Pending Systolic BP',
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        data: [[pendingSysValue.time, pendingSysValue.value]],
+        symbol: 'triangle',
+        symbolSize: 12,
+        symbolRotate: 180, // Point down for systolic
+        itemStyle: {
+          color: '#d1d5db', // Light gray for pending
+        },
+        z: 10,
+      });
+    }
+    
     // Add BP series if there are data points (chronologically sorted)
     if (sortedSysData.length > 0) {
       series.push({
@@ -712,7 +730,7 @@ export function UnifiedTimeline({
         data: sortedSysData,
         symbol: 'triangle',
         symbolSize: 12,
-        symbolRotate: 0, // Point up for systolic
+        symbolRotate: 180, // Point down for systolic
         itemStyle: {
           color: '#000000', // Black color for BP
         },
@@ -730,7 +748,7 @@ export function UnifiedTimeline({
         data: sortedDiaData,
         symbol: 'triangle',
         symbolSize: 12,
-        symbolRotate: 180, // Point down for diastolic
+        symbolRotate: 0, // Point up for diastolic
         itemStyle: {
           color: '#000000', // Black color for BP
         },
