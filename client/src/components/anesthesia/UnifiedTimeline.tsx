@@ -489,8 +489,24 @@ export function UnifiedTimeline({
       setCurrentZoomStart(visibleStart);
       setCurrentZoomEnd(visibleEnd);
       
-      // Set snap interval to 5 minutes (simple fixed interval)
-      setCurrentSnapInterval(5 * 60 * 1000);
+      // Calculate adaptive snap interval based on zoom span
+      const timeSpan = visibleEnd - visibleStart;
+      const spanMinutes = timeSpan / (60 * 1000);
+      
+      let snapInterval: number;
+      if (spanMinutes <= 10) {
+        snapInterval = 1 * 60 * 1000; // 1-minute snap for very fine zoom
+      } else if (spanMinutes <= 30) {
+        snapInterval = 2 * 60 * 1000; // 2-minute snap for fine zoom
+      } else if (spanMinutes <= 60) {
+        snapInterval = 5 * 60 * 1000; // 5-minute snap for medium zoom
+      } else if (spanMinutes <= 120) {
+        snapInterval = 10 * 60 * 1000; // 10-minute snap for coarse zoom
+      } else {
+        snapInterval = 15 * 60 * 1000; // 15-minute snap for very coarse zoom
+      }
+      
+      setCurrentSnapInterval(snapInterval);
     };
 
     // Update immediately
