@@ -82,6 +82,18 @@ export function UnifiedTimeline({
   const [currentZoomStart, setCurrentZoomStart] = useState<number | undefined>(undefined);
   const [currentZoomEnd, setCurrentZoomEnd] = useState<number | undefined>(undefined);
 
+  // State for interactive vital entry
+  const [activeToolMode, setActiveToolMode] = useState<'hr' | 'bp' | 'spo2' | null>(null);
+  const [hrDataPoints, setHrDataPoints] = useState<VitalPoint[]>(data.vitals.hr || []);
+  const [bpDataPoints, setBpDataPoints] = useState<{ sys: VitalPoint[], dia: VitalPoint[] }>({
+    sys: data.vitals.sysBP || [],
+    dia: data.vitals.diaBP || []
+  });
+  const [spo2DataPoints, setSpo2DataPoints] = useState<VitalPoint[]>(data.vitals.spo2 || []);
+  
+  // State for hover tooltip
+  const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; value: number; time: number } | null>(null);
+
   // Update current time every minute
   useEffect(() => {
     const updateTime = () => {
