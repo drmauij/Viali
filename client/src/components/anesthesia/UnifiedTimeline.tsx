@@ -273,18 +273,38 @@ export function UnifiedTimeline({
     };
   }, []);
 
-  // Track if this is the first render to set initial zoom
-  const isFirstRenderRef = useRef(true);
+  // Track initial zoom state
+  const hasSetInitialZoomRef = useRef(false);
+
+  // Set initial zoom once after chart is ready
+  useEffect(() => {
+    const chart = chartRef.current?.getEchartsInstance();
+    if (!chart || hasSetInitialZoomRef.current) return;
+
+    const currentTime = now || data.endTime;
+    const twentyMinutes = 20 * 60 * 1000;
+    const initialStartTime = currentTime - twentyMinutes;
+    const initialEndTime = currentTime + twentyMinutes;
+    
+    const startPercent = ((initialStartTime - data.startTime) / (data.endTime - data.startTime)) * 100;
+    const endPercent = ((initialEndTime - data.startTime) / (data.endTime - data.startTime)) * 100;
+    
+    console.log('Setting initial 40-min zoom:', startPercent, 'to', endPercent);
+    
+    chart.setOption({
+      dataZoom: [{
+        start: startPercent,
+        end: endPercent,
+      }]
+    });
+    
+    hasSetInitialZoomRef.current = true;
+  }, []);
 
   // Update dataZoom xAxisIndex when swimlane structure changes
   useEffect(() => {
     const chart = chartRef.current?.getEchartsInstance();
     if (!chart) return;
-
-    // Mark first render as complete after chart is ready
-    if (isFirstRenderRef.current) {
-      isFirstRenderRef.current = false;
-    }
 
     // Update dataZoom to include all current x-axes without resetting zoom state
     const numGrids = activeSwimlanes.length + 1; // +1 for vitals grid
@@ -928,11 +948,6 @@ export function UnifiedTimeline({
       dataZoom: [{
         type: "inside",
         xAxisIndex: grids.map((_, i) => i),
-        // Only set initial zoom on first render, otherwise preserve current zoom
-        ...(isFirstRenderRef.current ? {
-          start: ((initialStartTime - data.startTime) / (data.endTime - data.startTime)) * 100,
-          end: ((initialEndTime - data.startTime) / (data.endTime - data.startTime)) * 100,
-        } : {}),
         throttle: 50,
         zoomLock: true,
         zoomOnMouseWheel: false,
