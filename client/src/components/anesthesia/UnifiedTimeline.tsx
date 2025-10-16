@@ -572,9 +572,8 @@ export function UnifiedTimeline({
         show: false, // Hide ticks
         lineStyle: { color: isDark ? "#444444" : "#d1d5db" }
       },
-      splitNumber: 12, // Fixed grid density - 12 major divisions
       splitLine: { 
-        show: true, // Show hour lines
+        show: true, // Show vertical grid lines - ECharts auto-calculates optimal intervals
         lineStyle: {
           color: isDark ? "#444444" : "#d1d5db",
           width: 1,
@@ -583,10 +582,9 @@ export function UnifiedTimeline({
       },
       minorTick: {
         show: true,
-        splitNumber: 12, // 12 minor divisions between major lines
       },
       minorSplitLine: {
-        show: true, // Show minor grid lines
+        show: true, // Show minor grid lines - ECharts auto-calculates subdivisions
         lineStyle: {
           color: isDark ? "#333333" : "#e5e7eb",
           width: 0.5,
