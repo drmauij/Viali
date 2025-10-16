@@ -1542,6 +1542,7 @@ export function UnifiedTimeline({
             yAxisIndex: gridIdx + 1, // +1 because yAxes has 2 vitals axes first
             data: seriesData,
             symbol: 'none', // No symbol - only text label
+            symbolSize: 1, // Minimum size needed for label positioning
             label: {
               show: true,
               formatter: (params: any) => {
