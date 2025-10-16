@@ -1618,7 +1618,7 @@ export function UnifiedTimeline({
       </div>
 
       {/* ECharts timeline */}
-      <div className="absolute inset-0 z-20 pointer-events-none">
+      <div className={`absolute inset-0 z-20 ${activeToolMode ? 'pointer-events-none' : ''}`}>
         <ReactECharts
           ref={chartRef}
           option={option}
