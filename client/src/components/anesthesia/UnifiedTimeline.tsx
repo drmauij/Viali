@@ -703,19 +703,9 @@ export function UnifiedTimeline({
       });
     }
     
-    // Add pending systolic BP (darker gray bookmark) if in diastolic entry mode
-    // Only show if not already in the sys data (to prevent showing both gray and black at same location)
-    const pendingAlreadyExists = pendingSysValue && sortedSysData.some(
-      point => point[0] === pendingSysValue.time && point[1] === pendingSysValue.value
-    );
-    
-    if (pendingSysValue) {
-      console.log('Pending sys value:', pendingSysValue);
-      console.log('Sorted sys data:', sortedSysData);
-      console.log('Pending already exists?', pendingAlreadyExists);
-    }
-    
-    if (pendingSysValue && !pendingAlreadyExists) {
+    // Add pending systolic BP (darker gray bookmark) ONLY if in diastolic entry mode and not already committed
+    // Show ONLY when bpEntryMode is 'dia' to ensure it disappears immediately after adding diastolic
+    if (pendingSysValue && bpEntryMode === 'dia') {
       series.push({
         type: 'scatter',
         name: 'Pending Systolic BP',
@@ -732,7 +722,52 @@ export function UnifiedTimeline({
       });
     }
     
-    // Add BP series if there are data points (chronologically sorted)
+    // Add BP line connections with filled area (systolic and diastolic)
+    if (sortedSysData.length > 0 && sortedDiaData.length > 0) {
+      // Line for systolic values
+      series.push({
+        type: 'line',
+        name: 'Systolic BP Line',
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        data: sortedSysData,
+        symbol: 'none',
+        lineStyle: {
+          color: '#000000',
+          width: 1,
+          opacity: 0.3,
+        },
+        z: 5,
+      });
+      
+      // Line for diastolic values
+      series.push({
+        type: 'line',
+        name: 'Diastolic BP Line',
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        data: sortedDiaData,
+        symbol: 'none',
+        lineStyle: {
+          color: '#000000',
+          width: 1,
+          opacity: 0.3,
+        },
+        areaStyle: {
+          color: {
+            type: 'linear',
+            x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [
+              { offset: 0, color: 'rgba(0, 0, 0, 0.1)' },
+              { offset: 1, color: 'rgba(0, 0, 0, 0.05)' }
+            ]
+          }
+        },
+        z: 4,
+      });
+    }
+    
+    // Add BP scatter points if there are data points (chronologically sorted)
     if (sortedSysData.length > 0) {
       series.push({
         type: 'scatter',
@@ -750,7 +785,7 @@ export function UnifiedTimeline({
       });
     }
     
-    // Add diastolic BP series if there are data points (chronologically sorted)
+    // Add diastolic BP scatter points if there are data points (chronologically sorted)
     if (sortedDiaData.length > 0) {
       series.push({
         type: 'scatter',
@@ -905,7 +940,7 @@ export function UnifiedTimeline({
         textStyle: { fontFamily: "Poppins, sans-serif" },
       },
     } as echarts.EChartsOption;
-  }, [data, isDark, activeSwimlanes, now, hrDataPoints, bpDataPoints, spo2DataPoints, zoomPercent, pendingSysValue]);
+  }, [data, isDark, activeSwimlanes, now, hrDataPoints, bpDataPoints, spo2DataPoints, zoomPercent, pendingSysValue, bpEntryMode]);
 
   // Calculate component height
   const VITALS_HEIGHT = 340;
