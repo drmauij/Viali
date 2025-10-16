@@ -190,7 +190,7 @@ export function StickyTimelineHeader({
       <div 
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
-        className="absolute bg-background/80 backdrop-blur-md border-2 border-border/50 rounded-lg shadow-lg px-3 py-1.5 flex items-center gap-4 cursor-grab active:cursor-grabbing select-none"
+        className="absolute z-[100] bg-background/80 backdrop-blur-md border-2 border-border/50 rounded-lg shadow-lg px-3 py-1.5 flex items-center gap-4 cursor-grab active:cursor-grabbing select-none"
         style={{ left: `${position.x}px`, top: `${position.y}px`, transform: 'translate(-50%, 0)' }}
         data-testid="timeline-controls-panel"
       >
