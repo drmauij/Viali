@@ -48,60 +48,46 @@ export function StickyTimelineHeader({
     localStorage.setItem('timeline-controls-position', JSON.stringify(position));
   }, [position]);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleDragStart = (e: React.MouseEvent | React.TouchEvent) => {
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    
     dragRef.current = {
       isDragging: true,
-      startX: e.clientX - position.x,
-      startY: e.clientY - position.y,
+      startX: clientX - position.x,
+      startY: clientY - position.y,
     };
-  }, [position]);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    dragRef.current = {
-      isDragging: true,
-      startX: touch.clientX - position.x,
-      startY: touch.clientY - position.y,
-    };
-  }, [position]);
-
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (dragRef.current.isDragging) {
-      setPosition({
-        x: e.clientX - dragRef.current.startX,
-        y: e.clientY - dragRef.current.startY,
-      });
-    }
-  }, []);
-
-  const handleTouchMove = useCallback((e: TouchEvent) => {
-    if (dragRef.current.isDragging) {
-      const touch = e.touches[0];
-      setPosition({
-        x: touch.clientX - dragRef.current.startX,
-        y: touch.clientY - dragRef.current.startY,
-      });
-    }
-  }, []);
-
-  const handleMouseUp = useCallback(() => {
-    dragRef.current.isDragging = false;
-  }, []);
+  };
 
   useEffect(() => {
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    window.addEventListener('touchmove', handleTouchMove);
-    window.addEventListener('touchend', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleMouseUp);
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      if (!dragRef.current.isDragging) return;
+      
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      
+      setPosition({
+        x: clientX - dragRef.current.startX,
+        y: clientY - dragRef.current.startY,
+      });
     };
-  }, [handleMouseMove, handleMouseUp, handleTouchMove]);
+
+    const handleEnd = () => {
+      dragRef.current.isDragging = false;
+    };
+
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleEnd);
+    document.addEventListener('touchmove', handleMove);
+    document.addEventListener('touchend', handleEnd);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleEnd);
+      document.removeEventListener('touchmove', handleMove);
+      document.removeEventListener('touchend', handleEnd);
+    };
+  }, []);
 
   const option = useMemo(() => {
     const GRID_LEFT = 200;
@@ -202,14 +188,15 @@ export function StickyTimelineHeader({
 
       {/* Touch-Friendly Draggable Controls with Glass Effect */}
       <div 
-        className="absolute bg-background/80 backdrop-blur-md border-2 border-border/50 rounded-lg shadow-lg px-3 py-1.5 flex items-center gap-4 cursor-move"
+        onMouseDown={handleDragStart}
+        onTouchStart={handleDragStart}
+        className="absolute bg-background/80 backdrop-blur-md border-2 border-border/50 rounded-lg shadow-lg px-3 py-1.5 flex items-center gap-4 cursor-grab active:cursor-grabbing select-none"
         style={{ left: `${position.x}px`, top: `${position.y}px`, transform: 'translate(-50%, 0)' }}
+        data-testid="timeline-controls-panel"
       >
         {/* Drag Handle */}
         <div 
-          onMouseDown={handleMouseDown}
-          onTouchStart={handleTouchStart}
-          className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-muted-foreground hover:text-foreground transition-colors touch-manipulation"
+          className="p-1 -ml-1 text-muted-foreground hover:text-foreground transition-colors touch-manipulation"
           title="Drag to reposition"
         >
           <GripVertical className="h-5 w-5" />
@@ -217,16 +204,20 @@ export function StickyTimelineHeader({
         
         <button
           data-testid="button-pan-left"
-          onClick={onPanLeft}
-          className="hover:bg-muted active:bg-muted/80 rounded-md text-2xl h-12 w-12 flex items-center justify-center transition-colors touch-manipulation"
+          onClick={(e) => { e.stopPropagation(); onPanLeft?.(); }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          className="hover:bg-muted active:bg-muted/80 rounded-md text-2xl h-12 w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer"
           title="Pan Left"
         >
           ‹
         </button>
         <button
           data-testid="button-pan-right"
-          onClick={onPanRight}
-          className="hover:bg-muted active:bg-muted/80 rounded-md text-2xl h-12 w-12 flex items-center justify-center transition-colors touch-manipulation"
+          onClick={(e) => { e.stopPropagation(); onPanRight?.(); }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          className="hover:bg-muted active:bg-muted/80 rounded-md text-2xl h-12 w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer"
           title="Pan Right"
         >
           ›
@@ -234,8 +225,10 @@ export function StickyTimelineHeader({
         <div className="border-l-2 border-border h-8 mx-1" />
         <button
           data-testid="button-zoom-in"
-          onClick={onZoomIn}
-          className="hover:bg-muted active:bg-muted/80 rounded-md text-xl h-12 w-12 flex items-center justify-center transition-colors touch-manipulation"
+          onClick={(e) => { e.stopPropagation(); onZoomIn?.(); }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          className="hover:bg-muted active:bg-muted/80 rounded-md text-xl h-12 w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer"
           title="Zoom In"
         >
           <Search className="h-5 w-5" />
@@ -243,8 +236,10 @@ export function StickyTimelineHeader({
         </button>
         <button
           data-testid="button-zoom-out"
-          onClick={onZoomOut}
-          className="hover:bg-muted active:bg-muted/80 rounded-md text-xl h-12 w-12 flex items-center justify-center transition-colors touch-manipulation"
+          onClick={(e) => { e.stopPropagation(); onZoomOut?.(); }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          className="hover:bg-muted active:bg-muted/80 rounded-md text-xl h-12 w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer"
           title="Zoom Out"
         >
           <Search className="h-5 w-5" />
@@ -252,8 +247,10 @@ export function StickyTimelineHeader({
         </button>
         <button
           data-testid="button-reset-zoom"
-          onClick={onResetZoom}
-          className="hover:bg-muted active:bg-muted/80 rounded-md text-sm font-medium h-12 px-4 flex items-center justify-center transition-colors touch-manipulation"
+          onClick={(e) => { e.stopPropagation(); onResetZoom?.(); }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          className="hover:bg-muted active:bg-muted/80 rounded-md text-sm font-medium h-12 px-4 flex items-center justify-center transition-colors touch-manipulation cursor-pointer"
           title="Reset Zoom"
         >
           Reset
