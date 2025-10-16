@@ -704,7 +704,6 @@ export function UnifiedTimeline({
     
     // Add pending systolic BP (light gray bookmark) if in diastolic entry mode
     if (pendingSysValue) {
-      console.log('Rendering pending systolic bookmark:', pendingSysValue);
       series.push({
         type: 'scatter',
         name: 'Pending Systolic BP',
@@ -1400,11 +1399,8 @@ export function UnifiedTimeline({
           }}
           onMouseLeave={() => setHoverInfo(null)}
           onClick={(e) => {
-            console.log('=== CLICK HANDLER START ===');
-            console.log('hoverInfo:', hoverInfo);
-            console.log('activeToolMode:', activeToolMode);
-            console.log('bpEntryMode:', bpEntryMode);
-            console.log('pendingSysValue BEFORE:', pendingSysValue);
+            e.preventDefault();
+            e.stopPropagation();
             
             if (!hoverInfo) return;
             
@@ -1417,14 +1413,11 @@ export function UnifiedTimeline({
               if (bpEntryMode === 'sys') {
                 // Save systolic value and switch to diastolic mode
                 const pendingValue = { time: hoverInfo.time, value: hoverInfo.value };
-                console.log('>>> SETTING PENDING SYSTOLIC:', pendingValue);
                 setPendingSysValue(pendingValue);
                 setBpEntryMode('dia');
                 setHoverInfo(null);
-                console.log('>>> After setState - should be dia mode now');
               } else {
                 // Save diastolic value with the same time as systolic
-                console.log('>>> ADDING DIASTOLIC with pending:', pendingSysValue);
                 if (pendingSysValue) {
                   setBpDataPoints(prev => ({
                     sys: [...prev.sys, [pendingSysValue.time, pendingSysValue.value]],
@@ -1435,14 +1428,11 @@ export function UnifiedTimeline({
                 setPendingSysValue(null);
                 setBpEntryMode('sys');
                 setHoverInfo(null);
-                console.log('>>> Reset to sys mode');
               }
             } else if (activeToolMode === 'spo2') {
               setSpo2DataPoints(prev => [...prev, [hoverInfo.time, hoverInfo.value]]);
               setHoverInfo(null);
             }
-            
-            console.log('=== CLICK HANDLER END ===');
           }}
         />
       )}
