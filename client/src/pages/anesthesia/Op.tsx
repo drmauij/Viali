@@ -35,7 +35,8 @@ import {
   Activity,
   MessageSquare,
   ChevronDown,
-  Droplet
+  Droplet,
+  Download
 } from "lucide-react";
 
 // Mock patients data
@@ -326,12 +327,22 @@ export default function Op() {
         {/* Tabbed Content */}
         <Tabs defaultValue="vitals" className="flex-1 flex flex-col min-h-0">
           <div className="px-6 shrink-0">
-            <TabsList className="grid w-full grid-cols-4 mb-4">
-              <TabsTrigger value="vitals" data-testid="tab-vitals">Vitals</TabsTrigger>
-              <TabsTrigger value="anesthesia" data-testid="tab-anesthesia">Anesthesia</TabsTrigger>
-              <TabsTrigger value="checklists" data-testid="tab-checklists">Checklists</TabsTrigger>
-              <TabsTrigger value="postop" data-testid="tab-postop">Post-op</TabsTrigger>
-            </TabsList>
+            <div className="flex items-center gap-4 mb-4">
+              <TabsList className="grid flex-1 grid-cols-4">
+                <TabsTrigger value="vitals" data-testid="tab-vitals">Vitals</TabsTrigger>
+                <TabsTrigger value="anesthesia" data-testid="tab-anesthesia">Anesthesia</TabsTrigger>
+                <TabsTrigger value="checklists" data-testid="tab-checklists">Checklists</TabsTrigger>
+                <TabsTrigger value="postop" data-testid="tab-postop">Post-op</TabsTrigger>
+              </TabsList>
+              <Button 
+                variant="outline" 
+                className="flex items-center gap-2 shrink-0"
+                data-testid="button-download-pdf"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">Download PDF</span>
+              </Button>
+            </div>
           </div>
 
           {/* Vitals & Timeline Tab */}
