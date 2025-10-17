@@ -1212,8 +1212,8 @@ export function UnifiedTimeline({
         xAxisIndex: 0,
         yAxisIndex: 0,
         data: sortedHrData,
-        symbol: 'path://M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z',
-        symbolSize: 16,
+        symbol: 'path://M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5',
+        symbolSize: 18,
         itemStyle: {
           color: 'transparent', // Transparent fill for outline only
           borderColor: '#ef4444', // Red outline
@@ -1367,8 +1367,8 @@ export function UnifiedTimeline({
         xAxisIndex: 0,
         yAxisIndex: 1, // Use second y-axis (45-105 range)
         data: sortedSpo2Data,
-        symbol: 'path://M2,12 A10,10 0 1,0 22,12 A10,10 0 1,0 2,12 M11,12 A1,1 0 1,0 13,12 A1,1 0 1,0 11,12', // Lucide CircleDot: outer circle (r=10) + inner dot (r=1)
-        symbolSize: 16,
+        symbol: 'path://M 2,12 a 10,10 0 1,0 20,0 a 10,10 0 1,0 -20,0 M 11,12 a 1,1 0 1,0 2,0 a 1,1 0 1,0 -2,0', // Exact Lucide CircleDot: outer circle (r=10) + inner dot (r=1)
+        symbolSize: 18,
         showSymbol: true,
         lineStyle: {
           color: '#8b5cf6', // Purple line
