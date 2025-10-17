@@ -1315,10 +1315,15 @@ export function UnifiedTimeline({
         symbol: 'path://M2,2 L10,10 L18,2', // Chevron down for systolic
         symbolSize: 14,
         itemStyle: {
-          color: '#000000', // Black color for BP
+          color: 'transparent', // Transparent fill for outline only
+          borderColor: '#000000', // Black outline
+          borderWidth: 2,
         },
         emphasis: {
           scale: 1.5,
+          itemStyle: {
+            borderWidth: 3,
+          }
         },
         cursor: 'pointer',
         z: 10,
@@ -1336,10 +1341,15 @@ export function UnifiedTimeline({
         symbol: 'path://M2,10 L10,2 L18,10', // Chevron up for diastolic
         symbolSize: 14,
         itemStyle: {
-          color: '#000000', // Black color for BP
+          color: 'transparent', // Transparent fill for outline only
+          borderColor: '#000000', // Black outline
+          borderWidth: 2,
         },
         emphasis: {
           scale: 1.5,
+          itemStyle: {
+            borderWidth: 3,
+          }
         },
         cursor: 'pointer',
         z: 10,
@@ -1362,12 +1372,15 @@ export function UnifiedTimeline({
           width: 1.5,
         },
         itemStyle: {
-          color: '#8b5cf6', // Purple fill
-          borderColor: '#8b5cf6', // Purple border
+          color: 'transparent', // Transparent fill for outline only
+          borderColor: '#8b5cf6', // Purple outline
           borderWidth: 2,
         },
         emphasis: {
           scale: 1.5,
+          itemStyle: {
+            borderWidth: 3,
+          }
         },
         cursor: 'pointer',
         z: 10,
