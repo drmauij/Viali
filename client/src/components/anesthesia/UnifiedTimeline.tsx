@@ -257,6 +257,9 @@ export function UnifiedTimeline({
     fiO2: [],
   });
 
+  // State for ventilation mode entries on parent swimlane
+  const [ventilationModeData, setVentilationModeData] = useState<Array<[number, string]>>([]);
+
   // State for event comments
   const [eventComments, setEventComments] = useState<EventComment[]>([]);
   const [showEventDialog, setShowEventDialog] = useState(false);
@@ -2772,6 +2775,9 @@ export function UnifiedTimeline({
     if (!pendingVentilationBulk) return;
     
     const { time } = pendingVentilationBulk;
+    
+    // Save the selected ventilation mode to the parent swimlane
+    setVentilationModeData(prev => [...prev, [time, ventilationMode]]);
     
     // Add all filled parameters at the same time
     setVentilationData(prev => {
