@@ -96,6 +96,9 @@ function createLucideIconSeries(
     yAxisIndex,
     data,
     z: zLevel,
+    emphasis: {
+      disabled: false, // Enable hover effects
+    },
     renderItem: (params: any, api: any) => {
       const point = api.coord([api.value(0), api.value(1)]);
       const scale = size / 24; // Scale from 24x24 viewBox to desired size
@@ -1041,13 +1044,15 @@ export function UnifiedTimeline({
     };
   }, [chartRef, data.startTime, data.endTime]);
 
-  // Update graphic elements for ventilation parameters
+  // Combined graphics rendering - merges ventilation parameters, medication doses, and ventilation modes
   useEffect(() => {
     const chart = chartRef.current?.getEchartsInstance();
     if (!chart) return;
 
     const modernMonoFont = '"SF Mono", "JetBrains Mono", "Roboto Mono", "Fira Code", Monaco, Consolas, monospace';
     const textColor = isDark ? '#ffffff' : '#000000';
+    const VITALS_HEIGHT = 340;
+    const VITALS_TOP = 32;
     
     // Helper to convert timestamp to pixel position
     const timestampToPixel = (timestamp: number, gridIndex: number): number | null => {
@@ -1059,64 +1064,123 @@ export function UnifiedTimeline({
       }
     };
     
-    // Find ventilation swimlane index
+    const allGraphics: any[] = [];
+    
+    // === 1. VENTILATION PARAMETER GRAPHICS (child swimlanes) ===
     const ventilationParentIndex = activeSwimlanes.findIndex(lane => lane.id === 'ventilation');
-    if (ventilationParentIndex === -1 || collapsedSwimlanes.has('ventilation')) {
-      chart.setOption({ graphic: [] });
-      return;
-    }
-    
-    console.log('[Ventilation Graphics] Active swimlanes:', activeSwimlanes.map((l, i) => `${i}: ${l.id} (${l.height}px)`));
-    console.log('[Ventilation Graphics] Ventilation parent index:', ventilationParentIndex);
-    
-    // Calculate y-positions - need to match the actual grid configuration
-    const VITALS_HEIGHT = 340;
-    const VITALS_TOP = 32;
-    
-    // Get the actual grid configuration for ventilation child rows
-    // Grid 0 is vitals, then we have all the swimlanes in order
-    // We need to find where ventilation child grids start
-    
-    // ventilationParentIndex tells us which swimlane is ventilation parent
-    // Grid index for first ventilation child = 1 (vitals) + ventilationParentIndex + 1
-    const firstVentChildGridIndex = 1 + ventilationParentIndex + 1;
-    
-    // Now calculate the actual y-position for the first ventilation child grid
-    let currentY = VITALS_TOP + VITALS_HEIGHT;
-    
-    // Add heights of all swimlanes up to and including ventilation parent
-    for (let i = 0; i <= ventilationParentIndex; i++) {
-      currentY += activeSwimlanes[i].height;
-    }
-    
-    console.log('[Ventilation Graphics] First vent child starts at y:', currentY);
-    
-    const paramData = [
-      { data: ventilationData.etCO2, paramIndex: 0, name: 'etCO2' },
-      { data: ventilationData.pip, paramIndex: 1, name: 'PIP' },
-      { data: ventilationData.peep, paramIndex: 2, name: 'PEEP' },
-      { data: ventilationData.tidalVolume, paramIndex: 3, name: 'TidalVol' },
-      { data: ventilationData.respiratoryRate, paramIndex: 4, name: 'RR' },
-      { data: ventilationData.minuteVolume, paramIndex: 5, name: 'MinVol' },
-      { data: ventilationData.fiO2, paramIndex: 6, name: 'FiO2' },
-    ];
-    
-    const graphics: any[] = [];
-    
-    paramData.forEach(({ data, paramIndex, name }) => {
-      const rowY = currentY + (paramIndex - 1) * 35 + 17.5; // Center of row
-      const gridIdx = ventilationParentIndex + paramIndex + 1;
+    if (ventilationParentIndex !== -1 && !collapsedSwimlanes.has('ventilation')) {
+      let currentY = VITALS_TOP + VITALS_HEIGHT;
+      for (let i = 0; i <= ventilationParentIndex; i++) {
+        currentY += activeSwimlanes[i].height;
+      }
       
-      data.forEach(([timestamp, value], index) => {
+      const paramData = [
+        { data: ventilationData.etCO2, paramIndex: 0, name: 'etCO2' },
+        { data: ventilationData.pip, paramIndex: 1, name: 'PIP' },
+        { data: ventilationData.peep, paramIndex: 2, name: 'PEEP' },
+        { data: ventilationData.tidalVolume, paramIndex: 3, name: 'TidalVol' },
+        { data: ventilationData.respiratoryRate, paramIndex: 4, name: 'RR' },
+        { data: ventilationData.minuteVolume, paramIndex: 5, name: 'MinVol' },
+        { data: ventilationData.fiO2, paramIndex: 6, name: 'FiO2' },
+      ];
+      
+      paramData.forEach(({ data, paramIndex, name }) => {
+        const rowY = currentY + (paramIndex - 1) * 35 + 17.5;
+        const gridIdx = ventilationParentIndex + paramIndex + 1;
+        
+        data.forEach(([timestamp, value], index) => {
+          const pixelX = timestampToPixel(timestamp, gridIdx);
+          if (pixelX !== null) {
+            allGraphics.push({
+              type: 'text',
+              id: `vent-${name}-${timestamp}-${value}-${index}`,
+              left: pixelX,
+              top: rowY,
+              style: {
+                text: value.toString(),
+                font: `bold 13px ${modernMonoFont}`,
+                fill: textColor,
+                textAlign: 'center',
+                textVerticalAlign: 'middle',
+              },
+              z: 100,
+            });
+          }
+        });
+      });
+    }
+    
+    // === 2. MEDICATION DOSE GRAPHICS (child swimlanes) ===
+    const medicationParentIndex = activeSwimlanes.findIndex(s => s.id === "medikamente");
+    if (medicationParentIndex !== -1 && !collapsedSwimlanes.has("medikamente")) {
+      let currentY = VITALS_TOP + VITALS_HEIGHT;
+      for (let i = 0; i <= medicationParentIndex; i++) {
+        currentY += activeSwimlanes[i].height;
+      }
+      
+      activeSwimlanes.forEach((lane, index) => {
+        const isMedicationChild = lane.id.startsWith('medication-predefined-') || lane.id.startsWith('medication-dynamic-');
+        
+        if (isMedicationChild && medicationDoseData[lane.id]?.length > 0) {
+          const dosePoints = medicationDoseData[lane.id];
+          const laneIndex = index - medicationParentIndex - 1;
+          const rowY = currentY + laneIndex * 30 + 15;
+          const gridIdx = index + 1;
+          
+          dosePoints.forEach(([timestamp, dose], idx) => {
+            const pixelX = timestampToPixel(timestamp, gridIdx);
+            if (pixelX !== null) {
+              allGraphics.push({
+                type: 'text',
+                id: `med-${lane.id}-${timestamp}-${dose}-${idx}`,
+                left: pixelX,
+                top: rowY,
+                style: {
+                  text: dose.toString(),
+                  font: `bold 13px ${modernMonoFont}`,
+                  fill: textColor,
+                  textAlign: 'center',
+                  textVerticalAlign: 'middle',
+                },
+                z: 100,
+                cursor: 'pointer',
+                onclick: () => {
+                  setEditingMedicationDose({
+                    swimlaneId: lane.id,
+                    time: timestamp,
+                    dose: dose.toString(),
+                    index: idx,
+                  });
+                  setMedicationEditInput(dose.toString());
+                  setShowMedicationEditDialog(true);
+                },
+              });
+            }
+          });
+        }
+      });
+    }
+    
+    // === 3. VENTILATION MODE GRAPHICS (parent swimlane) ===
+    if (ventilationParentIndex !== -1 && ventilationModeData.length > 0) {
+      let currentY = VITALS_TOP + VITALS_HEIGHT;
+      for (let i = 0; i <= ventilationParentIndex; i++) {
+        currentY += activeSwimlanes[i].height;
+      }
+      
+      const rowY = currentY - (activeSwimlanes[ventilationParentIndex].height / 2);
+      const gridIdx = ventilationParentIndex + 1;
+      
+      ventilationModeData.forEach(([timestamp, mode], idx) => {
         const pixelX = timestampToPixel(timestamp, gridIdx);
         if (pixelX !== null) {
-          graphics.push({
+          allGraphics.push({
             type: 'text',
-            id: `vent-${name}-${timestamp}-${value}-${index}`,
+            id: `vent-mode-${timestamp}-${idx}`,
             left: pixelX,
             top: rowY,
             style: {
-              text: value.toString(),
+              text: mode,
               font: `bold 13px ${modernMonoFont}`,
               fill: textColor,
               textAlign: 'center',
@@ -1126,158 +1190,13 @@ export function UnifiedTimeline({
           });
         }
       });
-    });
-    
-    console.log(`[Ventilation Graphics] Generated ${graphics.length} text elements`);
-    chart.setOption({ graphic: graphics }, { replaceMerge: ['graphic'] });
-    
-  }, [chartRef, ventilationData, activeSwimlanes, collapsedSwimlanes, isDark]);
-
-  // Medication dose graphics rendering (text labels)
-  useEffect(() => {
-    const chart = chartRef.current?.getEchartsInstance();
-    if (!chart) return;
-    
-    const medicationParentIndex = activeSwimlanes.findIndex(s => s.id === "medikamente");
-    
-    if (medicationParentIndex === -1 || collapsedSwimlanes.has("medikamente")) {
-      // Clear medication graphics if collapsed
-      chart.setOption({ graphic: [] }, { replaceMerge: ['graphic'] });
-      return;
     }
     
-    const textColor = isDark ? '#ffffff' : '#000000';
-    const modernMonoFont = '"SF Mono", "JetBrains Mono", "Roboto Mono", "Fira Code", Monaco, Consolas, monospace';
-    const VITALS_TOP = 32;
-    const VITALS_HEIGHT = 340;
+    // Apply all graphics in a single setOption call (prevents overwriting)
+    console.log(`[Combined Graphics] Generated ${allGraphics.length} total graphic elements`);
+    chart.setOption({ graphic: allGraphics }, { replaceMerge: ['graphic'] });
     
-    // Helper to convert timestamp to pixel position
-    const timestampToPixel = (timestamp: number, gridIndex: number): number | null => {
-      try {
-        const pixelX = chart.convertToPixel({ xAxisIndex: gridIndex }, timestamp);
-        return Array.isArray(pixelX) ? pixelX[0] : pixelX;
-      } catch {
-        return null;
-      }
-    };
-    
-    // Calculate Y position for first medication child
-    let currentY = VITALS_TOP + VITALS_HEIGHT;
-    for (let i = 0; i <= medicationParentIndex; i++) {
-      currentY += activeSwimlanes[i].height;
-    }
-    
-    const graphics: any[] = [];
-    
-    // Iterate through all medication swimlanes
-    activeSwimlanes.forEach((lane, index) => {
-      const isMedicationChild = lane.id.startsWith('medication-predefined-') || lane.id.startsWith('medication-dynamic-');
-      
-      if (isMedicationChild && medicationDoseData[lane.id]?.length > 0) {
-        const dosePoints = medicationDoseData[lane.id];
-        const laneIndex = index - medicationParentIndex - 1;
-        const rowY = currentY + laneIndex * 30 + 15;
-        const gridIdx = index + 1;
-        
-        dosePoints.forEach(([timestamp, dose], idx) => {
-          const pixelX = timestampToPixel(timestamp, gridIdx);
-          if (pixelX !== null) {
-            graphics.push({
-              type: 'text',
-              id: `med-${lane.id}-${timestamp}-${dose}-${idx}`,
-              left: pixelX,
-              top: rowY,
-              style: {
-                text: dose.toString(),
-                font: `bold 13px ${modernMonoFont}`,
-                fill: textColor,
-                textAlign: 'center',
-                textVerticalAlign: 'middle',
-              },
-              z: 100,
-              cursor: 'pointer',
-              onclick: () => {
-                setEditingMedicationDose({
-                  swimlaneId: lane.id,
-                  time: timestamp,
-                  dose: dose.toString(),
-                  index: idx,
-                });
-                setMedicationEditInput(dose.toString());
-                setShowMedicationEditDialog(true);
-              },
-            });
-          }
-        });
-      }
-    });
-    
-    chart.setOption({ graphic: graphics }, { replaceMerge: ['graphic'] });
-    
-  }, [chartRef, medicationDoseData, activeSwimlanes, collapsedSwimlanes, isDark, setEditingMedicationDose, setMedicationEditInput, setShowMedicationEditDialog]);
-
-  // Ventilation mode graphics rendering (text labels on parent swimlane)
-  useEffect(() => {
-    const chart = chartRef.current?.getEchartsInstance();
-    if (!chart) return;
-    
-    const ventilationParentIndex = activeSwimlanes.findIndex(s => s.id === "ventilation");
-    
-    if (ventilationParentIndex === -1 || ventilationModeData.length === 0) {
-      return;
-    }
-    
-    const textColor = isDark ? '#ffffff' : '#000000';
-    const modernMonoFont = '"SF Mono", "JetBrains Mono", "Roboto Mono", "Fira Code", Monaco, Consolas, monospace';
-    const VITALS_TOP = 32;
-    const VITALS_HEIGHT = 340;
-    
-    // Helper to convert timestamp to pixel position
-    const timestampToPixel = (timestamp: number, gridIndex: number): number | null => {
-      try {
-        const pixelX = chart.convertToPixel({ xAxisIndex: gridIndex }, timestamp);
-        return Array.isArray(pixelX) ? pixelX[0] : pixelX;
-      } catch {
-        return null;
-      }
-    };
-    
-    // Calculate Y position for ventilation parent swimlane
-    let currentY = VITALS_TOP + VITALS_HEIGHT;
-    for (let i = 0; i <= ventilationParentIndex; i++) {
-      currentY += activeSwimlanes[i].height;
-    }
-    
-    // Row Y is at the center of the parent swimlane
-    const rowY = currentY - (activeSwimlanes[ventilationParentIndex].height / 2);
-    const gridIdx = ventilationParentIndex + 1; // Grid index for ventilation parent
-    
-    const graphics: any[] = [];
-    
-    // Render each ventilation mode entry
-    ventilationModeData.forEach(([timestamp, mode], idx) => {
-      const pixelX = timestampToPixel(timestamp, gridIdx);
-      if (pixelX !== null) {
-        graphics.push({
-          type: 'text',
-          id: `vent-mode-${timestamp}-${idx}`,
-          left: pixelX,
-          top: rowY,
-          style: {
-            text: mode,
-            font: `bold 13px ${modernMonoFont}`,
-            fill: textColor,
-            textAlign: 'center',
-            textVerticalAlign: 'middle',
-          },
-          z: 100,
-        });
-      }
-    });
-    
-    chart.setOption({ graphic: graphics }, { replaceMerge: ['graphic'] });
-    
-  }, [chartRef, ventilationModeData, activeSwimlanes, isDark]);
+  }, [chartRef, activeSwimlanes, collapsedSwimlanes, isDark, ventilationData, medicationDoseData, ventilationModeData, setEditingMedicationDose, setMedicationEditInput, setShowMedicationEditDialog]);
 
   const option = useMemo(() => {
     // Layout constants
@@ -1448,7 +1367,7 @@ export function UnifiedTimeline({
           '#ef4444', // Red
           0, // yAxisIndex
           16, // size
-          30 // z-level - high value to ensure icons are always clickable above lines
+          100 // z-level - VERY high value to ensure icons are always clickable above connection lines
         )
       );
     }
