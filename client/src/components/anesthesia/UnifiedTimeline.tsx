@@ -2371,6 +2371,20 @@ export function UnifiedTimeline({
     setExtractedData(null);
   };
 
+  // Helper function to parse dose string into value and unit
+  const parseDoseString = (doseStr: string): { value: string; unit: string } => {
+    // Try to extract numeric value and unit
+    const match = doseStr.match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z%]+)?$/);
+    if (match) {
+      return {
+        value: match[1],
+        unit: match[2]?.toLowerCase() || 'mg' // Default to mg if no unit
+      };
+    }
+    // If no match, return as-is with default unit
+    return { value: doseStr, unit: 'mg' };
+  };
+
   // Handle voice command for drug administration
   const handleVoiceCommand = async (audioBlob: Blob, timestamp: number) => {
     try {
@@ -2426,12 +2440,12 @@ export function UnifiedTimeline({
       const match = findMatchingMedication(drugCommand.drug);
       
       let targetSwimlaneId: string;
-      let matchInfo = "";
+      let drugLabel: string;
       
       if (match) {
         // Found a matching medication
         targetSwimlaneId = match.swimlaneId;
-        matchInfo = ` → ${match.fullName} (${Math.round(match.score * 100)}% match)`;
+        drugLabel = match.fullName;
         console.log(`[Voice] Matched "${drugCommand.drug}" to "${match.fullName}" (score: ${match.score})`);
       } else {
         // No match found - create new medication swimlane
@@ -2439,24 +2453,27 @@ export function UnifiedTimeline({
         const newIndex = medications.length;
         targetSwimlaneId = `medication-dynamic-${newIndex}`;
         setMedications(prev => [...prev, newMedName]);
-        matchInfo = ` → New medication`;
+        drugLabel = newMedName;
         console.log(`[Voice] No match found, creating new medication: ${newMedName}`);
       }
       
-      // Step 4: Add dose data point to the medication swimlane
-      setMedicationDoseData(prev => {
-        const existingData = prev[targetSwimlaneId] || [];
-        return {
-          ...prev,
-          [targetSwimlaneId]: [...existingData, [timestamp, drugCommand.dose] as [number, string]]
-        };
+      // Step 4: Parse dose and open dialog for confirmation with pre-filled values
+      const { value, unit } = parseDoseString(drugCommand.dose);
+      
+      // Pre-fill dialog fields
+      setMedicationDoseInput(value);
+      setMedicationDoseUnit(unit);
+      setPendingMedicationDose({
+        swimlaneId: targetSwimlaneId,
+        time: timestamp,
+        label: drugLabel
       });
+      setShowMedicationDoseDialog(true);
       
-      // TODO: Store in backend anesthesia case data for persistence
-      
+      // Show toast to indicate voice command recognized
       toast({
-        title: "Drug Recorded",
-        description: `${drugCommand.drug} ${drugCommand.dose}${matchInfo}`,
+        title: "Voice Command Recognized",
+        description: `${drugCommand.drug} ${drugCommand.dose} - Please confirm`,
       });
       
     } catch (error: any) {
