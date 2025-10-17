@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { StickyTimelineHeader } from "./StickyTimelineHeader";
 import { useToast } from "@/hooks/use-toast";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
+import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
 
 /**
  * UnifiedTimeline - Refactored for robustness and flexibility
@@ -68,6 +69,48 @@ export const ANESTHESIA_TIME_MARKERS: Omit<AnesthesiaTimeMarker, 'time'>[] = [
   { id: 'B2', code: 'B2', label: 'Surgical Measures End', color: '#000000', bgColor: '#06B6D4' }, // Cyan
   { id: 'X2', code: 'X2', label: 'Anesthesia End', color: '#FFFFFF', bgColor: '#F97316' }, // Orange
 ];
+
+// Helper: Create custom series for Lucide icon symbols (supports stroke rendering)
+function createLucideIconSeries(
+  name: string,
+  data: VitalPoint[],
+  iconPath: string,
+  color: string,
+  yAxisIndex: number,
+  size: number = 16,
+  zLevel: number = 20
+) {
+  return {
+    type: 'custom',
+    name,
+    xAxisIndex: 0,
+    yAxisIndex,
+    data,
+    z: zLevel,
+    renderItem: (params: any, api: any) => {
+      const point = api.coord([api.value(0), api.value(1)]);
+      // Return SVG path shape with stroke styling
+      return {
+        type: 'path',
+        x: point[0] - size / 2,
+        y: point[1] - size / 2,
+        shape: {
+          pathData: iconPath,
+          width: 24, // Lucide viewBox width
+          height: 24, // Lucide viewBox height
+        },
+        style: {
+          fill: 'none', // No fill - stroke only for Lucide appearance
+          stroke: color,
+          lineWidth: 2,
+        },
+        // Scale to desired size
+        scaleX: size / 24,
+        scaleY: size / 24,
+      };
+    },
+  };
+}
 
 // Centralized swimlane configuration - easy to add/remove swimlanes
 type SwimlaneConfig = {
@@ -1211,30 +1254,18 @@ export function UnifiedTimeline({
         z: 15,
       });
       
-      // Add heart symbols - HIGHEST z-index to always stay in front (outline heart)
-      // Using diamond symbol rotated to look like heart
-      series.push({
-        type: 'scatter',
-        name: 'Heart Rate',
-        xAxisIndex: 0,
-        yAxisIndex: 0,
-        data: sortedHrData,
-        symbol: 'diamond',
-        symbolSize: 14,
-        itemStyle: {
-          color: 'transparent', // Transparent fill for outline only
-          borderColor: '#ef4444', // Red outline
-          borderWidth: 2,
-        },
-        emphasis: {
-          scale: 1.5,
-          itemStyle: {
-            borderWidth: 3,
-          }
-        },
-        cursor: 'pointer',
-        z: 20,
-      });
+      // Add heart symbols with Lucide Heart icon (stroke rendering)
+      series.push(
+        createLucideIconSeries(
+          'Heart Rate',
+          sortedHrData,
+          VITAL_ICON_PATHS.heart.path,
+          '#ef4444', // Red
+          0, // yAxisIndex
+          16, // size
+          20 // z-level
+        )
+      );
     }
     
     // Add pending systolic BP (darker gray bookmark) ONLY if in diastolic entry mode and not already committed
@@ -1313,91 +1344,65 @@ export function UnifiedTimeline({
       });
     }
     
-    // Add BP scatter points if there are data points (chronologically sorted)
-    // Using exact Lucide chevron-down and chevron-up icon paths
+    // Add BP scatter points with Lucide icons (stroke rendering)
     if (sortedSysData.length > 0) {
-      series.push({
-        type: 'scatter',
-        name: 'Systolic BP',
-        xAxisIndex: 0,
-        yAxisIndex: 0,
-        data: sortedSysData,
-        symbol: 'triangle',
-        symbolRotate: 180, // Point down for systolic
-        symbolSize: 10,
-        itemStyle: {
-          color: 'transparent', // Transparent fill for outline only
-          borderColor: '#000000', // Black outline
-          borderWidth: 2,
-        },
-        emphasis: {
-          scale: 1.5,
-          itemStyle: {
-            borderWidth: 3,
-          }
-        },
-        cursor: 'pointer',
-        z: 10,
-      });
+      series.push(
+        createLucideIconSeries(
+          'Systolic BP',
+          sortedSysData,
+          VITAL_ICON_PATHS.chevronDown.path,
+          '#000000', // Black
+          0, // yAxisIndex
+          16, // size
+          10 // z-level
+        )
+      );
     }
     
-    // Add diastolic BP scatter points if there are data points (chronologically sorted)
+    // Add diastolic BP scatter points with Lucide ChevronUp (stroke rendering)
     if (sortedDiaData.length > 0) {
-      series.push({
-        type: 'scatter',
-        name: 'Diastolic BP',
-        xAxisIndex: 0,
-        yAxisIndex: 0,
-        data: sortedDiaData,
-        symbol: 'triangle',
-        symbolRotate: 0, // Point up for diastolic
-        symbolSize: 10,
-        itemStyle: {
-          color: 'transparent', // Transparent fill for outline only
-          borderColor: '#000000', // Black outline
-          borderWidth: 2,
-        },
-        emphasis: {
-          scale: 1.5,
-          itemStyle: {
-            borderWidth: 3,
-          }
-        },
-        cursor: 'pointer',
-        z: 10,
-      });
+      series.push(
+        createLucideIconSeries(
+          'Diastolic BP',
+          sortedDiaData,
+          VITAL_ICON_PATHS.chevronUp.path,
+          '#000000', // Black
+          0, // yAxisIndex
+          16, // size
+          10 // z-level
+        )
+      );
     }
     
-    // Add SpO2 series if there are data points (chronologically sorted)
-    // Using exact Lucide CircleDot icon path (converted from circle elements to path)
+    // Add SpO2 series with Lucide CircleDot icon (stroke rendering)
     if (sortedSpo2Data.length > 0) {
+      // SpO2 line connection
       series.push({
         type: 'line',
-        name: 'SpO2',
+        name: 'SpO2 Line',
         xAxisIndex: 0,
         yAxisIndex: 1, // Use second y-axis (45-105 range)
         data: sortedSpo2Data,
-        symbol: 'circle', // Use ECharts built-in circle
-        symbolSize: 12,
-        showSymbol: true,
+        symbol: 'none',
         lineStyle: {
           color: '#8b5cf6', // Purple line
           width: 1.5,
         },
-        itemStyle: {
-          color: 'transparent', // Transparent fill for outline only
-          borderColor: '#8b5cf6', // Purple outline
-          borderWidth: 2,
-        },
-        emphasis: {
-          scale: 1.5,
-          itemStyle: {
-            borderWidth: 3,
-          }
-        },
-        cursor: 'pointer',
-        z: 10,
+        z: 9,
       });
+      
+      // SpO2 symbols with Lucide CircleDot
+      series.push(
+        createLucideIconSeries(
+          'SpO2',
+          sortedSpo2Data,
+          VITAL_ICON_PATHS.circleDot.path,
+          '#8b5cf6', // Purple
+          1, // yAxisIndex (second y-axis for 45-105 range)
+          16, // size
+          10 // z-level
+        )
+      );
     }
 
     // Add ventilation parameter text labels
