@@ -1352,15 +1352,22 @@ export function UnifiedTimeline({
     // Add SpO2 series if there are data points (chronologically sorted)
     if (sortedSpo2Data.length > 0) {
       series.push({
-        type: 'scatter',
+        type: 'line',
         name: 'SpO2',
         xAxisIndex: 0,
         yAxisIndex: 1, // Use second y-axis (45-105 range)
         data: sortedSpo2Data,
         symbol: 'circle',
-        symbolSize: 7,
+        symbolSize: 4,
+        showSymbol: true,
+        lineStyle: {
+          color: '#8b5cf6', // Purple line
+          width: 1.5,
+        },
         itemStyle: {
-          color: '#8b5cf6', // Purple color for SpO2
+          color: '#8b5cf6', // Purple center dot
+          borderColor: '#8b5cf6', // Purple border
+          borderWidth: 2,
         },
         emphasis: {
           scale: 1.5,
