@@ -1410,39 +1410,39 @@ Example - German ventilation monitor:
 
       const prompt = `You are a medical command parser for anesthesia drug administration in German hospitals.
 
-Parse the voice command and extract the drug name and dosage.
+Parse the voice command and extract ALL drug names and dosages mentioned. The command may contain multiple drugs.
 
 COMMON GERMAN PATTERNS:
-- "gebe 5mg Ephedrin" → give 5mg ephedrine
-- "5mg Ephedrin sind drin" → 5mg ephedrine is in
-- "10mg Atropin gegeben" → 10mg atropine given
-- "Propofol 200mg" → propofol 200mg
-- "Fentanyl 100 Mikrogramm" → fentanyl 100mcg
+- Single drug: "gebe 5mg Ephedrin" → give 5mg ephedrine
+- Multiple drugs: "Fentanyl 50 Mikrogramm, Rocuronium 5mg und Ephedrin 5mg" → fentanyl 50mcg, rocuronium 5mg, and ephedrine 5mg
+- Sequential: "100mg Propofol, dann 50 Mikrogramm Fentanyl" → 100mg propofol, then 50mcg fentanyl
 
 DRUG NAME NORMALIZATION:
-- Standardize to common drug names (Ephedrin → Ephedrine, Fentanyl → Fentanyl, etc.)
+- Standardize to common drug names (Ephedrin → Ephedrine, Fentanyl → Fentanyl, Rocuronium → Rocuronium, etc.)
 - Keep original German name if standard
 
 DOSAGE EXTRACTION:
-- Extract numeric value and unit
+- Extract numeric value and unit for each drug
 - Common units: mg, mcg/µg, g, ml, IE (international units)
 - Normalize: "Mikrogramm" → "mcg", "Milligramm" → "mg"
 
 INPUT: "${transcription}"
 
-Return ONLY a JSON object:
+Return ONLY a JSON object with an array of drugs:
 {
-  "drug": "string (standardized drug name)",
-  "dose": "string (value + unit, e.g., '5mg', '100mcg')",
-  "confidence": "high" | "medium" | "low"
+  "drugs": [
+    {
+      "drug": "string (standardized drug name)",
+      "dose": "string (value + unit, e.g., '5mg', '100mcg')",
+      "confidence": "high" | "medium" | "low"
+    }
+  ]
 }
 
-If unable to parse clearly, return:
+If unable to parse any drugs, return:
 {
-  "drug": null,
-  "dose": null,
-  "confidence": "low",
-  "error": "Could not parse command"
+  "drugs": [],
+  "error": "Could not parse any drug commands"
 }`;
 
       const response = await openai.chat.completions.create({
