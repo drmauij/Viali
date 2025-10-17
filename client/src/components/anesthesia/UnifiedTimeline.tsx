@@ -1239,8 +1239,8 @@ export function UnifiedTimeline({
         xAxisIndex: 0,
         yAxisIndex: 0,
         data: [[pendingSysValue.time, pendingSysValue.value]],
-        symbol: 'path://m7 4 5 5 5-5', // Chevron down (∨) from Lucide ChevronsDownUp
-        symbolSize: 16,
+        symbol: 'path://m6 9 6 6 6-6', // Exact Lucide chevron-down
+        symbolSize: 18,
         itemStyle: {
           color: '#9ca3af', // Darker gray for better visibility
         },
@@ -1306,7 +1306,7 @@ export function UnifiedTimeline({
     }
     
     // Add BP scatter points if there are data points (chronologically sorted)
-    // Using exact Lucide ChevronsDownUp icon paths
+    // Using exact Lucide chevron-down and chevron-up icon paths
     if (sortedSysData.length > 0) {
       series.push({
         type: 'scatter',
@@ -1314,8 +1314,8 @@ export function UnifiedTimeline({
         xAxisIndex: 0,
         yAxisIndex: 0,
         data: sortedSysData,
-        symbol: 'path://m7 4 5 5 5-5', // Chevron down (∨) from Lucide ChevronsDownUp
-        symbolSize: 16,
+        symbol: 'path://m6 9 6 6 6-6', // Exact Lucide chevron-down (∨)
+        symbolSize: 18,
         itemStyle: {
           color: 'transparent', // Transparent fill for outline only
           borderColor: '#000000', // Black outline
@@ -1340,8 +1340,8 @@ export function UnifiedTimeline({
         xAxisIndex: 0,
         yAxisIndex: 0,
         data: sortedDiaData,
-        symbol: 'path://m7 20 5-5 5 5', // Chevron up (∧) from Lucide ChevronsDownUp
-        symbolSize: 16,
+        symbol: 'path://m18 15-6-6-6 6', // Exact Lucide chevron-up (∧)
+        symbolSize: 18,
         itemStyle: {
           color: 'transparent', // Transparent fill for outline only
           borderColor: '#000000', // Black outline
