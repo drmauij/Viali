@@ -1246,7 +1246,7 @@ export function UnifiedTimeline({
         xAxisIndex: 0,
         yAxisIndex: 0,
         data: [[pendingSysValue.time, pendingSysValue.value]],
-        symbol: 'path://m6 9 6 6 6-6', // Exact Lucide chevron-down
+        symbol: 'path://M 6,9 L 12,15 L 18,9 L 16,9 L 12,13 L 8,9 Z', // Chevron-down as closed outline shape
         symbolSize: 18,
         itemStyle: {
           color: '#9ca3af', // Darker gray for better visibility
@@ -1321,7 +1321,7 @@ export function UnifiedTimeline({
         xAxisIndex: 0,
         yAxisIndex: 0,
         data: sortedSysData,
-        symbol: 'path://m6 9 6 6 6-6', // Exact Lucide chevron-down (∨)
+        symbol: 'path://M 6,9 L 12,15 L 18,9 L 16,9 L 12,13 L 8,9 Z', // Chevron-down as closed outline shape
         symbolSize: 18,
         itemStyle: {
           color: 'transparent', // Transparent fill for outline only
@@ -1347,7 +1347,7 @@ export function UnifiedTimeline({
         xAxisIndex: 0,
         yAxisIndex: 0,
         data: sortedDiaData,
-        symbol: 'path://m18 15-6-6-6 6', // Exact Lucide chevron-up (∧)
+        symbol: 'path://M 18,15 L 12,9 L 6,15 L 8,15 L 12,11 L 16,15 Z', // Chevron-up as closed outline shape
         symbolSize: 18,
         itemStyle: {
           color: 'transparent', // Transparent fill for outline only
@@ -1374,8 +1374,8 @@ export function UnifiedTimeline({
         xAxisIndex: 0,
         yAxisIndex: 1, // Use second y-axis (45-105 range)
         data: sortedSpo2Data,
-        symbol: 'path://M 2,12 a 10,10 0 1,0 20,0 a 10,10 0 1,0 -20,0 M 11,12 a 1,1 0 1,0 2,0 a 1,1 0 1,0 -2,0', // Exact Lucide CircleDot: outer circle (r=10) + inner dot (r=1)
-        symbolSize: 18,
+        symbol: 'circle', // Use ECharts built-in circle
+        symbolSize: 12,
         showSymbol: true,
         lineStyle: {
           color: '#8b5cf6', // Purple line
