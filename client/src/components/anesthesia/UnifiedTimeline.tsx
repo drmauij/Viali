@@ -1523,6 +1523,8 @@ export function UnifiedTimeline({
 
     // Add medication dose series (text labels similar to ventilation)
     const medicationParentIndex = activeSwimlanes.findIndex(s => s.id === "medikamente");
+    console.log('[Medication Chart] medicationDoseData:', medicationDoseData);
+    console.log('[Medication Chart] medicationParentIndex:', medicationParentIndex, 'collapsed:', collapsedSwimlanes.has("medikamente"));
     
     if (medicationParentIndex !== -1 && !collapsedSwimlanes.has("medikamente")) {
       const textColor = isDark ? '#ffffff' : '#000000';
@@ -1537,6 +1539,8 @@ export function UnifiedTimeline({
           // Grid/axis index matches swimlane position (index is already correct, vitals is grid 0)
           const gridIdx = index + 1; // +1 because vitals is grid 0
           
+          console.log('[Medication Chart] Creating series for', lane.label, 'gridIdx:', gridIdx, 'data:', dosePoints);
+          
           // Create values map and series data
           const valuesMap = new Map(dosePoints.map(([time, dose]) => [time, dose]));
           // Use empty string to match axis data: [""] (identical to ventilation pattern)
@@ -1548,8 +1552,7 @@ export function UnifiedTimeline({
             xAxisIndex: gridIdx,
             yAxisIndex: gridIdx + 1, // +1 because yAxes has 2 vitals axes first
             data: seriesData,
-            symbol: 'none', // No symbol - only text label
-            symbolSize: 1, // Minimum size needed for label positioning
+            symbol: 'none',
             label: {
               show: true,
               formatter: (params: any) => {
@@ -1557,7 +1560,7 @@ export function UnifiedTimeline({
                 return valuesMap.get(timestamp)?.toString() || '';
               },
               fontSize: 13,
-              fontWeight: 'bold',
+              fontWeight: '600',
               fontFamily: modernMonoFont,
               color: textColor,
             },
