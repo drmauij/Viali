@@ -956,7 +956,7 @@ export function UnifiedTimeline({
             top: rowY,
             style: {
               text: value.toString(),
-              font: `600 13px ${modernMonoFont}`,
+              font: `bold 13px ${modernMonoFont}`,
               fill: textColor,
               textAlign: 'center',
               textVerticalAlign: 'middle',
@@ -1028,7 +1028,7 @@ export function UnifiedTimeline({
               top: rowY,
               style: {
                 text: dose.toString(),
-                font: `600 13px ${modernMonoFont}`,
+                font: `bold 13px ${modernMonoFont}`,
                 fill: textColor,
                 textAlign: 'center',
                 textVerticalAlign: 'middle',
