@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, useEffect } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
 import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -4255,16 +4255,14 @@ export function UnifiedTimeline({
         <DialogContent className="sm:max-w-[500px]" data-testid="dialog-event-comment">
           <DialogHeader>
             <DialogTitle>{editingEvent ? 'Edit Event' : 'Add Event'}</DialogTitle>
-            {pendingEvent && !editingEvent && (
-              <p className="text-sm text-muted-foreground">
-                At {new Date(pendingEvent.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
-              </p>
-            )}
-            {editingEvent && (
-              <p className="text-sm text-muted-foreground">
-                At {new Date(editingEvent.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
-              </p>
-            )}
+            <DialogDescription>
+              {editingEvent 
+                ? `Edit or delete the event at ${new Date(editingEvent.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                : pendingEvent 
+                  ? `Add an event at ${new Date(pendingEvent.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                  : 'Add an event to the timeline'
+              }
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -4321,11 +4319,12 @@ export function UnifiedTimeline({
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-medication-edit">
           <DialogHeader>
             <DialogTitle>Edit Dose</DialogTitle>
-            {editingMedicationDose && (
-              <p className="text-sm text-muted-foreground">
-                At {new Date(editingMedicationDose.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
-              </p>
-            )}
+            <DialogDescription>
+              {editingMedicationDose 
+                ? `Edit or delete the dose at ${new Date(editingMedicationDose.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                : 'Edit medication dose'
+              }
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -4383,11 +4382,12 @@ export function UnifiedTimeline({
         <DialogContent className="sm:max-w-[550px]" data-testid="dialog-ventilation-bulk">
           <DialogHeader>
             <DialogTitle>Ventilation Bulk Entry</DialogTitle>
-            {pendingVentilationBulk && (
-              <p className="text-sm text-muted-foreground">
-                At {new Date(pendingVentilationBulk.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
-              </p>
-            )}
+            <DialogDescription>
+              {pendingVentilationBulk 
+                ? `Add ventilation parameters at ${new Date(pendingVentilationBulk.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                : 'Add ventilation parameters to the timeline'
+              }
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
             <div className="grid gap-2">
