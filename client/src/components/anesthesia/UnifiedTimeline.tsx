@@ -229,8 +229,11 @@ export function UnifiedTimeline({
   const [currentZoomStart, setCurrentZoomStart] = useState<number | undefined>(undefined);
   const [currentZoomEnd, setCurrentZoomEnd] = useState<number | undefined>(undefined);
   
-  // State for tracking current snap interval (in milliseconds) - always 1 minute for drugs and ventilation
-  const [currentSnapInterval, setCurrentSnapInterval] = useState<number>(1 * 60 * 1000); // Always 1 minute
+  // State for tracking snap intervals (in milliseconds)
+  // Vitals and ventilation: zoom-dependent (1min, 5min, or 10min based on zoom level)
+  // Medications and events: always 1 minute
+  const [currentVitalsSnapInterval, setCurrentVitalsSnapInterval] = useState<number>(1 * 60 * 1000);
+  const [currentDrugSnapInterval] = useState<number>(1 * 60 * 1000); // Always 1 minute
 
   // State for interactive vital entry
   const [activeToolMode, setActiveToolMode] = useState<'hr' | 'bp' | 'spo2' | null>(null);
@@ -1027,10 +1030,24 @@ export function UnifiedTimeline({
       setCurrentZoomStart(visibleStart);
       setCurrentZoomEnd(visibleEnd);
       
-      // Always use 1-minute snap interval for drugs and ventilation parameters
-      const snapInterval = 1 * 60 * 1000; // 1-minute snap
+      // Calculate zoom-dependent snap interval for vitals and ventilation parameters
+      const visibleRangeMs = visibleEnd - visibleStart;
+      const visibleRangeMinutes = visibleRangeMs / (60 * 1000);
       
-      setCurrentSnapInterval(snapInterval);
+      let vitalsSnapInterval: number;
+      if (visibleRangeMinutes < 10) {
+        // Close zoom (< 10 minutes visible): 1-minute snap
+        vitalsSnapInterval = 1 * 60 * 1000;
+      } else if (visibleRangeMinutes < 30) {
+        // Medium zoom (10-30 minutes visible): 5-minute snap
+        vitalsSnapInterval = 5 * 60 * 1000;
+      } else {
+        // Far zoom (> 30 minutes visible): 10-minute snap
+        vitalsSnapInterval = 10 * 60 * 1000;
+      }
+      
+      setCurrentVitalsSnapInterval(vitalsSnapInterval);
+      console.log(`[Snap Interval] Visible range: ${visibleRangeMinutes.toFixed(1)} min, Vitals snap: ${vitalsSnapInterval / 60000} min, Drugs snap: 1 min`);
     };
 
     // Update immediately
@@ -3088,9 +3105,9 @@ export function UnifiedTimeline({
             const xPercent = x / rect.width;
             let time = visibleStart + (xPercent * visibleRange);
             
-            // Snap to nearest vertical grid line - use the current snap interval (already calculated)
-            console.log('Current snap interval (ms):', currentSnapInterval, 'minutes:', currentSnapInterval / 60000);
-            time = Math.round(time / currentSnapInterval) * currentSnapInterval;
+            // Snap to nearest vertical grid line - use zoom-dependent interval for vitals
+            console.log('Current vitals snap interval (ms):', currentVitalsSnapInterval, 'minutes:', currentVitalsSnapInterval / 60000);
+            time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
             
             // Convert y-position to value based on active tool
             let value: number;
@@ -3132,7 +3149,7 @@ export function UnifiedTimeline({
               
               const xPercent = x / rect.width;
               let time = visibleStart + (xPercent * visibleRange);
-              time = Math.round(time / currentSnapInterval) * currentSnapInterval;
+              time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
               
               const yPercent = y / rect.height;
               let value: number;
@@ -3201,7 +3218,8 @@ export function UnifiedTimeline({
                 setTimeout(() => setIsProcessingClick(false), 100);
               } else {
                 // Add diastolic value immediately to the chart
-                const diaPoint: VitalPoint = [clickInfo.time, clickInfo.value];
+                // CRITICAL: Use systolic's timestamp to ensure BP values are synchronized
+                const diaPoint: VitalPoint = [pendingSysValue?.time ?? clickInfo.time, clickInfo.value];
                 setBpDataPoints(prev => ({
                   ...prev,
                   dia: [...prev.dia, diaPoint]
@@ -3459,8 +3477,8 @@ export function UnifiedTimeline({
                 const xPercent = x / rect.width;
                 let time = visibleStart + (xPercent * visibleRange);
                 
-                // Snap to current interval
-                time = Math.round(time / currentSnapInterval) * currentSnapInterval;
+                // Snap to 1-minute interval for medications
+                time = Math.round(time / currentDrugSnapInterval) * currentDrugSnapInterval;
                 
                 setMedicationHoverInfo({ 
                   x: e.clientX, 
@@ -3482,12 +3500,12 @@ export function UnifiedTimeline({
                 const xPercent = x / rect.width;
                 let time = visibleStart + (xPercent * visibleRange);
                 
-                // Snap to current interval
-                time = Math.round(time / currentSnapInterval) * currentSnapInterval;
+                // Snap to 1-minute interval for medications
+                time = Math.round(time / currentDrugSnapInterval) * currentDrugSnapInterval;
                 
                 // Check if we're clicking on an existing dose label
                 const existingDoses = medicationDoseData[lane.id] || [];
-                const clickTolerance = currentSnapInterval; // Allow clicking within one interval of the dose
+                const clickTolerance = currentDrugSnapInterval; // Allow clicking within one interval of the dose
                 const existingDoseAtTime = existingDoses.find(([doseTime]) => 
                   Math.abs(doseTime - time) <= clickTolerance
                 );
@@ -3524,7 +3542,7 @@ export function UnifiedTimeline({
       {medicationHoverInfo && !isTouchDevice && (() => {
         // Check if there's an existing dose at the hover position
         const existingDoses = medicationDoseData[medicationHoverInfo.swimlaneId] || [];
-        const clickTolerance = currentSnapInterval;
+        const clickTolerance = currentDrugSnapInterval;
         const hasExistingDose = existingDoses.some(([doseTime]) => 
           Math.abs(doseTime - medicationHoverInfo.time) <= clickTolerance
         );
@@ -3578,8 +3596,8 @@ export function UnifiedTimeline({
               const xPercent = x / rect.width;
               let time = visibleStart + (xPercent * visibleRange);
               
-              // Snap to 1-minute intervals
-              time = Math.round(time / currentSnapInterval) * currentSnapInterval;
+              // Snap to zoom-dependent interval for ventilation parameters
+              time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
               
               setVentilationBulkHoverInfo({ 
                 x: e.clientX, 
@@ -3599,8 +3617,8 @@ export function UnifiedTimeline({
               const xPercent = x / rect.width;
               let time = visibleStart + (xPercent * visibleRange);
               
-              // Snap to 1-minute intervals
-              time = Math.round(time / currentSnapInterval) * currentSnapInterval;
+              // Snap to zoom-dependent interval for ventilation parameters
+              time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
               
               setPendingVentilationBulk({ time });
               setShowVentilationBulkDialog(true);
@@ -3679,8 +3697,8 @@ export function UnifiedTimeline({
                 const xPercent = x / rect.width;
                 let time = visibleStart + (xPercent * visibleRange);
                 
-                // Snap to current interval (1 minute)
-                time = Math.round(time / currentSnapInterval) * currentSnapInterval;
+                // Snap to zoom-dependent interval for ventilation parameters
+                time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
                 
                 setVentilationHoverInfo({ 
                   x: e.clientX, 
@@ -3702,8 +3720,8 @@ export function UnifiedTimeline({
                 const xPercent = x / rect.width;
                 let time = visibleStart + (xPercent * visibleRange);
                 
-                // Snap to current interval (1 minute)
-                time = Math.round(time / currentSnapInterval) * currentSnapInterval;
+                // Snap to zoom-dependent interval for ventilation parameters
+                time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
                 
                 setPendingVentilationValue({ 
                   paramKey: paramInfo.key, 
