@@ -1238,8 +1238,8 @@ export function UnifiedTimeline({
         xAxisIndex: 0,
         yAxisIndex: 0,
         data: [[pendingSysValue.time, pendingSysValue.value]],
-        symbol: 'path://M0,0 L10,10 L20,0', // Chevron down for systolic
-        symbolSize: 12,
+        symbol: 'path://M2,2 L10,10 L18,2', // Chevron down for systolic
+        symbolSize: 14,
         itemStyle: {
           color: '#9ca3af', // Darker gray for better visibility
         },
@@ -1312,8 +1312,8 @@ export function UnifiedTimeline({
         xAxisIndex: 0,
         yAxisIndex: 0,
         data: sortedSysData,
-        symbol: 'path://M0,0 L10,10 L20,0', // Chevron down for systolic
-        symbolSize: 12,
+        symbol: 'path://M2,2 L10,10 L18,2', // Chevron down for systolic
+        symbolSize: 14,
         itemStyle: {
           color: '#000000', // Black color for BP
         },
@@ -1333,8 +1333,8 @@ export function UnifiedTimeline({
         xAxisIndex: 0,
         yAxisIndex: 0,
         data: sortedDiaData,
-        symbol: 'path://M0,10 L10,0 L20,10', // Chevron up for diastolic
-        symbolSize: 12,
+        symbol: 'path://M2,10 L10,2 L18,10', // Chevron up for diastolic
+        symbolSize: 14,
         itemStyle: {
           color: '#000000', // Black color for BP
         },
