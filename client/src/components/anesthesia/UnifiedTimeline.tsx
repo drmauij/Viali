@@ -254,7 +254,7 @@ export function UnifiedTimeline({
   // State for ventilation bulk entry dialog
   const [showVentilationBulkDialog, setShowVentilationBulkDialog] = useState(false);
   const [pendingVentilationBulk, setPendingVentilationBulk] = useState<{ time: number } | null>(null);
-  const [ventilationMode, setVentilationMode] = useState("VC-CMV");
+  const [ventilationMode, setVentilationMode] = useState("PCV - druckkontrolliert");
   const [bulkVentilationParams, setBulkVentilationParams] = useState({
     peep: "5",
     fiO2: "40",
@@ -4397,12 +4397,12 @@ export function UnifiedTimeline({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="VC-CMV">VC-CMV (Volume Controlled)</SelectItem>
-                  <SelectItem value="PC-CMV">PC-CMV (Pressure Controlled)</SelectItem>
-                  <SelectItem value="SIMV">SIMV</SelectItem>
-                  <SelectItem value="PSV">PSV (Pressure Support)</SelectItem>
-                  <SelectItem value="BIPAP">BIPAP</SelectItem>
-                  <SelectItem value="CPAP">CPAP</SelectItem>
+                  <SelectItem value="Präoxygenierung">Preoxygenation</SelectItem>
+                  <SelectItem value="Assistierte Spontanatmung">Assisted Spontaneous Breathing</SelectItem>
+                  <SelectItem value="Spontanatmung am Gerät">Spontaneous Breathing on Device</SelectItem>
+                  <SelectItem value="PCV - druckkontrolliert">PCV - Pressure Controlled</SelectItem>
+                  <SelectItem value="VCV - volumenkontrolliert">VCV - Volume Controlled</SelectItem>
+                  <SelectItem value="CPAP - PSV">CPAP - PSV</SelectItem>
                 </SelectContent>
               </Select>
             </div>
