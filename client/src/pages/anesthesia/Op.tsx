@@ -105,9 +105,26 @@ export default function Op() {
   // Get patient data for this case
   const currentPatient = currentCase ? mockPatients.find(p => p.id === currentCase.patientId) : null;
 
-  // Editable allergies and CAVE state
+  // Dialog state for editing allergies and CAVE
+  const [isAllergiesDialogOpen, setIsAllergiesDialogOpen] = useState(false);
   const [allergies, setAllergies] = useState(currentPatient?.allergies.join(", ") || "");
   const [cave, setCave] = useState(currentPatient?.cave || "");
+  
+  // Temporary state for dialog editing
+  const [tempAllergies, setTempAllergies] = useState("");
+  const [tempCave, setTempCave] = useState("");
+  
+  const handleOpenAllergiesDialog = () => {
+    setTempAllergies(allergies);
+    setTempCave(cave);
+    setIsAllergiesDialogOpen(true);
+  };
+  
+  const handleSaveAllergies = () => {
+    setAllergies(tempAllergies);
+    setCave(tempCave);
+    setIsAllergiesDialogOpen(false);
+  };
 
   if (!currentCase || !currentPatient) {
     return null;
@@ -222,6 +239,7 @@ export default function Op() {
   };
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col [&>button]:hidden" aria-describedby="op-dialog-description">
         <h2 className="sr-only" id="op-dialog-title">Intraoperative Monitoring - {currentPatient.surname}, {currentPatient.firstName}</h2>
@@ -279,29 +297,25 @@ export default function Op() {
                 </div>
               </div>
 
-              {/* Allergies & CAVE - Editable Display */}
-              <div className="flex items-start gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 rounded-lg">
+              {/* Allergies & CAVE - Clickable Display */}
+              <div 
+                onClick={handleOpenAllergiesDialog}
+                className="flex items-start gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 rounded-lg cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors"
+                data-testid="allergies-cave-warning"
+              >
                 <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
                 <div className="flex gap-4 flex-wrap flex-1">
                   <div className="flex-1 min-w-[120px]">
-                    <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">ALLERGIES</p>
-                    <Input
-                      value={allergies}
-                      onChange={(e) => setAllergies(e.target.value)}
-                      placeholder="Enter allergies..."
-                      className="h-8 text-sm bg-white dark:bg-gray-900 border-amber-300 dark:border-amber-700 focus:border-amber-500 dark:focus:border-amber-500"
-                      data-testid="input-allergies-op"
-                    />
+                    <p className="text-xs font-medium text-amber-700 dark:text-amber-300">ALLERGIES</p>
+                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                      {allergies || "None"}
+                    </p>
                   </div>
                   <div className="flex-1 min-w-[120px]">
-                    <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">CAVE</p>
-                    <Input
-                      value={cave}
-                      onChange={(e) => setCave(e.target.value)}
-                      placeholder="Enter CAVE..."
-                      className="h-8 text-sm bg-white dark:bg-gray-900 border-amber-300 dark:border-amber-700 focus:border-amber-500 dark:focus:border-amber-500"
-                      data-testid="input-cave-op"
-                    />
+                    <p className="text-xs font-medium text-amber-700 dark:text-amber-300">CAVE</p>
+                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                      {cave || "None"}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1051,6 +1065,59 @@ export default function Op() {
           </TabsContent>
         </Tabs>
       </DialogContent>
+
+      {/* Allergies & CAVE Edit Dialog */}
+      <Dialog open={isAllergiesDialogOpen} onOpenChange={setIsAllergiesDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]" data-testid="dialog-edit-allergies-cave">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+              <h2 className="text-lg font-semibold">Edit Allergies & CAVE</h2>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-allergies">Allergies</Label>
+                <Input
+                  id="edit-allergies"
+                  value={tempAllergies}
+                  onChange={(e) => setTempAllergies(e.target.value)}
+                  placeholder="Enter allergies (comma-separated)..."
+                  data-testid="input-edit-allergies"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-cave">CAVE (Contraindications, Warnings)</Label>
+                <Input
+                  id="edit-cave"
+                  value={tempCave}
+                  onChange={(e) => setTempCave(e.target.value)}
+                  placeholder="Enter CAVE information..."
+                  data-testid="input-edit-cave"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setIsAllergiesDialogOpen(false)}
+                data-testid="button-cancel-allergies"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveAllergies}
+                data-testid="button-save-allergies"
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
+    </>
   );
 }
