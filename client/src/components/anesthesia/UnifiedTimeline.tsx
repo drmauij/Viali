@@ -164,6 +164,13 @@ export function UnifiedTimeline({
   const [medicationDoseInput, setMedicationDoseInput] = useState("");
   const [medicationDoseUnit, setMedicationDoseUnit] = useState("mg"); // Default unit
 
+  // State for ventilation parameter entry
+  const [ventilationHoverInfo, setVentilationHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
+  const [showVentilationDialog, setShowVentilationDialog] = useState(false);
+  const [pendingVentilationEntry, setPendingVentilationEntry] = useState<{ time: number } | null>(null);
+  const [ventilationParameter, setVentilationParameter] = useState<'etCO2' | 'pip' | 'peep' | 'tidalVolume' | 'respiratoryRate' | 'minuteVolume' | 'fiO2'>('etCO2');
+  const [ventilationValue, setVentilationValue] = useState("");
+
   // Touch device detection
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   
@@ -2513,6 +2520,51 @@ export function UnifiedTimeline({
     setMedicationDoseUnit("mg"); // Reset to default
   };
 
+  // Handle ventilation parameter entry
+  const handleVentilationEntry = () => {
+    if (!pendingVentilationEntry || !ventilationValue.trim()) return;
+    
+    const { time } = pendingVentilationEntry;
+    const value = parseFloat(ventilationValue.trim());
+    
+    if (isNaN(value)) {
+      toast({
+        title: "Invalid Value",
+        description: "Please enter a valid number",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Add to corresponding ventilation parameter
+    setVentilationData(prev => ({
+      ...prev,
+      [ventilationParameter]: [...prev[ventilationParameter], [time, value] as VitalPoint]
+    }));
+    
+    // Get parameter display name
+    const paramNames: Record<typeof ventilationParameter, string> = {
+      etCO2: 'etCO2',
+      pip: 'PIP',
+      peep: 'PEEP',
+      tidalVolume: 'Tidal Volume',
+      respiratoryRate: 'Respiratory Rate',
+      minuteVolume: 'Minute Volume',
+      fiO2: 'FiO2'
+    };
+    
+    toast({
+      title: "Ventilation Parameter Added",
+      description: `${paramNames[ventilationParameter]}: ${value} at ${new Date(time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`,
+    });
+    
+    // Reset dialog state
+    setShowVentilationDialog(false);
+    setPendingVentilationEntry(null);
+    setVentilationValue("");
+    setVentilationParameter('etCO2'); // Reset to default
+  };
+
   // Calculate swimlane positions for sidebar
   const SWIMLANE_START = VITALS_TOP_POS + VITALS_HEIGHT;
   let currentTop = SWIMLANE_START;
@@ -3153,6 +3205,92 @@ export function UnifiedTimeline({
         </div>
       )}
 
+      {/* Interactive layer for ventilation swimlane - to add parameter values */}
+      {!activeToolMode && (() => {
+        const ventilationIndex = activeSwimlanes.findIndex(s => s.id === "ventilation");
+        if (ventilationIndex === -1 || collapsedSwimlanes.has("ventilation")) return null;
+        
+        const lanePosition = swimlanePositions.find(l => l.id === "ventilation");
+        if (!lanePosition) return null;
+        
+        return (
+          <div
+            className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
+            style={{
+              left: '200px',
+              right: '10px',
+              top: `${lanePosition.top}px`,
+              height: `${lanePosition.height}px`,
+              zIndex: 35,
+            }}
+            onMouseMove={(e) => {
+              if (isTouchDevice) return;
+              
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              
+              const visibleStart = currentZoomStart ?? data.startTime;
+              const visibleEnd = currentZoomEnd ?? data.endTime;
+              const visibleRange = visibleEnd - visibleStart;
+              
+              const xPercent = x / rect.width;
+              let time = visibleStart + (xPercent * visibleRange);
+              
+              // Snap to 1-minute intervals
+              const oneMinute = 60 * 1000;
+              time = Math.round(time / oneMinute) * oneMinute;
+              
+              setVentilationHoverInfo({ 
+                x: e.clientX, 
+                y: e.clientY, 
+                time
+              });
+            }}
+            onMouseLeave={() => setVentilationHoverInfo(null)}
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              
+              const visibleStart = currentZoomStart ?? data.startTime;
+              const visibleEnd = currentZoomEnd ?? data.endTime;
+              const visibleRange = visibleEnd - visibleStart;
+              
+              const xPercent = x / rect.width;
+              let time = visibleStart + (xPercent * visibleRange);
+              
+              // Snap to 1-minute intervals
+              const oneMinute = 60 * 1000;
+              time = Math.round(time / oneMinute) * oneMinute;
+              
+              setPendingVentilationEntry({ time });
+              setShowVentilationDialog(true);
+            }}
+            data-testid="interactive-ventilation-lane"
+          />
+        );
+      })()}
+
+      {/* Tooltip for ventilation parameter entry */}
+      {ventilationHoverInfo && !isTouchDevice && (
+        <div
+          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
+          style={{
+            left: ventilationHoverInfo.x + 10,
+            top: ventilationHoverInfo.y - 40,
+          }}
+        >
+          <div className="text-sm font-semibold text-primary">
+            Click to add parameter
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Ventilation
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {new Date(ventilationHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+          </div>
+        </div>
+      )}
+
       {/* Time marker badges on the timeline */}
       {timeMarkers.filter(m => m.time !== null).map((marker) => {
         const visibleStart = currentZoomStart ?? data.startTime;
@@ -3306,6 +3444,77 @@ export function UnifiedTimeline({
               onClick={handleMedicationDoseEntry}
               data-testid="button-confirm-dose"
               disabled={!medicationDoseInput.trim()}
+            >
+              Add
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ventilation Parameter Entry Dialog */}
+      <Dialog open={showVentilationDialog} onOpenChange={setShowVentilationDialog}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-ventilation-entry">
+          <DialogHeader>
+            <DialogTitle>Add Ventilation Parameter</DialogTitle>
+            {pendingVentilationEntry && (
+              <p className="text-sm text-muted-foreground">
+                At {new Date(pendingVentilationEntry.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+              </p>
+            )}
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="ventilation-parameter">Parameter</Label>
+              <Select value={ventilationParameter} onValueChange={(value: any) => setVentilationParameter(value)}>
+                <SelectTrigger id="ventilation-parameter" data-testid="select-ventilation-parameter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="etCO2">etCO2 (End-tidal CO2)</SelectItem>
+                  <SelectItem value="pip">PIP (Peak Inspiratory Pressure)</SelectItem>
+                  <SelectItem value="peep">PEEP (Positive End-Expiratory Pressure)</SelectItem>
+                  <SelectItem value="tidalVolume">Tidal Volume</SelectItem>
+                  <SelectItem value="respiratoryRate">Respiratory Rate</SelectItem>
+                  <SelectItem value="minuteVolume">Minute Volume</SelectItem>
+                  <SelectItem value="fiO2">FiO2 (Fraction of Inspired Oxygen)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="ventilation-value">Value</Label>
+              <Input
+                id="ventilation-value"
+                data-testid="input-ventilation-value"
+                type="number"
+                value={ventilationValue}
+                onChange={(e) => setVentilationValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleVentilationEntry();
+                  }
+                }}
+                placeholder="e.g., 35, 15, 21"
+                autoFocus
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowVentilationDialog(false);
+                setPendingVentilationEntry(null);
+                setVentilationValue("");
+                setVentilationParameter('etCO2');
+              }}
+              data-testid="button-cancel-ventilation"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleVentilationEntry}
+              data-testid="button-confirm-ventilation"
+              disabled={!ventilationValue.trim()}
             >
               Add
             </Button>
