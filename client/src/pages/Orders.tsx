@@ -125,7 +125,7 @@ export default function Orders() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.locationId] });
       queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}/open-items`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/open-items/${activeHospital?.id}`, activeHospital?.locationId] });
       toast({
         title: t('orders.orderUpdated'),
         description: t('orders.orderStatusUpdated'),

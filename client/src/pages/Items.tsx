@@ -321,7 +321,7 @@ export default function Items() {
   });
 
   const { data: openOrderItems = {} } = useQuery<Record<string, { totalQty: number }>>({
-    queryKey: [`/api/orders/${activeHospital?.id}/open-items`, activeHospital?.locationId],
+    queryKey: [`/api/orders/open-items/${activeHospital?.id}`, activeHospital?.locationId],
     enabled: !!activeHospital?.id,
   });
 
@@ -560,7 +560,7 @@ export default function Items() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.locationId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}/open-items`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/open-items/${activeHospital?.id}`, activeHospital?.locationId] });
       toast({
         title: t('items.addedToOrder'),
         description: t('items.addedToDraftOrder'),
