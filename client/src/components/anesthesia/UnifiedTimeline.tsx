@@ -457,11 +457,12 @@ export function UnifiedTimeline({
       setSpo2DataPoints(updated);
     }
 
-    toast({
-      title: "Value updated",
-      description: "Vital sign value has been saved",
-      duration: 2000,
-    });
+    // Toast notification disabled (can be re-enabled later)
+    // toast({
+    //   title: "Value updated",
+    //   description: "Vital sign value has been saved",
+    //   duration: 2000,
+    // });
 
     setEditDialogOpen(false);
     setEditingValue(null);
@@ -488,11 +489,12 @@ export function UnifiedTimeline({
       setSpo2DataPoints(spo2DataPoints.filter((_, i) => i !== index));
     }
 
-    toast({
-      title: "Value deleted",
-      description: "Vital sign value has been removed",
-      duration: 2000,
-    });
+    // Toast notification disabled (can be re-enabled later)
+    // toast({
+    //   title: "Value deleted",
+    //   description: "Vital sign value has been removed",
+    //   duration: 2000,
+    // });
 
     setEditDialogOpen(false);
     setEditingValue(null);
@@ -506,11 +508,12 @@ export function UnifiedTimeline({
     // Find next unplaced marker
     const nextMarkerIndex = timeMarkers.findIndex(m => m.time === null);
     if (nextMarkerIndex === -1) {
-      toast({
-        title: "All markers placed",
-        description: "All anesthesia time markers have been placed. Use the clock icon to edit times.",
-        duration: 3000,
-      });
+      // Toast notification disabled (can be re-enabled later)
+      // toast({
+      //   title: "All markers placed",
+      //   description: "All anesthesia time markers have been placed. Use the clock icon to edit times.",
+      //   duration: 3000,
+      // });
       return;
     }
     
@@ -532,11 +535,12 @@ export function UnifiedTimeline({
     updated[nextMarkerIndex] = { ...updated[nextMarkerIndex], time };
     setTimeMarkers(updated);
     
-    toast({
-      title: `${updated[nextMarkerIndex].code} placed`,
-      description: `${updated[nextMarkerIndex].label} at ${new Date(time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
-      duration: 2000,
-    });
+    // Toast notification disabled (can be re-enabled later)
+    // toast({
+    //   title: `${updated[nextMarkerIndex].code} placed`,
+    //   description: `${updated[nextMarkerIndex].label} at ${new Date(time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
+    //   duration: 2000,
+    // });
   };
 
   // Undo last vital entry
@@ -545,29 +549,32 @@ export function UnifiedTimeline({
 
     if (lastAction.type === 'hr' && lastAction.data) {
       setHrDataPoints(prev => prev.filter(p => p[0] !== lastAction.data![0] || p[1] !== lastAction.data![1]));
-      toast({
-        title: "Value removed",
-        description: "HR value has been removed",
-        duration: 2000,
-      });
+      // Toast notification disabled (can be re-enabled later)
+      // toast({
+      //   title: "Value removed",
+      //   description: "HR value has been removed",
+      //   duration: 2000,
+      // });
     } else if (lastAction.type === 'bp' && lastAction.bpData) {
       const { sys, dia } = lastAction.bpData;
       setBpDataPoints(prev => ({
         sys: prev.sys.filter(p => p[0] !== sys[0] || p[1] !== sys[1]),
         dia: prev.dia.filter(p => p[0] !== dia[0] || p[1] !== dia[1])
       }));
-      toast({
-        title: "Value removed",
-        description: "BP values have been removed",
-        duration: 2000,
-      });
+      // Toast notification disabled (can be re-enabled later)
+      // toast({
+      //   title: "Value removed",
+      //   description: "BP values have been removed",
+      //   duration: 2000,
+      // });
     } else if (lastAction.type === 'spo2' && lastAction.data) {
       setSpo2DataPoints(prev => prev.filter(p => p[0] !== lastAction.data![0] || p[1] !== lastAction.data![1]));
-      toast({
-        title: "Value removed",
-        description: "SpO2 value has been removed",
-        duration: 2000,
-      });
+      // Toast notification disabled (can be re-enabled later)
+      // toast({
+      //   title: "Value removed",
+      //   description: "SpO2 value has been removed",
+      //   duration: 2000,
+      // });
     }
 
     setLastAction(null);
@@ -2005,10 +2012,11 @@ export function UnifiedTimeline({
         grayscale: false, // Skip pixel-by-pixel grayscale conversion - not needed for modern OCR/AI
       });
       
-      toast({
-        title: "Image Preprocessed",
-        description: `Optimized: ${preprocessed.sizeReduction}% smaller`,
-      });
+      // Toast notification disabled (can be re-enabled later)
+      // toast({
+      //   title: "Image Preprocessed",
+      //   description: `Optimized: ${preprocessed.sizeReduction}% smaller`,
+      // });
       
       // Step 2: Try fast seven-segment detection first
       const { detectVitalsFromImage, validateVitalRange, clampToRange } = await import('@/lib/sevenSegmentOCR');
@@ -2026,10 +2034,11 @@ export function UnifiedTimeline({
       
       if (needsAI) {
         // Step 4: Fall back to OpenAI Vision for low confidence or missing values
-        toast({
-          title: "Analyzing with AI...",
-          description: "Using advanced detection for complex readings",
-        });
+        // Toast notification disabled (can be re-enabled later)
+        // toast({
+        //   title: "Analyzing with AI...",
+        //   description: "Using advanced detection for complex readings",
+        // });
         
         // Add timeout to prevent hanging
         const controller = new AbortController();
@@ -2520,10 +2529,11 @@ export function UnifiedTimeline({
       };
     });
     
-    toast({
-      title: "Dose Added",
-      description: `${label}: ${medicationDoseInput.trim()} at ${new Date(time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`,
-    });
+    // Toast notification disabled (can be re-enabled later)
+    // toast({
+    //   title: "Dose Added",
+    //   description: `${label}: ${medicationDoseInput.trim()} at ${new Date(time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`,
+    // });
     
     // Reset dialog state
     setShowMedicationDoseDialog(false);
@@ -2555,10 +2565,11 @@ export function UnifiedTimeline({
       };
     });
     
-    toast({
-      title: "Value Added",
-      description: `${label}: ${value} at ${new Date(time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`,
-    });
+    // Toast notification disabled (can be re-enabled later)
+    // toast({
+    //   title: "Value Added",
+    //   description: `${label}: ${value} at ${new Date(time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`,
+    // });
     
     // Reset dialog state
     setShowVentilationDialog(false);
@@ -3598,11 +3609,12 @@ export function UnifiedTimeline({
             <Button
               onClick={() => {
                 setBulkEditDialogOpen(false);
-                toast({
-                  title: "Times saved",
-                  description: "Anesthesia times have been updated",
-                  duration: 2000,
-                });
+                // Toast notification disabled (can be re-enabled later)
+                // toast({
+                //   title: "Times saved",
+                //   description: "Anesthesia times have been updated",
+                //   duration: 2000,
+                // });
               }}
               data-testid="button-save-bulk-edit"
             >
