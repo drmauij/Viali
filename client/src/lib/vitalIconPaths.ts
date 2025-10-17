@@ -21,8 +21,11 @@ export const VITAL_ICON_PATHS = {
     strokeWidth: 2,
   },
   circleDot: {
-    // Lucide CircleDot icon (24x24 viewBox) - circle with center dot
-    path: 'M12 2a10 10 0 1 0 0 20 10 10 0 1 0 0-20Z M12 12h.01',
+    // Lucide CircleDot icon (24x24 viewBox) - TWO circles: outer (r=10) + inner dot (r=1)
+    // Note: This needs special handling to render both circles
+    path: '', // Not used for circleDot - handled specially in renderItem
+    outerCircle: { cx: 12, cy: 12, r: 10 },
+    innerCircle: { cx: 12, cy: 12, r: 1 },
     viewBox: { width: 24, height: 24 },
     strokeWidth: 2,
   },

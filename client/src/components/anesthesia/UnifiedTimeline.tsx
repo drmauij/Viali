@@ -78,7 +78,8 @@ function createLucideIconSeries(
   color: string,
   yAxisIndex: number,
   size: number = 16,
-  zLevel: number = 20
+  zLevel: number = 20,
+  isCircleDot: boolean = false
 ) {
   return {
     type: 'custom',
@@ -89,7 +90,46 @@ function createLucideIconSeries(
     z: zLevel,
     renderItem: (params: any, api: any) => {
       const point = api.coord([api.value(0), api.value(1)]);
-      // Return SVG path shape with stroke styling
+      const scale = size / 24; // Scale from 24x24 viewBox to desired size
+      
+      // Special handling for CircleDot (two circles)
+      if (isCircleDot) {
+        return {
+          type: 'group',
+          children: [
+            // Outer circle (r=10)
+            {
+              type: 'circle',
+              x: point[0],
+              y: point[1],
+              shape: {
+                r: 10 * scale,
+              },
+              style: {
+                fill: 'none',
+                stroke: color,
+                lineWidth: 2,
+              },
+            },
+            // Inner dot (r=1)
+            {
+              type: 'circle',
+              x: point[0],
+              y: point[1],
+              shape: {
+                r: 1 * scale,
+              },
+              style: {
+                fill: 'none',
+                stroke: color,
+                lineWidth: 2,
+              },
+            },
+          ],
+        };
+      }
+      
+      // Regular path-based icons (heart, chevrons)
       return {
         type: 'path',
         x: point[0] - size / 2,
@@ -105,8 +145,8 @@ function createLucideIconSeries(
           lineWidth: 2,
         },
         // Scale to desired size
-        scaleX: size / 24,
-        scaleY: size / 24,
+        scaleX: scale,
+        scaleY: scale,
       };
     },
   };
@@ -1391,16 +1431,17 @@ export function UnifiedTimeline({
         z: 9,
       });
       
-      // SpO2 symbols with Lucide CircleDot
+      // SpO2 symbols with Lucide CircleDot (outer circle + inner dot)
       series.push(
         createLucideIconSeries(
           'SpO2',
           sortedSpo2Data,
-          VITAL_ICON_PATHS.circleDot.path,
+          '', // Not used for CircleDot
           '#8b5cf6', // Purple
           1, // yAxisIndex (second y-axis for 45-105 range)
           16, // size
-          10 // z-level
+          10, // z-level
+          true // isCircleDot flag
         )
       );
     }
