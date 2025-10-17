@@ -1,12 +1,14 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp } from "lucide-react";
+import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StickyTimelineHeader } from "./StickyTimelineHeader";
 import { useToast } from "@/hooks/use-toast";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
@@ -39,6 +41,12 @@ export type TimelineEvent = {
   color?: string;
   duration?: number; // ms - for range items like infusions
   row?: number; // for multiple medication rows
+};
+
+export type EventComment = {
+  id: string;
+  time: number; // ms
+  text: string;
 };
 
 export type UnifiedTimelineData = {
@@ -166,11 +174,13 @@ export function UnifiedTimeline({
   height,
   swimlanes, // Optional: allow custom swimlane configuration
   now, // Current time for determining editable zones and initial zoom
+  patientWeight, // Patient weight in kg for default ventilation calculations
 }: {
   data: UnifiedTimelineData;
   height?: number;
   swimlanes?: SwimlaneConfig[];
   now?: number;
+  patientWeight?: number;
 }) {
   const chartRef = useRef<any>(null);
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
@@ -227,6 +237,34 @@ export function UnifiedTimeline({
     minuteVolume: [],
     fiO2: [],
   });
+
+  // State for event comments
+  const [eventComments, setEventComments] = useState<EventComment[]>([]);
+  const [showEventDialog, setShowEventDialog] = useState(false);
+  const [pendingEvent, setPendingEvent] = useState<{ time: number } | null>(null);
+  const [editingEvent, setEditingEvent] = useState<EventComment | null>(null);
+  const [eventTextInput, setEventTextInput] = useState("");
+  const [eventHoverInfo, setEventHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
+
+  // State for medication dose edit dialog
+  const [showMedicationEditDialog, setShowMedicationEditDialog] = useState(false);
+  const [editingMedicationDose, setEditingMedicationDose] = useState<{ swimlaneId: string; time: number; dose: string; index: number } | null>(null);
+  const [medicationEditInput, setMedicationEditInput] = useState("");
+
+  // State for ventilation bulk entry dialog
+  const [showVentilationBulkDialog, setShowVentilationBulkDialog] = useState(false);
+  const [pendingVentilationBulk, setPendingVentilationBulk] = useState<{ time: number } | null>(null);
+  const [ventilationMode, setVentilationMode] = useState("VC-CMV");
+  const [bulkVentilationParams, setBulkVentilationParams] = useState({
+    peep: "5",
+    fiO2: "40",
+    tidalVolume: "",
+    respiratoryRate: "12",
+    etCO2: "",
+    pip: "",
+    minuteVolume: "",
+  });
+  const [ventilationBulkHoverInfo, setVentilationBulkHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
   
   // State for BP dual entry (systolic then diastolic)
   const [bpEntryMode, setBpEntryMode] = useState<'sys' | 'dia'>('sys');
@@ -331,6 +369,17 @@ export function UnifiedTimeline({
     });
     return () => observer.disconnect();
   }, []);
+
+  // Update default tidal volume when patient weight changes
+  useEffect(() => {
+    if (patientWeight) {
+      const calculatedVT = (6 * patientWeight).toString();
+      setBulkVentilationParams(prev => ({
+        ...prev,
+        tidalVolume: calculatedVT,
+      }));
+    }
+  }, [patientWeight]);
 
   // Predefined medications list
   const medicationsList = [
@@ -2609,6 +2658,152 @@ export function UnifiedTimeline({
     setVentilationValueInput("");
   };
 
+  // Handle event comment save
+  const handleEventSave = () => {
+    if (!eventTextInput.trim()) return;
+    
+    if (editingEvent) {
+      // Edit existing event
+      setEventComments(prev => 
+        prev.map(ev => ev.id === editingEvent.id ? { ...ev, text: eventTextInput.trim() } : ev)
+      );
+    } else if (pendingEvent) {
+      // Add new event
+      const newEvent: EventComment = {
+        id: `event-${Date.now()}`,
+        time: pendingEvent.time,
+        text: eventTextInput.trim(),
+      };
+      setEventComments(prev => [...prev, newEvent]);
+    }
+    
+    // Reset dialog state
+    setShowEventDialog(false);
+    setPendingEvent(null);
+    setEditingEvent(null);
+    setEventTextInput("");
+  };
+
+  // Handle event delete
+  const handleEventDelete = () => {
+    if (editingEvent) {
+      setEventComments(prev => prev.filter(ev => ev.id !== editingEvent.id));
+    }
+    
+    setShowEventDialog(false);
+    setEditingEvent(null);
+    setEventTextInput("");
+  };
+
+  // Handle medication dose edit save
+  const handleMedicationDoseEditSave = () => {
+    if (!editingMedicationDose || !medicationEditInput.trim()) return;
+    
+    const { swimlaneId, index } = editingMedicationDose;
+    
+    setMedicationDoseData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      const updated = [...existingData];
+      updated[index] = [updated[index][0], medicationEditInput.trim()];
+      return {
+        ...prev,
+        [swimlaneId]: updated,
+      };
+    });
+    
+    // Reset dialog state
+    setShowMedicationEditDialog(false);
+    setEditingMedicationDose(null);
+    setMedicationEditInput("");
+  };
+
+  // Handle medication dose delete
+  const handleMedicationDoseDelete = () => {
+    if (!editingMedicationDose) return;
+    
+    const { swimlaneId, index } = editingMedicationDose;
+    
+    setMedicationDoseData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      const updated = existingData.filter((_, i) => i !== index);
+      return {
+        ...prev,
+        [swimlaneId]: updated,
+      };
+    });
+    
+    setShowMedicationEditDialog(false);
+    setEditingMedicationDose(null);
+    setMedicationEditInput("");
+  };
+
+  // Handle ventilation bulk entry save
+  const handleVentilationBulkSave = () => {
+    if (!pendingVentilationBulk) return;
+    
+    const { time } = pendingVentilationBulk;
+    
+    // Add all filled parameters at the same time
+    setVentilationData(prev => {
+      const updated = { ...prev };
+      
+      if (bulkVentilationParams.peep) {
+        const value = parseFloat(bulkVentilationParams.peep);
+        if (!isNaN(value)) {
+          updated.peep = [...updated.peep, [time, value] as VitalPoint];
+        }
+      }
+      
+      if (bulkVentilationParams.fiO2) {
+        const value = parseFloat(bulkVentilationParams.fiO2);
+        if (!isNaN(value)) {
+          updated.fiO2 = [...updated.fiO2, [time, value] as VitalPoint];
+        }
+      }
+      
+      if (bulkVentilationParams.tidalVolume) {
+        const value = parseFloat(bulkVentilationParams.tidalVolume);
+        if (!isNaN(value)) {
+          updated.tidalVolume = [...updated.tidalVolume, [time, value] as VitalPoint];
+        }
+      }
+      
+      if (bulkVentilationParams.respiratoryRate) {
+        const value = parseFloat(bulkVentilationParams.respiratoryRate);
+        if (!isNaN(value)) {
+          updated.respiratoryRate = [...updated.respiratoryRate, [time, value] as VitalPoint];
+        }
+      }
+      
+      if (bulkVentilationParams.etCO2) {
+        const value = parseFloat(bulkVentilationParams.etCO2);
+        if (!isNaN(value)) {
+          updated.etCO2 = [...updated.etCO2, [time, value] as VitalPoint];
+        }
+      }
+      
+      if (bulkVentilationParams.pip) {
+        const value = parseFloat(bulkVentilationParams.pip);
+        if (!isNaN(value)) {
+          updated.pip = [...updated.pip, [time, value] as VitalPoint];
+        }
+      }
+      
+      if (bulkVentilationParams.minuteVolume) {
+        const value = parseFloat(bulkVentilationParams.minuteVolume);
+        if (!isNaN(value)) {
+          updated.minuteVolume = [...updated.minuteVolume, [time, value] as VitalPoint];
+        }
+      }
+      
+      return updated;
+    });
+    
+    // Reset dialog state
+    setShowVentilationBulkDialog(false);
+    setPendingVentilationBulk(null);
+  };
+
   // Calculate swimlane positions for sidebar
   const SWIMLANE_START = VITALS_TOP_POS + VITALS_HEIGHT;
   let currentTop = SWIMLANE_START;
@@ -3129,6 +3324,87 @@ export function UnifiedTimeline({
         );
       })()}
 
+      {/* Interactive layer for Events swimlane - to add event comments */}
+      {!activeToolMode && (() => {
+        const eventsLane = swimlanePositions.find(lane => lane.id === 'ereignisse');
+        if (!eventsLane) return null;
+        
+        return (
+          <div
+            className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
+            style={{
+              left: '200px',
+              right: '10px',
+              top: `${eventsLane.top}px`,
+              height: `${eventsLane.height}px`,
+              zIndex: 35,
+            }}
+            onMouseMove={(e) => {
+              if (isTouchDevice) return;
+              
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              
+              const visibleStart = currentZoomStart ?? data.startTime;
+              const visibleEnd = currentZoomEnd ?? data.endTime;
+              const visibleRange = visibleEnd - visibleStart;
+              
+              const xPercent = x / rect.width;
+              let time = visibleStart + (xPercent * visibleRange);
+              
+              // Snap to 1-minute intervals
+              const oneMinute = 60 * 1000;
+              time = Math.round(time / oneMinute) * oneMinute;
+              
+              setEventHoverInfo({ 
+                x: e.clientX, 
+                y: e.clientY, 
+                time
+              });
+            }}
+            onMouseLeave={() => setEventHoverInfo(null)}
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              
+              const visibleStart = currentZoomStart ?? data.startTime;
+              const visibleEnd = currentZoomEnd ?? data.endTime;
+              const visibleRange = visibleEnd - visibleStart;
+              
+              const xPercent = x / rect.width;
+              let time = visibleStart + (xPercent * visibleRange);
+              
+              // Snap to 1-minute intervals
+              const oneMinute = 60 * 1000;
+              time = Math.round(time / oneMinute) * oneMinute;
+              
+              setPendingEvent({ time });
+              setEventTextInput("");
+              setShowEventDialog(true);
+            }}
+            data-testid="interactive-events-lane"
+          />
+        );
+      })()}
+
+      {/* Tooltip for events entry */}
+      {eventHoverInfo && !isTouchDevice && (
+        <div
+          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
+          style={{
+            left: eventHoverInfo.x + 10,
+            top: eventHoverInfo.y - 40,
+          }}
+        >
+          <div className="text-sm font-semibold text-primary">
+            Click to add event
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {new Date(eventHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+          </div>
+        </div>
+      )}
+
       {/* Interactive layers for medication swimlanes - to place dose labels */}
       {!activeToolMode && (() => {
         const medicationParentIndex = activeSwimlanes.findIndex(s => s.id === "medikamente");
@@ -3221,6 +3497,84 @@ export function UnifiedTimeline({
           </div>
           <div className="text-xs text-muted-foreground">
             {new Date(medicationHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+          </div>
+        </div>
+      )}
+
+      {/* Interactive layer for Ventilation parent swimlane - for bulk entry */}
+      {!activeToolMode && (() => {
+        const ventilationParentLane = swimlanePositions.find(lane => lane.id === 'ventilation');
+        if (!ventilationParentLane || !collapsedSwimlanes.has("ventilation")) return null;
+        
+        return (
+          <div
+            className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
+            style={{
+              left: '200px',
+              right: '10px',
+              top: `${ventilationParentLane.top}px`,
+              height: `${ventilationParentLane.height}px`,
+              zIndex: 35,
+            }}
+            onMouseMove={(e) => {
+              if (isTouchDevice) return;
+              
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              
+              const visibleStart = currentZoomStart ?? data.startTime;
+              const visibleEnd = currentZoomEnd ?? data.endTime;
+              const visibleRange = visibleEnd - visibleStart;
+              
+              const xPercent = x / rect.width;
+              let time = visibleStart + (xPercent * visibleRange);
+              
+              // Snap to 1-minute intervals
+              time = Math.round(time / currentSnapInterval) * currentSnapInterval;
+              
+              setVentilationBulkHoverInfo({ 
+                x: e.clientX, 
+                y: e.clientY, 
+                time
+              });
+            }}
+            onMouseLeave={() => setVentilationBulkHoverInfo(null)}
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              
+              const visibleStart = currentZoomStart ?? data.startTime;
+              const visibleEnd = currentZoomEnd ?? data.endTime;
+              const visibleRange = visibleEnd - visibleStart;
+              
+              const xPercent = x / rect.width;
+              let time = visibleStart + (xPercent * visibleRange);
+              
+              // Snap to 1-minute intervals
+              time = Math.round(time / currentSnapInterval) * currentSnapInterval;
+              
+              setPendingVentilationBulk({ time });
+              setShowVentilationBulkDialog(true);
+            }}
+            data-testid="interactive-ventilation-bulk-lane"
+          />
+        );
+      })()}
+
+      {/* Tooltip for ventilation bulk entry */}
+      {ventilationBulkHoverInfo && !isTouchDevice && (
+        <div
+          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
+          style={{
+            left: ventilationBulkHoverInfo.x + 10,
+            top: ventilationBulkHoverInfo.y - 40,
+          }}
+        >
+          <div className="text-sm font-semibold text-primary">
+            Click for bulk entry
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {new Date(ventilationBulkHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
           </div>
         </div>
       )}
