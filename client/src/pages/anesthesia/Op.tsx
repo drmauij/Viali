@@ -105,6 +105,10 @@ export default function Op() {
   // Get patient data for this case
   const currentPatient = currentCase ? mockPatients.find(p => p.id === currentCase.patientId) : null;
 
+  // Editable allergies and CAVE state
+  const [allergies, setAllergies] = useState(currentPatient?.allergies.join(", ") || "");
+  const [cave, setCave] = useState(currentPatient?.cave || "");
+
   if (!currentCase || !currentPatient) {
     return null;
   }
@@ -275,24 +279,30 @@ export default function Op() {
                 </div>
               </div>
 
-              {/* Allergies & CAVE - Prominent Display */}
+              {/* Allergies & CAVE - Editable Display */}
               <div className="flex items-start gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 rounded-lg">
                 <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
                 <div className="flex gap-4 flex-wrap flex-1">
                   <div className="flex-1 min-w-[120px]">
-                    <p className="text-xs font-medium text-amber-700 dark:text-amber-300">ALLERGIES</p>
-                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                      {currentPatient.allergies.join(", ")}
-                    </p>
+                    <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">ALLERGIES</p>
+                    <Input
+                      value={allergies}
+                      onChange={(e) => setAllergies(e.target.value)}
+                      placeholder="Enter allergies..."
+                      className="h-8 text-sm bg-white dark:bg-gray-900 border-amber-300 dark:border-amber-700 focus:border-amber-500 dark:focus:border-amber-500"
+                      data-testid="input-allergies-op"
+                    />
                   </div>
-                  {currentPatient.cave && (
-                    <div className="flex-1 min-w-[120px]">
-                      <p className="text-xs font-medium text-amber-700 dark:text-amber-300">CAVE</p>
-                      <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                        {currentPatient.cave}
-                      </p>
-                    </div>
-                  )}
+                  <div className="flex-1 min-w-[120px]">
+                    <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">CAVE</p>
+                    <Input
+                      value={cave}
+                      onChange={(e) => setCave(e.target.value)}
+                      placeholder="Enter CAVE..."
+                      className="h-8 text-sm bg-white dark:bg-gray-900 border-amber-300 dark:border-amber-700 focus:border-amber-500 dark:focus:border-amber-500"
+                      data-testid="input-cave-op"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
