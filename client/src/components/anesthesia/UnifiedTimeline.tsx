@@ -1308,24 +1308,7 @@ export function UnifiedTimeline({
       );
     }
     
-    // Add pending systolic BP (darker gray bookmark) ONLY if in diastolic entry mode and not already committed
-    // Show ONLY when bpEntryMode is 'dia' to ensure it disappears immediately after adding diastolic
-    if (pendingSysValue && bpEntryMode === 'dia') {
-      series.push({
-        type: 'scatter',
-        name: 'Pending Systolic BP',
-        xAxisIndex: 0,
-        yAxisIndex: 0,
-        data: [[pendingSysValue.time, pendingSysValue.value]],
-        symbol: 'triangle',
-        symbolRotate: 180, // Point down for systolic
-        symbolSize: 10,
-        itemStyle: {
-          color: '#9ca3af', // Darker gray for better visibility
-        },
-        z: 10,
-      });
-    }
+    // Pending systolic BP bookmark removed - both BP values now placed immediately on click
     
     // Add BP line connections with filled area BETWEEN systolic and diastolic
     if (sortedSysData.length > 0 && sortedDiaData.length > 0) {
@@ -2989,45 +2972,28 @@ export function UnifiedTimeline({
               
               setTimeout(() => setIsProcessingClick(false), 100);
             } else if (activeToolMode === 'bp') {
-              // Sequential BP entry: first systolic, then diastolic at same time
+              // Simplified BP entry: each click adds its value immediately (no pending gray bookmark)
               if (bpEntryMode === 'sys') {
-                // Save systolic value and switch to diastolic mode
-                const pendingValue = { time: clickInfo.time, value: clickInfo.value };
-                setPendingSysValue(pendingValue);
+                // Add systolic value immediately to the chart
+                const sysPoint: VitalPoint = [clickInfo.time, clickInfo.value];
+                setBpDataPoints(prev => ({
+                  ...prev,
+                  sys: [...prev.sys, sysPoint]
+                }));
+                
+                // Store for reference and switch to diastolic mode
+                setPendingSysValue({ time: clickInfo.time, value: clickInfo.value });
                 setBpEntryMode('dia');
                 setHoverInfo(null);
                 setTimeout(() => setIsProcessingClick(false), 100);
               } else {
-                // Save diastolic value with the same time as systolic
-                if (pendingSysValue) {
-                  const sysPoint: VitalPoint = [pendingSysValue.time, pendingSysValue.value];
-                  const diaPoint: VitalPoint = [pendingSysValue.time, clickInfo.value];
-                  
-                  setBpDataPoints(prev => ({
-                    sys: [...prev.sys, sysPoint],
-                    dia: [...prev.dia, diaPoint]
-                  }));
-                  
-                  setLastAction({ type: 'bp', bpData: { sys: sysPoint, dia: diaPoint } });
-                  
-                  // Toast notification disabled (can be re-enabled later)
-                  // toast({
-                  //   title: `🩺 BP ${pendingSysValue.value}/${clickInfo.value} added`,
-                  //   description: new Date(pendingSysValue.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
-                  //   duration: 3000,
-                  //   action: (
-                  //     <Button
-                  //       variant="outline"
-                  //       size="sm"
-                  //       onClick={handleUndo}
-                  //       data-testid="button-undo-bp"
-                  //     >
-                  //       <Undo2 className="w-4 h-4 mr-1" />
-                  //       Undo
-                  //     </Button>
-                  //   ),
-                  // });
-                }
+                // Add diastolic value immediately to the chart
+                const diaPoint: VitalPoint = [clickInfo.time, clickInfo.value];
+                setBpDataPoints(prev => ({
+                  ...prev,
+                  dia: [...prev.dia, diaPoint]
+                }));
+                
                 // Reset to systolic mode
                 setPendingSysValue(null);
                 setBpEntryMode('sys');
@@ -3078,11 +3044,6 @@ export function UnifiedTimeline({
             {activeToolMode === 'bp' && `${bpEntryMode === 'sys' ? 'Systolic' : 'Diastolic'}: ${hoverInfo.value}`}
             {activeToolMode === 'spo2' && `SpO2: ${hoverInfo.value}%`}
           </div>
-          {activeToolMode === 'bp' && pendingSysValue && bpEntryMode === 'dia' && (
-            <div className="text-xs text-muted-foreground">
-              Systolic: {pendingSysValue.value} (already set)
-            </div>
-          )}
           <div className="text-xs text-muted-foreground">
             {new Date(hoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
           </div>
