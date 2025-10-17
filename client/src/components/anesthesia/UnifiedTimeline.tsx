@@ -982,6 +982,78 @@ export function UnifiedTimeline({
     
   }, [chartRef, ventilationData, activeSwimlanes, collapsedSwimlanes, isDark]);
 
+  // Medication dose graphics rendering (text labels)
+  useEffect(() => {
+    const chart = chartRef.current?.getEchartsInstance();
+    if (!chart) return;
+    
+    const medicationParentIndex = activeSwimlanes.findIndex(s => s.id === "medikamente");
+    
+    if (medicationParentIndex === -1 || collapsedSwimlanes.has("medikamente")) {
+      // Clear medication graphics if collapsed
+      chart.setOption({ graphic: [] }, { replaceMerge: ['graphic'] });
+      return;
+    }
+    
+    const textColor = isDark ? '#ffffff' : '#000000';
+    const modernMonoFont = '"SF Mono", "JetBrains Mono", "Roboto Mono", "Fira Code", Monaco, Consolas, monospace';
+    const VITALS_TOP = 32;
+    const VITALS_HEIGHT = 340;
+    
+    // Helper to convert timestamp to pixel position
+    const timestampToPixel = (timestamp: number, gridIndex: number): number | null => {
+      try {
+        const pixelX = chart.convertToPixel({ xAxisIndex: gridIndex }, timestamp);
+        return Array.isArray(pixelX) ? pixelX[0] : pixelX;
+      } catch {
+        return null;
+      }
+    };
+    
+    // Calculate Y position for first medication child
+    let currentY = VITALS_TOP + VITALS_HEIGHT;
+    for (let i = 0; i <= medicationParentIndex; i++) {
+      currentY += activeSwimlanes[i].height;
+    }
+    
+    const graphics: any[] = [];
+    
+    // Iterate through all medication swimlanes
+    activeSwimlanes.forEach((lane, index) => {
+      const isMedicationChild = lane.id.startsWith('medication-predefined-') || lane.id.startsWith('medication-dynamic-');
+      
+      if (isMedicationChild && medicationDoseData[lane.id]?.length > 0) {
+        const dosePoints = medicationDoseData[lane.id];
+        const laneIndex = index - medicationParentIndex - 1;
+        const rowY = currentY + laneIndex * 30 + 15;
+        const gridIdx = index + 1;
+        
+        dosePoints.forEach(([timestamp, dose], idx) => {
+          const pixelX = timestampToPixel(timestamp, gridIdx);
+          if (pixelX !== null) {
+            graphics.push({
+              type: 'text',
+              id: `med-${lane.id}-${timestamp}-${dose}-${idx}`,
+              left: pixelX,
+              top: rowY,
+              style: {
+                text: dose.toString(),
+                font: `600 13px ${modernMonoFont}`,
+                fill: textColor,
+                textAlign: 'center',
+                textVerticalAlign: 'middle',
+              },
+              z: 100,
+            });
+          }
+        });
+      }
+    });
+    
+    chart.setOption({ graphic: graphics }, { replaceMerge: ['graphic'] });
+    
+  }, [chartRef, medicationDoseData, activeSwimlanes, collapsedSwimlanes, isDark]);
+
   const option = useMemo(() => {
     // Layout constants
     const VITALS_TOP = 32; // Space for sticky header (32px)
@@ -1519,56 +1591,6 @@ export function UnifiedTimeline({
           z: 10,
         });
       }
-    }
-
-    // Add medication dose series (text labels similar to ventilation)
-    const medicationParentIndex = activeSwimlanes.findIndex(s => s.id === "medikamente");
-    console.log('[Medication Chart] medicationDoseData:', medicationDoseData);
-    console.log('[Medication Chart] medicationParentIndex:', medicationParentIndex, 'collapsed:', collapsedSwimlanes.has("medikamente"));
-    
-    if (medicationParentIndex !== -1 && !collapsedSwimlanes.has("medikamente")) {
-      const textColor = isDark ? '#ffffff' : '#000000';
-      const modernMonoFont = '"SF Mono", "JetBrains Mono", "Roboto Mono", "Fira Code", Monaco, Consolas, monospace';
-      
-      // Iterate through all medication swimlanes (predefined + dynamic)
-      activeSwimlanes.forEach((lane, index) => {
-        const isMedicationChild = lane.id.startsWith('medication-predefined-') || lane.id.startsWith('medication-dynamic-');
-        
-        if (isMedicationChild && medicationDoseData[lane.id]?.length > 0) {
-          const dosePoints = medicationDoseData[lane.id];
-          // Grid/axis index matches swimlane position (index is already correct, vitals is grid 0)
-          const gridIdx = index + 1; // +1 because vitals is grid 0
-          
-          console.log('[Medication Chart] Creating series for', lane.label, 'gridIdx:', gridIdx, 'data:', dosePoints);
-          
-          // Create values map and series data
-          const valuesMap = new Map(dosePoints.map(([time, dose]) => [time, dose]));
-          // Use empty string to match axis data: [""] (identical to ventilation pattern)
-          const seriesData = dosePoints.map(([time, dose]) => [time, ""]);
-          
-          series.push({
-            type: 'scatter',
-            name: `${lane.label.trim()} Dose`,
-            xAxisIndex: gridIdx,
-            yAxisIndex: gridIdx + 1, // +1 because yAxes has 2 vitals axes first
-            data: seriesData,
-            symbol: 'none',
-            label: {
-              show: true,
-              formatter: (params: any) => {
-                const timestamp = params.value[0];
-                return valuesMap.get(timestamp)?.toString() || '';
-              },
-              fontSize: 13,
-              fontWeight: '600',
-              fontFamily: modernMonoFont,
-              color: textColor,
-            },
-            cursor: 'pointer',
-            z: 10,
-          });
-        }
-      });
     }
 
     // Calculate total height for vertical lines - dynamically based on current swimlanes
