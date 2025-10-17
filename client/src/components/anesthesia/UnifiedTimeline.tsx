@@ -1216,6 +1216,69 @@ export function UnifiedTimeline({
     
   }, [chartRef, medicationDoseData, activeSwimlanes, collapsedSwimlanes, isDark, setEditingMedicationDose, setMedicationEditInput, setShowMedicationEditDialog]);
 
+  // Ventilation mode graphics rendering (text labels on parent swimlane)
+  useEffect(() => {
+    const chart = chartRef.current?.getEchartsInstance();
+    if (!chart) return;
+    
+    const ventilationParentIndex = activeSwimlanes.findIndex(s => s.id === "ventilation");
+    
+    if (ventilationParentIndex === -1 || ventilationModeData.length === 0) {
+      return;
+    }
+    
+    const textColor = isDark ? '#ffffff' : '#000000';
+    const modernMonoFont = '"SF Mono", "JetBrains Mono", "Roboto Mono", "Fira Code", Monaco, Consolas, monospace';
+    const VITALS_TOP = 32;
+    const VITALS_HEIGHT = 340;
+    
+    // Helper to convert timestamp to pixel position
+    const timestampToPixel = (timestamp: number, gridIndex: number): number | null => {
+      try {
+        const pixelX = chart.convertToPixel({ xAxisIndex: gridIndex }, timestamp);
+        return Array.isArray(pixelX) ? pixelX[0] : pixelX;
+      } catch {
+        return null;
+      }
+    };
+    
+    // Calculate Y position for ventilation parent swimlane
+    let currentY = VITALS_TOP + VITALS_HEIGHT;
+    for (let i = 0; i <= ventilationParentIndex; i++) {
+      currentY += activeSwimlanes[i].height;
+    }
+    
+    // Row Y is at the center of the parent swimlane
+    const rowY = currentY - (activeSwimlanes[ventilationParentIndex].height / 2);
+    const gridIdx = ventilationParentIndex + 1; // Grid index for ventilation parent
+    
+    const graphics: any[] = [];
+    
+    // Render each ventilation mode entry
+    ventilationModeData.forEach(([timestamp, mode], idx) => {
+      const pixelX = timestampToPixel(timestamp, gridIdx);
+      if (pixelX !== null) {
+        graphics.push({
+          type: 'text',
+          id: `vent-mode-${timestamp}-${idx}`,
+          left: pixelX,
+          top: rowY,
+          style: {
+            text: mode,
+            font: `bold 13px ${modernMonoFont}`,
+            fill: textColor,
+            textAlign: 'center',
+            textVerticalAlign: 'middle',
+          },
+          z: 100,
+        });
+      }
+    });
+    
+    chart.setOption({ graphic: graphics }, { replaceMerge: ['graphic'] });
+    
+  }, [chartRef, ventilationModeData, activeSwimlanes, isDark]);
+
   const option = useMemo(() => {
     // Layout constants
     const VITALS_TOP = 32; // Space for sticky header (32px)
