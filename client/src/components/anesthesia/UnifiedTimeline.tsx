@@ -1212,15 +1212,15 @@ export function UnifiedTimeline({
       });
       
       // Add heart symbols - HIGHEST z-index to always stay in front (outline heart)
-      // Using exact Lucide Heart icon path
+      // Using diamond symbol rotated to look like heart
       series.push({
         type: 'scatter',
         name: 'Heart Rate',
         xAxisIndex: 0,
         yAxisIndex: 0,
         data: sortedHrData,
-        symbol: 'path://M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5',
-        symbolSize: 18,
+        symbol: 'diamond',
+        symbolSize: 14,
         itemStyle: {
           color: 'transparent', // Transparent fill for outline only
           borderColor: '#ef4444', // Red outline
@@ -1246,8 +1246,9 @@ export function UnifiedTimeline({
         xAxisIndex: 0,
         yAxisIndex: 0,
         data: [[pendingSysValue.time, pendingSysValue.value]],
-        symbol: 'path://M 6,9 L 12,15 L 18,9 L 16,9 L 12,13 L 8,9 Z', // Chevron-down as closed outline shape
-        symbolSize: 18,
+        symbol: 'triangle',
+        symbolRotate: 180, // Point down for systolic
+        symbolSize: 10,
         itemStyle: {
           color: '#9ca3af', // Darker gray for better visibility
         },
@@ -1321,8 +1322,9 @@ export function UnifiedTimeline({
         xAxisIndex: 0,
         yAxisIndex: 0,
         data: sortedSysData,
-        symbol: 'path://M 6,9 L 12,15 L 18,9 L 16,9 L 12,13 L 8,9 Z', // Chevron-down as closed outline shape
-        symbolSize: 18,
+        symbol: 'triangle',
+        symbolRotate: 180, // Point down for systolic
+        symbolSize: 10,
         itemStyle: {
           color: 'transparent', // Transparent fill for outline only
           borderColor: '#000000', // Black outline
@@ -1347,8 +1349,9 @@ export function UnifiedTimeline({
         xAxisIndex: 0,
         yAxisIndex: 0,
         data: sortedDiaData,
-        symbol: 'path://M 18,15 L 12,9 L 6,15 L 8,15 L 12,11 L 16,15 Z', // Chevron-up as closed outline shape
-        symbolSize: 18,
+        symbol: 'triangle',
+        symbolRotate: 0, // Point up for diastolic
+        symbolSize: 10,
         itemStyle: {
           color: 'transparent', // Transparent fill for outline only
           borderColor: '#000000', // Black outline
