@@ -2387,7 +2387,7 @@ export function UnifiedTimeline({
       const { transcription } = await transcribeResponse.json();
       console.log('[Voice] Transcription:', transcription);
       
-      // Step 2: Parse drug command
+      // Step 2: Parse drug command(s) - may contain multiple drugs
       const parseResponse = await fetch('/api/parse-drug-command', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2398,10 +2398,10 @@ export function UnifiedTimeline({
         throw new Error('Failed to parse drug command');
       }
       
-      const drugCommand = await parseResponse.json();
-      console.log('[Voice] Parsed command:', drugCommand);
+      const response = await parseResponse.json();
+      console.log('[Voice] Parsed command:', response);
       
-      if (!drugCommand.drug || !drugCommand.dose) {
+      if (!response.drugs || response.drugs.length === 0) {
         toast({
           title: "Could not understand command",
           description: `Heard: "${transcription}"`,
@@ -2410,41 +2410,65 @@ export function UnifiedTimeline({
         return;
       }
       
-      // Step 3: Find matching medication swimlane or create new one
-      const match = findMatchingMedication(drugCommand.drug);
+      // Step 3 & 4: Process each drug in the command
+      const addedDrugs: string[] = [];
+      let newMedications = [...medications];
+      const doseUpdates: Record<string, [number, string][]> = {};
       
-      let targetSwimlaneId: string;
-      let matchInfo = "";
-      
-      if (match) {
-        // Found a matching medication
-        targetSwimlaneId = match.swimlaneId;
-        matchInfo = ` → ${match.fullName} (${Math.round(match.score * 100)}% match)`;
-        console.log(`[Voice] Matched "${drugCommand.drug}" to "${match.fullName}" (score: ${match.score})`);
-      } else {
-        // No match found - create new medication swimlane
-        const newMedName = `${drugCommand.drug} (voice)`;
-        const newIndex = medications.length;
-        targetSwimlaneId = `medication-dynamic-${newIndex}`;
-        setMedications(prev => [...prev, newMedName]);
-        matchInfo = ` → New medication`;
-        console.log(`[Voice] No match found, creating new medication: ${newMedName}`);
+      for (const drugCommand of response.drugs) {
+        if (!drugCommand.drug || !drugCommand.dose) continue;
+        
+        // Find matching medication swimlane or create new one
+        const match = findMatchingMedication(drugCommand.drug);
+        
+        let targetSwimlaneId: string;
+        let matchInfo = "";
+        
+        if (match) {
+          // Found a matching medication
+          targetSwimlaneId = match.swimlaneId;
+          matchInfo = ` (${Math.round(match.score * 100)}%)`;
+          console.log(`[Voice] Matched "${drugCommand.drug}" to "${match.fullName}" (score: ${match.score})`);
+        } else {
+          // No match found - create new medication swimlane
+          const newMedName = `${drugCommand.drug} (voice)`;
+          const newIndex = newMedications.length;
+          targetSwimlaneId = `medication-dynamic-${newIndex}`;
+          newMedications.push(newMedName);
+          matchInfo = " (new)";
+          console.log(`[Voice] No match found, creating new medication: ${newMedName}`);
+        }
+        
+        // Prepare dose data point
+        if (!doseUpdates[targetSwimlaneId]) {
+          doseUpdates[targetSwimlaneId] = [];
+        }
+        doseUpdates[targetSwimlaneId].push([timestamp, drugCommand.dose] as [number, string]);
+        
+        addedDrugs.push(`${drugCommand.drug} ${drugCommand.dose}${matchInfo}`);
       }
       
-      // Step 4: Add dose data point to the medication swimlane
+      // Update medications state if new ones were created
+      if (newMedications.length > medications.length) {
+        setMedications(newMedications);
+      }
+      
+      // Update all dose data
       setMedicationDoseData(prev => {
-        const existingData = prev[targetSwimlaneId] || [];
-        return {
-          ...prev,
-          [targetSwimlaneId]: [...existingData, [timestamp, drugCommand.dose] as [number, string]]
-        };
+        const updated = { ...prev };
+        for (const [swimlaneId, doses] of Object.entries(doseUpdates)) {
+          const existingData = updated[swimlaneId] || [];
+          updated[swimlaneId] = [...existingData, ...doses];
+        }
+        return updated;
       });
       
       // TODO: Store in backend anesthesia case data for persistence
       
+      const title = addedDrugs.length === 1 ? "Drug Recorded" : `${addedDrugs.length} Drugs Recorded`;
       toast({
-        title: "Drug Recorded",
-        description: `${drugCommand.drug} ${drugCommand.dose}${matchInfo}`,
+        title,
+        description: addedDrugs.join(", "),
       });
       
     } catch (error: any) {
