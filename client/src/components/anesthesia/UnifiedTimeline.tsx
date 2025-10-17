@@ -1173,6 +1173,17 @@ export function UnifiedTimeline({
                 textVerticalAlign: 'middle',
               },
               z: 100,
+              cursor: 'pointer',
+              onclick: () => {
+                setEditingMedicationDose({
+                  swimlaneId: lane.id,
+                  time: timestamp,
+                  dose: dose.toString(),
+                  index: idx,
+                });
+                setMedicationEditInput(dose.toString());
+                setShowMedicationEditDialog(true);
+              },
             });
           }
         });
@@ -1181,7 +1192,7 @@ export function UnifiedTimeline({
     
     chart.setOption({ graphic: graphics }, { replaceMerge: ['graphic'] });
     
-  }, [chartRef, medicationDoseData, activeSwimlanes, collapsedSwimlanes, isDark]);
+  }, [chartRef, medicationDoseData, activeSwimlanes, collapsedSwimlanes, isDark, setEditingMedicationDose, setMedicationEditInput, setShowMedicationEditDialog]);
 
   const option = useMemo(() => {
     // Layout constants
@@ -3734,6 +3745,44 @@ export function UnifiedTimeline({
         );
       })}
 
+      {/* Event comment icons on the timeline */}
+      {eventComments.map((event) => {
+        const visibleStart = currentZoomStart ?? data.startTime;
+        const visibleEnd = currentZoomEnd ?? data.endTime;
+        const visibleRange = visibleEnd - visibleStart;
+        
+        const xFraction = (event.time - visibleStart) / visibleRange;
+        
+        if (xFraction < 0 || xFraction > 1) return null;
+        
+        const eventsLane = swimlanePositions.find(lane => lane.id === 'ereignisse');
+        if (!eventsLane) return null;
+        
+        const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 12px)`;
+        
+        return (
+          <div
+            key={event.id}
+            className="absolute z-40 cursor-pointer flex items-center justify-center group"
+            style={{
+              left: leftPosition,
+              top: `${eventsLane.top + 8}px`,
+              width: '24px',
+              height: '24px',
+            }}
+            onClick={() => {
+              setEditingEvent(event);
+              setEventTextInput(event.text);
+              setShowEventDialog(true);
+            }}
+            title={event.text}
+            data-testid={`event-icon-${event.id}`}
+          >
+            <MessageSquareText className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
+          </div>
+        );
+      })}
+
       {/* Add Medication Dialog */}
       <Dialog open={showAddMedDialog} onOpenChange={setShowAddMedDialog}>
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-add-medication">
@@ -4174,6 +4223,254 @@ export function UnifiedTimeline({
               data-testid="button-confirm-ai-data"
             >
               Add to Timeline
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Event Comment Dialog */}
+      <Dialog open={showEventDialog} onOpenChange={setShowEventDialog}>
+        <DialogContent className="sm:max-w-[500px]" data-testid="dialog-event-comment">
+          <DialogHeader>
+            <DialogTitle>{editingEvent ? 'Edit Event' : 'Add Event'}</DialogTitle>
+            {pendingEvent && !editingEvent && (
+              <p className="text-sm text-muted-foreground">
+                At {new Date(pendingEvent.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+              </p>
+            )}
+            {editingEvent && (
+              <p className="text-sm text-muted-foreground">
+                At {new Date(editingEvent.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+              </p>
+            )}
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="event-text">Event Comment</Label>
+              <Textarea
+                id="event-text"
+                data-testid="input-event-text"
+                value={eventTextInput}
+                onChange={(e) => setEventTextInput(e.target.value)}
+                placeholder="Enter event description..."
+                rows={4}
+                autoFocus
+              />
+            </div>
+          </div>
+          <div className="flex justify-between gap-2">
+            {editingEvent && (
+              <Button
+                variant="destructive"
+                onClick={handleEventDelete}
+                data-testid="button-delete-event"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </Button>
+            )}
+            <div className="flex gap-2 ml-auto">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowEventDialog(false);
+                  setPendingEvent(null);
+                  setEditingEvent(null);
+                  setEventTextInput("");
+                }}
+                data-testid="button-cancel-event"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleEventSave}
+                data-testid="button-save-event"
+                disabled={!eventTextInput.trim()}
+              >
+                {editingEvent ? 'Save' : 'Add'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Medication Dose Edit Dialog */}
+      <Dialog open={showMedicationEditDialog} onOpenChange={setShowMedicationEditDialog}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-medication-edit">
+          <DialogHeader>
+            <DialogTitle>Edit Dose</DialogTitle>
+            {editingMedicationDose && (
+              <p className="text-sm text-muted-foreground">
+                At {new Date(editingMedicationDose.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+              </p>
+            )}
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="dose-edit-value">Dose</Label>
+              <Input
+                id="dose-edit-value"
+                data-testid="input-dose-edit-value"
+                value={medicationEditInput}
+                onChange={(e) => setMedicationEditInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleMedicationDoseEditSave();
+                  }
+                }}
+                placeholder="e.g., 5mg, 100mg, 2ml"
+                autoFocus
+              />
+            </div>
+          </div>
+          <div className="flex justify-between gap-2">
+            <Button
+              variant="destructive"
+              onClick={handleMedicationDoseDelete}
+              data-testid="button-delete-medication-dose"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowMedicationEditDialog(false);
+                  setEditingMedicationDose(null);
+                  setMedicationEditInput("");
+                }}
+                data-testid="button-cancel-medication-edit"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleMedicationDoseEditSave}
+                data-testid="button-save-medication-edit"
+                disabled={!medicationEditInput.trim()}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ventilation Bulk Entry Dialog */}
+      <Dialog open={showVentilationBulkDialog} onOpenChange={setShowVentilationBulkDialog}>
+        <DialogContent className="sm:max-w-[550px]" data-testid="dialog-ventilation-bulk">
+          <DialogHeader>
+            <DialogTitle>Ventilation Bulk Entry</DialogTitle>
+            {pendingVentilationBulk && (
+              <p className="text-sm text-muted-foreground">
+                At {new Date(pendingVentilationBulk.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+              </p>
+            )}
+          </DialogHeader>
+          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+            <div className="grid gap-2">
+              <Label htmlFor="vent-mode">Ventilation Mode</Label>
+              <Select value={ventilationMode} onValueChange={setVentilationMode}>
+                <SelectTrigger id="vent-mode" data-testid="select-vent-mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="VC-CMV">VC-CMV (Volume Controlled)</SelectItem>
+                  <SelectItem value="PC-CMV">PC-CMV (Pressure Controlled)</SelectItem>
+                  <SelectItem value="SIMV">SIMV</SelectItem>
+                  <SelectItem value="PSV">PSV (Pressure Support)</SelectItem>
+                  <SelectItem value="BIPAP">BIPAP</SelectItem>
+                  <SelectItem value="CPAP">CPAP</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label htmlFor="bulk-peep">PEEP (cmH₂O)</Label>
+                <Input
+                  id="bulk-peep"
+                  type="number"
+                  step="1"
+                  value={bulkVentilationParams.peep}
+                  onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, peep: e.target.value }))}
+                  data-testid="input-bulk-peep"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="bulk-fio2">FiO₂ (%)</Label>
+                <Input
+                  id="bulk-fio2"
+                  type="number"
+                  step="1"
+                  value={bulkVentilationParams.fiO2}
+                  onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, fiO2: e.target.value }))}
+                  data-testid="input-bulk-fio2"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="bulk-vt">Tidal Volume (ml)</Label>
+                <Input
+                  id="bulk-vt"
+                  type="number"
+                  step="10"
+                  value={bulkVentilationParams.tidalVolume}
+                  onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, tidalVolume: e.target.value }))}
+                  data-testid="input-bulk-vt"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="bulk-rr">Resp. Rate (/min)</Label>
+                <Input
+                  id="bulk-rr"
+                  type="number"
+                  step="1"
+                  value={bulkVentilationParams.respiratoryRate}
+                  onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, respiratoryRate: e.target.value }))}
+                  data-testid="input-bulk-rr"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="bulk-etco2">EtCO₂ (mmHg)</Label>
+                <Input
+                  id="bulk-etco2"
+                  type="number"
+                  step="1"
+                  value={bulkVentilationParams.etCO2}
+                  onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, etCO2: e.target.value }))}
+                  placeholder="Optional"
+                  data-testid="input-bulk-etco2"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="bulk-pip">P insp (cmH₂O)</Label>
+                <Input
+                  id="bulk-pip"
+                  type="number"
+                  step="1"
+                  value={bulkVentilationParams.pip}
+                  onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, pip: e.target.value }))}
+                  placeholder="Optional"
+                  data-testid="input-bulk-pip"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowVentilationBulkDialog(false);
+                setPendingVentilationBulk(null);
+              }}
+              data-testid="button-cancel-vent-bulk"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleVentilationBulkSave}
+              data-testid="button-save-vent-bulk"
+            >
+              Add All
             </Button>
           </div>
         </DialogContent>

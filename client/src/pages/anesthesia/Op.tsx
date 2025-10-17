@@ -348,7 +348,11 @@ export default function Op() {
           {/* Vitals & Timeline Tab */}
           <TabsContent value="vitals" className="data-[state=active]:flex-1 overflow-y-auto flex flex-col mt-0 px-0" data-testid="tab-content-vitals">
             <div className="border-t bg-card">
-              <UnifiedTimeline data={timelineData} now={new Date().getTime()} />
+              <UnifiedTimeline 
+                data={timelineData} 
+                now={new Date().getTime()} 
+                patientWeight={currentPatient.weight ? parseFloat(currentPatient.weight) : undefined}
+              />
             </div>
           </TabsContent>
 
