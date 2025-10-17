@@ -1205,14 +1205,15 @@ export function UnifiedTimeline({
       });
       
       // Add heart symbols - HIGHEST z-index to always stay in front (outline heart)
+      // Using exact Lucide Heart icon path
       series.push({
         type: 'scatter',
         name: 'Heart Rate',
         xAxisIndex: 0,
         yAxisIndex: 0,
         data: sortedHrData,
-        symbol: 'path://M23.6,0c-3.4,0-6.3,2.7-7.6,5.6C14.7,2.7,11.8,0,8.4,0C3.8,0,0,3.8,0,8.4c0,9.4,9.5,11.9,16,21.2 c6.1-9.3,16-12.1,16-21.2C32,3.8,28.2,0,23.6,0z',
-        symbolSize: 14,
+        symbol: 'path://M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z',
+        symbolSize: 16,
         itemStyle: {
           color: 'transparent', // Transparent fill for outline only
           borderColor: '#ef4444', // Red outline
@@ -1238,8 +1239,8 @@ export function UnifiedTimeline({
         xAxisIndex: 0,
         yAxisIndex: 0,
         data: [[pendingSysValue.time, pendingSysValue.value]],
-        symbol: 'path://M2,2 L10,10 L18,2', // Chevron down for systolic
-        symbolSize: 14,
+        symbol: 'path://m7 4 5 5 5-5', // Chevron down (∨) from Lucide ChevronsDownUp
+        symbolSize: 16,
         itemStyle: {
           color: '#9ca3af', // Darker gray for better visibility
         },
@@ -1305,6 +1306,7 @@ export function UnifiedTimeline({
     }
     
     // Add BP scatter points if there are data points (chronologically sorted)
+    // Using exact Lucide ChevronsDownUp icon paths
     if (sortedSysData.length > 0) {
       series.push({
         type: 'scatter',
@@ -1312,8 +1314,8 @@ export function UnifiedTimeline({
         xAxisIndex: 0,
         yAxisIndex: 0,
         data: sortedSysData,
-        symbol: 'path://M2,2 L10,10 L18,2', // Chevron down for systolic
-        symbolSize: 14,
+        symbol: 'path://m7 4 5 5 5-5', // Chevron down (∨) from Lucide ChevronsDownUp
+        symbolSize: 16,
         itemStyle: {
           color: 'transparent', // Transparent fill for outline only
           borderColor: '#000000', // Black outline
@@ -1338,8 +1340,8 @@ export function UnifiedTimeline({
         xAxisIndex: 0,
         yAxisIndex: 0,
         data: sortedDiaData,
-        symbol: 'path://M2,10 L10,2 L18,10', // Chevron up for diastolic
-        symbolSize: 14,
+        symbol: 'path://m7 20 5-5 5 5', // Chevron up (∧) from Lucide ChevronsDownUp
+        symbolSize: 16,
         itemStyle: {
           color: 'transparent', // Transparent fill for outline only
           borderColor: '#000000', // Black outline
@@ -1357,6 +1359,7 @@ export function UnifiedTimeline({
     }
     
     // Add SpO2 series if there are data points (chronologically sorted)
+    // Using exact Lucide CircleDot icon path (converted from circle elements to path)
     if (sortedSpo2Data.length > 0) {
       series.push({
         type: 'line',
@@ -1364,8 +1367,8 @@ export function UnifiedTimeline({
         xAxisIndex: 0,
         yAxisIndex: 1, // Use second y-axis (45-105 range)
         data: sortedSpo2Data,
-        symbol: 'path://M10,10m-8,0a8,8 0 1,0 16,0a8,8 0 1,0 -16,0 M10,10m-3,0a3,3 0 1,0 6,0a3,3 0 1,0 -6,0', // CircleDot: outer circle + inner filled circle
-        symbolSize: 14,
+        symbol: 'path://M2,12 A10,10 0 1,0 22,12 A10,10 0 1,0 2,12 M11,12 A1,1 0 1,0 13,12 A1,1 0 1,0 11,12', // Lucide CircleDot: outer circle (r=10) + inner dot (r=1)
+        symbolSize: 16,
         showSymbol: true,
         lineStyle: {
           color: '#8b5cf6', // Purple line
