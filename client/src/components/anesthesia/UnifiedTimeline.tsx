@@ -1363,7 +1363,7 @@ export function UnifiedTimeline({
           '#ef4444', // Red
           0, // yAxisIndex
           16, // size
-          20 // z-level
+          30 // z-level - high value to ensure icons are always clickable above lines
         )
       );
     }
@@ -1437,7 +1437,7 @@ export function UnifiedTimeline({
           '#000000', // Black
           0, // yAxisIndex
           16, // size
-          10 // z-level
+          30 // z-level - high value to ensure icons are always clickable above lines
         )
       );
     }
@@ -1452,7 +1452,7 @@ export function UnifiedTimeline({
           '#000000', // Black
           0, // yAxisIndex
           16, // size
-          10 // z-level
+          30 // z-level - high value to ensure icons are always clickable above lines
         )
       );
     }
@@ -1483,7 +1483,7 @@ export function UnifiedTimeline({
           '#8b5cf6', // Purple
           1, // yAxisIndex (second y-axis for 45-105 range)
           16, // size
-          10, // z-level
+          30, // z-level - high value to ensure icons are always clickable above lines
           true // isCircleDot flag
         )
       );
