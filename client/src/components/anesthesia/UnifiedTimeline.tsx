@@ -104,6 +104,7 @@ function createLucideIconSeries(
       if (isCircleDot) {
         return {
           type: 'group',
+          cursor: 'pointer',
           children: [
             // Outer circle (r=10)
             {
@@ -134,6 +135,13 @@ function createLucideIconSeries(
               },
             },
           ],
+          // Hover effect: scale up on mouse hover
+          states: {
+            emphasis: {
+              scaleX: 1.3,
+              scaleY: 1.3,
+            },
+          },
         };
       }
       
@@ -155,6 +163,17 @@ function createLucideIconSeries(
         // Scale to desired size
         scaleX: scale,
         scaleY: scale,
+        cursor: 'pointer',
+        // Hover effect: scale up on mouse hover
+        states: {
+          emphasis: {
+            scaleX: scale * 1.3,
+            scaleY: scale * 1.3,
+            style: {
+              lineWidth: 2.5, // Slightly thicker stroke on hover
+            },
+          },
+        },
       };
     },
   };
