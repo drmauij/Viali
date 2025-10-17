@@ -3478,12 +3478,34 @@ export function UnifiedTimeline({
                 // Snap to current interval
                 time = Math.round(time / currentSnapInterval) * currentSnapInterval;
                 
-                setPendingMedicationDose({ 
-                  swimlaneId: lane.id, 
-                  time, 
-                  label: lane.label.trim() 
-                });
-                setShowMedicationDoseDialog(true);
+                // Check if we're clicking on an existing dose label
+                const existingDoses = medicationDoseData[lane.id] || [];
+                const clickTolerance = currentSnapInterval; // Allow clicking within one interval of the dose
+                const existingDoseAtTime = existingDoses.find(([doseTime]) => 
+                  Math.abs(doseTime - time) <= clickTolerance
+                );
+                
+                if (existingDoseAtTime) {
+                  // Open edit dialog for existing dose
+                  const [doseTime, dose] = existingDoseAtTime;
+                  const doseIndex = existingDoses.findIndex(([t, d]) => t === doseTime && d === dose);
+                  setEditingMedicationDose({
+                    swimlaneId: lane.id,
+                    time: doseTime,
+                    dose: dose.toString(),
+                    index: doseIndex,
+                  });
+                  setMedicationEditInput(dose.toString());
+                  setShowMedicationEditDialog(true);
+                } else {
+                  // Open add new dose dialog
+                  setPendingMedicationDose({ 
+                    swimlaneId: lane.id, 
+                    time, 
+                    label: lane.label.trim() 
+                  });
+                  setShowMedicationDoseDialog(true);
+                }
               }}
               data-testid={`interactive-medication-lane-${lane.id}`}
             />
