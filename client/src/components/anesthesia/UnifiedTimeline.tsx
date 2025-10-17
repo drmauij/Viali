@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Heart, CircleDot, Combine, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp } from "lucide-react";
+import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -2693,7 +2693,7 @@ export function UnifiedTimeline({
             data-testid="button-vitals-combo"
             title="Combined View"
           >
-            <Combine className="w-5 h-5" />
+            <Blend className="w-5 h-5" />
           </button>
         </div>
 
