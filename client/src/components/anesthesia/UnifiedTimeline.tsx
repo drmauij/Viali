@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, useEffect } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
 import { Activity, Heart, Wind, Combine, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -3386,11 +3386,13 @@ export function UnifiedTimeline({
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-medication-dose">
           <DialogHeader>
             <DialogTitle>Add Dose</DialogTitle>
-            {pendingMedicationDose && (
-              <p className="text-sm text-muted-foreground">
-                {pendingMedicationDose.label} at {new Date(pendingMedicationDose.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
-              </p>
-            )}
+            <DialogDescription>
+              {pendingMedicationDose && (
+                <>
+                  {pendingMedicationDose.label} at {new Date(pendingMedicationDose.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                </>
+              )}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -3456,11 +3458,13 @@ export function UnifiedTimeline({
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-ventilation-entry">
           <DialogHeader>
             <DialogTitle>Add Ventilation Parameter</DialogTitle>
-            {pendingVentilationEntry && (
-              <p className="text-sm text-muted-foreground">
-                At {new Date(pendingVentilationEntry.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
-              </p>
-            )}
+            <DialogDescription>
+              {pendingVentilationEntry && (
+                <>
+                  At {new Date(pendingVentilationEntry.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                </>
+              )}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
