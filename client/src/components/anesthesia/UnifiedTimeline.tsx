@@ -1204,7 +1204,7 @@ export function UnifiedTimeline({
         z: 15,
       });
       
-      // Add heart symbols - HIGHEST z-index to always stay in front
+      // Add heart symbols - HIGHEST z-index to always stay in front (outline heart)
       series.push({
         type: 'scatter',
         name: 'Heart Rate',
@@ -1214,10 +1214,15 @@ export function UnifiedTimeline({
         symbol: 'path://M23.6,0c-3.4,0-6.3,2.7-7.6,5.6C14.7,2.7,11.8,0,8.4,0C3.8,0,0,3.8,0,8.4c0,9.4,9.5,11.9,16,21.2 c6.1-9.3,16-12.1,16-21.2C32,3.8,28.2,0,23.6,0z',
         symbolSize: 14,
         itemStyle: {
-          color: '#ef4444', // Red color for heart
+          color: 'transparent', // Transparent fill for outline only
+          borderColor: '#ef4444', // Red outline
+          borderWidth: 2,
         },
         emphasis: {
           scale: 1.5,
+          itemStyle: {
+            borderWidth: 3,
+          }
         },
         cursor: 'pointer',
         z: 20,
