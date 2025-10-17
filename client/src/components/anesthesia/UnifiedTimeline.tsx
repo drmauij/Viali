@@ -114,8 +114,8 @@ export function UnifiedTimeline({
   const [currentZoomStart, setCurrentZoomStart] = useState<number | undefined>(undefined);
   const [currentZoomEnd, setCurrentZoomEnd] = useState<number | undefined>(undefined);
   
-  // State for tracking current snap interval (in milliseconds) - matches vertical grid lines
-  const [currentSnapInterval, setCurrentSnapInterval] = useState<number>(15 * 60 * 1000); // Default 15 minutes
+  // State for tracking current snap interval (in milliseconds) - always 1 minute for drugs and ventilation
+  const [currentSnapInterval, setCurrentSnapInterval] = useState<number>(1 * 60 * 1000); // Always 1 minute
 
   // State for interactive vital entry
   const [activeToolMode, setActiveToolMode] = useState<'hr' | 'bp' | 'spo2' | null>(null);
