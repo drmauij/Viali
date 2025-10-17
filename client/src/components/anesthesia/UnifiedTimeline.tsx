@@ -2664,7 +2664,7 @@ export function UnifiedTimeline({
             data-testid="button-vitals-bp"
             title="Blood Pressure (NIBP)"
           >
-            <span className={`text-sm font-bold transition-colors ${activeToolMode === 'bp' ? 'text-black dark:text-white' : 'text-muted-foreground hover:text-black dark:hover:text-white'}`}>BP</span>
+            <span className={`text-xl font-bold transition-colors w-5 h-5 flex items-center justify-center ${activeToolMode === 'bp' ? 'text-black dark:text-white' : 'text-muted-foreground hover:text-black dark:hover:text-white'}`}>BP</span>
           </button>
           <button
             onClick={() => setActiveToolMode(activeToolMode === 'hr' ? null : 'hr')}
