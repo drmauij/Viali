@@ -3533,30 +3533,39 @@ export function UnifiedTimeline({
       })()}
 
       {/* Tooltip for medication dose entry */}
-      {medicationHoverInfo && !isTouchDevice && (
-        <div
-          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
-          style={{
-            left: medicationHoverInfo.x + 10,
-            top: medicationHoverInfo.y - 40,
-          }}
-        >
-          <div className="text-sm font-semibold text-primary">
-            Click to add dose
+      {medicationHoverInfo && !isTouchDevice && (() => {
+        // Check if there's an existing dose at the hover position
+        const existingDoses = medicationDoseData[medicationHoverInfo.swimlaneId] || [];
+        const clickTolerance = currentSnapInterval;
+        const hasExistingDose = existingDoses.some(([doseTime]) => 
+          Math.abs(doseTime - medicationHoverInfo.time) <= clickTolerance
+        );
+        
+        return (
+          <div
+            className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
+            style={{
+              left: medicationHoverInfo.x + 10,
+              top: medicationHoverInfo.y - 40,
+            }}
+          >
+            <div className="text-sm font-semibold text-primary">
+              {hasExistingDose ? 'Click to edit dose' : 'Click to add dose'}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {medicationHoverInfo.label}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {new Date(medicationHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+            </div>
           </div>
-          <div className="text-xs text-muted-foreground">
-            {medicationHoverInfo.label}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {new Date(medicationHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Interactive layer for Ventilation parent swimlane - for bulk entry */}
       {!activeToolMode && (() => {
         const ventilationParentLane = swimlanePositions.find(lane => lane.id === 'ventilation');
-        if (!ventilationParentLane || !collapsedSwimlanes.has("ventilation")) return null;
+        if (!ventilationParentLane) return null;
         
         return (
           <div
