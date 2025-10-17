@@ -165,7 +165,7 @@ export function UnifiedTimeline({
   const [medicationDoseUnit, setMedicationDoseUnit] = useState("mg"); // Default unit
 
   // State for ventilation parameter entry
-  const [ventilationHoverInfo, setVentilationHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
+  const [ventilationHoverInfo, setVentilationHoverInfo] = useState<{ x: number; y: number; time: number; paramLabel?: string } | null>(null);
   const [showVentilationDialog, setShowVentilationDialog] = useState(false);
   const [pendingVentilationEntry, setPendingVentilationEntry] = useState<{ time: number } | null>(null);
   const [ventilationParameter, setVentilationParameter] = useState<'etCO2' | 'pip' | 'peep' | 'tidalVolume' | 'respiratoryRate' | 'minuteVolume' | 'fiO2'>('etCO2');
@@ -2464,23 +2464,23 @@ export function UnifiedTimeline({
         console.log(`[Voice] No match found, creating new medication: ${newMedName}`);
       }
       
-      // Step 4: Parse dose and open dialog for confirmation with pre-filled values
+      // Step 4: Parse dose and directly add to medication data
       const { value, unit } = parseDoseString(drugCommand.dose);
+      const doseWithUnit = `${value}${unit}`;
       
-      // Pre-fill dialog fields
-      setMedicationDoseInput(value);
-      setMedicationDoseUnit(unit);
-      setPendingMedicationDose({
-        swimlaneId: targetSwimlaneId,
-        time: timestamp,
-        label: drugLabel
+      // Directly add dose to medication data
+      setMedicationDoseData(prev => {
+        const existingData = prev[targetSwimlaneId] || [];
+        return {
+          ...prev,
+          [targetSwimlaneId]: [...existingData, [timestamp, doseWithUnit] as [number, string]]
+        };
       });
-      setShowMedicationDoseDialog(true);
       
-      // Show toast to indicate voice command recognized
+      // Show toast notification
       toast({
-        title: "Voice Command Recognized",
-        description: `${drugCommand.drug} ${drugCommand.dose} - Please confirm`,
+        title: "Dose Added",
+        description: `${drugLabel}: ${doseWithUnit} at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`,
       });
       
     } catch (error: any) {
@@ -3270,6 +3270,96 @@ export function UnifiedTimeline({
         );
       })()}
 
+      {/* Interactive layers for individual ventilation parameter swimlanes */}
+      {!activeToolMode && (() => {
+        const ventilationIndex = activeSwimlanes.findIndex(s => s.id === "ventilation");
+        if (ventilationIndex === -1 || collapsedSwimlanes.has("ventilation")) return null;
+        
+        // Map ventilation child indices to parameter keys
+        const parameterMap: Record<number, 'etCO2' | 'pip' | 'peep' | 'tidalVolume' | 'respiratoryRate' | 'minuteVolume' | 'fiO2'> = {
+          0: 'etCO2',
+          1: 'pip',
+          2: 'peep',
+          3: 'tidalVolume',
+          4: 'respiratoryRate',
+          5: 'minuteVolume',
+          6: 'fiO2',
+        };
+        
+        return activeSwimlanes.map((lane, index) => {
+          // Check if this is a ventilation child swimlane
+          const match = lane.id.match(/^ventilation-(\d+)$/);
+          if (!match) return null;
+          
+          const childIndex = parseInt(match[1]);
+          const paramKey = parameterMap[childIndex];
+          if (!paramKey) return null;
+          
+          const lanePosition = swimlanePositions.find(l => l.id === lane.id);
+          if (!lanePosition) return null;
+          
+          return (
+            <div
+              key={lane.id}
+              className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
+              style={{
+                left: '200px',
+                right: '10px',
+                top: `${lanePosition.top}px`,
+                height: `${lanePosition.height}px`,
+                zIndex: 36, // Higher z-index than parent
+              }}
+              onMouseMove={(e) => {
+                if (isTouchDevice) return;
+                
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                
+                const visibleStart = currentZoomStart ?? data.startTime;
+                const visibleEnd = currentZoomEnd ?? data.endTime;
+                const visibleRange = visibleEnd - visibleStart;
+                
+                const xPercent = x / rect.width;
+                let time = visibleStart + (xPercent * visibleRange);
+                
+                // Snap to 1-minute intervals
+                const oneMinute = 60 * 1000;
+                time = Math.round(time / oneMinute) * oneMinute;
+                
+                setVentilationHoverInfo({ 
+                  x: e.clientX, 
+                  y: e.clientY, 
+                  time,
+                  paramLabel: lane.label.trim()
+                });
+              }}
+              onMouseLeave={() => setVentilationHoverInfo(null)}
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                
+                const visibleStart = currentZoomStart ?? data.startTime;
+                const visibleEnd = currentZoomEnd ?? data.endTime;
+                const visibleRange = visibleEnd - visibleStart;
+                
+                const xPercent = x / rect.width;
+                let time = visibleStart + (xPercent * visibleRange);
+                
+                // Snap to 1-minute intervals
+                const oneMinute = 60 * 1000;
+                time = Math.round(time / oneMinute) * oneMinute;
+                
+                // Pre-select the parameter based on which swimlane was clicked
+                setVentilationParameter(paramKey);
+                setPendingVentilationEntry({ time });
+                setShowVentilationDialog(true);
+              }}
+              data-testid={`interactive-ventilation-param-${paramKey}`}
+            />
+          );
+        });
+      })()}
+
       {/* Tooltip for ventilation parameter entry */}
       {ventilationHoverInfo && !isTouchDevice && (
         <div
@@ -3280,10 +3370,10 @@ export function UnifiedTimeline({
           }}
         >
           <div className="text-sm font-semibold text-primary">
-            Click to add parameter
+            {ventilationHoverInfo.paramLabel ? 'Click to add value' : 'Click to add parameter'}
           </div>
           <div className="text-xs text-muted-foreground">
-            Ventilation
+            {ventilationHoverInfo.paramLabel || 'Ventilation'}
           </div>
           <div className="text-xs text-muted-foreground">
             {new Date(ventilationHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
@@ -3531,6 +3621,9 @@ export function UnifiedTimeline({
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-edit-value">
           <DialogHeader>
             <DialogTitle>Edit Vital Sign Value</DialogTitle>
+            <DialogDescription>
+              Modify the value and time for the selected vital sign
+            </DialogDescription>
           </DialogHeader>
           {editingValue && (
             <EditValueForm
@@ -3553,6 +3646,9 @@ export function UnifiedTimeline({
         <DialogContent className="sm:max-w-[600px]" data-testid="dialog-bulk-edit-times">
           <DialogHeader>
             <DialogTitle>Edit Anesthesia Times</DialogTitle>
+            <DialogDescription>
+              Modify the timestamps for all anesthesia time markers
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
             {timeMarkers.map((marker, index) => (
@@ -3632,6 +3728,9 @@ export function UnifiedTimeline({
         <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto" data-testid="dialog-ai-confirmation">
           <DialogHeader>
             <DialogTitle>Confirm Extracted Monitor Data</DialogTitle>
+            <DialogDescription>
+              Review and verify the parameters extracted from the monitor image
+            </DialogDescription>
           </DialogHeader>
           {extractedData && (
             <div className="grid gap-4 py-4">
