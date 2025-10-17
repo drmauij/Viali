@@ -2909,23 +2909,23 @@ export function UnifiedTimeline({
               setLastAction({ type: 'hr', data: newPoint });
               setHoverInfo(null);
               
-              // Show toast with undo
-              toast({
-                title: `❤️ HR ${clickInfo.value} added`,
-                description: new Date(clickInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
-                duration: 3000,
-                action: (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleUndo}
-                    data-testid="button-undo-hr"
-                  >
-                    <Undo2 className="w-4 h-4 mr-1" />
-                    Undo
-                  </Button>
-                ),
-              });
+              // Toast notification disabled (can be re-enabled later)
+              // toast({
+              //   title: `❤️ HR ${clickInfo.value} added`,
+              //   description: new Date(clickInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+              //   duration: 3000,
+              //   action: (
+              //     <Button
+              //       variant="outline"
+              //       size="sm"
+              //       onClick={handleUndo}
+              //       data-testid="button-undo-hr"
+              //     >
+              //       <Undo2 className="w-4 h-4 mr-1" />
+              //       Undo
+              //     </Button>
+              //   ),
+              // });
               
               setTimeout(() => setIsProcessingClick(false), 100);
             } else if (activeToolMode === 'bp') {
@@ -2950,23 +2950,23 @@ export function UnifiedTimeline({
                   
                   setLastAction({ type: 'bp', bpData: { sys: sysPoint, dia: diaPoint } });
                   
-                  // Show toast with undo
-                  toast({
-                    title: `🩺 BP ${pendingSysValue.value}/${clickInfo.value} added`,
-                    description: new Date(pendingSysValue.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
-                    duration: 3000,
-                    action: (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleUndo}
-                        data-testid="button-undo-bp"
-                      >
-                        <Undo2 className="w-4 h-4 mr-1" />
-                        Undo
-                      </Button>
-                    ),
-                  });
+                  // Toast notification disabled (can be re-enabled later)
+                  // toast({
+                  //   title: `🩺 BP ${pendingSysValue.value}/${clickInfo.value} added`,
+                  //   description: new Date(pendingSysValue.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                  //   duration: 3000,
+                  //   action: (
+                  //     <Button
+                  //       variant="outline"
+                  //       size="sm"
+                  //       onClick={handleUndo}
+                  //       data-testid="button-undo-bp"
+                  //     >
+                  //       <Undo2 className="w-4 h-4 mr-1" />
+                  //       Undo
+                  //     </Button>
+                  //   ),
+                  // });
                 }
                 // Reset to systolic mode
                 setPendingSysValue(null);
@@ -2980,23 +2980,23 @@ export function UnifiedTimeline({
               setLastAction({ type: 'spo2', data: newPoint });
               setHoverInfo(null);
               
-              // Show toast with undo
-              toast({
-                title: `💜 SpO2 ${clickInfo.value}% added`,
-                description: new Date(clickInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
-                duration: 3000,
-                action: (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleUndo}
-                    data-testid="button-undo-spo2"
-                  >
-                    <Undo2 className="w-4 h-4 mr-1" />
-                    Undo
-                  </Button>
-                ),
-              });
+              // Toast notification disabled (can be re-enabled later)
+              // toast({
+              //   title: `💜 SpO2 ${clickInfo.value}% added`,
+              //   description: new Date(clickInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+              //   duration: 3000,
+              //   action: (
+              //     <Button
+              //       variant="outline"
+              //       size="sm"
+              //       onClick={handleUndo}
+              //       data-testid="button-undo-spo2"
+              //     >
+              //       <Undo2 className="w-4 h-4 mr-1" />
+              //       Undo
+              //     </Button>
+              //   ),
+              // });
               
               setTimeout(() => setIsProcessingClick(false), 100);
             }
