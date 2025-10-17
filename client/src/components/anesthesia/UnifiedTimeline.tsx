@@ -156,6 +156,12 @@ export function UnifiedTimeline({
   // State for Zeiten hover tooltip
   const [zeitenHoverInfo, setZeitenHoverInfo] = useState<{ x: number; y: number; time: number; nextMarker: string | null } | null>(null);
 
+  // State for medication dose entry
+  const [medicationHoverInfo, setMedicationHoverInfo] = useState<{ x: number; y: number; time: number; swimlaneId: string; label: string } | null>(null);
+  const [showMedicationDoseDialog, setShowMedicationDoseDialog] = useState(false);
+  const [pendingMedicationDose, setPendingMedicationDose] = useState<{ swimlaneId: string; time: number; label: string } | null>(null);
+  const [medicationDoseInput, setMedicationDoseInput] = useState("");
+
   // Touch device detection
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   
@@ -1517,8 +1523,6 @@ export function UnifiedTimeline({
 
     // Add medication dose series (text labels similar to ventilation)
     const medicationParentIndex = activeSwimlanes.findIndex(s => s.id === "medikamente");
-    console.log('[Med Debug] medicationParentIndex:', medicationParentIndex, 'collapsed:', collapsedSwimlanes.has("medikamente"));
-    console.log('[Med Debug] medicationDoseData:', medicationDoseData);
     
     if (medicationParentIndex !== -1 && !collapsedSwimlanes.has("medikamente")) {
       const textColor = isDark ? '#ffffff' : '#000000';
@@ -1532,8 +1536,6 @@ export function UnifiedTimeline({
           const dosePoints = medicationDoseData[lane.id];
           // Grid/axis index matches swimlane position (index is already correct, vitals is grid 0)
           const gridIdx = index + 1; // +1 because vitals is grid 0
-          
-          console.log('[Med Debug] Creating series for', lane.label, 'at gridIdx:', gridIdx, 'with data:', dosePoints);
           
           // Create values map and series data
           const valuesMap = new Map(dosePoints.map(([time, dose]) => [time, dose]));
@@ -2417,13 +2419,10 @@ export function UnifiedTimeline({
       // Step 4: Add dose data point to the medication swimlane
       setMedicationDoseData(prev => {
         const existingData = prev[targetSwimlaneId] || [];
-        const newData = {
+        return {
           ...prev,
           [targetSwimlaneId]: [...existingData, [timestamp, drugCommand.dose] as [number, string]]
         };
-        console.log(`[Voice] Added dose ${drugCommand.dose} to ${targetSwimlaneId} at ${new Date(timestamp).toLocaleTimeString()}`);
-        console.log('[Voice] Updated medicationDoseData:', newData);
-        return newData;
       });
       
       // TODO: Store in backend anesthesia case data for persistence
@@ -2441,6 +2440,31 @@ export function UnifiedTimeline({
         variant: "destructive",
       });
     }
+  };
+
+  // Handle medication dose entry
+  const handleMedicationDoseEntry = () => {
+    if (!pendingMedicationDose || !medicationDoseInput.trim()) return;
+    
+    const { swimlaneId, time, label } = pendingMedicationDose;
+    
+    setMedicationDoseData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      return {
+        ...prev,
+        [swimlaneId]: [...existingData, [time, medicationDoseInput.trim()] as [number, string]]
+      };
+    });
+    
+    toast({
+      title: "Dose Added",
+      description: `${label}: ${medicationDoseInput.trim()} at ${new Date(time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`,
+    });
+    
+    // Reset dialog state
+    setShowMedicationDoseDialog(false);
+    setPendingMedicationDose(null);
+    setMedicationDoseInput("");
   };
 
   // Calculate swimlane positions for sidebar
@@ -2985,6 +3009,102 @@ export function UnifiedTimeline({
         );
       })()}
 
+      {/* Interactive layers for medication swimlanes - to place dose labels */}
+      {!activeToolMode && (() => {
+        const medicationParentIndex = activeSwimlanes.findIndex(s => s.id === "medikamente");
+        if (medicationParentIndex === -1 || collapsedSwimlanes.has("medikamente")) return null;
+        
+        return activeSwimlanes.map((lane, index) => {
+          const isMedicationChild = lane.id.startsWith('medication-predefined-') || lane.id.startsWith('medication-dynamic-');
+          if (!isMedicationChild) return null;
+          
+          const lanePosition = swimlanePositions.find(l => l.id === lane.id);
+          if (!lanePosition) return null;
+          
+          return (
+            <div
+              key={lane.id}
+              className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
+              style={{
+                left: '200px',
+                right: '10px',
+                top: `${lanePosition.top}px`,
+                height: `${lanePosition.height}px`,
+                zIndex: 35,
+              }}
+              onMouseMove={(e) => {
+                if (isTouchDevice) return;
+                
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                
+                const visibleStart = currentZoomStart ?? data.startTime;
+                const visibleEnd = currentZoomEnd ?? data.endTime;
+                const visibleRange = visibleEnd - visibleStart;
+                
+                const xPercent = x / rect.width;
+                let time = visibleStart + (xPercent * visibleRange);
+                
+                // Snap to current interval
+                time = Math.round(time / currentSnapInterval) * currentSnapInterval;
+                
+                setMedicationHoverInfo({ 
+                  x: e.clientX, 
+                  y: e.clientY, 
+                  time,
+                  swimlaneId: lane.id,
+                  label: lane.label.trim()
+                });
+              }}
+              onMouseLeave={() => setMedicationHoverInfo(null)}
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                
+                const visibleStart = currentZoomStart ?? data.startTime;
+                const visibleEnd = currentZoomEnd ?? data.endTime;
+                const visibleRange = visibleEnd - visibleStart;
+                
+                const xPercent = x / rect.width;
+                let time = visibleStart + (xPercent * visibleRange);
+                
+                // Snap to current interval
+                time = Math.round(time / currentSnapInterval) * currentSnapInterval;
+                
+                setPendingMedicationDose({ 
+                  swimlaneId: lane.id, 
+                  time, 
+                  label: lane.label.trim() 
+                });
+                setShowMedicationDoseDialog(true);
+              }}
+              data-testid={`interactive-medication-lane-${lane.id}`}
+            />
+          );
+        });
+      })()}
+
+      {/* Tooltip for medication dose entry */}
+      {medicationHoverInfo && !isTouchDevice && (
+        <div
+          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
+          style={{
+            left: medicationHoverInfo.x + 10,
+            top: medicationHoverInfo.y - 40,
+          }}
+        >
+          <div className="text-sm font-semibold text-primary">
+            Click to add dose
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {medicationHoverInfo.label}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {new Date(medicationHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+          </div>
+        </div>
+      )}
+
       {/* Time marker badges on the timeline */}
       {timeMarkers.filter(m => m.time !== null).map((marker) => {
         const visibleStart = currentZoomStart ?? data.startTime;
@@ -3068,6 +3188,58 @@ export function UnifiedTimeline({
               onClick={handleAddMedication}
               data-testid="button-confirm-add-medication"
               disabled={!newMedName.trim()}
+            >
+              Add
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Medication Dose Entry Dialog */}
+      <Dialog open={showMedicationDoseDialog} onOpenChange={setShowMedicationDoseDialog}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-medication-dose">
+          <DialogHeader>
+            <DialogTitle>Add Dose</DialogTitle>
+            {pendingMedicationDose && (
+              <p className="text-sm text-muted-foreground">
+                {pendingMedicationDose.label} at {new Date(pendingMedicationDose.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+              </p>
+            )}
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="dose-value">Dose</Label>
+              <Input
+                id="dose-value"
+                data-testid="input-dose-value"
+                value={medicationDoseInput}
+                onChange={(e) => setMedicationDoseInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleMedicationDoseEntry();
+                  }
+                }}
+                placeholder="e.g., 5mg, 100mg, 2ml"
+                autoFocus
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowMedicationDoseDialog(false);
+                setPendingMedicationDose(null);
+                setMedicationDoseInput("");
+              }}
+              data-testid="button-cancel-dose"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleMedicationDoseEntry}
+              data-testid="button-confirm-dose"
+              disabled={!medicationDoseInput.trim()}
             >
               Add
             </Button>
