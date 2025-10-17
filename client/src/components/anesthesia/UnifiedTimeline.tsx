@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StickyTimelineHeader } from "./StickyTimelineHeader";
 import { useToast } from "@/hooks/use-toast";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
@@ -161,6 +162,7 @@ export function UnifiedTimeline({
   const [showMedicationDoseDialog, setShowMedicationDoseDialog] = useState(false);
   const [pendingMedicationDose, setPendingMedicationDose] = useState<{ swimlaneId: string; time: number; label: string } | null>(null);
   const [medicationDoseInput, setMedicationDoseInput] = useState("");
+  const [medicationDoseUnit, setMedicationDoseUnit] = useState("mg"); // Default unit
 
   // Touch device detection
   const [isTouchDevice, setIsTouchDevice] = useState(false);
@@ -2472,24 +2474,26 @@ export function UnifiedTimeline({
     if (!pendingMedicationDose || !medicationDoseInput.trim()) return;
     
     const { swimlaneId, time, label } = pendingMedicationDose;
+    const doseWithUnit = `${medicationDoseInput.trim()}${medicationDoseUnit}`;
     
     setMedicationDoseData(prev => {
       const existingData = prev[swimlaneId] || [];
       return {
         ...prev,
-        [swimlaneId]: [...existingData, [time, medicationDoseInput.trim()] as [number, string]]
+        [swimlaneId]: [...existingData, [time, doseWithUnit] as [number, string]]
       };
     });
     
     toast({
       title: "Dose Added",
-      description: `${label}: ${medicationDoseInput.trim()} at ${new Date(time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`,
+      description: `${label}: ${doseWithUnit} at ${new Date(time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`,
     });
     
     // Reset dialog state
     setShowMedicationDoseDialog(false);
     setPendingMedicationDose(null);
     setMedicationDoseInput("");
+    setMedicationDoseUnit("mg"); // Reset to default
   };
 
   // Calculate swimlane positions for sidebar
@@ -3070,8 +3074,9 @@ export function UnifiedTimeline({
                 const xPercent = x / rect.width;
                 let time = visibleStart + (xPercent * visibleRange);
                 
-                // Snap to current interval
-                time = Math.round(time / currentSnapInterval) * currentSnapInterval;
+                // Always snap to 1-minute intervals for medication doses (same as time markers)
+                const oneMinute = 60 * 1000;
+                time = Math.round(time / oneMinute) * oneMinute;
                 
                 setMedicationHoverInfo({ 
                   x: e.clientX, 
@@ -3093,8 +3098,9 @@ export function UnifiedTimeline({
                 const xPercent = x / rect.width;
                 let time = visibleStart + (xPercent * visibleRange);
                 
-                // Snap to current interval
-                time = Math.round(time / currentSnapInterval) * currentSnapInterval;
+                // Always snap to 1-minute intervals for medication doses (same as time markers)
+                const oneMinute = 60 * 1000;
+                time = Math.round(time / oneMinute) * oneMinute;
                 
                 setPendingMedicationDose({ 
                   swimlaneId: lane.id, 
@@ -3233,10 +3239,11 @@ export function UnifiedTimeline({
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="dose-value">Dose</Label>
+              <Label htmlFor="dose-value">Dose Value</Label>
               <Input
                 id="dose-value"
                 data-testid="input-dose-value"
+                type="number"
                 value={medicationDoseInput}
                 onChange={(e) => setMedicationDoseInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -3244,9 +3251,25 @@ export function UnifiedTimeline({
                     handleMedicationDoseEntry();
                   }
                 }}
-                placeholder="e.g., 5mg, 100mg, 2ml"
+                placeholder="e.g., 5, 100, 2"
                 autoFocus
               />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="dose-unit">Unit</Label>
+              <Select value={medicationDoseUnit} onValueChange={setMedicationDoseUnit}>
+                <SelectTrigger id="dose-unit" data-testid="select-dose-unit">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mg">mg (milligrams)</SelectItem>
+                  <SelectItem value="mcg">mcg (micrograms)</SelectItem>
+                  <SelectItem value="g">g (grams)</SelectItem>
+                  <SelectItem value="ml">ml (milliliters)</SelectItem>
+                  <SelectItem value="units">units</SelectItem>
+                  <SelectItem value="IE">IE (International Units)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="flex justify-end gap-2">
@@ -3256,6 +3279,7 @@ export function UnifiedTimeline({
                 setShowMedicationDoseDialog(false);
                 setPendingMedicationDose(null);
                 setMedicationDoseInput("");
+                setMedicationDoseUnit("mg");
               }}
               data-testid="button-cancel-dose"
             >
