@@ -3155,6 +3155,117 @@ export function UnifiedTimeline({
         </div>
       )}
 
+      {/* Interactive layers for ventilation parameter swimlanes - to place values */}
+      {!activeToolMode && (() => {
+        const ventilationParentIndex = activeSwimlanes.findIndex(s => s.id === "ventilation");
+        if (ventilationParentIndex === -1 || collapsedSwimlanes.has("ventilation")) return null;
+        
+        // Map ventilation swimlane index to parameter key
+        const ventilationParamMap: { [index: number]: { key: keyof typeof ventilationData; label: string } } = {
+          0: { key: 'etCO2', label: 'etCO2' },
+          1: { key: 'pip', label: 'P insp' },
+          2: { key: 'peep', label: 'PEEP' },
+          3: { key: 'tidalVolume', label: 'Tidal Volume' },
+          4: { key: 'respiratoryRate', label: 'Respiratory Rate' },
+          5: { key: 'minuteVolume', label: 'Minute Volume' },
+          6: { key: 'fiO2', label: 'FiO2' },
+        };
+        
+        return activeSwimlanes.map((lane, index) => {
+          const isVentilationChild = lane.id.startsWith('ventilation-');
+          if (!isVentilationChild) return null;
+          
+          const ventilationIndex = parseInt(lane.id.split('-')[1]);
+          const paramInfo = ventilationParamMap[ventilationIndex];
+          if (!paramInfo) return null;
+          
+          const lanePosition = swimlanePositions.find(l => l.id === lane.id);
+          if (!lanePosition) return null;
+          
+          return (
+            <div
+              key={lane.id}
+              className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
+              style={{
+                left: '200px',
+                right: '10px',
+                top: `${lanePosition.top}px`,
+                height: `${lanePosition.height}px`,
+                zIndex: 35,
+              }}
+              onMouseMove={(e) => {
+                if (isTouchDevice) return;
+                
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                
+                const visibleStart = currentZoomStart ?? data.startTime;
+                const visibleEnd = currentZoomEnd ?? data.endTime;
+                const visibleRange = visibleEnd - visibleStart;
+                
+                const xPercent = x / rect.width;
+                let time = visibleStart + (xPercent * visibleRange);
+                
+                // Snap to current interval (1 minute)
+                time = Math.round(time / currentSnapInterval) * currentSnapInterval;
+                
+                setVentilationHoverInfo({ 
+                  x: e.clientX, 
+                  y: e.clientY, 
+                  time,
+                  paramKey: paramInfo.key,
+                  label: paramInfo.label
+                });
+              }}
+              onMouseLeave={() => setVentilationHoverInfo(null)}
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                
+                const visibleStart = currentZoomStart ?? data.startTime;
+                const visibleEnd = currentZoomEnd ?? data.endTime;
+                const visibleRange = visibleEnd - visibleStart;
+                
+                const xPercent = x / rect.width;
+                let time = visibleStart + (xPercent * visibleRange);
+                
+                // Snap to current interval (1 minute)
+                time = Math.round(time / currentSnapInterval) * currentSnapInterval;
+                
+                setPendingVentilationValue({ 
+                  paramKey: paramInfo.key, 
+                  time, 
+                  label: paramInfo.label
+                });
+                setShowVentilationDialog(true);
+              }}
+              data-testid={`interactive-ventilation-lane-${lane.id}`}
+            />
+          );
+        });
+      })()}
+
+      {/* Tooltip for ventilation parameter entry */}
+      {ventilationHoverInfo && !isTouchDevice && (
+        <div
+          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
+          style={{
+            left: ventilationHoverInfo.x + 10,
+            top: ventilationHoverInfo.y - 40,
+          }}
+        >
+          <div className="text-sm font-semibold text-primary">
+            Click to add value
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {ventilationHoverInfo.label}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {new Date(ventilationHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+          </div>
+        </div>
+      )}
+
       {/* Time marker badges on the timeline */}
       {timeMarkers.filter(m => m.time !== null).map((marker) => {
         const visibleStart = currentZoomStart ?? data.startTime;
@@ -3290,6 +3401,60 @@ export function UnifiedTimeline({
               onClick={handleMedicationDoseEntry}
               data-testid="button-confirm-dose"
               disabled={!medicationDoseInput.trim()}
+            >
+              Add
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ventilation Parameter Entry Dialog */}
+      <Dialog open={showVentilationDialog} onOpenChange={setShowVentilationDialog}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-ventilation-value">
+          <DialogHeader>
+            <DialogTitle>Add Value</DialogTitle>
+            {pendingVentilationValue && (
+              <p className="text-sm text-muted-foreground">
+                {pendingVentilationValue.label} at {new Date(pendingVentilationValue.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+              </p>
+            )}
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="ventilation-value">Value</Label>
+              <Input
+                id="ventilation-value"
+                data-testid="input-ventilation-value"
+                type="number"
+                step="0.1"
+                value={ventilationValueInput}
+                onChange={(e) => setVentilationValueInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleVentilationParameterEntry();
+                  }
+                }}
+                placeholder="e.g., 35, 12.5, 98"
+                autoFocus
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowVentilationDialog(false);
+                setPendingVentilationValue(null);
+                setVentilationValueInput("");
+              }}
+              data-testid="button-cancel-ventilation"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleVentilationParameterEntry}
+              data-testid="button-confirm-ventilation"
+              disabled={!ventilationValueInput.trim()}
             >
               Add
             </Button>
