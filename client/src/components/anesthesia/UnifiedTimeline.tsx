@@ -162,6 +162,12 @@ export function UnifiedTimeline({
   const [pendingMedicationDose, setPendingMedicationDose] = useState<{ swimlaneId: string; time: number; label: string } | null>(null);
   const [medicationDoseInput, setMedicationDoseInput] = useState("");
 
+  // State for ventilation parameter entry
+  const [ventilationHoverInfo, setVentilationHoverInfo] = useState<{ x: number; y: number; time: number; paramKey: keyof typeof ventilationData; label: string } | null>(null);
+  const [showVentilationDialog, setShowVentilationDialog] = useState(false);
+  const [pendingVentilationValue, setPendingVentilationValue] = useState<{ paramKey: keyof typeof ventilationData; time: number; label: string } | null>(null);
+  const [ventilationValueInput, setVentilationValueInput] = useState("");
+
   // Touch device detection
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   
@@ -857,24 +863,8 @@ export function UnifiedTimeline({
       setCurrentZoomStart(visibleStart);
       setCurrentZoomEnd(visibleEnd);
       
-      // Calculate adaptive snap interval based on zoom span (finer granularity)
-      const timeSpan = visibleEnd - visibleStart;
-      const spanMinutes = timeSpan / (60 * 1000);
-      
-      let snapInterval: number;
-      if (spanMinutes <= 10) {
-        snapInterval = 1 * 60 * 1000; // 1-minute snap for very fine zoom (5, 10 min spans)
-      } else if (spanMinutes <= 30) {
-        snapInterval = 1 * 60 * 1000; // 1-minute snap for fine zoom (30 min span)
-      } else if (spanMinutes <= 60) {
-        snapInterval = 5 * 60 * 1000; // 5-minute snap for medium zoom (50 min span)
-      } else if (spanMinutes <= 120) {
-        snapInterval = 5 * 60 * 1000; // 5-minute snap for coarse zoom (80, 120 min spans)
-      } else if (spanMinutes <= 480) {
-        snapInterval = 10 * 60 * 1000; // 10-minute snap for very coarse zoom (240, 480 min spans)
-      } else {
-        snapInterval = 15 * 60 * 1000; // 15-minute snap for ultra coarse zoom (1200+ min spans)
-      }
+      // Always use 1-minute snap interval for drugs and ventilation parameters
+      const snapInterval = 1 * 60 * 1000; // 1-minute snap
       
       setCurrentSnapInterval(snapInterval);
     };
@@ -2490,6 +2480,41 @@ export function UnifiedTimeline({
     setShowMedicationDoseDialog(false);
     setPendingMedicationDose(null);
     setMedicationDoseInput("");
+  };
+
+  // Handle ventilation parameter entry
+  const handleVentilationParameterEntry = () => {
+    if (!pendingVentilationValue || !ventilationValueInput.trim()) return;
+    
+    const { paramKey, time, label } = pendingVentilationValue;
+    const value = parseFloat(ventilationValueInput.trim());
+    
+    if (isNaN(value)) {
+      toast({
+        title: "Invalid Value",
+        description: "Please enter a valid number",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setVentilationData(prev => {
+      const existingData = prev[paramKey] || [];
+      return {
+        ...prev,
+        [paramKey]: [...existingData, [time, value] as VitalPoint]
+      };
+    });
+    
+    toast({
+      title: "Value Added",
+      description: `${label}: ${value} at ${new Date(time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`,
+    });
+    
+    // Reset dialog state
+    setShowVentilationDialog(false);
+    setPendingVentilationValue(null);
+    setVentilationValueInput("");
   };
 
   // Calculate swimlane positions for sidebar
