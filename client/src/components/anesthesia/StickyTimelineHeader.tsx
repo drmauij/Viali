@@ -480,7 +480,7 @@ export function StickyTimelineHeader({
           className="py-2 sm:py-1 text-muted-foreground hover:text-foreground transition-colors touch-manipulation cursor-grab active:cursor-grabbing"
           title="Drag to reposition"
         >
-          <GripVertical className="h-6 w-6 sm:h-5 sm:w-5" />
+          <GripVertical className="h-6 w-6 sm:h-5 sm:w-5 rotate-90" />
         </div>
         
         {/* Voice Recording Button */}
