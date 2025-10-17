@@ -68,8 +68,8 @@ export function StickyTimelineHeader({
   const [mediaPosition, setMediaPosition] = useState<{ x: number; y: number }>(() => {
     const saved = localStorage.getItem('timeline-media-controls-position');
     if (saved) return JSON.parse(saved);
-    // Default: right side of screen, vertically centered
-    return { x: window.innerWidth - 80, y: window.innerHeight / 2 };
+    // Default: bottom-right corner
+    return { x: window.innerWidth - 60, y: window.innerHeight - 100 };
   });
 
   // Save position to localStorage whenever it changes
@@ -457,20 +457,10 @@ export function StickyTimelineHeader({
 
       {/* Separate Draggable Media Controls Container - Stacked Vertically */}
       <div 
-        onMouseDown={handleDragStartMedia}
-        onTouchStart={handleDragStartMedia}
-        className="fixed z-[9999] bg-background/80 backdrop-blur-md border-2 border-border/50 rounded-lg shadow-lg px-1.5 sm:px-3 py-1 sm:py-1.5 flex flex-col items-center gap-1 sm:gap-2 cursor-grab active:cursor-grabbing select-none"
+        className="fixed z-[9999] bg-background/80 backdrop-blur-md border-2 border-border/50 rounded-lg shadow-lg px-1.5 sm:px-3 py-1 sm:py-1.5 flex flex-col items-center gap-1 sm:gap-2 select-none"
         style={{ left: `${mediaPosition.x}px`, top: `${mediaPosition.y}px`, transform: 'translate(-50%, -50%)' }}
         data-testid="timeline-media-controls-panel"
       >
-        {/* Drag Handle */}
-        <div 
-          className="p-0.5 sm:p-1 text-muted-foreground hover:text-foreground transition-colors touch-manipulation"
-          title="Drag to reposition"
-        >
-          <GripVertical className="h-4 w-4 sm:h-5 sm:w-5" />
-        </div>
-        
         {/* Camera Button */}
         <button
           data-testid="button-camera"
@@ -482,6 +472,16 @@ export function StickyTimelineHeader({
         >
           <Camera className="h-4 w-4 sm:h-5 sm:w-5" />
         </button>
+        
+        {/* Drag Handle - Between icons with increased mobile size */}
+        <div 
+          onMouseDown={handleDragStartMedia}
+          onTouchStart={handleDragStartMedia}
+          className="py-2 sm:py-1 text-muted-foreground hover:text-foreground transition-colors touch-manipulation cursor-grab active:cursor-grabbing"
+          title="Drag to reposition"
+        >
+          <GripVertical className="h-6 w-6 sm:h-5 sm:w-5" />
+        </div>
         
         {/* Voice Recording Button */}
         <button
