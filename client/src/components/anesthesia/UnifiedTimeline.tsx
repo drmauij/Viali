@@ -1354,15 +1354,15 @@ export function UnifiedTimeline({
         xAxisIndex: 0,
         yAxisIndex: 1, // Use second y-axis (45-105 range)
         data: sortedSpo2Data,
-        symbol: 'circle',
-        symbolSize: 4,
+        symbol: 'path://M10,10m-8,0a8,8 0 1,0 16,0a8,8 0 1,0 -16,0 M10,10m-3,0a3,3 0 1,0 6,0a3,3 0 1,0 -6,0', // CircleDot: outer circle + inner filled circle
+        symbolSize: 14,
         showSymbol: true,
         lineStyle: {
           color: '#8b5cf6', // Purple line
           width: 1.5,
         },
         itemStyle: {
-          color: '#8b5cf6', // Purple center dot
+          color: '#8b5cf6', // Purple fill
           borderColor: '#8b5cf6', // Purple border
           borderWidth: 2,
         },
