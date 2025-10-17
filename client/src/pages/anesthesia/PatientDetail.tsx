@@ -98,6 +98,7 @@ export default function PatientDetail() {
     weight: "",
     allergies: [] as string[],
     allergiesOther: "",
+    cave: "",
     asa: "",
     specialNotes: "",
     
@@ -345,6 +346,7 @@ export default function PatientDetail() {
            assessmentData.weight.trim() !== "" ||
            assessmentData.allergies.length > 0 ||
            assessmentData.allergiesOther.trim() !== "" ||
+           assessmentData.cave.trim() !== "" ||
            assessmentData.asa.trim() !== "" ||
            assessmentData.specialNotes.trim() !== "";
   };
@@ -833,6 +835,15 @@ export default function PatientDetail() {
                               data-testid="input-allergies-other"
                             />
                           </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>CAVE</Label>
+                          <Input
+                            value={assessmentData.cave}
+                            onChange={(e) => setAssessmentData({...assessmentData, cave: e.target.value})}
+                            placeholder="CAVE (Contraindications, Warnings)..."
+                            data-testid="input-cave"
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label>ASA Classification</Label>

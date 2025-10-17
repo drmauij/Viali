@@ -50,6 +50,7 @@ const mockPatients = [
     height: "165",
     weight: "68",
     allergies: ["Latex", "Penicillin"],
+    cave: "NSAIDs contraindicated",
   },
   {
     id: "2",
@@ -61,6 +62,7 @@ const mockPatients = [
     height: "180",
     weight: "130",
     allergies: ["None"],
+    cave: "",
   },
 ];
 
@@ -273,14 +275,24 @@ export default function Op() {
                 </div>
               </div>
 
-              {/* Allergies - Prominent Display */}
-              <div className="flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 rounded-lg">
-                <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400" />
-                <div>
-                  <p className="text-xs font-medium text-amber-700 dark:text-amber-300">ALLERGIES</p>
-                  <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                    {currentPatient.allergies.join(", ")}
-                  </p>
+              {/* Allergies & CAVE - Prominent Display */}
+              <div className="flex items-start gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 rounded-lg">
+                <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
+                <div className="flex gap-4 flex-wrap flex-1">
+                  <div className="flex-1 min-w-[120px]">
+                    <p className="text-xs font-medium text-amber-700 dark:text-amber-300">ALLERGIES</p>
+                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                      {currentPatient.allergies.join(", ")}
+                    </p>
+                  </div>
+                  {currentPatient.cave && (
+                    <div className="flex-1 min-w-[120px]">
+                      <p className="text-xs font-medium text-amber-700 dark:text-amber-300">CAVE</p>
+                      <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                        {currentPatient.cave}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
