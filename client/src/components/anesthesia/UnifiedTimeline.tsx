@@ -893,8 +893,8 @@ export function UnifiedTimeline({
     if (!chart) return;
 
     const handleChartClick = (params: any) => {
-      // Only handle clicks on scatter data points, not when actively placing new values
-      if (params.componentType === 'series' && params.seriesType === 'scatter' && !activeToolMode) {
+      // Only handle clicks on scatter/custom data points, not when actively placing new values
+      if (params.componentType === 'series' && (params.seriesType === 'scatter' || params.seriesType === 'custom') && !activeToolMode) {
         const [timestamp, value] = params.data;
         const seriesName = params.seriesName;
         
