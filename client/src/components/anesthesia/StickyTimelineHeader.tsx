@@ -39,6 +39,11 @@ export function StickyTimelineHeader({
     startX: 0,
     startY: 0,
   });
+  const dragRefMedia = useRef<{ isDragging: boolean; startX: number; startY: number }>({
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+  });
   const videoRef = useRef<HTMLVideoElement>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -59,10 +64,23 @@ export function StickyTimelineHeader({
     return { x: window.innerWidth / 2, y: window.innerHeight / 2 - 40 };
   });
 
+  // Load media controls position from localStorage or use default
+  const [mediaPosition, setMediaPosition] = useState<{ x: number; y: number }>(() => {
+    const saved = localStorage.getItem('timeline-media-controls-position');
+    if (saved) return JSON.parse(saved);
+    // Default: right side of screen, vertically centered
+    return { x: window.innerWidth - 80, y: window.innerHeight / 2 };
+  });
+
   // Save position to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('timeline-controls-position', JSON.stringify(position));
   }, [position]);
+
+  // Save media controls position to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('timeline-media-controls-position', JSON.stringify(mediaPosition));
+  }, [mediaPosition]);
 
   // Open camera
   const openCamera = async () => {
@@ -215,21 +233,43 @@ export function StickyTimelineHeader({
     };
   };
 
+  const handleDragStartMedia = (e: React.MouseEvent | React.TouchEvent) => {
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    
+    dragRefMedia.current = {
+      isDragging: true,
+      startX: clientX - mediaPosition.x,
+      startY: clientY - mediaPosition.y,
+    };
+  };
+
   useEffect(() => {
     const handleMove = (e: MouseEvent | TouchEvent) => {
-      if (!dragRef.current.isDragging) return;
+      if (dragRef.current.isDragging) {
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+        
+        setPosition({
+          x: clientX - dragRef.current.startX,
+          y: clientY - dragRef.current.startY,
+        });
+      }
       
-      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-      
-      setPosition({
-        x: clientX - dragRef.current.startX,
-        y: clientY - dragRef.current.startY,
-      });
+      if (dragRefMedia.current.isDragging) {
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+        
+        setMediaPosition({
+          x: clientX - dragRefMedia.current.startX,
+          y: clientY - dragRefMedia.current.startY,
+        });
+      }
     };
 
     const handleEnd = () => {
       dragRef.current.isDragging = false;
+      dragRefMedia.current.isDragging = false;
     };
 
     document.addEventListener('mousemove', handleMove);
@@ -413,7 +453,25 @@ export function StickyTimelineHeader({
         >
           Reset
         </button>
-        <div className="border-l-2 border-border h-6 sm:h-8 mx-0.5 sm:mx-1" />
+      </div>
+
+      {/* Separate Draggable Media Controls Container - Stacked Vertically */}
+      <div 
+        onMouseDown={handleDragStartMedia}
+        onTouchStart={handleDragStartMedia}
+        className="fixed z-[9999] bg-background/80 backdrop-blur-md border-2 border-border/50 rounded-lg shadow-lg px-1.5 sm:px-3 py-1 sm:py-1.5 flex flex-col items-center gap-1 sm:gap-2 cursor-grab active:cursor-grabbing select-none"
+        style={{ left: `${mediaPosition.x}px`, top: `${mediaPosition.y}px`, transform: 'translate(-50%, -50%)' }}
+        data-testid="timeline-media-controls-panel"
+      >
+        {/* Drag Handle */}
+        <div 
+          className="p-0.5 sm:p-1 text-muted-foreground hover:text-foreground transition-colors touch-manipulation"
+          title="Drag to reposition"
+        >
+          <GripVertical className="h-4 w-4 sm:h-5 sm:w-5" />
+        </div>
+        
+        {/* Camera Button */}
         <button
           data-testid="button-camera"
           onClick={(e) => { e.stopPropagation(); openCamera(); }}
@@ -424,6 +482,8 @@ export function StickyTimelineHeader({
         >
           <Camera className="h-4 w-4 sm:h-5 sm:w-5" />
         </button>
+        
+        {/* Voice Recording Button */}
         <button
           data-testid="button-voice"
           onMouseDown={(e) => { 
