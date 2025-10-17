@@ -1,7 +1,8 @@
 import { useMemo, useEffect, useRef, useState, useCallback } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Search, GripVertical, Camera, Mic, Square } from "lucide-react";
+import { Search, GripVertical, Camera, Mic, Square, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface StickyTimelineHeaderProps {
   startTime: number;
@@ -41,12 +42,14 @@ export function StickyTimelineHeader({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const { toast } = useToast();
   
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load position from localStorage or use default centered position
   const [position, setPosition] = useState<{ x: number; y: number }>(() => {
@@ -108,8 +111,10 @@ export function StickyTimelineHeader({
     }
   };
 
-  // Start voice recording
+  // Start voice recording (press and hold)
   const startRecording = async () => {
+    if (isProcessing || isRecording) return;
+    
     try {
       const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(audioStream, {
@@ -145,23 +150,45 @@ export function StickyTimelineHeader({
       mediaRecorder.start();
       setIsRecording(true);
       
-      // Auto-stop after 10 seconds
-      setTimeout(() => {
+      // Show recording toast
+      toast({
+        title: "🎤 Recording...",
+        description: "Release button to process voice command",
+        duration: 10000, // Will auto-dismiss if user holds for 10 seconds
+      });
+      
+      // Safety timeout: Auto-stop after 10 seconds (in case button doesn't release)
+      recordingTimeoutRef.current = setTimeout(() => {
         if (mediaRecorderRef.current?.state === 'recording') {
           stopRecording();
+          toast({
+            title: "Recording stopped",
+            description: "Maximum recording time (10s) reached",
+            variant: "default",
+          });
         }
       }, 10000);
     } catch (error) {
       console.error('Error accessing microphone:', error);
-      alert('Unable to access microphone. Please check permissions.');
+      toast({
+        title: "Microphone Error",
+        description: "Unable to access microphone. Check permissions.",
+        variant: "destructive",
+      });
     }
   };
   
-  // Stop voice recording
+  // Stop voice recording (on button release)
   const stopRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      
+      // Clear safety timeout
+      if (recordingTimeoutRef.current) {
+        clearTimeout(recordingTimeoutRef.current);
+        recordingTimeoutRef.current = null;
+      }
     }
   };
 
@@ -399,27 +426,49 @@ export function StickyTimelineHeader({
         </button>
         <button
           data-testid="button-voice"
-          onClick={(e) => { 
+          onMouseDown={(e) => { 
             e.stopPropagation(); 
-            if (isRecording) {
-              stopRecording();
-            } else if (!isProcessing) {
+            if (!isProcessing && !isRecording) {
               startRecording();
             }
           }}
-          onMouseDown={(e) => e.stopPropagation()}
-          onTouchStart={(e) => e.stopPropagation()}
+          onMouseUp={(e) => {
+            e.stopPropagation();
+            if (isRecording) {
+              stopRecording();
+            }
+          }}
+          onMouseLeave={(e) => {
+            // Stop recording if mouse leaves while holding
+            if (isRecording) {
+              stopRecording();
+            }
+          }}
+          onTouchStart={(e) => { 
+            e.stopPropagation(); 
+            if (!isProcessing && !isRecording) {
+              startRecording();
+            }
+          }}
+          onTouchEnd={(e) => {
+            e.stopPropagation();
+            if (isRecording) {
+              stopRecording();
+            }
+          }}
           disabled={isProcessing}
-          className={`rounded-md h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer ${
+          className={`rounded-md h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 flex items-center justify-center transition-colors touch-manipulation select-none ${
             isRecording 
-              ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse' 
+              ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse cursor-pointer' 
               : isProcessing 
                 ? 'bg-muted/50 cursor-not-allowed' 
-                : 'hover:bg-muted active:bg-muted/80'
+                : 'hover:bg-muted active:bg-muted/80 cursor-pointer'
           }`}
-          title={isRecording ? "Stop Recording" : isProcessing ? "Processing..." : "Voice Command"}
+          title={isRecording ? "Recording... (Release to stop)" : isProcessing ? "Processing..." : "Press & Hold to Record"}
         >
-          {isRecording ? (
+          {isProcessing ? (
+            <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+          ) : isRecording ? (
             <Square className="h-4 w-4 sm:h-5 sm:w-5" />
           ) : (
             <Mic className="h-4 w-4 sm:h-5 sm:w-5" />
