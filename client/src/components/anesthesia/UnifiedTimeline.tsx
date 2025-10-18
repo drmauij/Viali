@@ -1039,21 +1039,8 @@ export function UnifiedTimeline({
         // Access ECharts internal model to get actual rendered tick coordinates
         const axis = (chart as any)._model?._componentsMap?.get('xAxis')?.[0]?.axis;
         
-        console.log('[DEBUG] Axis object:', axis ? 'Found' : 'Not found');
-        
         if (axis && typeof axis.getTicksCoords === 'function') {
           const ticks = axis.getTicksCoords();
-          
-          console.log('[DEBUG] Raw ticks from ECharts:', ticks?.length || 0, 'ticks');
-          
-          // Log first few ticks to see structure
-          if (ticks && ticks.length > 0) {
-            console.log('[DEBUG] First 3 ticks structure:', ticks.slice(0, 3).map((t: any) => ({
-              coord: t.coord,
-              tickValue: t.tickValue,
-              value: t.value,
-            })));
-          }
           
           // Calculate actual interval from consecutive tick VALUES (not pixel coords)
           // IMPORTANT: Use ticks[1] and ticks[2] because ticks[0] might be at an odd start time
@@ -1063,29 +1050,20 @@ export function UnifiedTimeline({
             const tick1Value = ticks[1].tickValue;
             const tick2Value = ticks[2].tickValue;
             
-            console.log('[DEBUG] Tick 1 value:', tick1Value, 'Tick 2 value:', tick2Value);
-            console.log('[DEBUG] Tick 1 as date:', new Date(tick1Value).toLocaleTimeString());
-            console.log('[DEBUG] Tick 2 as date:', new Date(tick2Value).toLocaleTimeString());
-            
             if (typeof tick1Value === 'number' && typeof tick2Value === 'number') {
               const actualInterval = Math.abs(tick2Value - tick1Value);
               
               // Use the real interval ECharts is displaying
               vitalsSnapInterval = actualInterval;
               
-              console.log(`[Snap Interval - ECharts API] ✓ Detected ${ticks.length} ticks`);
-              console.log(`[Snap Interval - ECharts API] ✓ Calculated interval: ${actualInterval / 60000} min (${actualInterval}ms)`);
-              console.log(`[Snap Interval - ECharts API] ✓ Setting snap interval to: ${vitalsSnapInterval / 60000} min`);
+              console.log(`[Snap Interval] ECharts interval: ${actualInterval / 60000} min (${actualInterval}ms)`);
             } else {
-              console.log('[DEBUG] Tick values are not numeric:', typeof tick1Value, typeof tick2Value);
               throw new Error('Tick values not numeric');
             }
           } else {
-            console.log('[DEBUG] Insufficient ticks (need at least 3):', ticks?.length || 0);
             throw new Error('Insufficient ticks');
           }
         } else {
-          console.log('[DEBUG] Axis API not available');
           throw new Error('Axis API not available');
         }
       } catch (error) {
@@ -1101,9 +1079,7 @@ export function UnifiedTimeline({
           vitalsSnapInterval = 10 * 60 * 1000;
         }
         
-        console.log(`[Snap Interval - FALLBACK] ✗ Error: ${error}`);
-        console.log(`[Snap Interval - FALLBACK] ✗ Visible range: ${visibleRangeMinutes.toFixed(1)} min`);
-        console.log(`[Snap Interval - FALLBACK] ✗ Setting snap interval to: ${vitalsSnapInterval / 60000} min`);
+        console.log(`[Snap Interval] Fallback (${visibleRangeMinutes.toFixed(1)} min visible): ${vitalsSnapInterval / 60000} min`);
       }
       
       setCurrentVitalsSnapInterval(vitalsSnapInterval);
