@@ -1119,7 +1119,7 @@ export function UnifiedTimeline({
     };
   }, [chartRef, data.startTime, data.endTime]);
 
-  // Combined graphics rendering - merges ventilation parameters, medication doses, and ventilation modes
+  // Ventilation mode graphics rendering (parent swimlane only - child values now use DOM overlays)
   useEffect(() => {
     const chart = chartRef.current?.getEchartsInstance();
     if (!chart) return;
@@ -1130,7 +1130,6 @@ export function UnifiedTimeline({
     const VITALS_TOP = 32;
     
     // Helper to convert timestamp to pixel position
-    // IMPORTANT: Always use xAxisIndex: 0 because there's only ONE shared x-axis for all grids
     const timestampToPixel = (timestamp: number): number | null => {
       try {
         const pixelX = chart.convertToPixel({ xAxisIndex: 0 }, timestamp);
@@ -1142,122 +1141,9 @@ export function UnifiedTimeline({
     
     const allGraphics: any[] = [];
     
-    // === 1. VENTILATION PARAMETER GRAPHICS (child swimlanes) ===
+    // === VENTILATION MODE GRAPHICS (parent swimlane only) ===
+    // Note: Child parameter values (PEEP, FiO2, etc) are now rendered as DOM overlays for better clickability
     const ventilationParentIndex = activeSwimlanes.findIndex(lane => lane.id === 'ventilation');
-    if (ventilationParentIndex !== -1 && !collapsedSwimlanes.has('ventilation')) {
-      let currentY = VITALS_TOP + VITALS_HEIGHT;
-      for (let i = 0; i < ventilationParentIndex; i++) {
-        currentY += activeSwimlanes[i].height;
-      }
-      
-      const paramData = [
-        { data: ventilationData.etCO2, paramIndex: 0, name: 'etCO2' },
-        { data: ventilationData.pip, paramIndex: 1, name: 'PIP' },
-        { data: ventilationData.peep, paramIndex: 2, name: 'PEEP' },
-        { data: ventilationData.tidalVolume, paramIndex: 3, name: 'TidalVol' },
-        { data: ventilationData.respiratoryRate, paramIndex: 4, name: 'RR' },
-        { data: ventilationData.minuteVolume, paramIndex: 5, name: 'MinVol' },
-        { data: ventilationData.fiO2, paramIndex: 6, name: 'FiO2' },
-      ];
-      
-      paramData.forEach(({ data, paramIndex, name }) => {
-        const rowY = currentY + paramIndex * 35 + 17.5; // FIXED: paramIndex already starts at 0
-        const paramKey = ['etCO2', 'pip', 'peep', 'tidalVolume', 'respiratoryRate', 'minuteVolume', 'fiO2'][paramIndex] as keyof typeof ventilationData;
-        const labelMap: { [key: string]: string } = {
-          etCO2: 'etCO2',
-          pip: 'P insp',
-          peep: 'PEEP',
-          tidalVolume: 'Tidal Volume',
-          respiratoryRate: 'Respiratory Rate',
-          minuteVolume: 'Minute Volume',
-          fiO2: 'FiO2',
-        };
-        
-        data.forEach(([timestamp, value], index) => {
-          const pixelX = timestampToPixel(timestamp); // FIXED: removed gridIdx parameter
-          if (pixelX !== null) {
-            allGraphics.push({
-              type: 'text',
-              id: `vent-${name}-${timestamp}-${value}-${index}`,
-              left: pixelX,
-              top: rowY,
-              style: {
-                text: value.toString(),
-                font: `bold 13px ${modernMonoFont}`,
-                fill: textColor,
-                textAlign: 'center',
-                textVerticalAlign: 'middle',
-              },
-              z: 100,
-              cursor: 'pointer',
-              onclick: () => {
-                setEditingVentilationValue({
-                  paramKey,
-                  time: timestamp,
-                  value: value.toString(),
-                  index,
-                  label: labelMap[paramKey] || paramKey,
-                });
-                setVentilationEditInput(value.toString());
-                setShowVentilationEditDialog(true);
-              },
-            });
-          }
-        });
-      });
-    }
-    
-    // === 2. MEDICATION DOSE GRAPHICS (child swimlanes) ===
-    const medicationParentIndex = activeSwimlanes.findIndex(s => s.id === "medikamente");
-    if (medicationParentIndex !== -1 && !collapsedSwimlanes.has("medikamente")) {
-      let currentY = VITALS_TOP + VITALS_HEIGHT;
-      for (let i = 0; i < medicationParentIndex; i++) {
-        currentY += activeSwimlanes[i].height;
-      }
-      
-      activeSwimlanes.forEach((lane, index) => {
-        const isMedicationChild = lane.id.startsWith('medication-predefined-') || lane.id.startsWith('medication-dynamic-');
-        
-        if (isMedicationChild && medicationDoseData[lane.id]?.length > 0) {
-          const dosePoints = medicationDoseData[lane.id];
-          const laneIndex = index - medicationParentIndex - 1;
-          const rowY = currentY + laneIndex * 30 + 15;
-          
-          dosePoints.forEach(([timestamp, dose], idx) => {
-            const pixelX = timestampToPixel(timestamp); // FIXED: removed gridIdx parameter
-            if (pixelX !== null) {
-              allGraphics.push({
-                type: 'text',
-                id: `med-${lane.id}-${timestamp}-${dose}-${idx}`,
-                left: pixelX,
-                top: rowY,
-                style: {
-                  text: dose.toString(),
-                  font: `bold 13px ${modernMonoFont}`,
-                  fill: textColor,
-                  textAlign: 'center',
-                  textVerticalAlign: 'middle',
-                },
-                z: 100,
-                cursor: 'pointer',
-                onclick: () => {
-                  setEditingMedicationDose({
-                    swimlaneId: lane.id,
-                    time: timestamp,
-                    dose: dose.toString(),
-                    index: idx,
-                  });
-                  setMedicationEditInput(dose.toString());
-                  setShowMedicationEditDialog(true);
-                },
-              });
-            }
-          });
-        }
-      });
-    }
-    
-    // === 3. VENTILATION MODE GRAPHICS (parent swimlane) ===
     if (ventilationParentIndex !== -1 && ventilationModeData.length > 0) {
       let currentY = VITALS_TOP + VITALS_HEIGHT;
       for (let i = 0; i < ventilationParentIndex; i++) {
@@ -1267,7 +1153,7 @@ export function UnifiedTimeline({
       const rowY = currentY + (activeSwimlanes[ventilationParentIndex].height / 2);
       
       ventilationModeData.forEach(([timestamp, mode], idx) => {
-        const pixelX = timestampToPixel(timestamp); // FIXED: removed gridIdx parameter
+        const pixelX = timestampToPixel(timestamp);
         if (pixelX !== null) {
           allGraphics.push({
             type: 'text',
@@ -1287,11 +1173,11 @@ export function UnifiedTimeline({
       });
     }
     
-    // Apply all graphics in a single setOption call (prevents overwriting)
+    // Apply graphics
     console.log(`[Combined Graphics] Generated ${allGraphics.length} total graphic elements`);
     chart.setOption({ graphic: allGraphics }, { replaceMerge: ['graphic'] });
     
-  }, [chartRef, activeSwimlanes, collapsedSwimlanes, isDark, ventilationData, medicationDoseData, ventilationModeData, setEditingMedicationDose, setMedicationEditInput, setShowMedicationEditDialog, setEditingVentilationValue, setVentilationEditInput, setShowVentilationEditDialog, graphicsRevision]);
+  }, [chartRef, activeSwimlanes, collapsedSwimlanes, isDark, ventilationModeData, graphicsRevision]);
 
   const option = useMemo(() => {
     // Layout constants
@@ -3967,6 +3853,133 @@ export function UnifiedTimeline({
             <MessageSquareText className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
           </div>
         );
+      })}
+
+      {/* Ventilation parameter values as DOM overlays */}
+      {!collapsedSwimlanes.has('ventilation') && Object.entries(ventilationData).flatMap(([paramKey, dataPoints]) => {
+        // Map parameter keys to their child lane indices
+        const paramIndexMap: Record<string, number> = {
+          etCO2: 0,
+          pip: 1,
+          peep: 2,
+          tidalVolume: 3,
+          respiratoryRate: 4,
+          minuteVolume: 5,
+          fiO2: 6,
+        };
+        
+        const paramIndex = paramIndexMap[paramKey];
+        if (paramIndex === undefined) return [];
+        
+        // Find the corresponding child lane in swimlanePositions
+        const childLane = swimlanePositions.find(lane => lane.id === `ventilation-${paramIndex}`);
+        if (!childLane) {
+          console.log(`[Vent Overlay] Could not find lane ventilation-${paramIndex} for ${paramKey}. Available lanes:`, swimlanePositions.map(l => l.id));
+          return [];
+        }
+        
+        const visibleStart = currentZoomStart ?? data.startTime;
+        const visibleEnd = currentZoomEnd ?? data.endTime;
+        const visibleRange = visibleEnd - visibleStart;
+        
+        const labelMap: Record<string, string> = {
+          etCO2: 'etCO2',
+          pip: 'P insp',
+          peep: 'PEEP',
+          tidalVolume: 'Tidal Volume',
+          respiratoryRate: 'Respiratory Rate',
+          minuteVolume: 'Minute Volume',
+          fiO2: 'FiO2',
+        };
+        
+        return dataPoints.map(([timestamp, value], index) => {
+          const xFraction = (timestamp - visibleStart) / visibleRange;
+          
+          if (xFraction < 0 || xFraction > 1) return null;
+          
+          const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 20px)`;
+          
+          return (
+            <div
+              key={`vent-${paramKey}-${timestamp}-${index}`}
+              className="absolute z-40 cursor-pointer flex items-center justify-center group font-mono font-bold text-sm"
+              style={{
+                left: leftPosition,
+                top: `${childLane.top + 7}px`,
+                minWidth: '40px',
+                height: '20px',
+              }}
+              onClick={() => {
+                setEditingVentilationValue({
+                  paramKey: paramKey as keyof typeof ventilationData,
+                  time: timestamp,
+                  value: value.toString(),
+                  index,
+                  label: labelMap[paramKey] || paramKey,
+                });
+                setVentilationEditInput(value.toString());
+                setShowVentilationEditDialog(true);
+              }}
+              title={`${labelMap[paramKey]}: ${value}`}
+              data-testid={`vent-value-${paramKey}-${index}`}
+            >
+              <span className="group-hover:scale-110 transition-transform">
+                {value}
+              </span>
+            </div>
+          );
+        }).filter(Boolean);
+      })}
+
+      {/* Medication dose values as DOM overlays */}
+      {!collapsedSwimlanes.has('medikamente') && activeSwimlanes.flatMap((lane, laneIndex) => {
+        const isMedicationChild = lane.id.startsWith('medication-predefined-') || lane.id.startsWith('medication-dynamic-');
+        
+        if (!isMedicationChild || !medicationDoseData[lane.id]?.length) return [];
+        
+        const childLane = swimlanePositions.find(pos => pos.id === lane.id);
+        if (!childLane) return [];
+        
+        const visibleStart = currentZoomStart ?? data.startTime;
+        const visibleEnd = currentZoomEnd ?? data.endTime;
+        const visibleRange = visibleEnd - visibleStart;
+        
+        return medicationDoseData[lane.id].map(([timestamp, dose], index) => {
+          const xFraction = (timestamp - visibleStart) / visibleRange;
+          
+          if (xFraction < 0 || xFraction > 1) return null;
+          
+          const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 20px)`;
+          
+          return (
+            <div
+              key={`med-${lane.id}-${timestamp}-${index}`}
+              className="absolute z-40 cursor-pointer flex items-center justify-center group font-mono font-bold text-sm"
+              style={{
+                left: leftPosition,
+                top: `${childLane.top + 7}px`,
+                minWidth: '40px',
+                height: '20px',
+              }}
+              onClick={() => {
+                setEditingMedicationDose({
+                  swimlaneId: lane.id,
+                  time: timestamp,
+                  dose: dose.toString(),
+                  index,
+                });
+                setMedicationEditInput(dose.toString());
+                setShowMedicationEditDialog(true);
+              }}
+              title={`${dose} at ${new Date(timestamp).toLocaleTimeString()}`}
+              data-testid={`med-dose-${lane.id}-${index}`}
+            >
+              <span className="group-hover:scale-110 transition-transform">
+                {dose}
+              </span>
+            </div>
+          );
+        }).filter(Boolean);
       })}
 
       {/* Add Medication Dialog */}
