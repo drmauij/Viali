@@ -287,16 +287,19 @@ export function UnifiedTimeline({
   const [showMedicationEditDialog, setShowMedicationEditDialog] = useState(false);
   const [editingMedicationDose, setEditingMedicationDose] = useState<{ swimlaneId: string; time: number; dose: string; index: number } | null>(null);
   const [medicationEditInput, setMedicationEditInput] = useState("");
+  const [medicationEditTime, setMedicationEditTime] = useState("");
 
   // State for ventilation value edit dialog
   const [showVentilationEditDialog, setShowVentilationEditDialog] = useState(false);
   const [editingVentilationValue, setEditingVentilationValue] = useState<{ paramKey: keyof typeof ventilationData; time: number; value: string; index: number; label: string } | null>(null);
   const [ventilationEditInput, setVentilationEditInput] = useState("");
+  const [ventilationEditTime, setVentilationEditTime] = useState("");
 
   // State for ventilation mode edit dialog
   const [showVentilationModeEditDialog, setShowVentilationModeEditDialog] = useState(false);
   const [editingVentilationMode, setEditingVentilationMode] = useState<{ time: number; mode: string; index: number } | null>(null);
   const [ventilationModeEditInput, setVentilationModeEditInput] = useState("");
+  const [ventilationModeEditTime, setVentilationModeEditTime] = useState("");
 
   // State for ventilation bulk entry dialog
   const [showVentilationBulkDialog, setShowVentilationBulkDialog] = useState(false);
@@ -2663,12 +2666,23 @@ export function UnifiedTimeline({
   const handleMedicationDoseEditSave = () => {
     if (!editingMedicationDose || !medicationEditInput.trim()) return;
     
-    const { swimlaneId, index } = editingMedicationDose;
+    const { swimlaneId, index, time: originalTime } = editingMedicationDose;
+    
+    // Parse the edited time (HH:MM format)
+    let newTimestamp = originalTime;
+    if (medicationEditTime.trim()) {
+      const [hours, minutes] = medicationEditTime.split(':').map(Number);
+      if (!isNaN(hours) && !isNaN(minutes)) {
+        const date = new Date(originalTime);
+        date.setHours(hours, minutes, 0, 0);
+        newTimestamp = date.getTime();
+      }
+    }
     
     setMedicationDoseData(prev => {
       const existingData = prev[swimlaneId] || [];
       const updated = [...existingData];
-      updated[index] = [updated[index][0], medicationEditInput.trim()];
+      updated[index] = [newTimestamp, medicationEditInput.trim()];
       return {
         ...prev,
         [swimlaneId]: updated,
@@ -2679,6 +2693,7 @@ export function UnifiedTimeline({
     setShowMedicationEditDialog(false);
     setEditingMedicationDose(null);
     setMedicationEditInput("");
+    setMedicationEditTime("");
   };
 
   // Handle medication dose delete
@@ -2705,7 +2720,7 @@ export function UnifiedTimeline({
   const handleVentilationValueEditSave = () => {
     if (!editingVentilationValue || !ventilationEditInput.trim()) return;
     
-    const { paramKey, index } = editingVentilationValue;
+    const { paramKey, index, time: originalTime } = editingVentilationValue;
     const value = parseFloat(ventilationEditInput.trim());
     
     if (isNaN(value)) {
@@ -2717,10 +2732,21 @@ export function UnifiedTimeline({
       return;
     }
     
+    // Parse the edited time (HH:MM format)
+    let newTimestamp = originalTime;
+    if (ventilationEditTime.trim()) {
+      const [hours, minutes] = ventilationEditTime.split(':').map(Number);
+      if (!isNaN(hours) && !isNaN(minutes)) {
+        const date = new Date(originalTime);
+        date.setHours(hours, minutes, 0, 0);
+        newTimestamp = date.getTime();
+      }
+    }
+    
     setVentilationData(prev => {
       const existingData = prev[paramKey] || [];
       const updated = [...existingData];
-      updated[index] = [updated[index][0], value];
+      updated[index] = [newTimestamp, value];
       return {
         ...prev,
         [paramKey]: updated,
@@ -2731,6 +2757,7 @@ export function UnifiedTimeline({
     setShowVentilationEditDialog(false);
     setEditingVentilationValue(null);
     setVentilationEditInput("");
+    setVentilationEditTime("");
   };
 
   // Handle ventilation value delete
@@ -2757,17 +2784,29 @@ export function UnifiedTimeline({
   const handleVentilationModeEditSave = () => {
     if (!editingVentilationMode || !ventilationModeEditInput.trim()) return;
     
-    const { index } = editingVentilationMode;
+    const { index, time: originalTime } = editingVentilationMode;
+    
+    // Parse the edited time (HH:MM format)
+    let newTimestamp = originalTime;
+    if (ventilationModeEditTime.trim()) {
+      const [hours, minutes] = ventilationModeEditTime.split(':').map(Number);
+      if (!isNaN(hours) && !isNaN(minutes)) {
+        const date = new Date(originalTime);
+        date.setHours(hours, minutes, 0, 0);
+        newTimestamp = date.getTime();
+      }
+    }
     
     setVentilationModeData(prev => {
       const updated = [...prev];
-      updated[index] = [updated[index][0], ventilationModeEditInput.trim()];
+      updated[index] = [newTimestamp, ventilationModeEditInput.trim()];
       return updated;
     });
     
     setShowVentilationModeEditDialog(false);
     setEditingVentilationMode(null);
     setVentilationModeEditInput("");
+    setVentilationModeEditTime("");
   };
 
   // Handle ventilation mode delete
@@ -3901,9 +3940,10 @@ export function UnifiedTimeline({
                 index,
               });
               setVentilationModeEditInput(mode);
+              setVentilationModeEditTime(new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
               setShowVentilationModeEditDialog(true);
             }}
-            title={`Mode: ${mode}`}
+            title={`${mode} at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
             data-testid={`vent-mode-${index}`}
           >
             <span className="group-hover:scale-110 transition-transform">
@@ -3976,9 +4016,10 @@ export function UnifiedTimeline({
                   label: labelMap[paramKey] || paramKey,
                 });
                 setVentilationEditInput(value.toString());
+                setVentilationEditTime(new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
                 setShowVentilationEditDialog(true);
               }}
-              title={`${labelMap[paramKey]}: ${value}`}
+              title={`${labelMap[paramKey]}: ${value} at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
               data-testid={`vent-value-${paramKey}-${index}`}
             >
               <span className="group-hover:scale-110 transition-transform">
@@ -4030,9 +4071,10 @@ export function UnifiedTimeline({
                   index,
                 });
                 setMedicationEditInput(dose.toString());
+                setMedicationEditTime(new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
                 setShowMedicationEditDialog(true);
               }}
-              title={`${drugName} ${dose} mg`}
+              title={`${drugName} ${dose} mg at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
               data-testid={`med-dose-${lane.id}-${index}`}
             >
               <span className="group-hover:scale-110 transition-transform">
@@ -4581,6 +4623,16 @@ export function UnifiedTimeline({
                 autoFocus
               />
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="dose-edit-time">Time (HH:MM)</Label>
+              <Input
+                id="dose-edit-time"
+                data-testid="input-dose-edit-time"
+                type="time"
+                value={medicationEditTime}
+                onChange={(e) => setMedicationEditTime(e.target.value)}
+              />
+            </div>
           </div>
           <div className="flex justify-between gap-2">
             <Button
@@ -4598,6 +4650,7 @@ export function UnifiedTimeline({
                   setShowMedicationEditDialog(false);
                   setEditingMedicationDose(null);
                   setMedicationEditInput("");
+                  setMedicationEditTime("");
                 }}
                 data-testid="button-cancel-medication-edit"
               >
@@ -4646,6 +4699,16 @@ export function UnifiedTimeline({
                 autoFocus
               />
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="ventilation-edit-time">Time (HH:MM)</Label>
+              <Input
+                id="ventilation-edit-time"
+                data-testid="input-ventilation-edit-time"
+                type="time"
+                value={ventilationEditTime}
+                onChange={(e) => setVentilationEditTime(e.target.value)}
+              />
+            </div>
           </div>
           <div className="flex justify-between gap-2">
             <Button
@@ -4663,6 +4726,7 @@ export function UnifiedTimeline({
                   setShowVentilationEditDialog(false);
                   setEditingVentilationValue(null);
                   setVentilationEditInput("");
+                  setVentilationEditTime("");
                 }}
                 data-testid="button-cancel-ventilation-edit"
               >
@@ -4709,6 +4773,16 @@ export function UnifiedTimeline({
                 </SelectContent>
               </Select>
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="mode-edit-time">Time (HH:MM)</Label>
+              <Input
+                id="mode-edit-time"
+                data-testid="input-mode-edit-time"
+                type="time"
+                value={ventilationModeEditTime}
+                onChange={(e) => setVentilationModeEditTime(e.target.value)}
+              />
+            </div>
           </div>
           <div className="flex justify-between gap-2">
             <Button
@@ -4726,6 +4800,7 @@ export function UnifiedTimeline({
                   setShowVentilationModeEditDialog(false);
                   setEditingVentilationMode(null);
                   setVentilationModeEditInput("");
+                  setVentilationModeEditTime("");
                 }}
                 data-testid="button-cancel-ventilation-mode-edit"
               >
