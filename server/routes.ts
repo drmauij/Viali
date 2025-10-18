@@ -878,6 +878,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied to this item" });
       }
       
+      // CRITICAL: Prevent direct editing of currentUnits for controlled substances
+      // Controlled substance quantities must be managed through the Controller tab with proper logging
+      if (item.controlled && req.body.currentUnits !== undefined && req.body.currentUnits !== item.currentUnits) {
+        return res.status(403).json({ 
+          message: "Controlled substance quantities cannot be edited directly. Use the Controller tab to log all movements." 
+        });
+      }
+      
       // Validate controlled ampulle items have pack size
       // Check final state (req.body value or existing item value if not provided)
       const finalControlled = req.body.controlled !== undefined ? req.body.controlled : item.controlled;
@@ -2286,6 +2294,7 @@ If unable to parse any drugs, return:
             itemId: item.itemId,
             locationId,
             delta: -item.qty, // Negative for dispensing
+            movementType: 'OUT', // Dispensing is always OUT
             notes,
             patientId: encryptedPatientId,
             patientPhoto: encryptedPatientPhoto,
@@ -2305,6 +2314,94 @@ If unable to parse any drugs, return:
       }
       
       res.status(500).json({ message: "Failed to record controlled substance" });
+    }
+  });
+
+  // Manual adjustment of controlled substance inventory
+  app.post('/api/controlled/adjust', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { itemId, newCurrentUnits, notes, signature } = req.body;
+      
+      if (!itemId) {
+        return res.status(400).json({ message: "Item ID is required" });
+      }
+      
+      if (newCurrentUnits === undefined || newCurrentUnits === null) {
+        return res.status(400).json({ message: "New current units value is required" });
+      }
+      
+      if (!signature) {
+        return res.status(400).json({ message: "Signature is required for controlled substance adjustments" });
+      }
+      
+      // Get the item
+      const item = await storage.getItem(itemId);
+      if (!item) {
+        return res.status(404).json({ message: "Item not found" });
+      }
+      
+      // Verify it's a controlled substance
+      if (!item.controlled) {
+        return res.status(400).json({ message: "This endpoint is only for controlled substances" });
+      }
+      
+      // Verify item has exact quantity tracking enabled
+      if (!item.trackExactQuantity) {
+        return res.status(400).json({ message: "Item must have exact quantity tracking enabled" });
+      }
+      
+      // Get user's locationId for this hospital
+      const locationId = await getUserLocationForHospital(userId, item.hospitalId);
+      if (!locationId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Verify item belongs to user's location
+      if (item.locationId !== locationId) {
+        return res.status(403).json({ message: "Access denied to this item's location" });
+      }
+      
+      // Calculate the delta
+      const currentUnits = item.currentUnits || 0;
+      const delta = newCurrentUnits - currentUnits;
+      
+      // Determine movement type based on delta
+      const movementType = delta >= 0 ? 'IN' : 'OUT';
+      
+      // Update current units
+      await db
+        .update(items)
+        .set({ currentUnits: newCurrentUnits })
+        .where(eq(items.id, itemId));
+      
+      // Calculate and update stock level
+      const packSize = item.packSize || 1;
+      const newStock = Math.ceil(newCurrentUnits / packSize);
+      await storage.updateStockLevel(itemId, locationId, newStock);
+      
+      // Create activity log entry
+      const activity = await storage.createActivity({
+        userId,
+        action: 'adjust',
+        itemId,
+        locationId,
+        delta,
+        movementType,
+        notes: notes || `Manual adjustment: ${currentUnits} → ${newCurrentUnits} units`,
+        signatures: [signature],
+        controlledVerified: true, // Manual adjustments are verified by signature
+      });
+      
+      res.status(201).json(activity);
+    } catch (error: any) {
+      console.error("Error adjusting controlled substance:", error);
+      
+      if (error.message?.includes("Access denied") || error.message?.includes("not found")) {
+        return res.status(403).json({ message: error.message });
+      }
+      
+      res.status(500).json({ message: "Failed to adjust controlled substance inventory" });
     }
   });
 

@@ -2474,7 +2474,12 @@ export default function Items() {
                   <p className="text-xs text-muted-foreground mt-1">{t('items.packSizeHelp')}</p>
                 </div>
                 <div>
-                  <Label htmlFor="edit-currentUnits">{t('items.currentUnits')} *</Label>
+                  <Label htmlFor="edit-currentUnits">
+                    {t('items.currentUnits')} *
+                    {editFormData.controlled && (
+                      <span className="ml-2 text-xs text-orange-600 dark:text-orange-400 font-normal">(Controlled - use Controller tab)</span>
+                    )}
+                  </Label>
                   <Input 
                     id="edit-currentUnits" 
                     name="currentUnits" 
@@ -2484,8 +2489,18 @@ export default function Items() {
                     onChange={(e) => setEditFormData(prev => ({ ...prev, currentUnits: e.target.value }))}
                     data-testid="input-edit-current-units" 
                     required
+                    disabled={editFormData.controlled}
+                    readOnly={editFormData.controlled}
+                    className={editFormData.controlled ? "bg-muted cursor-not-allowed" : ""}
                   />
-                  <p className="text-xs text-muted-foreground mt-1">{t('items.currentUnitsHelp')}</p>
+                  {editFormData.controlled ? (
+                    <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                      <i className="fas fa-lock mr-1"></i>
+                      Controlled substance quantities must be adjusted via the Controller tab with proper logging
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground mt-1">{t('items.currentUnitsHelp')}</p>
+                  )}
                 </div>
               </div>
             )}

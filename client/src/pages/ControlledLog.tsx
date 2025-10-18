@@ -92,6 +92,13 @@ export default function ControlledLog() {
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth().toString());
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear().toString());
 
+  const [showManualAdjustmentModal, setShowManualAdjustmentModal] = useState(false);
+  const [adjustmentItemId, setAdjustmentItemId] = useState("");
+  const [adjustmentNewUnits, setAdjustmentNewUnits] = useState("");
+  const [adjustmentNotes, setAdjustmentNotes] = useState("");
+  const [adjustmentSignature, setAdjustmentSignature] = useState("");
+  const [showAdjustmentSignaturePad, setShowAdjustmentSignaturePad] = useState(false);
+
   const { data: controlledItems = [] } = useQuery<ItemWithStock[]>({
     queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}&controlled=true`, activeHospital?.locationId, { controlled: true }],
     queryFn: async () => {
@@ -233,6 +240,46 @@ export default function ControlledLog() {
     },
   });
 
+  const adjustmentMutation = useMutation({
+    mutationFn: async (data: {
+      itemId: string;
+      newCurrentUnits: number;
+      notes: string;
+      signature: string;
+    }) => {
+      const response = await apiRequest("POST", "/api/controlled/adjust", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/controlled/log/${activeHospital?.id}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}&controlled=true`, activeHospital?.locationId, { controlled: true }] });
+      toast({
+        title: "Adjustment Recorded",
+        description: "Controlled substance adjustment has been logged.",
+      });
+      setShowManualAdjustmentModal(false);
+      resetAdjustmentForm();
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Adjustment Failed",
+        description: "Failed to record adjustment.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const resetAdministrationForm = () => {
     setSelectedDrugs(controlledItems.map(item => {
       const normalizedUnit = item.unit.toLowerCase();
@@ -275,6 +322,13 @@ export default function ControlledLog() {
     }));
     setCheckNotes("");
     setCheckSignature("");
+  };
+
+  const resetAdjustmentForm = () => {
+    setAdjustmentItemId("");
+    setAdjustmentNewUnits("");
+    setAdjustmentNotes("");
+    setAdjustmentSignature("");
   };
 
   const handleOpenAdministrationModal = () => {
@@ -432,6 +486,61 @@ export default function ControlledLog() {
     });
   };
 
+  const handleSubmitAdjustment = () => {
+    if (!adjustmentItemId) {
+      toast({
+        title: "Item Required",
+        description: "Please select a controlled item.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!adjustmentNewUnits || adjustmentNewUnits.trim() === "") {
+      toast({
+        title: "Units Required",
+        description: "Please enter the new units value.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!adjustmentNotes || adjustmentNotes.trim() === "") {
+      toast({
+        title: "Notes Required",
+        description: "Please provide a reason for the adjustment.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!adjustmentSignature) {
+      toast({
+        title: "Signature Required",
+        description: "Please provide your electronic signature.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const newUnitsValue = parseFloat(adjustmentNewUnits);
+    if (isNaN(newUnitsValue) || newUnitsValue < 0) {
+      toast({
+        title: "Invalid Units",
+        description: "Please enter a valid positive number for units.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    adjustmentMutation.mutate({
+      itemId: adjustmentItemId,
+      newCurrentUnits: newUnitsValue,
+      notes: adjustmentNotes,
+      signature: adjustmentSignature,
+    });
+  };
+
   const getStatusChip = (activity: ControlledActivity) => {
     if (activity.controlledVerified) {
       return <span className="status-chip chip-success text-xs">Verified</span>;
@@ -540,11 +649,12 @@ export default function ControlledLog() {
         doc.text(`  ${day}`, 20, yPosition);
         yPosition += 5;
 
-        // Create table for this day's administrations with placeholder for images
+        // Create table for this day's administrations and adjustments with placeholder for images
         const tableData = dayActivities.map(activity => [
           activity.timestamp ? new Date(activity.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "N/A",
+          activity.movementType || "-",
           Math.abs(activity.delta || 0).toString(),
-          activity.patientId || "N/A",
+          activity.patientId || (activity.action === 'adjust' ? 'MANUAL ADJ' : "N/A"),
           `${activity.user.firstName} ${activity.user.lastName}`,
           activity.controlledVerified ? "Yes" : "No",
           activity.notes || "-",
@@ -554,25 +664,26 @@ export default function ControlledLog() {
 
         autoTable(doc, {
           startY: yPosition,
-          head: [["Time", "Qty", "Patient", "Admin", "Ver", "Notes", "Signatures", "Photo"]],
+          head: [["Time", "Type", "Qty", "Patient", "User", "Ver", "Notes", "Signatures", "Photo"]],
           body: tableData,
           theme: "grid",
           styles: { fontSize: 8, cellPadding: 1, minCellHeight: 20 },
           headStyles: { fillColor: [59, 130, 246], textColor: 255, fontSize: 8 },
           columnStyles: {
-            0: { cellWidth: 20 },
+            0: { cellWidth: 18 },
             1: { cellWidth: 12, halign: "center" },
-            2: { cellWidth: 25 },
-            3: { cellWidth: 28 },
-            4: { cellWidth: 12, halign: "center" },
-            5: { cellWidth: 35 },
-            6: { cellWidth: 30 },
-            7: { cellWidth: 20 },
+            2: { cellWidth: 10, halign: "center" },
+            3: { cellWidth: 24 },
+            4: { cellWidth: 26 },
+            5: { cellWidth: 10, halign: "center" },
+            6: { cellWidth: 32 },
+            7: { cellWidth: 28 },
+            8: { cellWidth: 18 },
           },
           margin: { left: 15 },
           didDrawCell: (data: any) => {
-            // Draw signatures in the signatures column (index 6)
-            if (data.column.index === 6 && data.section === 'body') {
+            // Draw signatures in the signatures column (index 7)
+            if (data.column.index === 7 && data.section === 'body') {
               const activity = dayActivities[data.row.index];
               const signatures = activity.signatures as string[] | null;
               
@@ -600,8 +711,8 @@ export default function ControlledLog() {
               }
             }
             
-            // Draw patient photo in the photo column (index 7)
-            if (data.column.index === 7 && data.section === 'body') {
+            // Draw patient photo in the photo column (index 8)
+            if (data.column.index === 8 && data.section === 'body') {
               const activity = dayActivities[data.row.index];
               
               if (activity.patientPhoto) {
@@ -684,14 +795,24 @@ export default function ControlledLog() {
         <TabsContent value="administrations" className="space-y-4 mt-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">{t('controlled.administrationLog')}</h2>
-            <Button
-              className="bg-accent hover:bg-accent/90 text-accent-foreground"
-              onClick={handleOpenAdministrationModal}
-              data-testid="record-administration-button"
-            >
-              <i className="fas fa-plus mr-2"></i>
-              {t('controlled.recordAdministration')}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                className="bg-accent hover:bg-accent/90 text-accent-foreground"
+                onClick={handleOpenAdministrationModal}
+                data-testid="record-administration-button"
+              >
+                <i className="fas fa-plus mr-2"></i>
+                {t('controlled.recordAdministration')}
+              </Button>
+              <Button
+                className="bg-orange-500 hover:bg-orange-600 text-white"
+                onClick={() => setShowManualAdjustmentModal(true)}
+                data-testid="manual-adjustment-button"
+              >
+                <i className="fas fa-edit mr-2"></i>
+                Manual Adjustment
+              </Button>
+            </div>
           </div>
 
           <div className="bg-card border border-border rounded-lg p-4">
@@ -1328,6 +1449,128 @@ export default function ControlledLog() {
         </div>
       )}
 
+      {/* Manual Adjustment Modal */}
+      {showManualAdjustmentModal && (
+        <div className="modal-overlay" onClick={() => setShowManualAdjustmentModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-foreground">Manual Adjustment</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowManualAdjustmentModal(false)}
+                data-testid="close-adjustment-modal"
+              >
+                <i className="fas fa-times"></i>
+              </Button>
+            </div>
+
+            <div className="bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg p-3 mb-4">
+              <p className="text-sm text-orange-900 dark:text-orange-100">
+                Use this to manually adjust controlled substance units when needed (e.g., expiration, damage, discrepancy resolution).
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <Label className="block text-sm font-medium mb-2">Controlled Item</Label>
+                <Select value={adjustmentItemId} onValueChange={setAdjustmentItemId}>
+                  <SelectTrigger data-testid="adjustment-item-select">
+                    <SelectValue placeholder="Select item..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {controlledItems.map((item) => {
+                      const normalizedUnit = item.unit.toLowerCase();
+                      const isControlledPack = item.controlled && normalizedUnit === 'pack';
+                      const currentQty = isControlledPack 
+                        ? (item.currentUnits || 0) 
+                        : (item.stockLevel?.qtyOnHand || 0);
+                      
+                      return (
+                        <SelectItem key={item.id} value={item.id} data-testid={`adjustment-item-${item.id}`}>
+                          {item.name} (Current: {currentQty} {isControlledPack ? 'ampules' : 'units'})
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="adjustment-new-units" className="block text-sm font-medium mb-2">
+                  New Units Value
+                </Label>
+                <Input
+                  id="adjustment-new-units"
+                  type="number"
+                  placeholder="Enter new units..."
+                  value={adjustmentNewUnits}
+                  onChange={(e) => setAdjustmentNewUnits(e.target.value)}
+                  min="0"
+                  step="0.01"
+                  data-testid="adjustment-new-units-input"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="adjustment-notes" className="block text-sm font-medium mb-2">
+                  Reason for Adjustment
+                </Label>
+                <Textarea
+                  id="adjustment-notes"
+                  rows={4}
+                  placeholder="Explain the reason for this adjustment..."
+                  value={adjustmentNotes}
+                  onChange={(e) => setAdjustmentNotes(e.target.value)}
+                  data-testid="adjustment-notes-textarea"
+                />
+              </div>
+
+              <div>
+                <Label className="block text-sm font-medium mb-2">Your E-Signature</Label>
+                <div
+                  className="signature-pad cursor-pointer"
+                  onClick={() => setShowAdjustmentSignaturePad(true)}
+                  data-testid="adjustment-signature-trigger"
+                >
+                  {adjustmentSignature ? (
+                    <div className="text-center">
+                      <i className="fas fa-check-circle text-2xl text-success mb-2"></i>
+                      <p className="text-sm text-success">Signature Captured</p>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <i className="fas fa-signature text-2xl mb-2"></i>
+                      <p className="text-sm">Tap to Sign</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowManualAdjustmentModal(false)}
+                  data-testid="cancel-adjustment"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+                  onClick={handleSubmitAdjustment}
+                  disabled={adjustmentMutation.isPending}
+                  data-testid="submit-adjustment"
+                >
+                  <i className="fas fa-save mr-2"></i>
+                  Save Adjustment
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Signature Pad */}
       <SignaturePad
         isOpen={showSignaturePad}
@@ -1338,6 +1581,17 @@ export default function ControlledLog() {
           } else {
             setSignature(sig);
           }
+        }}
+        title="Your E-Signature"
+      />
+
+      {/* Adjustment Signature Pad */}
+      <SignaturePad
+        isOpen={showAdjustmentSignaturePad}
+        onClose={() => setShowAdjustmentSignaturePad(false)}
+        onSave={(sig) => {
+          setAdjustmentSignature(sig);
+          setShowAdjustmentSignaturePad(false);
         }}
         title="Your E-Signature"
       />

@@ -205,6 +205,7 @@ export const activities = pgTable("activities", {
   lotId: varchar("lot_id").references(() => lots.id),
   locationId: varchar("location_id").references(() => locations.id),
   delta: integer("delta"), // quantity change
+  movementType: varchar("movement_type", { enum: ["IN", "OUT"] }), // IN = stock increase, OUT = stock decrease
   notes: text("notes"),
   patientId: varchar("patient_id"), // for controlled substances
   patientPhoto: text("patient_photo"), // encrypted photo data (base64)
