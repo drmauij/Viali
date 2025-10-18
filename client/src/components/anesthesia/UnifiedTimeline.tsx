@@ -4694,6 +4694,18 @@ export function UnifiedTimeline({
                 />
               </div>
               <div className="grid gap-2">
+                <Label htmlFor="bulk-mv">Minute Volume (l/min)</Label>
+                <Input
+                  id="bulk-mv"
+                  type="number"
+                  step="0.1"
+                  value={bulkVentilationParams.minuteVolume}
+                  onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, minuteVolume: e.target.value }))}
+                  placeholder="Optional"
+                  data-testid="input-bulk-mv"
+                />
+              </div>
+              <div className="grid gap-2">
                 <Label htmlFor="bulk-etco2">EtCO₂ (mmHg)</Label>
                 <Input
                   id="bulk-etco2"
