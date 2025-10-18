@@ -240,6 +240,9 @@ export function UnifiedTimeline({
   // Medications and events: always 1 minute
   const [currentVitalsSnapInterval, setCurrentVitalsSnapInterval] = useState<number>(1 * 60 * 1000);
   const [currentDrugSnapInterval] = useState<number>(1 * 60 * 1000); // Always 1 minute
+  
+  // State to trigger graphics regeneration on scroll/zoom
+  const [graphicsRevision, setGraphicsRevision] = useState<number>(0);
 
   // State for interactive vital entry
   const [activeToolMode, setActiveToolMode] = useState<'hr' | 'bp' | 'spo2' | null>(null);
@@ -1094,6 +1097,9 @@ export function UnifiedTimeline({
       }
       
       setCurrentVitalsSnapInterval(vitalsSnapInterval);
+      
+      // Trigger graphics regeneration on every zoom/pan
+      setGraphicsRevision(prev => prev + 1);
     };
 
     // Update immediately
@@ -1140,7 +1146,7 @@ export function UnifiedTimeline({
     const ventilationParentIndex = activeSwimlanes.findIndex(lane => lane.id === 'ventilation');
     if (ventilationParentIndex !== -1 && !collapsedSwimlanes.has('ventilation')) {
       let currentY = VITALS_TOP + VITALS_HEIGHT;
-      for (let i = 0; i <= ventilationParentIndex; i++) {
+      for (let i = 0; i < ventilationParentIndex; i++) {
         currentY += activeSwimlanes[i].height;
       }
       
@@ -1205,7 +1211,7 @@ export function UnifiedTimeline({
     const medicationParentIndex = activeSwimlanes.findIndex(s => s.id === "medikamente");
     if (medicationParentIndex !== -1 && !collapsedSwimlanes.has("medikamente")) {
       let currentY = VITALS_TOP + VITALS_HEIGHT;
-      for (let i = 0; i <= medicationParentIndex; i++) {
+      for (let i = 0; i < medicationParentIndex; i++) {
         currentY += activeSwimlanes[i].height;
       }
       
@@ -1254,11 +1260,11 @@ export function UnifiedTimeline({
     // === 3. VENTILATION MODE GRAPHICS (parent swimlane) ===
     if (ventilationParentIndex !== -1 && ventilationModeData.length > 0) {
       let currentY = VITALS_TOP + VITALS_HEIGHT;
-      for (let i = 0; i <= ventilationParentIndex; i++) {
+      for (let i = 0; i < ventilationParentIndex; i++) {
         currentY += activeSwimlanes[i].height;
       }
       
-      const rowY = currentY - (activeSwimlanes[ventilationParentIndex].height / 2);
+      const rowY = currentY + (activeSwimlanes[ventilationParentIndex].height / 2);
       
       ventilationModeData.forEach(([timestamp, mode], idx) => {
         const pixelX = timestampToPixel(timestamp); // FIXED: removed gridIdx parameter
@@ -1285,7 +1291,7 @@ export function UnifiedTimeline({
     console.log(`[Combined Graphics] Generated ${allGraphics.length} total graphic elements`);
     chart.setOption({ graphic: allGraphics }, { replaceMerge: ['graphic'] });
     
-  }, [chartRef, activeSwimlanes, collapsedSwimlanes, isDark, ventilationData, medicationDoseData, ventilationModeData, setEditingMedicationDose, setMedicationEditInput, setShowMedicationEditDialog, setEditingVentilationValue, setVentilationEditInput, setShowVentilationEditDialog]);
+  }, [chartRef, activeSwimlanes, collapsedSwimlanes, isDark, ventilationData, medicationDoseData, ventilationModeData, setEditingMedicationDose, setMedicationEditInput, setShowMedicationEditDialog, setEditingVentilationValue, setVentilationEditInput, setShowVentilationEditDialog, graphicsRevision]);
 
   const option = useMemo(() => {
     // Layout constants
