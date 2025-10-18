@@ -285,6 +285,11 @@ export function UnifiedTimeline({
   const [editingMedicationDose, setEditingMedicationDose] = useState<{ swimlaneId: string; time: number; dose: string; index: number } | null>(null);
   const [medicationEditInput, setMedicationEditInput] = useState("");
 
+  // State for ventilation value edit dialog
+  const [showVentilationEditDialog, setShowVentilationEditDialog] = useState(false);
+  const [editingVentilationValue, setEditingVentilationValue] = useState<{ paramKey: keyof typeof ventilationData; time: number; value: string; index: number; label: string } | null>(null);
+  const [ventilationEditInput, setVentilationEditInput] = useState("");
+
   // State for ventilation bulk entry dialog
   const [showVentilationBulkDialog, setShowVentilationBulkDialog] = useState(false);
   const [pendingVentilationBulk, setPendingVentilationBulk] = useState<{ time: number } | null>(null);
@@ -1151,6 +1156,16 @@ export function UnifiedTimeline({
       
       paramData.forEach(({ data, paramIndex, name }) => {
         const rowY = currentY + paramIndex * 35 + 17.5; // FIXED: paramIndex already starts at 0
+        const paramKey = ['etCO2', 'pip', 'peep', 'tidalVolume', 'respiratoryRate', 'minuteVolume', 'fiO2'][paramIndex] as keyof typeof ventilationData;
+        const labelMap: { [key: string]: string } = {
+          etCO2: 'etCO2',
+          pip: 'P insp',
+          peep: 'PEEP',
+          tidalVolume: 'Tidal Volume',
+          respiratoryRate: 'Respiratory Rate',
+          minuteVolume: 'Minute Volume',
+          fiO2: 'FiO2',
+        };
         
         data.forEach(([timestamp, value], index) => {
           const pixelX = timestampToPixel(timestamp); // FIXED: removed gridIdx parameter
@@ -1169,7 +1184,17 @@ export function UnifiedTimeline({
               },
               z: 100,
               cursor: 'pointer',
-              // TODO: Add onclick handler for editing ventilation values
+              onclick: () => {
+                setEditingVentilationValue({
+                  paramKey,
+                  time: timestamp,
+                  value: value.toString(),
+                  index,
+                  label: labelMap[paramKey] || paramKey,
+                });
+                setVentilationEditInput(value.toString());
+                setShowVentilationEditDialog(true);
+              },
             });
           }
         });
@@ -1260,7 +1285,7 @@ export function UnifiedTimeline({
     console.log(`[Combined Graphics] Generated ${allGraphics.length} total graphic elements`);
     chart.setOption({ graphic: allGraphics }, { replaceMerge: ['graphic'] });
     
-  }, [chartRef, activeSwimlanes, collapsedSwimlanes, isDark, ventilationData, medicationDoseData, ventilationModeData, setEditingMedicationDose, setMedicationEditInput, setShowMedicationEditDialog]);
+  }, [chartRef, activeSwimlanes, collapsedSwimlanes, isDark, ventilationData, medicationDoseData, ventilationModeData, setEditingMedicationDose, setMedicationEditInput, setShowMedicationEditDialog, setEditingVentilationValue, setVentilationEditInput, setShowVentilationEditDialog]);
 
   const option = useMemo(() => {
     // Layout constants
@@ -2814,6 +2839,58 @@ export function UnifiedTimeline({
     setShowMedicationEditDialog(false);
     setEditingMedicationDose(null);
     setMedicationEditInput("");
+  };
+
+  // Handle ventilation value edit save
+  const handleVentilationValueEditSave = () => {
+    if (!editingVentilationValue || !ventilationEditInput.trim()) return;
+    
+    const { paramKey, index } = editingVentilationValue;
+    const value = parseFloat(ventilationEditInput.trim());
+    
+    if (isNaN(value)) {
+      toast({
+        title: "Invalid value",
+        description: "Please enter a valid number",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setVentilationData(prev => {
+      const existingData = prev[paramKey] || [];
+      const updated = [...existingData];
+      updated[index] = [updated[index][0], value];
+      return {
+        ...prev,
+        [paramKey]: updated,
+      };
+    });
+    
+    // Reset dialog state
+    setShowVentilationEditDialog(false);
+    setEditingVentilationValue(null);
+    setVentilationEditInput("");
+  };
+
+  // Handle ventilation value delete
+  const handleVentilationValueDelete = () => {
+    if (!editingVentilationValue) return;
+    
+    const { paramKey, index } = editingVentilationValue;
+    
+    setVentilationData(prev => {
+      const existingData = prev[paramKey] || [];
+      const updated = existingData.filter((_, i) => i !== index);
+      return {
+        ...prev,
+        [paramKey]: updated,
+      };
+    });
+    
+    setShowVentilationEditDialog(false);
+    setEditingVentilationValue(null);
+    setVentilationEditInput("");
   };
 
   // Handle ventilation bulk entry save
@@ -4450,6 +4527,71 @@ export function UnifiedTimeline({
                 onClick={handleMedicationDoseEditSave}
                 data-testid="button-save-medication-edit"
                 disabled={!medicationEditInput.trim()}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ventilation Value Edit Dialog */}
+      <Dialog open={showVentilationEditDialog} onOpenChange={setShowVentilationEditDialog}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-ventilation-edit">
+          <DialogHeader>
+            <DialogTitle>Edit {editingVentilationValue?.label}</DialogTitle>
+            <DialogDescription>
+              {editingVentilationValue 
+                ? `Edit or delete the value at ${new Date(editingVentilationValue.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                : 'Edit ventilation value'
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="ventilation-edit-value">Value</Label>
+              <Input
+                id="ventilation-edit-value"
+                data-testid="input-ventilation-edit-value"
+                type="number"
+                step="any"
+                value={ventilationEditInput}
+                onChange={(e) => setVentilationEditInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleVentilationValueEditSave();
+                  }
+                }}
+                placeholder="Enter value"
+                autoFocus
+              />
+            </div>
+          </div>
+          <div className="flex justify-between gap-2">
+            <Button
+              variant="destructive"
+              onClick={handleVentilationValueDelete}
+              data-testid="button-delete-ventilation-value"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowVentilationEditDialog(false);
+                  setEditingVentilationValue(null);
+                  setVentilationEditInput("");
+                }}
+                data-testid="button-cancel-ventilation-edit"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleVentilationValueEditSave}
+                data-testid="button-save-ventilation-edit"
+                disabled={!ventilationEditInput.trim()}
               >
                 Save
               </Button>
