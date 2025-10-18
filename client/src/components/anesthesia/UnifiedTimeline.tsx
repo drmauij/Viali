@@ -278,6 +278,15 @@ export function UnifiedTimeline({
   // State for ventilation mode entries on parent swimlane
   const [ventilationModeData, setVentilationModeData] = useState<Array<[number, string]>>([]);
 
+  // State for heart rhythm entries
+  const [heartRhythmData, setHeartRhythmData] = useState<Array<[number, string]>>([]);
+  const [showHeartRhythmDialog, setShowHeartRhythmDialog] = useState(false);
+  const [pendingHeartRhythm, setPendingHeartRhythm] = useState<{ time: number } | null>(null);
+  const [editingHeartRhythm, setEditingHeartRhythm] = useState<{ time: number; rhythm: string; index: number } | null>(null);
+  const [heartRhythmInput, setHeartRhythmInput] = useState("");
+  const [heartRhythmEditTime, setHeartRhythmEditTime] = useState("");
+  const [heartRhythmHoverInfo, setHeartRhythmHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
+
   // State for event comments
   const [eventComments, setEventComments] = useState<EventComment[]>([]);
   const [showEventDialog, setShowEventDialog] = useState(false);
@@ -2811,6 +2820,61 @@ export function UnifiedTimeline({
     setVentilationModeEditInput("");
   };
 
+  // Handle heart rhythm save
+  const handleHeartRhythmSave = () => {
+    const rhythm = heartRhythmInput.trim();
+    if (!rhythm) return;
+    
+    // Determine time to use
+    let time: number;
+    
+    if (editingHeartRhythm) {
+      // Editing existing value
+      const { index, time: originalTime } = editingHeartRhythm;
+      
+      // Parse the edited time (HH:MM format)
+      let newTimestamp = originalTime;
+      if (heartRhythmEditTime.trim()) {
+        const [hours, minutes] = heartRhythmEditTime.split(':').map(Number);
+        if (!isNaN(hours) && !isNaN(minutes)) {
+          const date = new Date(originalTime);
+          date.setHours(hours, minutes, 0, 0);
+          newTimestamp = date.getTime();
+        }
+      }
+      
+      setHeartRhythmData(prev => {
+        const updated = [...prev];
+        updated[index] = [newTimestamp, rhythm];
+        return updated;
+      });
+    } else if (pendingHeartRhythm) {
+      // Adding new value
+      time = pendingHeartRhythm.time;
+      setHeartRhythmData(prev => [...prev, [time, rhythm]]);
+    }
+    
+    setShowHeartRhythmDialog(false);
+    setPendingHeartRhythm(null);
+    setEditingHeartRhythm(null);
+    setHeartRhythmInput("");
+    setHeartRhythmEditTime("");
+  };
+
+  // Handle heart rhythm delete
+  const handleHeartRhythmDelete = () => {
+    if (!editingHeartRhythm) return;
+    
+    const { index } = editingHeartRhythm;
+    
+    setHeartRhythmData(prev => prev.filter((_, i) => i !== index));
+    
+    setShowHeartRhythmDialog(false);
+    setEditingHeartRhythm(null);
+    setHeartRhythmInput("");
+    setHeartRhythmEditTime("");
+  };
+
   // Handle ventilation bulk entry save
   const handleVentilationBulkSave = () => {
     if (!pendingVentilationBulk) return;
@@ -3500,6 +3564,89 @@ export function UnifiedTimeline({
         </div>
       )}
 
+      {/* Interactive layer for Heart Rhythm swimlane - to add rhythm entries */}
+      {!activeToolMode && (() => {
+        const rhythmLane = swimlanePositions.find(lane => lane.id === 'herzrhythmus');
+        if (!rhythmLane) return null;
+        
+        return (
+          <div
+            className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
+            style={{
+              left: '200px',
+              right: '10px',
+              top: `${rhythmLane.top}px`,
+              height: `${rhythmLane.height}px`,
+              zIndex: 35,
+            }}
+            onMouseMove={(e) => {
+              if (isTouchDevice) return;
+              
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              
+              const visibleStart = currentZoomStart ?? data.startTime;
+              const visibleEnd = currentZoomEnd ?? data.endTime;
+              const visibleRange = visibleEnd - visibleStart;
+              
+              const xPercent = x / rect.width;
+              let time = visibleStart + (xPercent * visibleRange);
+              
+              // Snap to 1-minute intervals
+              const oneMinute = 60 * 1000;
+              time = Math.round(time / oneMinute) * oneMinute;
+              
+              setHeartRhythmHoverInfo({ 
+                x: e.clientX, 
+                y: e.clientY, 
+                time
+              });
+            }}
+            onMouseLeave={() => setHeartRhythmHoverInfo(null)}
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              
+              const visibleStart = currentZoomStart ?? data.startTime;
+              const visibleEnd = currentZoomEnd ?? data.endTime;
+              const visibleRange = visibleEnd - visibleStart;
+              
+              const xPercent = x / rect.width;
+              let time = visibleStart + (xPercent * visibleRange);
+              
+              // Snap to 1-minute intervals
+              const oneMinute = 60 * 1000;
+              time = Math.round(time / oneMinute) * oneMinute;
+              
+              setPendingHeartRhythm({ time });
+              setEditingHeartRhythm(null);
+              setHeartRhythmInput("");
+              setHeartRhythmEditTime("");
+              setShowHeartRhythmDialog(true);
+            }}
+            data-testid="interactive-heart-rhythm-lane"
+          />
+        );
+      })()}
+
+      {/* Tooltip for heart rhythm entry */}
+      {heartRhythmHoverInfo && !isTouchDevice && (
+        <div
+          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
+          style={{
+            left: heartRhythmHoverInfo.x + 10,
+            top: heartRhythmHoverInfo.y - 40,
+          }}
+        >
+          <div className="text-sm font-semibold text-primary">
+            Click to add rhythm
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {new Date(heartRhythmHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+          </div>
+        </div>
+      )}
+
       {/* Interactive layers for medication swimlanes - to place dose labels */}
       {!activeToolMode && (() => {
         const medicationParentIndex = activeSwimlanes.findIndex(s => s.id === "medikamente");
@@ -3911,6 +4058,50 @@ export function UnifiedTimeline({
         }}
         data-testid="now-line-indicator"
       />
+
+      {/* Heart Rhythm values as DOM overlays */}
+      {heartRhythmData.map(([timestamp, rhythm], index) => {
+        const rhythmLane = swimlanePositions.find(lane => lane.id === 'herzrhythmus');
+        if (!rhythmLane) return null;
+        
+        const visibleStart = currentZoomStart ?? data.startTime;
+        const visibleEnd = currentZoomEnd ?? data.endTime;
+        const visibleRange = visibleEnd - visibleStart;
+        const xFraction = (timestamp - visibleStart) / visibleRange;
+        
+        if (xFraction < 0 || xFraction > 1) return null;
+        
+        const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 20px)`;
+        
+        return (
+          <div
+            key={`rhythm-${timestamp}-${index}`}
+            className="absolute z-40 cursor-pointer flex items-center justify-center group font-mono font-semibold text-sm px-2"
+            style={{
+              left: leftPosition,
+              top: `${rhythmLane.top + (rhythmLane.height / 2) - 10}px`,
+              minWidth: '40px',
+              height: '20px',
+            }}
+            onClick={() => {
+              setEditingHeartRhythm({
+                time: timestamp,
+                rhythm,
+                index,
+              });
+              setHeartRhythmInput(rhythm);
+              setHeartRhythmEditTime(new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
+              setShowHeartRhythmDialog(true);
+            }}
+            title={`${rhythm} at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
+            data-testid={`heart-rhythm-${index}`}
+          >
+            <span className="group-hover:scale-110 transition-transform text-pink-600 dark:text-pink-400">
+              {rhythm}
+            </span>
+          </div>
+        );
+      })}
 
       {/* Ventilation mode values as DOM overlays (parent swimlane) */}
       {!collapsedSwimlanes.has('ventilation') && ventilationModeData.map(([timestamp, mode], index) => {
@@ -4815,6 +5006,96 @@ export function UnifiedTimeline({
                 disabled={!ventilationModeEditInput.trim()}
               >
                 Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Heart Rhythm Dialog */}
+      <Dialog open={showHeartRhythmDialog} onOpenChange={setShowHeartRhythmDialog}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-heart-rhythm">
+          <DialogHeader>
+            <DialogTitle>Herzrhythmus</DialogTitle>
+            <DialogDescription>
+              {editingHeartRhythm 
+                ? `Edit or delete the rhythm at ${new Date(editingHeartRhythm.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                : pendingHeartRhythm 
+                ? `Add heart rhythm at ${new Date(pendingHeartRhythm.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                : 'Add heart rhythm to the timeline'
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+            <div className="grid gap-2">
+              <Label>Select Rhythm</Label>
+              <div className="grid gap-1">
+                {['SR', 'SVES', 'VES', 'VHF', 'Vorhofflattern', 'Schrittmacher', 'AV Block III', 'Kammerflimmern', 'Torsade de pointes', 'Defibrillator'].map((rhythm) => (
+                  <Button
+                    key={rhythm}
+                    variant={heartRhythmInput === rhythm ? 'default' : 'outline'}
+                    className="justify-start h-12 text-left"
+                    onClick={() => setHeartRhythmInput(rhythm)}
+                    data-testid={`button-rhythm-${rhythm.toLowerCase().replace(/\s+/g, '-')}`}
+                  >
+                    {rhythm}
+                  </Button>
+                ))}
+                <Input
+                  placeholder="Custom value..."
+                  value={heartRhythmInput && !['SR', 'SVES', 'VES', 'VHF', 'Vorhofflattern', 'Schrittmacher', 'AV Block III', 'Kammerflimmern', 'Torsade de pointes', 'Defibrillator'].includes(heartRhythmInput) ? heartRhythmInput : ''}
+                  onChange={(e) => setHeartRhythmInput(e.target.value)}
+                  className="mt-2"
+                  data-testid="input-heart-rhythm-custom"
+                />
+              </div>
+            </div>
+            {editingHeartRhythm && (
+              <div className="grid gap-2">
+                <Label htmlFor="rhythm-edit-time">Time (HH:MM)</Label>
+                <Input
+                  id="rhythm-edit-time"
+                  data-testid="input-rhythm-edit-time"
+                  type="time"
+                  value={heartRhythmEditTime}
+                  onChange={(e) => setHeartRhythmEditTime(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+          <div className="flex justify-between gap-2">
+            {editingHeartRhythm ? (
+              <Button
+                variant="destructive"
+                onClick={handleHeartRhythmDelete}
+                data-testid="button-delete-heart-rhythm"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </Button>
+            ) : (
+              <div />
+            )}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowHeartRhythmDialog(false);
+                  setPendingHeartRhythm(null);
+                  setEditingHeartRhythm(null);
+                  setHeartRhythmInput("");
+                  setHeartRhythmEditTime("");
+                }}
+                data-testid="button-cancel-heart-rhythm"
+              >
+                Abbrechen
+              </Button>
+              <Button
+                onClick={handleHeartRhythmSave}
+                data-testid="button-save-heart-rhythm"
+                disabled={!heartRhythmInput.trim()}
+              >
+                Speichern
               </Button>
             </div>
           </div>
