@@ -144,11 +144,11 @@ function createLucideIconSeries(
           ],
           // Hover effect using ECharts emphasis property
           emphasis: {
-            scaleX: 1.3,
-            scaleY: 1.3,
+            scaleX: 1.8,
+            scaleY: 1.8,
             style: {
               stroke: color,
-              lineWidth: 2.5,
+              lineWidth: 3.5,
             },
           },
         };
@@ -174,11 +174,11 @@ function createLucideIconSeries(
         cursor: 'pointer',
         // Hover effect using ECharts emphasis property
         emphasis: {
-          scaleX: scale * 1.3,
-          scaleY: scale * 1.3,
+          scaleX: scale * 1.8,
+          scaleY: scale * 1.8,
           style: {
             stroke: color,
-            lineWidth: 2.5,
+            lineWidth: 3.5,
           },
         },
       };
