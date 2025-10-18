@@ -104,18 +104,14 @@ function createLucideIconSeries(
     renderItem: (params: any, api: any) => {
       const point = api.coord([api.value(0), api.value(1)]);
       const scale = size / 24; // Scale from 24x24 viewBox to desired size
-      const isHovered = params.emphasisItemStyle; // Check if item is being hovered
       
       // Special handling for CircleDot (two circles)
       if (isCircleDot) {
-        const hoverScale = isHovered ? 1.3 : 1.0;
         return {
           type: 'group',
           cursor: 'pointer',
           x: point[0],
           y: point[1],
-          scaleX: hoverScale,
-          scaleY: hoverScale,
           children: [
             // Outer circle (r=10)
             {
@@ -128,7 +124,7 @@ function createLucideIconSeries(
               style: {
                 fill: 'none',
                 stroke: color,
-                lineWidth: isHovered ? 2.5 : 2,
+                lineWidth: 2,
               },
             },
             // Inner dot (r=1)
@@ -142,15 +138,23 @@ function createLucideIconSeries(
               style: {
                 fill: 'none',
                 stroke: color,
-                lineWidth: isHovered ? 2.5 : 2,
+                lineWidth: 2,
               },
             },
           ],
+          // Hover effect using ECharts emphasis property
+          emphasis: {
+            scaleX: 1.3,
+            scaleY: 1.3,
+            style: {
+              stroke: color,
+              lineWidth: 2.5,
+            },
+          },
         };
       }
       
       // Regular path-based icons (heart, chevrons)
-      const hoverScale = isHovered ? scale * 1.3 : scale;
       return {
         type: 'path',
         x: point[0] - size / 2,
@@ -163,12 +167,20 @@ function createLucideIconSeries(
         style: {
           fill: 'none', // No fill - stroke only for Lucide appearance
           stroke: color,
-          lineWidth: isHovered ? 2.5 : 2,
+          lineWidth: 2,
         },
-        // Scale to desired size (larger on hover)
-        scaleX: hoverScale,
-        scaleY: hoverScale,
+        scaleX: scale,
+        scaleY: scale,
         cursor: 'pointer',
+        // Hover effect using ECharts emphasis property
+        emphasis: {
+          scaleX: scale * 1.3,
+          scaleY: scale * 1.3,
+          style: {
+            stroke: color,
+            lineWidth: 2.5,
+          },
+        },
       };
     },
   };
