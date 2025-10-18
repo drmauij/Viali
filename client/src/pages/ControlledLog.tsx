@@ -687,7 +687,7 @@ export default function ControlledLog() {
               const activity = dayActivities[data.row.index];
               const signatures = activity.signatures as string[] | null;
               
-              if (signatures && signatures.length > 0) {
+              if (signatures && Array.isArray(signatures) && signatures.length > 0) {
                 const cellX = data.cell.x + 1;
                 const cellY = data.cell.y + 2;
                 
@@ -1631,11 +1631,14 @@ export default function ControlledLog() {
       />
 
       {/* Activity Detail Modal */}
-      {selectedActivity && (
-        <div className="modal-overlay" onClick={() => setSelectedActivity(null)}>
+      {selectedActivity && (() => {
+        const isAdjustment = selectedActivity.action === 'adjust';
+        return <div className="modal-overlay" onClick={() => setSelectedActivity(null)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-foreground">Administration Details</h2>
+              <h2 className="text-xl font-bold text-foreground">
+                {isAdjustment ? 'Manual Adjustment Details' : 'Administration Details'}
+              </h2>
               <Button
                 variant="ghost"
                 size="sm"
@@ -1649,15 +1652,18 @@ export default function ControlledLog() {
             <div className="space-y-4">
               <div className="bg-muted rounded-lg p-4">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center">
-                    <i className="fas fa-syringe text-accent text-xl"></i>
+                  <div className={`w-12 h-12 rounded-lg ${isAdjustment ? 'bg-orange-100 dark:bg-orange-950/30' : 'bg-accent/10'} flex items-center justify-center`}>
+                    <i className={`fas ${isAdjustment ? 'fa-sliders text-orange-600 dark:text-orange-400' : 'fa-syringe text-accent'} text-xl`}></i>
                   </div>
                   <div>
                     <h3 className="font-semibold text-foreground text-lg">
                       {selectedActivity.item?.name || "Unknown Item"}
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                      {Math.abs(selectedActivity.delta || 0)} units dispensed
+                      {isAdjustment 
+                        ? `${Math.abs(selectedActivity.delta || 0)} units ${selectedActivity.movementType || 'OUT'}`
+                        : `${Math.abs(selectedActivity.delta || 0)} units dispensed`
+                      }
                     </p>
                   </div>
                 </div>
@@ -1665,30 +1671,34 @@ export default function ControlledLog() {
               </div>
 
               <div className="space-y-3">
-                <div className="flex items-start gap-3 p-3 bg-card border border-border rounded-lg">
-                  <i className="fas fa-user-injured text-primary mt-1"></i>
-                  <div className="flex-1">
-                    <p className="text-xs text-muted-foreground mb-1">Patient ID</p>
-                    <p className="font-medium text-foreground">{selectedActivity.patientId || "Not provided"}</p>
-                    {selectedActivity.patientPhoto && (
-                      <div className="mt-3">
-                        <p className="text-xs text-muted-foreground mb-2">Patient Label Photo</p>
-                        <img 
-                          src={selectedActivity.patientPhoto} 
-                          alt="Patient label" 
-                          className="max-w-full rounded border border-border cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => selectedActivity.patientPhoto && window.open(selectedActivity.patientPhoto, '_blank')}
-                          data-testid="patient-photo-detail"
-                        />
-                      </div>
-                    )}
+                {!isAdjustment && (
+                  <div className="flex items-start gap-3 p-3 bg-card border border-border rounded-lg">
+                    <i className="fas fa-user-injured text-primary mt-1"></i>
+                    <div className="flex-1">
+                      <p className="text-xs text-muted-foreground mb-1">Patient ID</p>
+                      <p className="font-medium text-foreground">{selectedActivity.patientId || "Not provided"}</p>
+                      {selectedActivity.patientPhoto && (
+                        <div className="mt-3">
+                          <p className="text-xs text-muted-foreground mb-2">Patient Label Photo</p>
+                          <img 
+                            src={selectedActivity.patientPhoto} 
+                            alt="Patient label" 
+                            className="max-w-full rounded border border-border cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => selectedActivity.patientPhoto && window.open(selectedActivity.patientPhoto, '_blank')}
+                            data-testid="patient-photo-detail"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="flex items-start gap-3 p-3 bg-card border border-border rounded-lg">
                   <i className="fas fa-user-md text-primary mt-1"></i>
                   <div className="flex-1">
-                    <p className="text-xs text-muted-foreground mb-1">Administered By</p>
+                    <p className="text-xs text-muted-foreground mb-1">
+                      {isAdjustment ? 'Adjusted By' : 'Administered By'}
+                    </p>
                     <p className="font-medium text-foreground">
                       {selectedActivity.user.firstName} {selectedActivity.user.lastName}
                     </p>
@@ -1748,7 +1758,7 @@ export default function ControlledLog() {
             </div>
           </div>
         </div>
-      )}
+      })()}
 
       {/* Routine Check Detail Modal */}
       {selectedCheck && (

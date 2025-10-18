@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+// Using gpt-4o-mini for cost-effective image analysis
 // This is using OpenAI's API, which points to OpenAI's API servers and requires your own API key.
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -17,7 +17,7 @@ interface ExtractedItemData {
 export async function analyzeItemImage(base64Image: string): Promise<ExtractedItemData> {
   try {
     const visionResponse = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4o-mini",
       messages: [
         {
           role: "user",
@@ -105,7 +105,7 @@ export async function analyzeBulkItemImages(base64Images: string[]): Promise<Bul
       console.log(`[Bulk Import] Processing batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(base64Images.length / BATCH_SIZE)} (${batch.length} images)`);
 
       const visionResponse = await openai.chat.completions.create({
-        model: "gpt-5",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "user",

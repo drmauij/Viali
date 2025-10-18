@@ -2279,36 +2279,45 @@ If unable to parse any drugs, return:
         apiKey: process.env.OPENAI_API_KEY,
       });
 
-      // Extract patient info using GPT-4 Vision
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Extract patient identification information from this medical wristband or label. Look for patient ID, MRN (Medical Record Number), name, or any other identifier. Return only the most prominent patient identifier as plain text, nothing else. If you cannot find any patient identifier, respond with 'NOT_FOUND'."
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: image
-                }
-              }
-            ]
-          }
-        ],
-        max_tokens: 100,
-      });
-
-      const extractedText = response.choices[0]?.message?.content?.trim() || "";
+      // Use local Tesseract.js OCR to keep patient data private (never send to external AI)
+      const { createWorker } = await import('tesseract.js');
       
-      if (extractedText === "NOT_FOUND" || !extractedText) {
-        return res.json({ patientId: null });
+      const worker = await createWorker('eng');
+      
+      try {
+        const { data: { text } } = await worker.recognize(image);
+        await worker.terminate();
+        
+        // Extract patient ID from OCR text
+        // Common patterns: MRN, Patient ID, ID:, #
+        const extractedText = text.trim();
+        
+        if (!extractedText) {
+          return res.json({ patientId: null });
+        }
+        
+        // Try to find patient ID patterns in the text
+        // Look for numbers after common keywords or standalone numbers
+        const patterns = [
+          /(?:MRN|Patient\s*ID|ID|#)[\s:]*([A-Z0-9-]+)/i,
+          /\b([0-9]{6,})\b/, // 6+ digit number
+        ];
+        
+        for (const pattern of patterns) {
+          const match = extractedText.match(pattern);
+          if (match && match[1]) {
+            return res.json({ patientId: match[1].trim() });
+          }
+        }
+        
+        // If no pattern matched, return the first significant text line
+        const firstLine = extractedText.split('\n').find(line => line.trim().length > 2);
+        res.json({ patientId: firstLine?.trim() || null });
+      } catch (ocrError) {
+        console.error("OCR processing error:", ocrError);
+        await worker.terminate();
+        throw ocrError;
       }
-
-      res.json({ patientId: extractedText });
     } catch (error) {
       console.error("Error extracting patient info:", error);
       res.status(500).json({ message: "Failed to extract patient information" });
