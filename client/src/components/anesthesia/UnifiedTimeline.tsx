@@ -1119,9 +1119,10 @@ export function UnifiedTimeline({
     const VITALS_TOP = 32;
     
     // Helper to convert timestamp to pixel position
-    const timestampToPixel = (timestamp: number, gridIndex: number): number | null => {
+    // IMPORTANT: Always use xAxisIndex: 0 because there's only ONE shared x-axis for all grids
+    const timestampToPixel = (timestamp: number): number | null => {
       try {
-        const pixelX = chart.convertToPixel({ xAxisIndex: gridIndex }, timestamp);
+        const pixelX = chart.convertToPixel({ xAxisIndex: 0 }, timestamp);
         return Array.isArray(pixelX) ? pixelX[0] : pixelX;
       } catch {
         return null;
@@ -1149,11 +1150,10 @@ export function UnifiedTimeline({
       ];
       
       paramData.forEach(({ data, paramIndex, name }) => {
-        const rowY = currentY + (paramIndex - 1) * 35 + 17.5;
-        const gridIdx = ventilationParentIndex + paramIndex + 1;
+        const rowY = currentY + paramIndex * 35 + 17.5; // FIXED: paramIndex already starts at 0
         
         data.forEach(([timestamp, value], index) => {
-          const pixelX = timestampToPixel(timestamp, gridIdx);
+          const pixelX = timestampToPixel(timestamp); // FIXED: removed gridIdx parameter
           if (pixelX !== null) {
             allGraphics.push({
               type: 'text',
@@ -1168,6 +1168,8 @@ export function UnifiedTimeline({
                 textVerticalAlign: 'middle',
               },
               z: 100,
+              cursor: 'pointer',
+              // TODO: Add onclick handler for editing ventilation values
             });
           }
         });
@@ -1189,10 +1191,9 @@ export function UnifiedTimeline({
           const dosePoints = medicationDoseData[lane.id];
           const laneIndex = index - medicationParentIndex - 1;
           const rowY = currentY + laneIndex * 30 + 15;
-          const gridIdx = index + 1;
           
           dosePoints.forEach(([timestamp, dose], idx) => {
-            const pixelX = timestampToPixel(timestamp, gridIdx);
+            const pixelX = timestampToPixel(timestamp); // FIXED: removed gridIdx parameter
             if (pixelX !== null) {
               allGraphics.push({
                 type: 'text',
@@ -1233,10 +1234,9 @@ export function UnifiedTimeline({
       }
       
       const rowY = currentY - (activeSwimlanes[ventilationParentIndex].height / 2);
-      const gridIdx = ventilationParentIndex + 1;
       
       ventilationModeData.forEach(([timestamp, mode], idx) => {
-        const pixelX = timestampToPixel(timestamp, gridIdx);
+        const pixelX = timestampToPixel(timestamp); // FIXED: removed gridIdx parameter
         if (pixelX !== null) {
           allGraphics.push({
             type: 'text',
