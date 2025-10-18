@@ -2387,7 +2387,7 @@ If unable to parse any drugs, return:
           
           return await storage.createActivity({
             userId,
-            action: 'dispense',
+            action: 'use', // Changed from 'dispense' to 'use' for consistency with PDF filtering
             itemId: item.itemId,
             locationId,
             delta: -item.qty, // Negative for dispensing
