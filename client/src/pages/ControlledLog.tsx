@@ -685,6 +685,7 @@ export default function ControlledLog() {
             // Draw signatures in the signatures column (index 7)
             if (data.column.index === 7 && data.section === 'body') {
               const activity = dayActivities[data.row.index];
+              if (!activity) return; // Safety check for undefined activity
               const signatures = activity.signatures as string[] | null;
               
               if (signatures && Array.isArray(signatures) && signatures.length > 0) {
@@ -714,6 +715,7 @@ export default function ControlledLog() {
             // Draw patient photo in the photo column (index 8)
             if (data.column.index === 8 && data.section === 'body') {
               const activity = dayActivities[data.row.index];
+              if (!activity) return; // Safety check for undefined activity
               
               if (activity.patientPhoto) {
                 const cellX = data.cell.x + 1;
