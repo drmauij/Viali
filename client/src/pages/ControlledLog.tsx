@@ -573,11 +573,15 @@ export default function ControlledLog() {
     const month = parseInt(selectedMonth);
     const year = parseInt(selectedYear);
     
-    // Filter activities for selected month/year
+    // Filter activities for selected month/year - only include administrations and adjustments
     const monthlyActivities = activities.filter(activity => {
       if (!activity.timestamp) return false;
       const activityDate = new Date(activity.timestamp);
-      return activityDate.getMonth() === month && activityDate.getFullYear() === year;
+      const isCorrectMonth = activityDate.getMonth() === month && activityDate.getFullYear() === year;
+      // Only include actual administrations ('use') and manual adjustments ('adjust')
+      // Exclude system activities like item edits, order receiving, etc.
+      const isReportableAction = activity.action === 'use' || activity.action === 'adjust';
+      return isCorrectMonth && isReportableAction;
     });
 
     if (monthlyActivities.length === 0) {
