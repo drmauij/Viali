@@ -2007,65 +2007,6 @@ If unable to parse any drugs, return:
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
-      // If marking as received, update stock levels
-      if (status === 'received') {
-        // Get order lines with item details
-        const lines = await db
-          .select({
-            id: orderLines.id,
-            orderId: orderLines.orderId,
-            itemId: orderLines.itemId,
-            qty: orderLines.qty,
-            packSize: orderLines.packSize,
-            item: items,
-          })
-          .from(orderLines)
-          .innerJoin(items, eq(orderLines.itemId, items.id))
-          .where(eq(orderLines.orderId, orderId));
-        
-        // Update stock for each item
-        for (const line of lines) {
-          const item = line.item;
-          const normalizedUnit = item.unit.toLowerCase();
-          const isControlledPack = item.controlled && normalizedUnit === 'pack';
-          
-          // Get current stock level
-          const [currentStock] = await db
-            .select()
-            .from(stockLevels)
-            .where(
-              and(
-                eq(stockLevels.itemId, item.id),
-                eq(stockLevels.locationId, item.locationId)
-              )
-            );
-          
-          const currentQty = currentStock?.qtyOnHand || 0;
-          const newQty = currentQty + line.qty;
-          
-          // Update stock level
-          await storage.updateStockLevel(item.id, item.locationId, newQty);
-          
-          // For items with exact quantity tracking, also update current units
-          if (item.trackExactQuantity) {
-            // Fetch current currentUnits to avoid using stale value
-            const [currentItem] = await db
-              .select({ currentUnits: items.currentUnits })
-              .from(items)
-              .where(eq(items.id, item.id));
-            
-            const currentCurrentUnits = currentItem?.currentUnits || 0;
-            const addedUnits = line.qty * (line.packSize || 1);
-            await db
-              .update(items)
-              .set({ 
-                currentUnits: currentCurrentUnits + addedUnits 
-              })
-              .where(eq(items.id, item.id));
-          }
-        }
-      }
-      
       const updatedOrder = await storage.updateOrderStatus(orderId, status);
       res.json(updatedOrder);
     } catch (error) {
