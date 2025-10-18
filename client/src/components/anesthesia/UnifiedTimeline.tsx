@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StickyTimelineHeader } from "./StickyTimelineHeader";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
 
@@ -213,6 +214,7 @@ export function UnifiedTimeline({
   const chartRef = useRef<any>(null);
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
   const { toast } = useToast();
+  const { user } = useAuth();
   
   // State for collapsible parent swimlanes
   const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<Set<string>>(new Set());
@@ -286,6 +288,23 @@ export function UnifiedTimeline({
   const [heartRhythmInput, setHeartRhythmInput] = useState("");
   const [heartRhythmEditTime, setHeartRhythmEditTime] = useState("");
   const [heartRhythmHoverInfo, setHeartRhythmHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
+
+  // State for staff entries (doctor, nurse, assistant)
+  const [staffData, setStaffData] = useState<{
+    doctor: Array<[number, string]>;
+    nurse: Array<[number, string]>;
+    assistant: Array<[number, string]>;
+  }>({
+    doctor: [],
+    nurse: [],
+    assistant: [],
+  });
+  const [showStaffDialog, setShowStaffDialog] = useState(false);
+  const [pendingStaff, setPendingStaff] = useState<{ time: number; role: 'doctor' | 'nurse' | 'assistant' } | null>(null);
+  const [editingStaff, setEditingStaff] = useState<{ time: number; name: string; role: 'doctor' | 'nurse' | 'assistant'; index: number } | null>(null);
+  const [staffInput, setStaffInput] = useState("");
+  const [staffEditTime, setStaffEditTime] = useState("");
+  const [staffHoverInfo, setStaffHoverInfo] = useState<{ x: number; y: number; time: number; role: string } | null>(null);
 
   // State for event comments
   const [eventComments, setEventComments] = useState<EventComment[]>([]);
@@ -623,6 +642,20 @@ export function UnifiedTimeline({
             label: `  ${paramName}`,
             height: 30,
             ...ventColor,
+          });
+        });
+      }
+
+      // Insert staff children after Staff parent (if not collapsed)
+      if (lane.id === "staff" && !collapsedSwimlanes.has("staff")) {
+        const staffColor = { colorLight: "rgba(241, 245, 249, 0.8)", colorDark: "hsl(220, 25%, 25%)" };
+        const staffRoles = ["Doctor", "Nurse", "Assistant"];
+        staffRoles.forEach((roleName, index) => {
+          lanes.push({
+            id: `staff-${roleName.toLowerCase()}`,
+            label: `  ${roleName}`,
+            height: 30,
+            ...staffColor,
           });
         });
       }
@@ -2875,6 +2908,64 @@ export function UnifiedTimeline({
     setHeartRhythmEditTime("");
   };
 
+  // Handle staff entry save
+  const handleStaffSave = () => {
+    const name = staffInput.trim();
+    if (!name) return;
+    
+    if (editingStaff) {
+      // Editing existing value
+      const { index, time: originalTime, role } = editingStaff;
+      
+      // Parse the edited time (HH:MM format)
+      let newTimestamp = originalTime;
+      if (staffEditTime.trim()) {
+        const [hours, minutes] = staffEditTime.split(':').map(Number);
+        if (!isNaN(hours) && !isNaN(minutes)) {
+          const date = new Date(originalTime);
+          date.setHours(hours, minutes, 0, 0);
+          newTimestamp = date.getTime();
+        }
+      }
+      
+      setStaffData(prev => {
+        const updated = { ...prev };
+        updated[role][index] = [newTimestamp, name];
+        return updated;
+      });
+    } else if (pendingStaff) {
+      // Adding new value
+      const { time, role } = pendingStaff;
+      setStaffData(prev => ({
+        ...prev,
+        [role]: [...prev[role], [time, name]],
+      }));
+    }
+    
+    setShowStaffDialog(false);
+    setPendingStaff(null);
+    setEditingStaff(null);
+    setStaffInput("");
+    setStaffEditTime("");
+  };
+
+  // Handle staff entry delete
+  const handleStaffDelete = () => {
+    if (!editingStaff) return;
+    
+    const { index, role } = editingStaff;
+    
+    setStaffData(prev => ({
+      ...prev,
+      [role]: prev[role].filter((_, i) => i !== index),
+    }));
+    
+    setShowStaffDialog(false);
+    setEditingStaff(null);
+    setStaffInput("");
+    setStaffEditTime("");
+  };
+
   // Handle ventilation bulk entry save
   const handleVentilationBulkSave = () => {
     if (!pendingVentilationBulk) return;
@@ -3647,6 +3738,96 @@ export function UnifiedTimeline({
         </div>
       )}
 
+      {/* Interactive layers for staff swimlanes - to add staff entries */}
+      {!activeToolMode && !collapsedSwimlanes.has("staff") && ['doctor', 'nurse', 'assistant'].map((role) => {
+        const staffLane = swimlanePositions.find(lane => lane.id === `staff-${role}`);
+        if (!staffLane) return null;
+        
+        return (
+          <div
+            key={`staff-interactive-${role}`}
+            className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
+            style={{
+              left: '200px',
+              right: '10px',
+              top: `${staffLane.top}px`,
+              height: `${staffLane.height}px`,
+              zIndex: 35,
+            }}
+            onMouseMove={(e) => {
+              if (isTouchDevice) return;
+              
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              
+              const visibleStart = currentZoomStart ?? data.startTime;
+              const visibleEnd = currentZoomEnd ?? data.endTime;
+              const visibleRange = visibleEnd - visibleStart;
+              
+              const xPercent = x / rect.width;
+              let time = visibleStart + (xPercent * visibleRange);
+              
+              // Snap to 1-minute intervals
+              const oneMinute = 60 * 1000;
+              time = Math.round(time / oneMinute) * oneMinute;
+              
+              setStaffHoverInfo({ 
+                x: e.clientX, 
+                y: e.clientY, 
+                time,
+                role: role.charAt(0).toUpperCase() + role.slice(1)
+              });
+            }}
+            onMouseLeave={() => setStaffHoverInfo(null)}
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              
+              const visibleStart = currentZoomStart ?? data.startTime;
+              const visibleEnd = currentZoomEnd ?? data.endTime;
+              const visibleRange = visibleEnd - visibleStart;
+              
+              const xPercent = x / rect.width;
+              let time = visibleStart + (xPercent * visibleRange);
+              
+              // Snap to 1-minute intervals
+              const oneMinute = 60 * 1000;
+              time = Math.round(time / oneMinute) * oneMinute;
+              
+              // Prefill with current user's name
+              const userFirstName = (user as any)?.firstName || "";
+              const userLastName = (user as any)?.lastName || "";
+              const userName = userFirstName && userLastName ? `${userFirstName} ${userLastName}` : userFirstName || userLastName || "";
+              
+              setPendingStaff({ time, role: role as 'doctor' | 'nurse' | 'assistant' });
+              setEditingStaff(null);
+              setStaffInput(userName);
+              setStaffEditTime("");
+              setShowStaffDialog(true);
+            }}
+            data-testid={`interactive-staff-${role}-lane`}
+          />
+        );
+      })}
+
+      {/* Tooltip for staff entry */}
+      {staffHoverInfo && !isTouchDevice && (
+        <div
+          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
+          style={{
+            left: staffHoverInfo.x + 10,
+            top: staffHoverInfo.y - 40,
+          }}
+        >
+          <div className="text-sm font-semibold text-primary">
+            Click to add {staffHoverInfo.role.toLowerCase()}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {new Date(staffHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+          </div>
+        </div>
+      )}
+
       {/* Interactive layers for medication swimlanes - to place dose labels */}
       {!activeToolMode && (() => {
         const medicationParentIndex = activeSwimlanes.findIndex(s => s.id === "medikamente");
@@ -4102,6 +4283,53 @@ export function UnifiedTimeline({
           </div>
         );
       })}
+
+      {/* Staff values as DOM overlays */}
+      {!collapsedSwimlanes.has('staff') && Object.entries(staffData).flatMap(([role, entries]) =>
+        entries.map(([timestamp, name], index) => {
+          const staffLane = swimlanePositions.find(lane => lane.id === `staff-${role}`);
+          if (!staffLane) return null;
+          
+          const visibleStart = currentZoomStart ?? data.startTime;
+          const visibleEnd = currentZoomEnd ?? data.endTime;
+          const visibleRange = visibleEnd - visibleStart;
+          const xFraction = (timestamp - visibleStart) / visibleRange;
+          
+          if (xFraction < 0 || xFraction > 1) return null;
+          
+          const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 30px)`;
+          
+          return (
+            <div
+              key={`staff-${role}-${timestamp}-${index}`}
+              className="absolute z-40 cursor-pointer flex items-center justify-center group font-mono font-semibold text-sm px-2"
+              style={{
+                left: leftPosition,
+                top: `${staffLane.top + (staffLane.height / 2) - 10}px`,
+                minWidth: '60px',
+                height: '20px',
+              }}
+              onClick={() => {
+                setEditingStaff({
+                  time: timestamp,
+                  name,
+                  role: role as 'doctor' | 'nurse' | 'assistant',
+                  index,
+                });
+                setStaffInput(name);
+                setStaffEditTime(new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
+                setShowStaffDialog(true);
+              }}
+              title={`${name} (${role}) at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
+              data-testid={`staff-${role}-${index}`}
+            >
+              <span className="group-hover:scale-110 transition-transform text-slate-700 dark:text-slate-300">
+                {name}
+              </span>
+            </div>
+          );
+        })
+      )}
 
       {/* Ventilation mode values as DOM overlays (parent swimlane) */}
       {!collapsedSwimlanes.has('ventilation') && ventilationModeData.map(([timestamp, mode], index) => {
@@ -5117,6 +5345,87 @@ export function UnifiedTimeline({
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Staff Entry Dialog */}
+      <Dialog open={showStaffDialog} onOpenChange={setShowStaffDialog}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-staff">
+          <DialogHeader>
+            <DialogTitle>Staff Entry</DialogTitle>
+            <DialogDescription>
+              {editingStaff 
+                ? `Edit or delete the ${editingStaff.role} entry at ${new Date(editingStaff.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                : pendingStaff 
+                ? `Add ${pendingStaff.role} at ${new Date(pendingStaff.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                : 'Add staff member to the timeline'
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="staff-name">Name</Label>
+              <Input
+                id="staff-name"
+                data-testid="input-staff-name"
+                placeholder="Enter name..."
+                value={staffInput}
+                onChange={(e) => setStaffInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && staffInput.trim()) {
+                    handleStaffSave();
+                  }
+                }}
+              />
+            </div>
+            {editingStaff && (
+              <div className="grid gap-2">
+                <Label htmlFor="staff-edit-time">Time (HH:MM)</Label>
+                <Input
+                  id="staff-edit-time"
+                  data-testid="input-staff-edit-time"
+                  type="time"
+                  value={staffEditTime}
+                  onChange={(e) => setStaffEditTime(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+          <div className="flex justify-between gap-2">
+            {editingStaff && (
+              <Button
+                variant="destructive"
+                onClick={handleStaffDelete}
+                data-testid="button-delete-staff"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </Button>
+            )}
+            {!editingStaff && <div />}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowStaffDialog(false);
+                  setPendingStaff(null);
+                  setEditingStaff(null);
+                  setStaffInput("");
+                  setStaffEditTime("");
+                }}
+                data-testid="button-cancel-staff"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleStaffSave}
+                data-testid="button-save-staff"
+                disabled={!staffInput.trim()}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
