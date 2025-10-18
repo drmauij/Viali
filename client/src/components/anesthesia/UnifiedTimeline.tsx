@@ -95,60 +95,62 @@ function createLucideIconSeries(
     xAxisIndex: 0,
     yAxisIndex,
     data,
-    z: zLevel,
+    zlevel: zLevel, // FIXED: Use zlevel (not z) to ensure icons are on a higher layer than lines
+    z: 10, // Within the same zlevel, render on top
     emphasis: {
       disabled: false, // Enable hover effects
+      focus: 'self', // Focus on the hovered item
     },
     renderItem: (params: any, api: any) => {
       const point = api.coord([api.value(0), api.value(1)]);
       const scale = size / 24; // Scale from 24x24 viewBox to desired size
+      const isHovered = params.emphasisItemStyle; // Check if item is being hovered
       
       // Special handling for CircleDot (two circles)
       if (isCircleDot) {
+        const hoverScale = isHovered ? 1.3 : 1.0;
         return {
           type: 'group',
           cursor: 'pointer',
+          x: point[0],
+          y: point[1],
+          scaleX: hoverScale,
+          scaleY: hoverScale,
           children: [
             // Outer circle (r=10)
             {
               type: 'circle',
-              x: point[0],
-              y: point[1],
+              x: 0, // Relative to group
+              y: 0, // Relative to group
               shape: {
                 r: 10 * scale,
               },
               style: {
                 fill: 'none',
                 stroke: color,
-                lineWidth: 2,
+                lineWidth: isHovered ? 2.5 : 2,
               },
             },
             // Inner dot (r=1)
             {
               type: 'circle',
-              x: point[0],
-              y: point[1],
+              x: 0, // Relative to group
+              y: 0, // Relative to group
               shape: {
                 r: 1 * scale,
               },
               style: {
                 fill: 'none',
                 stroke: color,
-                lineWidth: 2,
+                lineWidth: isHovered ? 2.5 : 2,
               },
             },
           ],
-          // Hover effect: scale up on mouse hover
-          states: {
-            emphasis: {
-              scaleX: 1.3,
-              scaleY: 1.3,
-            },
-          },
         };
       }
       
       // Regular path-based icons (heart, chevrons)
+      const hoverScale = isHovered ? scale * 1.3 : scale;
       return {
         type: 'path',
         x: point[0] - size / 2,
@@ -161,22 +163,12 @@ function createLucideIconSeries(
         style: {
           fill: 'none', // No fill - stroke only for Lucide appearance
           stroke: color,
-          lineWidth: 2,
+          lineWidth: isHovered ? 2.5 : 2,
         },
-        // Scale to desired size
-        scaleX: scale,
-        scaleY: scale,
+        // Scale to desired size (larger on hover)
+        scaleX: hoverScale,
+        scaleY: hoverScale,
         cursor: 'pointer',
-        // Hover effect: scale up on mouse hover
-        states: {
-          emphasis: {
-            scaleX: scale * 1.3,
-            scaleY: scale * 1.3,
-            style: {
-              lineWidth: 2.5, // Slightly thicker stroke on hover
-            },
-          },
-        },
       };
     },
   };
