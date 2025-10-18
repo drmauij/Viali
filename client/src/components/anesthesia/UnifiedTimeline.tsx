@@ -392,6 +392,26 @@ export function UnifiedTimeline({
     return () => clearInterval(interval);
   }, [now]);
 
+  // Auto-calculate Minute Volume from Tidal Volume × Respiratory Rate
+  useEffect(() => {
+    const tidalVol = parseFloat(bulkVentilationParams.tidalVolume);
+    const respRate = parseFloat(bulkVentilationParams.respiratoryRate);
+    
+    if (!isNaN(tidalVol) && !isNaN(respRate) && tidalVol > 0 && respRate > 0) {
+      // Minute Volume (l/min) = (Tidal Volume in ml / 1000) × Respiratory Rate
+      const minuteVol = (tidalVol / 1000) * respRate;
+      const roundedMinuteVol = minuteVol.toFixed(1);
+      
+      // Only update if different to avoid infinite loop
+      if (bulkVentilationParams.minuteVolume !== roundedMinuteVol) {
+        setBulkVentilationParams(prev => ({
+          ...prev,
+          minuteVolume: roundedMinuteVol
+        }));
+      }
+    }
+  }, [bulkVentilationParams.tidalVolume, bulkVentilationParams.respiratoryRate]);
+
   // Toggle collapsed state for parent swimlanes
   const toggleSwimlane = (id: string) => {
     setCollapsedSwimlanes(prev => {
