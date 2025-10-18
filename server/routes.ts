@@ -732,6 +732,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
       }
+
+      // Validate controlled packed items have trackExactQuantity enabled
+      if (itemData.controlled && itemData.unit.toLowerCase() === "pack") {
+        if (!itemData.trackExactQuantity) {
+          return res.status(400).json({ 
+            message: "Controlled packed items must have Track Exact Quantity enabled" 
+          });
+        }
+      }
       
       const item = await storage.createItem(itemData);
       
@@ -891,11 +900,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const finalControlled = req.body.controlled !== undefined ? req.body.controlled : item.controlled;
       const finalUnit = req.body.unit !== undefined ? req.body.unit : item.unit;
       const finalPackSize = req.body.packSize !== undefined ? req.body.packSize : item.packSize;
+      const finalTrackExactQuantity = req.body.trackExactQuantity !== undefined ? req.body.trackExactQuantity : item.trackExactQuantity;
       
       if (finalControlled && finalUnit === "ampulle") {
         if (!finalPackSize || finalPackSize <= 0) {
           return res.status(400).json({ 
             message: "Controlled items with 'ampulle' unit type must have a pack size greater than 0" 
+          });
+        }
+      }
+
+      // Validate controlled packed items have trackExactQuantity enabled
+      if (finalControlled && finalUnit.toLowerCase() === "pack") {
+        if (!finalTrackExactQuantity) {
+          return res.status(400).json({ 
+            message: "Controlled packed items must have Track Exact Quantity enabled" 
           });
         }
       }

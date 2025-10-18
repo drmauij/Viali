@@ -525,6 +525,20 @@ export default function Items() {
     }
   }, [editFormData.trackExactQuantity, editFormData.packSize, editFormData.currentUnits]);
 
+  // Auto-enable trackExactQuantity for controlled packed items in Add Item form
+  useEffect(() => {
+    if (formData.controlled && selectedUnit === "pack" && !formData.trackExactQuantity) {
+      setFormData(prev => ({ ...prev, trackExactQuantity: true }));
+    }
+  }, [formData.controlled, selectedUnit]);
+
+  // Auto-enable trackExactQuantity for controlled packed items in Edit Item form
+  useEffect(() => {
+    if (editFormData.controlled && selectedUnit === "pack" && !editFormData.trackExactQuantity) {
+      setEditFormData(prev => ({ ...prev, trackExactQuantity: true }));
+    }
+  }, [editFormData.controlled, selectedUnit]);
+
   const handleEditItem = (item: ItemWithStock) => {
     setSelectedItem(item);
     setEditFormData({
@@ -2228,15 +2242,24 @@ export default function Items() {
 
             {/* Track Exact Quantity - Only for Pack orders */}
             {selectedUnit === "pack" && (
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="trackExactQuantity" 
-                  name="trackExactQuantity"
-                  checked={formData.trackExactQuantity}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, trackExactQuantity: checked === true }))}
-                  data-testid="checkbox-track-exact-quantity" 
-                />
-                <Label htmlFor="trackExactQuantity" className="cursor-pointer">{t('items.trackExactQuantity')}</Label>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="trackExactQuantity" 
+                    name="trackExactQuantity"
+                    checked={formData.trackExactQuantity}
+                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, trackExactQuantity: checked === true }))}
+                    data-testid="checkbox-track-exact-quantity"
+                    disabled={formData.controlled}
+                  />
+                  <Label htmlFor="trackExactQuantity" className={formData.controlled ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}>{t('items.trackExactQuantity')}</Label>
+                </div>
+                {formData.controlled && (
+                  <p className="text-xs text-orange-600 dark:text-orange-400">
+                    <i className="fas fa-info-circle mr-1"></i>
+                    Required for controlled packed items
+                  </p>
+                )}
               </div>
             )}
 
@@ -2443,15 +2466,24 @@ export default function Items() {
 
             {/* Track Exact Quantity - Only for Pack orders */}
             {selectedUnit === "pack" && (
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="edit-trackExactQuantity" 
-                  name="trackExactQuantity"
-                  checked={editFormData.trackExactQuantity}
-                  onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, trackExactQuantity: checked === true }))}
-                  data-testid="checkbox-edit-track-exact-quantity" 
-                />
-                <Label htmlFor="edit-trackExactQuantity" className="cursor-pointer">{t('items.trackExactQuantity')}</Label>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="edit-trackExactQuantity" 
+                    name="trackExactQuantity"
+                    checked={editFormData.trackExactQuantity}
+                    onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, trackExactQuantity: checked === true }))}
+                    data-testid="checkbox-edit-track-exact-quantity"
+                    disabled={editFormData.controlled}
+                  />
+                  <Label htmlFor="edit-trackExactQuantity" className={editFormData.controlled ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}>{t('items.trackExactQuantity')}</Label>
+                </div>
+                {editFormData.controlled && (
+                  <p className="text-xs text-orange-600 dark:text-orange-400">
+                    <i className="fas fa-info-circle mr-1"></i>
+                    Required for controlled packed items
+                  </p>
+                )}
               </div>
             )}
 
