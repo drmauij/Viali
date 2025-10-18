@@ -130,3 +130,15 @@ import { EditableValue } from "@/components/EditableValue";
 
 **Demo Page:**
 A comprehensive demo showing all value types is available at `/demo/editable-values` when authenticated.
+
+## Recent Changes (October 18, 2025)
+
+### Heart Rhythm Swimlane Enhancements
+- **Instant Add for Predefined Rhythms**: Clicking any of the 10 predefined rhythm options (SR, SVES, VES, VHF, Vorhofflattern, Schrittmacher, AV Block III, Kammerflimmern, Torsade de pointes, Defibrillator) immediately adds it to the timeline without requiring a Save button
+- **Custom Input Support**: Custom rhythm values can be typed and saved using Save/Cancel buttons or by pressing Enter
+- **Full English Translation**: Dialog fully translated from German to English for consistency across the application
+- **Edit Functionality**: All heart rhythm values can be clicked to edit (change rhythm type and time) or delete
+
+### NOW Line Improvements
+- **Proper Z-Index Layering**: NOW line now has z-index 40 (below sticky header's z-50) so it correctly goes under the timeline header when scrolling
+- **Full Height Coverage**: NOW line now extends through the entire chart height including all swimlanes, calculated dynamically using `backgroundsHeight - 32` instead of fixed height
