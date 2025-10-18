@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
   X,
@@ -197,6 +198,7 @@ export default function Op() {
     },
 
     // Post-op
+    postOpDestination: "",
     postOpNotes: "",
     complications: "",
   });
@@ -1052,6 +1054,24 @@ export default function Op() {
               <CardTitle>Post-Operative Management</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div>
+                <Label>Post-operative Destination</Label>
+                <Select 
+                  value={opData.postOpDestination}
+                  onValueChange={(value) => setOpData({ ...opData, postOpDestination: value })}
+                >
+                  <SelectTrigger data-testid="select-postop-destination">
+                    <SelectValue placeholder="Select post-operative destination" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="recovery_room">Recovery Room</SelectItem>
+                    <SelectItem value="regular_ward">Regular Ward</SelectItem>
+                    <SelectItem value="planned_outpatient_discharge">Planned Outpatient Discharge</SelectItem>
+                    <SelectItem value="unplanned_inpatient_admission">Unplanned Inpatient Admission</SelectItem>
+                    <SelectItem value="unplanned_transfer_emergency">Unplanned Transfer with Emergency Services</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div>
                 <Label>Post-op Notes</Label>
                 <Textarea
