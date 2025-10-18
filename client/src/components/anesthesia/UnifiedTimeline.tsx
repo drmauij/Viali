@@ -235,6 +235,9 @@ export function UnifiedTimeline({
   const [currentZoomStart, setCurrentZoomStart] = useState<number | undefined>(undefined);
   const [currentZoomEnd, setCurrentZoomEnd] = useState<number | undefined>(undefined);
   
+  // State for NOW line horizontal position (as percentage string for CSS)
+  const [nowLinePosition, setNowLinePosition] = useState<string>('0%');
+  
   // State for tracking snap intervals (in milliseconds)
   // Vitals and ventilation: zoom-dependent (1min, 5min, or 10min based on zoom level)
   // Medications and events: always 1 minute
@@ -899,9 +902,6 @@ export function UnifiedTimeline({
         const editableWidth = Math.max(0, editableEndPx - editableStartPx);
         const futureNonEditableWidth = Math.max(0, endPx - editableEndPx);
         
-        // Calculate position for current time indicator (NOW line)
-        const nowPx = chart.convertToPixel({ xAxisIndex: 0 }, currentTime);
-        
         // Get current graphic elements to preserve vertical lines and labels
         const currentOption = chart.getOption() as any;
         const currentGraphic = currentOption.graphic?.[0]?.elements || [];
@@ -954,24 +954,6 @@ export function UnifiedTimeline({
               style: {
                 fill: isDark ? 'rgba(100, 100, 100, 0.15)' : 'rgba(200, 200, 200, 0.25)',
               },
-            };
-          }
-          if (el.id === 'now-indicator') {
-            return {
-              ...el,
-              left: nowPx,
-              top: VITALS_TOP,
-              shape: {
-                x1: 0,
-                y1: 0,
-                x2: 0,
-                y2: chartHeight,
-              },
-              style: {
-                stroke: isDark ? '#ef4444' : '#dc2626',
-                lineWidth: 2,
-              },
-              z: 999, // Very high z-index to always stay on top
             };
           }
           return el; // Preserve all other elements (vertical lines, labels)
@@ -1146,6 +1128,23 @@ export function UnifiedTimeline({
       }
     };
   }, [chartRef, data.startTime, data.endTime]);
+
+  // Update NOW line position when zoom/pan changes
+  useEffect(() => {
+    const visibleStart = currentZoomStart ?? data.startTime;
+    const visibleEnd = currentZoomEnd ?? data.endTime;
+    const visibleRange = visibleEnd - visibleStart;
+    const xFraction = (currentTime - visibleStart) / visibleRange;
+    
+    // Only show if in visible range
+    if (xFraction >= 0 && xFraction <= 1) {
+      const leftPosition = `calc(200px + ${xFraction} * (100% - 210px))`;
+      setNowLinePosition(leftPosition);
+    } else {
+      // Hide if out of visible range
+      setNowLinePosition('-10px'); // Off screen
+    }
+  }, [currentZoomStart, currentZoomEnd, currentTime, data.startTime, data.endTime]);
 
   // Note: All timeline values (ventilation modes, parameters, medication doses, events) are now
   // rendered as DOM overlays for reliable click handling and scrolling. No ECharts graphics needed.
@@ -1753,16 +1752,6 @@ export function UnifiedTimeline({
           style: { fill: 'transparent' },
           silent: true,
           z: 0,
-        },
-        {
-          id: 'now-indicator',
-          type: "line",
-          left: 0,
-          top: VITALS_TOP,
-          shape: { x1: 0, y1: 0, x2: 0, y2: 0 },
-          style: { stroke: 'transparent', lineWidth: 0 },
-          silent: true,
-          z: 999, // Very high z-index to always stay on top
         },
       ],
       dataZoom: [{
@@ -3908,6 +3897,20 @@ export function UnifiedTimeline({
           </div>
         );
       })}
+
+      {/* NOW line - Current time indicator */}
+      <div
+        className="absolute z-[999] pointer-events-none"
+        style={{
+          left: nowLinePosition,
+          top: '32px', // VITALS_TOP position
+          width: '2px',
+          height: `${height || 900}px`,
+          backgroundColor: isDark ? '#ef4444' : '#dc2626',
+          transition: 'left 0.3s ease-out',
+        }}
+        data-testid="now-line-indicator"
+      />
 
       {/* Ventilation mode values as DOM overlays (parent swimlane) */}
       {!collapsedSwimlanes.has('ventilation') && ventilationModeData.map(([timestamp, mode], index) => {
