@@ -1011,10 +1011,11 @@ export function UnifiedTimeline({
 
   // Update zoom state when zoom changes
   useEffect(() => {
-    const chart = chartRef.current?.getEchartsInstance();
-    if (!chart) return;
-
     const updateZoomState = () => {
+      // Get fresh chart instance on every call to ensure it's ready
+      const chart = chartRef.current?.getEchartsInstance();
+      if (!chart) return;
+      
       const option = chart.getOption() as any;
       const dataZoom = option.dataZoom?.[0];
       if (!dataZoom) return;
@@ -1030,34 +1031,74 @@ export function UnifiedTimeline({
       setCurrentZoomStart(visibleStart);
       setCurrentZoomEnd(visibleEnd);
       
-      // Calculate zoom-dependent snap interval for vitals and ventilation parameters
-      const visibleRangeMs = visibleEnd - visibleStart;
-      const visibleRangeMinutes = visibleRangeMs / (60 * 1000);
-      
+      // Query ECharts directly for the ACTUAL time interval it's displaying
+      // This ensures snapping matches what ECharts renders, regardless of screen size
       let vitalsSnapInterval: number;
-      if (visibleRangeMinutes < 10) {
-        // Close zoom (< 10 minutes visible): 1-minute snap
-        vitalsSnapInterval = 1 * 60 * 1000;
-      } else if (visibleRangeMinutes < 30) {
-        // Medium zoom (10-30 minutes visible): 5-minute snap
-        vitalsSnapInterval = 5 * 60 * 1000;
-      } else {
-        // Far zoom (> 30 minutes visible): 10-minute snap
-        vitalsSnapInterval = 10 * 60 * 1000;
+      
+      try {
+        // Access ECharts internal model to get actual rendered tick coordinates
+        const axis = (chart as any)._model?._componentsMap?.get('xAxis')?.[0]?.axis;
+        
+        if (axis && typeof axis.getTicksCoords === 'function') {
+          const ticks = axis.getTicksCoords();
+          
+          // Calculate actual interval from consecutive tick VALUES (not pixel coords)
+          if (ticks && ticks.length >= 2) {
+            // Get the first two tick values (timestamps in milliseconds)
+            // Use tickValue property which contains the actual timestamp, not coord (pixel position)
+            const tick0Value = ticks[0].tickValue;
+            const tick1Value = ticks[1].tickValue;
+            
+            if (typeof tick0Value === 'number' && typeof tick1Value === 'number') {
+              const actualInterval = Math.abs(tick1Value - tick0Value);
+              
+              // Use the real interval ECharts is displaying
+              vitalsSnapInterval = actualInterval;
+              
+              console.log(`[Snap Interval - ECharts API] Detected ${ticks.length} ticks, interval: ${actualInterval / 60000} min (${actualInterval}ms)`);
+            } else {
+              throw new Error('Tick values not numeric');
+            }
+          } else {
+            // Fallback if we couldn't get enough ticks
+            throw new Error('Insufficient ticks');
+          }
+        } else {
+          throw new Error('Axis API not available');
+        }
+      } catch (error) {
+        // Fallback to visible range calculation if ECharts API fails
+        const visibleRangeMs = visibleEnd - visibleStart;
+        const visibleRangeMinutes = visibleRangeMs / (60 * 1000);
+        
+        if (visibleRangeMinutes < 10) {
+          vitalsSnapInterval = 1 * 60 * 1000;
+        } else if (visibleRangeMinutes < 30) {
+          vitalsSnapInterval = 5 * 60 * 1000;
+        } else {
+          vitalsSnapInterval = 10 * 60 * 1000;
+        }
+        
+        console.log(`[Snap Interval - Fallback] Visible range: ${visibleRangeMinutes.toFixed(1)} min, snap: ${vitalsSnapInterval / 60000} min`);
       }
       
       setCurrentVitalsSnapInterval(vitalsSnapInterval);
-      console.log(`[Snap Interval] Visible range: ${visibleRangeMinutes.toFixed(1)} min, Vitals snap: ${vitalsSnapInterval / 60000} min, Drugs snap: 1 min`);
     };
 
     // Update immediately
     setTimeout(updateZoomState, 50);
 
-    // Listen for zoom events
-    chart.on('datazoom', updateZoomState);
+    // Listen for zoom events on the chart instance
+    const chart = chartRef.current?.getEchartsInstance();
+    if (chart) {
+      chart.on('datazoom', updateZoomState);
+    }
 
     return () => {
-      chart.off('datazoom', updateZoomState);
+      const chart = chartRef.current?.getEchartsInstance();
+      if (chart) {
+        chart.off('datazoom', updateZoomState);
+      }
     };
   }, [chartRef, data.startTime, data.endTime]);
 
