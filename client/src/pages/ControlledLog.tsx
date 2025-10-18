@@ -654,21 +654,26 @@ export default function ControlledLog() {
         yPosition += 5;
 
         // Create table for this day's administrations and adjustments with placeholder for images
-        const tableData = dayActivities.map(activity => [
-          activity.timestamp ? new Date(activity.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "N/A",
-          activity.movementType || "-",
-          Math.abs(activity.delta || 0).toString(),
-          activity.patientId || (activity.action === 'adjust' ? 'MANUAL ADJ' : "N/A"),
-          `${activity.user.firstName} ${activity.user.lastName}`,
-          activity.controlledVerified ? "Yes" : "No",
-          activity.notes || "-",
-          "", // Placeholder for signatures
-          "", // Placeholder for patient photo
-        ]);
+        const tableData = dayActivities.map(activity => {
+          // Show quantity with sign: positive for IN, negative for OUT
+          const delta = activity.delta || 0;
+          const qty = activity.movementType === 'IN' ? `+${Math.abs(delta)}` : `-${Math.abs(delta)}`;
+          
+          return [
+            activity.timestamp ? new Date(activity.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "N/A",
+            qty,
+            activity.patientId || (activity.action === 'adjust' ? 'MANUAL ADJ' : "N/A"),
+            `${activity.user.firstName} ${activity.user.lastName}`,
+            activity.controlledVerified ? "Yes" : "No",
+            activity.notes || "-",
+            "", // Placeholder for signatures
+            "", // Placeholder for patient photo
+          ];
+        });
 
         autoTable(doc, {
           startY: yPosition,
-          head: [["Time", "Type", "Qty", "Patient", "User", "Ver", "Notes", "Signatures", "Photo"]],
+          head: [["Time", "Qty", "Patient", "User", "Ver", "Notes", "Signatures", "Photo"]],
           body: tableData,
           theme: "grid",
           styles: { fontSize: 8, cellPadding: 1, minCellHeight: 20 },
@@ -676,18 +681,17 @@ export default function ControlledLog() {
           columnStyles: {
             0: { cellWidth: 18 },
             1: { cellWidth: 12, halign: "center" },
-            2: { cellWidth: 10, halign: "center" },
-            3: { cellWidth: 24 },
-            4: { cellWidth: 26 },
-            5: { cellWidth: 10, halign: "center" },
-            6: { cellWidth: 32 },
-            7: { cellWidth: 28 },
-            8: { cellWidth: 18 },
+            2: { cellWidth: 24 },
+            3: { cellWidth: 26 },
+            4: { cellWidth: 10, halign: "center" },
+            5: { cellWidth: 34 },
+            6: { cellWidth: 28 },
+            7: { cellWidth: 18 },
           },
           margin: { left: 15 },
           didDrawCell: (data: any) => {
-            // Draw signatures in the signatures column (index 7)
-            if (data.column.index === 7 && data.section === 'body') {
+            // Draw signatures in the signatures column (index 6 after removing Type column)
+            if (data.column.index === 6 && data.section === 'body') {
               const activity = dayActivities[data.row.index];
               if (!activity) return; // Safety check for undefined activity
               const signatures = activity.signatures as string[] | null;
@@ -716,8 +720,8 @@ export default function ControlledLog() {
               }
             }
             
-            // Draw patient photo in the photo column (index 8)
-            if (data.column.index === 8 && data.section === 'body') {
+            // Draw patient photo in the photo column (index 7 after removing Type column)
+            if (data.column.index === 7 && data.section === 'body') {
               const activity = dayActivities[data.row.index];
               if (!activity) return; // Safety check for undefined activity
               
