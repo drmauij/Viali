@@ -1056,18 +1056,19 @@ export function UnifiedTimeline({
           }
           
           // Calculate actual interval from consecutive tick VALUES (not pixel coords)
-          if (ticks && ticks.length >= 2) {
-            // Get the first two tick values (timestamps in milliseconds)
-            // Use tickValue property which contains the actual timestamp, not coord (pixel position)
-            const tick0Value = ticks[0].tickValue;
+          // IMPORTANT: Use ticks[1] and ticks[2] because ticks[0] might be at an odd start time
+          // (e.g., chart starts at 22:06:17, so tick[0]=22:06:17, tick[1]=22:10:00, tick[2]=22:15:00)
+          // The real interval is between tick[1] and tick[2] (22:10:00 → 22:15:00 = 5 min)
+          if (ticks && ticks.length >= 3) {
             const tick1Value = ticks[1].tickValue;
+            const tick2Value = ticks[2].tickValue;
             
-            console.log('[DEBUG] Tick 0 value:', tick0Value, 'Tick 1 value:', tick1Value);
-            console.log('[DEBUG] Tick 0 as date:', new Date(tick0Value).toLocaleTimeString());
+            console.log('[DEBUG] Tick 1 value:', tick1Value, 'Tick 2 value:', tick2Value);
             console.log('[DEBUG] Tick 1 as date:', new Date(tick1Value).toLocaleTimeString());
+            console.log('[DEBUG] Tick 2 as date:', new Date(tick2Value).toLocaleTimeString());
             
-            if (typeof tick0Value === 'number' && typeof tick1Value === 'number') {
-              const actualInterval = Math.abs(tick1Value - tick0Value);
+            if (typeof tick1Value === 'number' && typeof tick2Value === 'number') {
+              const actualInterval = Math.abs(tick2Value - tick1Value);
               
               // Use the real interval ECharts is displaying
               vitalsSnapInterval = actualInterval;
@@ -1076,11 +1077,11 @@ export function UnifiedTimeline({
               console.log(`[Snap Interval - ECharts API] ✓ Calculated interval: ${actualInterval / 60000} min (${actualInterval}ms)`);
               console.log(`[Snap Interval - ECharts API] ✓ Setting snap interval to: ${vitalsSnapInterval / 60000} min`);
             } else {
-              console.log('[DEBUG] Tick values are not numeric:', typeof tick0Value, typeof tick1Value);
+              console.log('[DEBUG] Tick values are not numeric:', typeof tick1Value, typeof tick2Value);
               throw new Error('Tick values not numeric');
             }
           } else {
-            console.log('[DEBUG] Insufficient ticks:', ticks?.length || 0);
+            console.log('[DEBUG] Insufficient ticks (need at least 3):', ticks?.length || 0);
             throw new Error('Insufficient ticks');
           }
         } else {

@@ -1,0 +1,113 @@
+[Ventilation Chart] Building series. Data: {etCO2: Array(0), pip: Array(0), peep: Array(0), tidalVolume: Array(0), respiratoryRate: Array(0), …}
+UnifiedTimeline.tsx:1042 [DEBUG] Axis object: Found
+UnifiedTimeline.tsx:1047 [DEBUG] Raw ticks from ECharts: 14 ticks
+UnifiedTimeline.tsx:1051 [DEBUG] First 3 ticks structure: (3) [{…}, {…}, {…}]
+UnifiedTimeline.tsx:1065 [DEBUG] Tick 0 value: 1760817977376 Tick 1 value: 1760818200000
+UnifiedTimeline.tsx:1066 [DEBUG] Tick 0 as date: 22:06:17
+UnifiedTimeline.tsx:1067 [DEBUG] Tick 1 as date: 22:10:00
+UnifiedTimeline.tsx:1075 [Snap Interval - ECharts API] ✓ Detected 14 ticks
+UnifiedTimeline.tsx:1076 [Snap Interval - ECharts API] ✓ Calculated interval: 3.7104 min (222624ms)
+UnifiedTimeline.tsx:1077 [Snap Interval - ECharts API] ✓ Setting snap interval to: 3.7104 min
+123UnifiedTimeline.tsx:3173 Current vitals snap interval (ms): 222624 minutes: 3.7104
+UnifiedTimeline.tsx:1042 [DEBUG] Axis object: Found
+UnifiedTimeline.tsx:1047 [DEBUG] Raw ticks from ECharts: 10 ticks
+UnifiedTimeline.tsx:1051 [DEBUG] First 3 ticks structure: (3) [{…}, {…}, {…}]
+UnifiedTimeline.tsx:1065 [DEBUG] Tick 0 value: 1760817377376 Tick 1 value: 1760817600000
+UnifiedTimeline.tsx:1066 [DEBUG] Tick 0 as date: 21:56:17
+UnifiedTimeline.tsx:1067 [DEBUG] Tick 1 as date: 22:00:00
+UnifiedTimeline.tsx:1075 [Snap Interval - ECharts API] ✓ Detected 10 ticks
+UnifiedTimeline.tsx:1076 [Snap Interval - ECharts API] ✓ Calculated interval: 3.7104 min (222624ms)
+UnifiedTimeline.tsx:1077 [Snap Interval - ECharts API] ✓ Setting snap interval to: 3.7104 min
+UnifiedTimeline.tsx:1586 [Ventilation Chart] Building series. Data: {etCO2: Array(0), pip: Array(0), peep: Array(0), tidalVolume: Array(0), respiratoryRate: Array(0), …}
+UnifiedTimeline.tsx:1586 [Ventilation Chart] Building series. Data: {etCO2: Array(0), pip: Array(0), peep: Array(0), tidalVolume: Array(0), respiratoryRate: Array(0), …}
+UnifiedTimeline.tsx:1042 [DEBUG] Axis object: Found
+UnifiedTimeline.tsx:1047 [DEBUG] Raw ticks from ECharts: 10 ticks
+UnifiedTimeline.tsx:1051 [DEBUG] First 3 ticks structure: (3) [{…}, {…}, {…}]
+UnifiedTimeline.tsx:1065 [DEBUG] Tick 0 value: 1760816177376 Tick 1 value: 1760816700000
+UnifiedTimeline.tsx:1066 [DEBUG] Tick 0 as date: 21:36:17
+UnifiedTimeline.tsx:1067 [DEBUG] Tick 1 as date: 21:45:00
+UnifiedTimeline.tsx:1075 [Snap Interval - ECharts API] ✓ Detected 10 ticks
+UnifiedTimeline.tsx:1076 [Snap Interval - ECharts API] ✓ Calculated interval: 8.7104 min (522624ms)
+UnifiedTimeline.tsx:1077 [Snap Interval - ECharts API] ✓ Setting snap interval to: 8.7104 min
+UnifiedTimeline.tsx:1586 [Ventilation Chart] Building series. Data: {etCO2: Array(0), pip: Array(0), peep: Array(0), tidalVolume: Array(0), respiratoryRate: Array(0), …}
+UnifiedTimeline.tsx:1042 [DEBUG] Axis object: Found
+UnifiedTimeline.tsx:1047 [DEBUG] Raw ticks from ECharts: 6 ticks
+UnifiedTimeline.tsx:1051 [DEBUG] First 3 ticks structure: (3) [{…}, {…}, {…}]
+UnifiedTimeline.tsx:1065 [DEBUG] Tick 0 value: 1760812577376 Tick 1 value: 1760814000000
+UnifiedTimeline.tsx:1066 [DEBUG] Tick 0 as date: 20:36:17
+UnifiedTimeline.tsx:1067 [DEBUG] Tick 1 as date: 21:00:00
+UnifiedTimeline.tsx:1075 [Snap Interval - ECharts API] ✓ Detected 6 ticks
+UnifiedTimeline.tsx:1076 [Snap Interval - ECharts API] ✓ Calculated interval: 23.7104 min (1422624ms)
+UnifiedTimeline.tsx:1077 [Snap Interval - ECharts API] ✓ Setting snap interval to: 23.7104 min
+UnifiedTimeline.tsx:1586 [Ventilation Chart] Building series. Data: {etCO2: Array(0), pip: Array(0), peep: Array(0), tidalVolume: Array(0), respiratoryRate: Array(0), …}etCO2: []fiO2: []minuteVolume: []peep: []pip: []respiratoryRate: []tidalVolume: [][[Prototype]]: Object
+UnifiedTimeline.tsx:1042 [DEBUG] Axis object: Found
+UnifiedTimeline.tsx:1047 [DEBUG] Raw ticks from ECharts: 10 ticks
+UnifiedTimeline.tsx:1051 [DEBUG] First 3 ticks structure: (3) [{…}, {…}, {…}]
+UnifiedTimeline.tsx:1065 [DEBUG] Tick 0 value: 1760805377376 Tick 1 value: 1760806800000
+UnifiedTimeline.tsx:1066 [DEBUG] Tick 0 as date: 18:36:17
+UnifiedTimeline.tsx:1067 [DEBUG] Tick 1 as date: 19:00:00
+UnifiedTimeline.tsx:1075 [Snap Interval - ECharts API] ✓ Detected 10 ticks
+UnifiedTimeline.tsx:1076 [Snap Interval - ECharts API] ✓ Calculated interval: 23.7104 min (1422624ms)
+UnifiedTimeline.tsx:1077 [Snap Interval - ECharts API] ✓ Setting snap interval to: 23.7104 min
+UnifiedTimeline.tsx:1586 [Ventilation Chart] Building series. Data: {etCO2: Array(0), pip: Array(0), peep: Array(0), tidalVolume: Array(0), respiratoryRate: Array(0), …}
+UnifiedTimeline.tsx:1042 [DEBUG] Axis object: Found
+UnifiedTimeline.tsx:1047 [DEBUG] Raw ticks from ECharts: 14 ticks
+UnifiedTimeline.tsx:1051 [DEBUG] First 3 ticks structure: (3) [{…}, {…}, {…}]
+UnifiedTimeline.tsx:1065 [DEBUG] Tick 0 value: 1760798177373 Tick 1 value: 1760799600000
+UnifiedTimeline.tsx:1066 [DEBUG] Tick 0 as date: 16:36:17
+UnifiedTimeline.tsx:1067 [DEBUG] Tick 1 as date: 17:00:00
+UnifiedTimeline.tsx:1075 [Snap Interval - ECharts API] ✓ Detected 14 ticks
+UnifiedTimeline.tsx:1076 [Snap Interval - ECharts API] ✓ Calculated interval: 23.71045 min (1422627ms)
+UnifiedTimeline.tsx:1077 [Snap Interval - ECharts API] ✓ Setting snap interval to: 23.71045 min
+UnifiedTimeline.tsx:1586 [Ventilation Chart] Building series. Data: {etCO2: Array(0), pip: Array(0), peep: Array(0), tidalVolume: Array(0), respiratoryRate: Array(0), …}
+UnifiedTimeline.tsx:1042 [DEBUG] Axis object: Found
+UnifiedTimeline.tsx:1047 [DEBUG] Raw ticks from ECharts: 14 ticks
+UnifiedTimeline.tsx:1051 [DEBUG] First 3 ticks structure: (3) [{…}, {…}, {…}]
+UnifiedTimeline.tsx:1065 [DEBUG] Tick 0 value: 1760798177373 Tick 1 value: 1760799600000
+UnifiedTimeline.tsx:1066 [DEBUG] Tick 0 as date: 16:36:17
+UnifiedTimeline.tsx:1067 [DEBUG] Tick 1 as date: 17:00:00
+UnifiedTimeline.tsx:1075 [Snap Interval - ECharts API] ✓ Detected 14 ticks
+UnifiedTimeline.tsx:1076 [Snap Interval - ECharts API] ✓ Calculated interval: 23.71045 min (1422627ms)
+UnifiedTimeline.tsx:1077 [Snap Interval - ECharts API] ✓ Setting snap interval to: 23.71045 min
+UnifiedTimeline.tsx:1586 [Ventilation Chart] Building series. Data: {etCO2: Array(0), pip: Array(0), peep: Array(0), tidalVolume: Array(0), respiratoryRate: Array(0), …}
+UnifiedTimeline.tsx:1042 [DEBUG] Axis object: Found
+UnifiedTimeline.tsx:1047 [DEBUG] Raw ticks from ECharts: 6 ticks
+UnifiedTimeline.tsx:1051 [DEBUG] First 3 ticks structure: (3) [{…}, {…}, {…}]
+UnifiedTimeline.tsx:1065 [DEBUG] Tick 0 value: 1760812577373 Tick 1 value: 1760814000000
+UnifiedTimeline.tsx:1066 [DEBUG] Tick 0 as date: 20:36:17
+UnifiedTimeline.tsx:1067 [DEBUG] Tick 1 as date: 21:00:00
+UnifiedTimeline.tsx:1075 [Snap Interval - ECharts API] ✓ Detected 6 ticks
+UnifiedTimeline.tsx:1076 [Snap Interval - ECharts API] ✓ Calculated interval: 23.71045 min (1422627ms)
+UnifiedTimeline.tsx:1077 [Snap Interval - ECharts API] ✓ Setting snap interval to: 23.71045 min
+UnifiedTimeline.tsx:1586 [Ventilation Chart] Building series. Data: {etCO2: Array(0), pip: Array(0), peep: Array(0), tidalVolume: Array(0), respiratoryRate: Array(0), …}
+UnifiedTimeline.tsx:1042 [DEBUG] Axis object: Found
+UnifiedTimeline.tsx:1047 [DEBUG] Raw ticks from ECharts: 10 ticks
+UnifiedTimeline.tsx:1051 [DEBUG] First 3 ticks structure: (3) [{…}, {…}, {…}]
+UnifiedTimeline.tsx:1065 [DEBUG] Tick 0 value: 1760816177373 Tick 1 value: 1760816700000
+UnifiedTimeline.tsx:1066 [DEBUG] Tick 0 as date: 21:36:17
+UnifiedTimeline.tsx:1067 [DEBUG] Tick 1 as date: 21:45:00
+UnifiedTimeline.tsx:1075 [Snap Interval - ECharts API] ✓ Detected 10 ticks
+UnifiedTimeline.tsx:1076 [Snap Interval - ECharts API] ✓ Calculated interval: 8.71045 min (522627ms)
+UnifiedTimeline.tsx:1077 [Snap Interval - ECharts API] ✓ Setting snap interval to: 8.71045 min
+UnifiedTimeline.tsx:1586 [Ventilation Chart] Building series. Data: {etCO2: Array(0), pip: Array(0), peep: Array(0), tidalVolume: Array(0), respiratoryRate: Array(0), …}
+UnifiedTimeline.tsx:1042 [DEBUG] Axis object: Found
+UnifiedTimeline.tsx:1047 [DEBUG] Raw ticks from ECharts: 10 ticks
+UnifiedTimeline.tsx:1051 [DEBUG] First 3 ticks structure: (3) [{…}, {…}, {…}]
+UnifiedTimeline.tsx:1065 [DEBUG] Tick 0 value: 1760817377373 Tick 1 value: 1760817600000
+UnifiedTimeline.tsx:1066 [DEBUG] Tick 0 as date: 21:56:17
+UnifiedTimeline.tsx:1067 [DEBUG] Tick 1 as date: 22:00:00
+UnifiedTimeline.tsx:1075 [Snap Interval - ECharts API] ✓ Detected 10 ticks
+UnifiedTimeline.tsx:1076 [Snap Interval - ECharts API] ✓ Calculated interval: 3.71045 min (222627ms)
+UnifiedTimeline.tsx:1077 [Snap Interval - ECharts API] ✓ Setting snap interval to: 3.71045 min
+UnifiedTimeline.tsx:1586 [Ventilation Chart] Building series. Data: {etCO2: Array(0), pip: Array(0), peep: Array(0), tidalVolume: Array(0), respiratoryRate: Array(0), …}
+UnifiedTimeline.tsx:1042 [DEBUG] Axis object: Found
+UnifiedTimeline.tsx:1047 [DEBUG] Raw ticks from ECharts: 12 ticks
+UnifiedTimeline.tsx:1051 [DEBUG] First 3 ticks structure: (3) [{…}, {…}, {…}]
+UnifiedTimeline.tsx:1065 [DEBUG] Tick 0 value: 1760818277373 Tick 1 value: 1760818500000
+UnifiedTimeline.tsx:1066 [DEBUG] Tick 0 as date: 22:11:17
+UnifiedTimeline.tsx:1067 [DEBUG] Tick 1 as date: 22:15:00
+UnifiedTimeline.tsx:1075 [Snap Interval - ECharts API] ✓ Detected 12 ticks
+UnifiedTimeline.tsx:1076 [Snap Interval - ECharts API] ✓ Calculated interval: 3.71045 min (222627ms)
+UnifiedTimeline.tsx:1077 [Snap Interval - ECharts API] ✓ Setting snap interval to: 3.71045 min
+UnifiedTimeline.tsx:1586 [Ventilation Chart] Building series. Data: {etCO2: Array(0), pip: Array(0), peep: Array(0), tidalVolume: Array(0), respiratoryRate: Array(0), …}
+UnifiedTimeline.tsx:1586 [Ventilation Chart] Building series. Data: {etCO2: Array(0), pip: Array(0), peep: Array(0), tidalVolume: Array(0), respiratoryRate: Array(0), …}
