@@ -4047,12 +4047,12 @@ export function UnifiedTimeline({
 
       {/* NOW line - Current time indicator */}
       <div
-        className="absolute z-[999] pointer-events-none"
+        className="absolute z-40 pointer-events-none"
         style={{
           left: nowLinePosition,
           top: '32px', // VITALS_TOP position
           width: '2px',
-          height: `${height || 900}px`,
+          height: `${backgroundsHeight - 32}px`,
           backgroundColor: isDark ? '#ef4444' : '#dc2626',
           transition: 'left 0.3s ease-out',
         }}
@@ -5016,13 +5016,13 @@ export function UnifiedTimeline({
       <Dialog open={showHeartRhythmDialog} onOpenChange={setShowHeartRhythmDialog}>
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-heart-rhythm">
           <DialogHeader>
-            <DialogTitle>Herzrhythmus</DialogTitle>
+            <DialogTitle>Heart Rhythm</DialogTitle>
             <DialogDescription>
               {editingHeartRhythm 
                 ? `Edit or delete the rhythm at ${new Date(editingHeartRhythm.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
                 : pendingHeartRhythm 
-                ? `Add heart rhythm at ${new Date(pendingHeartRhythm.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-                : 'Add heart rhythm to the timeline'
+                ? `Select a heart rhythm to add at ${new Date(pendingHeartRhythm.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                : 'Select a heart rhythm'
               }
             </DialogDescription>
           </DialogHeader>
@@ -5035,7 +5035,18 @@ export function UnifiedTimeline({
                     key={rhythm}
                     variant={heartRhythmInput === rhythm ? 'default' : 'outline'}
                     className="justify-start h-12 text-left"
-                    onClick={() => setHeartRhythmInput(rhythm)}
+                    onClick={() => {
+                      setHeartRhythmInput(rhythm);
+                      if (!editingHeartRhythm) {
+                        // For new entries, add immediately
+                        if (pendingHeartRhythm) {
+                          setHeartRhythmData(prev => [...prev, [pendingHeartRhythm.time, rhythm]]);
+                          setShowHeartRhythmDialog(false);
+                          setPendingHeartRhythm(null);
+                          setHeartRhythmInput("");
+                        }
+                      }
+                    }}
                     data-testid={`button-rhythm-${rhythm.toLowerCase().replace(/\s+/g, '-')}`}
                   >
                     {rhythm}
@@ -5045,6 +5056,12 @@ export function UnifiedTimeline({
                   placeholder="Custom value..."
                   value={heartRhythmInput && !['SR', 'SVES', 'VES', 'VHF', 'Vorhofflattern', 'Schrittmacher', 'AV Block III', 'Kammerflimmern', 'Torsade de pointes', 'Defibrillator'].includes(heartRhythmInput) ? heartRhythmInput : ''}
                   onChange={(e) => setHeartRhythmInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && heartRhythmInput.trim() && pendingHeartRhythm) {
+                      // Allow Enter key to submit custom input
+                      handleHeartRhythmSave();
+                    }
+                  }}
                   className="mt-2"
                   data-testid="input-heart-rhythm-custom"
                 />
@@ -5063,42 +5080,43 @@ export function UnifiedTimeline({
               </div>
             )}
           </div>
-          <div className="flex justify-between gap-2">
-            {editingHeartRhythm ? (
-              <Button
-                variant="destructive"
-                onClick={handleHeartRhythmDelete}
-                data-testid="button-delete-heart-rhythm"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </Button>
-            ) : (
-              <div />
-            )}
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowHeartRhythmDialog(false);
-                  setPendingHeartRhythm(null);
-                  setEditingHeartRhythm(null);
-                  setHeartRhythmInput("");
-                  setHeartRhythmEditTime("");
-                }}
-                data-testid="button-cancel-heart-rhythm"
-              >
-                Abbrechen
-              </Button>
-              <Button
-                onClick={handleHeartRhythmSave}
-                data-testid="button-save-heart-rhythm"
-                disabled={!heartRhythmInput.trim()}
-              >
-                Speichern
-              </Button>
+          {(editingHeartRhythm || (heartRhythmInput && !['SR', 'SVES', 'VES', 'VHF', 'Vorhofflattern', 'Schrittmacher', 'AV Block III', 'Kammerflimmern', 'Torsade de pointes', 'Defibrillator'].includes(heartRhythmInput))) && (
+            <div className="flex justify-between gap-2">
+              {editingHeartRhythm && (
+                <Button
+                  variant="destructive"
+                  onClick={handleHeartRhythmDelete}
+                  data-testid="button-delete-heart-rhythm"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
+              )}
+              {!editingHeartRhythm && <div />}
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowHeartRhythmDialog(false);
+                    setPendingHeartRhythm(null);
+                    setEditingHeartRhythm(null);
+                    setHeartRhythmInput("");
+                    setHeartRhythmEditTime("");
+                  }}
+                  data-testid="button-cancel-heart-rhythm"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleHeartRhythmSave}
+                  data-testid="button-save-heart-rhythm"
+                  disabled={!heartRhythmInput.trim()}
+                >
+                  Save
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
 
