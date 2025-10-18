@@ -2051,6 +2051,129 @@ If unable to parse any drugs, return:
     }
   });
 
+  app.post('/api/order-lines/:lineId/receive', isAuthenticated, async (req: any, res) => {
+    try {
+      const { lineId } = req.params;
+      const { notes, signature } = req.body;
+      const userId = req.user.claims.sub;
+      
+      // Get order line with item details
+      const [lineWithItem] = await db
+        .select({
+          line: orderLines,
+          item: items,
+          order: orders,
+        })
+        .from(orderLines)
+        .innerJoin(items, eq(orderLines.itemId, items.id))
+        .innerJoin(orders, eq(orderLines.orderId, orders.id))
+        .where(eq(orderLines.id, lineId));
+      
+      if (!lineWithItem) {
+        return res.status(404).json({ message: "Order line not found" });
+      }
+      
+      const { line, item, order } = lineWithItem;
+      
+      // Check if already received
+      if (line.received) {
+        return res.status(400).json({ message: "Item already received" });
+      }
+      
+      // Verify user has access to this hospital
+      const locationId = await getUserLocationForHospital(userId, order.hospitalId);
+      if (!locationId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // For controlled items, require signature
+      if (item.controlled && !signature) {
+        return res.status(400).json({ message: "Signature required for controlled substances" });
+      }
+      
+      // Get current stock level
+      const [currentStock] = await db
+        .select()
+        .from(stockLevels)
+        .where(
+          and(
+            eq(stockLevels.itemId, item.id),
+            eq(stockLevels.locationId, item.locationId)
+          )
+        );
+      
+      const currentQty = currentStock?.qtyOnHand || 0;
+      const newQty = currentQty + line.qty;
+      
+      // Update stock level
+      await storage.updateStockLevel(item.id, item.locationId, newQty);
+      
+      // For items with exact quantity tracking, also update current units
+      let addedUnits = 0;
+      if (item.trackExactQuantity) {
+        const [currentItem] = await db
+          .select({ currentUnits: items.currentUnits })
+          .from(items)
+          .where(eq(items.id, item.id));
+        
+        const currentCurrentUnits = currentItem?.currentUnits || 0;
+        addedUnits = line.qty * (line.packSize || 1);
+        await db
+          .update(items)
+          .set({ 
+            currentUnits: currentCurrentUnits + addedUnits 
+          })
+          .where(eq(items.id, item.id));
+      }
+      
+      // Mark order line as received
+      await db
+        .update(orderLines)
+        .set({
+          received: true,
+          receivedAt: new Date(),
+          receivedBy: userId,
+          receiveNotes: notes || null,
+          receiveSignature: signature || null,
+        })
+        .where(eq(orderLines.id, lineId));
+      
+      // Log activity for controlled items
+      if (item.controlled) {
+        await db.insert(activities).values({
+          timestamp: new Date(),
+          userId,
+          action: 'receive',
+          itemId: item.id,
+          locationId: item.locationId,
+          delta: addedUnits || line.qty,
+          movementType: 'IN',
+          notes: notes || 'Order received',
+          signatures: signature ? [signature] : null,
+          controlledVerified: true,
+        });
+      }
+      
+      // Check if all lines in the order are now received
+      const allLines = await db
+        .select()
+        .from(orderLines)
+        .where(eq(orderLines.orderId, order.id));
+      
+      const allReceived = allLines.every(l => l.id === lineId || l.received);
+      
+      // If all lines received, update order status
+      if (allReceived && order.status !== 'received') {
+        await storage.updateOrderStatus(order.id, 'received');
+      }
+      
+      res.json({ success: true, allReceived });
+    } catch (error) {
+      console.error("Error receiving order line:", error);
+      res.status(500).json({ message: "Failed to receive order line" });
+    }
+  });
+
   app.delete('/api/order-lines/:lineId', isAuthenticated, async (req: any, res) => {
     try {
       const { lineId } = req.params;
