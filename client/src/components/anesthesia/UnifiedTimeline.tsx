@@ -307,7 +307,7 @@ export function UnifiedTimeline({
     fiO2: "40",
     tidalVolume: "",
     respiratoryRate: "12",
-    etCO2: "",
+    etCO2: "35",
     pip: "",
     minuteVolume: "",
   });
