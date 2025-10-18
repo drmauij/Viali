@@ -190,6 +190,11 @@ export const orderLines = pgTable("order_lines", {
   packSize: integer("pack_size").default(1),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }),
+  received: boolean("received").default(false),
+  receivedAt: timestamp("received_at"),
+  receivedBy: varchar("received_by").references(() => users.id),
+  receiveNotes: text("receive_notes"),
+  receiveSignature: text("receive_signature"),
 }, (table) => [
   index("idx_order_lines_order").on(table.orderId),
   index("idx_order_lines_item").on(table.itemId),
