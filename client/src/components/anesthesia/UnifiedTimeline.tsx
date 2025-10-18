@@ -356,6 +356,45 @@ export function UnifiedTimeline({
   });
   const [ventilationBulkHoverInfo, setVentilationBulkHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
   
+  // State for output parameters
+  const [outputData, setOutputData] = useState<{
+    gastricTube: VitalPoint[];
+    drainage: VitalPoint[];
+    vomit: VitalPoint[];
+    urine: VitalPoint[];
+    urine677: VitalPoint[];
+    blood: VitalPoint[];
+    bloodIrrigation: VitalPoint[];
+  }>({
+    gastricTube: [],
+    drainage: [],
+    vomit: [],
+    urine: [],
+    urine677: [],
+    blood: [],
+    bloodIrrigation: [],
+  });
+  
+  // State for output bulk entry dialog
+  const [showOutputBulkDialog, setShowOutputBulkDialog] = useState(false);
+  const [pendingOutputBulk, setPendingOutputBulk] = useState<{ time: number } | null>(null);
+  const [bulkOutputParams, setBulkOutputParams] = useState({
+    gastricTube: "",
+    drainage: "",
+    vomit: "",
+    urine: "",
+    urine677: "",
+    blood: "",
+    bloodIrrigation: "",
+  });
+  const [outputBulkHoverInfo, setOutputBulkHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
+  
+  // State for output value edit dialog
+  const [showOutputEditDialog, setShowOutputEditDialog] = useState(false);
+  const [editingOutputValue, setEditingOutputValue] = useState<{ paramKey: keyof typeof outputData; time: number; value: string; index: number; label: string } | null>(null);
+  const [outputEditInput, setOutputEditInput] = useState("");
+  const [outputEditTime, setOutputEditTime] = useState("");
+  
   // State for BP dual entry (systolic then diastolic)
   const [bpEntryMode, setBpEntryMode] = useState<'sys' | 'dia'>('sys');
   const [pendingSysValue, setPendingSysValue] = useState<{ time: number; value: number } | null>(null);
@@ -602,6 +641,17 @@ export function UnifiedTimeline({
     "FiO2 (%)",
   ];
 
+  // Predefined output parameters list
+  const outputParams = [
+    "Gastric Tube (ml)",
+    "Drainage (ml)",
+    "Vomit (ml)",
+    "Urine (ml)",
+    "Urine 677 (ml)",
+    "Blood (ml)",
+    "Blood and Irrigation in Suction (ml)",
+  ];
+
   // Default swimlane configuration - can be overridden via props
   const baseSwimlanes: SwimlaneConfig[] = [
     { id: "zeiten", label: "Times", height: 50, colorLight: "rgba(243, 232, 255, 0.8)", colorDark: "hsl(270, 55%, 20%)" },
@@ -611,6 +661,7 @@ export function UnifiedTimeline({
     { id: "medikamente", label: "Medications", height: 40, colorLight: "rgba(220, 252, 231, 0.8)", colorDark: "hsl(150, 45%, 18%)" },
     { id: "position", label: "Position", height: 40, colorLight: "rgba(226, 232, 240, 0.8)", colorDark: "hsl(215, 20%, 25%)" },
     { id: "ventilation", label: "Ventilation", height: 40, colorLight: "rgba(254, 243, 199, 0.8)", colorDark: "hsl(35, 70%, 22%)" },
+    { id: "output", label: "Output", height: 40, colorLight: "rgba(254, 226, 226, 0.8)", colorDark: "hsl(0, 60%, 25%)" },
     { id: "staff", label: "Staff", height: 40, colorLight: "rgba(241, 245, 249, 0.8)", colorDark: "hsl(220, 25%, 25%)" },
   ];
 
@@ -669,6 +720,19 @@ export function UnifiedTimeline({
             label: `  ${paramName}`,
             height: 30,
             ...ventColor,
+          });
+        });
+      }
+
+      // Insert output children after Output parent (if not collapsed)
+      if (lane.id === "output" && !collapsedSwimlanes.has("output")) {
+        const outputColor = { colorLight: "rgba(254, 226, 226, 0.8)", colorDark: "hsl(0, 60%, 25%)" };
+        outputParams.forEach((paramName, index) => {
+          lanes.push({
+            id: `output-${index}`,
+            label: `  ${paramName}`,
+            height: 30,
+            ...outputColor,
           });
         });
       }
@@ -3134,6 +3198,138 @@ export function UnifiedTimeline({
     setPendingVentilationBulk(null);
   };
 
+  // Handle output bulk entry save
+  const handleOutputBulkSave = () => {
+    if (!pendingOutputBulk) return;
+    
+    const { time } = pendingOutputBulk;
+    
+    // Add all filled parameters at the same time
+    setOutputData(prev => {
+      const updated = { ...prev };
+      
+      if (bulkOutputParams.gastricTube) {
+        const value = parseFloat(bulkOutputParams.gastricTube);
+        if (!isNaN(value)) {
+          updated.gastricTube = [...updated.gastricTube, [time, value] as VitalPoint];
+        }
+      }
+      
+      if (bulkOutputParams.drainage) {
+        const value = parseFloat(bulkOutputParams.drainage);
+        if (!isNaN(value)) {
+          updated.drainage = [...updated.drainage, [time, value] as VitalPoint];
+        }
+      }
+      
+      if (bulkOutputParams.vomit) {
+        const value = parseFloat(bulkOutputParams.vomit);
+        if (!isNaN(value)) {
+          updated.vomit = [...updated.vomit, [time, value] as VitalPoint];
+        }
+      }
+      
+      if (bulkOutputParams.urine) {
+        const value = parseFloat(bulkOutputParams.urine);
+        if (!isNaN(value)) {
+          updated.urine = [...updated.urine, [time, value] as VitalPoint];
+        }
+      }
+      
+      if (bulkOutputParams.urine677) {
+        const value = parseFloat(bulkOutputParams.urine677);
+        if (!isNaN(value)) {
+          updated.urine677 = [...updated.urine677, [time, value] as VitalPoint];
+        }
+      }
+      
+      if (bulkOutputParams.blood) {
+        const value = parseFloat(bulkOutputParams.blood);
+        if (!isNaN(value)) {
+          updated.blood = [...updated.blood, [time, value] as VitalPoint];
+        }
+      }
+      
+      if (bulkOutputParams.bloodIrrigation) {
+        const value = parseFloat(bulkOutputParams.bloodIrrigation);
+        if (!isNaN(value)) {
+          updated.bloodIrrigation = [...updated.bloodIrrigation, [time, value] as VitalPoint];
+        }
+      }
+      
+      return updated;
+    });
+    
+    // Reset dialog state
+    setShowOutputBulkDialog(false);
+    setPendingOutputBulk(null);
+  };
+
+  // Handle output value edit save
+  const handleOutputValueEditSave = () => {
+    if (!editingOutputValue || !outputEditInput.trim()) return;
+    
+    const { paramKey, index, time: originalTime } = editingOutputValue;
+    const value = parseFloat(outputEditInput.trim());
+    
+    if (isNaN(value)) {
+      toast({
+        title: "Invalid value",
+        description: "Please enter a valid number",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Parse the edited time (HH:MM format)
+    let newTimestamp = originalTime;
+    if (outputEditTime.trim()) {
+      const [hours, minutes] = outputEditTime.split(':').map(Number);
+      if (!isNaN(hours) && !isNaN(minutes)) {
+        const date = new Date(originalTime);
+        date.setHours(hours, minutes, 0, 0);
+        newTimestamp = date.getTime();
+      }
+    }
+    
+    setOutputData(prev => {
+      const existingData = prev[paramKey] || [];
+      const updated = [...existingData];
+      updated[index] = [newTimestamp, value];
+      return {
+        ...prev,
+        [paramKey]: updated,
+      };
+    });
+    
+    // Reset dialog state
+    setShowOutputEditDialog(false);
+    setEditingOutputValue(null);
+    setOutputEditInput("");
+    setOutputEditTime("");
+  };
+
+  // Handle output value delete
+  const handleOutputValueDelete = () => {
+    if (!editingOutputValue) return;
+    
+    const { paramKey, index } = editingOutputValue;
+    
+    setOutputData(prev => {
+      const existingData = prev[paramKey] || [];
+      const updated = existingData.filter((_, i) => i !== index);
+      return {
+        ...prev,
+        [paramKey]: updated,
+      };
+    });
+    
+    setShowOutputEditDialog(false);
+    setEditingOutputValue(null);
+    setOutputEditInput("");
+    setOutputEditTime("");
+  };
+
   // Calculate swimlane positions for sidebar
   const SWIMLANE_START = VITALS_TOP_POS + VITALS_HEIGHT;
   let currentTop = SWIMLANE_START;
@@ -4197,6 +4393,84 @@ export function UnifiedTimeline({
         </div>
       )}
 
+      {/* Interactive layer for output parent swimlane bulk entry */}
+      {!activeToolMode && (() => {
+        const outputParentLane = swimlanePositions.find(lane => lane.id === 'output');
+        if (!outputParentLane) return null;
+        
+        return (
+          <div
+            className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
+            style={{
+              left: '200px',
+              right: '10px',
+              top: `${outputParentLane.top}px`,
+              height: `${outputParentLane.height}px`,
+              zIndex: 35,
+            }}
+            onMouseMove={(e) => {
+              if (isTouchDevice) return;
+              
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              
+              const visibleStart = currentZoomStart ?? data.startTime;
+              const visibleEnd = currentZoomEnd ?? data.endTime;
+              const visibleRange = visibleEnd - visibleStart;
+              
+              const xPercent = x / rect.width;
+              let time = visibleStart + (xPercent * visibleRange);
+              
+              // Snap to zoom-dependent interval for output parameters
+              time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
+              
+              setOutputBulkHoverInfo({ 
+                x: e.clientX, 
+                y: e.clientY, 
+                time
+              });
+            }}
+            onMouseLeave={() => setOutputBulkHoverInfo(null)}
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              
+              const visibleStart = currentZoomStart ?? data.startTime;
+              const visibleEnd = currentZoomEnd ?? data.endTime;
+              const visibleRange = visibleEnd - visibleStart;
+              
+              const xPercent = x / rect.width;
+              let time = visibleStart + (xPercent * visibleRange);
+              
+              // Snap to zoom-dependent interval for output parameters
+              time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
+              
+              setPendingOutputBulk({ time });
+              setShowOutputBulkDialog(true);
+            }}
+            data-testid="interactive-output-bulk-lane"
+          />
+        );
+      })()}
+
+      {/* Tooltip for output bulk entry */}
+      {outputBulkHoverInfo && !isTouchDevice && (
+        <div
+          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
+          style={{
+            left: outputBulkHoverInfo.x + 10,
+            top: outputBulkHoverInfo.y - 40,
+          }}
+        >
+          <div className="text-sm font-semibold text-primary">
+            Click for bulk entry
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {new Date(outputBulkHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+          </div>
+        </div>
+      )}
+
       {/* Interactive layers for ventilation parameter swimlanes - to place values */}
       {!activeToolMode && (() => {
         const ventilationParentIndex = activeSwimlanes.findIndex(s => s.id === "ventilation");
@@ -4651,6 +4925,82 @@ export function UnifiedTimeline({
               }}
               title={`${labelMap[paramKey]}: ${value} at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
               data-testid={`vent-value-${paramKey}-${index}`}
+            >
+              <span className="group-hover:scale-110 transition-transform">
+                {value}
+              </span>
+            </div>
+          );
+        }).filter(Boolean);
+      })}
+
+      {/* Output parameter values as DOM overlays */}
+      {!collapsedSwimlanes.has('output') && Object.entries(outputData).flatMap(([paramKey, dataPoints]) => {
+        // Map parameter keys to their child lane indices
+        const paramIndexMap: Record<string, number> = {
+          gastricTube: 0,
+          drainage: 1,
+          vomit: 2,
+          urine: 3,
+          urine677: 4,
+          blood: 5,
+          bloodIrrigation: 6,
+        };
+        
+        const paramIndex = paramIndexMap[paramKey];
+        if (paramIndex === undefined) return [];
+        
+        // Find the corresponding child lane in swimlanePositions
+        const childLane = swimlanePositions.find(lane => lane.id === `output-${paramIndex}`);
+        if (!childLane) {
+          return [];
+        }
+        
+        const visibleStart = currentZoomStart ?? data.startTime;
+        const visibleEnd = currentZoomEnd ?? data.endTime;
+        const visibleRange = visibleEnd - visibleStart;
+        
+        const labelMap: Record<string, string> = {
+          gastricTube: 'Gastric Tube',
+          drainage: 'Drainage',
+          vomit: 'Vomit',
+          urine: 'Urine',
+          urine677: 'Urine 677',
+          blood: 'Blood',
+          bloodIrrigation: 'Blood and Irrigation',
+        };
+        
+        return dataPoints.map(([timestamp, value], index) => {
+          const xFraction = (timestamp - visibleStart) / visibleRange;
+          
+          if (xFraction < 0 || xFraction > 1) return null;
+          
+          const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 20px)`;
+          
+          return (
+            <div
+              key={`output-${paramKey}-${timestamp}-${index}`}
+              className="absolute z-40 cursor-pointer flex items-center justify-center group font-mono font-bold text-sm"
+              style={{
+                left: leftPosition,
+                top: `${childLane.top + 7}px`,
+                minWidth: '40px',
+                height: '20px',
+              }}
+              onClick={() => {
+                setEditingOutputValue({
+                  paramKey: paramKey as keyof typeof outputData,
+                  time: timestamp,
+                  value: value.toString(),
+                  index,
+                  label: labelMap[paramKey] || paramKey,
+                });
+                setOutputEditInput(value.toString());
+                setOutputEditTime(new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
+                setShowOutputEditDialog(true);
+              }}
+              title={`${labelMap[paramKey]}: ${value} ml at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
+              data-testid={`output-value-${paramKey}-${index}`}
             >
               <span className="group-hover:scale-110 transition-transform">
                 {value}
@@ -5884,6 +6234,203 @@ export function UnifiedTimeline({
             >
               Add All
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Output Bulk Entry Dialog */}
+      <Dialog open={showOutputBulkDialog} onOpenChange={setShowOutputBulkDialog}>
+        <DialogContent className="sm:max-w-[550px]" data-testid="dialog-output-bulk">
+          <DialogHeader>
+            <DialogTitle>Output Bulk Entry</DialogTitle>
+            <DialogDescription>
+              {pendingOutputBulk 
+                ? `Add output parameters at ${new Date(pendingOutputBulk.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                : 'Add output parameters to the timeline'
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label htmlFor="bulk-gastrictube">Gastric Tube (ml)</Label>
+                <Input
+                  id="bulk-gastrictube"
+                  type="number"
+                  step="1"
+                  value={bulkOutputParams.gastricTube}
+                  onChange={(e) => setBulkOutputParams(prev => ({ ...prev, gastricTube: e.target.value }))}
+                  data-testid="input-bulk-gastrictube"
+                  placeholder="Optional"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="bulk-drainage">Drainage (ml)</Label>
+                <Input
+                  id="bulk-drainage"
+                  type="number"
+                  step="1"
+                  value={bulkOutputParams.drainage}
+                  onChange={(e) => setBulkOutputParams(prev => ({ ...prev, drainage: e.target.value }))}
+                  data-testid="input-bulk-drainage"
+                  placeholder="Optional"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="bulk-vomit">Vomit (ml)</Label>
+                <Input
+                  id="bulk-vomit"
+                  type="number"
+                  step="1"
+                  value={bulkOutputParams.vomit}
+                  onChange={(e) => setBulkOutputParams(prev => ({ ...prev, vomit: e.target.value }))}
+                  data-testid="input-bulk-vomit"
+                  placeholder="Optional"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="bulk-urine">Urine (ml)</Label>
+                <Input
+                  id="bulk-urine"
+                  type="number"
+                  step="1"
+                  value={bulkOutputParams.urine}
+                  onChange={(e) => setBulkOutputParams(prev => ({ ...prev, urine: e.target.value }))}
+                  data-testid="input-bulk-urine"
+                  placeholder="Optional"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="bulk-urine677">Urine 677 (ml)</Label>
+                <Input
+                  id="bulk-urine677"
+                  type="number"
+                  step="1"
+                  value={bulkOutputParams.urine677}
+                  onChange={(e) => setBulkOutputParams(prev => ({ ...prev, urine677: e.target.value }))}
+                  data-testid="input-bulk-urine677"
+                  placeholder="Optional"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="bulk-blood">Blood (ml)</Label>
+                <Input
+                  id="bulk-blood"
+                  type="number"
+                  step="1"
+                  value={bulkOutputParams.blood}
+                  onChange={(e) => setBulkOutputParams(prev => ({ ...prev, blood: e.target.value }))}
+                  data-testid="input-bulk-blood"
+                  placeholder="Optional"
+                />
+              </div>
+              <div className="grid gap-2 col-span-2">
+                <Label htmlFor="bulk-bloodirrigation">Blood and Irrigation in Suction (ml)</Label>
+                <Input
+                  id="bulk-bloodirrigation"
+                  type="number"
+                  step="1"
+                  value={bulkOutputParams.bloodIrrigation}
+                  onChange={(e) => setBulkOutputParams(prev => ({ ...prev, bloodIrrigation: e.target.value }))}
+                  data-testid="input-bulk-bloodirrigation"
+                  placeholder="Optional"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowOutputBulkDialog(false);
+                setPendingOutputBulk(null);
+              }}
+              data-testid="button-cancel-output-bulk"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleOutputBulkSave}
+              data-testid="button-save-output-bulk"
+            >
+              Add All
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Output Value Edit Dialog */}
+      <Dialog open={showOutputEditDialog} onOpenChange={setShowOutputEditDialog}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-output-edit">
+          <DialogHeader>
+            <DialogTitle>Edit Output Value</DialogTitle>
+            <DialogDescription>
+              {editingOutputValue 
+                ? `Edit or delete the ${editingOutputValue.label} value at ${new Date(editingOutputValue.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                : 'Edit output value'
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="output-edit-value">Value (ml)</Label>
+              <Input
+                id="output-edit-value"
+                data-testid="input-output-edit-value"
+                type="number"
+                step="1"
+                value={outputEditInput}
+                onChange={(e) => setOutputEditInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleOutputValueEditSave();
+                  }
+                }}
+                placeholder="Enter value"
+                autoFocus
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="output-edit-time">Time (HH:MM)</Label>
+              <Input
+                id="output-edit-time"
+                data-testid="input-output-edit-time"
+                type="time"
+                value={outputEditTime}
+                onChange={(e) => setOutputEditTime(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex justify-between gap-2">
+            <Button
+              variant="destructive"
+              onClick={handleOutputValueDelete}
+              data-testid="button-delete-output-value"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowOutputEditDialog(false);
+                  setEditingOutputValue(null);
+                  setOutputEditInput("");
+                  setOutputEditTime("");
+                }}
+                data-testid="button-cancel-output-edit"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleOutputValueEditSave}
+                data-testid="button-save-output-edit"
+                disabled={!outputEditInput.trim()}
+              >
+                Save
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
