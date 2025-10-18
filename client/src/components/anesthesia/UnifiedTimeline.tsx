@@ -293,6 +293,11 @@ export function UnifiedTimeline({
   const [editingVentilationValue, setEditingVentilationValue] = useState<{ paramKey: keyof typeof ventilationData; time: number; value: string; index: number; label: string } | null>(null);
   const [ventilationEditInput, setVentilationEditInput] = useState("");
 
+  // State for ventilation mode edit dialog
+  const [showVentilationModeEditDialog, setShowVentilationModeEditDialog] = useState(false);
+  const [editingVentilationMode, setEditingVentilationMode] = useState<{ time: number; mode: string; index: number } | null>(null);
+  const [ventilationModeEditInput, setVentilationModeEditInput] = useState("");
+
   // State for ventilation bulk entry dialog
   const [showVentilationBulkDialog, setShowVentilationBulkDialog] = useState(false);
   const [pendingVentilationBulk, setPendingVentilationBulk] = useState<{ time: number } | null>(null);
@@ -1119,65 +1124,8 @@ export function UnifiedTimeline({
     };
   }, [chartRef, data.startTime, data.endTime]);
 
-  // Ventilation mode graphics rendering (parent swimlane only - child values now use DOM overlays)
-  useEffect(() => {
-    const chart = chartRef.current?.getEchartsInstance();
-    if (!chart) return;
-
-    const modernMonoFont = '"SF Mono", "JetBrains Mono", "Roboto Mono", "Fira Code", Monaco, Consolas, monospace';
-    const textColor = isDark ? '#ffffff' : '#000000';
-    const VITALS_HEIGHT = 340;
-    const VITALS_TOP = 32;
-    
-    // Helper to convert timestamp to pixel position
-    const timestampToPixel = (timestamp: number): number | null => {
-      try {
-        const pixelX = chart.convertToPixel({ xAxisIndex: 0 }, timestamp);
-        return Array.isArray(pixelX) ? pixelX[0] : pixelX;
-      } catch {
-        return null;
-      }
-    };
-    
-    const allGraphics: any[] = [];
-    
-    // === VENTILATION MODE GRAPHICS (parent swimlane only) ===
-    // Note: Child parameter values (PEEP, FiO2, etc) are now rendered as DOM overlays for better clickability
-    const ventilationParentIndex = activeSwimlanes.findIndex(lane => lane.id === 'ventilation');
-    if (ventilationParentIndex !== -1 && ventilationModeData.length > 0) {
-      let currentY = VITALS_TOP + VITALS_HEIGHT;
-      for (let i = 0; i < ventilationParentIndex; i++) {
-        currentY += activeSwimlanes[i].height;
-      }
-      
-      const rowY = currentY + (activeSwimlanes[ventilationParentIndex].height / 2);
-      
-      ventilationModeData.forEach(([timestamp, mode], idx) => {
-        const pixelX = timestampToPixel(timestamp);
-        if (pixelX !== null) {
-          allGraphics.push({
-            type: 'text',
-            id: `vent-mode-${timestamp}-${idx}`,
-            left: pixelX,
-            top: rowY,
-            style: {
-              text: mode,
-              font: `bold 13px ${modernMonoFont}`,
-              fill: textColor,
-              textAlign: 'center',
-              textVerticalAlign: 'middle',
-            },
-            z: 100,
-          });
-        }
-      });
-    }
-    
-    // Apply graphics
-    console.log(`[Combined Graphics] Generated ${allGraphics.length} total graphic elements`);
-    chart.setOption({ graphic: allGraphics }, { replaceMerge: ['graphic'] });
-    
-  }, [chartRef, activeSwimlanes, collapsedSwimlanes, isDark, ventilationModeData, graphicsRevision]);
+  // Note: All timeline values (ventilation modes, parameters, medication doses, events) are now
+  // rendered as DOM overlays for reliable click handling and scrolling. No ECharts graphics needed.
 
   const option = useMemo(() => {
     // Layout constants
@@ -2785,14 +2733,61 @@ export function UnifiedTimeline({
     setVentilationEditInput("");
   };
 
+  // Handle ventilation mode edit save
+  const handleVentilationModeEditSave = () => {
+    if (!editingVentilationMode || !ventilationModeEditInput.trim()) return;
+    
+    const { index } = editingVentilationMode;
+    
+    setVentilationModeData(prev => {
+      const updated = [...prev];
+      updated[index] = [updated[index][0], ventilationModeEditInput.trim()];
+      return updated;
+    });
+    
+    setShowVentilationModeEditDialog(false);
+    setEditingVentilationMode(null);
+    setVentilationModeEditInput("");
+  };
+
+  // Handle ventilation mode delete
+  const handleVentilationModeDelete = () => {
+    if (!editingVentilationMode) return;
+    
+    const { index } = editingVentilationMode;
+    
+    setVentilationModeData(prev => prev.filter((_, i) => i !== index));
+    
+    setShowVentilationModeEditDialog(false);
+    setEditingVentilationMode(null);
+    setVentilationModeEditInput("");
+  };
+
   // Handle ventilation bulk entry save
   const handleVentilationBulkSave = () => {
     if (!pendingVentilationBulk) return;
     
     const { time } = pendingVentilationBulk;
     
-    // Save the selected ventilation mode to the parent swimlane
-    setVentilationModeData(prev => [...prev, [time, ventilationMode]]);
+    // Save the selected ventilation mode to the parent swimlane ONLY if:
+    // 1. It's the first value, OR
+    // 2. It's different from the previous mode
+    setVentilationModeData(prev => {
+      if (prev.length === 0) {
+        // First value - always add
+        return [[time, ventilationMode]];
+      }
+      
+      // Check if the last mode is different from the current one
+      const lastMode = prev[prev.length - 1][1];
+      if (lastMode !== ventilationMode) {
+        // Different from previous - add it
+        return [...prev, [time, ventilationMode]];
+      }
+      
+      // Same as previous - don't add
+      return prev;
+    });
     
     // Add all filled parameters at the same time
     setVentilationData(prev => {
@@ -3855,6 +3850,49 @@ export function UnifiedTimeline({
         );
       })}
 
+      {/* Ventilation mode values as DOM overlays (parent swimlane) */}
+      {!collapsedSwimlanes.has('ventilation') && ventilationModeData.map(([timestamp, mode], index) => {
+        const ventilationLane = swimlanePositions.find(lane => lane.id === 'ventilation');
+        if (!ventilationLane) return null;
+        
+        const visibleStart = currentZoomStart ?? data.startTime;
+        const visibleEnd = currentZoomEnd ?? data.endTime;
+        const visibleRange = visibleEnd - visibleStart;
+        const xFraction = (timestamp - visibleStart) / visibleRange;
+        
+        if (xFraction < 0 || xFraction > 1) return null;
+        
+        const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 30px)`;
+        
+        return (
+          <div
+            key={`vent-mode-${timestamp}-${index}`}
+            className="absolute z-40 cursor-pointer flex items-center justify-center group font-mono font-bold text-sm"
+            style={{
+              left: leftPosition,
+              top: `${ventilationLane.top + (ventilationLane.height / 2) - 10}px`,
+              minWidth: '60px',
+              height: '20px',
+            }}
+            onClick={() => {
+              setEditingVentilationMode({
+                time: timestamp,
+                mode,
+                index,
+              });
+              setVentilationModeEditInput(mode);
+              setShowVentilationModeEditDialog(true);
+            }}
+            title={`Mode: ${mode}`}
+            data-testid={`vent-mode-${index}`}
+          >
+            <span className="group-hover:scale-110 transition-transform">
+              {mode}
+            </span>
+          </div>
+        );
+      })}
+
       {/* Ventilation parameter values as DOM overlays */}
       {!collapsedSwimlanes.has('ventilation') && Object.entries(ventilationData).flatMap(([paramKey, dataPoints]) => {
         // Map parameter keys to their child lane indices
@@ -4611,6 +4649,69 @@ export function UnifiedTimeline({
                 onClick={handleVentilationValueEditSave}
                 data-testid="button-save-ventilation-edit"
                 disabled={!ventilationEditInput.trim()}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ventilation Mode Edit Dialog */}
+      <Dialog open={showVentilationModeEditDialog} onOpenChange={setShowVentilationModeEditDialog}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-ventilation-mode-edit">
+          <DialogHeader>
+            <DialogTitle>Edit Ventilation Mode</DialogTitle>
+            <DialogDescription>
+              {editingVentilationMode 
+                ? `Edit or delete the mode at ${new Date(editingVentilationMode.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                : 'Edit ventilation mode'
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="mode-edit-value">Mode</Label>
+              <Select value={ventilationModeEditInput} onValueChange={setVentilationModeEditInput}>
+                <SelectTrigger id="mode-edit-value" data-testid="select-mode-edit-value">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Präoxygenierung">Preoxygenation</SelectItem>
+                  <SelectItem value="Assistierte Spontanatmung">Assisted Spontaneous Breathing</SelectItem>
+                  <SelectItem value="Spontanatmung am Gerät">Spontaneous Breathing on Device</SelectItem>
+                  <SelectItem value="PCV - druckkontrolliert">PCV - Pressure Controlled</SelectItem>
+                  <SelectItem value="VCV - volumenkontrolliert">VCV - Volume Controlled</SelectItem>
+                  <SelectItem value="CPAP - PSV">CPAP - PSV</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-between gap-2">
+            <Button
+              variant="destructive"
+              onClick={handleVentilationModeDelete}
+              data-testid="button-delete-ventilation-mode"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowVentilationModeEditDialog(false);
+                  setEditingVentilationMode(null);
+                  setVentilationModeEditInput("");
+                }}
+                data-testid="button-cancel-ventilation-mode-edit"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleVentilationModeEditSave}
+                data-testid="button-save-ventilation-mode-edit"
+                disabled={!ventilationModeEditInput.trim()}
               >
                 Save
               </Button>
