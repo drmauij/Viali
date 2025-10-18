@@ -306,6 +306,15 @@ export function UnifiedTimeline({
   const [staffEditTime, setStaffEditTime] = useState("");
   const [staffHoverInfo, setStaffHoverInfo] = useState<{ x: number; y: number; time: number; role: string } | null>(null);
 
+  // State for patient position entries
+  const [positionData, setPositionData] = useState<Array<[number, string]>>([]);
+  const [showPositionDialog, setShowPositionDialog] = useState(false);
+  const [pendingPosition, setPendingPosition] = useState<{ time: number } | null>(null);
+  const [editingPosition, setEditingPosition] = useState<{ time: number; position: string; index: number } | null>(null);
+  const [positionInput, setPositionInput] = useState("");
+  const [positionEditTime, setPositionEditTime] = useState("");
+  const [positionHoverInfo, setPositionHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
+
   // State for event comments
   const [eventComments, setEventComments] = useState<EventComment[]>([]);
   const [showEventDialog, setShowEventDialog] = useState(false);
@@ -484,7 +493,6 @@ export function UnifiedTimeline({
 
   // Predefined medications list
   const medicationsList = [
-    "Ringer Acetate (ml, i.v./free-flow)",
     "Rapidocain (mg, i.v.)",
     "Sufentanil (Sufenta) (μg, i.v.)",
     "Rocuronium (Esmeron) (mg, i.v.)",
@@ -496,6 +504,11 @@ export function UnifiedTimeline({
     "Droperidol (Novalgin) (g, i.v.)",
     "Droperidol /2.0ml, 1.0mg (mg, i.v.)",
     "Toradol /1.0ml, 30.0mg (mg, i.v.)",
+  ];
+
+  // Predefined infusions list
+  const infusionsList = [
+    "Ringer Acetate (ml, i.v./free-flow)",
     "NaCl 0.9% (ml, infusion/free-flow)",
     "Glucose 5% 100 ml (ml, i.v./free-flow)",
   ];
@@ -594,8 +607,9 @@ export function UnifiedTimeline({
     { id: "zeiten", label: "Times", height: 50, colorLight: "rgba(243, 232, 255, 0.8)", colorDark: "hsl(270, 55%, 20%)" },
     { id: "ereignisse", label: "Events", height: 40, colorLight: "rgba(219, 234, 254, 0.8)", colorDark: "hsl(210, 60%, 18%)" },
     { id: "herzrhythmus", label: "Heart Rhythm", height: 40, colorLight: "rgba(252, 231, 243, 0.8)", colorDark: "hsl(330, 50%, 20%)" },
-    { id: "medikamente", label: "Medications", height: 40, colorLight: "rgba(220, 252, 231, 0.8)", colorDark: "hsl(150, 45%, 18%)" },
     { id: "infusionen", label: "Infusions", height: 40, colorLight: "rgba(207, 250, 254, 0.8)", colorDark: "hsl(190, 60%, 18%)" },
+    { id: "medikamente", label: "Medications", height: 40, colorLight: "rgba(220, 252, 231, 0.8)", colorDark: "hsl(150, 45%, 18%)" },
+    { id: "position", label: "Position", height: 40, colorLight: "rgba(226, 232, 240, 0.8)", colorDark: "hsl(215, 20%, 25%)" },
     { id: "ventilation", label: "Ventilation", height: 40, colorLight: "rgba(254, 243, 199, 0.8)", colorDark: "hsl(35, 70%, 22%)" },
     { id: "staff", label: "Staff", height: 40, colorLight: "rgba(241, 245, 249, 0.8)", colorDark: "hsl(220, 25%, 25%)" },
   ];
@@ -610,6 +624,19 @@ export function UnifiedTimeline({
     
     for (const lane of baseSwimlanes) {
       lanes.push(lane);
+      
+      // Insert infusion children after Infusions parent (if not collapsed)
+      if (lane.id === "infusionen" && !collapsedSwimlanes.has("infusionen")) {
+        const infusionColor = { colorLight: "rgba(207, 250, 254, 0.8)", colorDark: "hsl(190, 60%, 18%)" };
+        infusionsList.forEach((infusionName, index) => {
+          lanes.push({
+            id: `infusion-${index}`,
+            label: `  ${infusionName}`,
+            height: 30,
+            ...infusionColor,
+          });
+        });
+      }
       
       // Insert medication children after Medications parent (if not collapsed)
       if (lane.id === "medikamente" && !collapsedSwimlanes.has("medikamente")) {
@@ -2966,6 +2993,60 @@ export function UnifiedTimeline({
     setStaffEditTime("");
   };
 
+  // Handle position entry save
+  const handlePositionSave = () => {
+    const position = positionInput.trim();
+    if (!position) return;
+    
+    let time: number;
+    
+    if (editingPosition) {
+      // Editing existing value
+      const { index, time: originalTime } = editingPosition;
+      
+      // Parse the edited time (HH:MM format)
+      let newTimestamp = originalTime;
+      if (positionEditTime.trim()) {
+        const [hours, minutes] = positionEditTime.split(':').map(Number);
+        if (!isNaN(hours) && !isNaN(minutes)) {
+          const date = new Date(originalTime);
+          date.setHours(hours, minutes, 0, 0);
+          newTimestamp = date.getTime();
+        }
+      }
+      
+      setPositionData(prev => {
+        const updated = [...prev];
+        updated[index] = [newTimestamp, position];
+        return updated;
+      });
+    } else if (pendingPosition) {
+      // Adding new value
+      time = pendingPosition.time;
+      setPositionData(prev => [...prev, [time, position]]);
+    }
+    
+    setShowPositionDialog(false);
+    setPendingPosition(null);
+    setEditingPosition(null);
+    setPositionInput("");
+    setPositionEditTime("");
+  };
+
+  // Handle position entry delete
+  const handlePositionDelete = () => {
+    if (!editingPosition) return;
+    
+    const { index } = editingPosition;
+    
+    setPositionData(prev => prev.filter((_, i) => i !== index));
+    
+    setShowPositionDialog(false);
+    setEditingPosition(null);
+    setPositionInput("");
+    setPositionEditTime("");
+  };
+
   // Handle ventilation bulk entry save
   const handleVentilationBulkSave = () => {
     if (!pendingVentilationBulk) return;
@@ -3828,6 +3909,89 @@ export function UnifiedTimeline({
         </div>
       )}
 
+      {/* Interactive layer for position swimlane */}
+      {!activeToolMode && (() => {
+        const positionLane = swimlanePositions.find(lane => lane.id === 'position');
+        if (!positionLane) return null;
+        
+        return (
+          <div
+            className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
+            style={{
+              left: '200px',
+              right: '10px',
+              top: `${positionLane.top}px`,
+              height: `${positionLane.height}px`,
+              zIndex: 35,
+            }}
+            onMouseMove={(e) => {
+              if (isTouchDevice) return;
+              
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              
+              const visibleStart = currentZoomStart ?? data.startTime;
+              const visibleEnd = currentZoomEnd ?? data.endTime;
+              const visibleRange = visibleEnd - visibleStart;
+              
+              const xPercent = x / rect.width;
+              let time = visibleStart + (xPercent * visibleRange);
+              
+              // Snap to 1-minute intervals
+              const oneMinute = 60 * 1000;
+              time = Math.round(time / oneMinute) * oneMinute;
+              
+              setPositionHoverInfo({ 
+                x: e.clientX, 
+                y: e.clientY, 
+                time
+              });
+            }}
+            onMouseLeave={() => setPositionHoverInfo(null)}
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              
+              const visibleStart = currentZoomStart ?? data.startTime;
+              const visibleEnd = currentZoomEnd ?? data.endTime;
+              const visibleRange = visibleEnd - visibleStart;
+              
+              const xPercent = x / rect.width;
+              let time = visibleStart + (xPercent * visibleRange);
+              
+              // Snap to 1-minute intervals
+              const oneMinute = 60 * 1000;
+              time = Math.round(time / oneMinute) * oneMinute;
+              
+              setPendingPosition({ time });
+              setEditingPosition(null);
+              setPositionInput("");
+              setPositionEditTime("");
+              setShowPositionDialog(true);
+            }}
+            data-testid="interactive-position-lane"
+          />
+        );
+      })()}
+
+      {/* Tooltip for position entry */}
+      {positionHoverInfo && !isTouchDevice && (
+        <div
+          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
+          style={{
+            left: positionHoverInfo.x + 10,
+            top: positionHoverInfo.y - 40,
+          }}
+        >
+          <div className="text-sm font-semibold text-primary">
+            Click to add position
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {new Date(positionHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+          </div>
+        </div>
+      )}
+
       {/* Interactive layers for medication swimlanes - to place dose labels */}
       {!activeToolMode && (() => {
         const medicationParentIndex = activeSwimlanes.findIndex(s => s.id === "medikamente");
@@ -4302,7 +4466,7 @@ export function UnifiedTimeline({
           return (
             <div
               key={`staff-${role}-${timestamp}-${index}`}
-              className="absolute z-40 cursor-pointer flex items-center justify-center group font-mono font-semibold text-sm px-2"
+              className="absolute z-40 cursor-pointer flex items-center justify-center group font-mono text-sm px-2"
               style={{
                 left: leftPosition,
                 top: `${staffLane.top + (staffLane.height / 2) - 10}px`,
@@ -4330,6 +4494,50 @@ export function UnifiedTimeline({
           );
         })
       )}
+
+      {/* Position values as DOM overlays */}
+      {positionData.map(([timestamp, position], index) => {
+        const positionLane = swimlanePositions.find(lane => lane.id === 'position');
+        if (!positionLane) return null;
+        
+        const visibleStart = currentZoomStart ?? data.startTime;
+        const visibleEnd = currentZoomEnd ?? data.endTime;
+        const visibleRange = visibleEnd - visibleStart;
+        const xFraction = (timestamp - visibleStart) / visibleRange;
+        
+        if (xFraction < 0 || xFraction > 1) return null;
+        
+        const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 30px)`;
+        
+        return (
+          <div
+            key={`position-${timestamp}-${index}`}
+            className="absolute z-40 cursor-pointer flex items-center justify-center group font-mono font-semibold text-sm px-2"
+            style={{
+              left: leftPosition,
+              top: `${positionLane.top + (positionLane.height / 2) - 10}px`,
+              minWidth: '60px',
+              height: '20px',
+            }}
+            onClick={() => {
+              setEditingPosition({
+                time: timestamp,
+                position,
+                index,
+              });
+              setPositionInput(position);
+              setPositionEditTime(new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
+              setShowPositionDialog(true);
+            }}
+            title={`${position} at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
+            data-testid={`position-${index}`}
+          >
+            <span className="group-hover:scale-110 transition-transform text-slate-600 dark:text-slate-400">
+              {position}
+            </span>
+          </div>
+        );
+      })}
 
       {/* Ventilation mode values as DOM overlays (parent swimlane) */}
       {!collapsedSwimlanes.has('ventilation') && ventilationModeData.map(([timestamp, mode], index) => {
@@ -5426,6 +5634,124 @@ export function UnifiedTimeline({
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Position Dialog */}
+      <Dialog open={showPositionDialog} onOpenChange={setShowPositionDialog}>
+        <DialogContent className="sm:max-w-[500px]" data-testid="dialog-position">
+          <DialogHeader>
+            <DialogTitle>Patient Position</DialogTitle>
+            <DialogDescription>
+              {editingPosition 
+                ? `Edit or delete the position at ${new Date(editingPosition.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                : pendingPosition 
+                ? `Select a position to add at ${new Date(pendingPosition.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                : 'Select a patient position'
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+            <div className="grid gap-2">
+              <Label>Select Position</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { key: 'Supine', label: 'Supine (Back)' },
+                  { key: 'Prone', label: 'Prone (Belly)' },
+                  { key: 'Left Side', label: 'Left Side' },
+                  { key: 'Right Side', label: 'Right Side' },
+                  { key: 'Beach Chair', label: 'Beach Chair' },
+                  { key: 'Lithotomy', label: 'Lithotomy' },
+                  { key: 'Head Up', label: 'Head Up' },
+                  { key: 'Head Down', label: 'Head Down' },
+                  { key: 'Sitting for SPA/PDA', label: 'Sitting for SPA/PDA' },
+                  { key: 'Other', label: 'Other' },
+                ].map((pos) => (
+                  <Button
+                    key={pos.key}
+                    variant={positionInput === pos.key ? 'default' : 'outline'}
+                    className="justify-start h-12 text-left"
+                    onClick={() => {
+                      setPositionInput(pos.key);
+                      if (!editingPosition) {
+                        // For new entries, add immediately
+                        if (pendingPosition) {
+                          setPositionData(prev => [...prev, [pendingPosition.time, pos.key]]);
+                          setShowPositionDialog(false);
+                          setPendingPosition(null);
+                          setPositionInput("");
+                        }
+                      }
+                    }}
+                    data-testid={`button-position-${pos.key.toLowerCase().replace(/\s+/g, '-').replace(/\//g, '-')}`}
+                  >
+                    {pos.label}
+                  </Button>
+                ))}
+                <Input
+                  placeholder="Custom position..."
+                  value={positionInput && !['Supine', 'Prone', 'Left Side', 'Right Side', 'Beach Chair', 'Lithotomy', 'Head Up', 'Head Down', 'Sitting for SPA/PDA', 'Other'].includes(positionInput) ? positionInput : ''}
+                  onChange={(e) => setPositionInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && positionInput.trim() && pendingPosition) {
+                      handlePositionSave();
+                    }
+                  }}
+                  className="col-span-2"
+                  data-testid="input-position-custom"
+                />
+              </div>
+            </div>
+            {editingPosition && (
+              <div className="grid gap-2">
+                <Label htmlFor="position-edit-time">Time (HH:MM)</Label>
+                <Input
+                  id="position-edit-time"
+                  data-testid="input-position-edit-time"
+                  type="time"
+                  value={positionEditTime}
+                  onChange={(e) => setPositionEditTime(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+          {(editingPosition || (positionInput && !['Supine', 'Prone', 'Left Side', 'Right Side', 'Beach Chair', 'Lithotomy', 'Head Up', 'Head Down', 'Sitting for SPA/PDA', 'Other'].includes(positionInput))) && (
+            <div className="flex justify-between gap-2">
+              {editingPosition && (
+                <Button
+                  variant="destructive"
+                  onClick={handlePositionDelete}
+                  data-testid="button-delete-position"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
+              )}
+              {!editingPosition && <div />}
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowPositionDialog(false);
+                    setPendingPosition(null);
+                    setEditingPosition(null);
+                    setPositionInput("");
+                    setPositionEditTime("");
+                  }}
+                  data-testid="button-cancel-position"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handlePositionSave}
+                  data-testid="button-save-position"
+                  disabled={!positionInput.trim()}
+                >
+                  Save
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
