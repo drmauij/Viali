@@ -100,6 +100,30 @@ export default function PostopTab({ caseId }: PostopTabProps) {
         </Dialog>
       </div>
 
+      {/* Post-operative Destination */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Post-operative Destination</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <Label htmlFor="postop-destination">Destination</Label>
+            <Select>
+              <SelectTrigger data-testid="select-postop-destination">
+                <SelectValue placeholder="Select post-operative destination" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="recovery_room">Recovery Room</SelectItem>
+                <SelectItem value="regular_ward">Regular Ward</SelectItem>
+                <SelectItem value="planned_outpatient_discharge">Planned Outpatient Discharge</SelectItem>
+                <SelectItem value="unplanned_inpatient_admission">Unplanned Inpatient Admission</SelectItem>
+                <SelectItem value="unplanned_transfer_emergency">Unplanned Transfer with Emergency Services</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* PACU Timeline */}
       <Card>
         <CardHeader>
