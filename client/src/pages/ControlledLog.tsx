@@ -793,11 +793,11 @@ export default function ControlledLog() {
         </TabsList>
 
         <TabsContent value="administrations" className="space-y-4 mt-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <h2 className="text-lg font-semibold text-foreground">{t('controlled.administrationLog')}</h2>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
-                className="bg-accent hover:bg-accent/90 text-accent-foreground"
+                className="bg-accent hover:bg-accent/90 text-accent-foreground flex-1 sm:flex-none"
                 onClick={handleOpenAdministrationModal}
                 data-testid="record-administration-button"
               >
@@ -805,7 +805,7 @@ export default function ControlledLog() {
                 {t('controlled.recordAdministration')}
               </Button>
               <Button
-                className="bg-orange-500 hover:bg-orange-600 text-white"
+                className="bg-orange-500 hover:bg-orange-600 text-white flex-1 sm:flex-none"
                 onClick={() => setShowManualAdjustmentModal(true)}
                 data-testid="manual-adjustment-button"
               >
