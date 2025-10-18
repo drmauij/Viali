@@ -603,12 +603,23 @@ export class DatabaseStorage implements IStorage {
     
     if (filters.itemId) conditions.push(eq(activities.itemId, filters.itemId));
     if (filters.userId) conditions.push(eq(activities.userId, filters.userId));
+    
+    // For controlled substance filtering, check if the item is controlled
+    // This includes both administrations (with patientId) and adjustments (without patientId)
     if (filters.controlled !== undefined) {
       if (filters.controlled) {
-        conditions.push(sql`${activities.patientId} IS NOT NULL`);
+        conditions.push(eq(items.controlled, true));
       } else {
-        conditions.push(sql`${activities.patientId} IS NULL`);
+        conditions.push(eq(items.controlled, false));
       }
+    }
+
+    if (filters.hospitalId) {
+      conditions.push(eq(items.hospitalId, filters.hospitalId));
+    }
+
+    if (filters.locationId) {
+      conditions.push(eq(items.locationId, filters.locationId));
     }
 
     let query = db
@@ -620,18 +631,6 @@ export class DatabaseStorage implements IStorage {
       .from(activities)
       .innerJoin(users, eq(activities.userId, users.id))
       .leftJoin(items, eq(activities.itemId, items.id));
-
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
-
-    if (filters.hospitalId) {
-      conditions.push(eq(items.hospitalId, filters.hospitalId));
-    }
-
-    if (filters.locationId) {
-      conditions.push(eq(items.locationId, filters.locationId));
-    }
 
     if (conditions.length > 0) {
       query = query.where(and(...conditions));

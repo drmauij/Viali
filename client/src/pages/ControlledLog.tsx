@@ -896,8 +896,10 @@ export default function ControlledLog() {
                 <p className="text-muted-foreground">No controlled substance administrations recorded yet.</p>
               </div>
             ) : (
-              activities.map((activity) => (
-                <div
+              activities.map((activity) => {
+                const isAdjustment = activity.action === 'adjust';
+                
+                return <div
                   key={activity.id}
                   className={`bg-card border rounded-lg p-4 ${
                     !activity.controlledVerified ? "border-2 border-warning" : "border-border"
@@ -905,42 +907,49 @@ export default function ControlledLog() {
                   data-testid={`activity-${activity.id}`}
                 >
                   <div className="flex items-start gap-3 mb-3">
-                    <div className="w-12 h-12 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
-                      <i className="fas fa-syringe text-accent text-lg"></i>
+                    <div className={`w-12 h-12 rounded-lg ${isAdjustment ? 'bg-orange-100 dark:bg-orange-950/30' : 'bg-accent/10'} flex items-center justify-center flex-shrink-0`}>
+                      <i className={`fas ${isAdjustment ? 'fa-sliders text-orange-600 dark:text-orange-400' : 'fa-syringe text-accent'} text-lg`}></i>
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="font-semibold text-foreground">
                         {activity.item?.name || "Unknown Item"}
                       </h4>
                       <p className="text-sm text-muted-foreground">
-                        {Math.abs(activity.delta || 0)} units dispensed
+                        {isAdjustment 
+                          ? `Manual Adjustment: ${activity.movementType === 'IN' ? '+' : ''}${activity.delta || 0} units`
+                          : `${Math.abs(activity.delta || 0)} units dispensed`
+                        }
                       </p>
                     </div>
                     {getStatusChip(activity)}
                   </div>
 
                   <div className="space-y-2 mb-3">
-                    <div className="flex items-center gap-2">
-                      <i className="fas fa-user-injured text-muted-foreground text-sm"></i>
-                      <span className="text-sm text-foreground">
-                        {t('controlled.patient')} {activity.patientId || "Unknown"}
-                      </span>
-                    </div>
-                    {activity.patientPhoto && (
-                      <div className="ml-6">
-                        <img 
-                          src={activity.patientPhoto} 
-                          alt="Patient label" 
-                          className="max-w-xs rounded border border-border cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => activity.patientPhoto && window.open(activity.patientPhoto, '_blank')}
-                          data-testid={`patient-photo-${activity.id}`}
-                        />
-                      </div>
+                    {!isAdjustment && (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <i className="fas fa-user-injured text-muted-foreground text-sm"></i>
+                          <span className="text-sm text-foreground">
+                            {t('controlled.patient')} {activity.patientId || "Unknown"}
+                          </span>
+                        </div>
+                        {activity.patientPhoto && (
+                          <div className="ml-6">
+                            <img 
+                              src={activity.patientPhoto} 
+                              alt="Patient label" 
+                              className="max-w-xs rounded border border-border cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={() => activity.patientPhoto && window.open(activity.patientPhoto, '_blank')}
+                              data-testid={`patient-photo-${activity.id}`}
+                            />
+                          </div>
+                        )}
+                      </>
                     )}
                     <div className="flex items-center gap-2">
                       <i className="fas fa-user-md text-muted-foreground text-sm"></i>
                       <span className="text-sm text-foreground">
-                        {t('controlled.administeredBy')} {activity.user.firstName} {activity.user.lastName}
+                        {isAdjustment ? 'Adjusted by' : t('controlled.administeredBy')} {activity.user.firstName} {activity.user.lastName}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -949,6 +958,12 @@ export default function ControlledLog() {
                         {activity.timestamp ? formatTimeAgo(activity.timestamp) : 'Unknown'}
                       </span>
                     </div>
+                    {isAdjustment && activity.notes && (
+                      <div className="flex items-start gap-2 mt-2 p-2 bg-muted rounded">
+                        <i className="fas fa-note-sticky text-muted-foreground text-sm mt-0.5"></i>
+                        <span className="text-sm text-foreground">{activity.notes}</span>
+                      </div>
+                    )}
                   </div>
 
                   {!activity.controlledVerified && (
@@ -994,8 +1009,8 @@ export default function ControlledLog() {
                       </Button>
                     )}
                   </div>
-                </div>
-              ))
+                </div>;
+              })
             )}
           </div>
         </TabsContent>
