@@ -105,6 +105,11 @@ function createLucideIconSeries(
       const point = api.coord([api.value(0), api.value(1)]);
       const scale = size / 24; // Scale from 24x24 viewBox to desired size
       
+      // Check if this item is being hovered (emphasis state)
+      const isEmphasis = params.emphasisItemStyle != null;
+      const hoverScale = isEmphasis ? 1.8 : 1.0;
+      const strokeWidth = isEmphasis ? 3.5 : 2;
+      
       // Special handling for CircleDot (two circles)
       if (isCircleDot) {
         return {
@@ -112,6 +117,8 @@ function createLucideIconSeries(
           cursor: 'pointer',
           x: point[0],
           y: point[1],
+          scaleX: hoverScale,
+          scaleY: hoverScale,
           children: [
             // Outer circle (r=10)
             {
@@ -124,7 +131,7 @@ function createLucideIconSeries(
               style: {
                 fill: 'none',
                 stroke: color,
-                lineWidth: 2,
+                lineWidth: strokeWidth,
               },
             },
             // Inner dot (r=1)
@@ -138,27 +145,19 @@ function createLucideIconSeries(
               style: {
                 fill: 'none',
                 stroke: color,
-                lineWidth: 2,
+                lineWidth: strokeWidth,
               },
             },
           ],
-          // Hover effect using ECharts emphasis property
-          emphasis: {
-            scaleX: 1.8,
-            scaleY: 1.8,
-            style: {
-              stroke: color,
-              lineWidth: 3.5,
-            },
-          },
         };
       }
       
       // Regular path-based icons (heart, chevrons)
+      const iconScale = scale * hoverScale;
       return {
         type: 'path',
-        x: point[0] - size / 2,
-        y: point[1] - size / 2,
+        x: point[0] - (size * hoverScale) / 2,
+        y: point[1] - (size * hoverScale) / 2,
         shape: {
           pathData: iconPath,
           width: 24, // Lucide viewBox width
@@ -167,20 +166,11 @@ function createLucideIconSeries(
         style: {
           fill: 'none', // No fill - stroke only for Lucide appearance
           stroke: color,
-          lineWidth: 2,
+          lineWidth: strokeWidth,
         },
-        scaleX: scale,
-        scaleY: scale,
+        scaleX: iconScale,
+        scaleY: iconScale,
         cursor: 'pointer',
-        // Hover effect using ECharts emphasis property
-        emphasis: {
-          scaleX: scale * 1.8,
-          scaleY: scale * 1.8,
-          style: {
-            stroke: color,
-            lineWidth: 3.5,
-          },
-        },
       };
     },
   };
