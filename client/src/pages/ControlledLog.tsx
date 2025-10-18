@@ -1478,7 +1478,7 @@ export default function ControlledLog() {
                   <SelectTrigger data-testid="adjustment-item-select">
                     <SelectValue placeholder="Select item..." />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[150]">
                     {controlledItems.map((item) => {
                       const normalizedUnit = item.unit.toLowerCase();
                       const isControlledPack = item.controlled && normalizedUnit === 'pack';
