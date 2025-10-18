@@ -4009,6 +4009,9 @@ export function UnifiedTimeline({
           
           const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 20px)`;
           
+          // Extract drug name from lane label (remove leading spaces)
+          const drugName = childLane.label.trim();
+          
           return (
             <div
               key={`med-${lane.id}-${timestamp}-${index}`}
@@ -4029,7 +4032,7 @@ export function UnifiedTimeline({
                 setMedicationEditInput(dose.toString());
                 setShowMedicationEditDialog(true);
               }}
-              title={`${dose} at ${new Date(timestamp).toLocaleTimeString()}`}
+              title={`${drugName} ${dose} mg`}
               data-testid={`med-dose-${lane.id}-${index}`}
             >
               <span className="group-hover:scale-110 transition-transform">
