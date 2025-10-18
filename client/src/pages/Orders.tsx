@@ -19,9 +19,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import SignaturePad from "@/components/SignaturePad";
 import type { Order, Vendor, OrderLine, Item, StockLevel, Location } from "@shared/schema";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { Check } from "lucide-react";
 
 interface OrderWithDetails extends Order {
   vendor: Vendor | null;
@@ -66,6 +69,12 @@ export default function Orders() {
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState<number>(1);
   const [lineToRemove, setLineToRemove] = useState<string | null>(null);
+  
+  const [showReceiveDialog, setShowReceiveDialog] = useState(false);
+  const [selectedLineToReceive, setSelectedLineToReceive] = useState<(OrderLine & { item: Item & { location: Location; stockLevel?: StockLevel } }) | null>(null);
+  const [receiveNotes, setReceiveNotes] = useState("");
+  const [receiveSignature, setReceiveSignature] = useState("");
+  const [showReceiveSignaturePad, setShowReceiveSignaturePad] = useState(false);
 
   const { data: orders = [], isLoading } = useQuery<OrderWithDetails[]>({
     queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.locationId],
@@ -243,6 +252,49 @@ export default function Orders() {
       toast({
         title: t('common.error'),
         description: t('orders.failedToAddItem'),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const receiveLineMutation = useMutation({
+    mutationFn: async (data: {
+      lineId: string;
+      notes?: string;
+      signature?: string;
+    }) => {
+      const response = await apiRequest("POST", `/api/order-lines/${data.lineId}/receive`, {
+        notes: data.notes,
+        signature: data.signature,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
+      toast({
+        title: "Item Received",
+        description: "Item has been marked as received and stock updated.",
+      });
+      setShowReceiveDialog(false);
+      resetReceiveForm();
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: t('orders.unauthorized'),
+          description: t('orders.unauthorizedMessage'),
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      
+      toast({
+        title: "Receive Failed",
+        description: "Failed to receive item.",
         variant: "destructive",
       });
     },
@@ -427,6 +479,47 @@ export default function Orders() {
     return Array.from(locations).join(", ");
   };
 
+  const resetReceiveForm = () => {
+    setSelectedLineToReceive(null);
+    setReceiveNotes("");
+    setReceiveSignature("");
+    setShowReceiveSignaturePad(false);
+  };
+
+  const handleReceiveLine = (line: OrderLine & { item: Item & { location: Location; stockLevel?: StockLevel } }) => {
+    setSelectedLineToReceive(line);
+    setShowReceiveDialog(true);
+  };
+
+  const handleSubmitReceive = () => {
+    if (!selectedLineToReceive) return;
+    
+    if (selectedLineToReceive.item.controlled) {
+      if (!receiveSignature) {
+        toast({
+          title: "Signature Required",
+          description: "Signature is required for controlled substances.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!receiveNotes || receiveNotes.trim() === '') {
+        toast({
+          title: "Notes Required",
+          description: "Notes are required for controlled substances.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    receiveLineMutation.mutate({
+      lineId: selectedLineToReceive.id,
+      notes: receiveNotes || undefined,
+      signature: receiveSignature || undefined,
+    });
+  };
+
   if (!activeHospital) {
     return (
       <div className="p-4">
@@ -560,32 +653,19 @@ export default function Orders() {
                     <p className="text-xs text-muted-foreground mb-3">
                       Sent {formatDate((order.updatedAt || order.createdAt) as any)}
                     </p>
-                    <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          downloadOrderPDF(order);
-                        }}
-                        data-testid={`pdf-order-${order.id}`}
-                      >
-                        <i className="fas fa-file-pdf"></i>
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="flex-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStatusUpdate(order.id, "received");
-                        }}
-                        disabled={updateOrderStatusMutation.isPending}
-                        data-testid={`mark-received-${order.id}`}
-                      >
-                        <i className="fas fa-check mr-1"></i>
-                        {t('orders.markAsReceived')}
-                      </Button>
-                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        downloadOrderPDF(order);
+                      }}
+                      data-testid={`pdf-order-${order.id}`}
+                    >
+                      <i className="fas fa-file-pdf mr-1"></i>
+                      {t('orders.pdf')}
+                    </Button>
                   </div>
                 ))
               )}
@@ -766,7 +846,19 @@ export default function Orders() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {editingLineId === line.id ? (
+                        {line.received ? (
+                          <div className="flex items-center gap-2 text-success">
+                            <Check className="h-5 w-5" />
+                            <div className="text-right">
+                              <p className="text-sm font-medium">Received</p>
+                              {line.receivedAt && (
+                                <p className="text-xs text-muted-foreground">
+                                  {formatDate(line.receivedAt as any)}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ) : editingLineId === line.id ? (
                           <>
                             <div className="text-right">
                               <input
@@ -803,26 +895,41 @@ export default function Orders() {
                               <p className="text-lg font-semibold text-foreground">{displayQty}</p>
                               <p className="text-xs text-muted-foreground">{displayUnit}</p>
                             </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setEditingLineId(line.id);
-                                setEditQty(line.qty);
-                              }}
-                              data-testid={`edit-qty-${line.id}`}
-                            >
-                              <i className="fas fa-edit"></i>
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleRemoveItem(line.id)}
-                              disabled={removeOrderLineMutation.isPending}
-                              data-testid={`remove-item-${line.id}`}
-                            >
-                              <i className="fas fa-trash"></i>
-                            </Button>
+                            {selectedOrder.status === 'sent' && (
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() => handleReceiveLine(line)}
+                                data-testid={`receive-line-${line.id}`}
+                              >
+                                <i className="fas fa-check mr-1"></i>
+                                Receive
+                              </Button>
+                            )}
+                            {selectedOrder.status === 'draft' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setEditingLineId(line.id);
+                                    setEditQty(line.qty);
+                                  }}
+                                  data-testid={`edit-qty-${line.id}`}
+                                >
+                                  <i className="fas fa-edit"></i>
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => handleRemoveItem(line.id)}
+                                  disabled={removeOrderLineMutation.isPending}
+                                  data-testid={`remove-item-${line.id}`}
+                                >
+                                  <i className="fas fa-trash"></i>
+                                </Button>
+                              </>
+                            )}
                           </>
                         )}
                       </div>
@@ -867,6 +974,139 @@ export default function Orders() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Receive Dialog */}
+      <Dialog open={showReceiveDialog} onOpenChange={setShowReceiveDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Receive Item</DialogTitle>
+            <DialogDescription>
+              Mark this item as received and update stock levels.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedLineToReceive && (
+            <div className="space-y-4">
+              {selectedLineToReceive.item.controlled && (
+                <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <i className="fas fa-exclamation-triangle text-orange-600 dark:text-orange-500 mt-0.5"></i>
+                    <div>
+                      <p className="font-semibold text-orange-900 dark:text-orange-100 text-sm">
+                        Controlled Substance
+                      </p>
+                      <p className="text-orange-700 dark:text-orange-300 text-xs mt-1">
+                        Signature and notes are required for receiving controlled substances.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-muted/30 rounded-lg p-3">
+                <p className="font-medium text-foreground">{selectedLineToReceive.item.name}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Quantity: {selectedLineToReceive.qty} {selectedLineToReceive.item.unit}
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="receive-notes" data-testid="label-receive-notes">
+                  Notes {selectedLineToReceive.item.controlled && <span className="text-destructive">*</span>}
+                </Label>
+                <Textarea
+                  id="receive-notes"
+                  value={receiveNotes}
+                  onChange={(e) => setReceiveNotes(e.target.value)}
+                  placeholder="Add notes about this receipt..."
+                  className="mt-1"
+                  data-testid="input-receive-notes"
+                />
+              </div>
+
+              {selectedLineToReceive.item.controlled && (
+                <div>
+                  <Label data-testid="label-receive-signature">
+                    Signature <span className="text-destructive">*</span>
+                  </Label>
+                  {receiveSignature ? (
+                    <div className="mt-1">
+                      <img 
+                        src={receiveSignature} 
+                        alt="Signature" 
+                        className="border border-border rounded-lg w-full h-24 object-contain bg-white"
+                        data-testid="signature-preview"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setReceiveSignature("")}
+                        className="mt-2"
+                        data-testid="button-clear-signature"
+                      >
+                        <i className="fas fa-times mr-1"></i>
+                        Clear Signature
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowReceiveSignaturePad(true)}
+                      className="mt-1 w-full"
+                      data-testid="button-add-signature"
+                    >
+                      <i className="fas fa-signature mr-2"></i>
+                      Add Signature
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowReceiveDialog(false);
+                    resetReceiveForm();
+                  }}
+                  data-testid="button-cancel-receive"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSubmitReceive}
+                  disabled={receiveLineMutation.isPending}
+                  className="flex-1"
+                  data-testid="button-submit-receive"
+                >
+                  {receiveLineMutation.isPending ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin mr-2"></i>
+                      Receiving...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-check mr-2"></i>
+                      Confirm Receipt
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Signature Pad for Receiving */}
+      <SignaturePad
+        isOpen={showReceiveSignaturePad}
+        onClose={() => setShowReceiveSignaturePad(false)}
+        onSave={(signature) => {
+          setReceiveSignature(signature);
+          setShowReceiveSignaturePad(false);
+        }}
+        title="Sign to Confirm Receipt"
+      />
 
       {/* Remove Item Confirmation Dialog */}
       <AlertDialog open={!!lineToRemove} onOpenChange={(open) => !open && setLineToRemove(null)}>

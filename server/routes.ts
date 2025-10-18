@@ -2086,9 +2086,14 @@ If unable to parse any drugs, return:
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
-      // For controlled items, require signature
-      if (item.controlled && !signature) {
-        return res.status(400).json({ message: "Signature required for controlled substances" });
+      // For controlled items, require signature and notes
+      if (item.controlled) {
+        if (!signature) {
+          return res.status(400).json({ message: "Signature required for controlled substances" });
+        }
+        if (!notes || notes.trim() === '') {
+          return res.status(400).json({ message: "Notes are required for controlled substances" });
+        }
       }
       
       // Get current stock level
