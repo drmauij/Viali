@@ -7456,7 +7456,7 @@ function DialogFooterWithTime({
     <div className="flex items-center justify-between gap-2 pt-4">
       {/* Left: Time navigation (compact) */}
       <div className="flex items-center gap-1">
-        {time !== undefined && onTimeChange && (
+        {time !== undefined && (
           <TimeAdjustInput
             value={time}
             onChange={onTimeChange}
