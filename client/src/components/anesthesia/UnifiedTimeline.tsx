@@ -1645,24 +1645,25 @@ export function UnifiedTimeline({
     
     // Sort vitals data chronologically to prevent zigzag lines when backfilling
     // Also filter out the point being dragged so it doesn't show in both old and new positions
-    // Use selectedPoint state for the filter (updated synchronously with dragPosition during drag)
+    // ONLY filter during active drag (when dragPosition exists)
     const sortedHrData = [...hrDataPoints]
       .filter((point, idx) => {
-        const isSelected = selectedPoint?.type === 'hr' && idx === selectedPoint?.index;
-        if (isSelected) {
-          console.log('[Filter] Removing HR point at index', idx, '- point:', point, 'selectedPoint:', selectedPoint);
+        // Only filter out the selected point if we're actively dragging it
+        const isSelected = dragPosition && selectedPoint?.type === 'hr' && idx === selectedPoint?.index;
+        if (selectedPoint?.type === 'hr') {
+          console.log('[Filter] HR point at index', idx, '- isSelected:', isSelected, 'dragPosition:', dragPosition ? 'exists' : 'null', 'selectedIndex:', selectedPoint?.index);
         }
         return !isSelected;
       })
       .sort((a, b) => a[0] - b[0]);
     const sortedSysData = [...bpDataPoints.sys]
-      .filter((_, idx) => !(selectedPoint?.type === 'bp-sys' && idx === selectedPoint?.index))
+      .filter((_, idx) => !(dragPosition && selectedPoint?.type === 'bp-sys' && idx === selectedPoint?.index))
       .sort((a, b) => a[0] - b[0]);
     const sortedDiaData = [...bpDataPoints.dia]
-      .filter((_, idx) => !(selectedPoint?.type === 'bp-dia' && idx === selectedPoint?.index))
+      .filter((_, idx) => !(dragPosition && selectedPoint?.type === 'bp-dia' && idx === selectedPoint?.index))
       .sort((a, b) => a[0] - b[0]);
     const sortedSpo2Data = [...spo2DataPoints]
-      .filter((_, idx) => !(selectedPoint?.type === 'spo2' && idx === selectedPoint?.index))
+      .filter((_, idx) => !(dragPosition && selectedPoint?.type === 'spo2' && idx === selectedPoint?.index))
       .sort((a, b) => a[0] - b[0]);
     
     // Add HR series if there are data points or being dragged
@@ -4122,11 +4123,14 @@ export function UnifiedTimeline({
             console.log('[Edit Mode] Nearest point found:', nearestPoint, 'distance:', nearestDistance);
             console.log('[Edit Mode] Available points - HR:', hrDataPoints.length, 'BP sys:', bpDataPoints.sys.length, 'BP dia:', bpDataPoints.dia.length, 'SpO2:', spo2DataPoints.length);
             
-            if (nearestPoint) {
+            if (nearestPoint && 'originalTime' in nearestPoint) {
               console.log('[Edit Mode] Selecting point:', nearestPoint);
               setSelectedPoint(nearestPoint);
               // Immediately update the ref so document-level mousemove handler can track this selection
               selectedPointRef.current = nearestPoint;
+              // Initialize dragPosition to the original position to engage filter immediately
+              setDragPosition({ time: nearestPoint.originalTime, value: nearestPoint.originalValue });
+              dragPositionRef.current = { time: nearestPoint.originalTime, value: nearestPoint.originalValue };
             } else {
               console.log('[Edit Mode] No point found within threshold');
             }
@@ -4221,11 +4225,14 @@ export function UnifiedTimeline({
             console.log('[Edit Mode] Nearest point found:', nearestPoint, 'distance:', nearestDistance);
             console.log('[Edit Mode] Available points - HR:', hrDataPoints.length, 'BP sys:', bpDataPoints.sys.length, 'BP dia:', bpDataPoints.dia.length, 'SpO2:', spo2DataPoints.length);
             
-            if (nearestPoint) {
+            if (nearestPoint && 'originalTime' in nearestPoint) {
               console.log('[Edit Mode] Selecting point:', nearestPoint);
               setSelectedPoint(nearestPoint);
               // Immediately update the ref so document-level touchmove handler can track this selection
               selectedPointRef.current = nearestPoint;
+              // Initialize dragPosition to the original position to engage filter immediately
+              setDragPosition({ time: nearestPoint.originalTime, value: nearestPoint.originalValue });
+              dragPositionRef.current = { time: nearestPoint.originalTime, value: nearestPoint.originalValue };
             } else {
               console.log('[Edit Mode] No point found within threshold');
             }
