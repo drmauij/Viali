@@ -1970,6 +1970,45 @@ export function UnifiedTimeline({
       }
     }
 
+    // Add drag preview point when actively dragging in edit mode
+    if (dragPosition && selectedPoint) {
+      const previewPoint: VitalPoint = [dragPosition.time, dragPosition.value];
+      const yAxisIdx = selectedPoint.type === 'spo2' ? 1 : 0;
+      
+      // Determine color and icon based on point type
+      let previewColor = '#ef4444'; // Default to HR red
+      let previewPath = VITAL_ICON_PATHS.heart.path;
+      let isCircleDot = false;
+      
+      if (selectedPoint.type === 'bp-sys' || selectedPoint.type === 'bp-dia') {
+        previewColor = '#3b82f6'; // Blue for BP
+        previewPath = VITAL_ICON_PATHS.heart.path; // Use heart icon for BP preview too
+      } else if (selectedPoint.type === 'spo2') {
+        previewColor = '#8b5cf6'; // Purple for SpO2
+        isCircleDot = true;
+      }
+      
+      // Add drag preview point (semi-transparent via custom rendering)
+      series.push({
+        type: 'scatter',
+        name: 'Drag Preview',
+        xAxisIndex: 0,
+        yAxisIndex: yAxisIdx,
+        data: [previewPoint],
+        symbol: 'circle',
+        symbolSize: 24,
+        itemStyle: {
+          color: previewColor,
+          opacity: 0.5,
+          borderColor: '#ffffff',
+          borderWidth: 2,
+        },
+        zlevel: 150,
+        z: 10,
+        silent: true, // Don't respond to mouse events
+      });
+    }
+    
     // Calculate total height for vertical lines - dynamically based on current swimlanes
     const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
     const chartHeight = VITALS_HEIGHT + swimlanesHeight;
