@@ -6849,48 +6849,20 @@ export function UnifiedTimeline({
                 autoFocus
               />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="ventilation-edit-time">Time (HH:MM)</Label>
-              <Input
-                id="ventilation-edit-time"
-                data-testid="input-ventilation-edit-time"
-                type="time"
-                value={ventilationEditTime}
-                onChange={(e) => setVentilationEditTime(e.target.value)}
-              />
-            </div>
           </div>
-          <div className="flex justify-between gap-2">
-            <Button
-              variant="destructive"
-              onClick={handleVentilationValueDelete}
-              data-testid="button-delete-ventilation-value"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete
-            </Button>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowVentilationEditDialog(false);
-                  setEditingVentilationValue(null);
-                  setVentilationEditInput("");
-                  setVentilationEditTime(0);
-                }}
-                data-testid="button-cancel-ventilation-edit"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleVentilationValueEditSave}
-                data-testid="button-save-ventilation-edit"
-                disabled={!ventilationEditInput.trim()}
-              >
-                Save
-              </Button>
-            </div>
-          </div>
+          <DialogFooterWithTime
+            time={ventilationEditTime}
+            onTimeChange={setVentilationEditTime}
+            showDelete={true}
+            onDelete={handleVentilationValueDelete}
+            onCancel={() => {
+              setShowVentilationEditDialog(false);
+              setEditingVentilationValue(null);
+              setVentilationEditInput("");
+            }}
+            onSave={handleVentilationValueEditSave}
+            saveDisabled={!ventilationEditInput.trim()}
+          />
         </DialogContent>
       </Dialog>
 
@@ -6923,48 +6895,20 @@ export function UnifiedTimeline({
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="mode-edit-time">Time (HH:MM)</Label>
-              <Input
-                id="mode-edit-time"
-                data-testid="input-mode-edit-time"
-                type="time"
-                value={ventilationModeEditTime}
-                onChange={(e) => setVentilationModeEditTime(e.target.value)}
-              />
-            </div>
           </div>
-          <div className="flex justify-between gap-2">
-            <Button
-              variant="destructive"
-              onClick={handleVentilationModeDelete}
-              data-testid="button-delete-ventilation-mode"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete
-            </Button>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowVentilationModeEditDialog(false);
-                  setEditingVentilationMode(null);
-                  setVentilationModeEditInput("");
-                  setVentilationModeEditTime(0);
-                }}
-                data-testid="button-cancel-ventilation-mode-edit"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleVentilationModeEditSave}
-                data-testid="button-save-ventilation-mode-edit"
-                disabled={!ventilationModeEditInput.trim()}
-              >
-                Save
-              </Button>
-            </div>
-          </div>
+          <DialogFooterWithTime
+            time={ventilationModeEditTime}
+            onTimeChange={setVentilationModeEditTime}
+            showDelete={true}
+            onDelete={handleVentilationModeDelete}
+            onCancel={() => {
+              setShowVentilationModeEditDialog(false);
+              setEditingVentilationMode(null);
+              setVentilationModeEditInput("");
+            }}
+            onSave={handleVentilationModeEditSave}
+            saveDisabled={!ventilationModeEditInput.trim()}
+          />
         </DialogContent>
       </Dialog>
 
@@ -7023,54 +6967,41 @@ export function UnifiedTimeline({
                 />
               </div>
             </div>
-            {editingHeartRhythm && (
-              <div className="grid gap-2">
-                <Label htmlFor="rhythm-edit-time">Time (HH:MM)</Label>
-                <Input
-                  id="rhythm-edit-time"
-                  data-testid="input-rhythm-edit-time"
-                  type="time"
-                  value={heartRhythmEditTime}
-                  onChange={(e) => setHeartRhythmEditTime(e.target.value)}
-                />
-              </div>
-            )}
           </div>
-          {(editingHeartRhythm || (heartRhythmInput && !['SR', 'SVES', 'VES', 'VHF', 'Vorhofflattern', 'Schrittmacher', 'AV Block III', 'Kammerflimmern', 'Torsade de pointes', 'Defibrillator'].includes(heartRhythmInput))) && (
-            <div className="flex justify-between gap-2">
-              {editingHeartRhythm && (
-                <Button
-                  variant="destructive"
-                  onClick={handleHeartRhythmDelete}
-                  data-testid="button-delete-heart-rhythm"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
-                </Button>
-              )}
-              {!editingHeartRhythm && <div />}
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowHeartRhythmDialog(false);
-                    setPendingHeartRhythm(null);
-                    setEditingHeartRhythm(null);
-                    setHeartRhythmInput("");
-                    setHeartRhythmEditTime(0);
-                  }}
-                  data-testid="button-cancel-heart-rhythm"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleHeartRhythmSave}
-                  data-testid="button-save-heart-rhythm"
-                  disabled={!heartRhythmInput.trim()}
-                >
-                  Save
-                </Button>
-              </div>
+          {editingHeartRhythm ? (
+            <DialogFooterWithTime
+              time={heartRhythmEditTime}
+              onTimeChange={setHeartRhythmEditTime}
+              showDelete={true}
+              onDelete={handleHeartRhythmDelete}
+              onCancel={() => {
+                setShowHeartRhythmDialog(false);
+                setEditingHeartRhythm(null);
+                setHeartRhythmInput("");
+              }}
+              onSave={handleHeartRhythmSave}
+              saveDisabled={!heartRhythmInput.trim()}
+            />
+          ) : (heartRhythmInput && !['SR', 'SVES', 'VES', 'VHF', 'Vorhofflattern', 'Schrittmacher', 'AV Block III', 'Kammerflimmern', 'Torsade de pointes', 'Defibrillator'].includes(heartRhythmInput)) && (
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowHeartRhythmDialog(false);
+                  setPendingHeartRhythm(null);
+                  setHeartRhythmInput("");
+                }}
+                data-testid="button-cancel-heart-rhythm"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleHeartRhythmSave}
+                data-testid="button-save-heart-rhythm"
+                disabled={!heartRhythmInput.trim()}
+              >
+                Save
+              </Button>
             </div>
           )}
         </DialogContent>
@@ -7515,48 +7446,20 @@ export function UnifiedTimeline({
                 autoFocus
               />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="output-edit-time">Time (HH:MM)</Label>
-              <Input
-                id="output-edit-time"
-                data-testid="input-output-edit-time"
-                type="time"
-                value={outputEditTime}
-                onChange={(e) => setOutputEditTime(e.target.value)}
-              />
-            </div>
           </div>
-          <div className="flex justify-between gap-2">
-            <Button
-              variant="destructive"
-              onClick={handleOutputValueDelete}
-              data-testid="button-delete-output-value"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete
-            </Button>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowOutputEditDialog(false);
-                  setEditingOutputValue(null);
-                  setOutputEditInput("");
-                  setOutputEditTime(0);
-                }}
-                data-testid="button-cancel-output-edit"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleOutputValueEditSave}
-                data-testid="button-save-output-edit"
-                disabled={!outputEditInput.trim()}
-              >
-                Save
-              </Button>
-            </div>
-          </div>
+          <DialogFooterWithTime
+            time={outputEditTime}
+            onTimeChange={setOutputEditTime}
+            showDelete={true}
+            onDelete={handleOutputValueDelete}
+            onCancel={() => {
+              setShowOutputEditDialog(false);
+              setEditingOutputValue(null);
+              setOutputEditInput("");
+            }}
+            onSave={handleOutputValueEditSave}
+            saveDisabled={!outputEditInput.trim()}
+          />
         </DialogContent>
       </Dialog>
 
