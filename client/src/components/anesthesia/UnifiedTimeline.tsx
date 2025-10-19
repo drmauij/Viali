@@ -6968,41 +6968,22 @@ export function UnifiedTimeline({
               </div>
             </div>
           </div>
-          {editingHeartRhythm ? (
+          {(editingHeartRhythm || (heartRhythmInput && !['SR', 'SVES', 'VES', 'VHF', 'Vorhofflattern', 'Schrittmacher', 'AV Block III', 'Kammerflimmern', 'Torsade de pointes', 'Defibrillator'].includes(heartRhythmInput))) && (
             <DialogFooterWithTime
-              time={heartRhythmEditTime}
-              onTimeChange={setHeartRhythmEditTime}
-              showDelete={true}
-              onDelete={handleHeartRhythmDelete}
+              time={editingHeartRhythm ? heartRhythmEditTime : undefined}
+              onTimeChange={editingHeartRhythm ? setHeartRhythmEditTime : undefined}
+              showDelete={!!editingHeartRhythm}
+              onDelete={editingHeartRhythm ? handleHeartRhythmDelete : undefined}
               onCancel={() => {
                 setShowHeartRhythmDialog(false);
+                setPendingHeartRhythm(null);
                 setEditingHeartRhythm(null);
                 setHeartRhythmInput("");
               }}
               onSave={handleHeartRhythmSave}
               saveDisabled={!heartRhythmInput.trim()}
+              saveLabel={editingHeartRhythm ? 'Save' : 'Add'}
             />
-          ) : (heartRhythmInput && !['SR', 'SVES', 'VES', 'VHF', 'Vorhofflattern', 'Schrittmacher', 'AV Block III', 'Kammerflimmern', 'Torsade de pointes', 'Defibrillator'].includes(heartRhythmInput)) && (
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowHeartRhythmDialog(false);
-                  setPendingHeartRhythm(null);
-                  setHeartRhythmInput("");
-                }}
-                data-testid="button-cancel-heart-rhythm"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleHeartRhythmSave}
-                data-testid="button-save-heart-rhythm"
-                disabled={!heartRhythmInput.trim()}
-              >
-                Save
-              </Button>
-            </div>
           )}
         </DialogContent>
       </Dialog>
@@ -7121,12 +7102,12 @@ export function UnifiedTimeline({
               </div>
             </div>
           </div>
-          {editingPosition ? (
+          {(editingPosition || (positionInput && !['Supine', 'Prone', 'Left Side', 'Right Side', 'Beach Chair', 'Lithotomy', 'Head Up', 'Head Down', 'Sitting for SPA/PDA', 'Other'].includes(positionInput))) && (
             <DialogFooterWithTime
-              time={positionEditTime}
-              onTimeChange={setPositionEditTime}
-              showDelete={true}
-              onDelete={handlePositionDelete}
+              time={editingPosition ? positionEditTime : undefined}
+              onTimeChange={editingPosition ? setPositionEditTime : undefined}
+              showDelete={!!editingPosition}
+              onDelete={editingPosition ? handlePositionDelete : undefined}
               onCancel={() => {
                 setShowPositionDialog(false);
                 setPendingPosition(null);
@@ -7135,28 +7116,8 @@ export function UnifiedTimeline({
               }}
               onSave={handlePositionSave}
               saveDisabled={!positionInput.trim()}
+              saveLabel={editingPosition ? 'Save' : 'Add'}
             />
-          ) : (positionInput && !['Supine', 'Prone', 'Left Side', 'Right Side', 'Beach Chair', 'Lithotomy', 'Head Up', 'Head Down', 'Sitting for SPA/PDA', 'Other'].includes(positionInput)) && (
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowPositionDialog(false);
-                  setPendingPosition(null);
-                  setPositionInput("");
-                }}
-                data-testid="button-cancel-position"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handlePositionSave}
-                data-testid="button-save-position"
-                disabled={!positionInput.trim()}
-              >
-                Save
-              </Button>
-            </div>
           )}
         </DialogContent>
       </Dialog>
