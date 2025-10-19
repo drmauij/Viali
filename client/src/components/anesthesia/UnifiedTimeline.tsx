@@ -1624,20 +1624,33 @@ export function UnifiedTimeline({
     const series: any[] = [];
     
     // Sort vitals data chronologically to prevent zigzag lines when backfilling
-    const sortedHrData = [...hrDataPoints].sort((a, b) => a[0] - b[0]);
-    const sortedSysData = [...bpDataPoints.sys].sort((a, b) => a[0] - b[0]);
-    const sortedDiaData = [...bpDataPoints.dia].sort((a, b) => a[0] - b[0]);
-    const sortedSpo2Data = [...spo2DataPoints].sort((a, b) => a[0] - b[0]);
+    // Also filter out the point being dragged so it doesn't show in both old and new positions
+    const sortedHrData = [...hrDataPoints]
+      .filter((_, idx) => !(selectedPoint?.type === 'hr' && idx === selectedPoint?.index))
+      .sort((a, b) => a[0] - b[0]);
+    const sortedSysData = [...bpDataPoints.sys]
+      .filter((_, idx) => !(selectedPoint?.type === 'bp-sys' && idx === selectedPoint?.index))
+      .sort((a, b) => a[0] - b[0]);
+    const sortedDiaData = [...bpDataPoints.dia]
+      .filter((_, idx) => !(selectedPoint?.type === 'bp-dia' && idx === selectedPoint?.index))
+      .sort((a, b) => a[0] - b[0]);
+    const sortedSpo2Data = [...spo2DataPoints]
+      .filter((_, idx) => !(selectedPoint?.type === 'spo2' && idx === selectedPoint?.index))
+      .sort((a, b) => a[0] - b[0]);
     
-    // Add HR series if there are data points
-    if (sortedHrData.length > 0) {
+    // Add HR series if there are data points or being dragged
+    const hrLineData = dragPosition && selectedPoint?.type === 'hr' 
+      ? [...sortedHrData, [dragPosition.time, dragPosition.value] as VitalPoint].sort((a, b) => a[0] - b[0])
+      : sortedHrData;
+      
+    if (hrLineData.length > 0) {
       // Add line connecting HR points (chronologically sorted) - HIGH z-index to stay in front of BP
       series.push({
         type: 'line',
         name: 'Heart Rate Line',
         xAxisIndex: 0,
         yAxisIndex: 0,
-        data: sortedHrData,
+        data: hrLineData,
         lineStyle: {
           color: '#ef4444',
           width: 2,
@@ -1647,23 +1660,34 @@ export function UnifiedTimeline({
       });
       
       // Add heart symbols with Lucide Heart icon (stroke rendering)
-      series.push(
-        createLucideIconSeries(
-          'Heart Rate',
-          sortedHrData,
-          VITAL_ICON_PATHS.heart.path,
-          '#ef4444', // Red
-          0, // yAxisIndex
-          16, // size
-          100 // z-level - VERY high value to ensure icons are always clickable above connection lines
-        )
-      );
+      // Don't include the dragged point here - it's added separately below
+      if (sortedHrData.length > 0) {
+        series.push(
+          createLucideIconSeries(
+            'Heart Rate',
+            sortedHrData,
+            VITAL_ICON_PATHS.heart.path,
+            '#ef4444', // Red
+            0, // yAxisIndex
+            16, // size
+            100 // z-level - VERY high value to ensure icons are always clickable above connection lines
+          )
+        );
+      }
     }
     
     // Pending systolic BP bookmark removed - both BP values now placed immediately on click
     
     // Add BP line connections with filled area BETWEEN systolic and diastolic
-    if (sortedSysData.length > 0 && sortedDiaData.length > 0) {
+    // Include dragged BP points in line calculations
+    const sysLineData = dragPosition && selectedPoint?.type === 'bp-sys'
+      ? [...sortedSysData, [dragPosition.time, dragPosition.value] as VitalPoint].sort((a, b) => a[0] - b[0])
+      : sortedSysData;
+    const diaLineData = dragPosition && selectedPoint?.type === 'bp-dia'
+      ? [...sortedDiaData, [dragPosition.time, dragPosition.value] as VitalPoint].sort((a, b) => a[0] - b[0])
+      : sortedDiaData;
+      
+    if (sysLineData.length > 0 && diaLineData.length > 0) {
       // Create area between systolic and diastolic using stacked approach
       // First, add the diastolic as base (stack: 'bp')
       series.push({
@@ -1671,7 +1695,7 @@ export function UnifiedTimeline({
         name: 'Diastolic BP Base',
         xAxisIndex: 0,
         yAxisIndex: 0,
-        data: sortedDiaData,
+        data: diaLineData,
         symbol: 'none',
         lineStyle: {
           color: '#000000',
@@ -1683,8 +1707,8 @@ export function UnifiedTimeline({
       });
       
       // Then add the DIFFERENCE (systolic - diastolic) on top with area fill
-      const diffData = sortedSysData.map((sysPoint, idx) => {
-        const diaPoint = sortedDiaData[idx];
+      const diffData = sysLineData.map((sysPoint, idx) => {
+        const diaPoint = diaLineData[idx];
         if (diaPoint && sysPoint[0] === diaPoint[0]) {
           // Same timestamp - calculate difference
           return [sysPoint[0], sysPoint[1] - diaPoint[1]];
@@ -1750,14 +1774,19 @@ export function UnifiedTimeline({
     }
     
     // Add SpO2 series with Lucide CircleDot icon (stroke rendering)
-    if (sortedSpo2Data.length > 0) {
+    // Include dragged SpO2 point in line calculation
+    const spo2LineData = dragPosition && selectedPoint?.type === 'spo2'
+      ? [...sortedSpo2Data, [dragPosition.time, dragPosition.value] as VitalPoint].sort((a, b) => a[0] - b[0])
+      : sortedSpo2Data;
+      
+    if (spo2LineData.length > 0) {
       // SpO2 line connection
       series.push({
         type: 'line',
         name: 'SpO2 Line',
         xAxisIndex: 0,
         yAxisIndex: 1, // Use second y-axis (45-105 range)
-        data: sortedSpo2Data,
+        data: spo2LineData,
         symbol: 'none',
         lineStyle: {
           color: '#8b5cf6', // Purple line
@@ -1767,18 +1796,21 @@ export function UnifiedTimeline({
       });
       
       // SpO2 symbols with Lucide CircleDot (outer circle + inner dot)
-      series.push(
-        createLucideIconSeries(
-          'SpO2',
-          sortedSpo2Data,
-          '', // Not used for CircleDot
-          '#8b5cf6', // Purple
-          1, // yAxisIndex (second y-axis for 45-105 range)
-          16, // size
-          30, // z-level - high value to ensure icons are always clickable above lines
-          true // isCircleDot flag
-        )
-      );
+      // Don't include the dragged point here - it's added separately below
+      if (sortedSpo2Data.length > 0) {
+        series.push(
+          createLucideIconSeries(
+            'SpO2',
+            sortedSpo2Data,
+            '', // Not used for CircleDot
+            '#8b5cf6', // Purple
+            1, // yAxisIndex (second y-axis for 45-105 range)
+            16, // size
+            30, // z-level - high value to ensure icons are always clickable above lines
+            true // isCircleDot flag
+          )
+        );
+      }
     }
 
     // Add ventilation parameter text labels
@@ -2000,97 +2032,66 @@ export function UnifiedTimeline({
     }
 
     // Add drag preview point when actively dragging in edit mode
+    // Show it as the actual point (not semi-transparent) so it looks like directly moving the point
     if (dragPosition && selectedPoint) {
       const previewPoint: VitalPoint = [dragPosition.time, dragPosition.value];
       const yAxisIdx = selectedPoint.type === 'spo2' ? 1 : 0;
       
       // Determine color and icon based on point type
-      let previewColor = '#ef4444'; // Default to HR red
-      let previewPath = VITAL_ICON_PATHS.heart.path;
-      let isCircleDot = false;
-      
-      if (selectedPoint.type === 'bp-sys' || selectedPoint.type === 'bp-dia') {
-        previewColor = '#3b82f6'; // Blue for BP
-        previewPath = VITAL_ICON_PATHS.heart.path;
+      if (selectedPoint.type === 'hr') {
+        // Add HR preview with heart icon
+        series.push(
+          createLucideIconSeries(
+            'HR Preview',
+            [previewPoint],
+            VITAL_ICON_PATHS.heart.path,
+            '#ef4444', // Red
+            0,
+            16,
+            150 // Very high z-level
+          )
+        );
+      } else if (selectedPoint.type === 'bp-sys') {
+        // Add systolic BP preview with chevron down
+        series.push(
+          createLucideIconSeries(
+            'Systolic BP Preview',
+            [previewPoint],
+            VITAL_ICON_PATHS.chevronDown.path,
+            '#000000', // Black
+            0,
+            16,
+            150
+          )
+        );
+      } else if (selectedPoint.type === 'bp-dia') {
+        // Add diastolic BP preview with chevron up
+        series.push(
+          createLucideIconSeries(
+            'Diastolic BP Preview',
+            [previewPoint],
+            VITAL_ICON_PATHS.chevronUp.path,
+            '#000000', // Black
+            0,
+            16,
+            150
+          )
+        );
       } else if (selectedPoint.type === 'spo2') {
-        previewColor = '#8b5cf6'; // Purple for SpO2
-        isCircleDot = true;
+        // Add SpO2 preview with circle-dot
+        series.push(
+          createLucideIconSeries(
+            'SpO2 Preview',
+            [previewPoint],
+            '', // Not used for CircleDot
+            '#8b5cf6', // Purple
+            1, // Second y-axis
+            16,
+            150,
+            true // isCircleDot
+          )
+        );
       }
-      
-      // Add drag preview using the actual vital sign icon (semi-transparent)
-      const previewSize = 20; // Slightly larger than normal
-      const scale = previewSize / 24;
-      
-      series.push({
-        type: 'custom',
-        name: 'Drag Preview',
-        xAxisIndex: 0,
-        yAxisIndex: yAxisIdx,
-        data: [previewPoint],
-        zlevel: 150,
-        z: 10,
-        silent: true, // Don't respond to mouse events
-        renderItem: (params: any, api: any) => {
-          const point = api.coord([api.value(0), api.value(1)]);
-          
-          // Render CircleDot for SpO2
-          if (isCircleDot) {
-            return {
-              type: 'group',
-              x: point[0],
-              y: point[1],
-              children: [
-                // Outer circle
-                {
-                  type: 'circle',
-                  x: 0,
-                  y: 0,
-                  shape: { r: 10 * scale },
-                  style: {
-                    fill: 'none',
-                    stroke: previewColor,
-                    lineWidth: 2,
-                    opacity: 0.6,
-                  },
-                },
-                // Inner dot
-                {
-                  type: 'circle',
-                  x: 0,
-                  y: 0,
-                  shape: { r: 1 * scale },
-                  style: {
-                    fill: 'none',
-                    stroke: previewColor,
-                    lineWidth: 2,
-                    opacity: 0.6,
-                  },
-                },
-              ],
-            };
-          }
-          
-          // Render heart icon for HR and BP
-          return {
-            type: 'path',
-            x: point[0] - previewSize / 2,
-            y: point[1] - previewSize / 2,
-            shape: {
-              pathData: previewPath,
-              width: 24,
-              height: 24,
-            },
-            style: {
-              fill: 'none',
-              stroke: previewColor,
-              lineWidth: 2,
-              opacity: 0.6,
-            },
-            scaleX: scale,
-            scaleY: scale,
-          };
-        },
-      });
     }
     
     // Calculate total height for vertical lines - dynamically based on current swimlanes
