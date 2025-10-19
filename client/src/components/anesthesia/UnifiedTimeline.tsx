@@ -1687,7 +1687,8 @@ export function UnifiedTimeline({
       });
       
       // Add heart symbols with Lucide Heart icon (stroke rendering)
-      // Don't include the dragged point here - it's added separately below
+      // ONLY use sortedHrData (filtered), NOT hrLineData
+      // The dragged point is rendered separately as a preview below
       if (sortedHrData.length > 0) {
         series.push(
           createLucideIconSeries(
