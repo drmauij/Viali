@@ -51,6 +51,30 @@ export type EventComment = {
   text: string;
 };
 
+// Infusion segment - represents a single rate period
+export type InfusionSegment = {
+  id: string;
+  startTime: number; // ms
+  rateValue: string; // e.g., "100ml/h", "5µg/kg/min", or "" for free-flow
+  rateUnit?: string;
+  note?: string;
+  setBy?: string; // user who set this rate
+  endTime: number | null; // null if ongoing
+};
+
+// Infusion session - represents a continuous infusion (start to stop)
+export type InfusionSession = {
+  id: string;
+  swimlaneId: string;
+  drugName: string; // e.g., "Propofol 1%"
+  startedBy?: string;
+  startTime: number; // ms
+  isFreeFlow: boolean; // true = dashed line, false = solid line
+  segments: InfusionSegment[]; // rate changes over time
+  stopTime: number | null; // null if still running
+  stoppedBy?: string;
+};
+
 export type UnifiedTimelineData = {
   startTime: number;
   endTime: number;
@@ -726,6 +750,11 @@ export function UnifiedTimeline({
     "NaCl 0.9% (ml, infusion/free-flow)",
     "Glucose 5% 100 ml (ml, i.v./free-flow)",
   ];
+
+  // Helper: Detect if an infusion is free-flow based on the drug name
+  const isFreeFlowInfusion = (drugName: string): boolean => {
+    return drugName.toLowerCase().includes('free-flow');
+  };
 
   // Extract drug name from full medication string (e.g., "Rocuronium (Esmeron) (mg, i.v.)" -> "Rocuronium")
   const extractDrugName = (fullName: string): string => {
@@ -5900,6 +5929,97 @@ export function UnifiedTimeline({
           );
         }).filter(Boolean);
       })}
+
+      {/* SVG overlay for continuous infusion lines */}
+      {!collapsedSwimlanes.has('infusionen') && (
+        <svg
+          className="absolute pointer-events-none z-30"
+          style={{
+            left: '200px',
+            top: 0,
+            width: 'calc(100% - 200px)',
+            height: `${backgroundsHeight}px`,
+          }}
+        >
+          {activeSwimlanes.flatMap((lane) => {
+            const isInfusionChild = lane.id.startsWith('infusion-');
+            if (!isInfusionChild || !infusionData[lane.id]?.length) return [];
+            
+            const childLane = swimlanePositions.find(pos => pos.id === lane.id);
+            if (!childLane) return [];
+            
+            const visibleStart = currentZoomStart ?? data.startTime;
+            const visibleEnd = currentZoomEnd ?? data.endTime;
+            const visibleRange = visibleEnd - visibleStart;
+            const svgWidth = typeof window !== 'undefined' ? window.innerWidth - 210 : 1000;
+            
+            // Get infusion name and detect if it's free-flow
+            const infusionName = childLane.label.trim();
+            const isFreeFlow = isFreeFlowInfusion(infusionName);
+            
+            // Sort rate points by time
+            const sortedRates = [...infusionData[lane.id]].sort((a, b) => a[0] - b[0]);
+            
+            return sortedRates.map(([timestamp, rate], index) => {
+              // Calculate x position for this rate point
+              const xStart = ((timestamp - visibleStart) / visibleRange) * svgWidth;
+              
+              // Determine end point (next rate change or end of timeline)
+              const nextTimestamp = sortedRates[index + 1]?.[0] ?? visibleEnd;
+              const xEnd = ((nextTimestamp - visibleStart) / visibleRange) * svgWidth;
+              
+              // Calculate y position (center of swimlane)
+              const y = childLane.top + childLane.height / 2;
+              
+              // Calculate NOW position for color split
+              const nowX = ((currentTime - visibleStart) / visibleRange) * svgWidth;
+              
+              // Determine if line crosses NOW
+              const crossesNow = timestamp <= currentTime && nextTimestamp > currentTime;
+              
+              return (
+                <g key={`infusion-line-${lane.id}-${timestamp}-${index}`}>
+                  {/* Vertical tick at start with rate value */}
+                  <line
+                    x1={xStart}
+                    y1={y - 10}
+                    x2={xStart}
+                    y2={y + 10}
+                    stroke={isDark ? '#ef4444' : '#dc2626'}
+                    strokeWidth={2}
+                  />
+                  
+                  {/* Red portion (before NOW) */}
+                  {timestamp < currentTime && (
+                    <line
+                      x1={xStart}
+                      y1={y}
+                      x2={crossesNow ? nowX : xEnd}
+                      y2={y}
+                      stroke={isDark ? '#ef4444' : '#dc2626'}
+                      strokeWidth={2}
+                      strokeDasharray={isFreeFlow ? '5,5' : '0'}
+                    />
+                  )}
+                  
+                  {/* Gray portion (after NOW) */}
+                  {nextTimestamp > currentTime && (
+                    <line
+                      x1={crossesNow ? nowX : xStart}
+                      y1={y}
+                      x2={xEnd}
+                      y2={y}
+                      stroke={isDark ? '#6b7280' : '#9ca3af'}
+                      strokeWidth={2}
+                      strokeDasharray={isFreeFlow ? '5,5' : '0'}
+                    />
+                  )}
+                </g>
+              );
+            });
+          })}
+        </svg>
+      )}
 
       {/* Infusion rate values as DOM overlays */}
       {!collapsedSwimlanes.has('infusionen') && activeSwimlanes.flatMap((lane, laneIndex) => {
