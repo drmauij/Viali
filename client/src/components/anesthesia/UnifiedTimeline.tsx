@@ -4137,8 +4137,8 @@ export function UnifiedTimeline({
             console.log('[Edit Mode] onTouchStart called, activeToolMode:', activeToolMode, 'isProcessingClick:', isProcessingClick);
             if (activeToolMode !== 'edit' || isProcessingClick) return;
             
-            // Prevent default touch behavior to stop page scrolling during drag
-            e.preventDefault();
+            // Note: Cannot call e.preventDefault() here because React's synthetic events are passive
+            // Scroll prevention is handled by the native event listener in useEffect with { passive: false }
             
             setIsProcessingClick(true);
             console.log('[Edit Mode] Processing touch in edit mode');
