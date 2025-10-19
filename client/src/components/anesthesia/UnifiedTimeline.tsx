@@ -5545,10 +5545,10 @@ export function UnifiedTimeline({
 
       {/* NOW time label at the top of the grid */}
       <div
-        className="absolute z-40 pointer-events-none"
+        className="absolute z-[60] pointer-events-none"
         style={{
           left: nowLinePosition,
-          top: '8px',
+          top: '4px',
           transform: 'translateX(-50%)',
           transition: 'left 0.3s ease-out',
         }}
