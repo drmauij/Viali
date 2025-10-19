@@ -250,7 +250,8 @@ export function UnifiedTimeline({
   const [graphicsRevision, setGraphicsRevision] = useState<number>(0);
 
   // State for interactive vital entry
-  const [activeToolMode, setActiveToolMode] = useState<'hr' | 'bp' | 'spo2' | null>(null);
+  const [activeToolMode, setActiveToolMode] = useState<'hr' | 'bp' | 'spo2' | 'blend' | null>(null);
+  const [blendSequenceStep, setBlendSequenceStep] = useState<'sys' | 'dia' | 'hr' | 'spo2'>('sys');
   const [hrDataPoints, setHrDataPoints] = useState<VitalPoint[]>(data.vitals.hr || []);
   const [bpDataPoints, setBpDataPoints] = useState<{ sys: VitalPoint[], dia: VitalPoint[] }>({
     sys: data.vitals.sysBP || [],
@@ -418,17 +419,6 @@ export function UnifiedTimeline({
   const [bpEntryMode, setBpEntryMode] = useState<'sys' | 'dia'>('sys');
   const [pendingSysValue, setPendingSysValue] = useState<{ time: number; value: number } | null>(null);
   const [isProcessingClick, setIsProcessingClick] = useState(false);
-  
-  // State for sequential vitals entry (blend icon)
-  const [showSequentialVitalsDialog, setShowSequentialVitalsDialog] = useState(false);
-  const [sequentialVitalsStep, setSequentialVitalsStep] = useState<'sys' | 'dia' | 'hr' | 'spo2'>('sys');
-  const [sequentialVitalsInputs, setSequentialVitalsInputs] = useState({
-    sys: "",
-    dia: "",
-    hr: "",
-    spo2: ""
-  });
-  const [sequentialVitalsTimestamp, setSequentialVitalsTimestamp] = useState<number>(Date.now());
   
   // State for hover tooltip
   const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; value: number; time: number } | null>(null);
@@ -866,64 +856,6 @@ export function UnifiedTimeline({
 
     setEditDialogOpen(false);
     setEditingValue(null);
-  };
-
-  // Handle sequential vitals entry - next step or save
-  const handleSequentialVitalsNext = () => {
-    const currentInput = sequentialVitalsInputs[sequentialVitalsStep];
-    
-    // Validate current input
-    const numValue = parseInt(currentInput);
-    if (isNaN(numValue) || !currentInput.trim()) {
-      toast({
-        title: "Invalid value",
-        description: "Please enter a valid number",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Move to next step or save and loop
-    if (sequentialVitalsStep === 'sys') {
-      setSequentialVitalsStep('dia');
-    } else if (sequentialVitalsStep === 'dia') {
-      setSequentialVitalsStep('hr');
-    } else if (sequentialVitalsStep === 'hr') {
-      setSequentialVitalsStep('spo2');
-    } else if (sequentialVitalsStep === 'spo2') {
-      // All values collected - save them
-      const timestamp = sequentialVitalsTimestamp;
-      const sys = parseInt(sequentialVitalsInputs.sys);
-      const dia = parseInt(sequentialVitalsInputs.dia);
-      const hr = parseInt(sequentialVitalsInputs.hr);
-      const spo2 = Math.min(parseInt(sequentialVitalsInputs.spo2), 100); // Cap at 100%
-      
-      // Add all vitals at the same timestamp
-      setBpDataPoints(prev => ({
-        sys: [...prev.sys, [timestamp, sys]],
-        dia: [...prev.dia, [timestamp, dia]],
-      }));
-      setHrDataPoints(prev => [...prev, [timestamp, hr]]);
-      setSpo2DataPoints(prev => [...prev, [timestamp, spo2]]);
-      
-      toast({
-        title: "Vitals added",
-        description: `BP: ${sys}/${dia}, HR: ${hr}, SpO₂: ${spo2}%`,
-        duration: 2000,
-      });
-      
-      // Reset for next series with new timestamp
-      setSequentialVitalsInputs({ sys: "", dia: "", hr: "", spo2: "" });
-      setSequentialVitalsStep('sys');
-      setSequentialVitalsTimestamp(Date.now());
-    }
-  };
-
-  const handleSequentialVitalsCancel = () => {
-    setShowSequentialVitalsDialog(false);
-    setSequentialVitalsInputs({ sys: "", dia: "", hr: "", spo2: "" });
-    setSequentialVitalsStep('sys');
-    setSequentialVitalsTimestamp(Date.now());
   };
 
   // Handle clicking on Zeiten swimlane to place next time marker
@@ -3661,17 +3593,23 @@ export function UnifiedTimeline({
           </button>
           <button
             onClick={() => {
-              setActiveToolMode(null);
-              setShowSequentialVitalsDialog(true);
-              setSequentialVitalsStep('sys');
-              setSequentialVitalsInputs({ sys: "", dia: "", hr: "", spo2: "" });
-              setSequentialVitalsTimestamp(Date.now());
+              if (activeToolMode === 'blend') {
+                setActiveToolMode(null);
+                setBlendSequenceStep('sys');
+              } else {
+                setActiveToolMode('blend');
+                setBlendSequenceStep('sys');
+              }
             }}
-            className="p-2 rounded-md border border-border bg-background hover:bg-accent/50 transition-colors flex items-center justify-center shadow-sm"
+            className={`p-2 rounded-md border transition-colors flex items-center justify-center shadow-sm ${
+              activeToolMode === 'blend' 
+                ? 'border-purple-500 bg-purple-500/20' 
+                : 'border-border bg-background hover:border-purple-500 hover:bg-purple-500/10'
+            }`}
             data-testid="button-vitals-combo"
-            title="Sequential Vitals Entry"
+            title="Sequential Vitals Mode"
           >
-            <Blend className="w-5 h-5" />
+            <Blend className={`w-5 h-5 transition-colors ${activeToolMode === 'blend' ? 'text-purple-500' : 'hover:text-purple-500'}`} />
           </button>
         </div>
 
@@ -3808,12 +3746,12 @@ export function UnifiedTimeline({
             let value: number;
             const yPercent = y / rect.height;
             
-            if (activeToolMode === 'hr' || activeToolMode === 'bp') {
+            if (activeToolMode === 'hr' || activeToolMode === 'bp' || (activeToolMode === 'blend' && (blendSequenceStep === 'sys' || blendSequenceStep === 'dia' || blendSequenceStep === 'hr'))) {
               // BP/HR scale: -20 to 240
               const minVal = -20;
               const maxVal = 240;
               value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
-            } else if (activeToolMode === 'spo2') {
+            } else if (activeToolMode === 'spo2' || (activeToolMode === 'blend' && blendSequenceStep === 'spo2')) {
               // SpO2 scale: 45 to 105, capped at 100%
               const minVal = 45;
               const maxVal = 105;
@@ -3850,11 +3788,11 @@ export function UnifiedTimeline({
               const yPercent = y / rect.height;
               let value: number;
               
-              if (activeToolMode === 'hr' || activeToolMode === 'bp') {
+              if (activeToolMode === 'hr' || activeToolMode === 'bp' || (activeToolMode === 'blend' && (blendSequenceStep === 'sys' || blendSequenceStep === 'dia' || blendSequenceStep === 'hr'))) {
                 const minVal = -20;
                 const maxVal = 240;
                 value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
-              } else if (activeToolMode === 'spo2') {
+              } else if (activeToolMode === 'spo2' || (activeToolMode === 'blend' && blendSequenceStep === 'spo2')) {
                 // SpO2 scale: 45 to 105, capped at 100%
                 const minVal = 45;
                 const maxVal = 105;
@@ -3954,6 +3892,41 @@ export function UnifiedTimeline({
               // });
               
               setTimeout(() => setIsProcessingClick(false), 100);
+            } else if (activeToolMode === 'blend') {
+              // Sequential vitals entry mode - automatically progress through sys -> dia -> hr -> spo2 -> loop
+              if (blendSequenceStep === 'sys') {
+                const sysPoint: VitalPoint = [clickInfo.time, clickInfo.value];
+                setBpDataPoints(prev => ({
+                  ...prev,
+                  sys: [...prev.sys, sysPoint]
+                }));
+                setPendingSysValue({ time: clickInfo.time, value: clickInfo.value });
+                setBlendSequenceStep('dia');
+                setHoverInfo(null);
+                setTimeout(() => setIsProcessingClick(false), 100);
+              } else if (blendSequenceStep === 'dia') {
+                const diaPoint: VitalPoint = [pendingSysValue?.time ?? clickInfo.time, clickInfo.value];
+                setBpDataPoints(prev => ({
+                  ...prev,
+                  dia: [...prev.dia, diaPoint]
+                }));
+                setBlendSequenceStep('hr');
+                setHoverInfo(null);
+                setTimeout(() => setIsProcessingClick(false), 100);
+              } else if (blendSequenceStep === 'hr') {
+                const hrPoint: VitalPoint = [clickInfo.time, clickInfo.value];
+                setHrDataPoints(prev => [...prev, hrPoint]);
+                setBlendSequenceStep('spo2');
+                setHoverInfo(null);
+                setTimeout(() => setIsProcessingClick(false), 100);
+              } else if (blendSequenceStep === 'spo2') {
+                const spo2Point: VitalPoint = [clickInfo.time, clickInfo.value];
+                setSpo2DataPoints(prev => [...prev, spo2Point]);
+                setBlendSequenceStep('sys'); // Loop back to start
+                setPendingSysValue(null); // Clear pending systolic value
+                setHoverInfo(null);
+                setTimeout(() => setIsProcessingClick(false), 100);
+              }
             }
           }}
         />
@@ -3972,6 +3945,10 @@ export function UnifiedTimeline({
             {activeToolMode === 'hr' && `HR: ${hoverInfo.value}`}
             {activeToolMode === 'bp' && `${bpEntryMode === 'sys' ? 'Systolic' : 'Diastolic'}: ${hoverInfo.value}`}
             {activeToolMode === 'spo2' && `SpO2: ${hoverInfo.value}%`}
+            {activeToolMode === 'blend' && blendSequenceStep === 'sys' && `Systolic: ${hoverInfo.value}`}
+            {activeToolMode === 'blend' && blendSequenceStep === 'dia' && `Diastolic: ${hoverInfo.value}`}
+            {activeToolMode === 'blend' && blendSequenceStep === 'hr' && `HR: ${hoverInfo.value}`}
+            {activeToolMode === 'blend' && blendSequenceStep === 'spo2' && `SpO2: ${hoverInfo.value}%`}
           </div>
           <div className="text-xs text-muted-foreground">
             {new Date(hoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
@@ -5961,88 +5938,6 @@ export function UnifiedTimeline({
               }}
             />
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Sequential Vitals Entry Dialog */}
-      <Dialog open={showSequentialVitalsDialog} onOpenChange={setShowSequentialVitalsDialog}>
-        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-sequential-vitals">
-          <DialogHeader>
-            <DialogTitle>Sequential Vitals Entry</DialogTitle>
-            <DialogDescription>
-              Enter vital signs in sequence: Systolic BP → Diastolic BP → Heart Rate → SpO₂
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="sequential-value" className="text-base font-medium">
-                {sequentialVitalsStep === 'sys' && 'Systolic BP (mmHg)'}
-                {sequentialVitalsStep === 'dia' && 'Diastolic BP (mmHg)'}
-                {sequentialVitalsStep === 'hr' && 'Heart Rate (bpm)'}
-                {sequentialVitalsStep === 'spo2' && 'Oxygenation (SpO₂ %)'}
-              </Label>
-              <Input
-                id="sequential-value"
-                type="number"
-                value={sequentialVitalsInputs[sequentialVitalsStep]}
-                onChange={(e) => setSequentialVitalsInputs(prev => ({
-                  ...prev,
-                  [sequentialVitalsStep]: e.target.value
-                }))}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSequentialVitalsNext();
-                  }
-                }}
-                placeholder={
-                  sequentialVitalsStep === 'sys' ? 'e.g., 120' :
-                  sequentialVitalsStep === 'dia' ? 'e.g., 80' :
-                  sequentialVitalsStep === 'hr' ? 'e.g., 75' :
-                  'e.g., 98'
-                }
-                autoFocus
-                data-testid="input-sequential-value"
-              />
-            </div>
-            <div className="text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <div className={`w-3 h-3 rounded-full ${sequentialVitalsInputs.sys ? 'bg-green-500' : 'bg-gray-300'}`} />
-                <span className={sequentialVitalsStep === 'sys' ? 'font-semibold' : ''}>Systolic BP</span>
-                {sequentialVitalsInputs.sys && <span className="ml-auto text-xs">{sequentialVitalsInputs.sys} mmHg</span>}
-              </div>
-              <div className="flex items-center gap-2 mt-1">
-                <div className={`w-3 h-3 rounded-full ${sequentialVitalsInputs.dia ? 'bg-green-500' : 'bg-gray-300'}`} />
-                <span className={sequentialVitalsStep === 'dia' ? 'font-semibold' : ''}>Diastolic BP</span>
-                {sequentialVitalsInputs.dia && <span className="ml-auto text-xs">{sequentialVitalsInputs.dia} mmHg</span>}
-              </div>
-              <div className="flex items-center gap-2 mt-1">
-                <div className={`w-3 h-3 rounded-full ${sequentialVitalsInputs.hr ? 'bg-green-500' : 'bg-gray-300'}`} />
-                <span className={sequentialVitalsStep === 'hr' ? 'font-semibold' : ''}>Heart Rate</span>
-                {sequentialVitalsInputs.hr && <span className="ml-auto text-xs">{sequentialVitalsInputs.hr} bpm</span>}
-              </div>
-              <div className="flex items-center gap-2 mt-1">
-                <div className={`w-3 h-3 rounded-full ${sequentialVitalsInputs.spo2 ? 'bg-green-500' : 'bg-gray-300'}`} />
-                <span className={sequentialVitalsStep === 'spo2' ? 'font-semibold' : ''}>Oxygenation</span>
-                {sequentialVitalsInputs.spo2 && <span className="ml-auto text-xs">{sequentialVitalsInputs.spo2}%</span>}
-              </div>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={handleSequentialVitalsCancel}
-              data-testid="button-cancel-sequential"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSequentialVitalsNext}
-              data-testid="button-next-sequential"
-              disabled={!sequentialVitalsInputs[sequentialVitalsStep].trim()}
-            >
-              {sequentialVitalsStep === 'spo2' ? 'Save & Continue' : 'Next'}
-            </Button>
-          </div>
         </DialogContent>
       </Dialog>
 
