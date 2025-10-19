@@ -3553,6 +3553,7 @@ export function UnifiedTimeline({
         currentStart={currentZoomStart}
         currentEnd={currentZoomEnd}
         isDark={isDark}
+        activeToolMode={activeToolMode}
         onPanLeft={handlePanLeft}
         onPanRight={handlePanRight}
         onZoomIn={handleZoomIn}
@@ -3875,13 +3876,16 @@ export function UnifiedTimeline({
           }}
           onMouseLeave={() => setHoverInfo(null)}
           onMouseDown={(e) => {
+            console.log('[Edit Mode] onMouseDown called, activeToolMode:', activeToolMode, 'isProcessingClick:', isProcessingClick);
             if (activeToolMode !== 'edit' || isProcessingClick) return;
             
             setIsProcessingClick(true);
+            console.log('[Edit Mode] Processing click in edit mode');
             
             const rect = e.currentTarget.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
+            console.log('[Edit Mode] Click position:', { x, y, rectWidth: rect.width, rectHeight: rect.height });
             
             const visibleStart = currentZoomStart ?? data.startTime;
             const visibleEnd = currentZoomEnd ?? data.endTime;
@@ -3952,8 +3956,14 @@ export function UnifiedTimeline({
               }
             });
             
+            console.log('[Edit Mode] Nearest point found:', nearestPoint, 'distance:', nearestDistance);
+            console.log('[Edit Mode] Available points - HR:', hrDataPoints.length, 'BP sys:', bpDataPoints.sys.length, 'BP dia:', bpDataPoints.dia.length, 'SpO2:', spo2DataPoints.length);
+            
             if (nearestPoint) {
+              console.log('[Edit Mode] Selecting point:', nearestPoint);
               setSelectedPoint(nearestPoint);
+            } else {
+              console.log('[Edit Mode] No point found within threshold');
             }
             
             setTimeout(() => setIsProcessingClick(false), 100);
