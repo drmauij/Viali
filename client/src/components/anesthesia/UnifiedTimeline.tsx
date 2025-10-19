@@ -946,26 +946,27 @@ export function UnifiedTimeline({
   };
 
   // Handle editing vital values
-  const handleSaveEdit = (newValue: number, newTime: number) => {
+  const handleSaveEdit = (newValue: number) => {
     if (!editingValue) return;
 
-    const { type, index } = editingValue;
+    const { type, index, time } = editingValue;
 
+    // Keep the original time, only update the value
     if (type === 'hr') {
       const updated = [...hrDataPoints];
-      updated[index] = [newTime, newValue];
+      updated[index] = [time, newValue];
       setHrDataPoints(updated);
     } else if (type === 'sys') {
       const updated = [...bpDataPoints.sys];
-      updated[index] = [newTime, newValue];
+      updated[index] = [time, newValue];
       setBpDataPoints({ ...bpDataPoints, sys: updated });
     } else if (type === 'dia') {
       const updated = [...bpDataPoints.dia];
-      updated[index] = [newTime, newValue];
+      updated[index] = [time, newValue];
       setBpDataPoints({ ...bpDataPoints, dia: updated });
     } else if (type === 'spo2') {
       const updated = [...spo2DataPoints];
-      updated[index] = [newTime, newValue];
+      updated[index] = [time, newValue];
       setSpo2DataPoints(updated);
     }
 
@@ -987,14 +988,10 @@ export function UnifiedTimeline({
 
     if (type === 'hr') {
       setHrDataPoints(hrDataPoints.filter((_, i) => i !== index));
-    } else if (type === 'sys') {
+    } else if (type === 'sys' || type === 'dia') {
+      // When deleting BP, delete BOTH systolic and diastolic at the same index
       setBpDataPoints({
-        ...bpDataPoints,
         sys: bpDataPoints.sys.filter((_, i) => i !== index),
-      });
-    } else if (type === 'dia') {
-      setBpDataPoints({
-        ...bpDataPoints,
         dia: bpDataPoints.dia.filter((_, i) => i !== index),
       });
     } else if (type === 'spo2') {
@@ -6343,7 +6340,6 @@ export function UnifiedTimeline({
             <EditValueForm
               type={editingValue.type}
               initialValue={editingValue.value}
-              initialTime={editingValue.time}
               onSave={handleSaveEdit}
               onDelete={handleDeleteValue}
               onCancel={() => {
@@ -7644,20 +7640,17 @@ export function UnifiedTimeline({
 function EditValueForm({
   type,
   initialValue,
-  initialTime,
   onSave,
   onDelete,
   onCancel,
 }: {
   type: 'hr' | 'sys' | 'dia' | 'spo2';
   initialValue: number;
-  initialTime: number;
-  onSave: (value: number, time: number) => void;
+  onSave: (value: number) => void;
   onDelete: () => void;
   onCancel: () => void;
 }) {
   const [value, setValue] = useState(initialValue.toString());
-  const [time, setTime] = useState(initialTime);
 
   const getLabel = () => {
     if (type === 'hr') return 'Heart Rate (bpm)';
@@ -7669,7 +7662,7 @@ function EditValueForm({
   const handleSave = () => {
     const numValue = parseInt(value);
     if (isNaN(numValue)) return;
-    onSave(numValue, time);
+    onSave(numValue);
   };
 
   return (
@@ -7682,14 +7675,6 @@ function EditValueForm({
           value={value}
           onChange={(e) => setValue(e.target.value)}
           data-testid="input-edit-value"
-        />
-      </div>
-      <div className="grid gap-2">
-        <Label>Time</Label>
-        <TimeAdjustInput
-          value={time}
-          onChange={setTime}
-          data-testid="input-edit-time"
         />
       </div>
       <div className="flex justify-between gap-2">
