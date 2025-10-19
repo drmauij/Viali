@@ -3482,11 +3482,17 @@ export function UnifiedTimeline({
           const isZeitenLane = lane.id === "zeiten";
           const isMedParent = lane.id === "medikamente";
           const isVentParent = lane.id === "ventilation";
+          const isInfusionParent = lane.id === "infusionen";
+          const isOutputParent = lane.id === "output";
+          const isStaffParent = lane.id === "staff";
           const isMedChild = lane.id.startsWith("medication-");
           const isVentChild = lane.id.startsWith("ventilation-");
+          const isInfusionChild = lane.id.startsWith("infusion-");
+          const isOutputChild = lane.id.startsWith("output-");
+          const isStaffChild = lane.id.startsWith("staff-");
           const isDynamicMed = lane.id.startsWith("medication-dynamic-");
-          const isChild = isMedChild || isVentChild;
-          const isParent = isMedParent || isVentParent;
+          const isChild = isMedChild || isVentChild || isInfusionChild || isOutputChild || isStaffChild;
+          const isParent = isMedParent || isVentParent || isInfusionParent || isOutputParent || isStaffParent;
           const medIndex = isDynamicMed ? parseInt(lane.id.split("-")[2]) : -1;
           
           return (
