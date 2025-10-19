@@ -5285,6 +5285,61 @@ export function UnifiedTimeline({
         }).filter(Boolean);
       })}
 
+      {/* Infusion rate values as DOM overlays */}
+      {!collapsedSwimlanes.has('infusionen') && activeSwimlanes.flatMap((lane, laneIndex) => {
+        const isInfusionChild = lane.id.startsWith('infusion-');
+        
+        if (!isInfusionChild || !infusionData[lane.id]?.length) return [];
+        
+        const childLane = swimlanePositions.find(pos => pos.id === lane.id);
+        if (!childLane) return [];
+        
+        const visibleStart = currentZoomStart ?? data.startTime;
+        const visibleEnd = currentZoomEnd ?? data.endTime;
+        const visibleRange = visibleEnd - visibleStart;
+        
+        return infusionData[lane.id].map(([timestamp, rate], index) => {
+          const xFraction = (timestamp - visibleStart) / visibleRange;
+          
+          if (xFraction < 0 || xFraction > 1) return null;
+          
+          const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 20px)`;
+          
+          // Extract infusion name from lane label (remove leading spaces)
+          const infusionName = childLane.label.trim();
+          
+          return (
+            <div
+              key={`infusion-${lane.id}-${timestamp}-${index}`}
+              className="absolute z-40 cursor-pointer flex items-center justify-center group font-mono font-bold text-sm"
+              style={{
+                left: leftPosition,
+                top: `${childLane.top + 7}px`,
+                minWidth: '40px',
+                height: '20px',
+              }}
+              onClick={() => {
+                setEditingInfusionValue({
+                  swimlaneId: lane.id,
+                  time: timestamp,
+                  value: rate.toString(),
+                  index,
+                });
+                setInfusionEditInput(rate.toString());
+                setInfusionEditTime(new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
+                setShowInfusionEditDialog(true);
+              }}
+              title={`${infusionName}: ${rate} at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
+              data-testid={`infusion-rate-${lane.id}-${index}`}
+            >
+              <span className="group-hover:scale-110 transition-transform">
+                {rate}
+              </span>
+            </div>
+          );
+        }).filter(Boolean);
+      })}
+
       {/* Add Medication Dialog */}
       <Dialog open={showAddMedDialog} onOpenChange={setShowAddMedDialog}>
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-add-medication">
@@ -5379,6 +5434,132 @@ export function UnifiedTimeline({
             >
               Add
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Infusion Value Entry Dialog */}
+      <Dialog open={showInfusionDialog} onOpenChange={setShowInfusionDialog}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-infusion-value">
+          <DialogHeader>
+            <DialogTitle>Add Infusion Rate</DialogTitle>
+            {pendingInfusionValue && (
+              <p className="text-sm text-muted-foreground">
+                {pendingInfusionValue.label} at {new Date(pendingInfusionValue.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+              </p>
+            )}
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="infusion-value">Rate</Label>
+              <Input
+                id="infusion-value"
+                data-testid="input-infusion-value"
+                value={infusionInput}
+                onChange={(e) => setInfusionInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleInfusionValueEntry();
+                  }
+                }}
+                placeholder="e.g., 100ml/h, 50ml/h"
+                autoFocus
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowInfusionDialog(false);
+                setPendingInfusionValue(null);
+                setInfusionInput("");
+              }}
+              data-testid="button-cancel-infusion"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleInfusionValueEntry}
+              data-testid="button-confirm-infusion"
+              disabled={!infusionInput.trim()}
+            >
+              Add
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Infusion Value Edit Dialog */}
+      <Dialog open={showInfusionEditDialog} onOpenChange={setShowInfusionEditDialog}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-infusion-edit">
+          <DialogHeader>
+            <DialogTitle>Edit Infusion Rate</DialogTitle>
+            <DialogDescription>
+              {editingInfusionValue 
+                ? `Edit or delete the value at ${new Date(editingInfusionValue.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                : 'Edit infusion rate'
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="infusion-edit-value">Rate</Label>
+              <Input
+                id="infusion-edit-value"
+                data-testid="input-infusion-edit-value"
+                value={infusionEditInput}
+                onChange={(e) => setInfusionEditInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleInfusionValueEditSave();
+                  }
+                }}
+                placeholder="e.g., 100ml/h, 50ml/h"
+                autoFocus
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="infusion-edit-time">Time (HH:MM)</Label>
+              <Input
+                id="infusion-edit-time"
+                data-testid="input-infusion-edit-time"
+                type="time"
+                value={infusionEditTime}
+                onChange={(e) => setInfusionEditTime(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex justify-between gap-2">
+            <Button
+              variant="destructive"
+              onClick={handleInfusionValueDelete}
+              data-testid="button-delete-infusion-value"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowInfusionEditDialog(false);
+                  setEditingInfusionValue(null);
+                  setInfusionEditInput("");
+                  setInfusionEditTime("");
+                }}
+                data-testid="button-cancel-infusion-edit"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleInfusionValueEditSave}
+                data-testid="button-save-infusion-edit"
+                disabled={!infusionEditInput.trim()}
+              >
+                Save
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
