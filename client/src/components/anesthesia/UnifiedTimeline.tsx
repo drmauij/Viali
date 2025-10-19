@@ -6872,15 +6872,6 @@ export function UnifiedTimeline({
                     className="justify-start h-12 text-left"
                     onClick={() => {
                       setHeartRhythmInput(rhythm);
-                      if (!editingHeartRhythm) {
-                        // For new entries, add immediately
-                        if (pendingHeartRhythm) {
-                          setHeartRhythmData(prev => [...prev, [pendingHeartRhythm.time, rhythm]]);
-                          setShowHeartRhythmDialog(false);
-                          setPendingHeartRhythm(null);
-                          setHeartRhythmInput("");
-                        }
-                      }
                     }}
                     data-testid={`button-rhythm-${rhythm.toLowerCase().replace(/\s+/g, '-')}`}
                   >
@@ -6903,23 +6894,21 @@ export function UnifiedTimeline({
               </div>
             </div>
           </div>
-          {(editingHeartRhythm || (heartRhythmInput && !['SR', 'SVES', 'VES', 'VHF', 'Vorhofflattern', 'Schrittmacher', 'AV Block III', 'Kammerflimmern', 'Torsade de pointes', 'Defibrillator'].includes(heartRhythmInput))) && (
-            <DialogFooterWithTime
-              time={editingHeartRhythm ? heartRhythmEditTime : pendingHeartRhythm?.time}
-              onTimeChange={editingHeartRhythm ? setHeartRhythmEditTime : undefined}
-              showDelete={!!editingHeartRhythm}
-              onDelete={editingHeartRhythm ? handleHeartRhythmDelete : undefined}
-              onCancel={() => {
-                setShowHeartRhythmDialog(false);
-                setPendingHeartRhythm(null);
-                setEditingHeartRhythm(null);
-                setHeartRhythmInput("");
-              }}
-              onSave={handleHeartRhythmSave}
-              saveDisabled={!heartRhythmInput.trim()}
-              saveLabel={editingHeartRhythm ? 'Save' : 'Add'}
-            />
-          )}
+          <DialogFooterWithTime
+            time={editingHeartRhythm ? heartRhythmEditTime : pendingHeartRhythm?.time}
+            onTimeChange={editingHeartRhythm ? setHeartRhythmEditTime : undefined}
+            showDelete={!!editingHeartRhythm}
+            onDelete={editingHeartRhythm ? handleHeartRhythmDelete : undefined}
+            onCancel={() => {
+              setShowHeartRhythmDialog(false);
+              setPendingHeartRhythm(null);
+              setEditingHeartRhythm(null);
+              setHeartRhythmInput("");
+            }}
+            onSave={handleHeartRhythmSave}
+            saveDisabled={!heartRhythmInput.trim()}
+            saveLabel={editingHeartRhythm ? 'Save' : 'Add'}
+          />
         </DialogContent>
       </Dialog>
 
@@ -7008,15 +6997,6 @@ export function UnifiedTimeline({
                     className="justify-start h-12 text-left"
                     onClick={() => {
                       setPositionInput(pos.key);
-                      if (!editingPosition) {
-                        // For new entries, add immediately
-                        if (pendingPosition) {
-                          setPositionData(prev => [...prev, [pendingPosition.time, pos.key]]);
-                          setShowPositionDialog(false);
-                          setPendingPosition(null);
-                          setPositionInput("");
-                        }
-                      }
                     }}
                     data-testid={`button-position-${pos.key.toLowerCase().replace(/\s+/g, '-').replace(/\//g, '-')}`}
                   >
@@ -7038,23 +7018,21 @@ export function UnifiedTimeline({
               </div>
             </div>
           </div>
-          {(editingPosition || (positionInput && !['Supine', 'Prone', 'Left Side', 'Right Side', 'Beach Chair', 'Lithotomy', 'Head Up', 'Head Down', 'Sitting for SPA/PDA', 'Other'].includes(positionInput))) && (
-            <DialogFooterWithTime
-              time={editingPosition ? positionEditTime : pendingPosition?.time}
-              onTimeChange={editingPosition ? setPositionEditTime : undefined}
-              showDelete={!!editingPosition}
-              onDelete={editingPosition ? handlePositionDelete : undefined}
-              onCancel={() => {
-                setShowPositionDialog(false);
-                setPendingPosition(null);
-                setEditingPosition(null);
-                setPositionInput("");
-              }}
-              onSave={handlePositionSave}
-              saveDisabled={!positionInput.trim()}
-              saveLabel={editingPosition ? 'Save' : 'Add'}
-            />
-          )}
+          <DialogFooterWithTime
+            time={editingPosition ? positionEditTime : pendingPosition?.time}
+            onTimeChange={editingPosition ? setPositionEditTime : undefined}
+            showDelete={!!editingPosition}
+            onDelete={editingPosition ? handlePositionDelete : undefined}
+            onCancel={() => {
+              setShowPositionDialog(false);
+              setPendingPosition(null);
+              setEditingPosition(null);
+              setPositionInput("");
+            }}
+            onSave={handlePositionSave}
+            saveDisabled={!positionInput.trim()}
+            saveLabel={editingPosition ? 'Save' : 'Add'}
+          />
         </DialogContent>
       </Dialog>
 
