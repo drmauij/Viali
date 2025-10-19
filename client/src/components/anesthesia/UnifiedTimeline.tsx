@@ -335,7 +335,7 @@ export function UnifiedTimeline({
   const [pendingHeartRhythm, setPendingHeartRhythm] = useState<{ time: number } | null>(null);
   const [editingHeartRhythm, setEditingHeartRhythm] = useState<{ time: number; rhythm: string; index: number } | null>(null);
   const [heartRhythmInput, setHeartRhythmInput] = useState("");
-  const [heartRhythmEditTime, setHeartRhythmEditTime] = useState("");
+  const [heartRhythmEditTime, setHeartRhythmEditTime] = useState<number>(0);
   const [heartRhythmHoverInfo, setHeartRhythmHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
 
   // State for staff entries (doctor, nurse, assistant)
@@ -383,13 +383,13 @@ export function UnifiedTimeline({
   const [showVentilationEditDialog, setShowVentilationEditDialog] = useState(false);
   const [editingVentilationValue, setEditingVentilationValue] = useState<{ paramKey: keyof typeof ventilationData; time: number; value: string; index: number; label: string } | null>(null);
   const [ventilationEditInput, setVentilationEditInput] = useState("");
-  const [ventilationEditTime, setVentilationEditTime] = useState("");
+  const [ventilationEditTime, setVentilationEditTime] = useState<number>(0);
 
   // State for ventilation mode edit dialog
   const [showVentilationModeEditDialog, setShowVentilationModeEditDialog] = useState(false);
   const [editingVentilationMode, setEditingVentilationMode] = useState<{ time: number; mode: string; index: number } | null>(null);
   const [ventilationModeEditInput, setVentilationModeEditInput] = useState("");
-  const [ventilationModeEditTime, setVentilationModeEditTime] = useState("");
+  const [ventilationModeEditTime, setVentilationModeEditTime] = useState<number>(0);
 
   // State for ventilation bulk entry dialog
   const [showVentilationBulkDialog, setShowVentilationBulkDialog] = useState(false);
@@ -449,7 +449,7 @@ export function UnifiedTimeline({
   const [showOutputEditDialog, setShowOutputEditDialog] = useState(false);
   const [editingOutputValue, setEditingOutputValue] = useState<{ paramKey: keyof typeof outputData; time: number; value: string; index: number; label: string } | null>(null);
   const [outputEditInput, setOutputEditInput] = useState("");
-  const [outputEditTime, setOutputEditTime] = useState("");
+  const [outputEditTime, setOutputEditTime] = useState<number>(0);
   
   // State for infusion data points (map swimlane ID to array of [timestamp, rate_string] points)
   const [infusionData, setInfusionData] = useState<{
@@ -462,7 +462,7 @@ export function UnifiedTimeline({
   const [showInfusionEditDialog, setShowInfusionEditDialog] = useState(false);
   const [editingInfusionValue, setEditingInfusionValue] = useState<{ swimlaneId: string; time: number; value: string; index: number } | null>(null);
   const [infusionEditInput, setInfusionEditInput] = useState("");
-  const [infusionEditTime, setInfusionEditTime] = useState("");
+  const [infusionEditTime, setInfusionEditTime] = useState<number>(0);
   
   // State for BP dual entry (systolic then diastolic)
   const [bpEntryMode, setBpEntryMode] = useState<'sys' | 'dia'>('sys');
@@ -3169,18 +3169,10 @@ export function UnifiedTimeline({
   const handleInfusionValueEditSave = () => {
     if (!editingInfusionValue || !infusionEditInput.trim()) return;
     
-    const { swimlaneId, index, time: originalTime } = editingInfusionValue;
+    const { swimlaneId, index } = editingInfusionValue;
     
-    // Parse the edited time (HH:MM format)
-    let newTimestamp = originalTime;
-    if (infusionEditTime.trim()) {
-      const [hours, minutes] = infusionEditTime.split(':').map(Number);
-      if (!isNaN(hours) && !isNaN(minutes)) {
-        const date = new Date(originalTime);
-        date.setHours(hours, minutes, 0, 0);
-        newTimestamp = date.getTime();
-      }
-    }
+    // Use the edited timestamp directly (it's already a number)
+    const newTimestamp = infusionEditTime;
     
     setInfusionData(prev => {
       const existingData = prev[swimlaneId] || [];
@@ -3196,7 +3188,7 @@ export function UnifiedTimeline({
     setShowInfusionEditDialog(false);
     setEditingInfusionValue(null);
     setInfusionEditInput("");
-    setInfusionEditTime("");
+    setInfusionEditTime(0);
   };
 
   // Handle infusion value delete
@@ -3253,7 +3245,7 @@ export function UnifiedTimeline({
   const handleVentilationValueEditSave = () => {
     if (!editingVentilationValue || !ventilationEditInput.trim()) return;
     
-    const { paramKey, index, time: originalTime } = editingVentilationValue;
+    const { paramKey, index } = editingVentilationValue;
     const value = parseFloat(ventilationEditInput.trim());
     
     if (isNaN(value)) {
@@ -3265,16 +3257,8 @@ export function UnifiedTimeline({
       return;
     }
     
-    // Parse the edited time (HH:MM format)
-    let newTimestamp = originalTime;
-    if (ventilationEditTime.trim()) {
-      const [hours, minutes] = ventilationEditTime.split(':').map(Number);
-      if (!isNaN(hours) && !isNaN(minutes)) {
-        const date = new Date(originalTime);
-        date.setHours(hours, minutes, 0, 0);
-        newTimestamp = date.getTime();
-      }
-    }
+    // Use the edited timestamp directly (it's already a number)
+    const newTimestamp = ventilationEditTime;
     
     setVentilationData(prev => {
       const existingData = prev[paramKey] || [];
@@ -3290,7 +3274,7 @@ export function UnifiedTimeline({
     setShowVentilationEditDialog(false);
     setEditingVentilationValue(null);
     setVentilationEditInput("");
-    setVentilationEditTime("");
+    setVentilationEditTime(0);
   };
 
   // Handle ventilation value delete
@@ -3317,18 +3301,10 @@ export function UnifiedTimeline({
   const handleVentilationModeEditSave = () => {
     if (!editingVentilationMode || !ventilationModeEditInput.trim()) return;
     
-    const { index, time: originalTime } = editingVentilationMode;
+    const { index } = editingVentilationMode;
     
-    // Parse the edited time (HH:MM format)
-    let newTimestamp = originalTime;
-    if (ventilationModeEditTime.trim()) {
-      const [hours, minutes] = ventilationModeEditTime.split(':').map(Number);
-      if (!isNaN(hours) && !isNaN(minutes)) {
-        const date = new Date(originalTime);
-        date.setHours(hours, minutes, 0, 0);
-        newTimestamp = date.getTime();
-      }
-    }
+    // Use the edited timestamp directly (it's already a number)
+    const newTimestamp = ventilationModeEditTime;
     
     setVentilationModeData(prev => {
       const updated = [...prev];
@@ -3339,7 +3315,7 @@ export function UnifiedTimeline({
     setShowVentilationModeEditDialog(false);
     setEditingVentilationMode(null);
     setVentilationModeEditInput("");
-    setVentilationModeEditTime("");
+    setVentilationModeEditTime(0);
   };
 
   // Handle ventilation mode delete
@@ -3365,18 +3341,10 @@ export function UnifiedTimeline({
     
     if (editingHeartRhythm) {
       // Editing existing value
-      const { index, time: originalTime } = editingHeartRhythm;
+      const { index } = editingHeartRhythm;
       
-      // Parse the edited time (HH:MM format)
-      let newTimestamp = originalTime;
-      if (heartRhythmEditTime.trim()) {
-        const [hours, minutes] = heartRhythmEditTime.split(':').map(Number);
-        if (!isNaN(hours) && !isNaN(minutes)) {
-          const date = new Date(originalTime);
-          date.setHours(hours, minutes, 0, 0);
-          newTimestamp = date.getTime();
-        }
-      }
+      // Use the edited timestamp directly (it's already a number)
+      const newTimestamp = heartRhythmEditTime;
       
       setHeartRhythmData(prev => {
         const updated = [...prev];
@@ -3393,7 +3361,7 @@ export function UnifiedTimeline({
     setPendingHeartRhythm(null);
     setEditingHeartRhythm(null);
     setHeartRhythmInput("");
-    setHeartRhythmEditTime("");
+    setHeartRhythmEditTime(0);
   };
 
   // Handle heart rhythm delete
@@ -3407,7 +3375,7 @@ export function UnifiedTimeline({
     setShowHeartRhythmDialog(false);
     setEditingHeartRhythm(null);
     setHeartRhythmInput("");
-    setHeartRhythmEditTime("");
+    setHeartRhythmEditTime(0);
   };
 
   // Handle staff entry save
@@ -3654,7 +3622,7 @@ export function UnifiedTimeline({
   const handleOutputValueEditSave = () => {
     if (!editingOutputValue || !outputEditInput.trim()) return;
     
-    const { paramKey, index, time: originalTime } = editingOutputValue;
+    const { paramKey, index } = editingOutputValue;
     const value = parseFloat(outputEditInput.trim());
     
     if (isNaN(value)) {
@@ -3666,16 +3634,8 @@ export function UnifiedTimeline({
       return;
     }
     
-    // Parse the edited time (HH:MM format)
-    let newTimestamp = originalTime;
-    if (outputEditTime.trim()) {
-      const [hours, minutes] = outputEditTime.split(':').map(Number);
-      if (!isNaN(hours) && !isNaN(minutes)) {
-        const date = new Date(originalTime);
-        date.setHours(hours, minutes, 0, 0);
-        newTimestamp = date.getTime();
-      }
-    }
+    // Use the edited timestamp directly (it's already a number)
+    const newTimestamp = outputEditTime;
     
     setOutputData(prev => {
       const existingData = prev[paramKey] || [];
@@ -3691,7 +3651,7 @@ export function UnifiedTimeline({
     setShowOutputEditDialog(false);
     setEditingOutputValue(null);
     setOutputEditInput("");
-    setOutputEditTime("");
+    setOutputEditTime(0);
   };
 
   // Handle output value delete
@@ -3712,7 +3672,7 @@ export function UnifiedTimeline({
     setShowOutputEditDialog(false);
     setEditingOutputValue(null);
     setOutputEditInput("");
-    setOutputEditTime("");
+    setOutputEditTime(0);
   };
 
   // Calculate swimlane positions for sidebar
@@ -4576,7 +4536,7 @@ export function UnifiedTimeline({
               setPendingHeartRhythm({ time });
               setEditingHeartRhythm(null);
               setHeartRhythmInput("");
-              setHeartRhythmEditTime("");
+              setHeartRhythmEditTime(0);
               setShowHeartRhythmDialog(true);
             }}
             data-testid="interactive-heart-rhythm-lane"
@@ -5427,7 +5387,7 @@ export function UnifiedTimeline({
                     label: paramInfo.label,
                   });
                   setOutputEditInput(value.toString());
-                  setOutputEditTime(new Date(valueTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
+                  setOutputEditTime(valueTime);
                   setShowOutputEditDialog(true);
                 } else {
                   // Open add single value dialog
@@ -5590,7 +5550,7 @@ export function UnifiedTimeline({
                 index,
               });
               setHeartRhythmInput(rhythm);
-              setHeartRhythmEditTime(new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
+              setHeartRhythmEditTime(timestamp);
               setShowHeartRhythmDialog(true);
             }}
             title={`${rhythm} at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
@@ -5725,7 +5685,7 @@ export function UnifiedTimeline({
                 index,
               });
               setVentilationModeEditInput(mode);
-              setVentilationModeEditTime(new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
+              setVentilationModeEditTime(timestamp);
               setShowVentilationModeEditDialog(true);
             }}
             title={`${mode} at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
@@ -5801,7 +5761,7 @@ export function UnifiedTimeline({
                   label: labelMap[paramKey] || paramKey,
                 });
                 setVentilationEditInput(value.toString());
-                setVentilationEditTime(new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
+                setVentilationEditTime(timestamp);
                 setShowVentilationEditDialog(true);
               }}
               title={`${labelMap[paramKey]}: ${value} at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
@@ -5877,7 +5837,7 @@ export function UnifiedTimeline({
                   label: labelMap[paramKey] || paramKey,
                 });
                 setOutputEditInput(value.toString());
-                setOutputEditTime(new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
+                setOutputEditTime(timestamp);
                 setShowOutputEditDialog(true);
               }}
               title={`${labelMap[paramKey]}: ${value} ml at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
@@ -6078,7 +6038,7 @@ export function UnifiedTimeline({
                   index,
                 });
                 setInfusionEditInput(rate.toString());
-                setInfusionEditTime(new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
+                setInfusionEditTime(timestamp);
                 setShowInfusionEditDialog(true);
               }}
               title={`${infusionName}: ${rate} at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
@@ -6273,48 +6233,21 @@ export function UnifiedTimeline({
                 autoFocus
               />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="infusion-edit-time">Time (HH:MM)</Label>
-              <Input
-                id="infusion-edit-time"
-                data-testid="input-infusion-edit-time"
-                type="time"
-                value={infusionEditTime}
-                onChange={(e) => setInfusionEditTime(e.target.value)}
-              />
-            </div>
           </div>
-          <div className="flex justify-between gap-2">
-            <Button
-              variant="destructive"
-              onClick={handleInfusionValueDelete}
-              data-testid="button-delete-infusion-value"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete
-            </Button>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowInfusionEditDialog(false);
-                  setEditingInfusionValue(null);
-                  setInfusionEditInput("");
-                  setInfusionEditTime("");
-                }}
-                data-testid="button-cancel-infusion-edit"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleInfusionValueEditSave}
-                data-testid="button-save-infusion-edit"
-                disabled={!infusionEditInput.trim()}
-              >
-                Save
-              </Button>
-            </div>
-          </div>
+          <DialogFooterWithTime
+            time={infusionEditTime}
+            onTimeChange={setInfusionEditTime}
+            showDelete={true}
+            onDelete={handleInfusionValueDelete}
+            onCancel={() => {
+              setShowInfusionEditDialog(false);
+              setEditingInfusionValue(null);
+              setInfusionEditInput("");
+              setInfusionEditTime(0);
+            }}
+            onSave={handleInfusionValueEditSave}
+            saveDisabled={!infusionEditInput.trim()}
+          />
         </DialogContent>
       </Dialog>
 
@@ -6943,7 +6876,7 @@ export function UnifiedTimeline({
                   setShowVentilationEditDialog(false);
                   setEditingVentilationValue(null);
                   setVentilationEditInput("");
-                  setVentilationEditTime("");
+                  setVentilationEditTime(0);
                 }}
                 data-testid="button-cancel-ventilation-edit"
               >
@@ -7017,7 +6950,7 @@ export function UnifiedTimeline({
                   setShowVentilationModeEditDialog(false);
                   setEditingVentilationMode(null);
                   setVentilationModeEditInput("");
-                  setVentilationModeEditTime("");
+                  setVentilationModeEditTime(0);
                 }}
                 data-testid="button-cancel-ventilation-mode-edit"
               >
@@ -7124,7 +7057,7 @@ export function UnifiedTimeline({
                     setPendingHeartRhythm(null);
                     setEditingHeartRhythm(null);
                     setHeartRhythmInput("");
-                    setHeartRhythmEditTime("");
+                    setHeartRhythmEditTime(0);
                   }}
                   data-testid="button-cancel-heart-rhythm"
                 >
@@ -7609,7 +7542,7 @@ export function UnifiedTimeline({
                   setShowOutputEditDialog(false);
                   setEditingOutputValue(null);
                   setOutputEditInput("");
-                  setOutputEditTime("");
+                  setOutputEditTime(0);
                 }}
                 data-testid="button-cancel-output-edit"
               >
