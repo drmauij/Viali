@@ -4802,6 +4802,130 @@ export function UnifiedTimeline({
         </div>
       )}
 
+      {/* Interactive layers for output parameter swimlanes - to place values */}
+      {!activeToolMode && (() => {
+        const outputParentIndex = activeSwimlanes.findIndex(s => s.id === "output");
+        if (outputParentIndex === -1 || collapsedSwimlanes.has("output")) return null;
+        
+        // Map output swimlane index to parameter key
+        const outputParamMap: { [index: number]: { key: keyof typeof outputData; label: string } } = {
+          0: { key: 'gastricTube', label: 'Gastric Tube' },
+          1: { key: 'drainage', label: 'Drainage' },
+          2: { key: 'vomit', label: 'Vomit' },
+          3: { key: 'urine', label: 'Urine' },
+          4: { key: 'urine677', label: 'Urine 677' },
+          5: { key: 'blood', label: 'Blood' },
+          6: { key: 'bloodIrrigation', label: 'Blood and Irrigation' },
+        };
+        
+        return activeSwimlanes.map((lane, index) => {
+          const isOutputChild = lane.id.startsWith('output-');
+          if (!isOutputChild) return null;
+          
+          const outputIndex = parseInt(lane.id.split('-')[1]);
+          const paramInfo = outputParamMap[outputIndex];
+          if (!paramInfo) return null;
+          
+          const lanePosition = swimlanePositions.find(l => l.id === lane.id);
+          if (!lanePosition) return null;
+          
+          return (
+            <div
+              key={lane.id}
+              className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
+              style={{
+                left: '200px',
+                right: '10px',
+                top: `${lanePosition.top}px`,
+                height: `${lanePosition.height}px`,
+                zIndex: 35,
+              }}
+              onMouseMove={(e) => {
+                if (isTouchDevice) return;
+                
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                
+                const visibleStart = currentZoomStart ?? data.startTime;
+                const visibleEnd = currentZoomEnd ?? data.endTime;
+                const visibleRange = visibleEnd - visibleStart;
+                
+                const xPercent = x / rect.width;
+                let time = visibleStart + (xPercent * visibleRange);
+                
+                // Snap to zoom-dependent interval for output parameters
+                time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
+                
+                // Check if there's an existing value at this time
+                const existingValues = outputData[paramInfo.key] || [];
+                const clickTolerance = currentVitalsSnapInterval;
+                const hasExistingValue = existingValues.some(([valueTime]) => 
+                  Math.abs(valueTime - time) <= clickTolerance
+                );
+                
+                setOutputBulkHoverInfo({ 
+                  x: e.clientX, 
+                  y: e.clientY, 
+                  time
+                });
+              }}
+              onMouseLeave={() => setOutputBulkHoverInfo(null)}
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                
+                const visibleStart = currentZoomStart ?? data.startTime;
+                const visibleEnd = currentZoomEnd ?? data.endTime;
+                const visibleRange = visibleEnd - visibleStart;
+                
+                const xPercent = x / rect.width;
+                let time = visibleStart + (xPercent * visibleRange);
+                
+                // Snap to zoom-dependent interval for output parameters
+                time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
+                
+                // Check if we're clicking on an existing value
+                const existingValues = outputData[paramInfo.key] || [];
+                const clickTolerance = currentVitalsSnapInterval;
+                const existingValueAtTime = existingValues.find(([valueTime]) => 
+                  Math.abs(valueTime - time) <= clickTolerance
+                );
+                
+                if (existingValueAtTime) {
+                  // Open edit dialog for existing value
+                  const [valueTime, value] = existingValueAtTime;
+                  const valueIndex = existingValues.findIndex(([t, v]) => t === valueTime && v === value);
+                  setEditingOutputValue({
+                    paramKey: paramInfo.key,
+                    time: valueTime,
+                    value: value.toString(),
+                    index: valueIndex,
+                    label: paramInfo.label,
+                  });
+                  setOutputEditInput(value.toString());
+                  setOutputEditTime(new Date(valueTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
+                  setShowOutputEditDialog(true);
+                } else {
+                  // Open add new value dialog (using bulk dialog with single parameter)
+                  setPendingOutputBulk({ time });
+                  setBulkOutputParams({
+                    gastricTube: "",
+                    drainage: "",
+                    vomit: "",
+                    urine: "",
+                    urine677: "",
+                    blood: "",
+                    bloodIrrigation: "",
+                  });
+                  setShowOutputBulkDialog(true);
+                }
+              }}
+              data-testid={`interactive-output-lane-${lane.id}`}
+            />
+          );
+        });
+      })()}
+
       {/* Time marker badges on the timeline */}
       {timeMarkers.filter(m => m.time !== null).map((marker) => {
         const visibleStart = currentZoomStart ?? data.startTime;
