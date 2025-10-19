@@ -5545,7 +5545,7 @@ export function UnifiedTimeline({
 
       {/* NOW time label at the top of the grid */}
       <div
-        className="absolute z-[60] pointer-events-none"
+        className="sticky z-[60] pointer-events-none"
         style={{
           left: nowLinePosition,
           top: '4px',
