@@ -395,6 +395,19 @@ export function UnifiedTimeline({
   const [outputEditInput, setOutputEditInput] = useState("");
   const [outputEditTime, setOutputEditTime] = useState("");
   
+  // State for infusion data points (map swimlane ID to array of [timestamp, rate_string] points)
+  const [infusionData, setInfusionData] = useState<{
+    [swimlaneId: string]: Array<[number, string]>; // [timestamp, "100ml/h"] format
+  }>({});
+  const [infusionHoverInfo, setInfusionHoverInfo] = useState<{ x: number; y: number; time: number; swimlaneId: string; label: string } | null>(null);
+  const [showInfusionDialog, setShowInfusionDialog] = useState(false);
+  const [pendingInfusionValue, setPendingInfusionValue] = useState<{ swimlaneId: string; time: number; label: string } | null>(null);
+  const [infusionInput, setInfusionInput] = useState("");
+  const [showInfusionEditDialog, setShowInfusionEditDialog] = useState(false);
+  const [editingInfusionValue, setEditingInfusionValue] = useState<{ swimlaneId: string; time: number; value: string; index: number } | null>(null);
+  const [infusionEditInput, setInfusionEditInput] = useState("");
+  const [infusionEditTime, setInfusionEditTime] = useState("");
+  
   // State for BP dual entry (systolic then diastolic)
   const [bpEntryMode, setBpEntryMode] = useState<'sys' | 'dia'>('sys');
   const [pendingSysValue, setPendingSysValue] = useState<{ time: number; value: number } | null>(null);
@@ -2836,6 +2849,80 @@ export function UnifiedTimeline({
     setShowMedicationEditDialog(false);
     setEditingMedicationDose(null);
     setMedicationEditInput("");
+  };
+
+  // Handle infusion value entry
+  const handleInfusionValueEntry = () => {
+    if (!pendingInfusionValue || !infusionInput.trim()) return;
+    
+    const { swimlaneId, time, label } = pendingInfusionValue;
+    
+    setInfusionData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      return {
+        ...prev,
+        [swimlaneId]: [...existingData, [time, infusionInput.trim()] as [number, string]]
+      };
+    });
+    
+    // Reset dialog state
+    setShowInfusionDialog(false);
+    setPendingInfusionValue(null);
+    setInfusionInput("");
+  };
+
+  // Handle infusion value edit save
+  const handleInfusionValueEditSave = () => {
+    if (!editingInfusionValue || !infusionEditInput.trim()) return;
+    
+    const { swimlaneId, index, time: originalTime } = editingInfusionValue;
+    
+    // Parse the edited time (HH:MM format)
+    let newTimestamp = originalTime;
+    if (infusionEditTime.trim()) {
+      const [hours, minutes] = infusionEditTime.split(':').map(Number);
+      if (!isNaN(hours) && !isNaN(minutes)) {
+        const date = new Date(originalTime);
+        date.setHours(hours, minutes, 0, 0);
+        newTimestamp = date.getTime();
+      }
+    }
+    
+    setInfusionData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      const updated = [...existingData];
+      updated[index] = [newTimestamp, infusionEditInput.trim()];
+      return {
+        ...prev,
+        [swimlaneId]: updated,
+      };
+    });
+    
+    // Reset dialog state
+    setShowInfusionEditDialog(false);
+    setEditingInfusionValue(null);
+    setInfusionEditInput("");
+    setInfusionEditTime("");
+  };
+
+  // Handle infusion value delete
+  const handleInfusionValueDelete = () => {
+    if (!editingInfusionValue) return;
+    
+    const { swimlaneId, index } = editingInfusionValue;
+    
+    setInfusionData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      const updated = existingData.filter((_, i) => i !== index);
+      return {
+        ...prev,
+        [swimlaneId]: updated,
+      };
+    });
+    
+    setShowInfusionEditDialog(false);
+    setEditingInfusionValue(null);
+    setInfusionEditInput("");
   };
 
   // Handle ventilation value edit save
