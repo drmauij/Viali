@@ -5515,11 +5515,12 @@ export function UnifiedTimeline({
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-medication-dose">
           <DialogHeader>
             <DialogTitle>Add Dose</DialogTitle>
-            {pendingMedicationDose && (
-              <p className="text-sm text-muted-foreground">
-                {pendingMedicationDose.label} at {new Date(pendingMedicationDose.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
-              </p>
-            )}
+            <DialogDescription>
+              {pendingMedicationDose 
+                ? `${pendingMedicationDose.label} at ${new Date(pendingMedicationDose.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                : 'Add a new medication dose'
+              }
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -5567,11 +5568,12 @@ export function UnifiedTimeline({
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-infusion-value">
           <DialogHeader>
             <DialogTitle>Add Infusion Rate</DialogTitle>
-            {pendingInfusionValue && (
-              <p className="text-sm text-muted-foreground">
-                {pendingInfusionValue.label} at {new Date(pendingInfusionValue.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
-              </p>
-            )}
+            <DialogDescription>
+              {pendingInfusionValue 
+                ? `${pendingInfusionValue.label} at ${new Date(pendingInfusionValue.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                : 'Add a new infusion rate value'
+              }
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -5693,11 +5695,12 @@ export function UnifiedTimeline({
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-ventilation-value">
           <DialogHeader>
             <DialogTitle>Add Value</DialogTitle>
-            {pendingVentilationValue && (
-              <p className="text-sm text-muted-foreground">
-                {pendingVentilationValue.label} at {new Date(pendingVentilationValue.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
-              </p>
-            )}
+            <DialogDescription>
+              {pendingVentilationValue 
+                ? `${pendingVentilationValue.label} at ${new Date(pendingVentilationValue.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                : 'Add a new ventilation parameter value'
+              }
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
