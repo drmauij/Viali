@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2 } from "lucide-react";
+import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -250,14 +250,37 @@ export function UnifiedTimeline({
   const [graphicsRevision, setGraphicsRevision] = useState<number>(0);
 
   // State for interactive vital entry
-  const [activeToolMode, setActiveToolMode] = useState<'hr' | 'bp' | 'spo2' | 'blend' | null>(null);
+  const [activeToolMode, setActiveToolMode] = useState<'hr' | 'bp' | 'spo2' | 'blend' | 'edit' | null>(null);
   const [blendSequenceStep, setBlendSequenceStep] = useState<'sys' | 'dia' | 'hr' | 'spo2'>('sys');
+  
+  // State for edit mode - dragging and repositioning existing vitals
+  const [selectedPoint, setSelectedPoint] = useState<{
+    type: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2';
+    index: number;
+    originalTime: number;
+    originalValue: number;
+  } | null>(null);
+  const [dragPosition, setDragPosition] = useState<{ time: number; value: number } | null>(null);
   const [hrDataPoints, setHrDataPoints] = useState<VitalPoint[]>(data.vitals.hr || []);
   const [bpDataPoints, setBpDataPoints] = useState<{ sys: VitalPoint[], dia: VitalPoint[] }>({
     sys: data.vitals.sysBP || [],
     dia: data.vitals.diaBP || []
   });
   const [spo2DataPoints, setSpo2DataPoints] = useState<VitalPoint[]>(data.vitals.spo2 || []);
+  
+  // Refs for edit mode to avoid recreating event listeners
+  const selectedPointRef = useRef(selectedPoint);
+  const dragPositionRef = useRef(dragPosition);
+  const hrDataPointsRef = useRef(hrDataPoints);
+  const bpDataPointsRef = useRef(bpDataPoints);
+  const spo2DataPointsRef = useRef(spo2DataPoints);
+  
+  // Keep refs in sync with state
+  useEffect(() => { selectedPointRef.current = selectedPoint; }, [selectedPoint]);
+  useEffect(() => { dragPositionRef.current = dragPosition; }, [dragPosition]);
+  useEffect(() => { hrDataPointsRef.current = hrDataPoints; }, [hrDataPoints]);
+  useEffect(() => { bpDataPointsRef.current = bpDataPoints; }, [bpDataPoints]);
+  useEffect(() => { spo2DataPointsRef.current = spo2DataPoints; }, [spo2DataPoints]);
   
   // State for ventilation parameters
   const [ventilationData, setVentilationData] = useState<{
@@ -476,6 +499,60 @@ export function UnifiedTimeline({
     };
     checkTouch();
   }, []);
+
+  // Handle mouse up anywhere to finalize drag operation in edit mode
+  // Use refs to avoid recreating handlers on every state change
+  useEffect(() => {
+    if (activeToolMode !== 'edit') {
+      // Clear any dangling selection when exiting edit mode
+      setSelectedPoint(null);
+      setDragPosition(null);
+      setHoverInfo(null);
+      return;
+    }
+    
+    const handleMouseUp = () => {
+      const currentSelected = selectedPointRef.current;
+      const currentDrag = dragPositionRef.current;
+      
+      if (!currentSelected || !currentDrag) return;
+      
+      // Update the data point with the new snapped position
+      const newPoint: VitalPoint = [currentDrag.time, currentDrag.value];
+      
+      if (currentSelected.type === 'hr') {
+        const updated = [...hrDataPointsRef.current];
+        updated[currentSelected.index] = newPoint;
+        setHrDataPoints(updated);
+      } else if (currentSelected.type === 'bp-sys') {
+        const updated = [...bpDataPointsRef.current.sys];
+        updated[currentSelected.index] = newPoint;
+        setBpDataPoints({ ...bpDataPointsRef.current, sys: updated });
+      } else if (currentSelected.type === 'bp-dia') {
+        const updated = [...bpDataPointsRef.current.dia];
+        updated[currentSelected.index] = newPoint;
+        setBpDataPoints({ ...bpDataPointsRef.current, dia: updated });
+      } else if (currentSelected.type === 'spo2') {
+        const updated = [...spo2DataPointsRef.current];
+        updated[currentSelected.index] = newPoint;
+        setSpo2DataPoints(updated);
+      }
+      
+      // Clear selection and drag state
+      setSelectedPoint(null);
+      setDragPosition(null);
+      setHoverInfo(null);
+    };
+    
+    // Register stable event listeners only once when edit mode is active
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('touchend', handleMouseUp);
+    
+    return () => {
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchend', handleMouseUp);
+    };
+  }, [activeToolMode]); // Only depend on activeToolMode, not on state changes
 
   // Update current time every minute
   useEffect(() => {
@@ -3611,6 +3688,26 @@ export function UnifiedTimeline({
           >
             <Blend className={`w-5 h-5 transition-colors ${activeToolMode === 'blend' ? 'text-purple-500' : 'hover:text-purple-500'}`} />
           </button>
+          <button
+            onClick={() => {
+              if (activeToolMode === 'edit') {
+                setActiveToolMode(null);
+                setSelectedPoint(null);
+                setDragPosition(null);
+              } else {
+                setActiveToolMode('edit');
+              }
+            }}
+            className={`p-2 rounded-md border transition-colors flex items-center justify-center shadow-sm ${
+              activeToolMode === 'edit' 
+                ? 'border-amber-500 bg-amber-500/20' 
+                : 'border-border bg-background hover:border-amber-500 hover:bg-amber-500/10'
+            }`}
+            data-testid="button-vitals-edit"
+            title="Edit Mode - Move Vital Points"
+          >
+            <Pencil className={`w-5 h-5 transition-colors ${activeToolMode === 'edit' ? 'text-amber-500' : 'hover:text-amber-500'}`} />
+          </button>
         </div>
 
         {/* Swimlane labels */}
@@ -3714,7 +3811,7 @@ export function UnifiedTimeline({
       {/* Interactive layer for vitals entry - only active when tool mode is selected */}
       {activeToolMode && (
         <div
-          className="absolute z-30 cursor-crosshair"
+          className={`absolute z-30 ${activeToolMode === 'edit' ? (selectedPoint ? 'cursor-grabbing' : 'cursor-pointer') : 'cursor-crosshair'}`}
           style={{
             left: '200px',
             right: '10px',
@@ -3746,27 +3843,123 @@ export function UnifiedTimeline({
             let value: number;
             const yPercent = y / rect.height;
             
-            if (activeToolMode === 'hr' || activeToolMode === 'bp' || (activeToolMode === 'blend' && (blendSequenceStep === 'sys' || blendSequenceStep === 'dia' || blendSequenceStep === 'hr'))) {
+            if (activeToolMode === 'edit' && selectedPoint) {
+              // In edit mode with selected point - show drag preview
+              const isSpO2 = selectedPoint.type === 'spo2';
+              if (isSpO2) {
+                const minVal = 45;
+                const maxVal = 105;
+                const rawValue = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+                value = Math.min(rawValue, 100);
+              } else {
+                const minVal = -20;
+                const maxVal = 240;
+                value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+              }
+              setDragPosition({ time, value });
+              setHoverInfo({ x: e.clientX, y: e.clientY, value, time });
+            } else if (activeToolMode === 'hr' || activeToolMode === 'bp' || (activeToolMode === 'blend' && (blendSequenceStep === 'sys' || blendSequenceStep === 'dia' || blendSequenceStep === 'hr'))) {
               // BP/HR scale: -20 to 240
               const minVal = -20;
               const maxVal = 240;
               value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+              setHoverInfo({ x: e.clientX, y: e.clientY, value, time });
             } else if (activeToolMode === 'spo2' || (activeToolMode === 'blend' && blendSequenceStep === 'spo2')) {
               // SpO2 scale: 45 to 105, capped at 100%
               const minVal = 45;
               const maxVal = 105;
               const rawValue = Math.round(maxVal - (yPercent * (maxVal - minVal)));
               value = Math.min(rawValue, 100); // Cap at 100%
-            } else {
-              return; // No active tool mode
+              setHoverInfo({ x: e.clientX, y: e.clientY, value, time });
             }
-            
-            // Allow adding data points anywhere in the timeline (no restrictions)
-            setHoverInfo({ x: e.clientX, y: e.clientY, value, time });
           }}
           onMouseLeave={() => setHoverInfo(null)}
+          onMouseDown={(e) => {
+            if (activeToolMode !== 'edit' || isProcessingClick) return;
+            
+            setIsProcessingClick(true);
+            
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const visibleStart = currentZoomStart ?? data.startTime;
+            const visibleEnd = currentZoomEnd ?? data.endTime;
+            const visibleRange = visibleEnd - visibleStart;
+            
+            const xPercent = x / rect.width;
+            const clickTime = visibleStart + (xPercent * visibleRange);
+            const yPercent = y / rect.height;
+            
+            // Helper to calculate screen position for a data point
+            const getScreenPosition = (time: number, value: number, scale: 'bp-hr' | 'spo2'): { x: number; y: number } => {
+              const xPos = ((time - visibleStart) / visibleRange) * rect.width;
+              let yPos: number;
+              if (scale === 'bp-hr') {
+                const minVal = -20;
+                const maxVal = 240;
+                yPos = ((maxVal - value) / (maxVal - minVal)) * rect.height;
+              } else {
+                const minVal = 45;
+                const maxVal = 105;
+                yPos = ((maxVal - value) / (maxVal - minVal)) * rect.height;
+              }
+              return { x: xPos, y: yPos };
+            };
+            
+            // Find nearest point within click threshold (20px)
+            const threshold = 20;
+            let nearestPoint: typeof selectedPoint = null;
+            let nearestDistance = threshold;
+            
+            // Check HR points
+            hrDataPoints.forEach((point, index) => {
+              const pos = getScreenPosition(point[0], point[1], 'bp-hr');
+              const dist = Math.sqrt((pos.x - x) ** 2 + (pos.y - y) ** 2);
+              if (dist < nearestDistance) {
+                nearestDistance = dist;
+                nearestPoint = { type: 'hr', index, originalTime: point[0], originalValue: point[1] };
+              }
+            });
+            
+            // Check systolic BP points
+            bpDataPoints.sys.forEach((point, index) => {
+              const pos = getScreenPosition(point[0], point[1], 'bp-hr');
+              const dist = Math.sqrt((pos.x - x) ** 2 + (pos.y - y) ** 2);
+              if (dist < nearestDistance) {
+                nearestDistance = dist;
+                nearestPoint = { type: 'bp-sys', index, originalTime: point[0], originalValue: point[1] };
+              }
+            });
+            
+            // Check diastolic BP points
+            bpDataPoints.dia.forEach((point, index) => {
+              const pos = getScreenPosition(point[0], point[1], 'bp-hr');
+              const dist = Math.sqrt((pos.x - x) ** 2 + (pos.y - y) ** 2);
+              if (dist < nearestDistance) {
+                nearestDistance = dist;
+                nearestPoint = { type: 'bp-dia', index, originalTime: point[0], originalValue: point[1] };
+              }
+            });
+            
+            // Check SpO2 points
+            spo2DataPoints.forEach((point, index) => {
+              const pos = getScreenPosition(point[0], point[1], 'spo2');
+              const dist = Math.sqrt((pos.x - x) ** 2 + (pos.y - y) ** 2);
+              if (dist < nearestDistance) {
+                nearestDistance = dist;
+                nearestPoint = { type: 'spo2', index, originalTime: point[0], originalValue: point[1] };
+              }
+            });
+            
+            if (nearestPoint) {
+              setSelectedPoint(nearestPoint);
+            }
+            
+            setTimeout(() => setIsProcessingClick(false), 100);
+          }}
           onClick={(e) => {
-            if (isProcessingClick) return;
+            if (isProcessingClick || activeToolMode === 'edit') return;
             
             setIsProcessingClick(true);
             
@@ -3942,6 +4135,14 @@ export function UnifiedTimeline({
           }}
         >
           <div className="text-sm font-semibold">
+            {activeToolMode === 'edit' && selectedPoint && (
+              <>
+                {selectedPoint.type === 'hr' && `Dragging HR: ${hoverInfo.value}`}
+                {selectedPoint.type === 'bp-sys' && `Dragging Systolic: ${hoverInfo.value}`}
+                {selectedPoint.type === 'bp-dia' && `Dragging Diastolic: ${hoverInfo.value}`}
+                {selectedPoint.type === 'spo2' && `Dragging SpO2: ${hoverInfo.value}%`}
+              </>
+            )}
             {activeToolMode === 'hr' && `HR: ${hoverInfo.value}`}
             {activeToolMode === 'bp' && `${bpEntryMode === 'sys' ? 'Systolic' : 'Diastolic'}: ${hoverInfo.value}`}
             {activeToolMode === 'spo2' && `SpO2: ${hoverInfo.value}%`}
