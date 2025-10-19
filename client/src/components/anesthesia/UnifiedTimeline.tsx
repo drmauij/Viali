@@ -286,6 +286,7 @@ export function UnifiedTimeline({
     originalValue: number;
   } | null>(null);
   const [dragPosition, setDragPosition] = useState<{ time: number; value: number } | null>(null);
+  const [lastTouchTime, setLastTouchTime] = useState<number>(0); // Track last touch to prevent duplicate mouse events
   const [hrDataPoints, setHrDataPoints] = useState<VitalPoint[]>(data.vitals.hr || []);
   const [bpDataPoints, setBpDataPoints] = useState<{ sys: VitalPoint[], dia: VitalPoint[] }>({
     sys: data.vitals.sysBP || [],
@@ -4040,6 +4041,14 @@ export function UnifiedTimeline({
           onMouseLeave={() => setHoverInfo(null)}
           onMouseDown={(e) => {
             console.log('[Edit Mode] onMouseDown called, activeToolMode:', activeToolMode, 'isProcessingClick:', isProcessingClick);
+            
+            // Prevent duplicate processing if touch event was just handled (touch devices fire both touch and mouse events)
+            const timeSinceLastTouch = Date.now() - lastTouchTime;
+            if (timeSinceLastTouch < 1000) {
+              console.log('[Edit Mode] Ignoring mouse event - touch was just processed', timeSinceLastTouch, 'ms ago');
+              return;
+            }
+            
             if (activeToolMode !== 'edit' || isProcessingClick) return;
             
             // Prevent default touch behavior to stop page scrolling during drag
@@ -4145,6 +4154,9 @@ export function UnifiedTimeline({
             
             // Note: Cannot call e.preventDefault() here because React's synthetic events are passive
             // Scroll prevention is handled by the native event listener in useEffect with { passive: false }
+            
+            // Record touch time to prevent duplicate mouse event processing
+            setLastTouchTime(Date.now());
             
             setIsProcessingClick(true);
             console.log('[Edit Mode] Processing touch in edit mode');
