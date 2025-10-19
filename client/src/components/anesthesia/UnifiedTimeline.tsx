@@ -4120,6 +4120,105 @@ export function UnifiedTimeline({
             
             setTimeout(() => setIsProcessingClick(false), 100);
           }}
+          onTouchStart={(e) => {
+            console.log('[Edit Mode] onTouchStart called, activeToolMode:', activeToolMode, 'isProcessingClick:', isProcessingClick);
+            if (activeToolMode !== 'edit' || isProcessingClick) return;
+            
+            // Prevent default touch behavior to stop page scrolling during drag
+            e.preventDefault();
+            
+            setIsProcessingClick(true);
+            console.log('[Edit Mode] Processing touch in edit mode');
+            
+            const rect = e.currentTarget.getBoundingClientRect();
+            const touch = e.touches[0];
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            console.log('[Edit Mode] Touch position:', { x, y, rectWidth: rect.width, rectHeight: rect.height });
+            
+            const visibleStart = currentZoomStart ?? data.startTime;
+            const visibleEnd = currentZoomEnd ?? data.endTime;
+            const visibleRange = visibleEnd - visibleStart;
+            
+            const xPercent = x / rect.width;
+            const clickTime = visibleStart + (xPercent * visibleRange);
+            const yPercent = y / rect.height;
+            
+            // Helper to calculate screen position for a data point
+            const getScreenPosition = (time: number, value: number, scale: 'bp-hr' | 'spo2'): { x: number; y: number } => {
+              const xPos = ((time - visibleStart) / visibleRange) * rect.width;
+              let yPos: number;
+              if (scale === 'bp-hr') {
+                const minVal = -20;
+                const maxVal = 240;
+                yPos = ((maxVal - value) / (maxVal - minVal)) * rect.height;
+              } else {
+                const minVal = 45;
+                const maxVal = 105;
+                yPos = ((maxVal - value) / (maxVal - minVal)) * rect.height;
+              }
+              return { x: xPos, y: yPos };
+            };
+            
+            // Find nearest point within click threshold (20px)
+            const threshold = 20;
+            let nearestPoint: typeof selectedPoint = null;
+            let nearestDistance = threshold;
+            
+            // Check HR points
+            hrDataPoints.forEach((point, index) => {
+              const pos = getScreenPosition(point[0], point[1], 'bp-hr');
+              const dist = Math.sqrt((pos.x - x) ** 2 + (pos.y - y) ** 2);
+              if (dist < nearestDistance) {
+                nearestDistance = dist;
+                nearestPoint = { type: 'hr', index, originalTime: point[0], originalValue: point[1] };
+              }
+            });
+            
+            // Check systolic BP points
+            bpDataPoints.sys.forEach((point, index) => {
+              const pos = getScreenPosition(point[0], point[1], 'bp-hr');
+              const dist = Math.sqrt((pos.x - x) ** 2 + (pos.y - y) ** 2);
+              if (dist < nearestDistance) {
+                nearestDistance = dist;
+                nearestPoint = { type: 'bp-sys', index, originalTime: point[0], originalValue: point[1] };
+              }
+            });
+            
+            // Check diastolic BP points
+            bpDataPoints.dia.forEach((point, index) => {
+              const pos = getScreenPosition(point[0], point[1], 'bp-hr');
+              const dist = Math.sqrt((pos.x - x) ** 2 + (pos.y - y) ** 2);
+              if (dist < nearestDistance) {
+                nearestDistance = dist;
+                nearestPoint = { type: 'bp-dia', index, originalTime: point[0], originalValue: point[1] };
+              }
+            });
+            
+            // Check SpO2 points
+            spo2DataPoints.forEach((point, index) => {
+              const pos = getScreenPosition(point[0], point[1], 'spo2');
+              const dist = Math.sqrt((pos.x - x) ** 2 + (pos.y - y) ** 2);
+              if (dist < nearestDistance) {
+                nearestDistance = dist;
+                nearestPoint = { type: 'spo2', index, originalTime: point[0], originalValue: point[1] };
+              }
+            });
+            
+            console.log('[Edit Mode] Nearest point found:', nearestPoint, 'distance:', nearestDistance);
+            console.log('[Edit Mode] Available points - HR:', hrDataPoints.length, 'BP sys:', bpDataPoints.sys.length, 'BP dia:', bpDataPoints.dia.length, 'SpO2:', spo2DataPoints.length);
+            
+            if (nearestPoint) {
+              console.log('[Edit Mode] Selecting point:', nearestPoint);
+              setSelectedPoint(nearestPoint);
+              // Immediately update the ref so document-level touchmove handler can track this selection
+              selectedPointRef.current = nearestPoint;
+            } else {
+              console.log('[Edit Mode] No point found within threshold');
+            }
+            
+            setTimeout(() => setIsProcessingClick(false), 100);
+          }}
           onClick={(e) => {
             if (isProcessingClick || activeToolMode === 'edit') return;
             
