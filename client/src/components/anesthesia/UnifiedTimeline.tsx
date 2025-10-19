@@ -485,6 +485,11 @@ export function UnifiedTimeline({
     ANESTHESIA_TIME_MARKERS.map(marker => ({ ...marker, time: null }))
   );
   const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
+  const [editingTimeMarker, setEditingTimeMarker] = useState<{
+    index: number;
+    marker: AnesthesiaTimeMarker;
+  } | null>(null);
+  const [timeMarkerEditDialogOpen, setTimeMarkerEditDialogOpen] = useState(false);
 
   // State for AI-extracted data confirmation
   const [extractedData, setExtractedData] = useState<any>(null);
@@ -1013,47 +1018,70 @@ export function UnifiedTimeline({
     setEditingValue(null);
   };
 
-  // Handle clicking on Zeiten swimlane to place next time marker
+  // Handle clicking on Zeiten swimlane to place next time marker or edit existing
   const handleZeitenClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     
-    // Find next unplaced marker
-    const nextMarkerIndex = timeMarkers.findIndex(m => m.time === null);
-    if (nextMarkerIndex === -1) {
-      // Toast notification disabled (can be re-enabled later)
-      // toast({
-      //   title: "All markers placed",
-      //   description: "All anesthesia time markers have been placed. Use the clock icon to edit times.",
-      //   duration: 3000,
-      // });
-      return;
-    }
-    
-    // Use tracked zoom state (updated by dataZoom event listener)
+    // Use tracked zoom state
     const visibleStart = currentZoomStart ?? data.startTime;
     const visibleEnd = currentZoomEnd ?? data.endTime;
     const visibleRange = visibleEnd - visibleStart;
     
     // Convert x-position to time
     const xPercent = x / rect.width;
-    let time = visibleStart + (xPercent * visibleRange);
+    let clickTime = visibleStart + (xPercent * visibleRange);
+    
+    // Check if clicking on an existing marker (within 20px tolerance)
+    const clickTolerance = 20; // pixels
+    const timeTolerance = (clickTolerance / rect.width) * visibleRange;
+    
+    for (let i = 0; i < timeMarkers.length; i++) {
+      const marker = timeMarkers[i];
+      if (marker.time !== null && Math.abs(clickTime - marker.time) < timeTolerance) {
+        // Clicking on existing marker - open edit dialog
+        setEditingTimeMarker({ index: i, marker });
+        setTimeMarkerEditDialogOpen(true);
+        return;
+      }
+    }
+    
+    // Not clicking on existing marker - place next marker
+    const nextMarkerIndex = timeMarkers.findIndex(m => m.time === null);
+    if (nextMarkerIndex === -1) {
+      return;
+    }
     
     // Always snap to 1-minute intervals for time markers
     const oneMinute = 60 * 1000;
-    time = Math.round(time / oneMinute) * oneMinute;
+    const time = Math.round(clickTime / oneMinute) * oneMinute;
     
     // Update the marker with the time
     const updated = [...timeMarkers];
     updated[nextMarkerIndex] = { ...updated[nextMarkerIndex], time };
     setTimeMarkers(updated);
+  };
+
+  // Handle updating time marker time
+  const handleUpdateTimeMarker = (newTime: number) => {
+    if (!editingTimeMarker) return;
     
-    // Toast notification disabled (can be re-enabled later)
-    // toast({
-    //   title: `${updated[nextMarkerIndex].code} placed`,
-    //   description: `${updated[nextMarkerIndex].label} at ${new Date(time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
-    //   duration: 2000,
-    // });
+    const updated = [...timeMarkers];
+    updated[editingTimeMarker.index] = { ...updated[editingTimeMarker.index], time: newTime };
+    setTimeMarkers(updated);
+    setTimeMarkerEditDialogOpen(false);
+    setEditingTimeMarker(null);
+  };
+
+  // Handle deleting time marker
+  const handleDeleteTimeMarker = () => {
+    if (!editingTimeMarker) return;
+    
+    const updated = [...timeMarkers];
+    updated[editingTimeMarker.index] = { ...updated[editingTimeMarker.index], time: null };
+    setTimeMarkers(updated);
+    setTimeMarkerEditDialogOpen(false);
+    setEditingTimeMarker(null);
   };
 
   // Undo last vital entry
@@ -6407,6 +6435,96 @@ export function UnifiedTimeline({
               Save
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Single Time Marker Dialog */}
+      <Dialog open={timeMarkerEditDialogOpen} onOpenChange={setTimeMarkerEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-edit-time-marker">
+          <DialogHeader>
+            <DialogTitle>Edit Time Marker</DialogTitle>
+          </DialogHeader>
+          {editingTimeMarker && (
+            <div className="grid gap-4 py-4">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-12 h-12 rounded flex items-center justify-center text-sm font-bold shadow-md"
+                  style={{
+                    backgroundColor: editingTimeMarker.marker.bgColor,
+                    color: editingTimeMarker.marker.color,
+                  }}
+                >
+                  {editingTimeMarker.marker.code}
+                </div>
+                <div>
+                  <div className="font-medium">{editingTimeMarker.marker.label}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {editingTimeMarker.marker.time 
+                      ? new Date(editingTimeMarker.marker.time).toLocaleTimeString('en-US', { 
+                          hour: '2-digit', 
+                          minute: '2-digit',
+                          second: '2-digit'
+                        })
+                      : 'Not set'}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="edit-marker-time">Time</Label>
+                <Input
+                  id="edit-marker-time"
+                  type="time"
+                  value={editingTimeMarker.marker.time 
+                    ? new Date(editingTimeMarker.marker.time).toLocaleTimeString('en-US', { 
+                        hour: '2-digit', 
+                        minute: '2-digit', 
+                        hour12: false 
+                      })
+                    : ''}
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    const [hours, minutes] = e.target.value.split(':').map(Number);
+                    const date = new Date(editingTimeMarker.marker.time || Date.now());
+                    date.setHours(hours, minutes, 0, 0);
+                    handleUpdateTimeMarker(date.getTime());
+                  }}
+                  data-testid="input-edit-marker-time"
+                />
+              </div>
+
+              <div className="flex justify-between gap-2 pt-4">
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteTimeMarker}
+                  data-testid="button-delete-marker"
+                >
+                  Delete
+                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setTimeMarkerEditDialogOpen(false);
+                      setEditingTimeMarker(null);
+                    }}
+                    data-testid="button-cancel-marker-edit"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setTimeMarkerEditDialogOpen(false);
+                      setEditingTimeMarker(null);
+                    }}
+                    data-testid="button-save-marker-edit"
+                  >
+                    Done
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
