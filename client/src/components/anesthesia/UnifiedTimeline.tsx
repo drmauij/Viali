@@ -5543,6 +5543,22 @@ export function UnifiedTimeline({
         data-testid="now-line-indicator"
       />
 
+      {/* NOW time label at the top of the grid */}
+      <div
+        className="absolute z-40 pointer-events-none"
+        style={{
+          left: nowLinePosition,
+          top: '8px',
+          transform: 'translateX(-50%)',
+          transition: 'left 0.3s ease-out',
+        }}
+        data-testid="now-time-label"
+      >
+        <div className="px-2 py-0.5 rounded text-xs font-semibold bg-red-600 text-white dark:bg-red-500 shadow-sm whitespace-nowrap">
+          {new Date(currentTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+        </div>
+      </div>
+
       {/* Heart Rhythm values as DOM overlays */}
       {heartRhythmData.map(([timestamp, rhythm], index) => {
         const rhythmLane = swimlanePositions.find(lane => lane.id === 'herzrhythmus');
