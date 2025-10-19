@@ -2236,7 +2236,7 @@ export function UnifiedTimeline({
         },
       },
     } as echarts.EChartsOption;
-  }, [data, isDark, activeSwimlanes, now, hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, medicationDoseData, medications, zoomPercent, pendingSysValue, bpEntryMode, currentTime, collapsedSwimlanes]);
+  }, [data, isDark, activeSwimlanes, now, hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, medicationDoseData, medications, zoomPercent, pendingSysValue, bpEntryMode, currentTime, collapsedSwimlanes, dragPosition, selectedPoint]);
 
   // Calculate component height
   const VITALS_HEIGHT = 340;
