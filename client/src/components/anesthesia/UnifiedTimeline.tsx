@@ -3742,7 +3742,15 @@ export function UnifiedTimeline({
               // SpO2 scale: 45 to 105
               const minVal = 45;
               const maxVal = 105;
-              value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+              const rawValue = maxVal - (yPercent * (maxVal - minVal));
+              
+              // No-snapping zone for high oxygenation values (>= 95%)
+              // This preserves exact cursor position for clinically important high SpO2 values
+              if (rawValue >= 95) {
+                value = rawValue; // No snapping - preserve exact value
+              } else {
+                value = Math.round(rawValue); // Round to nearest integer for lower values
+              }
             } else {
               return; // No active tool mode
             }
@@ -3781,7 +3789,15 @@ export function UnifiedTimeline({
               } else if (activeToolMode === 'spo2') {
                 const minVal = 45;
                 const maxVal = 105;
-                value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+                const rawValue = maxVal - (yPercent * (maxVal - minVal));
+                
+                // No-snapping zone for high oxygenation values (>= 95%)
+                // This preserves exact cursor position for clinically important high SpO2 values
+                if (rawValue >= 95) {
+                  value = rawValue; // No snapping - preserve exact value
+                } else {
+                  value = Math.round(rawValue); // Round to nearest integer for lower values
+                }
               } else {
                 setIsProcessingClick(false);
                 return;
