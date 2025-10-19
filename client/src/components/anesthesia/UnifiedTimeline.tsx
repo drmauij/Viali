@@ -1645,6 +1645,7 @@ export function UnifiedTimeline({
     
     // Sort vitals data chronologically to prevent zigzag lines when backfilling
     // Also filter out the point being dragged so it doesn't show in both old and new positions
+    // Use selectedPoint state for the filter (updated synchronously with dragPosition during drag)
     const sortedHrData = [...hrDataPoints]
       .filter((_, idx) => !(selectedPoint?.type === 'hr' && idx === selectedPoint?.index))
       .sort((a, b) => a[0] - b[0]);
@@ -2056,6 +2057,11 @@ export function UnifiedTimeline({
     if (dragPosition && selectedPoint) {
       const previewPoint: VitalPoint = [dragPosition.time, dragPosition.value];
       const yAxisIdx = selectedPoint.type === 'spo2' ? 1 : 0;
+      
+      // Debug: Verify filter is working
+      if (selectedPoint.type === 'hr') {
+        console.log('[Drag] HR filter check - Total points:', hrDataPoints.length, 'After filter:', sortedHrData.length, 'Selected index:', selectedPoint.index);
+      }
       
       // Determine color and icon based on point type
       if (selectedPoint.type === 'hr') {
