@@ -518,6 +518,11 @@ export function UnifiedTimeline({
       const currentSelected = selectedPointRef.current;
       if (!currentSelected) return;
       
+      // Prevent default scroll behavior during touch drag
+      if ('touches' in e) {
+        e.preventDefault();
+      }
+      
       console.log('[Edit Mode] Document mousemove - tracking drag for:', currentSelected.type);
       
       // Get bounding rect of the vitals interactive area
@@ -3942,6 +3947,9 @@ export function UnifiedTimeline({
           onMouseDown={(e) => {
             console.log('[Edit Mode] onMouseDown called, activeToolMode:', activeToolMode, 'isProcessingClick:', isProcessingClick);
             if (activeToolMode !== 'edit' || isProcessingClick) return;
+            
+            // Prevent default touch behavior to stop page scrolling during drag
+            e.preventDefault();
             
             setIsProcessingClick(true);
             console.log('[Edit Mode] Processing click in edit mode');
