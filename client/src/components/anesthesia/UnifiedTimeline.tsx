@@ -389,6 +389,12 @@ export function UnifiedTimeline({
   });
   const [outputBulkHoverInfo, setOutputBulkHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
   
+  // State for output value add dialog (single value)
+  const [showOutputDialog, setShowOutputDialog] = useState(false);
+  const [pendingOutputValue, setPendingOutputValue] = useState<{ paramKey: keyof typeof outputData; time: number; label: string } | null>(null);
+  const [outputValueInput, setOutputValueInput] = useState("");
+  const [outputHoverInfo, setOutputHoverInfo] = useState<{ x: number; y: number; time: number; paramKey: keyof typeof outputData; label: string } | null>(null);
+  
   // State for output value edit dialog
   const [showOutputEditDialog, setShowOutputEditDialog] = useState(false);
   const [editingOutputValue, setEditingOutputValue] = useState<{ paramKey: keyof typeof outputData; time: number; value: string; index: number; label: string } | null>(null);
@@ -2925,6 +2931,36 @@ export function UnifiedTimeline({
     setInfusionEditInput("");
   };
 
+  // Handle output value entry (single parameter)
+  const handleOutputValueEntry = () => {
+    if (!pendingOutputValue || !outputValueInput.trim()) return;
+    
+    const { paramKey, time, label } = pendingOutputValue;
+    const value = parseFloat(outputValueInput.trim());
+    
+    if (isNaN(value)) {
+      toast({
+        title: "Invalid value",
+        description: "Please enter a valid number",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setOutputData(prev => {
+      const existingData = prev[paramKey] || [];
+      return {
+        ...prev,
+        [paramKey]: [...existingData, [time, value] as VitalPoint]
+      };
+    });
+    
+    // Reset dialog state
+    setShowOutputDialog(false);
+    setPendingOutputValue(null);
+    setOutputValueInput("");
+  };
+
   // Handle ventilation value edit save
   const handleVentilationValueEditSave = () => {
     if (!editingVentilationValue || !ventilationEditInput.trim()) return;
@@ -4535,6 +4571,36 @@ export function UnifiedTimeline({
         );
       })()}
 
+      {/* Tooltip for output value entry */}
+      {outputHoverInfo && !isTouchDevice && (() => {
+        // Check if there's an existing value at the hover position
+        const existingValues = outputData[outputHoverInfo.paramKey] || [];
+        const clickTolerance = currentVitalsSnapInterval;
+        const hasExistingValue = existingValues.some(([valueTime]) => 
+          Math.abs(valueTime - outputHoverInfo.time) <= clickTolerance
+        );
+        
+        return (
+          <div
+            className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
+            style={{
+              left: outputHoverInfo.x + 10,
+              top: outputHoverInfo.y - 40,
+            }}
+          >
+            <div className="text-sm font-semibold text-primary">
+              {hasExistingValue ? 'Click to edit value' : 'Click to add value'}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {outputHoverInfo.label}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {new Date(outputHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Interactive layer for Ventilation parent swimlane - for bulk entry */}
       {!activeToolMode && (() => {
         const ventilationParentLane = swimlanePositions.find(lane => lane.id === 'ventilation');
@@ -4863,13 +4929,15 @@ export function UnifiedTimeline({
                   Math.abs(valueTime - time) <= clickTolerance
                 );
                 
-                setOutputBulkHoverInfo({ 
+                setOutputHoverInfo({ 
                   x: e.clientX, 
                   y: e.clientY, 
-                  time
+                  time,
+                  paramKey: paramInfo.key,
+                  label: paramInfo.label
                 });
               }}
-              onMouseLeave={() => setOutputBulkHoverInfo(null)}
+              onMouseLeave={() => setOutputHoverInfo(null)}
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const x = e.clientX - rect.left;
@@ -4906,18 +4974,14 @@ export function UnifiedTimeline({
                   setOutputEditTime(new Date(valueTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
                   setShowOutputEditDialog(true);
                 } else {
-                  // Open add new value dialog (using bulk dialog with single parameter)
-                  setPendingOutputBulk({ time });
-                  setBulkOutputParams({
-                    gastricTube: "",
-                    drainage: "",
-                    vomit: "",
-                    urine: "",
-                    urine677: "",
-                    blood: "",
-                    bloodIrrigation: "",
+                  // Open add single value dialog
+                  setPendingOutputValue({
+                    paramKey: paramInfo.key,
+                    time,
+                    label: paramInfo.label
                   });
-                  setShowOutputBulkDialog(true);
+                  setOutputValueInput("");
+                  setShowOutputDialog(true);
                 }
               }}
               data-testid={`interactive-output-lane-${lane.id}`}
@@ -5686,6 +5750,61 @@ export function UnifiedTimeline({
                 Save
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Output Value Entry Dialog */}
+      <Dialog open={showOutputDialog} onOpenChange={setShowOutputDialog}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-output-value">
+          <DialogHeader>
+            <DialogTitle>Add Output Value</DialogTitle>
+            <DialogDescription>
+              {pendingOutputValue 
+                ? `${pendingOutputValue.label} at ${new Date(pendingOutputValue.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                : 'Add a new output value'
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="output-value">Volume (ml)</Label>
+              <Input
+                id="output-value"
+                data-testid="input-output-value"
+                type="number"
+                step="1"
+                value={outputValueInput}
+                onChange={(e) => setOutputValueInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleOutputValueEntry();
+                  }
+                }}
+                placeholder="e.g., 50, 100, 200"
+                autoFocus
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowOutputDialog(false);
+                setPendingOutputValue(null);
+                setOutputValueInput("");
+              }}
+              data-testid="button-cancel-output"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleOutputValueEntry}
+              data-testid="button-confirm-output"
+              disabled={!outputValueInput.trim()}
+            >
+              Add
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
