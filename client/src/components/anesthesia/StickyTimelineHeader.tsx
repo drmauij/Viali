@@ -172,20 +172,20 @@ export function StickyTimelineHeader({
       toast({
         title: "🎤 Recording...",
         description: "Release button to process voice command",
-        duration: 10000, // Will auto-dismiss if user holds for 10 seconds
+        duration: 30000, // Will auto-dismiss if user holds for 30 seconds
       });
       
-      // Safety timeout: Auto-stop after 10 seconds (in case button doesn't release)
+      // Safety timeout: Auto-stop after 30 seconds (in case button doesn't release)
       recordingTimeoutRef.current = setTimeout(() => {
         if (mediaRecorderRef.current?.state === 'recording') {
           stopRecording();
           toast({
             title: "Recording stopped",
-            description: "Maximum recording time (10s) reached",
+            description: "Maximum recording time (30s) reached",
             variant: "default",
           });
         }
-      }, 10000);
+      }, 30000);
     } catch (error) {
       console.error('Error accessing microphone:', error);
       toast({
@@ -270,6 +270,11 @@ export function StickyTimelineHeader({
     const handleEnd = () => {
       dragRef.current.isDragging = false;
       dragRefMedia.current.isDragging = false;
+      
+      // Stop recording if active (handles case where mouse/touch is released outside button)
+      if (mediaRecorderRef.current?.state === 'recording') {
+        stopRecording();
+      }
     };
 
     document.addEventListener('mousemove', handleMove);
@@ -512,6 +517,12 @@ export function StickyTimelineHeader({
           }}
           onTouchEnd={(e) => {
             e.stopPropagation();
+            if (isRecording) {
+              stopRecording();
+            }
+          }}
+          onTouchCancel={(e) => {
+            // Stop recording if touch is cancelled (e.g., interrupted by system gesture)
             if (isRecording) {
               stopRecording();
             }
