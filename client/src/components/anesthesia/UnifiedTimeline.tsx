@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
+import { TimeAdjustInput } from "./TimeAdjustInput";
 
 /**
  * UnifiedTimeline - Refactored for robustness and flexibility
@@ -6377,24 +6378,24 @@ export function UnifiedTimeline({
                   {marker.code}
                 </div>
                 <div className="grid gap-1">
-                  <Label htmlFor={`time-${marker.id}`} className="text-sm font-medium">
+                  <Label className="text-sm font-medium">
                     {marker.label}
                   </Label>
-                  <Input
-                    id={`time-${marker.id}`}
-                    type="time"
-                    value={marker.time ? new Date(marker.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }) : ''}
-                    onChange={(e) => {
-                      if (!e.target.value) return;
-                      const [hours, minutes] = e.target.value.split(':').map(Number);
-                      const date = new Date(marker.time || Date.now());
-                      date.setHours(hours, minutes, 0, 0);
-                      const updated = [...timeMarkers];
-                      updated[index] = { ...updated[index], time: date.getTime() };
-                      setTimeMarkers(updated);
-                    }}
-                    data-testid={`input-time-${marker.code}`}
-                  />
+                  {marker.time !== null ? (
+                    <TimeAdjustInput
+                      value={marker.time}
+                      onChange={(newTime) => {
+                        const updated = [...timeMarkers];
+                        updated[index] = { ...updated[index], time: newTime };
+                        setTimeMarkers(updated);
+                      }}
+                      data-testid={`input-time-${marker.code}`}
+                    />
+                  ) : (
+                    <div className="text-sm text-muted-foreground italic py-2">
+                      Not set - click on Times lane to place
+                    </div>
+                  )}
                 </div>
                 <Button
                   variant="ghost"
@@ -6471,24 +6472,10 @@ export function UnifiedTimeline({
               </div>
               
               <div className="grid gap-2">
-                <Label htmlFor="edit-marker-time">Time</Label>
-                <Input
-                  id="edit-marker-time"
-                  type="time"
-                  value={editingTimeMarker.marker.time 
-                    ? new Date(editingTimeMarker.marker.time).toLocaleTimeString('en-US', { 
-                        hour: '2-digit', 
-                        minute: '2-digit', 
-                        hour12: false 
-                      })
-                    : ''}
-                  onChange={(e) => {
-                    if (!e.target.value) return;
-                    const [hours, minutes] = e.target.value.split(':').map(Number);
-                    const date = new Date(editingTimeMarker.marker.time || Date.now());
-                    date.setHours(hours, minutes, 0, 0);
-                    handleUpdateTimeMarker(date.getTime());
-                  }}
+                <Label>Time</Label>
+                <TimeAdjustInput
+                  value={editingTimeMarker.marker.time || Date.now()}
+                  onChange={handleUpdateTimeMarker}
                   data-testid="input-edit-marker-time"
                 />
               </div>
@@ -7674,10 +7661,7 @@ function EditValueForm({
   onCancel: () => void;
 }) {
   const [value, setValue] = useState(initialValue.toString());
-  const [timeStr, setTimeStr] = useState(() => {
-    const date = new Date(initialTime);
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-  });
+  const [time, setTime] = useState(initialTime);
 
   const getLabel = () => {
     if (type === 'hr') return 'Heart Rate (bpm)';
@@ -7689,13 +7673,7 @@ function EditValueForm({
   const handleSave = () => {
     const numValue = parseInt(value);
     if (isNaN(numValue)) return;
-
-    // Parse time string (HH:MM) and combine with original date
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    const date = new Date(initialTime);
-    date.setHours(hours, minutes, 0, 0);
-
-    onSave(numValue, date.getTime());
+    onSave(numValue, time);
   };
 
   return (
@@ -7711,12 +7689,10 @@ function EditValueForm({
         />
       </div>
       <div className="grid gap-2">
-        <Label htmlFor="edit-time">Time (HH:MM)</Label>
-        <Input
-          id="edit-time"
-          type="time"
-          value={timeStr}
-          onChange={(e) => setTimeStr(e.target.value)}
+        <Label>Time</Label>
+        <TimeAdjustInput
+          value={time}
+          onChange={setTime}
           data-testid="input-edit-time"
         />
       </div>
