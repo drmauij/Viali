@@ -6693,7 +6693,7 @@ export function UnifiedTimeline({
             </div>
           </div>
           <DialogFooterWithTime
-            time={editingEvent ? eventEditTime : undefined}
+            time={editingEvent ? eventEditTime : pendingEvent?.time}
             onTimeChange={editingEvent ? setEventEditTime : undefined}
             showDelete={!!editingEvent}
             onDelete={editingEvent ? handleEventDelete : undefined}
@@ -6905,7 +6905,7 @@ export function UnifiedTimeline({
           </div>
           {(editingHeartRhythm || (heartRhythmInput && !['SR', 'SVES', 'VES', 'VHF', 'Vorhofflattern', 'Schrittmacher', 'AV Block III', 'Kammerflimmern', 'Torsade de pointes', 'Defibrillator'].includes(heartRhythmInput))) && (
             <DialogFooterWithTime
-              time={editingHeartRhythm ? heartRhythmEditTime : undefined}
+              time={editingHeartRhythm ? heartRhythmEditTime : pendingHeartRhythm?.time}
               onTimeChange={editingHeartRhythm ? setHeartRhythmEditTime : undefined}
               showDelete={!!editingHeartRhythm}
               onDelete={editingHeartRhythm ? handleHeartRhythmDelete : undefined}
@@ -6955,7 +6955,7 @@ export function UnifiedTimeline({
             </div>
           </div>
           <DialogFooterWithTime
-            time={editingStaff ? staffEditTime : undefined}
+            time={editingStaff ? staffEditTime : pendingStaff?.time}
             onTimeChange={editingStaff ? setStaffEditTime : undefined}
             showDelete={!!editingStaff}
             onDelete={editingStaff ? handleStaffDelete : undefined}
@@ -6967,6 +6967,7 @@ export function UnifiedTimeline({
             }}
             onSave={handleStaffSave}
             saveDisabled={!staffInput.trim()}
+            saveLabel={editingStaff ? 'Save' : 'Add'}
           />
         </DialogContent>
       </Dialog>
@@ -7039,7 +7040,7 @@ export function UnifiedTimeline({
           </div>
           {(editingPosition || (positionInput && !['Supine', 'Prone', 'Left Side', 'Right Side', 'Beach Chair', 'Lithotomy', 'Head Up', 'Head Down', 'Sitting for SPA/PDA', 'Other'].includes(positionInput))) && (
             <DialogFooterWithTime
-              time={editingPosition ? positionEditTime : undefined}
+              time={editingPosition ? positionEditTime : pendingPosition?.time}
               onTimeChange={editingPosition ? setPositionEditTime : undefined}
               showDelete={!!editingPosition}
               onDelete={editingPosition ? handlePositionDelete : undefined}
