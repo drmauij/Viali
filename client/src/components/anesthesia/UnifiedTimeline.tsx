@@ -346,6 +346,7 @@ export function UnifiedTimeline({
   const [pendingEvent, setPendingEvent] = useState<{ time: number } | null>(null);
   const [editingEvent, setEditingEvent] = useState<EventComment | null>(null);
   const [eventTextInput, setEventTextInput] = useState("");
+  const [eventEditTime, setEventEditTime] = useState<number>(Date.now());
   const [eventHoverInfo, setEventHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
 
   // State for medication dose edit dialog
@@ -3041,9 +3042,9 @@ export function UnifiedTimeline({
     if (!eventTextInput.trim()) return;
     
     if (editingEvent) {
-      // Edit existing event
+      // Edit existing event - use edited time
       setEventComments(prev => 
-        prev.map(ev => ev.id === editingEvent.id ? { ...ev, text: eventTextInput.trim() } : ev)
+        prev.map(ev => ev.id === editingEvent.id ? { ...ev, text: eventTextInput.trim(), time: eventEditTime } : ev)
       );
     } else if (pendingEvent) {
       // Add new event
@@ -5528,6 +5529,7 @@ export function UnifiedTimeline({
             onClick={() => {
               setEditingEvent(event);
               setEventTextInput(event.text);
+              setEventEditTime(event.time);
               setShowEventDialog(true);
             }}
             title={event.text}
@@ -6705,7 +6707,7 @@ export function UnifiedTimeline({
             <DialogTitle>{editingEvent ? 'Edit Event' : 'Add Event'}</DialogTitle>
             <DialogDescription>
               {editingEvent 
-                ? `Edit or delete the event at ${new Date(editingEvent.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                ? 'Edit or delete the event comment'
                 : pendingEvent 
                   ? `Add an event at ${new Date(pendingEvent.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
                   : 'Add an event to the timeline'
@@ -6726,39 +6728,21 @@ export function UnifiedTimeline({
               />
             </div>
           </div>
-          <div className="flex justify-between gap-2">
-            {editingEvent && (
-              <Button
-                variant="destructive"
-                onClick={handleEventDelete}
-                data-testid="button-delete-event"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </Button>
-            )}
-            <div className="flex gap-2 ml-auto">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowEventDialog(false);
-                  setPendingEvent(null);
-                  setEditingEvent(null);
-                  setEventTextInput("");
-                }}
-                data-testid="button-cancel-event"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleEventSave}
-                data-testid="button-save-event"
-                disabled={!eventTextInput.trim()}
-              >
-                {editingEvent ? 'Save' : 'Add'}
-              </Button>
-            </div>
-          </div>
+          <DialogFooterWithTime
+            time={editingEvent ? eventEditTime : undefined}
+            onTimeChange={editingEvent ? setEventEditTime : undefined}
+            showDelete={!!editingEvent}
+            onDelete={editingEvent ? handleEventDelete : undefined}
+            onCancel={() => {
+              setShowEventDialog(false);
+              setPendingEvent(null);
+              setEditingEvent(null);
+              setEventTextInput("");
+            }}
+            onSave={handleEventSave}
+            saveDisabled={!eventTextInput.trim()}
+            saveLabel={editingEvent ? 'Save' : 'Add'}
+          />
         </DialogContent>
       </Dialog>
 
@@ -7701,6 +7685,78 @@ function EditValueForm({
             Save
           </Button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Dialog Footer Component with Time Navigation (matches screenshot design)
+// Bottom-left: Time with arrows, Middle: Delete icon button, Right: Cancel & Save buttons
+function DialogFooterWithTime({
+  time,
+  onTimeChange,
+  onDelete,
+  onCancel,
+  onSave,
+  showDelete = false,
+  saveDisabled = false,
+  saveLabel = 'Save',
+  cancelLabel = 'Cancel',
+}: {
+  time?: number;
+  onTimeChange?: (newTime: number) => void;
+  onDelete?: () => void;
+  onCancel: () => void;
+  onSave: () => void;
+  showDelete?: boolean;
+  saveDisabled?: boolean;
+  saveLabel?: string;
+  cancelLabel?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 pt-4">
+      {/* Left: Time navigation (compact) */}
+      <div className="flex items-center gap-1">
+        {time !== undefined && onTimeChange && (
+          <TimeAdjustInput
+            value={time}
+            onChange={onTimeChange}
+            data-testid="footer-time-input"
+          />
+        )}
+      </div>
+      
+      {/* Middle-left: Delete button (icon-only) */}
+      <div className="flex items-center gap-2">
+        {showDelete && onDelete && (
+          <Button
+            variant="destructive"
+            size="icon"
+            onClick={onDelete}
+            data-testid="button-delete"
+            className="h-9 w-9"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        )}
+      </div>
+      
+      {/* Right: Cancel and Save buttons */}
+      <div className="flex gap-2 ml-auto">
+        <Button
+          variant="outline"
+          onClick={onCancel}
+          data-testid="button-cancel"
+        >
+          {cancelLabel}
+        </Button>
+        <Button
+          onClick={onSave}
+          data-testid="button-save"
+          disabled={saveDisabled}
+        >
+          {saveLabel}
+        </Button>
       </div>
     </div>
   );
