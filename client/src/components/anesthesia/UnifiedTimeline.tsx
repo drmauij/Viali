@@ -6128,26 +6128,19 @@ export function UnifiedTimeline({
               />
             </div>
           </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowMedicationDoseDialog(false);
-                setPendingMedicationDose(null);
-                setMedicationDoseInput("");
-              }}
-              data-testid="button-cancel-dose"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleMedicationDoseEntry}
-              data-testid="button-confirm-dose"
-              disabled={!medicationDoseInput.trim()}
-            >
-              Add
-            </Button>
-          </div>
+          <DialogFooterWithTime
+            time={pendingMedicationDose?.time}
+            onTimeChange={undefined}
+            showDelete={false}
+            onCancel={() => {
+              setShowMedicationDoseDialog(false);
+              setPendingMedicationDose(null);
+              setMedicationDoseInput("");
+            }}
+            onSave={handleMedicationDoseEntry}
+            saveDisabled={!medicationDoseInput.trim()}
+            saveLabel="Add"
+          />
         </DialogContent>
       </Dialog>
 
@@ -6181,26 +6174,19 @@ export function UnifiedTimeline({
               />
             </div>
           </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowInfusionDialog(false);
-                setPendingInfusionValue(null);
-                setInfusionInput("");
-              }}
-              data-testid="button-cancel-infusion"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleInfusionValueEntry}
-              data-testid="button-confirm-infusion"
-              disabled={!infusionInput.trim()}
-            >
-              Add
-            </Button>
-          </div>
+          <DialogFooterWithTime
+            time={pendingInfusionValue?.time}
+            onTimeChange={undefined}
+            showDelete={false}
+            onCancel={() => {
+              setShowInfusionDialog(false);
+              setPendingInfusionValue(null);
+              setInfusionInput("");
+            }}
+            onSave={handleInfusionValueEntry}
+            saveDisabled={!infusionInput.trim()}
+            saveLabel="Add"
+          />
         </DialogContent>
       </Dialog>
 
@@ -6283,26 +6269,19 @@ export function UnifiedTimeline({
               />
             </div>
           </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowOutputDialog(false);
-                setPendingOutputValue(null);
-                setOutputValueInput("");
-              }}
-              data-testid="button-cancel-output"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleOutputValueEntry}
-              data-testid="button-confirm-output"
-              disabled={!outputValueInput.trim()}
-            >
-              Add
-            </Button>
-          </div>
+          <DialogFooterWithTime
+            time={pendingOutputValue?.time}
+            onTimeChange={undefined}
+            showDelete={false}
+            onCancel={() => {
+              setShowOutputDialog(false);
+              setPendingOutputValue(null);
+              setOutputValueInput("");
+            }}
+            onSave={handleOutputValueEntry}
+            saveDisabled={!outputValueInput.trim()}
+            saveLabel="Add"
+          />
         </DialogContent>
       </Dialog>
 
@@ -6338,26 +6317,19 @@ export function UnifiedTimeline({
               />
             </div>
           </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowVentilationDialog(false);
-                setPendingVentilationValue(null);
-                setVentilationValueInput("");
-              }}
-              data-testid="button-cancel-ventilation"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleVentilationParameterEntry}
-              data-testid="button-confirm-ventilation"
-              disabled={!ventilationValueInput.trim()}
-            >
-              Add
-            </Button>
-          </div>
+          <DialogFooterWithTime
+            time={pendingVentilationValue?.time}
+            onTimeChange={undefined}
+            showDelete={false}
+            onCancel={() => {
+              setShowVentilationDialog(false);
+              setPendingVentilationValue(null);
+              setVentilationValueInput("");
+            }}
+            onSave={handleVentilationParameterEntry}
+            saveDisabled={!ventilationValueInput.trim()}
+            saveLabel="Add"
+          />
         </DialogContent>
       </Dialog>
 
@@ -6493,46 +6465,25 @@ export function UnifiedTimeline({
                   </div>
                 </div>
               </div>
-              
-              <div className="grid gap-2">
-                <Label>Time</Label>
-                <TimeAdjustInput
-                  value={editingTimeMarker.marker.time || Date.now()}
-                  onChange={handleUpdateTimeMarker}
-                  data-testid="input-edit-marker-time"
-                />
-              </div>
-
-              <div className="flex justify-between gap-2 pt-4">
-                <Button
-                  variant="destructive"
-                  onClick={handleDeleteTimeMarker}
-                  data-testid="button-delete-marker"
-                >
-                  Delete
-                </Button>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setTimeMarkerEditDialogOpen(false);
-                      setEditingTimeMarker(null);
-                    }}
-                    data-testid="button-cancel-marker-edit"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setTimeMarkerEditDialogOpen(false);
-                      setEditingTimeMarker(null);
-                    }}
-                    data-testid="button-save-marker-edit"
-                  >
-                    Done
-                  </Button>
-                </div>
-              </div>
+            </div>
+          )}
+          <DialogFooterWithTime
+            time={editingTimeMarker?.marker.time || Date.now()}
+            onTimeChange={handleUpdateTimeMarker}
+            showDelete={true}
+            onDelete={handleDeleteTimeMarker}
+            onCancel={() => {
+              setTimeMarkerEditDialogOpen(false);
+              setEditingTimeMarker(null);
+            }}
+            onSave={() => {
+              setTimeMarkerEditDialogOpen(false);
+              setEditingTimeMarker(null);
+            }}
+            saveLabel="Done"
+          />
+          {editingTimeMarker && (
+            <div style={{ display: 'none' }}>
             </div>
           )}
         </DialogContent>
@@ -7234,24 +7185,17 @@ export function UnifiedTimeline({
               </div>
             </div>
           </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowVentilationBulkDialog(false);
-                setPendingVentilationBulk(null);
-              }}
-              data-testid="button-cancel-vent-bulk"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleVentilationBulkSave}
-              data-testid="button-save-vent-bulk"
-            >
-              Add All
-            </Button>
-          </div>
+          <DialogFooterWithTime
+            time={pendingVentilationBulk?.time}
+            onTimeChange={undefined}
+            showDelete={false}
+            onCancel={() => {
+              setShowVentilationBulkDialog(false);
+              setPendingVentilationBulk(null);
+            }}
+            onSave={handleVentilationBulkSave}
+            saveLabel="Add All"
+          />
         </DialogContent>
       </Dialog>
 
@@ -7355,24 +7299,17 @@ export function UnifiedTimeline({
               </div>
             </div>
           </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowOutputBulkDialog(false);
-                setPendingOutputBulk(null);
-              }}
-              data-testid="button-cancel-output-bulk"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleOutputBulkSave}
-              data-testid="button-save-output-bulk"
-            >
-              Add All
-            </Button>
-          </div>
+          <DialogFooterWithTime
+            time={pendingOutputBulk?.time}
+            onTimeChange={undefined}
+            showDelete={false}
+            onCancel={() => {
+              setShowOutputBulkDialog(false);
+              setPendingOutputBulk(null);
+            }}
+            onSave={handleOutputBulkSave}
+            saveLabel="Add All"
+          />
         </DialogContent>
       </Dialog>
 
