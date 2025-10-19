@@ -5503,12 +5503,12 @@ export function UnifiedTimeline({
         data-testid="now-line-indicator"
       />
 
-      {/* NOW time label at the top of the grid */}
+      {/* NOW time label at timeline level */}
       <div
-        className="fixed z-[60] pointer-events-none"
+        className="absolute z-[60] pointer-events-none"
         style={{
           left: nowLinePosition,
-          top: '4px',
+          top: '24px',
           transform: 'translateX(-50%)',
           transition: 'left 0.3s ease-out',
         }}
