@@ -514,6 +514,13 @@ export function UnifiedTimeline({
     const vitalsOverlay = document.querySelector('[data-vitals-overlay="true"]') as HTMLElement;
     if (!vitalsOverlay) return;
     
+    // Prevent scroll on touchstart when in edit mode
+    const handleTouchStart = (e: TouchEvent) => {
+      if (activeToolMode === 'edit') {
+        e.preventDefault();
+      }
+    };
+    
     const handleDocumentMouseMove = (e: MouseEvent | TouchEvent) => {
       const currentSelected = selectedPointRef.current;
       if (!currentSelected) return;
@@ -609,12 +616,15 @@ export function UnifiedTimeline({
     };
     
     // Register stable event listeners only once when edit mode is active
+    // Use { passive: false } to allow preventDefault() to work on touch events
+    vitalsOverlay.addEventListener('touchstart', handleTouchStart, { passive: false });
     document.addEventListener('mousemove', handleDocumentMouseMove);
-    document.addEventListener('touchmove', handleDocumentMouseMove);
+    document.addEventListener('touchmove', handleDocumentMouseMove, { passive: false });
     document.addEventListener('mouseup', handleMouseUp);
     document.addEventListener('touchend', handleMouseUp);
     
     return () => {
+      vitalsOverlay.removeEventListener('touchstart', handleTouchStart);
       document.removeEventListener('mousemove', handleDocumentMouseMove);
       document.removeEventListener('touchmove', handleDocumentMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
