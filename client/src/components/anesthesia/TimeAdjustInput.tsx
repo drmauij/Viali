@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 
 interface TimeAdjustInputProps {
   value: number; // timestamp in milliseconds
-  onChange?: (newTime: number) => void; // optional - when undefined, shows read-only time
+  onChange: (newTime: number) => void;
   step?: number; // step in minutes, default 1
   className?: string;
   'data-testid'?: string;
@@ -24,14 +24,10 @@ export function TimeAdjustInput({
   });
 
   const adjustTime = (minutes: number) => {
-    if (onChange) {
-      const newDate = new Date(value);
-      newDate.setMinutes(newDate.getMinutes() + minutes);
-      onChange(newDate.getTime());
-    }
+    const newDate = new Date(value);
+    newDate.setMinutes(newDate.getMinutes() + minutes);
+    onChange(newDate.getTime());
   };
-
-  const isReadOnly = !onChange;
 
   return (
     <div className={`flex items-center gap-2 ${className}`} data-testid={testId}>
@@ -41,7 +37,6 @@ export function TimeAdjustInput({
         size="icon"
         onClick={() => adjustTime(-step)}
         className="h-9 w-9"
-        disabled={isReadOnly}
         data-testid={`${testId}-decrement`}
       >
         <ChevronLeft className="h-4 w-4" />
@@ -57,7 +52,6 @@ export function TimeAdjustInput({
         size="icon"
         onClick={() => adjustTime(step)}
         className="h-9 w-9"
-        disabled={isReadOnly}
         data-testid={`${testId}-increment`}
       >
         <ChevronRight className="h-4 w-4" />

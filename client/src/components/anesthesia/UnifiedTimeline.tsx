@@ -6088,10 +6088,7 @@ export function UnifiedTimeline({
           <DialogHeader>
             <DialogTitle>Add Dose</DialogTitle>
             <DialogDescription>
-              {pendingMedicationDose 
-                ? `${pendingMedicationDose.label} at ${new Date(pendingMedicationDose.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-                : 'Add a new medication dose'
-              }
+              {pendingMedicationDose ? `${pendingMedicationDose.label}` : 'Add a new medication dose'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -6114,7 +6111,7 @@ export function UnifiedTimeline({
           </div>
           <DialogFooterWithTime
             time={pendingMedicationDose?.time}
-            onTimeChange={undefined}
+            onTimeChange={(newTime) => setPendingMedicationDose(prev => prev ? { ...prev, time: newTime } : null)}
             showDelete={false}
             onCancel={() => {
               setShowMedicationDoseDialog(false);
@@ -6134,10 +6131,7 @@ export function UnifiedTimeline({
           <DialogHeader>
             <DialogTitle>Add Infusion Rate</DialogTitle>
             <DialogDescription>
-              {pendingInfusionValue 
-                ? `${pendingInfusionValue.label} at ${new Date(pendingInfusionValue.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-                : 'Add a new infusion rate value'
-              }
+              {pendingInfusionValue ? `${pendingInfusionValue.label}` : 'Add a new infusion rate value'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -6160,7 +6154,7 @@ export function UnifiedTimeline({
           </div>
           <DialogFooterWithTime
             time={pendingInfusionValue?.time}
-            onTimeChange={undefined}
+            onTimeChange={(newTime) => setPendingInfusionValue(prev => prev ? { ...prev, time: newTime } : null)}
             showDelete={false}
             onCancel={() => {
               setShowInfusionDialog(false);
@@ -6180,10 +6174,7 @@ export function UnifiedTimeline({
           <DialogHeader>
             <DialogTitle>Edit Infusion Rate</DialogTitle>
             <DialogDescription>
-              {editingInfusionValue 
-                ? `Edit or delete the value at ${new Date(editingInfusionValue.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-                : 'Edit infusion rate'
-              }
+              Edit or delete the infusion rate
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -6227,10 +6218,7 @@ export function UnifiedTimeline({
           <DialogHeader>
             <DialogTitle>Add Output Value</DialogTitle>
             <DialogDescription>
-              {pendingOutputValue 
-                ? `${pendingOutputValue.label} at ${new Date(pendingOutputValue.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-                : 'Add a new output value'
-              }
+              {pendingOutputValue ? `${pendingOutputValue.label}` : 'Add a new output value'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -6255,7 +6243,7 @@ export function UnifiedTimeline({
           </div>
           <DialogFooterWithTime
             time={pendingOutputValue?.time}
-            onTimeChange={undefined}
+            onTimeChange={(newTime) => setPendingOutputValue(prev => prev ? { ...prev, time: newTime } : null)}
             showDelete={false}
             onCancel={() => {
               setShowOutputDialog(false);
@@ -6275,10 +6263,7 @@ export function UnifiedTimeline({
           <DialogHeader>
             <DialogTitle>Add Value</DialogTitle>
             <DialogDescription>
-              {pendingVentilationValue 
-                ? `${pendingVentilationValue.label} at ${new Date(pendingVentilationValue.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-                : 'Add a new ventilation parameter value'
-              }
+              {pendingVentilationValue ? `${pendingVentilationValue.label}` : 'Add a new ventilation parameter value'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -6303,7 +6288,7 @@ export function UnifiedTimeline({
           </div>
           <DialogFooterWithTime
             time={pendingVentilationValue?.time}
-            onTimeChange={undefined}
+            onTimeChange={(newTime) => setPendingVentilationValue(prev => prev ? { ...prev, time: newTime } : null)}
             showDelete={false}
             onCancel={() => {
               setShowVentilationDialog(false);
@@ -6670,12 +6655,7 @@ export function UnifiedTimeline({
           <DialogHeader>
             <DialogTitle>{editingEvent ? 'Edit Event' : 'Add Event'}</DialogTitle>
             <DialogDescription>
-              {editingEvent 
-                ? 'Edit or delete the event comment'
-                : pendingEvent 
-                  ? `Add an event at ${new Date(pendingEvent.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-                  : 'Add an event to the timeline'
-              }
+              {editingEvent ? 'Edit or delete the event comment' : 'Add an event to the timeline'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -6694,7 +6674,7 @@ export function UnifiedTimeline({
           </div>
           <DialogFooterWithTime
             time={editingEvent ? eventEditTime : pendingEvent?.time}
-            onTimeChange={editingEvent ? setEventEditTime : undefined}
+            onTimeChange={editingEvent ? setEventEditTime : (newTime) => setPendingEvent(prev => prev ? { ...prev, time: newTime } : null)}
             showDelete={!!editingEvent}
             onDelete={editingEvent ? handleEventDelete : undefined}
             onCancel={() => {
@@ -6759,10 +6739,7 @@ export function UnifiedTimeline({
           <DialogHeader>
             <DialogTitle>Edit {editingVentilationValue?.label}</DialogTitle>
             <DialogDescription>
-              {editingVentilationValue 
-                ? `Edit or delete the value at ${new Date(editingVentilationValue.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-                : 'Edit ventilation value'
-              }
+              Edit or delete the ventilation value
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -6807,10 +6784,7 @@ export function UnifiedTimeline({
           <DialogHeader>
             <DialogTitle>Edit Ventilation Mode</DialogTitle>
             <DialogDescription>
-              {editingVentilationMode 
-                ? `Edit or delete the mode at ${new Date(editingVentilationMode.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-                : 'Edit ventilation mode'
-              }
+              Edit or delete the ventilation mode
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -6853,12 +6827,7 @@ export function UnifiedTimeline({
           <DialogHeader>
             <DialogTitle>Heart Rhythm</DialogTitle>
             <DialogDescription>
-              {editingHeartRhythm 
-                ? `Edit or delete the rhythm at ${new Date(editingHeartRhythm.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-                : pendingHeartRhythm 
-                ? `Select a heart rhythm to add at ${new Date(pendingHeartRhythm.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-                : 'Select a heart rhythm'
-              }
+              {editingHeartRhythm ? 'Edit or delete the rhythm' : 'Select a heart rhythm to add'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
@@ -6896,7 +6865,7 @@ export function UnifiedTimeline({
           </div>
           <DialogFooterWithTime
             time={editingHeartRhythm ? heartRhythmEditTime : pendingHeartRhythm?.time}
-            onTimeChange={editingHeartRhythm ? setHeartRhythmEditTime : undefined}
+            onTimeChange={editingHeartRhythm ? setHeartRhythmEditTime : (newTime) => setPendingHeartRhythm(prev => prev ? { ...prev, time: newTime } : null)}
             showDelete={!!editingHeartRhythm}
             onDelete={editingHeartRhythm ? handleHeartRhythmDelete : undefined}
             onCancel={() => {
@@ -6918,12 +6887,7 @@ export function UnifiedTimeline({
           <DialogHeader>
             <DialogTitle>Staff Entry</DialogTitle>
             <DialogDescription>
-              {editingStaff 
-                ? `Edit or delete the ${editingStaff.role} entry`
-                : pendingStaff 
-                ? `Add ${pendingStaff.role} at ${new Date(pendingStaff.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-                : 'Add staff member to the timeline'
-              }
+              {editingStaff ? `Edit or delete the ${editingStaff.role} entry` : 'Add staff member to the timeline'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -6945,7 +6909,7 @@ export function UnifiedTimeline({
           </div>
           <DialogFooterWithTime
             time={editingStaff ? staffEditTime : pendingStaff?.time}
-            onTimeChange={editingStaff ? setStaffEditTime : undefined}
+            onTimeChange={editingStaff ? setStaffEditTime : (newTime) => setPendingStaff(prev => prev ? { ...prev, time: newTime } : null)}
             showDelete={!!editingStaff}
             onDelete={editingStaff ? handleStaffDelete : undefined}
             onCancel={() => {
@@ -6967,12 +6931,7 @@ export function UnifiedTimeline({
           <DialogHeader>
             <DialogTitle>Patient Position</DialogTitle>
             <DialogDescription>
-              {editingPosition 
-                ? 'Edit or delete the patient position'
-                : pendingPosition 
-                ? `Select a position to add at ${new Date(pendingPosition.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-                : 'Select a patient position'
-              }
+              {editingPosition ? 'Edit or delete the patient position' : 'Select a patient position'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
@@ -7020,7 +6979,7 @@ export function UnifiedTimeline({
           </div>
           <DialogFooterWithTime
             time={editingPosition ? positionEditTime : pendingPosition?.time}
-            onTimeChange={editingPosition ? setPositionEditTime : undefined}
+            onTimeChange={editingPosition ? setPositionEditTime : (newTime) => setPendingPosition(prev => prev ? { ...prev, time: newTime } : null)}
             showDelete={!!editingPosition}
             onDelete={editingPosition ? handlePositionDelete : undefined}
             onCancel={() => {
@@ -7042,10 +7001,7 @@ export function UnifiedTimeline({
           <DialogHeader>
             <DialogTitle>Ventilation Bulk Entry</DialogTitle>
             <DialogDescription>
-              {pendingVentilationBulk 
-                ? `Add ventilation parameters at ${new Date(pendingVentilationBulk.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-                : 'Add ventilation parameters to the timeline'
-              }
+              Add ventilation parameters to the timeline
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
@@ -7150,7 +7106,7 @@ export function UnifiedTimeline({
           </div>
           <DialogFooterWithTime
             time={pendingVentilationBulk?.time}
-            onTimeChange={undefined}
+            onTimeChange={(newTime) => setPendingVentilationBulk(prev => prev ? { ...prev, time: newTime } : null)}
             showDelete={false}
             onCancel={() => {
               setShowVentilationBulkDialog(false);
@@ -7168,10 +7124,7 @@ export function UnifiedTimeline({
           <DialogHeader>
             <DialogTitle>Output Bulk Entry</DialogTitle>
             <DialogDescription>
-              {pendingOutputBulk 
-                ? `Add output parameters at ${new Date(pendingOutputBulk.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-                : 'Add output parameters to the timeline'
-              }
+              Add output parameters to the timeline
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
@@ -7264,7 +7217,7 @@ export function UnifiedTimeline({
           </div>
           <DialogFooterWithTime
             time={pendingOutputBulk?.time}
-            onTimeChange={undefined}
+            onTimeChange={(newTime) => setPendingOutputBulk(prev => prev ? { ...prev, time: newTime } : null)}
             showDelete={false}
             onCancel={() => {
               setShowOutputBulkDialog(false);
@@ -7282,10 +7235,7 @@ export function UnifiedTimeline({
           <DialogHeader>
             <DialogTitle>Edit Output Value</DialogTitle>
             <DialogDescription>
-              {editingOutputValue 
-                ? `Edit or delete the ${editingOutputValue.label} value at ${new Date(editingOutputValue.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-                : 'Edit output value'
-              }
+              {editingOutputValue ? `Edit or delete the ${editingOutputValue.label} value` : 'Edit output value'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -7434,7 +7384,7 @@ function DialogFooterWithTime({
     <div className="flex items-center justify-between gap-2 pt-4">
       {/* Left: Time navigation (compact) */}
       <div className="flex items-center gap-1">
-        {time !== undefined && (
+        {time !== undefined && onTimeChange && (
           <TimeAdjustInput
             value={time}
             onChange={onTimeChange}
