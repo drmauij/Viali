@@ -353,7 +353,7 @@ export function UnifiedTimeline({
   const [showMedicationEditDialog, setShowMedicationEditDialog] = useState(false);
   const [editingMedicationDose, setEditingMedicationDose] = useState<{ swimlaneId: string; time: number; dose: string; index: number } | null>(null);
   const [medicationEditInput, setMedicationEditInput] = useState("");
-  const [medicationEditTime, setMedicationEditTime] = useState("");
+  const [medicationEditTime, setMedicationEditTime] = useState<number>(Date.now());
 
   // State for ventilation value edit dialog
   const [showVentilationEditDialog, setShowVentilationEditDialog] = useState(false);
@@ -3078,23 +3078,12 @@ export function UnifiedTimeline({
   const handleMedicationDoseEditSave = () => {
     if (!editingMedicationDose || !medicationEditInput.trim()) return;
     
-    const { swimlaneId, index, time: originalTime } = editingMedicationDose;
-    
-    // Parse the edited time (HH:MM format)
-    let newTimestamp = originalTime;
-    if (medicationEditTime.trim()) {
-      const [hours, minutes] = medicationEditTime.split(':').map(Number);
-      if (!isNaN(hours) && !isNaN(minutes)) {
-        const date = new Date(originalTime);
-        date.setHours(hours, minutes, 0, 0);
-        newTimestamp = date.getTime();
-      }
-    }
+    const { swimlaneId, index } = editingMedicationDose;
     
     setMedicationDoseData(prev => {
       const existingData = prev[swimlaneId] || [];
       const updated = [...existingData];
-      updated[index] = [newTimestamp, medicationEditInput.trim()];
+      updated[index] = [medicationEditTime, medicationEditInput.trim()];
       return {
         ...prev,
         [swimlaneId]: updated,
@@ -3105,7 +3094,6 @@ export function UnifiedTimeline({
     setShowMedicationEditDialog(false);
     setEditingMedicationDose(null);
     setMedicationEditInput("");
-    setMedicationEditTime("");
   };
 
   // Handle medication dose delete
@@ -5899,7 +5887,7 @@ export function UnifiedTimeline({
                   index,
                 });
                 setMedicationEditInput(dose.toString());
-                setMedicationEditTime(new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
+                setMedicationEditTime(timestamp);
                 setShowMedicationEditDialog(true);
               }}
               title={`${drugName} ${dose} mg at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
@@ -6724,10 +6712,7 @@ export function UnifiedTimeline({
           <DialogHeader>
             <DialogTitle>Edit Dose</DialogTitle>
             <DialogDescription>
-              {editingMedicationDose 
-                ? `Edit or delete the dose at ${new Date(editingMedicationDose.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-                : 'Edit medication dose'
-              }
+              Edit or delete the medication dose
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -6747,48 +6732,20 @@ export function UnifiedTimeline({
                 autoFocus
               />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="dose-edit-time">Time (HH:MM)</Label>
-              <Input
-                id="dose-edit-time"
-                data-testid="input-dose-edit-time"
-                type="time"
-                value={medicationEditTime}
-                onChange={(e) => setMedicationEditTime(e.target.value)}
-              />
-            </div>
           </div>
-          <div className="flex justify-between gap-2">
-            <Button
-              variant="destructive"
-              onClick={handleMedicationDoseDelete}
-              data-testid="button-delete-medication-dose"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete
-            </Button>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowMedicationEditDialog(false);
-                  setEditingMedicationDose(null);
-                  setMedicationEditInput("");
-                  setMedicationEditTime("");
-                }}
-                data-testid="button-cancel-medication-edit"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleMedicationDoseEditSave}
-                data-testid="button-save-medication-edit"
-                disabled={!medicationEditInput.trim()}
-              >
-                Save
-              </Button>
-            </div>
-          </div>
+          <DialogFooterWithTime
+            time={medicationEditTime}
+            onTimeChange={setMedicationEditTime}
+            showDelete={true}
+            onDelete={handleMedicationDoseDelete}
+            onCancel={() => {
+              setShowMedicationEditDialog(false);
+              setEditingMedicationDose(null);
+              setMedicationEditInput("");
+            }}
+            onSave={handleMedicationDoseEditSave}
+            saveDisabled={!medicationEditInput.trim()}
+          />
         </DialogContent>
       </Dialog>
 
