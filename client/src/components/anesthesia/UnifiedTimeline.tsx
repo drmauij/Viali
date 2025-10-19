@@ -1982,30 +1982,85 @@ export function UnifiedTimeline({
       
       if (selectedPoint.type === 'bp-sys' || selectedPoint.type === 'bp-dia') {
         previewColor = '#3b82f6'; // Blue for BP
-        previewPath = VITAL_ICON_PATHS.heart.path; // Use heart icon for BP preview too
+        previewPath = VITAL_ICON_PATHS.heart.path;
       } else if (selectedPoint.type === 'spo2') {
         previewColor = '#8b5cf6'; // Purple for SpO2
         isCircleDot = true;
       }
       
-      // Add drag preview point (semi-transparent via custom rendering)
+      // Add drag preview using the actual vital sign icon (semi-transparent)
+      const previewSize = 20; // Slightly larger than normal
+      const scale = previewSize / 24;
+      
       series.push({
-        type: 'scatter',
+        type: 'custom',
         name: 'Drag Preview',
         xAxisIndex: 0,
         yAxisIndex: yAxisIdx,
         data: [previewPoint],
-        symbol: 'circle',
-        symbolSize: 24,
-        itemStyle: {
-          color: previewColor,
-          opacity: 0.5,
-          borderColor: '#ffffff',
-          borderWidth: 2,
-        },
         zlevel: 150,
         z: 10,
         silent: true, // Don't respond to mouse events
+        renderItem: (params: any, api: any) => {
+          const point = api.coord([api.value(0), api.value(1)]);
+          
+          // Render CircleDot for SpO2
+          if (isCircleDot) {
+            return {
+              type: 'group',
+              x: point[0],
+              y: point[1],
+              children: [
+                // Outer circle
+                {
+                  type: 'circle',
+                  x: 0,
+                  y: 0,
+                  shape: { r: 10 * scale },
+                  style: {
+                    fill: 'none',
+                    stroke: previewColor,
+                    lineWidth: 2,
+                    opacity: 0.6,
+                  },
+                },
+                // Inner dot
+                {
+                  type: 'circle',
+                  x: 0,
+                  y: 0,
+                  shape: { r: 1 * scale },
+                  style: {
+                    fill: 'none',
+                    stroke: previewColor,
+                    lineWidth: 2,
+                    opacity: 0.6,
+                  },
+                },
+              ],
+            };
+          }
+          
+          // Render heart icon for HR and BP
+          return {
+            type: 'path',
+            x: point[0] - previewSize / 2,
+            y: point[1] - previewSize / 2,
+            shape: {
+              pathData: previewPath,
+              width: 24,
+              height: 24,
+            },
+            style: {
+              fill: 'none',
+              stroke: previewColor,
+              lineWidth: 2,
+              opacity: 0.6,
+            },
+            scaleX: scale,
+            scaleY: scale,
+          };
+        },
       });
     }
     
