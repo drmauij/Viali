@@ -518,6 +518,8 @@ export function UnifiedTimeline({
       const currentSelected = selectedPointRef.current;
       if (!currentSelected) return;
       
+      console.log('[Edit Mode] Document mousemove - tracking drag for:', currentSelected.type);
+      
       // Get bounding rect of the vitals interactive area
       const rect = vitalsOverlay.getBoundingClientRect();
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -4024,6 +4026,8 @@ export function UnifiedTimeline({
             if (nearestPoint) {
               console.log('[Edit Mode] Selecting point:', nearestPoint);
               setSelectedPoint(nearestPoint);
+              // Immediately update the ref so document-level mousemove handler can track this selection
+              selectedPointRef.current = nearestPoint;
             } else {
               console.log('[Edit Mode] No point found within threshold');
             }
