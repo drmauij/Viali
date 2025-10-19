@@ -7695,7 +7695,7 @@ function EditValueForm({
 }
 
 // Dialog Footer Component with Time Navigation (matches screenshot design)
-// Bottom-left: Time with arrows, Middle: Delete icon button, Right: Cancel & Save buttons
+// Left: Time with arrows, Right: Delete icon button, Cancel & Save buttons
 function DialogFooterWithTime({
   time,
   onTimeChange,
@@ -7730,8 +7730,8 @@ function DialogFooterWithTime({
         )}
       </div>
       
-      {/* Middle-left: Delete button (icon-only) */}
-      <div className="flex items-center gap-2">
+      {/* Right: Delete, Cancel and Save buttons */}
+      <div className="flex gap-2 ml-auto">
         {showDelete && onDelete && (
           <Button
             variant="destructive"
@@ -7743,10 +7743,6 @@ function DialogFooterWithTime({
             <Trash2 className="w-4 h-4" />
           </Button>
         )}
-      </div>
-      
-      {/* Right: Cancel and Save buttons */}
-      <div className="flex gap-2 ml-auto">
         <Button
           variant="outline"
           onClick={onCancel}
