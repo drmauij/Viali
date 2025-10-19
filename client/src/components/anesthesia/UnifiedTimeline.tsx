@@ -546,16 +546,9 @@ export function UnifiedTimeline({
       const x = clientX - rect.left;
       const y = clientY - rect.top;
       
-      // Calculate time and value from mouse position
-      const visibleStart = currentZoomStart ?? data.startTime;
-      const visibleEnd = currentZoomEnd ?? data.endTime;
-      const visibleRange = visibleEnd - visibleStart;
-      
-      const xPercent = x / rect.width;
-      let time = visibleStart + (xPercent * visibleRange);
-      
-      // Snap to grid
-      time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
+      // Calculate value from mouse position (VERTICAL DRAG ONLY)
+      // Time stays fixed to the original point's timestamp
+      const time = currentSelected.originalTime;
       
       // Calculate value based on point type
       const yPercent = y / rect.height;
@@ -4049,6 +4042,7 @@ export function UnifiedTimeline({
             
             if (activeToolMode === 'edit' && selectedPoint) {
               // In edit mode with selected point - show drag preview
+              // VERTICAL DRAG ONLY - time stays fixed to original point's timestamp
               const isSpO2 = selectedPoint.type === 'spo2';
               if (isSpO2) {
                 const minVal = 45;
@@ -4060,8 +4054,9 @@ export function UnifiedTimeline({
                 const maxVal = 240;
                 value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
               }
-              setDragPosition({ time, value });
-              setHoverInfo({ x: e.clientX, y: e.clientY, value, time });
+              const fixedTime = selectedPoint.originalTime; // Keep time constant during drag
+              setDragPosition({ time: fixedTime, value });
+              setHoverInfo({ x: e.clientX, y: e.clientY, value, time: fixedTime });
             } else if (activeToolMode === 'hr' || activeToolMode === 'bp' || (activeToolMode === 'blend' && (blendSequenceStep === 'sys' || blendSequenceStep === 'dia' || blendSequenceStep === 'hr'))) {
               // BP/HR scale: -20 to 240
               const minVal = -20;
