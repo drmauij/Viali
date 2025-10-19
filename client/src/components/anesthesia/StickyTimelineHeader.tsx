@@ -57,6 +57,7 @@ export function StickyTimelineHeader({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingToastRef = useRef<{ dismiss: () => void } | null>(null);
 
   // Load position from localStorage or use default centered position
   const [position, setPosition] = useState<{ x: number; y: number }>(() => {
@@ -170,12 +171,13 @@ export function StickyTimelineHeader({
       mediaRecorder.start();
       setIsRecording(true);
       
-      // Show recording toast
-      toast({
+      // Show recording toast and store reference for manual dismissal
+      const toastResult = toast({
         title: "🎤 Recording...",
         description: "Release button to process voice command",
         duration: 30000, // Will auto-dismiss if user holds for 30 seconds
       });
+      recordingToastRef.current = toastResult;
       
       // Safety timeout: Auto-stop after 30 seconds (in case button doesn't release)
       recordingTimeoutRef.current = setTimeout(() => {
@@ -204,6 +206,12 @@ export function StickyTimelineHeader({
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       
+      // Dismiss the recording toast
+      if (recordingToastRef.current) {
+        recordingToastRef.current.dismiss();
+        recordingToastRef.current = null;
+      }
+      
       // Clear safety timeout
       if (recordingTimeoutRef.current) {
         clearTimeout(recordingTimeoutRef.current);
@@ -220,6 +228,10 @@ export function StickyTimelineHeader({
       }
       if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
         mediaRecorderRef.current.stop();
+      }
+      // Dismiss recording toast if component unmounts while recording
+      if (recordingToastRef.current) {
+        recordingToastRef.current.dismiss();
       }
     };
   }, [stream]);
