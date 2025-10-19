@@ -1647,7 +1647,13 @@ export function UnifiedTimeline({
     // Also filter out the point being dragged so it doesn't show in both old and new positions
     // Use selectedPoint state for the filter (updated synchronously with dragPosition during drag)
     const sortedHrData = [...hrDataPoints]
-      .filter((_, idx) => !(selectedPoint?.type === 'hr' && idx === selectedPoint?.index))
+      .filter((point, idx) => {
+        const isSelected = selectedPoint?.type === 'hr' && idx === selectedPoint?.index;
+        if (isSelected) {
+          console.log('[Filter] Removing HR point at index', idx, '- point:', point, 'selectedPoint:', selectedPoint);
+        }
+        return !isSelected;
+      })
       .sort((a, b) => a[0] - b[0]);
     const sortedSysData = [...bpDataPoints.sys]
       .filter((_, idx) => !(selectedPoint?.type === 'bp-sys' && idx === selectedPoint?.index))
