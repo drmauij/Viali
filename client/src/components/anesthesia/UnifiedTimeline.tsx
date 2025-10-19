@@ -4408,6 +4408,133 @@ export function UnifiedTimeline({
         );
       })()}
 
+      {/* Interactive layers for infusion swimlanes - to place rate labels */}
+      {!activeToolMode && (() => {
+        const infusionParentIndex = activeSwimlanes.findIndex(s => s.id === "infusionen");
+        if (infusionParentIndex === -1 || collapsedSwimlanes.has("infusionen")) return null;
+        
+        return activeSwimlanes.map((lane, index) => {
+          const isInfusionChild = lane.id.startsWith('infusion-');
+          if (!isInfusionChild) return null;
+          
+          const lanePosition = swimlanePositions.find(l => l.id === lane.id);
+          if (!lanePosition) return null;
+          
+          return (
+            <div
+              key={lane.id}
+              className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
+              style={{
+                left: '200px',
+                right: '10px',
+                top: `${lanePosition.top}px`,
+                height: `${lanePosition.height}px`,
+                zIndex: 35,
+              }}
+              onMouseMove={(e) => {
+                if (isTouchDevice) return;
+                
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                
+                const visibleStart = currentZoomStart ?? data.startTime;
+                const visibleEnd = currentZoomEnd ?? data.endTime;
+                const visibleRange = visibleEnd - visibleStart;
+                
+                const xPercent = x / rect.width;
+                let time = visibleStart + (xPercent * visibleRange);
+                
+                // Snap to 1-minute interval for infusions
+                time = Math.round(time / currentDrugSnapInterval) * currentDrugSnapInterval;
+                
+                setInfusionHoverInfo({ 
+                  x: e.clientX, 
+                  y: e.clientY, 
+                  time,
+                  swimlaneId: lane.id,
+                  label: lane.label.trim()
+                });
+              }}
+              onMouseLeave={() => setInfusionHoverInfo(null)}
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                
+                const visibleStart = currentZoomStart ?? data.startTime;
+                const visibleEnd = currentZoomEnd ?? data.endTime;
+                const visibleRange = visibleEnd - visibleStart;
+                
+                const xPercent = x / rect.width;
+                let time = visibleStart + (xPercent * visibleRange);
+                
+                // Snap to 1-minute interval for infusions
+                time = Math.round(time / currentDrugSnapInterval) * currentDrugSnapInterval;
+                
+                // Check if we're clicking on an existing infusion value
+                const existingValues = infusionData[lane.id] || [];
+                const clickTolerance = currentDrugSnapInterval;
+                const existingValueAtTime = existingValues.find(([valueTime]) => 
+                  Math.abs(valueTime - time) <= clickTolerance
+                );
+                
+                if (existingValueAtTime) {
+                  // Open edit dialog for existing value
+                  const [valueTime, value] = existingValueAtTime;
+                  const valueIndex = existingValues.findIndex(([t, v]) => t === valueTime && v === value);
+                  setEditingInfusionValue({
+                    swimlaneId: lane.id,
+                    time: valueTime,
+                    value: value.toString(),
+                    index: valueIndex,
+                  });
+                  setInfusionEditInput(value.toString());
+                  setShowInfusionEditDialog(true);
+                } else {
+                  // Open add new value dialog
+                  setPendingInfusionValue({ 
+                    swimlaneId: lane.id, 
+                    time, 
+                    label: lane.label.trim() 
+                  });
+                  setShowInfusionDialog(true);
+                }
+              }}
+              data-testid={`interactive-infusion-lane-${lane.id}`}
+            />
+          );
+        });
+      })()}
+
+      {/* Tooltip for infusion value entry */}
+      {infusionHoverInfo && !isTouchDevice && (() => {
+        // Check if there's an existing value at the hover position
+        const existingValues = infusionData[infusionHoverInfo.swimlaneId] || [];
+        const clickTolerance = currentDrugSnapInterval;
+        const hasExistingValue = existingValues.some(([valueTime]) => 
+          Math.abs(valueTime - infusionHoverInfo.time) <= clickTolerance
+        );
+        
+        return (
+          <div
+            className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
+            style={{
+              left: infusionHoverInfo.x + 10,
+              top: infusionHoverInfo.y - 40,
+            }}
+          >
+            <div className="text-sm font-semibold text-primary">
+              {hasExistingValue ? 'Click to edit rate' : 'Click to add rate'}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {infusionHoverInfo.label}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {new Date(infusionHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Interactive layer for Ventilation parent swimlane - for bulk entry */}
       {!activeToolMode && (() => {
         const ventilationParentLane = swimlanePositions.find(lane => lane.id === 'ventilation');
