@@ -1691,6 +1691,7 @@ export function UnifiedTimeline({
       // ONLY use sortedHrData (filtered), NOT hrLineData
       // The dragged point is rendered separately as a preview below
       if (sortedHrData.length > 0) {
+        console.log('[HR Icons] Adding main HR icons. Count:', sortedHrData.length, 'Data:', sortedHrData.map((p, i) => `[${i}]: ${p[0]},${p[1]}`));
         series.push(
           createLucideIconSeries(
             'Heart Rate',
@@ -2073,6 +2074,7 @@ export function UnifiedTimeline({
       
       // Determine color and icon based on point type
       if (selectedPoint.type === 'hr') {
+        console.log('[HR Icons] Adding drag preview. Point:', previewPoint, 'Selected:', selectedPoint);
         // Add HR preview with heart icon
         series.push(
           createLucideIconSeries(
