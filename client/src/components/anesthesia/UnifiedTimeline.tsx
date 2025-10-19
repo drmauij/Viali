@@ -337,7 +337,7 @@ export function UnifiedTimeline({
   const [pendingPosition, setPendingPosition] = useState<{ time: number } | null>(null);
   const [editingPosition, setEditingPosition] = useState<{ time: number; position: string; index: number } | null>(null);
   const [positionInput, setPositionInput] = useState("");
-  const [positionEditTime, setPositionEditTime] = useState("");
+  const [positionEditTime, setPositionEditTime] = useState<number>(Date.now());
   const [positionHoverInfo, setPositionHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
 
   // State for event comments
@@ -3446,23 +3446,12 @@ export function UnifiedTimeline({
     let time: number;
     
     if (editingPosition) {
-      // Editing existing value
-      const { index, time: originalTime } = editingPosition;
-      
-      // Parse the edited time (HH:MM format)
-      let newTimestamp = originalTime;
-      if (positionEditTime.trim()) {
-        const [hours, minutes] = positionEditTime.split(':').map(Number);
-        if (!isNaN(hours) && !isNaN(minutes)) {
-          const date = new Date(originalTime);
-          date.setHours(hours, minutes, 0, 0);
-          newTimestamp = date.getTime();
-        }
-      }
+      // Editing existing value - use edited time
+      const { index } = editingPosition;
       
       setPositionData(prev => {
         const updated = [...prev];
-        updated[index] = [newTimestamp, position];
+        updated[index] = [positionEditTime, position];
         return updated;
       });
     } else if (pendingPosition) {
@@ -3475,7 +3464,6 @@ export function UnifiedTimeline({
     setPendingPosition(null);
     setEditingPosition(null);
     setPositionInput("");
-    setPositionEditTime("");
   };
 
   // Handle position entry delete
@@ -3489,7 +3477,6 @@ export function UnifiedTimeline({
     setShowPositionDialog(false);
     setEditingPosition(null);
     setPositionInput("");
-    setPositionEditTime("");
   };
 
   // Handle ventilation bulk entry save
@@ -4744,7 +4731,6 @@ export function UnifiedTimeline({
               setPendingPosition({ time });
               setEditingPosition(null);
               setPositionInput("");
-              setPositionEditTime("");
               setShowPositionDialog(true);
             }}
             data-testid="interactive-position-lane"
@@ -5662,7 +5648,7 @@ export function UnifiedTimeline({
                 index,
               });
               setPositionInput(position);
-              setPositionEditTime(new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
+              setPositionEditTime(timestamp);
               setShowPositionDialog(true);
             }}
             title={`${position} at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
@@ -7119,7 +7105,7 @@ export function UnifiedTimeline({
             <DialogTitle>Patient Position</DialogTitle>
             <DialogDescription>
               {editingPosition 
-                ? `Edit or delete the position at ${new Date(editingPosition.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                ? 'Edit or delete the patient position'
                 : pendingPosition 
                 ? `Select a position to add at ${new Date(pendingPosition.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
                 : 'Select a patient position'
@@ -7177,54 +7163,42 @@ export function UnifiedTimeline({
                 />
               </div>
             </div>
-            {editingPosition && (
-              <div className="grid gap-2">
-                <Label htmlFor="position-edit-time">Time (HH:MM)</Label>
-                <Input
-                  id="position-edit-time"
-                  data-testid="input-position-edit-time"
-                  type="time"
-                  value={positionEditTime}
-                  onChange={(e) => setPositionEditTime(e.target.value)}
-                />
-              </div>
-            )}
           </div>
-          {(editingPosition || (positionInput && !['Supine', 'Prone', 'Left Side', 'Right Side', 'Beach Chair', 'Lithotomy', 'Head Up', 'Head Down', 'Sitting for SPA/PDA', 'Other'].includes(positionInput))) && (
-            <div className="flex justify-between gap-2">
-              {editingPosition && (
-                <Button
-                  variant="destructive"
-                  onClick={handlePositionDelete}
-                  data-testid="button-delete-position"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Delete
-                </Button>
-              )}
-              {!editingPosition && <div />}
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowPositionDialog(false);
-                    setPendingPosition(null);
-                    setEditingPosition(null);
-                    setPositionInput("");
-                    setPositionEditTime("");
-                  }}
-                  data-testid="button-cancel-position"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handlePositionSave}
-                  data-testid="button-save-position"
-                  disabled={!positionInput.trim()}
-                >
-                  Save
-                </Button>
-              </div>
+          {editingPosition ? (
+            <DialogFooterWithTime
+              time={positionEditTime}
+              onTimeChange={setPositionEditTime}
+              showDelete={true}
+              onDelete={handlePositionDelete}
+              onCancel={() => {
+                setShowPositionDialog(false);
+                setPendingPosition(null);
+                setEditingPosition(null);
+                setPositionInput("");
+              }}
+              onSave={handlePositionSave}
+              saveDisabled={!positionInput.trim()}
+            />
+          ) : (positionInput && !['Supine', 'Prone', 'Left Side', 'Right Side', 'Beach Chair', 'Lithotomy', 'Head Up', 'Head Down', 'Sitting for SPA/PDA', 'Other'].includes(positionInput)) && (
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowPositionDialog(false);
+                  setPendingPosition(null);
+                  setPositionInput("");
+                }}
+                data-testid="button-cancel-position"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handlePositionSave}
+                data-testid="button-save-position"
+                disabled={!positionInput.trim()}
+              >
+                Save
+              </Button>
             </div>
           )}
         </DialogContent>
