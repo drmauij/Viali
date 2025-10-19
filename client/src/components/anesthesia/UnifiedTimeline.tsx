@@ -500,8 +500,8 @@ export function UnifiedTimeline({
     checkTouch();
   }, []);
 
-  // Handle mouse up anywhere to finalize drag operation in edit mode
-  // Use refs to avoid recreating handlers on every state change
+  // Handle document-level mouse/touch events for edit mode drag operations
+  // This allows dragging to continue even when mouse leaves the interactive overlay
   useEffect(() => {
     if (activeToolMode !== 'edit') {
       // Clear any dangling selection when exiting edit mode
@@ -511,14 +511,71 @@ export function UnifiedTimeline({
       return;
     }
     
+    const vitalsOverlay = document.querySelector('[data-vitals-overlay="true"]') as HTMLElement;
+    if (!vitalsOverlay) return;
+    
+    const handleDocumentMouseMove = (e: MouseEvent | TouchEvent) => {
+      const currentSelected = selectedPointRef.current;
+      if (!currentSelected) return;
+      
+      // Get bounding rect of the vitals interactive area
+      const rect = vitalsOverlay.getBoundingClientRect();
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+      
+      // Calculate time and value from mouse position
+      const visibleStart = currentZoomStart ?? data.startTime;
+      const visibleEnd = currentZoomEnd ?? data.endTime;
+      const visibleRange = visibleEnd - visibleStart;
+      
+      const xPercent = x / rect.width;
+      let time = visibleStart + (xPercent * visibleRange);
+      
+      // Snap to grid
+      time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
+      
+      // Calculate value based on point type
+      const yPercent = y / rect.height;
+      let value: number;
+      const isSpO2 = currentSelected.type === 'spo2';
+      
+      if (isSpO2) {
+        const minVal = 45;
+        const maxVal = 105;
+        const rawValue = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+        value = Math.min(rawValue, 100);
+      } else {
+        const minVal = -20;
+        const maxVal = 240;
+        value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+      }
+      
+      setDragPosition({ time, value });
+      setHoverInfo({ x: clientX, y: clientY, value, time });
+      
+      console.log('[Edit Mode] Document mousemove - dragging to:', { time, value });
+    };
+    
     const handleMouseUp = () => {
       const currentSelected = selectedPointRef.current;
       const currentDrag = dragPositionRef.current;
       
-      if (!currentSelected || !currentDrag) return;
+      console.log('[Edit Mode] Mouse up - selected:', currentSelected, 'drag:', currentDrag);
+      
+      if (!currentSelected || !currentDrag) {
+        // Clear selection even if no drag happened
+        setSelectedPoint(null);
+        setDragPosition(null);
+        setHoverInfo(null);
+        return;
+      }
       
       // Update the data point with the new snapped position
       const newPoint: VitalPoint = [currentDrag.time, currentDrag.value];
+      console.log('[Edit Mode] Updating point from', [currentSelected.originalTime, currentSelected.originalValue], 'to', newPoint);
       
       if (currentSelected.type === 'hr') {
         const updated = [...hrDataPointsRef.current];
@@ -545,14 +602,18 @@ export function UnifiedTimeline({
     };
     
     // Register stable event listeners only once when edit mode is active
+    document.addEventListener('mousemove', handleDocumentMouseMove);
+    document.addEventListener('touchmove', handleDocumentMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
     document.addEventListener('touchend', handleMouseUp);
     
     return () => {
+      document.removeEventListener('mousemove', handleDocumentMouseMove);
+      document.removeEventListener('touchmove', handleDocumentMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
       document.removeEventListener('touchend', handleMouseUp);
     };
-  }, [activeToolMode]); // Only depend on activeToolMode, not on state changes
+  }, [activeToolMode, currentZoomStart, currentZoomEnd, currentVitalsSnapInterval, data.startTime, data.endTime]); // Include dependencies for position calculation
 
   // Update current time every minute
   useEffect(() => {
@@ -3812,6 +3873,7 @@ export function UnifiedTimeline({
       {/* Interactive layer for vitals entry - only active when tool mode is selected */}
       {activeToolMode && (
         <div
+          data-vitals-overlay="true"
           className={`absolute z-30 ${activeToolMode === 'edit' ? (selectedPoint ? 'cursor-grabbing' : 'cursor-pointer') : 'cursor-crosshair'}`}
           style={{
             left: '200px',
