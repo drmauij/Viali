@@ -328,7 +328,7 @@ export function UnifiedTimeline({
   const [pendingStaff, setPendingStaff] = useState<{ time: number; role: 'doctor' | 'nurse' | 'assistant' } | null>(null);
   const [editingStaff, setEditingStaff] = useState<{ time: number; name: string; role: 'doctor' | 'nurse' | 'assistant'; index: number } | null>(null);
   const [staffInput, setStaffInput] = useState("");
-  const [staffEditTime, setStaffEditTime] = useState("");
+  const [staffEditTime, setStaffEditTime] = useState<number>(Date.now());
   const [staffHoverInfo, setStaffHoverInfo] = useState<{ x: number; y: number; time: number; role: string } | null>(null);
 
   // State for patient position entries
@@ -3399,23 +3399,12 @@ export function UnifiedTimeline({
     if (!name) return;
     
     if (editingStaff) {
-      // Editing existing value
-      const { index, time: originalTime, role } = editingStaff;
-      
-      // Parse the edited time (HH:MM format)
-      let newTimestamp = originalTime;
-      if (staffEditTime.trim()) {
-        const [hours, minutes] = staffEditTime.split(':').map(Number);
-        if (!isNaN(hours) && !isNaN(minutes)) {
-          const date = new Date(originalTime);
-          date.setHours(hours, minutes, 0, 0);
-          newTimestamp = date.getTime();
-        }
-      }
+      // Editing existing value - use edited time
+      const { index, role } = editingStaff;
       
       setStaffData(prev => {
         const updated = { ...prev };
-        updated[role][index] = [newTimestamp, name];
+        updated[role][index] = [staffEditTime, name];
         return updated;
       });
     } else if (pendingStaff) {
@@ -3431,7 +3420,6 @@ export function UnifiedTimeline({
     setPendingStaff(null);
     setEditingStaff(null);
     setStaffInput("");
-    setStaffEditTime("");
   };
 
   // Handle staff entry delete
@@ -3448,7 +3436,6 @@ export function UnifiedTimeline({
     setShowStaffDialog(false);
     setEditingStaff(null);
     setStaffInput("");
-    setStaffEditTime("");
   };
 
   // Handle position entry save
@@ -4675,7 +4662,6 @@ export function UnifiedTimeline({
               setPendingStaff({ time, role: role as 'doctor' | 'nurse' | 'assistant' });
               setEditingStaff(null);
               setStaffInput(userName);
-              setStaffEditTime("");
               setShowStaffDialog(true);
             }}
             data-testid={`interactive-staff-${role}-lane`}
@@ -5631,7 +5617,7 @@ export function UnifiedTimeline({
                   index,
                 });
                 setStaffInput(name);
-                setStaffEditTime(new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }));
+                setStaffEditTime(timestamp);
                 setShowStaffDialog(true);
               }}
               title={`${name} (${role}) at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
@@ -7085,7 +7071,7 @@ export function UnifiedTimeline({
             <DialogTitle>Staff Entry</DialogTitle>
             <DialogDescription>
               {editingStaff 
-                ? `Edit or delete the ${editingStaff.role} entry at ${new Date(editingStaff.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                ? `Edit or delete the ${editingStaff.role} entry`
                 : pendingStaff 
                 ? `Add ${pendingStaff.role} at ${new Date(pendingStaff.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
                 : 'Add staff member to the timeline'
@@ -7108,54 +7094,21 @@ export function UnifiedTimeline({
                 }}
               />
             </div>
-            {editingStaff && (
-              <div className="grid gap-2">
-                <Label htmlFor="staff-edit-time">Time (HH:MM)</Label>
-                <Input
-                  id="staff-edit-time"
-                  data-testid="input-staff-edit-time"
-                  type="time"
-                  value={staffEditTime}
-                  onChange={(e) => setStaffEditTime(e.target.value)}
-                />
-              </div>
-            )}
           </div>
-          <div className="flex justify-between gap-2">
-            {editingStaff && (
-              <Button
-                variant="destructive"
-                onClick={handleStaffDelete}
-                data-testid="button-delete-staff"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </Button>
-            )}
-            {!editingStaff && <div />}
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowStaffDialog(false);
-                  setPendingStaff(null);
-                  setEditingStaff(null);
-                  setStaffInput("");
-                  setStaffEditTime("");
-                }}
-                data-testid="button-cancel-staff"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleStaffSave}
-                data-testid="button-save-staff"
-                disabled={!staffInput.trim()}
-              >
-                Save
-              </Button>
-            </div>
-          </div>
+          <DialogFooterWithTime
+            time={editingStaff ? staffEditTime : undefined}
+            onTimeChange={editingStaff ? setStaffEditTime : undefined}
+            showDelete={!!editingStaff}
+            onDelete={editingStaff ? handleStaffDelete : undefined}
+            onCancel={() => {
+              setShowStaffDialog(false);
+              setPendingStaff(null);
+              setEditingStaff(null);
+              setStaffInput("");
+            }}
+            onSave={handleStaffSave}
+            saveDisabled={!staffInput.trim()}
+          />
         </DialogContent>
       </Dialog>
 
