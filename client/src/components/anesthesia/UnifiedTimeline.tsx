@@ -3739,10 +3739,11 @@ export function UnifiedTimeline({
               const maxVal = 240;
               value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
             } else if (activeToolMode === 'spo2') {
-              // SpO2 scale: 45 to 105
+              // SpO2 scale: 45 to 105, capped at 100%
               const minVal = 45;
               const maxVal = 105;
-              value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+              const rawValue = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+              value = Math.min(rawValue, 100); // Cap at 100%
             } else {
               return; // No active tool mode
             }
@@ -3779,9 +3780,11 @@ export function UnifiedTimeline({
                 const maxVal = 240;
                 value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
               } else if (activeToolMode === 'spo2') {
+                // SpO2 scale: 45 to 105, capped at 100%
                 const minVal = 45;
                 const maxVal = 105;
-                value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+                const rawValue = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+                value = Math.min(rawValue, 100); // Cap at 100%
               } else {
                 setIsProcessingClick(false);
                 return;
