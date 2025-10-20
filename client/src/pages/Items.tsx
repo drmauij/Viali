@@ -1510,17 +1510,13 @@ export default function Items() {
       items: items.filter(item => item.folderId === folder.id),
     }));
 
-    const result = {
+    return {
       rootItems: filterAndSortItems(rootItems),
       folderGroups: folderGroups.map(group => ({
         folder: group.folder,
         items: filterAndSortItems(group.items),
       })).filter(group => group.items.length > 0 || searchTerm === ""),
     };
-    
-    console.log('[Items Debug] folders:', folders.length, 'folderGroups after filter:', result.folderGroups.length, 'searchTerm:', searchTerm);
-    
-    return result;
   }, [items, folders, searchTerm, activeFilter, sortBy]);
 
   const filteredItems = useMemo(() => {
@@ -1774,7 +1770,7 @@ export default function Items() {
               <i className="fas fa-spinner fa-spin text-2xl text-primary mb-2"></i>
               <p className="text-muted-foreground">{t('items.loadingItems')}</p>
             </div>
-          ) : filteredItems.length === 0 ? (
+          ) : filteredItems.length === 0 && organizedItems.folderGroups.length === 0 ? (
             <div className="bg-card border border-border rounded-lg p-8 text-center">
               <i className="fas fa-search text-4xl text-muted-foreground mb-4"></i>
               <h3 className="text-lg font-semibold text-foreground mb-2">{t('items.noItemsFound')}</h3>
