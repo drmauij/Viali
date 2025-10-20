@@ -158,6 +158,7 @@ export default function Items() {
   const [csvData, setCsvData] = useState<any[]>([]);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [csvMapping, setCsvMapping] = useState<Record<string, string>>({});
+  const [bulkImportFolderId, setBulkImportFolderId] = useState<string | null>(null);
   
   // Import job notification state
   const [importJob, setImportJob] = useState<{
@@ -1431,7 +1432,14 @@ export default function Items() {
       });
       return;
     }
-    bulkCreateMutation.mutate(bulkItems);
+    
+    // Add folderId to each item if selected
+    const itemsWithFolder = bulkItems.map(item => ({
+      ...item,
+      folderId: bulkImportFolderId
+    }));
+    
+    bulkCreateMutation.mutate(itemsWithFolder);
   };
 
   const handleBulkEditSave = () => {
@@ -2897,6 +2905,7 @@ export default function Items() {
           setCsvData([]);
           setCsvHeaders([]);
           setCsvMapping({});
+          setBulkImportFolderId(null);
         }
       }}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -2904,6 +2913,30 @@ export default function Items() {
             <DialogTitle>{t('items.bulkImportTitle')}</DialogTitle>
             <DialogDescription>Import items from photos (AI analysis) or CSV file</DialogDescription>
           </DialogHeader>
+
+          {/* Folder Selection */}
+          {folders.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="bulk-import-folder">Destination Folder (Optional)</Label>
+              <Select
+                value={bulkImportFolderId || "root"}
+                onValueChange={(value) => setBulkImportFolderId(value === "root" ? null : value)}
+              >
+                <SelectTrigger id="bulk-import-folder" data-testid="select-bulk-import-folder">
+                  <SelectValue placeholder="Select a folder or leave as root" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="root">Root (No folder)</SelectItem>
+                  {folders.map((folder) => (
+                    <SelectItem key={folder.id} value={folder.id}>
+                      <FolderIcon className="w-4 h-4 inline mr-2" />
+                      {folder.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {importMode === 'select' && bulkItems.length === 0 ? (
             <div className="space-y-4">
