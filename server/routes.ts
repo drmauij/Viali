@@ -2854,6 +2854,29 @@ If unable to parse any drugs, return:
     }
   });
 
+  // Admin - Configure anesthesia location for hospital
+  app.patch('/api/admin/:hospitalId/anesthesia-location', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const { anesthesiaLocationId } = req.body;
+
+      // Verify the location belongs to this hospital if provided
+      if (anesthesiaLocationId) {
+        const locations = await storage.getLocations(hospitalId);
+        const locationExists = locations.some(l => l.id === anesthesiaLocationId);
+        if (!locationExists) {
+          return res.status(400).json({ message: "Selected location does not belong to this hospital" });
+        }
+      }
+
+      const updated = await storage.updateHospital(hospitalId, { anesthesiaLocationId });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating anesthesia location:", error);
+      res.status(500).json({ message: "Failed to update anesthesia location" });
+    }
+  });
+
   // Admin - Location routes
   app.get('/api/admin/:hospitalId/locations', isAuthenticated, isAdmin, async (req, res) => {
     try {
