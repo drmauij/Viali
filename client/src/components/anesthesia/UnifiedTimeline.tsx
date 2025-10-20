@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
 import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil } from "lucide-react";
@@ -301,6 +301,46 @@ export function UnifiedTimeline({
   const bpDataPointsRef = useRef(bpDataPoints);
   const spo2DataPointsRef = useRef(spo2DataPoints);
   
+  // Imperative drag preview (bypass React state for performance)
+  const dragPreviewRef = useRef<{ time: number; value: number } | null>(null);
+  const rafIdRef = useRef<number | null>(null);
+  
+  // Imperative function to update only the preview series without re-rendering React
+  const updateDragPreviewImperatively = useCallback((previewPoint: VitalPoint | null, pointType: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2') => {
+    const chartInstance = chartRef.current?.getEchartsInstance();
+    if (!chartInstance) return;
+    
+    if (!previewPoint) {
+      // Clear preview series
+      chartInstance.setOption({
+        series: [{
+          id: 'hr-icons-preview',
+          data: []
+        }]
+      }, false, true); // notMerge: false, lazyUpdate: true
+      return;
+    }
+    
+    // Update only the preview series based on point type
+    if (pointType === 'hr') {
+      const hrPreviewSeries: any = createLucideIconSeries(
+        'HR Preview',
+        [previewPoint],
+        VITAL_ICON_PATHS.heart.path,
+        '#ef4444',
+        0,
+        16,
+        150
+      );
+      hrPreviewSeries.id = 'hr-icons-preview';
+      
+      chartInstance.setOption({
+        series: [hrPreviewSeries]
+      }, false, true); // notMerge: false, replaceMerge on this series only
+    }
+    // Add other types (bp-sys, bp-dia, spo2) as needed
+  }, []);
+  
   // Keep refs in sync with state
   useEffect(() => { selectedPointRef.current = selectedPoint; }, [selectedPoint]);
   useEffect(() => { dragPositionRef.current = dragPosition; }, [dragPosition]);
@@ -592,17 +632,40 @@ export function UnifiedTimeline({
         value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
       }
       
-      setDragPosition({ time, value });
+      // Store in ref for imperative updates
+      dragPreviewRef.current = { time, value };
       setHoverInfo({ x: clientX, y: clientY, value, time });
+      
+      // Throttle chart updates using requestAnimationFrame
+      if (rafIdRef.current === null) {
+        rafIdRef.current = requestAnimationFrame(() => {
+          rafIdRef.current = null;
+          const preview = dragPreviewRef.current;
+          if (preview && currentSelected) {
+            // Imperatively update only the preview series
+            updateDragPreviewImperatively([preview.time, preview.value], currentSelected.type);
+          }
+        });
+      }
       
       console.log('[Edit Mode] Document mousemove - dragging to:', { time, value });
     };
     
     const handleMouseUp = () => {
       const currentSelected = selectedPointRef.current;
-      const currentDrag = dragPositionRef.current;
+      const currentDrag = dragPreviewRef.current; // Use preview ref instead of state
       
       console.log('[Edit Mode] Mouse up - selected:', currentSelected, 'drag:', currentDrag);
+      
+      // Cancel any pending RAF updates
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+      
+      // Clear drag preview imperatively
+      updateDragPreviewImperatively(null, currentSelected?.type || 'hr');
+      dragPreviewRef.current = null;
       
       if (!currentSelected || !currentDrag) {
         // Clear selection even if no drag happened
@@ -2062,74 +2125,9 @@ export function UnifiedTimeline({
       }
     }
 
-    // Add drag preview point when actively dragging in edit mode
-    // Show it as the actual point (not semi-transparent) so it looks like directly moving the point
-    if (dragPosition && selectedPoint) {
-      const previewPoint: VitalPoint = [dragPosition.time, dragPosition.value];
-      const yAxisIdx = selectedPoint.type === 'spo2' ? 1 : 0;
-      
-      // Debug: Verify filter is working
-      if (selectedPoint.type === 'hr') {
-        console.log('[Drag] HR filter check - Total points:', hrDataPoints.length, 'After filter:', sortedHrData.length, 'Selected index:', selectedPoint.index);
-      }
-      
-      // Determine color and icon based on point type
-      if (selectedPoint.type === 'hr') {
-        console.log('[HR Icons] Adding drag preview. Point:', previewPoint, 'Selected:', selectedPoint);
-        // Add HR preview with heart icon
-        const hrPreviewSeries: any = createLucideIconSeries(
-            'HR Preview',
-            [previewPoint],
-            VITAL_ICON_PATHS.heart.path,
-            '#ef4444', // Red
-            0,
-            16,
-            150 // Very high z-level
-          );
-        hrPreviewSeries.id = 'hr-icons-preview'; // Add unique ID for proper diffing
-        series.push(hrPreviewSeries);
-      } else if (selectedPoint.type === 'bp-sys') {
-        // Add systolic BP preview with chevron down
-        series.push(
-          createLucideIconSeries(
-            'Systolic BP Preview',
-            [previewPoint],
-            VITAL_ICON_PATHS.chevronDown.path,
-            '#000000', // Black
-            0,
-            16,
-            150
-          )
-        );
-      } else if (selectedPoint.type === 'bp-dia') {
-        // Add diastolic BP preview with chevron up
-        series.push(
-          createLucideIconSeries(
-            'Diastolic BP Preview',
-            [previewPoint],
-            VITAL_ICON_PATHS.chevronUp.path,
-            '#000000', // Black
-            0,
-            16,
-            150
-          )
-        );
-      } else if (selectedPoint.type === 'spo2') {
-        // Add SpO2 preview with circle-dot
-        series.push(
-          createLucideIconSeries(
-            'SpO2 Preview',
-            [previewPoint],
-            '', // Not used for CircleDot
-            '#8b5cf6', // Purple
-            1, // Second y-axis
-            16,
-            150,
-            true // isCircleDot
-          )
-        );
-      }
-    }
+    // NOTE: Drag preview is now handled imperatively via updateDragPreviewImperatively()
+    // to prevent duplicate icons during fast touch drags. The preview series is updated
+    // directly via chartInstance.setOption() with requestAnimationFrame throttling.
     
     // Calculate total height for vertical lines - dynamically based on current swimlanes
     const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
@@ -4134,14 +4132,17 @@ export function UnifiedTimeline({
             console.log('[Edit Mode] Nearest point found:', nearestPoint, 'distance:', nearestDistance);
             console.log('[Edit Mode] Available points - HR:', hrDataPoints.length, 'BP sys:', bpDataPoints.sys.length, 'BP dia:', bpDataPoints.dia.length, 'SpO2:', spo2DataPoints.length);
             
-            if (nearestPoint && 'originalTime' in nearestPoint) {
+            if (nearestPoint) {
               console.log('[Edit Mode] Selecting point:', nearestPoint);
               setSelectedPoint(nearestPoint);
               // Immediately update the ref so document-level mousemove handler can track this selection
               selectedPointRef.current = nearestPoint;
               // Initialize dragPosition to the original position to engage filter immediately
-              setDragPosition({ time: nearestPoint.originalTime, value: nearestPoint.originalValue });
-              dragPositionRef.current = { time: nearestPoint.originalTime, value: nearestPoint.originalValue };
+              const { originalTime, originalValue } = nearestPoint as NonNullable<typeof nearestPoint>;
+              setDragPosition({ time: originalTime, value: originalValue });
+              dragPositionRef.current = { time: originalTime, value: originalValue };
+              // Initialize drag preview imperatively
+              dragPreviewRef.current = { time: originalTime, value: originalValue };
             } else {
               console.log('[Edit Mode] No point found within threshold');
             }
@@ -4239,14 +4240,17 @@ export function UnifiedTimeline({
             console.log('[Edit Mode] Nearest point found:', nearestPoint, 'distance:', nearestDistance);
             console.log('[Edit Mode] Available points - HR:', hrDataPoints.length, 'BP sys:', bpDataPoints.sys.length, 'BP dia:', bpDataPoints.dia.length, 'SpO2:', spo2DataPoints.length);
             
-            if (nearestPoint && 'originalTime' in nearestPoint) {
+            if (nearestPoint) {
               console.log('[Edit Mode] Selecting point:', nearestPoint);
               setSelectedPoint(nearestPoint);
               // Immediately update the ref so document-level touchmove handler can track this selection
               selectedPointRef.current = nearestPoint;
               // Initialize dragPosition to the original position to engage filter immediately
-              setDragPosition({ time: nearestPoint.originalTime, value: nearestPoint.originalValue });
-              dragPositionRef.current = { time: nearestPoint.originalTime, value: nearestPoint.originalValue };
+              const { originalTime, originalValue } = nearestPoint as NonNullable<typeof nearestPoint>;
+              setDragPosition({ time: originalTime, value: originalValue });
+              dragPositionRef.current = { time: originalTime, value: originalValue };
+              // Initialize drag preview imperatively
+              dragPreviewRef.current = { time: originalTime, value: originalValue };
             } else {
               console.log('[Edit Mode] No point found within threshold');
             }
