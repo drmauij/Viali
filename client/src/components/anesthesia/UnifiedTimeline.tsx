@@ -4058,6 +4058,12 @@ export function UnifiedTimeline({
             console.log('Current vitals snap interval (ms):', currentVitalsSnapInterval, 'minutes:', currentVitalsSnapInterval / 60000);
             time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
             
+            // Check if time is within editable boundaries (only show hover if editable)
+            const fifteenMinutes = 15 * 60 * 1000;
+            const editableStartBoundary = chartInitTime - fifteenMinutes;
+            const editableEndBoundary = currentTime + fifteenMinutes;
+            const isEditable = time >= editableStartBoundary && time <= editableEndBoundary;
+            
             // Convert y-position to value based on active tool
             let value: number;
             const yPercent = y / rect.height;
@@ -4079,19 +4085,22 @@ export function UnifiedTimeline({
               const fixedTime = selectedPoint.originalTime; // Keep time constant during drag
               setDragPosition({ time: fixedTime, value });
               setHoverInfo({ x: e.clientX, y: e.clientY, value, time: fixedTime });
-            } else if (activeToolMode === 'hr' || activeToolMode === 'bp' || (activeToolMode === 'blend' && (blendSequenceStep === 'sys' || blendSequenceStep === 'dia' || blendSequenceStep === 'hr'))) {
-              // BP/HR scale: -20 to 240
+            } else if (isEditable && (activeToolMode === 'hr' || activeToolMode === 'bp' || (activeToolMode === 'blend' && (blendSequenceStep === 'sys' || blendSequenceStep === 'dia' || blendSequenceStep === 'hr')))) {
+              // BP/HR scale: -20 to 240 (only show if within editable window)
               const minVal = -20;
               const maxVal = 240;
               value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
               setHoverInfo({ x: e.clientX, y: e.clientY, value, time });
-            } else if (activeToolMode === 'spo2' || (activeToolMode === 'blend' && blendSequenceStep === 'spo2')) {
-              // SpO2 scale: 45 to 105, capped at 100%
+            } else if (isEditable && (activeToolMode === 'spo2' || (activeToolMode === 'blend' && blendSequenceStep === 'spo2'))) {
+              // SpO2 scale: 45 to 105, capped at 100% (only show if within editable window)
               const minVal = 45;
               const maxVal = 105;
               const rawValue = Math.round(maxVal - (yPercent * (maxVal - minVal)));
               value = Math.min(rawValue, 100); // Cap at 100%
               setHoverInfo({ x: e.clientX, y: e.clientY, value, time });
+            } else {
+              // Clear hover info if outside editable window
+              setHoverInfo(null);
             }
           }}
           onMouseLeave={() => setHoverInfo(null)}
@@ -4357,6 +4366,17 @@ export function UnifiedTimeline({
             }
             
             if (!clickInfo) {
+              setIsProcessingClick(false);
+              return;
+            }
+            
+            // Validate that click time is within editable boundaries
+            const fifteenMinutes = 15 * 60 * 1000;
+            const editableStartBoundary = chartInitTime - fifteenMinutes;
+            const editableEndBoundary = currentTime + fifteenMinutes;
+            
+            if (clickInfo.time < editableStartBoundary || clickInfo.time > editableEndBoundary) {
+              // Click is outside editable window - ignore
               setIsProcessingClick(false);
               return;
             }
