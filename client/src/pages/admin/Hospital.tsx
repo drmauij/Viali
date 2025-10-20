@@ -29,7 +29,7 @@ export default function Hospital() {
 
   // Anesthesia location states
   const [anesthesiaLocationDialogOpen, setAnesthesiaLocationDialogOpen] = useState(false);
-  const [selectedAnesthesiaLocationId, setSelectedAnesthesiaLocationId] = useState(activeHospital?.anesthesiaLocationId || "");
+  const [selectedAnesthesiaLocationId, setSelectedAnesthesiaLocationId] = useState(activeHospital?.anesthesiaLocationId || "none");
 
   // Location states
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
@@ -340,12 +340,14 @@ export default function Hospital() {
   };
 
   const handleEditAnesthesiaLocation = () => {
-    setSelectedAnesthesiaLocationId(activeHospital?.anesthesiaLocationId || "");
+    setSelectedAnesthesiaLocationId(activeHospital?.anesthesiaLocationId || "none");
     setAnesthesiaLocationDialogOpen(true);
   };
 
   const handleSaveAnesthesiaLocation = () => {
-    updateAnesthesiaLocationMutation.mutate(selectedAnesthesiaLocationId || null);
+    updateAnesthesiaLocationMutation.mutate(
+      selectedAnesthesiaLocationId === 'none' ? null : selectedAnesthesiaLocationId
+    );
   };
 
   if (!activeHospital) {
@@ -850,7 +852,7 @@ export default function Hospital() {
                   <SelectValue placeholder="Select a location" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="" data-testid="option-none">
+                  <SelectItem value="none" data-testid="option-none">
                     None (Disable anesthesia module)
                   </SelectItem>
                   {locations.map((location) => (
