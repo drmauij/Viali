@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StickyTimelineHeader } from "./StickyTimelineHeader";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useQuery } from "@tanstack/react-query";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
 import { TimeAdjustInput } from "./TimeAdjustInput";
@@ -223,6 +225,18 @@ type SwimlaneConfig = {
   colorDark: string;
 };
 
+// Type for anesthesia-configured items
+type AnesthesiaItem = {
+  id: string;
+  name: string;
+  anesthesiaType?: 'medication' | 'infusion';
+  administrationUnit?: string;
+  administrationRoute?: string;
+  ampuleConcentration?: string;
+  isRateControlled?: boolean;
+  rateUnit?: string;
+};
+
 export function UnifiedTimeline({
   data,
   height,
@@ -240,6 +254,13 @@ export function UnifiedTimeline({
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
   const { toast } = useToast();
   const { user } = useAuth();
+  const activeHospital = useActiveHospital();
+
+  // Fetch configured anesthesia items from inventory
+  const { data: anesthesiaItems = [] } = useQuery<AnesthesiaItem[]>({
+    queryKey: ['/api/anesthesia/items', activeHospital?.id],
+    enabled: !!activeHospital?.id,
+  });
   
   // State for collapsible parent swimlanes
   const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<Set<string>>(new Set());
@@ -793,27 +814,58 @@ export function UnifiedTimeline({
     }
   }, [patientWeight]);
 
-  // Predefined medications list
-  const medicationsList = [
-    "Rapidocain (mg, i.v.)",
-    "Sufentanil (Sufenta) (μg, i.v.)",
-    "Rocuronium (Esmeron) (mg, i.v.)",
-    "Propofol 1% (mg/kg/h, i.v.)",
-    "Arterenol 20mcg/ml (μg/kg/min, i.v.)",
-    "Adrenalin 20mcg/ml (μg/kg/min, i.v.)",
-    "Ephedrine /5.0ml, 50.0mg (mg, i.v.)",
-    "Zentiva (Dexamethasone) /1.0ml, 5.0mg (mg, i.v.)",
-    "Droperidol (Novalgin) (g, i.v.)",
-    "Droperidol /2.0ml, 1.0mg (mg, i.v.)",
-    "Toradol /1.0ml, 30.0mg (mg, i.v.)",
-  ];
+  // Dynamic medications list from configured inventory items
+  const medicationsList = useMemo(() => {
+    return anesthesiaItems
+      .filter(item => item.anesthesiaType === 'medication')
+      .map(item => {
+        // Format: "Name (concentration) (unit, route)"
+        // Example: "Rocuronium (10mg/ml) (mg, i.v.)"
+        const parts = [item.name];
+        if (item.ampuleConcentration) {
+          parts.push(`(${item.ampuleConcentration})`);
+        }
+        // Combine unit and route in final parentheses
+        if (item.administrationUnit || item.administrationRoute) {
+          const unitParts = [];
+          if (item.administrationUnit) unitParts.push(item.administrationUnit);
+          if (item.administrationRoute) unitParts.push(item.administrationRoute);
+          parts.push(`(${unitParts.join(', ')})`);
+        }
+        return parts.join(' ');
+      });
+  }, [anesthesiaItems]);
 
-  // Predefined infusions list
-  const infusionsList = [
-    "Ringer Acetate (ml, i.v./free-flow)",
-    "NaCl 0.9% (ml, infusion/free-flow)",
-    "Glucose 5% 100 ml (ml, i.v./free-flow)",
-  ];
+  // Dynamic infusions list from configured inventory items
+  const infusionsList = useMemo(() => {
+    return anesthesiaItems
+      .filter(item => item.anesthesiaType === 'infusion')
+      .map(item => {
+        // Format: "Name (unit, route/rate-type)"
+        // Example: "Ringer Acetate (ml, i.v./free-flow)" or "NaCl 0.9% (ml, i.v./ml/h)"
+        const parts = [item.name];
+        const rateInfo = item.isRateControlled 
+          ? (item.rateUnit || 'ml/h')
+          : 'free-flow';
+        
+        // Combine unit, route, and rate information
+        const unitParts = [];
+        if (item.administrationUnit) unitParts.push(item.administrationUnit);
+        
+        // Combine route and rate info
+        if (item.administrationRoute || rateInfo) {
+          const routeRate = [item.administrationRoute, rateInfo]
+            .filter(Boolean)
+            .join('/');
+          unitParts.push(routeRate);
+        }
+        
+        if (unitParts.length > 0) {
+          parts.push(`(${unitParts.join(', ')})`);
+        }
+        return parts.join(' ');
+      });
+  }, [anesthesiaItems]);
 
   // Helper: Detect if an infusion is free-flow based on the drug name
   const isFreeFlowInfusion = (drugName: string): boolean => {
@@ -1023,7 +1075,7 @@ export function UnifiedTimeline({
     return lanes;
   };
 
-  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [collapsedSwimlanes, medications, swimlanes]);
+  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [collapsedSwimlanes, medications, swimlanes, medicationsList, infusionsList]);
 
   // Add medication handler
   const handleAddMedication = () => {
