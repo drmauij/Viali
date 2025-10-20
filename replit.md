@@ -27,7 +27,7 @@ The backend uses Express.js and TypeScript with a PostgreSQL database via Drizzl
 Viali uses a hybrid authentication strategy supporting Google OAuth (OIDC) and local credentials, configurable per hospital. Authorization is role-based and multi-hospital. A robust user management system includes creation, password changes, hospital assignment, and deletion, secured with AD role authorization and bcrypt.
 
 ### Database Schema
-The database schema includes `Users`, `Hospitals`, `UserHospitalRoles`, `Items` (with barcode support, min/max thresholds, critical/controlled flags, `trackExactQuantity`, `currentUnits`, `packSize`), `StockLevels`, `Lots` (batch tracking, expiry), `Orders`, `OrderLines`, `Activities` (audit trails), `Alerts`, `Vendors`, `Locations`, `ImportJobs` (async bulk import), `ChecklistTemplates`, and `ChecklistCompletions`. It uses UUID primary keys, timestamp tracking, separate lot tracking, and JSONB fields with Zod validation.
+The database schema includes `Users`, `Hospitals` (with `anesthesiaLocationId` linking to a specific location's inventory for the anesthesia module), `UserHospitalRoles`, `Items` (with barcode support, min/max thresholds, critical/controlled flags, `trackExactQuantity`, `currentUnits`, `packSize`, anesthesia configuration fields: `anesthesiaType`, `administrationUnit`, `ampuleConcentration`, `administrationRoute`, `isRateControlled`, `rateUnit`), `StockLevels`, `Lots` (batch tracking, expiry), `Orders`, `OrderLines`, `Activities` (audit trails), `Alerts`, `Vendors`, `Locations`, `ImportJobs` (async bulk import), `ChecklistTemplates`, and `ChecklistCompletions`. It uses UUID primary keys, timestamp tracking, separate lot tracking, and JSONB fields with Zod validation.
 
 ### System Design Choices
 The system provides comprehensive inventory management:
@@ -38,6 +38,7 @@ The system provides comprehensive inventory management:
 - **Signature Capture**: Print-ready electronic signatures for controlled substance transactions.
 - **Custom Sorting**: Drag-and-drop functionality for organizing folders and moving items, with persistent `sortOrder` and bulk sort API endpoints.
 - **Bulk Import with AI**: AI-powered bulk photo import using OpenAI Vision API for automated item extraction, processed via an asynchronous job queue.
+- **Anesthesia Module Configuration & Access Control**: Hospitals configure an `anesthesiaLocationId` in Hospital Settings to designate which inventory location's items are available in the anesthesia module. Only users assigned to this specific location can access the anesthesia module, ensuring proper access control and enabling intelligent module defaulting. If a user is assigned to the anesthesia location, the system defaults to the anesthesia module on sign-in (if no module preference is saved). This provides a seamless workflow for anesthesia staff while maintaining security boundaries.
 
 ### Universal Value Editing System
 The `EditableValue` component provides a consistent click-to-edit experience across modules for various data types (text, number, date, vital-point), including time-based editing for vital signs. It supports validation, optional deletion, and is responsive.
