@@ -258,7 +258,7 @@ export function UnifiedTimeline({
 
   // Fetch configured anesthesia items from inventory
   const { data: anesthesiaItems = [] } = useQuery<AnesthesiaItem[]>({
-    queryKey: ['/api/anesthesia/items', activeHospital?.id],
+    queryKey: [`/api/anesthesia/items/${activeHospital?.id}`],
     enabled: !!activeHospital?.id,
   });
   
