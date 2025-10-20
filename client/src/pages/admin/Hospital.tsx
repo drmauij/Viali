@@ -27,6 +27,10 @@ export default function Hospital() {
   const [hospitalDialogOpen, setHospitalDialogOpen] = useState(false);
   const [hospitalName, setHospitalName] = useState(activeHospital?.name || "");
 
+  // Anesthesia location states
+  const [anesthesiaLocationDialogOpen, setAnesthesiaLocationDialogOpen] = useState(false);
+  const [selectedAnesthesiaLocationId, setSelectedAnesthesiaLocationId] = useState(activeHospital?.anesthesiaLocationId || "");
+
   // Location states
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
@@ -180,6 +184,22 @@ export default function Hospital() {
     },
   });
 
+  // Anesthesia location mutation
+  const updateAnesthesiaLocationMutation = useMutation({
+    mutationFn: async (anesthesiaLocationId: string | null) => {
+      const response = await apiRequest("PATCH", `/api/admin/${activeHospital?.id}/anesthesia-location`, { anesthesiaLocationId });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      setAnesthesiaLocationDialogOpen(false);
+      toast({ title: t("common.success"), description: "Anesthesia location updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to update anesthesia location", variant: "destructive" });
+    },
+  });
+
   const resetLocationForm = () => {
     setLocationForm({ name: "", type: "" });
     setEditingLocation(null);
@@ -319,6 +339,15 @@ export default function Hospital() {
     updateHospitalMutation.mutate(hospitalName);
   };
 
+  const handleEditAnesthesiaLocation = () => {
+    setSelectedAnesthesiaLocationId(activeHospital?.anesthesiaLocationId || "");
+    setAnesthesiaLocationDialogOpen(true);
+  };
+
+  const handleSaveAnesthesiaLocation = () => {
+    updateAnesthesiaLocationMutation.mutate(selectedAnesthesiaLocationId || null);
+  };
+
   if (!activeHospital) {
     return (
       <div className="p-4">
@@ -364,6 +393,32 @@ export default function Hospital() {
           >
             <i className="fas fa-edit mr-2"></i>
             {t("admin.editName")}
+          </Button>
+        </div>
+      </div>
+
+      {/* Anesthesia Location Configuration Card */}
+      <div className="bg-card border border-border rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-foreground text-lg">
+              <i className="fas fa-syringe mr-2 text-primary"></i>
+              Anesthesia Module Location
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {activeHospital?.anesthesiaLocationId 
+                ? locations.find(l => l.id === activeHospital.anesthesiaLocationId)?.name || "Location not found"
+                : "Not configured - anesthesia module disabled"}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleEditAnesthesiaLocation}
+            data-testid="button-edit-anesthesia-location"
+          >
+            <i className="fas fa-edit mr-2"></i>
+            Configure
           </Button>
         </div>
       </div>
@@ -768,6 +823,54 @@ export default function Hospital() {
                 data-testid="button-save-hospital"
               >
                 {t("common.edit")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Anesthesia Location Dialog */}
+      <Dialog open={anesthesiaLocationDialogOpen} onOpenChange={setAnesthesiaLocationDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Configure Anesthesia Module Location</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="anesthesia-location">Select Location</Label>
+              <p className="text-sm text-muted-foreground mb-2">
+                Choose which location's inventory will be used for anesthesia medications and infusions.
+                Only users assigned to this location can access the anesthesia module.
+              </p>
+              <Select
+                value={selectedAnesthesiaLocationId}
+                onValueChange={setSelectedAnesthesiaLocationId}
+              >
+                <SelectTrigger id="anesthesia-location" data-testid="select-anesthesia-location">
+                  <SelectValue placeholder="Select a location" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="" data-testid="option-none">
+                    None (Disable anesthesia module)
+                  </SelectItem>
+                  {locations.map((location) => (
+                    <SelectItem key={location.id} value={location.id} data-testid={`option-location-${location.id}`}>
+                      {location.name} {location.type ? `(${location.type})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setAnesthesiaLocationDialogOpen(false)}>
+                {t("common.cancel")}
+              </Button>
+              <Button
+                onClick={handleSaveAnesthesiaLocation}
+                disabled={updateAnesthesiaLocationMutation.isPending}
+                data-testid="button-save-anesthesia-location"
+              >
+                {t("common.save")}
               </Button>
             </div>
           </div>
