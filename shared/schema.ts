@@ -51,6 +51,7 @@ export const hospitals = pgTable("hospitals", {
   googleAuthEnabled: boolean("google_auth_enabled").default(true),
   localAuthEnabled: boolean("local_auth_enabled").default(true),
   licenseType: varchar("license_type", { enum: ["free", "basic"] }).default("free").notNull(),
+  anesthesiaLocationId: varchar("anesthesia_location_id").references(() => locations.id), // Designates which location's inventory is used for anesthesia module
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
