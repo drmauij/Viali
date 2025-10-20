@@ -1197,6 +1197,16 @@ export function UnifiedTimeline({
     const oneMinute = 60 * 1000;
     const time = Math.round(clickTime / oneMinute) * oneMinute;
     
+    // Validate that time is within editable boundaries
+    const fifteenMinutes = 15 * 60 * 1000;
+    const editableStartBoundary = chartInitTime - fifteenMinutes;
+    const editableEndBoundary = currentTime + fifteenMinutes;
+    
+    if (time < editableStartBoundary || time > editableEndBoundary) {
+      // Click is outside editable window - ignore
+      return;
+    }
+    
     // Update the marker with the time
     const updated = [...timeMarkers];
     updated[nextMarkerIndex] = { ...updated[nextMarkerIndex], time };
@@ -4667,6 +4677,16 @@ export function UnifiedTimeline({
               const oneMinute = 60 * 1000;
               time = Math.round(time / oneMinute) * oneMinute;
               
+              // Validate that time is within editable boundaries
+              const fifteenMinutes = 15 * 60 * 1000;
+              const editableStartBoundary = chartInitTime - fifteenMinutes;
+              const editableEndBoundary = currentTime + fifteenMinutes;
+              
+              if (time < editableStartBoundary || time > editableEndBoundary) {
+                // Click is outside editable window - ignore
+                return;
+              }
+              
               setPendingEvent({ time });
               setEventTextInput("");
               setShowEventDialog(true);
@@ -5010,6 +5030,16 @@ export function UnifiedTimeline({
                 // Snap to 1-minute interval for medications
                 time = Math.round(time / currentDrugSnapInterval) * currentDrugSnapInterval;
                 
+                // Validate that time is within editable boundaries
+                const fifteenMinutes = 15 * 60 * 1000;
+                const editableStartBoundary = chartInitTime - fifteenMinutes;
+                const editableEndBoundary = currentTime + fifteenMinutes;
+                
+                if (time < editableStartBoundary || time > editableEndBoundary) {
+                  // Click is outside editable window - ignore
+                  return;
+                }
+                
                 // Check if we're clicking on an existing dose label
                 const existingDoses = medicationDoseData[lane.id] || [];
                 const clickTolerance = currentDrugSnapInterval; // Allow clicking within one interval of the dose
@@ -5136,6 +5166,16 @@ export function UnifiedTimeline({
                 
                 // Snap to 1-minute interval for infusions
                 time = Math.round(time / currentDrugSnapInterval) * currentDrugSnapInterval;
+                
+                // Validate that time is within editable boundaries
+                const fifteenMinutes = 15 * 60 * 1000;
+                const editableStartBoundary = chartInitTime - fifteenMinutes;
+                const editableEndBoundary = currentTime + fifteenMinutes;
+                
+                if (time < editableStartBoundary || time > editableEndBoundary) {
+                  // Click is outside editable window - ignore
+                  return;
+                }
                 
                 // Check if we're clicking on an existing infusion value
                 const existingValues = infusionData[lane.id] || [];
@@ -5284,6 +5324,16 @@ export function UnifiedTimeline({
               // Snap to zoom-dependent interval for ventilation parameters
               time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
               
+              // Validate that time is within editable boundaries
+              const fifteenMinutes = 15 * 60 * 1000;
+              const editableStartBoundary = chartInitTime - fifteenMinutes;
+              const editableEndBoundary = currentTime + fifteenMinutes;
+              
+              if (time < editableStartBoundary || time > editableEndBoundary) {
+                // Click is outside editable window - ignore
+                return;
+              }
+              
               setPendingVentilationBulk({ time });
               setShowVentilationBulkDialog(true);
             }}
@@ -5361,6 +5411,16 @@ export function UnifiedTimeline({
               
               // Snap to zoom-dependent interval for output parameters
               time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
+              
+              // Validate that time is within editable boundaries
+              const fifteenMinutes = 15 * 60 * 1000;
+              const editableStartBoundary = chartInitTime - fifteenMinutes;
+              const editableEndBoundary = currentTime + fifteenMinutes;
+              
+              if (time < editableStartBoundary || time > editableEndBoundary) {
+                // Click is outside editable window - ignore
+                return;
+              }
               
               setPendingOutputBulk({ time });
               setShowOutputBulkDialog(true);
@@ -5464,6 +5524,16 @@ export function UnifiedTimeline({
                 
                 // Snap to zoom-dependent interval for ventilation parameters
                 time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
+                
+                // Validate that time is within editable boundaries
+                const fifteenMinutes = 15 * 60 * 1000;
+                const editableStartBoundary = chartInitTime - fifteenMinutes;
+                const editableEndBoundary = currentTime + fifteenMinutes;
+                
+                if (time < editableStartBoundary || time > editableEndBoundary) {
+                  // Click is outside editable window - ignore
+                  return;
+                }
                 
                 setPendingVentilationValue({ 
                   paramKey: paramInfo.key, 
@@ -5582,6 +5652,16 @@ export function UnifiedTimeline({
                 
                 // Snap to zoom-dependent interval for output parameters
                 time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
+                
+                // Validate that time is within editable boundaries
+                const fifteenMinutes = 15 * 60 * 1000;
+                const editableStartBoundary = chartInitTime - fifteenMinutes;
+                const editableEndBoundary = currentTime + fifteenMinutes;
+                
+                if (time < editableStartBoundary || time > editableEndBoundary) {
+                  // Click is outside editable window - ignore
+                  return;
+                }
                 
                 // Check if we're clicking on an existing value
                 const existingValues = outputData[paramInfo.key] || [];
