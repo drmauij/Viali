@@ -1510,13 +1510,17 @@ export default function Items() {
       items: items.filter(item => item.folderId === folder.id),
     }));
 
-    return {
+    const result = {
       rootItems: filterAndSortItems(rootItems),
       folderGroups: folderGroups.map(group => ({
         folder: group.folder,
         items: filterAndSortItems(group.items),
       })).filter(group => group.items.length > 0 || searchTerm === ""),
     };
+    
+    console.log('[Items Debug] folders:', folders.length, 'folderGroups after filter:', result.folderGroups.length, 'searchTerm:', searchTerm);
+    
+    return result;
   }, [items, folders, searchTerm, activeFilter, sortBy]);
 
   const filteredItems = useMemo(() => {
