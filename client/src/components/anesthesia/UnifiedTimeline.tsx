@@ -3851,13 +3851,13 @@ export function UnifiedTimeline({
             }}
             className={`p-2 rounded-md border transition-colors flex items-center justify-center shadow-sm ${
               activeToolMode === 'bp' 
-                ? 'border-black bg-black/20' 
-                : 'border-border bg-background hover:border-black hover:bg-black/10'
+                ? 'border-foreground bg-foreground/20' 
+                : 'border-border bg-background hover:border-foreground hover:bg-foreground/10'
             }`}
             data-testid="button-vitals-bp"
             title="Blood Pressure (NIBP)"
           >
-            <ChevronsDownUp className={`w-5 h-5 transition-colors ${activeToolMode === 'bp' ? 'text-black dark:text-white' : 'hover:text-black dark:hover:text-white'}`} />
+            <ChevronsDownUp className={`w-5 h-5 transition-colors ${activeToolMode === 'bp' ? 'text-foreground' : 'text-foreground/70 hover:text-foreground'}`} />
           </button>
           <button
             onClick={() => setActiveToolMode(activeToolMode === 'hr' ? null : 'hr')}
