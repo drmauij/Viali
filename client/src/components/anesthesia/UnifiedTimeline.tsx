@@ -3958,14 +3958,14 @@ export function UnifiedTimeline({
                 {isParent && (
                   <button
                     onClick={() => toggleSwimlane(lane.id)}
-                    className="p-0.5 rounded hover:bg-background/50 transition-colors"
+                    className="p-0.5 rounded hover:bg-background/50 transition-colors group"
                     data-testid={`button-toggle-${lane.id}`}
                     title={collapsedSwimlanes.has(lane.id) ? "Expand" : "Collapse"}
                   >
                     {collapsedSwimlanes.has(lane.id) ? (
-                      <ChevronRight className="w-4 h-4 text-black dark:text-white" />
+                      <ChevronRight className="w-4 h-4 text-foreground/70 group-hover:text-foreground transition-colors" />
                     ) : (
-                      <ChevronDown className="w-4 h-4 text-black dark:text-white" />
+                      <ChevronDown className="w-4 h-4 text-foreground/70 group-hover:text-foreground transition-colors" />
                     )}
                   </button>
                 )}
@@ -3977,33 +3977,33 @@ export function UnifiedTimeline({
               {isZeitenLane && (
                 <button
                   onClick={() => setBulkEditDialogOpen(true)}
-                  className="p-1 rounded hover:bg-background/50 transition-colors"
+                  className="p-1 rounded hover:bg-background/50 transition-colors group"
                   data-testid="button-edit-anesthesia-times"
                   title="Edit Anesthesia Times"
                 >
-                  <Clock className="w-4 h-4 text-black dark:text-white" />
+                  <Clock className="w-4 h-4 text-foreground/70 group-hover:text-foreground transition-colors" />
                 </button>
               )}
               
               {isMedParent && (
                 <button
                   onClick={() => setShowAddMedDialog(true)}
-                  className="p-1 rounded hover:bg-background/50 transition-colors"
+                  className="p-1 rounded hover:bg-background/50 transition-colors group"
                   data-testid="button-add-medication"
                   title="Add Medication"
                 >
-                  <Plus className="w-4 h-4 text-black dark:text-white" />
+                  <Plus className="w-4 h-4 text-foreground/70 group-hover:text-foreground transition-colors" />
                 </button>
               )}
               
               {isDynamicMed && (
                 <button
                   onClick={() => handleRemoveMedication(medIndex)}
-                  className="p-1 rounded hover:bg-background/50 transition-colors"
+                  className="p-1 rounded hover:bg-background/50 transition-colors group"
                   data-testid={`button-remove-medication-${medIndex}`}
                   title="Remove Medication"
                 >
-                  <X className="w-3 h-3 text-black dark:text-white" />
+                  <X className="w-3 h-3 text-foreground/70 group-hover:text-foreground transition-colors" />
                 </button>
               )}
             </div>
