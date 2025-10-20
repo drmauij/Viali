@@ -129,6 +129,13 @@ export const items = pgTable("items", {
   barcodes: text("barcodes").array(), // Multiple barcodes per item
   imageUrl: varchar("image_url"),
   sortOrder: integer("sort_order").default(0),
+  // Anesthesia configuration fields
+  anesthesiaType: varchar("anesthesia_type", { enum: ["none", "medication", "infusion"] }).default("none").notNull(),
+  administrationUnit: varchar("administration_unit", { enum: ["μg", "mg", "g", "ml"] }), // For medications
+  ampuleConcentration: varchar("ampule_concentration"), // For medications, e.g., "10mg/ml"
+  administrationRoute: varchar("administration_route"), // e.g., "i.v.", "i.m.", "s.c."
+  isRateControlled: boolean("is_rate_controlled").default(false), // For infusions
+  rateUnit: varchar("rate_unit"), // e.g., "ml/h", "μg/kg/min"
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -136,6 +143,7 @@ export const items = pgTable("items", {
   index("idx_items_location").on(table.locationId),
   index("idx_items_vendor").on(table.vendorId),
   index("idx_items_folder").on(table.folderId),
+  index("idx_items_anesthesia_type").on(table.anesthesiaType),
 ]);
 
 // Stock Levels

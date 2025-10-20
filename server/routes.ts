@@ -1098,6 +1098,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to bulk delete items" });
     }
   });
+
+  // Get items configured for anesthesia (medications and infusions)
+  app.get('/api/anesthesia/items/:hospitalId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const userId = req.user.claims.sub;
+      
+      // Verify user has access to this hospital
+      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      if (!locationId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+
+      // Get all items for this hospital that are configured for anesthesia
+      const anesthesiaItems = await db
+        .select()
+        .from(items)
+        .where(
+          and(
+            eq(items.hospitalId, hospitalId),
+            eq(items.locationId, locationId),
+            sql`${items.anesthesiaType} != 'none'`
+          )
+        )
+        .orderBy(items.name);
+
+      res.json(anesthesiaItems);
+    } catch (error: any) {
+      console.error("Error fetching anesthesia items:", error);
+      res.status(500).json({ message: "Failed to fetch anesthesia items" });
+    }
+  });
+
+  // Update anesthesia configuration for an item
+  app.patch('/api/items/:itemId/anesthesia-config', isAuthenticated, async (req: any, res) => {
+    try {
+      const { itemId } = req.params;
+      const userId = req.user.claims.sub;
+      
+      // Get the item to verify access
+      const item = await storage.getItem(itemId);
+      if (!item) {
+        return res.status(404).json({ message: "Item not found" });
+      }
+      
+      // Verify user has access to this item's location
+      const locationId = await getUserLocationForHospital(userId, item.hospitalId);
+      if (!locationId || locationId !== item.locationId) {
+        return res.status(403).json({ message: "Access denied to this item" });
+      }
+
+      // Validate anesthesia configuration
+      const anesthesiaType = req.body.anesthesiaType || 'none';
+      
+      const updates: any = {
+        anesthesiaType,
+      };
+
+      // For medications, set medication-specific fields
+      if (anesthesiaType === 'medication') {
+        updates.administrationUnit = req.body.administrationUnit;
+        updates.ampuleConcentration = req.body.ampuleConcentration;
+        updates.administrationRoute = req.body.administrationRoute;
+        // Clear infusion-specific fields
+        updates.isRateControlled = false;
+        updates.rateUnit = null;
+      } 
+      // For infusions, set infusion-specific fields
+      else if (anesthesiaType === 'infusion') {
+        updates.isRateControlled = req.body.isRateControlled || false;
+        updates.rateUnit = req.body.rateUnit;
+        // Clear medication-specific fields
+        updates.administrationUnit = null;
+        updates.ampuleConcentration = null;
+        updates.administrationRoute = null;
+      } 
+      // For 'none', clear all anesthesia fields
+      else {
+        updates.administrationUnit = null;
+        updates.ampuleConcentration = null;
+        updates.administrationRoute = null;
+        updates.isRateControlled = false;
+        updates.rateUnit = null;
+      }
+      
+      // Update the item
+      await db
+        .update(items)
+        .set(updates)
+        .where(eq(items.id, itemId));
+
+      const updatedItem = await storage.getItem(itemId);
+      res.json(updatedItem);
+    } catch (error: any) {
+      console.error("Error updating anesthesia config:", error);
+      res.status(500).json({ message: "Failed to update anesthesia configuration" });
+    }
+  });
   
   // Get bulk import image limit for a hospital
   app.get('/api/hospitals/:hospitalId/bulk-import-limit', isAuthenticated, async (req: any, res) => {
