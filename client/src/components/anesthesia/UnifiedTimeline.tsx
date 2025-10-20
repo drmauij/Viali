@@ -1844,7 +1844,7 @@ export function UnifiedTimeline({
         data: diaLineData,
         symbol: 'none',
         lineStyle: {
-          color: '#000000',
+          color: isDark ? '#ffffff' : '#000000',
           width: 1,
           opacity: 0.3,
         },
@@ -1870,7 +1870,7 @@ export function UnifiedTimeline({
         data: diffData,
         symbol: 'none',
         lineStyle: {
-          color: '#000000',
+          color: isDark ? '#ffffff' : '#000000',
           width: 1,
           opacity: 0.3,
         },
@@ -1879,7 +1879,10 @@ export function UnifiedTimeline({
           color: {
             type: 'linear',
             x: 0, y: 0, x2: 0, y2: 1,
-            colorStops: [
+            colorStops: isDark ? [
+              { offset: 0, color: 'rgba(255, 255, 255, 0.15)' },
+              { offset: 1, color: 'rgba(255, 255, 255, 0.08)' }
+            ] : [
               { offset: 0, color: 'rgba(0, 0, 0, 0.15)' },
               { offset: 1, color: 'rgba(0, 0, 0, 0.08)' }
             ]
@@ -1896,7 +1899,7 @@ export function UnifiedTimeline({
           'Systolic BP',
           sortedSysData,
           VITAL_ICON_PATHS.chevronDown.path,
-          '#000000', // Black
+          isDark ? '#e5e5e5' : '#000000', // Light gray for dark mode, black for light mode
           0, // yAxisIndex
           16, // size
           30 // z-level - high value to ensure icons are always clickable above lines
@@ -1911,7 +1914,7 @@ export function UnifiedTimeline({
           'Diastolic BP',
           sortedDiaData,
           VITAL_ICON_PATHS.chevronUp.path,
-          '#000000', // Black
+          isDark ? '#e5e5e5' : '#000000', // Light gray for dark mode, black for light mode
           0, // yAxisIndex
           16, // size
           30 // z-level - high value to ensure icons are always clickable above lines
