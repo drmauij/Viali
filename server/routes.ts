@@ -1660,6 +1660,7 @@ If unable to parse any drugs, return:
           controlled: bulkItem.controlled ?? false,
           trackExactQuantity: bulkItem.trackExactQuantity ?? false,
           currentUnits: bulkItem.currentUnits ?? 0,
+          folderId: bulkItem.folderId ?? null,
         };
 
         const item = await storage.createItem(itemData);
