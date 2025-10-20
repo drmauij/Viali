@@ -1106,19 +1106,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       
       // Verify user has access to this hospital
-      const locationId = await getUserLocationForHospital(userId, hospitalId);
-      if (!locationId) {
+      const userLocationId = await getUserLocationForHospital(userId, hospitalId);
+      if (!userLocationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
 
-      // Get all items for this hospital that are configured for anesthesia
+      // Get the hospital's anesthesia location configuration
+      const hospital = await db
+        .select()
+        .from(hospitals)
+        .where(eq(hospitals.id, hospitalId))
+        .limit(1);
+
+      if (!hospital.length || !hospital[0].anesthesiaLocationId) {
+        return res.json([]); // Return empty array if anesthesia location not configured
+      }
+
+      const anesthesiaLocationId = hospital[0].anesthesiaLocationId;
+
+      // Get all items from the hospital's anesthesia location that are configured for anesthesia
       const anesthesiaItems = await db
         .select()
         .from(items)
         .where(
           and(
             eq(items.hospitalId, hospitalId),
-            eq(items.locationId, locationId),
+            eq(items.locationId, anesthesiaLocationId),
             sql`${items.anesthesiaType} != 'none'`
           )
         )
