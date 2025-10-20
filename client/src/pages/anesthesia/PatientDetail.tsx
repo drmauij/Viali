@@ -500,17 +500,17 @@ export default function PatientDetail() {
       </div>
 
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Cases ({mockCases.length})</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Surgeries ({mockCases.length})</h2>
         <Dialog open={isCreateCaseOpen} onOpenChange={setIsCreateCaseOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2" data-testid="button-create-case">
               <Plus className="h-4 w-4" />
-              New Case
+              New Surgery
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create New Case</DialogTitle>
+              <DialogTitle>Create New Surgery</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
@@ -549,7 +549,7 @@ export default function PatientDetail() {
                 />
               </div>
               <Button onClick={handleCreateCase} className="w-full" data-testid="button-submit-case">
-                Create Case
+                Create Surgery
               </Button>
             </div>
           </DialogContent>
