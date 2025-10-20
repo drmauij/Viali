@@ -1693,8 +1693,7 @@ export function UnifiedTimeline({
       // The dragged point is rendered separately as a preview below
       if (sortedHrData.length > 0) {
         console.log('[HR Icons] Adding main HR icons. Count:', sortedHrData.length, 'Data:', sortedHrData.map((p, i) => `[${i}]: ${p[0]},${p[1]}`));
-        series.push(
-          createLucideIconSeries(
+        const hrIconSeries: any = createLucideIconSeries(
             'Heart Rate',
             sortedHrData,
             VITAL_ICON_PATHS.heart.path,
@@ -1702,8 +1701,9 @@ export function UnifiedTimeline({
             0, // yAxisIndex
             16, // size
             100 // z-level - VERY high value to ensure icons are always clickable above connection lines
-          )
-        );
+          );
+        hrIconSeries.id = 'hr-icons-main'; // Add unique ID for proper diffing
+        series.push(hrIconSeries);
       }
     }
     
@@ -2077,8 +2077,7 @@ export function UnifiedTimeline({
       if (selectedPoint.type === 'hr') {
         console.log('[HR Icons] Adding drag preview. Point:', previewPoint, 'Selected:', selectedPoint);
         // Add HR preview with heart icon
-        series.push(
-          createLucideIconSeries(
+        const hrPreviewSeries: any = createLucideIconSeries(
             'HR Preview',
             [previewPoint],
             VITAL_ICON_PATHS.heart.path,
@@ -2086,8 +2085,9 @@ export function UnifiedTimeline({
             0,
             16,
             150 // Very high z-level
-          )
-        );
+          );
+        hrPreviewSeries.id = 'hr-icons-preview'; // Add unique ID for proper diffing
+        series.push(hrPreviewSeries);
       } else if (selectedPoint.type === 'bp-sys') {
         // Add systolic BP preview with chevron down
         series.push(
