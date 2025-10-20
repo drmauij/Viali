@@ -65,7 +65,19 @@ export default function ModuleDrawer() {
     },
   ];
 
-  const modules = allModules.filter(module => !module.adminOnly || isAdmin);
+  // Check if user has access to anesthesia module
+  const hasAnesthesiaAccess = useMemo(() => {
+    if (!activeHospital?.anesthesiaLocationId) return false;
+    return activeHospital.locationId === activeHospital.anesthesiaLocationId;
+  }, [activeHospital]);
+
+  const modules = allModules.filter(module => {
+    // Admin modules only for admins
+    if (module.adminOnly && !isAdmin) return false;
+    // Anesthesia module only if configured and user has access
+    if (module.id === "anesthesia" && !hasAnesthesiaAccess) return false;
+    return true;
+  });
 
   const handleModuleClick = (route: string) => {
     navigate(route);
