@@ -41,21 +41,48 @@ import "@/i18n/config";
 // Home redirect component that checks module preference
 function HomeRedirect() {
   const [, navigate] = useLocation();
+  const { user } = useAuth();
 
   useEffect(() => {
     // Read module preference directly from localStorage to avoid race conditions
     const savedModule = localStorage.getItem("activeModule");
     
-    // Redirect based on saved module preference
+    // If user has a saved preference, use it
     if (savedModule === "anesthesia") {
       navigate("/anesthesia/patients", { replace: true });
+      return;
     } else if (savedModule === "admin") {
       navigate("/admin", { replace: true });
-    } else {
-      // Default to inventory
+      return;
+    } else if (savedModule === "inventory") {
       navigate("/inventory/items", { replace: true });
+      return;
     }
-  }, [navigate]);
+
+    // No saved preference - intelligently default based on user's hospital configuration
+    const userHospitals = (user as any)?.hospitals;
+    if (userHospitals && userHospitals.length > 0) {
+      // Get active hospital (first one or from localStorage)
+      const savedHospitalKey = localStorage.getItem('activeHospital');
+      let activeHospital = userHospitals[0];
+      if (savedHospitalKey) {
+        const saved = userHospitals.find((h: any) => 
+          `${h.id}-${h.locationId}-${h.role}` === savedHospitalKey
+        );
+        if (saved) activeHospital = saved;
+      }
+
+      // If user is assigned to the anesthesia location, default to anesthesia module
+      if (activeHospital.anesthesiaLocationId && 
+          activeHospital.locationId === activeHospital.anesthesiaLocationId) {
+        navigate("/anesthesia/patients", { replace: true });
+        return;
+      }
+    }
+
+    // Default to inventory for all other cases
+    navigate("/inventory/items", { replace: true });
+  }, [navigate, user]);
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center">
