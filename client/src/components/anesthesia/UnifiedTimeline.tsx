@@ -279,6 +279,10 @@ export function UnifiedTimeline({
   // State for current time indicator - updates every minute
   const [currentTime, setCurrentTime] = useState<number>(now || Date.now());
   
+  // State for chart initialization time - fixed when chart first starts
+  // Used to calculate the fixed past editable boundary
+  const [chartInitTime] = useState<number>(now || Date.now());
+  
   // State for tracking current zoom/pan range - will be initialized from dataZoom
   const [currentZoomStart, setCurrentZoomStart] = useState<number | undefined>(undefined);
   const [currentZoomEnd, setCurrentZoomEnd] = useState<number | undefined>(undefined);
@@ -1354,15 +1358,14 @@ export function UnifiedTimeline({
       const chartHeight = VITALS_HEIGHT + swimlanesHeight;
       
       try {
-        const tenMinutes = 10 * 60 * 1000;
-        const oneHour = 60 * 60 * 1000;
+        const fifteenMinutes = 15 * 60 * 1000;
         
-        // Zone boundaries:
-        // Zone 1 (past/non-editable): from data.startTime to (NOW - 10 min)
-        // Zone 2 (editable): from (NOW - 10 min) to (NOW + 1 hour)
-        // Zone 3 (future/non-editable): from (NOW + 1 hour) to data.endTime
-        const editableStartBoundary = currentTime - tenMinutes;
-        const editableEndBoundary = currentTime + oneHour;
+        // Progressive editable window:
+        // Zone 1 (past/non-editable): from data.startTime to (chartInitTime - 15 min) [FIXED]
+        // Zone 2 (editable): from (chartInitTime - 15 min) to (currentTime + 15 min) [EXPANDING]
+        // Zone 3 (future/non-editable): from (currentTime + 15 min) to data.endTime [MOVING]
+        const editableStartBoundary = chartInitTime - fifteenMinutes; // Fixed past boundary
+        const editableEndBoundary = currentTime + fifteenMinutes; // Moving future boundary
         
         // Use convertToPixel to get accurate pixel positions based on current zoom
         const startPx = chart.convertToPixel({ xAxisIndex: 0 }, data.startTime);
@@ -1459,7 +1462,7 @@ export function UnifiedTimeline({
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [chartRef, data, isDark, activeSwimlanes, now, currentZoomStart, currentZoomEnd, currentTime, hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData]);
+  }, [chartRef, data, isDark, activeSwimlanes, now, currentZoomStart, currentZoomEnd, currentTime, chartInitTime, hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData]);
 
   // Add click handler for editing data points
   useEffect(() => {
