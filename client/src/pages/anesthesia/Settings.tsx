@@ -51,10 +51,10 @@ export default function AnesthesiaSettings() {
   const [isRateControlled, setIsRateControlled] = useState(false);
   const [rateUnit, setRateUnit] = useState('ml/h');
 
-  // Fetch all items for the hospital
+  // Fetch all items for the hospital's anesthesia location
   const { data: allItems = [], isLoading } = useQuery<Item[]>({
-    queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`],
-    enabled: !!activeHospital?.id && !!activeHospital?.locationId,
+    queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.anesthesiaLocationId}`],
+    enabled: !!activeHospital?.id && !!activeHospital?.anesthesiaLocationId,
   });
 
   // Fetch anesthesia-configured items
@@ -75,7 +75,7 @@ export default function AnesthesiaSettings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/items/${activeHospital?.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.anesthesiaLocationId}`] });
       toast({
         title: "Configuration updated",
         description: "Anesthesia item configuration has been saved",
@@ -172,6 +172,21 @@ export default function AnesthesiaSettings() {
     return (
       <div className="flex items-center justify-center h-96">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!activeHospital?.anesthesiaLocationId) {
+    return (
+      <div className="p-6">
+        <div className="bg-card border border-border rounded-lg p-8 text-center">
+          <i className="fas fa-syringe text-4xl text-muted-foreground mb-4"></i>
+          <h3 className="text-lg font-semibold text-foreground mb-2">Anesthesia Module Not Configured</h3>
+          <p className="text-muted-foreground mb-4">
+            An administrator needs to configure which inventory location should be used for anesthesia items.
+            Please contact your hospital admin to set this up in Hospital Settings.
+          </p>
+        </div>
       </div>
     );
   }
