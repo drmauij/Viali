@@ -16,6 +16,7 @@ import UpgradeDialog from "@/components/UpgradeDialog";
 import type { Item, StockLevel, InsertItem, Vendor, Folder } from "@shared/schema";
 import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
 import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Trash2, GripVertical, X } from "lucide-react";
+import Papa from "papaparse";
 
 type FilterType = "all" | "critical" | "controlled" | "expiring" | "belowMin";
 
@@ -151,6 +152,12 @@ export default function Items() {
   const [bulkItems, setBulkItems] = useState<any[]>([]);
   const [isBulkAnalyzing, setIsBulkAnalyzing] = useState(false);
   const [bulkImportLimit, setBulkImportLimit] = useState(10); // Default to free tier limit
+  
+  // CSV import state
+  const [importMode, setImportMode] = useState<'select' | 'image' | 'csv'>('select');
+  const [csvData, setCsvData] = useState<any[]>([]);
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [csvMapping, setCsvMapping] = useState<Record<string, string>>({});
   
   // Import job notification state
   const [importJob, setImportJob] = useState<{
@@ -1232,6 +1239,16 @@ export default function Items() {
   const handleBulkImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
+    
+    // Check if it's a CSV file
+    const firstFile = files[0];
+    if (firstFile.name.endsWith('.csv')) {
+      handleCsvUpload(firstFile);
+      e.target.value = '';
+      return;
+    }
+    
+    // Handle image files
     if (files.length > bulkImportLimit) {
       toast({
         title: t('items.tooManyImages'),
@@ -1250,6 +1267,7 @@ export default function Items() {
         images.push(compressedImage);
       }
       setBulkImages(images);
+      setImportMode('image');
       await createImportJobMutation.mutateAsync(images);
     } catch (error: any) {
       toast({
@@ -1261,6 +1279,147 @@ export default function Items() {
     } finally {
       e.target.value = '';
     }
+  };
+  
+  const handleCsvUpload = (file: File) => {
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        if (results.data.length === 0) {
+          toast({
+            title: "Empty CSV",
+            description: "The CSV file appears to be empty",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        const headers = results.meta.fields || [];
+        setCsvHeaders(headers);
+        setCsvData(results.data);
+        setImportMode('csv');
+        
+        // Auto-map common column names
+        const autoMapping: Record<string, string> = {};
+        headers.forEach(header => {
+          const lowerHeader = header.toLowerCase().trim();
+          if (lowerHeader === 'name' || lowerHeader === 'item name' || lowerHeader === 'product name') {
+            autoMapping[header] = 'name';
+          } else if (lowerHeader === 'description' || lowerHeader === 'desc') {
+            autoMapping[header] = 'description';
+          } else if (lowerHeader === 'stock' || lowerHeader === 'quantity' || lowerHeader === 'initial stock') {
+            autoMapping[header] = 'initialStock';
+          } else if (lowerHeader === 'min' || lowerHeader === 'min threshold' || lowerHeader === 'minimum') {
+            autoMapping[header] = 'minThreshold';
+          } else if (lowerHeader === 'max' || lowerHeader === 'max threshold' || lowerHeader === 'maximum') {
+            autoMapping[header] = 'maxThreshold';
+          } else if (lowerHeader === 'unit' || lowerHeader === 'order unit') {
+            autoMapping[header] = 'unit';
+          } else if (lowerHeader === 'critical') {
+            autoMapping[header] = 'critical';
+          } else if (lowerHeader === 'controlled') {
+            autoMapping[header] = 'controlled';
+          } else if (lowerHeader === 'pack size' || lowerHeader === 'packsize') {
+            autoMapping[header] = 'packSize';
+          }
+        });
+        setCsvMapping(autoMapping);
+      },
+      error: (error) => {
+        toast({
+          title: "CSV Parse Error",
+          description: error.message || "Failed to parse CSV file",
+          variant: "destructive",
+        });
+      }
+    });
+  };
+  
+  const processCsvData = () => {
+    // Validate that name is mapped
+    const nameColumn = Object.entries(csvMapping).find(([_, target]) => target === 'name')?.[0];
+    if (!nameColumn) {
+      toast({
+        title: "Missing Required Field",
+        description: "Please map a column to 'Name' - this field is required",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const items: any[] = [];
+    csvData.forEach((row, index) => {
+      const item: any = {
+        name: '',
+        description: '',
+        unit: 'pack',
+        packSize: 1,
+        minThreshold: 5,
+        maxThreshold: 20,
+        initialStock: 0,
+        critical: false,
+        controlled: false,
+      };
+      
+      Object.entries(csvMapping).forEach(([csvCol, targetField]) => {
+        const value = row[csvCol];
+        if (!value && targetField === 'name') return; // Skip rows without name
+        
+        switch (targetField) {
+          case 'name':
+          case 'description':
+            item[targetField] = String(value || '');
+            break;
+          case 'unit':
+            item[targetField] = value === 'Single unit' ? 'Single unit' : 'pack';
+            break;
+          case 'initialStock':
+          case 'minThreshold':
+          case 'maxThreshold':
+          case 'packSize':
+            item[targetField] = parseInt(value) || 0;
+            break;
+          case 'critical':
+          case 'controlled':
+            const boolVal = String(value).toLowerCase();
+            item[targetField] = boolVal === 'true' || boolVal === 'yes' || boolVal === '1';
+            break;
+        }
+      });
+      
+      if (item.name) {
+        items.push(item);
+      }
+    });
+    
+    if (items.length === 0) {
+      toast({
+        title: "No Valid Items",
+        description: "No valid items found in CSV. Make sure the Name column is mapped and contains data.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setBulkItems(items);
+    setImportMode('select'); // Move to review screen
+  };
+  
+  const downloadCsvTemplate = () => {
+    const template = [
+      ['Name', 'Description', 'Unit', 'Pack Size', 'Initial Stock', 'Min Threshold', 'Max Threshold', 'Critical', 'Controlled'],
+      ['Propofol 1% 20ml', 'Anesthetic agent 10mg/ml', 'pack', '10', '50', '10', '30', 'false', 'true'],
+      ['Sodium Chloride 0.9%', '1000ml bag', 'pack', '12', '100', '20', '50', 'false', 'false'],
+      ['Epinephrine 1mg/ml', 'Emergency medication', 'Single unit', '1', '20', '10', '25', 'true', 'false'],
+    ];
+    
+    const csvContent = template.map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'items_template.csv';
+    link.click();
   };
 
   const handleBulkImportSave = () => {
@@ -2728,37 +2887,71 @@ export default function Items() {
       </Dialog>
 
       {/* Bulk Import Dialog */}
-      <Dialog open={bulkImportOpen} onOpenChange={setBulkImportOpen}>
+      <Dialog open={bulkImportOpen} onOpenChange={(open) => {
+        setBulkImportOpen(open);
+        if (!open) {
+          // Reset state when closing
+          setImportMode('select');
+          setBulkItems([]);
+          setBulkImages([]);
+          setCsvData([]);
+          setCsvHeaders([]);
+          setCsvMapping({});
+        }
+      }}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('items.bulkImportTitle')}</DialogTitle>
-            <DialogDescription>{t('items.importFromPhotos')}</DialogDescription>
+            <DialogDescription>Import items from photos (AI analysis) or CSV file</DialogDescription>
           </DialogHeader>
 
-          {bulkItems.length === 0 ? (
+          {importMode === 'select' && bulkItems.length === 0 ? (
             <div className="space-y-4">
               <input
                 type="file"
                 ref={bulkFileInputRef}
-                accept="image/*"
+                accept="image/*,.csv"
                 multiple
                 onChange={handleBulkImageUpload}
                 className="hidden"
               />
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full h-32"
-                onClick={() => bulkFileInputRef.current?.click()}
-                disabled={isBulkAnalyzing}
-                data-testid="button-bulk-upload"
-              >
-                <i className={`fas ${isBulkAnalyzing ? 'fa-spinner fa-spin' : 'fa-camera'} text-4xl mr-4`}></i>
-                <div>
-                  <div className="font-semibold">{isBulkAnalyzing ? t('items.analyzing') : t('items.uploadImages')}</div>
-                  <div className="text-sm text-muted-foreground">{t('items.uploadImages')}</div>
-                </div>
-              </Button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-32 flex flex-col"
+                  onClick={() => bulkFileInputRef.current?.click()}
+                  disabled={isBulkAnalyzing}
+                  data-testid="button-bulk-upload"
+                >
+                  <i className={`fas ${isBulkAnalyzing ? 'fa-spinner fa-spin' : 'fa-camera'} text-4xl mb-2`}></i>
+                  <div className="font-semibold">{isBulkAnalyzing ? t('items.analyzing') : 'Upload Photos'}</div>
+                  <div className="text-xs text-muted-foreground mt-1">AI will extract item details</div>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-32 flex flex-col"
+                  onClick={() => bulkFileInputRef.current?.click()}
+                  data-testid="button-csv-upload"
+                >
+                  <i className="fas fa-file-csv text-4xl mb-2"></i>
+                  <div className="font-semibold">Upload CSV</div>
+                  <div className="text-xs text-muted-foreground mt-1">Map fields from spreadsheet</div>
+                </Button>
+              </div>
+              <div className="flex justify-center">
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  onClick={downloadCsvTemplate}
+                  data-testid="button-download-template"
+                >
+                  <i className="fas fa-download mr-2"></i>
+                  Download CSV Template
+                </Button>
+              </div>
               {bulkImages.length > 0 && (
                 <div className="grid grid-cols-5 gap-2">
                   {bulkImages.map((img, idx) => (
@@ -2767,7 +2960,88 @@ export default function Items() {
                 </div>
               )}
             </div>
-          ) : (
+          ) : importMode === 'csv' ? (
+            <div className="space-y-4">
+              <div className="text-sm">
+                <strong>CSV Data Preview</strong> ({csvData.length} rows found)
+              </div>
+              
+              {/* CSV Preview Table */}
+              <div className="border rounded-lg overflow-hidden">
+                <div className="max-h-40 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted sticky top-0">
+                      <tr>
+                        {csvHeaders.map(header => (
+                          <th key={header} className="px-2 py-1 text-left font-medium">{header}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {csvData.slice(0, 5).map((row, idx) => (
+                        <tr key={idx} className="border-t">
+                          {csvHeaders.map(header => (
+                            <td key={header} className="px-2 py-1">{row[header]}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Field Mapping */}
+              <div className="space-y-3">
+                <div className="text-sm font-medium">Map CSV Columns to Item Fields</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {['name', 'description', 'unit', 'initialStock', 'minThreshold', 'maxThreshold', 'packSize', 'critical', 'controlled'].map(field => (
+                    <div key={field}>
+                      <Label className="text-xs">
+                        {field === 'name' && '* '}
+                        {field === 'initialStock' ? 'Stock' : field === 'minThreshold' ? 'Min' : field === 'maxThreshold' ? 'Max' : field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1')}
+                      </Label>
+                      <Select
+                        value={Object.entries(csvMapping).find(([_, target]) => target === field)?.[0] || 'skip'}
+                        onValueChange={(value) => {
+                          const newMapping = { ...csvMapping };
+                          // Remove any existing mapping to this target field
+                          Object.keys(newMapping).forEach(key => {
+                            if (newMapping[key] === field) delete newMapping[key];
+                          });
+                          // Add new mapping if not 'skip'
+                          if (value !== 'skip') {
+                            newMapping[value] = field;
+                          }
+                          setCsvMapping(newMapping);
+                        }}
+                      >
+                        <SelectTrigger className="h-8 text-xs" data-testid={`select-mapping-${field}`}>
+                          <SelectValue placeholder="Skip field" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="skip">-- Skip this field --</SelectItem>
+                          {csvHeaders.map(header => (
+                            <SelectItem key={header} value={header}>{header}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => { setImportMode('select'); setCsvData([]); setCsvHeaders([]); setCsvMapping({}); }}>
+                  Cancel
+                </Button>
+                <Button onClick={processCsvData} data-testid="button-process-csv">
+                  Process CSV ({csvData.length} rows)
+                </Button>
+              </div>
+            </div>
+          ) : null}
+          
+          {bulkItems.length > 0 && (
             <div className="space-y-4">
               <div className="text-sm text-muted-foreground">
                 {t('items.reviewItems')}
