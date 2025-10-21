@@ -26,7 +26,7 @@ export default function UpgradeDialog({
 }: UpgradeDialogProps) {
   const getUpgradeMessage = () => {
     if (licenseType === "free") {
-      return "Upgrade to the Basic plan to manage up to 100 items.";
+      return "Upgrade to the Basic plan to manage up to 150 items.";
     }
     return "Contact us to learn about higher tier plans.";
   };
