@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -1327,16 +1328,26 @@ export default function Items() {
           // Medication-specific fields
           else if (lowerHeader === 'group' || lowerHeader === 'medication group' || lowerHeader === 'drug group') {
             autoMapping[header] = 'medicationGroup';
+          } else if (lowerHeader === 'brandname' || lowerHeader === 'brand name' || lowerHeader === 'brand') {
+            autoMapping[header] = 'brandName';
           } else if (lowerHeader === 'route' || lowerHeader === 'administration route') {
             autoMapping[header] = 'administrationRoute';
           } else if (lowerHeader === 'defaultdose' || lowerHeader === 'default dose') {
             autoMapping[header] = 'defaultDose';
           } else if (lowerHeader === 'defaultdoseunit' || lowerHeader === 'default dose unit' || lowerHeader === 'dose unit') {
             autoMapping[header] = 'doseUnit';
-          } else if (lowerHeader === 'ampoulequantity' || lowerHeader === 'ampule quantity') {
+          } else if (lowerHeader === 'ampoulequantity' || lowerHeader === 'ampule quantity' || lowerHeader === 'ampoule quantity') {
             autoMapping[header] = 'ampuleQuantity';
-          } else if (lowerHeader === 'ampouleunit' || lowerHeader === 'ampule unit') {
+          } else if (lowerHeader === 'ampouleunit' || lowerHeader === 'ampule unit' || lowerHeader === 'ampoule unit') {
             autoMapping[header] = 'ampuleUnit';
+          } else if (lowerHeader === 'concentrationdisplay' || lowerHeader === 'concentration display' || lowerHeader === 'concentration') {
+            autoMapping[header] = 'concentrationDisplay';
+          } else if (lowerHeader === 'administrationunit' || lowerHeader === 'administration unit') {
+            autoMapping[header] = 'administrationUnit';
+          } else if (lowerHeader === 'isratecontrolled' || lowerHeader === 'is rate controlled' || lowerHeader === 'rate controlled') {
+            autoMapping[header] = 'isRateControlled';
+          } else if (lowerHeader === 'rateunit' || lowerHeader === 'rate unit') {
+            autoMapping[header] = 'rateUnit';
           }
         });
         setCsvMapping(autoMapping);
@@ -1420,7 +1431,17 @@ export default function Items() {
           case 'administrationRoute':
           case 'defaultDose':
           case 'doseUnit':
+          case 'brandName':
+          case 'administrationUnit':
+          case 'rateUnit':
             item[targetField] = value ? String(value) : undefined;
+            break;
+          case 'concentrationDisplay':
+            item[targetField] = value ? String(value) : undefined;
+            break;
+          case 'isRateControlled':
+            const rateControlledVal = String(value).toLowerCase();
+            item[targetField] = rateControlledVal === 'true' || rateControlledVal === 'yes' || rateControlledVal === '1';
             break;
           case 'ampuleQuantity':
             ampuleQuantity = value ? String(value) : '';
@@ -1458,19 +1479,35 @@ export default function Items() {
     setImportMode('select'); // Move to review screen
   };
   
-  const downloadCsvTemplate = () => {
+  const downloadSimpleCsvTemplate = () => {
     const template = [
       ['Name', 'Description', 'Unit', 'Pack Size', 'Initial Stock', 'Min Threshold', 'Max Threshold', 'Critical', 'Controlled'],
-      ['Propofol 1% 20ml', 'Anesthetic agent 10mg/ml', 'pack', '10', '50', '10', '30', 'false', 'true'],
-      ['Sodium Chloride 0.9%', '1000ml bag', 'pack', '12', '100', '20', '50', 'false', 'false'],
-      ['Epinephrine 1mg/ml', 'Emergency medication', 'Single unit', '1', '20', '10', '25', 'true', 'false'],
+      ['Bandages 5cm', 'Sterile gauze bandages', 'pack', '10', '50', '10', '30', 'false', 'false'],
+      ['Sodium Chloride 0.9%', '1000ml bag IV solution', 'pack', '12', '100', '20', '50', 'false', 'false'],
+      ['Syringes 10ml', 'Disposable syringes', 'pack', '100', '200', '50', '150', 'false', 'false'],
     ];
     
     const csvContent = template.map(row => row.join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = 'items_template.csv';
+    link.download = 'items_simple_template.csv';
+    link.click();
+  };
+
+  const downloadMedicationCsvTemplate = () => {
+    const template = [
+      ['Name', 'Description', 'Unit', 'Pack Size', 'Initial Stock', 'Min Threshold', 'Max Threshold', 'Critical', 'Controlled', 'Group', 'Route', 'DefaultDose', 'DefaultDoseUnit', 'AmpouleQuantity', 'AmpouleUnit', 'BrandName', 'ConcentrationDisplay', 'AdministrationUnit', 'IsRateControlled', 'RateUnit'],
+      ['Midazolam (Dormicum)', 'Benzodiazepine sedative', 'pack', '10', '20', '5', '15', 'false', 'true', 'Hypnotika', 'i.v.', '2', 'mg', '5', 'mg', 'Dormicum', '5mg', 'mg', 'false', ''],
+      ['Propofol', 'Anesthetic agent 10mg/ml', 'pack', '10', '30', '10', '25', 'true', 'true', 'Hypnotika', 'i.v.', '100', 'mg', '20', 'ml', 'Diprivan', '200mg/20ml', 'mg', 'true', 'mg/h'],
+      ['Fentanyl', 'Opioid analgesic', 'pack', '10', '25', '8', '20', 'true', 'true', 'Opioide', 'i.v.', '0.1', 'mg', '0.5', 'mg', '', '0.5mg', 'µg', 'true', 'µg/h'],
+    ];
+    
+    const csvContent = template.map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'medications_template.csv';
     link.click();
   };
 
@@ -3024,17 +3061,30 @@ export default function Items() {
                   <div className="text-xs text-muted-foreground mt-1">Map fields from spreadsheet</div>
                 </Button>
               </div>
-              <div className="flex justify-center">
-                <Button
-                  type="button"
-                  variant="link"
-                  size="sm"
-                  onClick={downloadCsvTemplate}
-                  data-testid="button-download-template"
-                >
-                  <i className="fas fa-download mr-2"></i>
-                  Download CSV Template
-                </Button>
+              <div className="flex flex-col gap-2 items-center">
+                <div className="text-xs text-muted-foreground">Download Template:</div>
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={downloadSimpleCsvTemplate}
+                    data-testid="button-download-simple-template"
+                  >
+                    <i className="fas fa-download mr-2"></i>
+                    Simple Items
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={downloadMedicationCsvTemplate}
+                    data-testid="button-download-medication-template"
+                  >
+                    <i className="fas fa-download mr-2"></i>
+                    Medications
+                  </Button>
+                </div>
               </div>
               {bulkImages.length > 0 && (
                 <div className="grid grid-cols-5 gap-2">
@@ -3113,6 +3163,68 @@ export default function Items() {
                   ))}
                 </div>
               </div>
+
+              {/* Medication Configuration */}
+              <Accordion type="single" collapsible className="border rounded-lg">
+                <AccordionItem value="medication" className="border-0">
+                  <AccordionTrigger className="px-4 hover:no-underline">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">Medication Configuration (Optional)</span>
+                      <span className="text-xs text-muted-foreground">
+                        {Object.values(csvMapping).filter(v => ['medicationGroup', 'brandName', 'administrationRoute', 'defaultDose', 'doseUnit', 'ampuleQuantity', 'ampuleUnit', 'concentrationDisplay', 'administrationUnit', 'isRateControlled', 'rateUnit'].includes(v)).length > 0 
+                          ? `${Object.values(csvMapping).filter(v => ['medicationGroup', 'brandName', 'administrationRoute', 'defaultDose', 'doseUnit', 'ampuleQuantity', 'ampuleUnit', 'concentrationDisplay', 'administrationUnit', 'isRateControlled', 'rateUnit'].includes(v)).length} fields mapped`
+                          : 'For anesthesia records'}
+                      </span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                      {[
+                        { key: 'medicationGroup', label: 'Medication Group' },
+                        { key: 'brandName', label: 'Brand Name' },
+                        { key: 'administrationRoute', label: 'Administration Route' },
+                        { key: 'defaultDose', label: 'Default Dose' },
+                        { key: 'doseUnit', label: 'Dose Unit' },
+                        { key: 'ampuleQuantity', label: 'Ampule Quantity' },
+                        { key: 'ampuleUnit', label: 'Ampule Unit' },
+                        { key: 'concentrationDisplay', label: 'Concentration Display' },
+                        { key: 'administrationUnit', label: 'Administration Unit' },
+                        { key: 'isRateControlled', label: 'Is Rate Controlled' },
+                        { key: 'rateUnit', label: 'Rate Unit' },
+                      ].map(({ key, label }) => (
+                        <div key={key}>
+                          <Label className="text-xs">{label}</Label>
+                          <Select
+                            value={Object.entries(csvMapping).find(([_, target]) => target === key)?.[0] || 'skip'}
+                            onValueChange={(value) => {
+                              const newMapping = { ...csvMapping };
+                              // Remove any existing mapping to this target field
+                              Object.keys(newMapping).forEach(k => {
+                                if (newMapping[k] === key) delete newMapping[k];
+                              });
+                              // Add new mapping if not 'skip'
+                              if (value !== 'skip') {
+                                newMapping[value] = key;
+                              }
+                              setCsvMapping(newMapping);
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs" data-testid={`select-mapping-${key}`}>
+                              <SelectValue placeholder="Skip field" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="skip">-- Skip this field --</SelectItem>
+                              {csvHeaders.map(header => (
+                                <SelectItem key={header} value={header}>{header}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
 
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => { setImportMode('select'); setCsvData([]); setCsvHeaders([]); setCsvMapping({}); }}>
