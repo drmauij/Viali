@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage, db } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertItemSchema, insertFolderSchema, insertActivitySchema, insertChecklistTemplateSchema, insertChecklistCompletionSchema, orderLines, items, stockLevels, orders, users, userHospitalRoles, activities, locations, hospitals } from "@shared/schema";
+import { insertItemSchema, insertFolderSchema, insertActivitySchema, insertChecklistTemplateSchema, insertChecklistCompletionSchema, orderLines, items, stockLevels, orders, users, userHospitalRoles, activities, locations, hospitals, medicationConfigs } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import OpenAI from "openai";
@@ -1118,11 +1118,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(eq(hospitals.id, hospitalId))
         .limit(1);
 
+      console.log(`[Anesthesia Items] hospitalId: ${hospitalId}, found hospital:`, hospital.length > 0 ? {
+        id: hospital[0].id,
+        name: hospital[0].name,
+        anesthesiaLocationId: hospital[0].anesthesiaLocationId
+      } : 'NOT FOUND');
+
       if (!hospital.length || !hospital[0].anesthesiaLocationId) {
+        console.log(`[Anesthesia Items] Returning empty - no hospital or no anesthesiaLocationId`);
         return res.json([]); // Return empty array if anesthesia location not configured
       }
 
       const anesthesiaLocationId = hospital[0].anesthesiaLocationId;
+      console.log(`[Anesthesia Items] Querying items with locationId: ${anesthesiaLocationId}, anesthesiaType != 'none'`);
 
       // Get all items from the hospital's anesthesia location that are configured for anesthesia
       // Join with medicationConfigs to get complete medication data
@@ -1163,6 +1171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         )
         .orderBy(items.name);
 
+      console.log(`[Anesthesia Items] Found ${anesthesiaItems.length} items`);
       res.json(anesthesiaItems);
     } catch (error: any) {
       console.error("Error fetching anesthesia items:", error);
@@ -1686,6 +1695,15 @@ If unable to parse any drugs, return:
           bulkItem.isRateControlled ||
           bulkItem.rateUnit
         );
+        
+        console.log(`[Bulk Import] Item: ${bulkItem.name}, hasMedicationConfig: ${hasMedicationConfig}, medicationFields:`, {
+          medicationGroup: bulkItem.medicationGroup,
+          brandName: bulkItem.brandName,
+          ampuleTotalContent: bulkItem.ampuleTotalContent,
+          defaultDose: bulkItem.defaultDose,
+          doseUnit: bulkItem.doseUnit,
+          administrationRoute: bulkItem.administrationRoute
+        });
 
         const itemData = {
           hospitalId,
