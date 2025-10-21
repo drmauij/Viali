@@ -1,0 +1,114 @@
+Name;AmpouleQuantity;AmpouleUnit;Route;DefaultDose;DefaultDoseUnit;Group
+Etomidate;20;mg;i.v.;12;mg;Hypnotika
+Midazolam (Dormicum);5;mg;i.v.;1;mg;Hypnotika
+Alfentanil (Rapifen);1;mg;i.v.;0.5;mg;Opioide
+Oxycodon (Oxygesic);10;mg;i.v.;5;mg;Opioide
+Piritramid (Dipidolor);7.5;mg;i.v.;3;mg;Opioide
+Sufentanil (Sufenta);;;i.v.;10;µg;Opioide
+Atracurium (Tracrium) [mg];;;i.v.;30;mg;Muskelrelaxantien
+Cisatracurium (Nimbex);10;mg;i.v.;5;mg;Muskelrelaxantien
+Mivacurium (Mivacron);;;i.v.;10;mg;Muskelrelaxantien
+Succinylcholin (Lysthenon 2%);100;mg;i.v.;80;mg;Muskelrelaxantien
+Bupivacain 0,5% hyperbar (Carbostesin);;;spinal;1.5;ml;Lokalanästhetika
+Chloroprocain 1% (Ampres);;;spinal;2.5;ml;Lokalanästhetika
+Chloroprocain 2% (Ampres);;;perineural;20;ml;Lokalanästhetika
+Mepivacain 1% (Scandicain);;;perineural;20;ml;Lokalanästhetika
+Prilocain 1% (Xylonest);;;perineural;20;ml;Lokalanästhetika
+Prilocain 1% (Xylonest);;;perineural;5;ml;Lokalanästhetika
+Prilocain 1% mit Adrenalin;;;s.c.;0.7;ml;Lokalanästhetika
+Prilocain 2% (Takipril);;;spinal;1.5;ml;Lokalanästhetika
+Rapidocain;;;i.v.;40;mg;Lokalanästhetika
+Ropivacain 0,2% (Naropin);;;perineural;10;ml;Lokalanästhetika
+Ropivacain 0,375% (Naropin);;;perineural;20;ml;Lokalanästhetika
+Ropivacain 0,75% (Naropin);;;perineural;10;ml;Lokalanästhetika
+Ropivacain 1% (Naropin);;;perineural;5;ml;Lokalanästhetika
+Dexketoprofen (Sympal Injekt);;;i.v.;50;mg;Nicht-Opioid-Analgetika
+Diclofenac (Voltaren) supp.;;;rektal;100;mg;Nicht-Opioid-Analgetika
+Diclofenac;75;mg;i.v.;75;mg;Nicht-Opioid-Analgetika
+Ibuprofen Supp;;;supp;60;mg;Nicht-Opioid-Analgetika
+Metamizol (Novalgin);1;g;i.v.;1;g;Nicht-Opioid-Analgetika
+Metamizol (Novalgin);2.5;g;Infusion;2.5;g;Nicht-Opioid-Analgetika
+Paracetamol Supp.;;;supp;125;mg;Nicht-Opioid-Analgetika
+Parecoxib (Dynastat);;;i.v.;40;mg;Nicht-Opioid-Analgetika
+Toradol;;;i.v.;30;mg;Nicht-Opioid-Analgetika
+Dehydrobenzperidol (Xomolix);2.5;mg;i.v.;1.25;mg;Antiemetika
+Dexamethason (Fortecortin);4;mg;i.v.;4;mg;Antiemetika
+Dimenhydrinat (Vomex A);;;i.v.;30;mg;Antiemetika
+Droperidol;;;i.v.;0.625;mg;Antiemetika
+Ondansetron (Zofran) p.o.;;;oral;8;mg;Antiemetika
+Ondansetron (Zofran);4;mg;i.v.;4;mg;Antiemetika
+Akrinor (Cafedrin, Theodrenalin);;;i.v.;0.3;ml;Herz/Kreislauf
+Arterenol (µg/kg);;;i.v.;0.01;;Herz/Kreislauf
+Arterenol 20mcg/ml (µg/kg);;;i.v.;0.01;;Herz/Kreislauf
+Atropin;0.5;mg;i.v.;0.5;mg;Herz/Kreislauf
+Ephedrin;;;i.v.;5;mg;Herz/Kreislauf
+Epinephrin;;;i.v.;1;mg;Herz/Kreislauf
+Clonidin (Catapresan);150;µg;i.v.;75;µg;Antihypertensiva
+Metoprolol (Beloc);5;mg;i.v.;2;mg;Antihypertensiva
+Flumazenil (Anexate);0.5;mg;i.v.;0.5;mg;Antidota
+Naloxon (Narcanti);0.4;mg;i.v.;0.2;mg;Antidota
+Physostigmin (Anticholium);2;mg;i.v.;1;mg;Antidota
+Prostigmin (Neostigmin);10;mg;i.v.;1;mg;Antidota
+Oxytocin (Oxytocin);3;IE;i.v.;3;IE;Geburtshilfe
+Arixtra;2.5;mg;s.c.;2.5;mg;Sonstige
+Clexane 0,4;;;s.c.;0.4;ml;Sonstige
+Fluorescein 250;;;i.v.;250;mg;Sonstige
+Fragmin P 2.500;;;s.c.;2500;IE;Sonstige
+Ibuprofen i.v.;;;i.v.;400;mg;Sonstige
+Installagel;;;transurethral;10;ml;Sonstige
+Mono-Embolex 3000;;;s.c.;3000;IE;Sonstige
+Xylometazolin (Otriven Einmalpipette);;;nasal;0.3;mg;Sonstige
+Zentiva (Dexamethason);;;i.v.;5;mg;Sonstige
+Adrenalin;1;mg;i.v.;0.2;mg;Notfallampullarium
+Amiodaron (Cordarex);150;mg;i.v.;150;mg;Notfallampullarium
+Cimetidin (H2-Blocker);;;i.v.;200;mg;Notfallampullarium
+Dimetinden (Fenistil);4;mg;i.v.;4;mg;Notfallampullarium
+Fenoterol DA (Berotec 100);;;Inhalation;0.1;mg;Notfallampullarium
+Furosemid (Lasix);40;mg;i.v.;10;mg;Notfallampullarium
+Glucose 40 %;;;i.v.;5;ml;Notfallampullarium
+Glyceroltrinitrat (Nitrolingual);;;s.l.;2;Hub;Notfallampullarium
+Heparin Amp. 5000;;;i.v.;5000;IE;Notfallampullarium
+Nifidepin Drg. (Adalat);10;mg;s.l.;10;mg;Notfallampullarium
+Prednisolon (Solu-Decortin);1000;mg;i.v.;250;mg;Notfallampullarium
+Ranitidin (Zantic);50;mg;i.v.;50;mg;Notfallampullarium
+Theophyllin (Bronchoparat);200;mg;i.v.;20;mg;Notfallampullarium
+Thiopental (Trapanal);500;mg;i.v.;300;mg;Notfallampullarium
+Urapidil (Ebrantil);25;mg;i.v.;5;mg;Notfallampullarium
+Verapamil (Isoptin);5;mg;i.v.;1;mg;Notfallampullarium
+AmoxiClav;2.2;g;Infusion;2.2;g;Antibiotika
+Kefzol;;;i.v.;2;g;Antibiotika
+Amoxicilin (TBL);;;i.v.;1;;Freitext
+Amoxicillin p.o.;1;g;i.v.;1000;mg;Freitext
+Arterenol (Noradrenalin) /ml;100;µg;i.v.;5;µg;Freitext
+Brufen Tbl.;600;mg;i.v.;600;mg;Freitext
+Cefuroxim;;;i.v.;500;mg;Freitext
+Co Dafalgan;;;i.v.;500;mg;Freitext
+Co Dafalgan / 30mg;500;mg;i.v.;500;mg;Freitext
+Co Dafalgan / 30mg;500;mg;i.v.;1000;mg;Freitext
+Dafalgan;;;i.v.;1000;mg;Freitext
+Mefenacid;;;i.v.;500;mg;Freitext
+NaCl 0,9%;;;Infusion;10;ml;Freitext
+Oxycodon-Naloxon-Mepha;;;i.v.;10;mg;Freitext
+Oxynorm;;;i.v.;5;mg;Freitext
+Oxynorm;;;i.v.;10;mg;Freitext
+Paracetamol i.v/ 100ml;1;g;i.v.;1000;mg;Freitext
+Paspertin i.v/ 2ml;10;mg;i.v.;10;mg;Freitext
+Pethidin / 1ml;50;mg;i.v.;12.5;mg;Freitext
+Pethidin /2ml;50;mg;i.v.;12.5;mg;Freitext
+Propofol 1%;;;i.v.;5;mg;Freitext
+Remifentanil (Ultiva);;;i.v.;1;µg;Freitext
+Rocuronium (Esmeron);;;i.v.;1;mg;Freitext
+Sumatripan;;;i.v.;50;mg;Freitext
+Targin;;;i.v.;10;mg;Freitext
+Tavegil (Clemastin);;;i.v.;2;mg;Freitext
+Tranexamsäure (Cyclokapron);500;mg;Infusion;1000;mg;Freitext
+atrovent;;;i.v.;1;ml;Freitext
+brufen;;;i.v.;600;mg;Freitext
+co dafalgan;1;g;i.v.;1000;mg;Freitext
+co dafalgan;1;g;i.v.;1;mg;Freitext
+novalgin;500;mg;i.v.;500;mg;Freitext
+pantozol;;;i.v.;20;mg;Freitext
+pethidin;;;i.v.;25;mg;Freitext
+ponstan;;;i.v.;500;mg;Freitext
+trrd;;;i.v.;4;mg;Freitext
+ventolin;;;i.v.;1;mg;Freitext
