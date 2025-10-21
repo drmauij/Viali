@@ -1324,6 +1324,20 @@ export default function Items() {
           } else if (lowerHeader === 'pack size' || lowerHeader === 'packsize') {
             autoMapping[header] = 'packSize';
           }
+          // Medication-specific fields
+          else if (lowerHeader === 'group' || lowerHeader === 'medication group' || lowerHeader === 'drug group') {
+            autoMapping[header] = 'medicationGroup';
+          } else if (lowerHeader === 'route' || lowerHeader === 'administration route') {
+            autoMapping[header] = 'administrationRoute';
+          } else if (lowerHeader === 'defaultdose' || lowerHeader === 'default dose') {
+            autoMapping[header] = 'defaultDose';
+          } else if (lowerHeader === 'defaultdoseunit' || lowerHeader === 'default dose unit' || lowerHeader === 'dose unit') {
+            autoMapping[header] = 'doseUnit';
+          } else if (lowerHeader === 'ampoulequantity' || lowerHeader === 'ampule quantity') {
+            autoMapping[header] = 'ampuleQuantity';
+          } else if (lowerHeader === 'ampouleunit' || lowerHeader === 'ampule unit') {
+            autoMapping[header] = 'ampuleUnit';
+          }
         });
         setCsvMapping(autoMapping);
       },
@@ -1363,12 +1377,27 @@ export default function Items() {
         controlled: false,
       };
       
+      // Temporary storage for ampule data
+      let ampuleQuantity = '';
+      let ampuleUnit = '';
+      
       Object.entries(csvMapping).forEach(([csvCol, targetField]) => {
         const value = row[csvCol];
         if (!value && targetField === 'name') return; // Skip rows without name
         
         switch (targetField) {
           case 'name':
+            // Parse name to extract brand name from parentheses
+            // e.g., "Midazolam (Dormicum)" → name="Midazolam", brandName="Dormicum"
+            const nameStr = String(value || '');
+            const brandMatch = nameStr.match(/^(.+?)\s*\((.+?)\)\s*(.*)$/);
+            if (brandMatch) {
+              item.name = brandMatch[1].trim() + (brandMatch[3] ? ' ' + brandMatch[3].trim() : '');
+              item.brandName = brandMatch[2].trim();
+            } else {
+              item.name = nameStr;
+            }
+            break;
           case 'description':
             item[targetField] = String(value || '');
             break;
@@ -1386,8 +1415,30 @@ export default function Items() {
             const boolVal = String(value).toLowerCase();
             item[targetField] = boolVal === 'true' || boolVal === 'yes' || boolVal === '1';
             break;
+          // Medication fields
+          case 'medicationGroup':
+          case 'administrationRoute':
+          case 'defaultDose':
+          case 'doseUnit':
+            item[targetField] = value ? String(value) : undefined;
+            break;
+          case 'ampuleQuantity':
+            ampuleQuantity = value ? String(value) : '';
+            break;
+          case 'ampuleUnit':
+            ampuleUnit = value ? String(value) : '';
+            break;
         }
       });
+      
+      // Combine ampule quantity and unit into ampuleTotalContent
+      if (ampuleQuantity && ampuleUnit) {
+        item.ampuleTotalContent = `${ampuleQuantity} ${ampuleUnit}`;
+        item.concentrationDisplay = `${ampuleQuantity}${ampuleUnit}`;
+      } else if (ampuleQuantity) {
+        item.ampuleTotalContent = ampuleQuantity;
+        item.concentrationDisplay = ampuleQuantity;
+      }
       
       if (item.name) {
         items.push(item);

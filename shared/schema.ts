@@ -130,13 +130,8 @@ export const items = pgTable("items", {
   barcodes: text("barcodes").array(), // Multiple barcodes per item
   imageUrl: varchar("image_url"),
   sortOrder: integer("sort_order").default(0),
-  // Anesthesia configuration fields
+  // Anesthesia type flag (detailed config in medicationConfigs table)
   anesthesiaType: varchar("anesthesia_type", { enum: ["none", "medication", "infusion"] }).default("none").notNull(),
-  administrationUnit: varchar("administration_unit", { enum: ["μg", "mg", "g", "ml"] }), // For medications
-  ampuleConcentration: varchar("ampule_concentration"), // For medications, e.g., "10mg/ml"
-  administrationRoute: varchar("administration_route"), // e.g., "i.v.", "i.m.", "s.c."
-  isRateControlled: boolean("is_rate_controlled").default(false), // For infusions
-  rateUnit: varchar("rate_unit"), // e.g., "ml/h", "μg/kg/min"
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -337,6 +332,39 @@ export const checklistCompletions = pgTable("checklist_completions", {
   index("idx_checklist_completions_due_date").on(table.dueDate),
 ]);
 
+// Medication Configurations (anesthesia-specific medication data)
+export const medicationConfigs = pgTable("medication_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  itemId: varchar("item_id").notNull().references(() => items.id, { onDelete: 'cascade' }).unique(), // One-to-one with items
+  
+  // Classification
+  medicationGroup: varchar("medication_group"), // "Hypnotika", "Opioide", "Muskelrelaxantien", etc.
+  brandName: varchar("brand_name"), // "Dormicum", "Catapresan", "Beloc"
+  
+  // Concentration & Ampule Information
+  concentrationDisplay: varchar("concentration_display"), // "20mg", "1%", "50mg/5ml"
+  ampuleSize: varchar("ampule_size"), // "5ml", "10ml", "2ml"
+  ampuleTotalContent: varchar("ampule_total_content"), // "20mg", "150µg" (total drug in one ampule)
+  
+  // Dosing Information
+  defaultDose: varchar("default_dose"), // "12" or "25-35-50" for ranges
+  doseUnit: varchar("dose_unit"), // "mg", "µg", "ml", "g", "IE", "Hub"
+  
+  // Administration
+  administrationRoute: varchar("administration_route"), // "i.v.", "s.c.", "p.o.", "spinal", etc.
+  administrationUnit: varchar("administration_unit"), // "μg", "mg", "g", "ml"
+  
+  // Infusion-specific
+  isRateControlled: boolean("is_rate_controlled").default(false), // For perfusor/continuous infusions
+  rateUnit: varchar("rate_unit"), // "ml/h", "μg/kg/min", "mg/kg/h"
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_medication_configs_item").on(table.itemId),
+  index("idx_medication_configs_group").on(table.medicationGroup),
+]);
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   userHospitalRoles: many(userHospitalRoles),
@@ -383,6 +411,7 @@ export const itemsRelations = relations(items, ({ one, many }) => ({
   hospital: one(hospitals, { fields: [items.hospitalId], references: [hospitals.id] }),
   folder: one(folders, { fields: [items.folderId], references: [folders.id] }),
   vendor: one(vendors, { fields: [items.vendorId], references: [vendors.id] }),
+  medicationConfig: one(medicationConfigs, { fields: [items.id], references: [medicationConfigs.itemId] }),
   stockLevels: many(stockLevels),
   lots: many(lots),
   orderLines: many(orderLines),
@@ -454,6 +483,10 @@ export const checklistCompletionsRelations = relations(checklistCompletions, ({ 
   completedByUser: one(users, { fields: [checklistCompletions.completedBy], references: [users.id] }),
 }));
 
+export const medicationConfigsRelations = relations(medicationConfigs, ({ one }) => ({
+  item: one(items, { fields: [medicationConfigs.itemId], references: [items.id] }),
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -523,6 +556,12 @@ export const insertChecklistCompletionSchema = createInsertSchema(checklistCompl
   completedAt: true,
 });
 
+export const insertMedicationConfigSchema = createInsertSchema(medicationConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -552,6 +591,8 @@ export type ChecklistTemplate = typeof checklistTemplates.$inferSelect;
 export type InsertChecklistTemplate = z.infer<typeof insertChecklistTemplateSchema>;
 export type ChecklistCompletion = typeof checklistCompletions.$inferSelect;
 export type InsertChecklistCompletion = z.infer<typeof insertChecklistCompletionSchema>;
+export type MedicationConfig = typeof medicationConfigs.$inferSelect;
+export type InsertMedicationConfig = z.infer<typeof insertMedicationConfigSchema>;
 
 // Bulk operations schemas
 export const bulkImportItemSchema = z.object({

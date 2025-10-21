@@ -1125,9 +1125,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const anesthesiaLocationId = hospital[0].anesthesiaLocationId;
 
       // Get all items from the hospital's anesthesia location that are configured for anesthesia
+      // Join with medicationConfigs to get complete medication data
       const anesthesiaItems = await db
-        .select()
+        .select({
+          id: items.id,
+          hospitalId: items.hospitalId,
+          locationId: items.locationId,
+          folderId: items.folderId,
+          name: items.name,
+          description: items.description,
+          unit: items.unit,
+          packSize: items.packSize,
+          minThreshold: items.minThreshold,
+          maxThreshold: items.maxThreshold,
+          defaultOrderQty: items.defaultOrderQty,
+          critical: items.critical,
+          controlled: items.controlled,
+          trackExactQuantity: items.trackExactQuantity,
+          currentUnits: items.currentUnits,
+          vendorId: items.vendorId,
+          barcodes: items.barcodes,
+          imageUrl: items.imageUrl,
+          sortOrder: items.sortOrder,
+          anesthesiaType: items.anesthesiaType,
+          createdAt: items.createdAt,
+          updatedAt: items.updatedAt,
+          medicationConfig: medicationConfigs,
+        })
         .from(items)
+        .leftJoin(medicationConfigs, eq(items.id, medicationConfigs.itemId))
         .where(
           and(
             eq(items.hospitalId, hospitalId),
@@ -1646,6 +1672,21 @@ If unable to parse any drugs, return:
 
       const createdItems = [];
       for (const bulkItem of bulkItems) {
+        // Check if this item has medication configuration data
+        const hasMedicationConfig = !!(
+          bulkItem.medicationGroup ||
+          bulkItem.brandName ||
+          bulkItem.concentrationDisplay ||
+          bulkItem.ampuleSize ||
+          bulkItem.ampuleTotalContent ||
+          bulkItem.defaultDose ||
+          bulkItem.doseUnit ||
+          bulkItem.administrationRoute ||
+          bulkItem.administrationUnit ||
+          bulkItem.isRateControlled ||
+          bulkItem.rateUnit
+        );
+
         const itemData = {
           hospitalId,
           locationId,
@@ -1661,9 +1702,28 @@ If unable to parse any drugs, return:
           trackExactQuantity: bulkItem.trackExactQuantity ?? false,
           currentUnits: bulkItem.currentUnits ?? 0,
           folderId: bulkItem.folderId ?? null,
+          anesthesiaType: hasMedicationConfig ? ('medication' as const) : ('none' as const),
         };
 
         const item = await storage.createItem(itemData);
+        
+        // Create medication config if medication fields are present
+        if (hasMedicationConfig) {
+          await storage.upsertMedicationConfig({
+            itemId: item.id,
+            medicationGroup: bulkItem.medicationGroup ?? null,
+            brandName: bulkItem.brandName ?? null,
+            concentrationDisplay: bulkItem.concentrationDisplay ?? null,
+            ampuleSize: bulkItem.ampuleSize ?? null,
+            ampuleTotalContent: bulkItem.ampuleTotalContent ?? null,
+            defaultDose: bulkItem.defaultDose ?? null,
+            doseUnit: bulkItem.doseUnit ?? null,
+            administrationRoute: bulkItem.administrationRoute ?? null,
+            administrationUnit: bulkItem.administrationUnit ?? null,
+            isRateControlled: bulkItem.isRateControlled ?? false,
+            rateUnit: bulkItem.rateUnit ?? null,
+          });
+        }
         
         // Set initial stock if provided
         if (bulkItem.initialStock !== undefined && bulkItem.initialStock > 0) {

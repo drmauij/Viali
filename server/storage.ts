@@ -16,6 +16,7 @@ import {
   importJobs,
   checklistTemplates,
   checklistCompletions,
+  medicationConfigs,
   type User,
   type UpsertUser,
   type Hospital,
@@ -40,6 +41,8 @@ import {
   type InsertChecklistTemplate,
   type ChecklistCompletion,
   type InsertChecklistCompletion,
+  type MedicationConfig,
+  type InsertMedicationConfig,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, lte, gte } from "drizzle-orm";
@@ -159,6 +162,11 @@ export interface IStorage {
   getImportJobs(hospitalId: string, userId?: string, status?: string): Promise<ImportJob[]>;
   getNextQueuedJob(): Promise<ImportJob | undefined>;
   updateImportJob(id: string, updates: Partial<ImportJob>): Promise<ImportJob>;
+  
+  // Medication Config operations
+  getMedicationConfig(itemId: string): Promise<MedicationConfig | undefined>;
+  upsertMedicationConfig(config: InsertMedicationConfig): Promise<MedicationConfig>;
+  deleteMedicationConfig(itemId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1125,6 +1133,46 @@ export class DatabaseStorage implements IStorage {
   async getPendingChecklistCount(hospitalId: string, locationId: string, role?: string): Promise<number> {
     const pending = await this.getPendingChecklists(hospitalId, locationId, role);
     return pending.filter(c => c.isOverdue).length;
+  }
+
+  // Medication Config operations
+  async getMedicationConfig(itemId: string): Promise<MedicationConfig | undefined> {
+    const [config] = await db
+      .select()
+      .from(medicationConfigs)
+      .where(eq(medicationConfigs.itemId, itemId));
+    return config;
+  }
+
+  async upsertMedicationConfig(config: InsertMedicationConfig): Promise<MedicationConfig> {
+    const [upserted] = await db
+      .insert(medicationConfigs)
+      .values(config)
+      .onConflictDoUpdate({
+        target: medicationConfigs.itemId,
+        set: {
+          medicationGroup: config.medicationGroup,
+          brandName: config.brandName,
+          concentrationDisplay: config.concentrationDisplay,
+          ampuleSize: config.ampuleSize,
+          ampuleTotalContent: config.ampuleTotalContent,
+          defaultDose: config.defaultDose,
+          doseUnit: config.doseUnit,
+          administrationRoute: config.administrationRoute,
+          administrationUnit: config.administrationUnit,
+          isRateControlled: config.isRateControlled,
+          rateUnit: config.rateUnit,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return upserted;
+  }
+
+  async deleteMedicationConfig(itemId: string): Promise<void> {
+    await db
+      .delete(medicationConfigs)
+      .where(eq(medicationConfigs.itemId, itemId));
   }
 }
 
