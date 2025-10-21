@@ -34,7 +34,7 @@ function getLicenseLimit(licenseType: string): number {
     case "free":
       return 10;
     case "basic":
-      return 150;
+      return 200;
     default:
       return 10;
   }
