@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil } from "lucide-react";
+import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil, GripVertical } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,10 +13,14 @@ import { StickyTimelineHeader } from "./StickyTimelineHeader";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
 import { TimeAdjustInput } from "./TimeAdjustInput";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { apiRequest } from "@/lib/queryClient";
 
 /**
  * UnifiedTimeline - Refactored for robustness and flexibility
@@ -287,6 +291,48 @@ export function UnifiedTimeline({
   const anesthesiaItems = useMemo(() => {
     return allAnesthesiaItems.filter(item => item.administrationGroup);
   }, [allAnesthesiaItems]);
+  
+  // Query client for cache invalidation
+  const queryClient = useQueryClient();
+  
+  // Mutation to save administration group order
+  const reorderMutation = useMutation({
+    mutationFn: async (groupIds: string[]) => {
+      return apiRequest('PUT', `/api/administration-groups/reorder`, { groupIds });
+    },
+    onSuccess: () => {
+      // Invalidate the administration groups query to refetch
+      queryClient.invalidateQueries({ queryKey: [`/api/administration-groups/${activeHospital?.id}`] });
+    },
+  });
+  
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+  
+  // Handle drag end for administration groups
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!over || active.id === over.id) {
+      return;
+    }
+    
+    const oldIndex = administrationGroups.findIndex(g => g.id === active.id);
+    const newIndex = administrationGroups.findIndex(g => g.id === over.id);
+    
+    if (oldIndex !== -1 && newIndex !== -1) {
+      const reorderedGroups = arrayMove(administrationGroups, oldIndex, newIndex);
+      const groupIds = reorderedGroups.map(g => g.id);
+      
+      // Save the new order to the backend
+      reorderMutation.mutate(groupIds);
+    }
+  };
   
   // State for collapsible parent swimlanes
   const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<Set<string>>(new Set());
@@ -839,7 +885,7 @@ export function UnifiedTimeline({
     }
   }, [patientWeight]);
 
-  // Group items by administration group
+  // Group items by administration group and sort alphabetically within each group
   const itemsByAdminGroup = useMemo(() => {
     const grouped: Record<string, AnesthesiaItem[]> = {};
     
@@ -850,6 +896,11 @@ export function UnifiedTimeline({
         grouped[item.administrationGroup] = [];
       }
       grouped[item.administrationGroup].push(item);
+    });
+    
+    // Sort items alphabetically by name within each group
+    Object.keys(grouped).forEach(groupName => {
+      grouped[groupName].sort((a, b) => a.name.localeCompare(b.name));
     });
     
     return grouped;
@@ -3931,7 +3982,9 @@ export function UnifiedTimeline({
         </div>
 
         {/* Swimlane labels */}
-        {swimlanePositions.map((lane, index) => {
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={administrationGroups.map(g => g.id)} strategy={verticalListSortingStrategy}>
+            {swimlanePositions.map((lane, index) => {
           // Find the corresponding swimlane config to access metadata
           const swimlaneConfig = activeSwimlanes.find(s => s.id === lane.id);
           
@@ -4007,6 +4060,8 @@ export function UnifiedTimeline({
             </div>
           );
         })}
+          </SortableContext>
+        </DndContext>
       </div>
 
       {/* ECharts timeline */}
