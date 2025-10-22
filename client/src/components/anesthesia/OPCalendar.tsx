@@ -69,7 +69,9 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   const handleDayClick = (args: any) => {
     // Zoom to day view when clicking a day in month or week view
     if (currentView === "month" || currentView === "week") {
-      setSelectedDate(new Date(args.day));
+      // DayPilot passes the date in args.start - need to convert DayPilot.Date to JS Date
+      const selectedDay = args.start.toDate ? args.start.toDate() : new Date(args.start);
+      setSelectedDate(selectedDay);
       setCurrentView("day");
     }
   };
