@@ -1328,8 +1328,6 @@ export default function Items() {
           // Medication-specific fields
           else if (lowerHeader === 'group' || lowerHeader === 'medication group' || lowerHeader === 'drug group') {
             autoMapping[header] = 'medicationGroup';
-          } else if (lowerHeader === 'brandname' || lowerHeader === 'brand name' || lowerHeader === 'brand') {
-            autoMapping[header] = 'brandName';
           } else if (lowerHeader === 'route' || lowerHeader === 'administration route') {
             autoMapping[header] = 'administrationRoute';
           } else if (lowerHeader === 'defaultdose' || lowerHeader === 'default dose') {
@@ -1398,16 +1396,7 @@ export default function Items() {
         
         switch (targetField) {
           case 'name':
-            // Parse name to extract brand name from parentheses
-            // e.g., "Midazolam (Dormicum)" → name="Midazolam", brandName="Dormicum"
-            const nameStr = String(value || '');
-            const brandMatch = nameStr.match(/^(.+?)\s*\((.+?)\)\s*(.*)$/);
-            if (brandMatch) {
-              item.name = brandMatch[1].trim() + (brandMatch[3] ? ' ' + brandMatch[3].trim() : '');
-              item.brandName = brandMatch[2].trim();
-            } else {
-              item.name = nameStr;
-            }
+            item.name = String(value || '');
             break;
           case 'description':
             item[targetField] = String(value || '');
@@ -1431,7 +1420,6 @@ export default function Items() {
           case 'administrationRoute':
           case 'defaultDose':
           case 'doseUnit':
-          case 'brandName':
           case 'administrationUnit':
           case 'rateUnit':
             item[targetField] = value ? String(value) : undefined;
@@ -1497,10 +1485,10 @@ export default function Items() {
 
   const downloadMedicationCsvTemplate = () => {
     const template = [
-      ['Name', 'Description', 'Unit', 'Pack Size', 'Initial Stock', 'Min Threshold', 'Max Threshold', 'Critical', 'Controlled', 'Group', 'Route', 'DefaultDose', 'DefaultDoseUnit', 'AmpouleQuantity', 'AmpouleUnit', 'BrandName', 'ConcentrationDisplay', 'AdministrationUnit', 'IsRateControlled', 'RateUnit'],
-      ['Midazolam (Dormicum)', 'Benzodiazepine sedative', 'pack', '10', '20', '5', '15', 'false', 'true', 'Hypnotika', 'i.v.', '2', 'mg', '5', 'mg', 'Dormicum', '5mg', 'mg', 'false', ''],
-      ['Propofol', 'Anesthetic agent 10mg/ml', 'pack', '10', '30', '10', '25', 'true', 'true', 'Hypnotika', 'i.v.', '100', 'mg', '20', 'ml', 'Diprivan', '200mg/20ml', 'mg', 'true', 'mg/h'],
-      ['Fentanyl', 'Opioid analgesic', 'pack', '10', '25', '8', '20', 'true', 'true', 'Opioide', 'i.v.', '0.1', 'mg', '0.5', 'mg', '', '0.5mg', 'µg', 'true', 'µg/h'],
+      ['Name', 'Description', 'Unit', 'Pack Size', 'Initial Stock', 'Min Threshold', 'Max Threshold', 'Critical', 'Controlled', 'Group', 'Route', 'DefaultDose', 'DefaultDoseUnit', 'AmpouleQuantity', 'AmpouleUnit', 'ConcentrationDisplay', 'AdministrationUnit', 'IsRateControlled', 'RateUnit'],
+      ['Midazolam (Dormicum)', 'Benzodiazepine sedative', 'pack', '10', '20', '5', '15', 'false', 'true', 'Hypnotika', 'i.v.', '2', 'mg', '5', 'mg', '5mg', 'mg', 'false', ''],
+      ['Propofol', 'Anesthetic agent 10mg/ml', 'pack', '10', '30', '10', '25', 'true', 'true', 'Hypnotika', 'i.v.', '100', 'mg', '20', 'ml', '200mg/20ml', 'mg', 'true', 'mg/h'],
+      ['Fentanyl', 'Opioid analgesic', 'pack', '10', '25', '8', '20', 'true', 'true', 'Opioide', 'i.v.', '0.1', 'mg', '0.5', 'mg', '0.5mg', 'µg', 'true', 'µg/h'],
     ];
     
     const csvContent = template.map(row => row.join(',')).join('\n');
@@ -3171,8 +3159,8 @@ export default function Items() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">Medication Configuration (Optional)</span>
                       <span className="text-xs text-muted-foreground">
-                        {Object.values(csvMapping).filter(v => ['medicationGroup', 'brandName', 'administrationRoute', 'defaultDose', 'doseUnit', 'ampuleQuantity', 'ampuleUnit', 'concentrationDisplay', 'administrationUnit', 'isRateControlled', 'rateUnit'].includes(v)).length > 0 
-                          ? `${Object.values(csvMapping).filter(v => ['medicationGroup', 'brandName', 'administrationRoute', 'defaultDose', 'doseUnit', 'ampuleQuantity', 'ampuleUnit', 'concentrationDisplay', 'administrationUnit', 'isRateControlled', 'rateUnit'].includes(v)).length} fields mapped`
+                        {Object.values(csvMapping).filter(v => ['medicationGroup', 'administrationRoute', 'defaultDose', 'doseUnit', 'ampuleQuantity', 'ampuleUnit', 'concentrationDisplay', 'administrationUnit', 'isRateControlled', 'rateUnit'].includes(v)).length > 0 
+                          ? `${Object.values(csvMapping).filter(v => ['medicationGroup', 'administrationRoute', 'defaultDose', 'doseUnit', 'ampuleQuantity', 'ampuleUnit', 'concentrationDisplay', 'administrationUnit', 'isRateControlled', 'rateUnit'].includes(v)).length} fields mapped`
                           : 'For anesthesia records'}
                       </span>
                     </div>
@@ -3181,7 +3169,6 @@ export default function Items() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
                       {[
                         { key: 'medicationGroup', label: 'Medication Group' },
-                        { key: 'brandName', label: 'Brand Name' },
                         { key: 'administrationRoute', label: 'Administration Route' },
                         { key: 'defaultDose', label: 'Default Dose' },
                         { key: 'doseUnit', label: 'Dose Unit' },
@@ -3191,7 +3178,7 @@ export default function Items() {
                         { key: 'administrationUnit', label: 'Administration Unit' },
                         { key: 'isRateControlled', label: 'Is Rate Controlled' },
                         { key: 'rateUnit', label: 'Rate Unit' },
-                      ].map(({ key, label }) => (
+                      ].map(({ key, label}) => (
                         <div key={key}>
                           <Label className="text-xs">{label}</Label>
                           <Select
