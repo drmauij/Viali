@@ -164,6 +164,12 @@ export default function AnesthesiaSettings() {
 
   // Handle item click in selected list (for reconfiguration)
   const handleItemClick = (item: Item) => {
+    console.log('[Debug] Item clicked:', item);
+    console.log('[Debug] ampuleTotalContent:', item.ampuleTotalContent);
+    console.log('[Debug] ampuleSize:', item.ampuleSize);
+    const formattedConcentration = formatConcentration(item.ampuleTotalContent, item.ampuleSize);
+    console.log('[Debug] Formatted concentration:', formattedConcentration);
+    
     setSelectedItemForConfig(item);
     setItemName(item.name);
     setAnesthesiaType((item.anesthesiaType as 'medication' | 'infusion') || 'medication');
@@ -171,7 +177,7 @@ export default function AnesthesiaSettings() {
     setDefaultDose(item.defaultDose || '');
     setAdministrationUnit(item.administrationUnit || 'mg');
     // Combine ampuleSize and ampuleTotalContent for display
-    setAmpuleConcentration(formatConcentration(item.ampuleTotalContent, item.ampuleSize));
+    setAmpuleConcentration(formattedConcentration);
     setAdministrationRoute(item.administrationRoute || 'i.v.');
     setIsRateControlled(item.isRateControlled || false);
     setRateUnit(item.rateUnit || 'ml/h');
