@@ -37,7 +37,7 @@ export function getSession() {
   
   const sessionStore = new pgStore({
     pool: sessionPool, // Pass configured pool
-    createTableIfMissing: false,
+    createTableIfMissing: true,
     ttl: sessionTtl,
     tableName: "sessions",
   });
