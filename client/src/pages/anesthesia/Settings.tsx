@@ -163,18 +163,17 @@ export default function AnesthesiaSettings() {
       medicationGroup: medicationGroup || undefined,
       defaultDose: defaultDose || undefined,
       ampuleTotalContent: ampuleContent.trim() || undefined,
+      administrationRoute: administrationRoute, // For both medications and infusions
     };
 
     if (anesthesiaType === 'medication') {
       config.administrationUnit = administrationUnit;
-      config.administrationRoute = administrationRoute;
       // Clear infusion-only fields for medications
       config.isRateControlled = undefined;
       config.rateUnit = undefined;
     } else {
       // For infusions: clear medication-specific fields
       config.administrationUnit = undefined;
-      config.administrationRoute = undefined;
       config.isRateControlled = isRateControlled;
       config.rateUnit = rateUnit;
     }
@@ -294,35 +293,34 @@ export default function AnesthesiaSettings() {
               />
             </div>
 
+            {/* Administration Route - for both medications and infusions */}
+            <div>
+              <Label htmlFor="route">Administration Route</Label>
+              <Input
+                id="route"
+                placeholder="e.g., i.v., i.m., s.c."
+                value={administrationRoute}
+                onChange={(e) => setAdministrationRoute(e.target.value)}
+                data-testid="input-route"
+              />
+            </div>
+
             {/* Medication Fields */}
             {anesthesiaType === 'medication' && (
-              <>
-                <div>
-                  <Label htmlFor="admin-unit">Administration Unit</Label>
-                  <Select value={administrationUnit} onValueChange={setAdministrationUnit}>
-                    <SelectTrigger id="admin-unit" data-testid="select-admin-unit">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="μg">μg (micrograms)</SelectItem>
-                      <SelectItem value="mg">mg (milligrams)</SelectItem>
-                      <SelectItem value="g">g (grams)</SelectItem>
-                      <SelectItem value="ml">ml (milliliters)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="route">Administration Route</Label>
-                  <Input
-                    id="route"
-                    placeholder="e.g., i.v., i.m., s.c."
-                    value={administrationRoute}
-                    onChange={(e) => setAdministrationRoute(e.target.value)}
-                    data-testid="input-route"
-                  />
-                </div>
-              </>
+              <div>
+                <Label htmlFor="admin-unit">Administration Unit</Label>
+                <Select value={administrationUnit} onValueChange={setAdministrationUnit}>
+                  <SelectTrigger id="admin-unit" data-testid="select-admin-unit">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="μg">μg (micrograms)</SelectItem>
+                    <SelectItem value="mg">mg (milligrams)</SelectItem>
+                    <SelectItem value="g">g (grams)</SelectItem>
+                    <SelectItem value="ml">ml (milliliters)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             )}
 
             {/* Infusion Fields */}
