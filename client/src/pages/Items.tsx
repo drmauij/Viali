@@ -1475,10 +1475,10 @@ export default function Items() {
 
   const downloadMedicationCsvTemplate = () => {
     const template = [
-      ['Name', 'Description', 'Unit', 'Pack Size', 'Initial Stock', 'Min Threshold', 'Max Threshold', 'Critical', 'Controlled', 'Group', 'Route', 'DefaultDose', 'DefaultDoseUnit', 'AmpouleQuantity', 'AmpouleUnit', 'ConcentrationDisplay', 'AdministrationUnit', 'IsRateControlled', 'RateUnit'],
-      ['Midazolam (Dormicum)', 'Benzodiazepine sedative', 'pack', '10', '20', '5', '15', 'false', 'true', 'Hypnotika', 'i.v.', '2', 'mg', '5', 'mg', '5mg', 'mg', 'false', ''],
-      ['Propofol', 'Anesthetic agent 10mg/ml', 'pack', '10', '30', '10', '25', 'true', 'true', 'Hypnotika', 'i.v.', '100', 'mg', '20', 'ml', '200mg/20ml', 'mg', 'true', 'mg/h'],
-      ['Fentanyl', 'Opioid analgesic', 'pack', '10', '25', '8', '20', 'true', 'true', 'Opioide', 'i.v.', '0.1', 'mg', '0.5', 'mg', '0.5mg', 'µg', 'true', 'µg/h'],
+      ['Name', 'Description', 'Unit', 'Pack Size', 'Initial Stock', 'Min Threshold', 'Max Threshold', 'Critical', 'Controlled', 'Group', 'Route', 'DefaultDose', 'AmpouleQuantity', 'AmpouleUnit', 'AdministrationUnit', 'IsRateControlled', 'RateUnit'],
+      ['Midazolam (Dormicum) 5mg', 'Benzodiazepine sedative', 'pack', '10', '20', '5', '15', 'false', 'true', 'Hypnotika', 'i.v.', '2', '5', 'mg', 'mg', 'false', ''],
+      ['Propofol 200mg/20ml', 'Anesthetic agent 10mg/ml', 'pack', '10', '30', '10', '25', 'true', 'true', 'Hypnotika', 'i.v.', '100', '20', 'ml', 'mg', 'true', 'mg/h'],
+      ['Fentanyl 0.5mg', 'Opioid analgesic', 'pack', '10', '25', '8', '20', 'true', 'true', 'Opioide', 'i.v.', '0.1', '0.5', 'mg', 'µg', 'true', 'µg/h'],
     ];
     
     const csvContent = template.map(row => row.join(',')).join('\n');
