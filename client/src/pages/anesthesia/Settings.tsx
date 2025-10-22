@@ -44,6 +44,7 @@ export default function AnesthesiaSettings() {
   const [selectedItemForConfig, setSelectedItemForConfig] = useState<Item | null>(null);
   
   // Configuration form state
+  const [itemName, setItemName] = useState('');
   const [anesthesiaType, setAnesthesiaType] = useState<'medication' | 'infusion'>('medication');
   const [administrationUnit, setAdministrationUnit] = useState('mg');
   const [ampuleConcentration, setAmpuleConcentration] = useState('');
@@ -99,6 +100,7 @@ export default function AnesthesiaSettings() {
         if (item && itemIds.length === 1) {
           // Single item - open config dialog
           setSelectedItemForConfig(item);
+          setItemName(item.name);
           setAnesthesiaType('medication');
           setAdministrationUnit('mg');
           setAmpuleConcentration('');
@@ -133,6 +135,7 @@ export default function AnesthesiaSettings() {
   // Handle item click in selected list (for reconfiguration)
   const handleItemClick = (item: Item) => {
     setSelectedItemForConfig(item);
+    setItemName(item.name);
     setAnesthesiaType((item.anesthesiaType as 'medication' | 'infusion') || 'medication');
     setAdministrationUnit(item.administrationUnit || 'mg');
     setAmpuleConcentration(item.ampuleConcentration || '');
@@ -147,6 +150,7 @@ export default function AnesthesiaSettings() {
     if (!selectedItemForConfig) return;
 
     const config: any = {
+      name: itemName,
       anesthesiaType,
     };
 
@@ -213,11 +217,23 @@ export default function AnesthesiaSettings() {
         <DialogContent data-testid="dialog-anesthesia-config">
           <DialogHeader>
             <DialogTitle>
-              Configure: {selectedItemForConfig?.name}
+              Configure Medication/Infusion
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
+            {/* Item Name */}
+            <div>
+              <Label htmlFor="item-name">Item Name</Label>
+              <Input
+                id="item-name"
+                value={itemName}
+                onChange={(e) => setItemName(e.target.value)}
+                data-testid="input-item-name"
+                placeholder="Enter item name"
+              />
+            </div>
+
             {/* Anesthesia Type */}
             <div>
               <Label htmlFor="anesthesia-type">Item Type</Label>
