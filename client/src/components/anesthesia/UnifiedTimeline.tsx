@@ -235,6 +235,16 @@ type AnesthesiaItem = {
   ampuleConcentration?: string;
   isRateControlled?: boolean;
   rateUnit?: string;
+  administrationGroup?: string;
+};
+
+// Type for administration groups
+type AdministrationGroup = {
+  id: string;
+  name: string;
+  hospitalId: string;
+  sortOrder: number;
+  createdAt: string;
 };
 
 export function UnifiedTimeline({
@@ -257,10 +267,21 @@ export function UnifiedTimeline({
   const activeHospital = useActiveHospital();
 
   // Fetch configured anesthesia items from inventory
-  const { data: anesthesiaItems = [] } = useQuery<AnesthesiaItem[]>({
+  const { data: allAnesthesiaItems = [] } = useQuery<AnesthesiaItem[]>({
     queryKey: [`/api/anesthesia/items/${activeHospital?.id}`],
     enabled: !!activeHospital?.id,
   });
+
+  // Fetch administration groups
+  const { data: administrationGroups = [] } = useQuery<AdministrationGroup[]>({
+    queryKey: [`/api/administration-groups/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id,
+  });
+
+  // Filter to only show items with an administration group assigned
+  const anesthesiaItems = useMemo(() => {
+    return allAnesthesiaItems.filter(item => item.administrationGroup);
+  }, [allAnesthesiaItems]);
   
   // State for collapsible parent swimlanes
   const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<Set<string>>(new Set());
@@ -818,58 +839,62 @@ export function UnifiedTimeline({
     }
   }, [patientWeight]);
 
-  // Dynamic medications list from configured inventory items
-  const medicationsList = useMemo(() => {
-    return anesthesiaItems
-      .filter(item => item.anesthesiaType === 'medication')
-      .map(item => {
-        // Format: "Name (concentration) (unit, route)"
-        // Example: "Rocuronium (10mg/ml) (mg, i.v.)"
-        const parts = [item.name];
-        if (item.ampuleConcentration) {
-          parts.push(`(${item.ampuleConcentration})`);
-        }
-        // Combine unit and route in final parentheses
-        if (item.administrationUnit || item.administrationRoute) {
-          const unitParts = [];
-          if (item.administrationUnit) unitParts.push(item.administrationUnit);
-          if (item.administrationRoute) unitParts.push(item.administrationRoute);
-          parts.push(`(${unitParts.join(', ')})`);
-        }
-        return parts.join(' ');
-      });
+  // Group items by administration group
+  const itemsByAdminGroup = useMemo(() => {
+    const grouped: Record<string, AnesthesiaItem[]> = {};
+    
+    anesthesiaItems.forEach(item => {
+      if (!item.administrationGroup) return; // Skip items without group
+      
+      if (!grouped[item.administrationGroup]) {
+        grouped[item.administrationGroup] = [];
+      }
+      grouped[item.administrationGroup].push(item);
+    });
+    
+    return grouped;
   }, [anesthesiaItems]);
 
-  // Dynamic infusions list from configured inventory items
-  const infusionsList = useMemo(() => {
-    return anesthesiaItems
-      .filter(item => item.anesthesiaType === 'infusion')
-      .map(item => {
-        // Format: "Name (unit, route/rate-type)"
-        // Example: "Ringer Acetate (ml, i.v./free-flow)" or "NaCl 0.9% (ml, i.v./ml/h)"
-        const parts = [item.name];
-        const rateInfo = item.isRateControlled 
-          ? (item.rateUnit || 'ml/h')
-          : 'free-flow';
-        
-        // Combine unit, route, and rate information
+  // Format item display name
+  const formatItemDisplayName = (item: AnesthesiaItem): string => {
+    const parts = [item.name];
+    
+    if (item.anesthesiaType === 'medication') {
+      // Format: "Name (concentration) (unit, route)"
+      // Example: "Rocuronium (10mg/ml) (mg, i.v.)"
+      if (item.ampuleConcentration) {
+        parts.push(`(${item.ampuleConcentration})`);
+      }
+      if (item.administrationUnit || item.administrationRoute) {
         const unitParts = [];
         if (item.administrationUnit) unitParts.push(item.administrationUnit);
-        
-        // Combine route and rate info
-        if (item.administrationRoute || rateInfo) {
-          const routeRate = [item.administrationRoute, rateInfo]
-            .filter(Boolean)
-            .join('/');
-          unitParts.push(routeRate);
-        }
-        
-        if (unitParts.length > 0) {
-          parts.push(`(${unitParts.join(', ')})`);
-        }
-        return parts.join(' ');
-      });
-  }, [anesthesiaItems]);
+        if (item.administrationRoute) unitParts.push(item.administrationRoute);
+        parts.push(`(${unitParts.join(', ')})`);
+      }
+    } else if (item.anesthesiaType === 'infusion') {
+      // Format: "Name (unit, route/rate-type)"
+      // Example: "Ringer Acetate (ml, i.v./free-flow)" or "NaCl 0.9% (ml, i.v./ml/h)"
+      const rateInfo = item.isRateControlled 
+        ? (item.rateUnit || 'ml/h')
+        : 'free-flow';
+      
+      const unitParts = [];
+      if (item.administrationUnit) unitParts.push(item.administrationUnit);
+      
+      if (item.administrationRoute || rateInfo) {
+        const routeRate = [item.administrationRoute, rateInfo]
+          .filter(Boolean)
+          .join('/');
+        unitParts.push(routeRate);
+      }
+      
+      if (unitParts.length > 0) {
+        parts.push(`(${unitParts.join(', ')})`);
+      }
+    }
+    
+    return parts.join(' ');
+  };
 
   // Helper: Detect if an infusion is free-flow based on the drug name
   const isFreeFlowInfusion = (drugName: string): boolean => {
@@ -908,7 +933,7 @@ export function UnifiedTimeline({
     return matches / longer.length;
   };
 
-  // Find best matching medication from predefined list or dynamic medications
+  // Find best matching medication from configured items across all administration groups
   const findMatchingMedication = (voiceDrugName: string): { 
     swimlaneId: string; 
     fullName: string; 
@@ -919,36 +944,24 @@ export function UnifiedTimeline({
     let bestMatch: { swimlaneId: string; fullName: string; isNew: boolean; score: number } | null = null;
     let bestScore = 0;
 
-    // Check predefined medications
-    medicationsList.forEach((medFullName, index) => {
-      const medDrugName = extractDrugName(medFullName);
-      const score = calculateSimilarity(voiceDrugName, medDrugName);
-      
-      if (score > bestScore && score >= threshold) {
-        bestScore = score;
-        bestMatch = {
-          swimlaneId: `medication-predefined-${index}`,
-          fullName: medFullName,
-          isNew: false,
-          score
-        };
-      }
-    });
-
-    // Check dynamic medications
-    medications.forEach((medFullName, index) => {
-      const medDrugName = extractDrugName(medFullName);
-      const score = calculateSimilarity(voiceDrugName, medDrugName);
-      
-      if (score > bestScore && score >= threshold) {
-        bestScore = score;
-        bestMatch = {
-          swimlaneId: `medication-dynamic-${index}`,
-          fullName: medFullName,
-          isNew: false,
-          score
-        };
-      }
+    // Check all configured anesthesia items across all administration groups
+    administrationGroups.forEach((group) => {
+      const groupItems = itemsByAdminGroup[group.name] || [];
+      groupItems.forEach((item, index) => {
+        const itemDisplayName = formatItemDisplayName(item);
+        const medDrugName = extractDrugName(itemDisplayName);
+        const score = calculateSimilarity(voiceDrugName, medDrugName);
+        
+        if (score > bestScore && score >= threshold) {
+          bestScore = score;
+          bestMatch = {
+            swimlaneId: `admingroup-${group.id}-item-${index}`,
+            fullName: itemDisplayName,
+            isNew: false,
+            score
+          };
+        }
+      });
     });
 
     return bestMatch;
@@ -981,8 +994,7 @@ export function UnifiedTimeline({
     { id: "zeiten", label: "Times", height: 50, colorLight: "rgba(243, 232, 255, 0.8)", colorDark: "hsl(270, 55%, 20%)" },
     { id: "ereignisse", label: "Events", height: 40, colorLight: "rgba(219, 234, 254, 0.8)", colorDark: "hsl(210, 60%, 18%)" },
     { id: "herzrhythmus", label: "Heart Rhythm", height: 40, colorLight: "rgba(252, 231, 243, 0.8)", colorDark: "hsl(330, 50%, 20%)" },
-    { id: "infusionen", label: "Infusions", height: 40, colorLight: "rgba(207, 250, 254, 0.8)", colorDark: "hsl(190, 60%, 18%)" },
-    { id: "medikamente", label: "Medications", height: 40, colorLight: "rgba(220, 252, 231, 0.8)", colorDark: "hsl(150, 45%, 18%)" },
+    // Administration group lanes will be inserted dynamically here
     { id: "position", label: "Position", height: 40, colorLight: "rgba(226, 232, 240, 0.8)", colorDark: "hsl(215, 20%, 25%)" },
     { id: "ventilation", label: "Ventilation", height: 40, colorLight: "rgba(254, 243, 199, 0.8)", colorDark: "hsl(35, 70%, 22%)" },
     { id: "output", label: "Output", height: 40, colorLight: "rgba(254, 226, 226, 0.8)", colorDark: "hsl(0, 60%, 25%)" },
@@ -994,45 +1006,38 @@ export function UnifiedTimeline({
     if (swimlanes) return swimlanes; // Use custom if provided
     
     const lanes: SwimlaneConfig[] = [];
-    const medColor = { colorLight: "rgba(220, 252, 231, 0.8)", colorDark: "hsl(150, 45%, 18%)" };
     const ventColor = { colorLight: "rgba(254, 243, 199, 0.8)", colorDark: "hsl(35, 70%, 22%)" };
+    const medGroupColor = { colorLight: "rgba(220, 252, 231, 0.8)", colorDark: "hsl(150, 45%, 18%)" };
     
     for (const lane of baseSwimlanes) {
       lanes.push(lane);
       
-      // Insert infusion children after Infusions parent (if not collapsed)
-      if (lane.id === "infusionen" && !collapsedSwimlanes.has("infusionen")) {
-        const infusionColor = { colorLight: "rgba(207, 250, 254, 0.8)", colorDark: "hsl(190, 60%, 18%)" };
-        infusionsList.forEach((infusionName, index) => {
-          lanes.push({
-            id: `infusion-${index}`,
-            label: `  ${infusionName}`,
-            height: 30,
-            ...infusionColor,
-          });
-        });
-      }
-      
-      // Insert medication children after Medications parent (if not collapsed)
-      if (lane.id === "medikamente" && !collapsedSwimlanes.has("medikamente")) {
-        // Add predefined medications
-        medicationsList.forEach((medName, index) => {
-          lanes.push({
-            id: `medication-predefined-${index}`,
-            label: `  ${medName}`,
-            height: 30,
-            ...medColor,
-          });
-        });
+      // Insert administration group lanes after Heart Rhythm (before Position)
+      if (lane.id === "herzrhythmus") {
+        // Sort administration groups by sortOrder
+        const sortedGroups = [...administrationGroups].sort((a, b) => a.sortOrder - b.sortOrder);
         
-        // Add user-added dynamic medications
-        medications.forEach((medName, index) => {
+        sortedGroups.forEach((group) => {
+          // Add parent lane for the administration group
           lanes.push({
-            id: `medication-dynamic-${index}`,
-            label: `  ${medName}`,
-            height: 30,
-            ...medColor,
+            id: `admingroup-${group.id}`,
+            label: group.name,
+            height: 40,
+            ...medGroupColor,
           });
+          
+          // Add child lanes for items in this group (if not collapsed)
+          if (!collapsedSwimlanes.has(`admingroup-${group.id}`)) {
+            const groupItems = itemsByAdminGroup[group.name] || [];
+            groupItems.forEach((item, index) => {
+              lanes.push({
+                id: `admingroup-${group.id}-item-${index}`,
+                label: `  ${formatItemDisplayName(item)}`,
+                height: 30,
+                ...medGroupColor,
+              });
+            });
+          }
         });
       }
 
@@ -1079,7 +1084,7 @@ export function UnifiedTimeline({
     return lanes;
   };
 
-  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [collapsedSwimlanes, medications, swimlanes, medicationsList, infusionsList]);
+  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [collapsedSwimlanes, swimlanes, administrationGroups, itemsByAdminGroup]);
 
   // Add medication handler
   const handleAddMedication = () => {
