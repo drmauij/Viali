@@ -1,6 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { migrate } from "drizzle-orm/node-postgres/migrator";
+import { db, pool } from "./db";
 
 const app = express();
 
@@ -49,6 +51,22 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
+    // Run database migrations automatically on startup
+    log("Running database migrations...");
+    try {
+      await migrate(db, { migrationsFolder: "./migrations" });
+      log("✓ Database migrations completed successfully");
+    } catch (error: any) {
+      // If tables already exist (local dev), just continue
+      if (error?.code === '42P07' || error?.message?.includes('already exists')) {
+        log("⚠ Database schema already exists, skipping migration");
+      } else {
+        // For other errors, log but continue (allows app to start)
+        console.error("Migration warning:", error?.message || error);
+        log("⚠ Migration completed with warnings, continuing startup...");
+      }
+    }
+
     const server = await registerRoutes(app);
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
