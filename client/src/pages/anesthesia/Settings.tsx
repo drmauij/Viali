@@ -463,22 +463,18 @@ export default function AnesthesiaSettings() {
               )}
               <div className="flex gap-2">
                 <Select
-                  value={medicationGroup}
-                  onValueChange={setMedicationGroup}
+                  value={medicationGroup || undefined}
+                  onValueChange={(value) => setMedicationGroup(value || '')}
                 >
                   <SelectTrigger id="medication-group" data-testid="select-medication-group" className="flex-1">
                     <SelectValue placeholder="Select a group" />
                   </SelectTrigger>
                   <SelectContent>
-                    {medicationGroups.length === 0 ? (
-                      <SelectItem value="" disabled>No groups available</SelectItem>
-                    ) : (
-                      medicationGroups.map((group) => (
-                        <SelectItem key={group.id} value={group.name} data-testid={`group-option-${group.id}`}>
-                          {group.name}
-                        </SelectItem>
-                      ))
-                    )}
+                    {medicationGroups.map((group) => (
+                      <SelectItem key={group.id} value={group.name} data-testid={`group-option-${group.id}`}>
+                        {group.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 {medicationGroup && (
