@@ -1389,6 +1389,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to reorder administration groups" });
     }
   });
+
+  // Surgery Rooms API
+  // Get all surgery rooms for a hospital
+  app.get('/api/surgery-rooms/:hospitalId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const rooms = await storage.getSurgeryRooms(hospitalId);
+      res.json(rooms);
+    } catch (error: any) {
+      console.error("Error fetching surgery rooms:", error);
+      res.status(500).json({ message: "Failed to fetch surgery rooms" });
+    }
+  });
+
+  // Create a new surgery room
+  app.post('/api/surgery-rooms', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId, name } = req.body;
+      
+      if (!hospitalId || !name) {
+        return res.status(400).json({ message: "Hospital ID and name are required" });
+      }
+
+      const newRoom = await storage.createSurgeryRoom({ hospitalId, name, sortOrder: 0 });
+      res.status(201).json(newRoom);
+    } catch (error: any) {
+      console.error("Error creating surgery room:", error);
+      res.status(500).json({ message: "Failed to create surgery room" });
+    }
+  });
+
+  // Update a surgery room
+  app.put('/api/surgery-rooms/:roomId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { roomId } = req.params;
+      const { name } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ message: "Name is required" });
+      }
+
+      const updatedRoom = await storage.updateSurgeryRoom(roomId, { name });
+      res.json(updatedRoom);
+    } catch (error: any) {
+      console.error("Error updating surgery room:", error);
+      res.status(500).json({ message: "Failed to update surgery room" });
+    }
+  });
+
+  // Delete a surgery room
+  app.delete('/api/surgery-rooms/:roomId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { roomId } = req.params;
+      await storage.deleteSurgeryRoom(roomId);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting surgery room:", error);
+      res.status(500).json({ message: "Failed to delete surgery room" });
+    }
+  });
+
+  // Reorder surgery rooms
+  app.put('/api/surgery-rooms/reorder', isAuthenticated, async (req: any, res) => {
+    try {
+      const { roomIds } = req.body;
+      
+      if (!Array.isArray(roomIds)) {
+        return res.status(400).json({ message: "roomIds must be an array" });
+      }
+
+      await storage.reorderSurgeryRooms(roomIds);
+      res.status(200).json({ message: "Rooms reordered successfully" });
+    } catch (error: any) {
+      console.error("Error reordering surgery rooms:", error);
+      res.status(500).json({ message: "Failed to reorder surgery rooms" });
+    }
+  });
   
   // Get bulk import image limit for a hospital
   app.get('/api/hospitals/:hospitalId/bulk-import-limit', isAuthenticated, async (req: any, res) => {

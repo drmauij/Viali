@@ -19,6 +19,7 @@ import {
   medicationConfigs,
   medicationGroups,
   administrationGroups,
+  surgeryRooms,
   type User,
   type UpsertUser,
   type Hospital,
@@ -49,6 +50,8 @@ import {
   type InsertMedicationGroup,
   type AdministrationGroup,
   type InsertAdministrationGroup,
+  type SurgeryRoom,
+  type InsertSurgeryRoom,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, lte, gte } from "drizzle-orm";
@@ -184,6 +187,13 @@ export interface IStorage {
   createAdministrationGroup(group: InsertAdministrationGroup): Promise<AdministrationGroup>;
   deleteAdministrationGroup(id: string): Promise<void>;
   reorderAdministrationGroups(groupIds: string[]): Promise<void>;
+  
+  // Surgery Room operations
+  getSurgeryRooms(hospitalId: string): Promise<SurgeryRoom[]>;
+  createSurgeryRoom(room: InsertSurgeryRoom): Promise<SurgeryRoom>;
+  updateSurgeryRoom(id: string, room: Partial<InsertSurgeryRoom>): Promise<SurgeryRoom>;
+  deleteSurgeryRoom(id: string): Promise<void>;
+  reorderSurgeryRooms(roomIds: string[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1257,6 +1267,50 @@ export class DatabaseStorage implements IStorage {
           .update(administrationGroups)
           .set({ sortOrder: index })
           .where(eq(administrationGroups.id, id))
+      )
+    );
+  }
+
+  async getSurgeryRooms(hospitalId: string): Promise<SurgeryRoom[]> {
+    const rooms = await db
+      .select()
+      .from(surgeryRooms)
+      .where(eq(surgeryRooms.hospitalId, hospitalId))
+      .orderBy(asc(surgeryRooms.sortOrder), asc(surgeryRooms.name));
+    return rooms;
+  }
+
+  async createSurgeryRoom(room: InsertSurgeryRoom): Promise<SurgeryRoom> {
+    const [newRoom] = await db
+      .insert(surgeryRooms)
+      .values(room)
+      .returning();
+    return newRoom;
+  }
+
+  async updateSurgeryRoom(id: string, room: Partial<InsertSurgeryRoom>): Promise<SurgeryRoom> {
+    const [updatedRoom] = await db
+      .update(surgeryRooms)
+      .set(room)
+      .where(eq(surgeryRooms.id, id))
+      .returning();
+    return updatedRoom;
+  }
+
+  async deleteSurgeryRoom(id: string): Promise<void> {
+    await db
+      .delete(surgeryRooms)
+      .where(eq(surgeryRooms.id, id));
+  }
+
+  async reorderSurgeryRooms(roomIds: string[]): Promise<void> {
+    // Update sortOrder for each room based on its position in the array
+    await Promise.all(
+      roomIds.map((id, index) =>
+        db
+          .update(surgeryRooms)
+          .set({ sortOrder: index })
+          .where(eq(surgeryRooms.id, id))
       )
     );
   }
