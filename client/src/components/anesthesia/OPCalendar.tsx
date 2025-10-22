@@ -199,6 +199,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             onEventClick={handleEventClick}
             theme="calendar_white"
             timeFormat="Clock24Hours"
+            locale="en-us"
           />
         )}
 
@@ -218,6 +219,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             onTimeRangeSelected={handleDayClick}
             theme="calendar_white"
             timeFormat="Clock24Hours"
+            locale="en-us"
           />
         )}
 
