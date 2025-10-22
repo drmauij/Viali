@@ -77,6 +77,7 @@ export default function AnesthesiaSettings() {
   const [defaultDose, setDefaultDose] = useState('');
   const [administrationUnit, setAdministrationUnit] = useState('mg');
   const [ampuleConcentration, setAmpuleConcentration] = useState('');
+  const [infusionVolume, setInfusionVolume] = useState(''); // For infusions: e.g., "1000 ml"
   const [administrationRoute, setAdministrationRoute] = useState('i.v.');
   const [isRateControlled, setIsRateControlled] = useState(false);
   const [rateUnit, setRateUnit] = useState('ml/h');
@@ -135,6 +136,7 @@ export default function AnesthesiaSettings() {
           setDefaultDose('');
           setAdministrationUnit('mg');
           setAmpuleConcentration('');
+          setInfusionVolume('');
           setAdministrationRoute('i.v.');
           setIsRateControlled(false);
           setRateUnit('ml/h');
@@ -164,20 +166,24 @@ export default function AnesthesiaSettings() {
 
   // Handle item click in selected list (for reconfiguration)
   const handleItemClick = (item: Item) => {
-    console.log('[Debug] Item clicked:', item);
-    console.log('[Debug] ampuleTotalContent:', item.ampuleTotalContent);
-    console.log('[Debug] ampuleSize:', item.ampuleSize);
-    const formattedConcentration = formatConcentration(item.ampuleTotalContent, item.ampuleSize);
-    console.log('[Debug] Formatted concentration:', formattedConcentration);
-    
     setSelectedItemForConfig(item);
     setItemName(item.name);
-    setAnesthesiaType((item.anesthesiaType as 'medication' | 'infusion') || 'medication');
+    const itemType = (item.anesthesiaType as 'medication' | 'infusion') || 'medication';
+    setAnesthesiaType(itemType);
     setMedicationGroup(item.medicationGroup || '');
     setDefaultDose(item.defaultDose || '');
     setAdministrationUnit(item.administrationUnit || 'mg');
-    // Combine ampuleSize and ampuleTotalContent for display
-    setAmpuleConcentration(formattedConcentration);
+    
+    // For medications: combine ampuleTotalContent and ampuleSize (e.g., "10mg/10ml")
+    // For infusions: just show ampuleSize (e.g., "1000 ml")
+    if (itemType === 'medication') {
+      setAmpuleConcentration(formatConcentration(item.ampuleTotalContent, item.ampuleSize));
+      setInfusionVolume('');
+    } else {
+      setAmpuleConcentration('');
+      setInfusionVolume(item.ampuleSize || '');
+    }
+    
     setAdministrationRoute(item.administrationRoute || 'i.v.');
     setIsRateControlled(item.isRateControlled || false);
     setRateUnit(item.rateUnit || 'ml/h');
@@ -220,7 +226,15 @@ export default function AnesthesiaSettings() {
       }
       
       config.administrationRoute = administrationRoute;
+      // Clear infusion-only fields for medications
+      config.isRateControlled = undefined;
+      config.rateUnit = undefined;
     } else {
+      // For infusions: save volume directly to ampuleSize and clear medication-specific fields
+      config.ampuleSize = infusionVolume.trim() || undefined;
+      config.ampuleTotalContent = undefined; // Clear drug content for infusions
+      config.administrationUnit = undefined; // Clear medication-only field
+      config.administrationRoute = undefined; // Clear medication-only field
       config.isRateControlled = isRateControlled;
       config.rateUnit = rateUnit;
     }
@@ -301,7 +315,20 @@ export default function AnesthesiaSettings() {
               <Label htmlFor="anesthesia-type">Item Type</Label>
               <Select
                 value={anesthesiaType}
-                onValueChange={(value) => setAnesthesiaType(value as 'medication' | 'infusion')}
+                onValueChange={(value) => {
+                  const newType = value as 'medication' | 'infusion';
+                  setAnesthesiaType(newType);
+                  // Clear type-specific fields when switching types
+                  if (newType === 'infusion') {
+                    setAmpuleConcentration('');
+                    setAdministrationUnit('mg');
+                    setAdministrationRoute('i.v.');
+                  } else {
+                    setInfusionVolume('');
+                    setIsRateControlled(false);
+                    setRateUnit('ml/h');
+                  }
+                }}
               >
                 <SelectTrigger id="anesthesia-type" data-testid="select-anesthesia-type">
                   <SelectValue />
@@ -326,6 +353,23 @@ export default function AnesthesiaSettings() {
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Required format: total drug / ampule volume (e.g., 10mg/10ml, 50μg/2ml)
+                </p>
+              </div>
+            )}
+
+            {/* Volume - only for infusions */}
+            {anesthesiaType === 'infusion' && (
+              <div>
+                <Label htmlFor="infusion-volume">Volume</Label>
+                <Input
+                  id="infusion-volume"
+                  placeholder="e.g., 1000 ml, 500 ml"
+                  value={infusionVolume}
+                  onChange={(e) => setInfusionVolume(e.target.value)}
+                  data-testid="input-infusion-volume"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Enter the bag/bottle volume (e.g., 1000 ml for Ringerfundin)
                 </p>
               </div>
             )}

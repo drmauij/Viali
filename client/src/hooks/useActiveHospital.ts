@@ -7,6 +7,7 @@ interface Hospital {
   role: string;
   locationId: string;
   locationName: string;
+  anesthesiaLocationId?: string;
 }
 
 function subscribe(callback: () => void) {
