@@ -11,7 +11,7 @@
 
 .month_white_main {
   border: none;
-  background-color: white;
+  background-color: var(--background);
 }
 
 .month_white_cell {
@@ -31,12 +31,12 @@
 
 .month_white_cell_header {
   background-color: transparent;
-  border-right: 1px solid #c0c0c0;
-  border-bottom: 1px solid #c0c0c0;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   padding: 8px;
   font-weight: 600;
   text-align: center;
-  color: #333;
+  color: var(--foreground);
 }
 
 .month_white_cell_inner {
@@ -45,14 +45,14 @@
 
 .month_white_cell_header_inner {
   font-size: 12px;
-  color: #666;
+  color: var(--muted-foreground);
   text-align: right;
   padding: 4px;
 }
 
 .month_white_cell_day {
   font-size: 14px;
-  color: #666;
+  color: var(--muted-foreground);
   text-align: right;
   padding: 2px 6px;
 }
@@ -109,26 +109,26 @@
 }
 
 .month_white_title {
-  background-color: #f0f0f0;
-  border-bottom: 1px solid #c0c0c0;
+  background-color: var(--background);
+  border-bottom: 1px solid var(--border);
   padding: 12px;
   font-size: 16px;
   font-weight: 600;
-  color: #333;
+  color: var(--foreground);
   text-align: center;
 }
 
 .month_white_nav {
   cursor: pointer;
   padding: 8px 12px;
-  color: #666;
-  background-color: #f9f9f9;
-  border: 1px solid #c0c0c0;
+  color: var(--muted-foreground);
+  background-color: var(--background);
+  border: 1px solid var(--border);
   border-radius: 4px;
 }
 
 .month_white_nav:hover {
-  background-color: #e0e0e0;
+  background-color: var(--muted);
 }
 
 .month_white_weekend {

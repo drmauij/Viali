@@ -11,7 +11,7 @@
 
 .calendar_white_main {
   border: none;
-  background-color: white;
+  background-color: var(--background);
 }
 
 .calendar_white_corner {
@@ -21,7 +21,7 @@
 }
 
 .calendar_white_corner_inner {
-  color: #666;
+  color: var(--muted-foreground);
 }
 
 .calendar_white_colheader {
@@ -31,20 +31,20 @@
 }
 
 .calendar_white_colheader_inner {
-  color: #333;
+  color: var(--foreground);
   font-weight: 600;
   padding: 8px;
   text-align: center;
 }
 
 .calendar_white_rowheader {
-  background-color: #f9f9f9;
+  background-color: var(--background);
   border-right: 1px solid #c0c0c0;
   border-bottom: 1px solid #e0e0e0;
 }
 
 .calendar_white_rowheader_inner {
-  color: #666;
+  color: var(--muted-foreground);
   padding: 4px 8px;
   text-align: right;
   font-size: 12px;
