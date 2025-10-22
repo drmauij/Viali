@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { DayPilot, DayPilotCalendar, DayPilotMonth } from "@daypilot/daypilot-lite-react";
 import { Button } from "@/components/ui/button";
 import { Calendar, CalendarDays, CalendarRange } from "lucide-react";
@@ -13,6 +13,7 @@ interface OPCalendarProps {
 export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   const [currentView, setCurrentView] = useState<ViewType>("day");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const calendarRef = useRef<any>(null);
 
   // Fetch surgery rooms
   const { data: surgeryRooms = [] } = useQuery<any[]>({
@@ -116,6 +117,18 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     return selectedDate.toLocaleDateString("en-US", options);
   };
 
+  // Set up time header formatting when calendar is initialized
+  useEffect(() => {
+    if (calendarRef.current && calendarRef.current.control) {
+      const control = calendarRef.current.control;
+      control.onBeforeTimeHeaderRender = (args: any) => {
+        // Format the time label as "H:mm" (e.g., "6:00", "7:00", "13:00")
+        args.header.html = args.header.start.toString("H:mm");
+      };
+      control.update();
+    }
+  }, [currentView, calendarRef.current]);
+
   return (
     <div className="flex flex-col h-full">
       {/* Header with view switcher and navigation */}
@@ -185,6 +198,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       <div className="flex-1 px-4 pb-4">
         {currentView === "day" && (
           <DayPilotCalendar
+            ref={calendarRef}
             viewType="Resources"
             startDate={selectedDate.toISOString().split('T')[0]}
             days={1}
@@ -205,6 +219,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
 
         {currentView === "week" && (
           <DayPilotCalendar
+            ref={calendarRef}
             viewType="Week"
             startDate={selectedDate.toISOString().split('T')[0]}
             days={7}
