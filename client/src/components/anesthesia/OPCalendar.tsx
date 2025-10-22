@@ -26,6 +26,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       return date.toISOString();
     };
 
+    // Using app's color scheme: primary (blue) and accent (orange)
     return [
       {
         id: "case-1",
@@ -33,10 +34,10 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         start: formatDateTime(8, 0),
         end: formatDateTime(11, 0),
         resource: surgeryRooms[0]?.id || "or1",
-        barColor: "#10b981",
-        backColor: "#d1fae5",
-        borderColor: "#10b981",
-        fontColor: "#065f46",
+        barColor: "#2563eb", // Primary blue
+        backColor: "#eff6ff", // Very light blue
+        borderColor: "#93c5fd", // Light blue border
+        fontColor: "#1e40af", // Dark blue text
       },
       {
         id: "case-2",
@@ -44,10 +45,10 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         start: formatDateTime(9, 30),
         end: formatDateTime(14, 0),
         resource: surgeryRooms[1]?.id || "or2",
-        barColor: "#3b82f6",
-        backColor: "#dbeafe",
-        borderColor: "#3b82f6",
-        fontColor: "#1e40af",
+        barColor: "#ea580c", // Accent orange
+        backColor: "#fff7ed", // Very light orange
+        borderColor: "#fdba74", // Light orange border
+        fontColor: "#9a3412", // Dark orange text
       },
     ];
   }, [selectedDate, surgeryRooms]);
@@ -247,16 +248,33 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
 
         /* Theme adjustments */
         .calendar_white_event {
-          border-radius: 6px;
-          padding: 4px 8px;
+          border-radius: 8px;
+          padding: 6px 10px;
           font-size: 13px;
+          font-weight: 500;
+          opacity: 0.95;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          transition: all 0.2s ease;
+        }
+
+        .calendar_white_event:hover {
+          opacity: 1;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+          transform: translateY(-1px);
         }
 
         .month_white_event {
-          border-radius: 4px;
-          padding: 2px 6px;
+          border-radius: 6px;
+          padding: 3px 8px;
           font-size: 12px;
-          margin: 1px 0;
+          font-weight: 500;
+          margin: 2px 0;
+          opacity: 0.95;
+          transition: opacity 0.2s ease;
+        }
+
+        .month_white_event:hover {
+          opacity: 1;
         }
 
         .calendar_white_corner {
