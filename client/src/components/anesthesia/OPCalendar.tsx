@@ -79,8 +79,17 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
 
   const handleBeforeHeaderRender = (args: any) => {
     // Format hour labels to show "6:00" instead of "600"
-    if (args.header.start && args.header.start.getHours) {
-      args.header.html = args.header.start.toString("H:00");
+    if (args.header.start) {
+      try {
+        // Try to format as time - this works for row headers (time labels)
+        const formatted = args.header.start.toString("H:00");
+        // Only apply if it looks like a time format (single or double digit followed by :00)
+        if (formatted && formatted.match(/^\d{1,2}:00$/)) {
+          args.header.html = formatted;
+        }
+      } catch (e) {
+        // Ignore formatting errors - leave header as is
+      }
     }
   };
 
