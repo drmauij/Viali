@@ -1150,7 +1150,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           anesthesiaType: items.anesthesiaType,
           createdAt: items.createdAt,
           updatedAt: items.updatedAt,
-          medicationConfig: medicationConfigs,
+          // Flatten medication config fields to top level
+          medicationGroup: medicationConfigs.medicationGroup,
+          defaultDose: medicationConfigs.defaultDose,
+          administrationUnit: medicationConfigs.administrationUnit,
+          ampuleSize: medicationConfigs.ampuleSize,
+          ampuleTotalContent: medicationConfigs.ampuleTotalContent,
+          administrationRoute: medicationConfigs.administrationRoute,
+          isRateControlled: medicationConfigs.isRateControlled,
+          rateUnit: medicationConfigs.rateUnit,
         })
         .from(items)
         .leftJoin(medicationConfigs, eq(items.id, medicationConfigs.itemId))
