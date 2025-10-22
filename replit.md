@@ -14,7 +14,7 @@ The frontend uses React, TypeScript, and Vite, with Wouter for routing, TanStack
 **Anesthesia Module Workflow Pages:**
 - **Patients** (`/anesthesia/patients`): Master list with search and filtering.
 - **Pre-OP List** (`/anesthesia/preop`): Patients awaiting pre-operative assessment.
-- **OP List** (`/anesthesia/op`): Active surgeries with real-time status.
+- **OP Schedule** (`/anesthesia/op`): Calendar view for surgery scheduling with three view modes (Day/Week/Month). Day view displays surgery rooms as vertical swim lanes with time-based scheduling from 6:00 AM to 8:00 PM. Week view shows 7-day timeline. Month view provides monthly overview with surgery indicators. Features seamless zoom navigation where clicking any day in week or month view switches to day view for that date. Integrated with surgery rooms from database, styled with Poppins font to match UI. Original list view preserved but hidden for potential future use.
 - **OP Monitoring System** (`/anesthesia/cases/:id/op`): Full-screen interface with Apache ECharts for vitals timeline visualization, dual y-axes, custom medical symbols, and synchronized multi-grid swimlanes (Zeiten, Ereignisse & Maßnahmen, Herzrhythmus). It supports real-time data entry, adaptive tick granularity, a three-zone editing system, and constrained zoom/pan. Interactive vitals entry allows clinicians to drop data points that snap to grid lines. The system includes an AI-powered hybrid multi-monitor camera capture system for automatic recognition and data extraction from various medical devices, using local OCR and OpenAI Vision API, with smart routing to correct swimlanes. Values are editable via React DOM overlays for reliable interaction. **Continuous Infusion Visualization**: Drug infusions are displayed as continuous horizontal lines on the timeline with vertical tick marks at rate changes, dashed lines for free-running infusions (e.g., Ringer), solid lines for rate-controlled drugs, colored red until the NOW marker and gray thereafter, updating in real-time as time progresses.
 - **PACU**: Post-Anesthesia Care Unit for recovery monitoring.
 
@@ -60,6 +60,7 @@ The `EditableValue` component provides a consistent click-to-edit experience acr
 **Data Visualization:**
 - Apache ECharts
 - echarts-for-react
+- DayPilot Lite (calendar and scheduling)
 
 **Development Tools:**
 - Vite plugins
