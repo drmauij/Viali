@@ -307,18 +307,6 @@ export default function AnesthesiaSettings() {
               </Select>
             </div>
 
-            {/* Medication Group */}
-            <div>
-              <Label htmlFor="medication-group">Medication Group</Label>
-              <Input
-                id="medication-group"
-                value={medicationGroup}
-                onChange={(e) => setMedicationGroup(e.target.value)}
-                data-testid="input-medication-group"
-                placeholder="e.g., Hypnotika, Opioide, Muskelrelaxantien"
-              />
-            </div>
-
             {/* Ampule Concentration - only for medications */}
             {anesthesiaType === 'medication' && (
               <div>
@@ -415,6 +403,18 @@ export default function AnesthesiaSettings() {
                 )}
               </>
             )}
+
+            {/* Medication Group - at the end */}
+            <div>
+              <Label htmlFor="medication-group">Medication Group</Label>
+              <Input
+                id="medication-group"
+                value={medicationGroup}
+                onChange={(e) => setMedicationGroup(e.target.value)}
+                data-testid="input-medication-group"
+                placeholder="e.g., Hypnotika, Opioide, Muskelrelaxantien"
+              />
+            </div>
           </div>
 
           <DialogFooter>
