@@ -1680,7 +1680,6 @@ If unable to parse any drugs, return:
         // Check if this item has medication configuration data
         const hasMedicationConfig = !!(
           bulkItem.medicationGroup ||
-          bulkItem.brandName ||
           bulkItem.concentrationDisplay ||
           bulkItem.ampuleSize ||
           bulkItem.ampuleTotalContent ||
@@ -1717,7 +1716,6 @@ If unable to parse any drugs, return:
           await storage.upsertMedicationConfig({
             itemId: item.id,
             medicationGroup: bulkItem.medicationGroup ?? null,
-            brandName: bulkItem.brandName ?? null,
             concentrationDisplay: bulkItem.concentrationDisplay ?? null,
             ampuleSize: bulkItem.ampuleSize ?? null,
             ampuleTotalContent: bulkItem.ampuleTotalContent ?? null,

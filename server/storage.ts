@@ -1152,7 +1152,6 @@ export class DatabaseStorage implements IStorage {
         target: medicationConfigs.itemId,
         set: {
           medicationGroup: config.medicationGroup,
-          brandName: config.brandName,
           concentrationDisplay: config.concentrationDisplay,
           ampuleSize: config.ampuleSize,
           ampuleTotalContent: config.ampuleTotalContent,
