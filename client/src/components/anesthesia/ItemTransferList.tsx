@@ -91,7 +91,7 @@ export function ItemTransferList({
   };
 
   return (
-    <div className="grid grid-cols-[1fr,auto,1fr] gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-[1fr,auto,1fr] gap-4">
       {/* Available Items */}
       <div className="border rounded-lg p-4 bg-card dark:bg-card">
         <div className="mb-3">
@@ -143,7 +143,7 @@ export function ItemTransferList({
       </div>
 
       {/* Move Buttons */}
-      <div className="flex flex-col items-center justify-center gap-2">
+      <div className="flex flex-row md:flex-col items-center justify-center gap-2">
         <Button
           variant="outline"
           size="icon"
@@ -152,7 +152,7 @@ export function ItemTransferList({
           title="Move all to anesthesia"
           data-testid="button-move-all-right"
         >
-          <ChevronsRight className="h-4 w-4" />
+          <ChevronsRight className="h-4 w-4 md:rotate-0 rotate-90" />
         </Button>
         <Button
           variant="outline"
@@ -162,7 +162,7 @@ export function ItemTransferList({
           title="Move selected to anesthesia"
           data-testid="button-move-selected-right"
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-4 w-4 md:rotate-0 rotate-90" />
         </Button>
         <Button
           variant="outline"
@@ -172,7 +172,7 @@ export function ItemTransferList({
           title="Remove selected from anesthesia"
           data-testid="button-move-selected-left"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-4 w-4 md:rotate-0 rotate-90" />
         </Button>
         <Button
           variant="outline"
@@ -182,7 +182,7 @@ export function ItemTransferList({
           title="Remove all from anesthesia"
           data-testid="button-move-all-left"
         >
-          <ChevronsLeft className="h-4 w-4" />
+          <ChevronsLeft className="h-4 w-4 md:rotate-0 rotate-90" />
         </Button>
       </div>
 
