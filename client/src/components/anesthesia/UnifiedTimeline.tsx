@@ -1011,36 +1011,45 @@ export function UnifiedTimeline({
     for (const lane of baseSwimlanes) {
       lanes.push(lane);
       
-      // Insert administration group lanes after Heart Rhythm (before Position)
+      // Insert single "Medications" parent lane after Heart Rhythm (before Position)
       if (lane.id === "herzrhythmus") {
-        // Sort administration groups by sortOrder
-        const sortedGroups = [...administrationGroups].sort((a, b) => a.sortOrder - b.sortOrder);
+        // Add single "Medications" parent lane
+        lanes.push({
+          id: "medikamente",
+          label: "Medications",
+          height: 40,
+          ...medGroupColor,
+        });
         
-        sortedGroups.forEach((group) => {
-          // Add parent lane for the administration group
-          lanes.push({
-            id: `admingroup-${group.id}`,
-            label: group.name,
-            height: 40,
-            ...medGroupColor,
-          });
+        // Add administration groups and their items (if Medications is not collapsed)
+        if (!collapsedSwimlanes.has("medikamente")) {
+          // Sort administration groups by sortOrder
+          const sortedGroups = [...administrationGroups].sort((a, b) => a.sortOrder - b.sortOrder);
           
-          // Add child lanes for items in this group (if not collapsed)
-          if (!collapsedSwimlanes.has(`admingroup-${group.id}`)) {
+          sortedGroups.forEach((group) => {
+            // Add administration group header (non-collapsible, just a label)
+            lanes.push({
+              id: `admingroup-${group.id}`,
+              label: group.name,
+              height: 32,
+              ...medGroupColor,
+            });
+            
+            // Add child lanes for items in this group
             const groupItems = itemsByAdminGroup[group.name] || [];
             groupItems.forEach((item, index) => {
               lanes.push({
                 id: `admingroup-${group.id}-item-${index}`,
-                label: `  ${formatItemDisplayName(item)}`,
-                height: 30,
+                label: formatItemDisplayName(item),
+                height: 28,
                 ...medGroupColor,
                 anesthesiaType: item.anesthesiaType,
                 isRateControlled: item.isRateControlled || false,
                 itemId: item.id,
               });
             });
-          }
-        });
+          });
+        }
       }
 
       // Insert ventilation children after Ventilation parent (if not collapsed)
@@ -2334,7 +2343,7 @@ export function UnifiedTimeline({
         },
       },
     } as echarts.EChartsOption;
-  }, [data, isDark, activeSwimlanes, now, hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, medicationDoseData, medications, zoomPercent, pendingSysValue, bpEntryMode, currentTime, collapsedSwimlanes, dragPosition, selectedPoint]);
+  }, [data, isDark, activeSwimlanes, now, hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, medicationDoseData, zoomPercent, pendingSysValue, bpEntryMode, currentTime, collapsedSwimlanes, dragPosition, selectedPoint]);
 
   // Calculate component height
   const VITALS_HEIGHT = 340;
@@ -3925,17 +3934,32 @@ export function UnifiedTimeline({
           const isZeitenLane = lane.id === "zeiten";
           const isMedParent = lane.id === "medikamente";
           const isVentParent = lane.id === "ventilation";
-          const isInfusionParent = lane.id === "infusionen";
           const isOutputParent = lane.id === "output";
           const isStaffParent = lane.id === "staff";
-          const isMedChild = swimlaneConfig?.anesthesiaType === 'medication';
+          const isAdminGroupHeader = lane.id.startsWith("admingroup-") && !lane.id.includes("-item-");
+          const isMedItem = lane.id.startsWith("admingroup-") && lane.id.includes("-item-");
           const isVentChild = lane.id.startsWith("ventilation-");
-          const isInfusionChild = swimlaneConfig?.anesthesiaType === 'infusion';
           const isOutputChild = lane.id.startsWith("output-");
           const isStaffChild = lane.id.startsWith("staff-");
-          const isAdminGroupParent = lane.id.startsWith("admingroup-") && !lane.id.includes("-item-");
-          const isChild = isMedChild || isVentChild || isInfusionChild || isOutputChild || isStaffChild;
-          const isParent = isMedParent || isVentParent || isInfusionParent || isOutputParent || isStaffParent || isAdminGroupParent;
+          
+          // Only the main parent swimlanes are collapsible
+          const isCollapsibleParent = isMedParent || isVentParent || isOutputParent || isStaffParent;
+          
+          // Determine styling based on level in hierarchy
+          let labelClass = "";
+          if (isCollapsibleParent || lane.id === "zeiten" || lane.id === "ereignisse" || lane.id === "herzrhythmus" || lane.id === "position") {
+            // Level 1: Main parent swimlanes (collapsible)
+            labelClass = "text-sm font-semibold";
+          } else if (isAdminGroupHeader) {
+            // Level 2: Administration group headers (non-collapsible, bold, smaller)
+            labelClass = "text-xs font-semibold";
+          } else if (isMedItem || isVentChild || isOutputChild || isStaffChild) {
+            // Level 3: Individual items (non-collapsible, not bold, smaller)
+            labelClass = "text-xs";
+          } else {
+            // Default
+            labelClass = "text-sm";
+          }
           
           return (
             <div 
@@ -3949,7 +3973,7 @@ export function UnifiedTimeline({
               }}
             >
               <div className="flex items-center gap-1 flex-1">
-                {isParent && (
+                {isCollapsibleParent && (
                   <button
                     onClick={() => toggleSwimlane(lane.id)}
                     className="p-0.5 rounded hover:bg-background/50 transition-colors group"
@@ -3963,7 +3987,7 @@ export function UnifiedTimeline({
                     )}
                   </button>
                 )}
-                <span className={`${isChild ? 'text-xs' : 'text-sm font-semibold'} text-black dark:text-white`}>
+                <span className={`${labelClass} text-black dark:text-white`}>
                   {lane.label}
                 </span>
               </div>
