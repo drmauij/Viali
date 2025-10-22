@@ -204,6 +204,23 @@ export default function AnesthesiaSettings() {
     },
   });
 
+  // Mutation to update administration group
+  const updateAdminGroupMutation = useMutation({
+    mutationFn: async ({ groupId, name }: { groupId: string; name: string }) => {
+      return apiRequest('PUT', `/api/administration-groups/${groupId}`, { name });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/administration-groups/${activeHospital?.id}`] });
+      toast({
+        title: "Group updated",
+        description: "Administration group has been updated",
+      });
+      setGroupDialogOpen(false);
+      setEditingGroup(null);
+      setGroupFormName('');
+    },
+  });
+
   // Mutation to delete administration group
   const deleteAdminGroupMutation = useMutation({
     mutationFn: async (groupId: string) => {
@@ -987,20 +1004,19 @@ export default function AnesthesiaSettings() {
               onClick={() => {
                 if (groupFormName.trim()) {
                   if (editingGroup) {
-                    // Update not yet implemented since backend doesn't have it
-                    toast({ title: "Not implemented", description: "Group editing will be added soon" });
+                    updateAdminGroupMutation.mutate({ groupId: editingGroup.id, name: groupFormName.trim() });
                   } else {
                     createAdminGroupMutation.mutate(groupFormName.trim());
                   }
-                  setGroupDialogOpen(false);
-                  setEditingGroup(null);
-                  setGroupFormName('');
                 }
               }}
-              disabled={!groupFormName.trim()}
+              disabled={!groupFormName.trim() || (editingGroup ? updateAdminGroupMutation.isPending : createAdminGroupMutation.isPending)}
               data-testid="button-save-group"
             >
-              {editingGroup ? 'Update' : 'Create'}
+              {editingGroup 
+                ? (updateAdminGroupMutation.isPending ? 'Updating...' : 'Update') 
+                : (createAdminGroupMutation.isPending ? 'Creating...' : 'Create')
+              }
             </Button>
           </DialogFooter>
         </DialogContent>

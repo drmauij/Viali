@@ -1361,6 +1361,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update an administration group
+  app.put('/api/administration-groups/:groupId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { groupId } = req.params;
+      const { name } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ message: "Name is required" });
+      }
+
+      const updatedGroup = await storage.updateAdministrationGroup(groupId, { name });
+      res.json(updatedGroup);
+    } catch (error: any) {
+      console.error("Error updating administration group:", error);
+      res.status(500).json({ message: "Failed to update administration group" });
+    }
+  });
+
   // Delete an administration group
   app.delete('/api/administration-groups/:groupId', isAuthenticated, async (req: any, res) => {
     try {

@@ -185,6 +185,7 @@ export interface IStorage {
   // Administration Group operations
   getAdministrationGroups(hospitalId: string): Promise<AdministrationGroup[]>;
   createAdministrationGroup(group: InsertAdministrationGroup): Promise<AdministrationGroup>;
+  updateAdministrationGroup(id: string, updates: { name: string }): Promise<AdministrationGroup>;
   deleteAdministrationGroup(id: string): Promise<void>;
   reorderAdministrationGroups(groupIds: string[]): Promise<void>;
   
@@ -1236,6 +1237,31 @@ export class DatabaseStorage implements IStorage {
       .values(group)
       .returning();
     return newGroup;
+  }
+
+  async updateAdministrationGroup(id: string, updates: { name: string }): Promise<AdministrationGroup> {
+    // Get old group name to update medication configs
+    const [oldGroup] = await db
+      .select()
+      .from(administrationGroups)
+      .where(eq(administrationGroups.id, id));
+    
+    // Update the group
+    const [updatedGroup] = await db
+      .update(administrationGroups)
+      .set({ name: updates.name })
+      .where(eq(administrationGroups.id, id))
+      .returning();
+    
+    // Update all medication configs that reference the old group name
+    if (oldGroup && oldGroup.name !== updates.name) {
+      await db
+        .update(medicationConfigs)
+        .set({ administrationGroup: updates.name })
+        .where(eq(medicationConfigs.administrationGroup, oldGroup.name));
+    }
+    
+    return updatedGroup;
   }
 
   async deleteAdministrationGroup(id: string): Promise<void> {
