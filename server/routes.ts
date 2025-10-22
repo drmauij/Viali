@@ -1152,6 +1152,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           updatedAt: items.updatedAt,
           // Flatten medication config fields to top level
           medicationGroup: medicationConfigs.medicationGroup,
+          administrationGroup: medicationConfigs.administrationGroup,
           defaultDose: medicationConfigs.defaultDose,
           administrationUnit: medicationConfigs.administrationUnit,
           ampuleTotalContent: medicationConfigs.ampuleTotalContent,
@@ -1219,6 +1220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const configData: any = {
           itemId,
           medicationGroup: req.body.medicationGroup || null,
+          administrationGroup: req.body.administrationGroup || null,
           defaultDose: req.body.defaultDose || null,
         };
 
@@ -1267,6 +1269,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: items.name,
           anesthesiaType: items.anesthesiaType,
           medicationGroup: medicationConfigs.medicationGroup,
+          administrationGroup: medicationConfigs.administrationGroup,
           defaultDose: medicationConfigs.defaultDose,
           administrationUnit: medicationConfigs.administrationUnit,
           ampuleTotalContent: medicationConfigs.ampuleTotalContent,
