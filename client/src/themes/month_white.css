@@ -10,7 +10,7 @@
 }
 
 .month_white_main {
-  border: 1px solid #c0c0c0;
+  border: none;
   background-color: white;
 }
 
@@ -30,7 +30,7 @@
 }
 
 .month_white_cell_header {
-  background-color: #f0f0f0;
+  background-color: transparent;
   border-right: 1px solid #c0c0c0;
   border-bottom: 1px solid #c0c0c0;
   padding: 8px;

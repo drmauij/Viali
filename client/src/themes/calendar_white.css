@@ -10,12 +10,12 @@
 }
 
 .calendar_white_main {
-  border: 1px solid #c0c0c0;
+  border: none;
   background-color: white;
 }
 
 .calendar_white_corner {
-  background-color: #f0f0f0;
+  background-color: transparent;
   border-right: 1px solid #c0c0c0;
   border-bottom: 1px solid #c0c0c0;
 }
@@ -25,7 +25,7 @@
 }
 
 .calendar_white_colheader {
-  background-color: #f0f0f0;
+  background-color: transparent;
   border-right: 1px solid #c0c0c0;
   border-bottom: 1px solid #c0c0c0;
 }
