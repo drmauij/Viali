@@ -7,6 +7,7 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
+import { Pool } from "@neondatabase/serverless";
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
@@ -25,18 +26,22 @@ const getOidcConfig = memoize(
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const pgStore = connectPg(session);
+  
+  // Create a pool with SSL configuration for custom PostgreSQL servers (e.g., Exoscale)
+  const sessionPool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+      rejectUnauthorized: false // Accept self-signed certificates
+    }
+  });
+  
   const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
+    pool: sessionPool, // Pass configured pool
     createTableIfMissing: false,
     ttl: sessionTtl,
     tableName: "sessions",
-    // Configure SSL to accept self-signed certificates for custom PostgreSQL servers
-    pool: {
-      ssl: {
-        rejectUnauthorized: false
-      }
-    }
   });
+  
   return session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
