@@ -1195,6 +1195,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         anesthesiaType,
       };
 
+      // Update item name if provided
+      if (req.body.name) {
+        updates.name = req.body.name;
+      }
+
       // For medications, set medication-specific fields
       if (anesthesiaType === 'medication') {
         updates.administrationUnit = req.body.administrationUnit;
