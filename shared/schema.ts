@@ -339,7 +339,6 @@ export const medicationConfigs = pgTable("medication_configs", {
   
   // Classification
   medicationGroup: varchar("medication_group"), // "Hypnotika", "Opioide", "Muskelrelaxantien", etc.
-  brandName: varchar("brand_name"), // "Dormicum", "Catapresan", "Beloc"
   
   // Concentration & Ampule Information
   concentrationDisplay: varchar("concentration_display"), // "20mg", "1%", "50mg/5ml"
