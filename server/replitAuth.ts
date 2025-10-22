@@ -30,6 +30,12 @@ export function getSession() {
     createTableIfMissing: false,
     ttl: sessionTtl,
     tableName: "sessions",
+    // Configure SSL to accept self-signed certificates for custom PostgreSQL servers
+    pool: {
+      ssl: {
+        rejectUnauthorized: false
+      }
+    }
   });
   return session({
     secret: process.env.SESSION_SECRET!,
