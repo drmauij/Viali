@@ -340,14 +340,12 @@ export const medicationConfigs = pgTable("medication_configs", {
   // Classification
   medicationGroup: varchar("medication_group"), // "Hypnotika", "Opioide", "Muskelrelaxantien", etc.
   
-  // Concentration & Ampule Information
-  concentrationDisplay: varchar("concentration_display"), // "20mg", "1%", "50mg/5ml"
+  // Ampule Information
   ampuleSize: varchar("ampule_size"), // "5ml", "10ml", "2ml"
   ampuleTotalContent: varchar("ampule_total_content"), // "20mg", "150µg" (total drug in one ampule)
   
   // Dosing Information
   defaultDose: varchar("default_dose"), // "12" or "25-35-50" for ranges
-  doseUnit: varchar("dose_unit"), // "mg", "µg", "ml", "g", "IE", "Hub"
   
   // Administration
   administrationRoute: varchar("administration_route"), // "i.v.", "s.c.", "p.o.", "spinal", etc.
