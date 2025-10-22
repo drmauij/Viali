@@ -227,6 +227,7 @@ type SwimlaneConfig = {
   anesthesiaType?: 'medication' | 'infusion';
   isRateControlled?: boolean;
   itemId?: string; // Reference to the original item
+  hierarchyLevel?: 'parent' | 'group' | 'item'; // For three-level hierarchy styling
 };
 
 // Type for anesthesia-configured items
@@ -1019,6 +1020,7 @@ export function UnifiedTimeline({
           label: "Medications",
           height: 40,
           ...medGroupColor,
+          hierarchyLevel: 'parent',
         });
         
         // Add administration groups and their items (if Medications is not collapsed)
@@ -1033,6 +1035,7 @@ export function UnifiedTimeline({
               label: group.name,
               height: 32,
               ...medGroupColor,
+              hierarchyLevel: 'group',
             });
             
             // Add child lanes for items in this group
@@ -1046,6 +1049,7 @@ export function UnifiedTimeline({
                 anesthesiaType: item.anesthesiaType,
                 isRateControlled: item.isRateControlled || false,
                 itemId: item.id,
+                hierarchyLevel: 'item',
               });
             });
           });
@@ -3936,8 +3940,6 @@ export function UnifiedTimeline({
           const isVentParent = lane.id === "ventilation";
           const isOutputParent = lane.id === "output";
           const isStaffParent = lane.id === "staff";
-          const isAdminGroupHeader = lane.id.startsWith("admingroup-") && !lane.id.includes("-item-");
-          const isMedItem = lane.id.startsWith("admingroup-") && lane.id.includes("-item-");
           const isVentChild = lane.id.startsWith("ventilation-");
           const isOutputChild = lane.id.startsWith("output-");
           const isStaffChild = lane.id.startsWith("staff-");
@@ -3945,15 +3947,15 @@ export function UnifiedTimeline({
           // Only the main parent swimlanes are collapsible
           const isCollapsibleParent = isMedParent || isVentParent || isOutputParent || isStaffParent;
           
-          // Determine styling based on level in hierarchy
+          // Determine styling based on hierarchyLevel field
           let labelClass = "";
-          if (isCollapsibleParent || lane.id === "zeiten" || lane.id === "ereignisse" || lane.id === "herzrhythmus" || lane.id === "position") {
+          if (swimlaneConfig?.hierarchyLevel === 'parent' || isCollapsibleParent || lane.id === "zeiten" || lane.id === "ereignisse" || lane.id === "herzrhythmus" || lane.id === "position") {
             // Level 1: Main parent swimlanes (collapsible)
             labelClass = "text-sm font-semibold";
-          } else if (isAdminGroupHeader) {
+          } else if (swimlaneConfig?.hierarchyLevel === 'group') {
             // Level 2: Administration group headers (non-collapsible, bold, smaller)
             labelClass = "text-xs font-semibold";
-          } else if (isMedItem || isVentChild || isOutputChild || isStaffChild) {
+          } else if (swimlaneConfig?.hierarchyLevel === 'item' || isVentChild || isOutputChild || isStaffChild) {
             // Level 3: Individual items (non-collapsible, not bold, smaller)
             labelClass = "text-xs";
           } else {
