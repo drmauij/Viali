@@ -226,6 +226,7 @@ type SwimlaneConfig = {
   // Metadata for anesthesia items
   anesthesiaType?: 'medication' | 'infusion';
   isRateControlled?: boolean;
+  defaultDose?: string | null; // Default dose value (e.g., "12" or "25-35-50" for ranges)
   itemId?: string; // Reference to the original item
   hierarchyLevel?: 'parent' | 'group' | 'item'; // For three-level hierarchy styling
 };
@@ -241,6 +242,7 @@ type AnesthesiaItem = {
   isRateControlled?: boolean;
   rateUnit?: string;
   administrationGroup?: string;
+  defaultDose?: string | null;
 };
 
 // Type for administration groups
@@ -1054,6 +1056,7 @@ export function UnifiedTimeline({
                 ...medGroupColor,
                 anesthesiaType: item.anesthesiaType,
                 isRateControlled: item.isRateControlled ?? undefined,
+                defaultDose: item.defaultDose ?? null,
                 itemId: item.id,
                 hierarchyLevel: 'item',
               });
@@ -5051,13 +5054,23 @@ export function UnifiedTimeline({
                   setMedicationEditInput(dose.toString());
                   setShowMedicationEditDialog(true);
                 } else {
-                  // Open add new dose dialog
-                  setPendingMedicationDose({ 
-                    swimlaneId: lane.id, 
-                    time, 
-                    label: lane.label.trim() 
-                  });
-                  setShowMedicationDoseDialog(true);
+                  // Check if there's a default dose
+                  if (lane.defaultDose) {
+                    // Has default dose: insert it directly without dialog
+                    const updated = { ...medicationDoseData };
+                    if (!updated[lane.id]) updated[lane.id] = [];
+                    const newEntry: [number, string] = [time, lane.defaultDose];
+                    updated[lane.id] = [...updated[lane.id], newEntry].sort((a, b) => a[0] - b[0]);
+                    setMedicationDoseData(updated);
+                  } else {
+                    // No default dose: open dialog
+                    setPendingMedicationDose({ 
+                      swimlaneId: lane.id, 
+                      time, 
+                      label: lane.label.trim() 
+                    });
+                    setShowMedicationDoseDialog(true);
+                  }
                 }
               }}
               data-testid={`interactive-medication-lane-${lane.id}`}
@@ -5188,13 +5201,30 @@ export function UnifiedTimeline({
                   setInfusionEditInput(value.toString());
                   setShowInfusionEditDialog(true);
                 } else {
-                  // Open add new value dialog
-                  setPendingInfusionValue({ 
-                    swimlaneId: lane.id, 
-                    time, 
-                    label: lane.label.trim() 
-                  });
-                  setShowInfusionDialog(true);
+                  // Check if this is a free-flow infusion (no rate)
+                  if (lane.isRateControlled === false) {
+                    // Free-flow infusion: insert marker (value "0") without dialog
+                    const updated = { ...infusionData };
+                    if (!updated[lane.id]) updated[lane.id] = [];
+                    const newEntry: [number, string] = [time, "0"];
+                    updated[lane.id] = [...updated[lane.id], newEntry].sort((a, b) => a[0] - b[0]);
+                    setInfusionData(updated);
+                  } else if (lane.defaultDose) {
+                    // Has default dose: insert it directly without dialog
+                    const updated = { ...infusionData };
+                    if (!updated[lane.id]) updated[lane.id] = [];
+                    const newEntry: [number, string] = [time, lane.defaultDose];
+                    updated[lane.id] = [...updated[lane.id], newEntry].sort((a, b) => a[0] - b[0]);
+                    setInfusionData(updated);
+                  } else {
+                    // No default dose: open dialog
+                    setPendingInfusionValue({ 
+                      swimlaneId: lane.id, 
+                      time, 
+                      label: lane.label.trim() 
+                    });
+                    setShowInfusionDialog(true);
+                  }
                 }
               }}
               data-testid={`interactive-infusion-lane-${lane.id}`}
