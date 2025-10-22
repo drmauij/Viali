@@ -87,10 +87,11 @@
   background: var(--card);
   opacity: 0.9;
   cursor: pointer;
+  margin: 3px 4px;
 }
 
 .calendar_white_event_inner {
-  padding: 4px 8px;
+  padding: 6px 10px;
   overflow: hidden;
 }
 
