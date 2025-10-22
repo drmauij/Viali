@@ -6312,6 +6312,12 @@ export function UnifiedTimeline({
         const visibleEnd = currentZoomEnd ?? data.endTime;
         const visibleRange = visibleEnd - visibleStart;
         
+        // Check if this is a free-flow infusion (no rate values should be displayed)
+        const isFreeFlow = lane.isRateControlled === false;
+        
+        // Don't render any values for free-flow infusions
+        if (isFreeFlow) return [];
+        
         return infusionData[lane.id].map(([timestamp, rate], index) => {
           const xFraction = (timestamp - visibleStart) / visibleRange;
           
