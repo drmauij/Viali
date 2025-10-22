@@ -24,7 +24,8 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, X } from "lucide-react";
+import { Loader2, Plus, X, ChevronUp, ChevronDown, Pencil, Trash2 } from "lucide-react";
+import { arrayMove } from "@dnd-kit/sortable";
 
 type MedicationGroup = {
   id: string;
@@ -34,6 +35,14 @@ type MedicationGroup = {
 };
 
 type AdministrationGroup = {
+  id: string;
+  name: string;
+  hospitalId: string;
+  sortOrder: number;
+  createdAt: string;
+};
+
+type SurgeryRoom = {
   id: string;
   name: string;
   hospitalId: string;
@@ -98,11 +107,27 @@ export default function AnesthesiaSettings() {
     enabled: !!activeHospital?.id,
   });
 
+  // Fetch surgery rooms for this hospital
+  const { data: surgeryRooms = [] } = useQuery<SurgeryRoom[]>({
+    queryKey: [`/api/surgery-rooms/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id,
+  });
+
   // State for inline group management
   const [newGroupName, setNewGroupName] = useState('');
   const [showNewGroupInput, setShowNewGroupInput] = useState(false);
   const [newAdminGroupName, setNewAdminGroupName] = useState('');
   const [showNewAdminGroupInput, setShowNewAdminGroupInput] = useState(false);
+
+  // State for Groups management tab
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<AdministrationGroup | null>(null);
+  const [groupFormName, setGroupFormName] = useState('');
+
+  // State for Surgery Rooms management tab
+  const [roomDialogOpen, setRoomDialogOpen] = useState(false);
+  const [editingRoom, setEditingRoom] = useState<any | null>(null);
+  const [roomFormName, setRoomFormName] = useState('');
 
   // Split items into available and selected
   const anesthesiaItemIds = new Set(anesthesiaItems.map(item => item.id));
@@ -192,6 +217,84 @@ export default function AnesthesiaSettings() {
       });
     },
   });
+
+  // Reorder administration groups
+  const reorderGroupsMutation = useMutation({
+    mutationFn: async (groupIds: string[]) => {
+      return apiRequest('PUT', `/api/administration-groups/reorder`, { groupIds });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/administration-groups/${activeHospital?.id}`] });
+    },
+  });
+
+  // Surgery Rooms mutations
+  const createRoomMutation = useMutation({
+    mutationFn: async (name: string) => {
+      return apiRequest('POST', `/api/surgery-rooms`, { hospitalId: activeHospital?.id, name });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/surgery-rooms/${activeHospital?.id}`] });
+      toast({ title: "Room created", description: "Surgery room has been added" });
+      setRoomDialogOpen(false);
+      setRoomFormName('');
+    },
+  });
+
+  const updateRoomMutation = useMutation({
+    mutationFn: async ({ roomId, name }: { roomId: string; name: string }) => {
+      return apiRequest('PUT', `/api/surgery-rooms/${roomId}`, { name });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/surgery-rooms/${activeHospital?.id}`] });
+      toast({ title: "Room updated", description: "Surgery room has been updated" });
+      setRoomDialogOpen(false);
+      setEditingRoom(null);
+      setRoomFormName('');
+    },
+  });
+
+  const deleteRoomMutation = useMutation({
+    mutationFn: async (roomId: string) => {
+      return apiRequest('DELETE', `/api/surgery-rooms/${roomId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/surgery-rooms/${activeHospital?.id}`] });
+      toast({ title: "Room deleted", description: "Surgery room has been removed" });
+    },
+  });
+
+  const reorderRoomsMutation = useMutation({
+    mutationFn: async (roomIds: string[]) => {
+      return apiRequest('PUT', `/api/surgery-rooms/reorder`, { roomIds });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/surgery-rooms/${activeHospital?.id}`] });
+    },
+  });
+
+  // Helper functions for reordering
+  const moveGroup = (groupId: string, direction: 'up' | 'down') => {
+    const currentIndex = administrationGroups.findIndex(g => g.id === groupId);
+    if (currentIndex === -1) return;
+    
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex < 0 || newIndex >= administrationGroups.length) return;
+    
+    const reordered = arrayMove(administrationGroups, currentIndex, newIndex);
+    reorderGroupsMutation.mutate(reordered.map(g => g.id));
+  };
+
+  const moveRoom = (roomId: string, direction: 'up' | 'down') => {
+    const currentIndex = surgeryRooms.findIndex(r => r.id === roomId);
+    if (currentIndex === -1) return;
+    
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex < 0 || newIndex >= surgeryRooms.length) return;
+    
+    const reordered = arrayMove(surgeryRooms, currentIndex, newIndex);
+    reorderRoomsMutation.mutate(reordered.map(r => r.id));
+  };
 
   // Handle moving items between lists
   const handleMove = async (itemIds: string[], toSelected: boolean) => {
@@ -315,17 +418,197 @@ export default function AnesthesiaSettings() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-2">Anesthesia Settings</h1>
         <p className="text-muted-foreground">
-          Configure which inventory items should appear in anesthesia records. Click an item in the
-          right panel to configure medication/infusion details.
+          Configure anesthesia module settings including items, groups, and surgery rooms.
         </p>
       </div>
 
-      <ItemTransferList
-        availableItems={availableItems}
-        selectedItems={selectedItems}
-        onMove={handleMove}
-        onItemClick={handleItemClick}
-      />
+      <Tabs defaultValue="items" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsTrigger value="items" data-testid="tab-items">Anesthesia Items</TabsTrigger>
+          <TabsTrigger value="groups" data-testid="tab-groups">Groups</TabsTrigger>
+          <TabsTrigger value="rooms" data-testid="tab-rooms">Surgery Rooms</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="items" className="space-y-4">
+          <div className="mb-4">
+            <p className="text-sm text-muted-foreground">
+              Configure which inventory items should appear in anesthesia records. Click an item in the
+              right panel to configure medication/infusion details.
+            </p>
+          </div>
+
+          <ItemTransferList
+            availableItems={availableItems}
+            selectedItems={selectedItems}
+            onMove={handleMove}
+            onItemClick={handleItemClick}
+          />
+        </TabsContent>
+
+        <TabsContent value="groups" className="space-y-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-medium">Administration Groups</h3>
+              <p className="text-sm text-muted-foreground">
+                Manage groups for organizing medications in anesthesia charts. Use up/down buttons to reorder.
+              </p>
+            </div>
+            <Button
+              onClick={() => {
+                setEditingGroup(null);
+                setGroupFormName('');
+                setGroupDialogOpen(true);
+              }}
+              data-testid="button-add-group"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Group
+            </Button>
+          </div>
+
+          {administrationGroups.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No groups yet. Click "Add Group" to create one.
+            </div>
+          ) : (
+            <div className="border rounded-lg">
+              {administrationGroups.map((group, index) => (
+                <div
+                  key={group.id}
+                  className="flex items-center justify-between p-4 border-b last:border-b-0 hover:bg-muted/50"
+                  data-testid={`group-row-${group.id}`}
+                >
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="flex flex-col gap-1">
+                      <button
+                        onClick={() => moveGroup(group.id, 'up')}
+                        disabled={index === 0}
+                        className={`p-1 rounded hover:bg-background ${index === 0 ? 'opacity-30 cursor-not-allowed' : ''}`}
+                        data-testid={`button-move-group-up-${group.id}`}
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => moveGroup(group.id, 'down')}
+                        disabled={index === administrationGroups.length - 1}
+                        className={`p-1 rounded hover:bg-background ${index === administrationGroups.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}`}
+                        data-testid={`button-move-group-down-${group.id}`}
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <span className="font-medium">{group.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setEditingGroup(group);
+                        setGroupFormName(group.name);
+                        setGroupDialogOpen(true);
+                      }}
+                      data-testid={`button-edit-group-${group.id}`}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteAdminGroupMutation.mutate(group.id)}
+                      data-testid={`button-delete-group-${group.id}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="rooms" className="space-y-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-medium">Surgery Rooms</h3>
+              <p className="text-sm text-muted-foreground">
+                Manage operating rooms for the anesthesia module. Use up/down buttons to reorder.
+              </p>
+            </div>
+            <Button
+              onClick={() => {
+                setEditingRoom(null);
+                setRoomFormName('');
+                setRoomDialogOpen(true);
+              }}
+              data-testid="button-add-room"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Room
+            </Button>
+          </div>
+
+          {surgeryRooms.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No surgery rooms yet. Click "Add Room" to create one.
+            </div>
+          ) : (
+            <div className="border rounded-lg">
+              {surgeryRooms.map((room, index) => (
+                <div
+                  key={room.id}
+                  className="flex items-center justify-between p-4 border-b last:border-b-0 hover:bg-muted/50"
+                  data-testid={`room-row-${room.id}`}
+                >
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="flex flex-col gap-1">
+                      <button
+                        onClick={() => moveRoom(room.id, 'up')}
+                        disabled={index === 0}
+                        className={`p-1 rounded hover:bg-background ${index === 0 ? 'opacity-30 cursor-not-allowed' : ''}`}
+                        data-testid={`button-move-room-up-${room.id}`}
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => moveRoom(room.id, 'down')}
+                        disabled={index === surgeryRooms.length - 1}
+                        className={`p-1 rounded hover:bg-background ${index === surgeryRooms.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}`}
+                        data-testid={`button-move-room-down-${room.id}`}
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <span className="font-medium">{room.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setEditingRoom(room);
+                        setRoomFormName(room.name);
+                        setRoomDialogOpen(true);
+                      }}
+                      data-testid={`button-edit-room-${room.id}`}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteRoomMutation.mutate(room.id)}
+                      data-testid={`button-delete-room-${room.id}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Configuration Dialog */}
       <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
@@ -673,6 +956,92 @@ export default function AnesthesiaSettings() {
               ) : (
                 "Save Configuration"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Group Add/Edit Dialog */}
+      <Dialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen}>
+        <DialogContent data-testid="dialog-group-form">
+          <DialogHeader>
+            <DialogTitle>{editingGroup ? 'Edit Group' : 'Add Group'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="group-name">Group Name</Label>
+              <Input
+                id="group-name"
+                value={groupFormName}
+                onChange={(e) => setGroupFormName(e.target.value)}
+                placeholder="Enter group name"
+                data-testid="input-group-name"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGroupDialogOpen(false)} data-testid="button-cancel-group">
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (groupFormName.trim()) {
+                  if (editingGroup) {
+                    // Update not yet implemented since backend doesn't have it
+                    toast({ title: "Not implemented", description: "Group editing will be added soon" });
+                  } else {
+                    createAdminGroupMutation.mutate(groupFormName.trim());
+                  }
+                  setGroupDialogOpen(false);
+                  setEditingGroup(null);
+                  setGroupFormName('');
+                }
+              }}
+              disabled={!groupFormName.trim()}
+              data-testid="button-save-group"
+            >
+              {editingGroup ? 'Update' : 'Create'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Surgery Room Add/Edit Dialog */}
+      <Dialog open={roomDialogOpen} onOpenChange={setRoomDialogOpen}>
+        <DialogContent data-testid="dialog-room-form">
+          <DialogHeader>
+            <DialogTitle>{editingRoom ? 'Edit Surgery Room' : 'Add Surgery Room'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="room-name">Room Name</Label>
+              <Input
+                id="room-name"
+                value={roomFormName}
+                onChange={(e) => setRoomFormName(e.target.value)}
+                placeholder="Enter room name (e.g., OR 1, OR 2)"
+                data-testid="input-room-name"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRoomDialogOpen(false)} data-testid="button-cancel-room">
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (roomFormName.trim()) {
+                  if (editingRoom) {
+                    updateRoomMutation.mutate({ roomId: editingRoom.id, name: roomFormName.trim() });
+                  } else {
+                    createRoomMutation.mutate(roomFormName.trim());
+                  }
+                }
+              }}
+              disabled={!roomFormName.trim() || (editingRoom ? updateRoomMutation.isPending : createRoomMutation.isPending)}
+              data-testid="button-save-room"
+            >
+              {editingRoom ? updateRoomMutation.isPending ? 'Updating...' : 'Update' : createRoomMutation.isPending ? 'Creating...' : 'Create'}
             </Button>
           </DialogFooter>
         </DialogContent>
