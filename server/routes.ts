@@ -1154,7 +1154,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           medicationGroup: medicationConfigs.medicationGroup,
           defaultDose: medicationConfigs.defaultDose,
           administrationUnit: medicationConfigs.administrationUnit,
-          ampuleSize: medicationConfigs.ampuleSize,
           ampuleTotalContent: medicationConfigs.ampuleTotalContent,
           administrationRoute: medicationConfigs.administrationRoute,
           isRateControlled: medicationConfigs.isRateControlled,
@@ -1226,16 +1225,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (anesthesiaType === 'medication') {
           configData.administrationUnit = req.body.administrationUnit || null;
           configData.ampuleTotalContent = req.body.ampuleTotalContent || null;
-          configData.ampuleSize = req.body.ampuleSize || null;
           configData.administrationRoute = req.body.administrationRoute || null;
           configData.isRateControlled = false;
           configData.rateUnit = null;
         } else if (anesthesiaType === 'infusion') {
+          configData.ampuleTotalContent = req.body.ampuleTotalContent || null;
           configData.isRateControlled = req.body.isRateControlled || false;
           configData.rateUnit = req.body.rateUnit || null;
           configData.administrationUnit = null;
-          configData.ampuleTotalContent = null;
-          configData.ampuleSize = null;
           configData.administrationRoute = null;
         }
 
@@ -1272,7 +1269,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           medicationGroup: medicationConfigs.medicationGroup,
           defaultDose: medicationConfigs.defaultDose,
           administrationUnit: medicationConfigs.administrationUnit,
-          ampuleSize: medicationConfigs.ampuleSize,
           ampuleTotalContent: medicationConfigs.ampuleTotalContent,
           administrationRoute: medicationConfigs.administrationRoute,
           isRateControlled: medicationConfigs.isRateControlled,
@@ -1729,7 +1725,6 @@ If unable to parse any drugs, return:
         // Check if this item has medication configuration data
         const hasMedicationConfig = !!(
           bulkItem.medicationGroup ||
-          bulkItem.ampuleSize ||
           bulkItem.ampuleTotalContent ||
           bulkItem.defaultDose ||
           bulkItem.administrationRoute ||
@@ -1763,7 +1758,6 @@ If unable to parse any drugs, return:
           await storage.upsertMedicationConfig({
             itemId: item.id,
             medicationGroup: bulkItem.medicationGroup ?? null,
-            ampuleSize: bulkItem.ampuleSize ?? null,
             ampuleTotalContent: bulkItem.ampuleTotalContent ?? null,
             defaultDose: bulkItem.defaultDose ?? null,
             administrationRoute: bulkItem.administrationRoute ?? null,
