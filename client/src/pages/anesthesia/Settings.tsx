@@ -32,11 +32,20 @@ type MedicationGroup = {
   createdAt: string;
 };
 
+type AdministrationGroup = {
+  id: string;
+  name: string;
+  hospitalId: string;
+  sortOrder: number;
+  createdAt: string;
+};
+
 type Item = {
   id: string;
   name: string;
   anesthesiaType: string;
   medicationGroup?: string;
+  administrationGroup?: string;
   defaultDose?: string;
   administrationUnit?: string;
   ampuleTotalContent?: string;
@@ -56,6 +65,7 @@ export default function AnesthesiaSettings() {
   const [itemName, setItemName] = useState('');
   const [anesthesiaType, setAnesthesiaType] = useState<'medication' | 'infusion'>('medication');
   const [medicationGroup, setMedicationGroup] = useState('');
+  const [administrationGroup, setAdministrationGroup] = useState('');
   const [defaultDose, setDefaultDose] = useState('');
   const [administrationUnit, setAdministrationUnit] = useState('mg');
   const [ampuleContent, setAmpuleContent] = useState(''); // e.g., "50 mg", "1000 ml", "0.1 mg"
@@ -81,9 +91,17 @@ export default function AnesthesiaSettings() {
     enabled: !!activeHospital?.id,
   });
 
+  // Fetch administration groups for this hospital
+  const { data: administrationGroups = [] } = useQuery<AdministrationGroup[]>({
+    queryKey: [`/api/administration-groups/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id,
+  });
+
   // State for inline group management
   const [newGroupName, setNewGroupName] = useState('');
   const [showNewGroupInput, setShowNewGroupInput] = useState(false);
+  const [newAdminGroupName, setNewAdminGroupName] = useState('');
+  const [showNewAdminGroupInput, setShowNewAdminGroupInput] = useState(false);
 
   // Split items into available and selected
   const anesthesiaItemIds = new Set(anesthesiaItems.map(item => item.id));
@@ -143,6 +161,37 @@ export default function AnesthesiaSettings() {
     },
   });
 
+  // Mutation to create administration group
+  const createAdminGroupMutation = useMutation({
+    mutationFn: async (name: string) => {
+      return apiRequest('POST', '/api/administration-groups', {
+        hospitalId: activeHospital?.id,
+        name,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/administration-groups/${activeHospital?.id}`] });
+      toast({
+        title: "Group created",
+        description: "Administration group has been added",
+      });
+    },
+  });
+
+  // Mutation to delete administration group
+  const deleteAdminGroupMutation = useMutation({
+    mutationFn: async (groupId: string) => {
+      return apiRequest('DELETE', `/api/administration-groups/${groupId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/administration-groups/${activeHospital?.id}`] });
+      toast({
+        title: "Group deleted",
+        description: "Administration group has been removed",
+      });
+    },
+  });
+
   // Handle moving items between lists
   const handleMove = async (itemIds: string[], toSelected: boolean) => {
     for (const itemId of itemIds) {
@@ -192,6 +241,7 @@ export default function AnesthesiaSettings() {
     const itemType = (item.anesthesiaType as 'medication' | 'infusion') || 'medication';
     setAnesthesiaType(itemType);
     setMedicationGroup(item.medicationGroup || '');
+    setAdministrationGroup(item.administrationGroup || '');
     setDefaultDose(item.defaultDose || '');
     setAdministrationUnit(item.administrationUnit || 'mg');
     setAmpuleContent(item.ampuleTotalContent || ''); // Load content for both medications and infusions
@@ -209,6 +259,7 @@ export default function AnesthesiaSettings() {
       name: itemName,
       anesthesiaType,
       medicationGroup: medicationGroup || undefined,
+      administrationGroup: administrationGroup || undefined,
       defaultDose: defaultDose || undefined,
       ampuleTotalContent: ampuleContent.trim() || undefined,
       administrationRoute: administrationRoute, // For both medications and infusions
@@ -284,7 +335,7 @@ export default function AnesthesiaSettings() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
             {/* Item Name */}
             <div>
               <Label htmlFor="item-name">Item Name</Label>
@@ -408,7 +459,7 @@ export default function AnesthesiaSettings() {
               </>
             )}
 
-            {/* Medication Group - at the end */}
+            {/* Medication Group */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="medication-group">Medication Group</Label>
@@ -490,6 +541,95 @@ export default function AnesthesiaSettings() {
                       }
                     }}
                     data-testid="button-delete-selected-group"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Administration Group */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="administration-group">Administration Group</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowNewAdminGroupInput(!showNewAdminGroupInput)}
+                  data-testid="button-toggle-add-admin-group"
+                  className="h-6 text-xs"
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add
+                </Button>
+              </div>
+              {showNewAdminGroupInput && (
+                <div className="flex items-center gap-2">
+                  <Input
+                    placeholder="New group name"
+                    value={newAdminGroupName}
+                    onChange={(e) => setNewAdminGroupName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newAdminGroupName.trim()) {
+                        createAdminGroupMutation.mutate(newAdminGroupName.trim());
+                        setAdministrationGroup(newAdminGroupName.trim());
+                        setNewAdminGroupName('');
+                        setShowNewAdminGroupInput(false);
+                      } else if (e.key === 'Escape') {
+                        setNewAdminGroupName('');
+                        setShowNewAdminGroupInput(false);
+                      }
+                    }}
+                    data-testid="input-new-admin-group"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      if (newAdminGroupName.trim()) {
+                        createAdminGroupMutation.mutate(newAdminGroupName.trim());
+                        setAdministrationGroup(newAdminGroupName.trim());
+                        setNewAdminGroupName('');
+                        setShowNewAdminGroupInput(false);
+                      }
+                    }}
+                    disabled={!newAdminGroupName.trim()}
+                    data-testid="button-save-new-admin-group"
+                  >
+                    Save
+                  </Button>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Select
+                  value={administrationGroup || undefined}
+                  onValueChange={(value) => setAdministrationGroup(value || '')}
+                >
+                  <SelectTrigger id="administration-group" data-testid="select-administration-group" className="flex-1">
+                    <SelectValue placeholder="Select a group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {administrationGroups.map((group) => (
+                      <SelectItem key={group.id} value={group.name} data-testid={`admin-group-option-${group.id}`}>
+                        {group.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {administrationGroup && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    onClick={() => {
+                      const groupToDelete = administrationGroups.find(g => g.name === administrationGroup);
+                      if (groupToDelete) {
+                        deleteAdminGroupMutation.mutate(groupToDelete.id);
+                        setAdministrationGroup('');
+                      }
+                    }}
+                    data-testid="button-delete-selected-admin-group"
                   >
                     <X className="h-4 w-4" />
                   </Button>

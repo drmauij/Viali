@@ -18,6 +18,7 @@ import {
   checklistCompletions,
   medicationConfigs,
   medicationGroups,
+  administrationGroups,
   type User,
   type UpsertUser,
   type Hospital,
@@ -46,6 +47,8 @@ import {
   type InsertMedicationConfig,
   type MedicationGroup,
   type InsertMedicationGroup,
+  type AdministrationGroup,
+  type InsertAdministrationGroup,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, lte, gte } from "drizzle-orm";
@@ -175,6 +178,12 @@ export interface IStorage {
   getMedicationGroups(hospitalId: string): Promise<MedicationGroup[]>;
   createMedicationGroup(group: InsertMedicationGroup): Promise<MedicationGroup>;
   deleteMedicationGroup(id: string): Promise<void>;
+
+  // Administration Group operations
+  getAdministrationGroups(hospitalId: string): Promise<AdministrationGroup[]>;
+  createAdministrationGroup(group: InsertAdministrationGroup): Promise<AdministrationGroup>;
+  deleteAdministrationGroup(id: string): Promise<void>;
+  reorderAdministrationGroups(groupIds: string[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1200,6 +1209,56 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(medicationGroups)
       .where(eq(medicationGroups.id, id));
+  }
+
+  async getAdministrationGroups(hospitalId: string): Promise<AdministrationGroup[]> {
+    const groups = await db
+      .select()
+      .from(administrationGroups)
+      .where(eq(administrationGroups.hospitalId, hospitalId))
+      .orderBy(asc(administrationGroups.sortOrder), asc(administrationGroups.name));
+    return groups;
+  }
+
+  async createAdministrationGroup(group: InsertAdministrationGroup): Promise<AdministrationGroup> {
+    const [newGroup] = await db
+      .insert(administrationGroups)
+      .values(group)
+      .returning();
+    return newGroup;
+  }
+
+  async deleteAdministrationGroup(id: string): Promise<void> {
+    // First, get the group name to clear references in medication configs
+    const [group] = await db
+      .select()
+      .from(administrationGroups)
+      .where(eq(administrationGroups.id, id));
+    
+    if (group) {
+      // Clear administrationGroup from all medication configs that reference this group
+      await db
+        .update(medicationConfigs)
+        .set({ administrationGroup: null })
+        .where(eq(medicationConfigs.administrationGroup, group.name));
+    }
+    
+    // Now delete the group
+    await db
+      .delete(administrationGroups)
+      .where(eq(administrationGroups.id, id));
+  }
+
+  async reorderAdministrationGroups(groupIds: string[]): Promise<void> {
+    // Update sortOrder for each group based on its position in the array
+    await Promise.all(
+      groupIds.map((id, index) =>
+        db
+          .update(administrationGroups)
+          .set({ sortOrder: index })
+          .where(eq(administrationGroups.id, id))
+      )
+    );
   }
 }
 

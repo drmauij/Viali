@@ -105,6 +105,17 @@ export const medicationGroups = pgTable("medication_groups", {
   index("idx_medication_groups_hospital").on(table.hospitalId),
 ]);
 
+// Administration Groups (for organizing anesthesia items in charts - sortable)
+export const administrationGroups = pgTable("administration_groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  name: varchar("name").notNull(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_administration_groups_hospital").on(table.hospitalId),
+]);
+
 // Folders (for organizing items)
 export const folders = pgTable("folders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -349,6 +360,7 @@ export const medicationConfigs = pgTable("medication_configs", {
   
   // Classification
   medicationGroup: varchar("medication_group"), // "Hypnotika", "Opioide", "Muskelrelaxantien", etc.
+  administrationGroup: varchar("administration_group"), // "Bolus", "KI", "Infusionen", "Perfusoren", etc. - for chart organization
   
   // Ampule/Bag Content (total amount per unit: "50 mg", "1000 ml", "0.1 mg")
   ampuleTotalContent: varchar("ampule_total_content"), // "50 mg", "1000 ml", "0.1 mg"
@@ -369,6 +381,7 @@ export const medicationConfigs = pgTable("medication_configs", {
 }, (table) => [
   index("idx_medication_configs_item").on(table.itemId),
   index("idx_medication_configs_group").on(table.medicationGroup),
+  index("idx_medication_configs_admin_group").on(table.administrationGroup),
 ]);
 
 // Relations
@@ -573,6 +586,11 @@ export const insertMedicationGroupSchema = createInsertSchema(medicationGroups).
   createdAt: true,
 });
 
+export const insertAdministrationGroupSchema = createInsertSchema(administrationGroups).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -606,6 +624,8 @@ export type MedicationConfig = typeof medicationConfigs.$inferSelect;
 export type InsertMedicationConfig = z.infer<typeof insertMedicationConfigSchema>;
 export type MedicationGroup = typeof medicationGroups.$inferSelect;
 export type InsertMedicationGroup = z.infer<typeof insertMedicationGroupSchema>;
+export type AdministrationGroup = typeof administrationGroups.$inferSelect;
+export type InsertAdministrationGroup = z.infer<typeof insertAdministrationGroupSchema>;
 
 // Bulk operations schemas
 export const bulkImportItemSchema = z.object({

@@ -1327,6 +1327,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to delete medication group" });
     }
   });
+
+  // Administration Groups API
+  // Get all administration groups for a hospital
+  app.get('/api/administration-groups/:hospitalId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const groups = await storage.getAdministrationGroups(hospitalId);
+      res.json(groups);
+    } catch (error: any) {
+      console.error("Error fetching administration groups:", error);
+      res.status(500).json({ message: "Failed to fetch administration groups" });
+    }
+  });
+
+  // Create a new administration group
+  app.post('/api/administration-groups', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId, name } = req.body;
+      
+      if (!hospitalId || !name) {
+        return res.status(400).json({ message: "Hospital ID and name are required" });
+      }
+
+      const newGroup = await storage.createAdministrationGroup({ hospitalId, name, sortOrder: 0 });
+      res.status(201).json(newGroup);
+    } catch (error: any) {
+      console.error("Error creating administration group:", error);
+      res.status(500).json({ message: "Failed to create administration group" });
+    }
+  });
+
+  // Delete an administration group
+  app.delete('/api/administration-groups/:groupId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { groupId } = req.params;
+      await storage.deleteAdministrationGroup(groupId);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting administration group:", error);
+      res.status(500).json({ message: "Failed to delete administration group" });
+    }
+  });
+
+  // Reorder administration groups
+  app.put('/api/administration-groups/reorder', isAuthenticated, async (req: any, res) => {
+    try {
+      const { groupIds } = req.body;
+      
+      if (!Array.isArray(groupIds)) {
+        return res.status(400).json({ message: "groupIds must be an array" });
+      }
+
+      await storage.reorderAdministrationGroups(groupIds);
+      res.status(200).json({ message: "Groups reordered successfully" });
+    } catch (error: any) {
+      console.error("Error reordering administration groups:", error);
+      res.status(500).json({ message: "Failed to reorder administration groups" });
+    }
+  });
   
   // Get bulk import image limit for a hospital
   app.get('/api/hospitals/:hospitalId/bulk-import-limit', isAuthenticated, async (req: any, res) => {
