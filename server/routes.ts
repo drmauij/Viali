@@ -1191,50 +1191,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate anesthesia configuration
       const anesthesiaType = req.body.anesthesiaType || 'none';
       
-      const updates: any = {
+      // Update item table (only anesthesiaType and optionally name)
+      const itemUpdates: any = {
         anesthesiaType,
       };
 
       // Update item name if provided
       if (req.body.name) {
-        updates.name = req.body.name;
-      }
-
-      // For medications, set medication-specific fields
-      if (anesthesiaType === 'medication') {
-        updates.administrationUnit = req.body.administrationUnit;
-        updates.ampuleConcentration = req.body.ampuleConcentration;
-        updates.administrationRoute = req.body.administrationRoute;
-        // Clear infusion-specific fields
-        updates.isRateControlled = false;
-        updates.rateUnit = null;
-      } 
-      // For infusions, set infusion-specific fields
-      else if (anesthesiaType === 'infusion') {
-        updates.isRateControlled = req.body.isRateControlled || false;
-        updates.rateUnit = req.body.rateUnit;
-        // Clear medication-specific fields
-        updates.administrationUnit = null;
-        updates.ampuleConcentration = null;
-        updates.administrationRoute = null;
-      } 
-      // For 'none', clear all anesthesia fields
-      else {
-        updates.administrationUnit = null;
-        updates.ampuleConcentration = null;
-        updates.administrationRoute = null;
-        updates.isRateControlled = false;
-        updates.rateUnit = null;
+        itemUpdates.name = req.body.name;
       }
       
-      // Update the item
       await db
         .update(items)
-        .set(updates)
+        .set(itemUpdates)
         .where(eq(items.id, itemId));
 
-      const updatedItem = await storage.getItem(itemId);
-      res.json(updatedItem);
+      // Handle medication_configs table
+      if (anesthesiaType === 'medication' || anesthesiaType === 'infusion') {
+        // Prepare medication config data
+        const configData: any = {
+          itemId,
+          medicationGroup: req.body.medicationGroup || null,
+          defaultDose: req.body.defaultDose || null,
+        };
+
+        if (anesthesiaType === 'medication') {
+          configData.administrationUnit = req.body.administrationUnit || null;
+          configData.ampuleTotalContent = req.body.ampuleTotalContent || null;
+          configData.ampuleSize = req.body.ampuleSize || null;
+          configData.administrationRoute = req.body.administrationRoute || null;
+          configData.isRateControlled = false;
+          configData.rateUnit = null;
+        } else if (anesthesiaType === 'infusion') {
+          configData.isRateControlled = req.body.isRateControlled || false;
+          configData.rateUnit = req.body.rateUnit || null;
+          configData.administrationUnit = null;
+          configData.ampuleTotalContent = null;
+          configData.ampuleSize = null;
+          configData.administrationRoute = null;
+        }
+
+        // Check if config exists
+        const existingConfig = await db
+          .select()
+          .from(medicationConfigs)
+          .where(eq(medicationConfigs.itemId, itemId))
+          .limit(1);
+
+        if (existingConfig.length > 0) {
+          // Update existing config
+          await db
+            .update(medicationConfigs)
+            .set(configData)
+            .where(eq(medicationConfigs.itemId, itemId));
+        } else {
+          // Insert new config
+          await db.insert(medicationConfigs).values(configData);
+        }
+      } else if (anesthesiaType === 'none') {
+        // Remove medication config if type is 'none'
+        await db
+          .delete(medicationConfigs)
+          .where(eq(medicationConfigs.itemId, itemId));
+      }
+
+      // Fetch the updated item with medication config
+      const result = await db
+        .select({
+          id: items.id,
+          name: items.name,
+          anesthesiaType: items.anesthesiaType,
+          medicationGroup: medicationConfigs.medicationGroup,
+          defaultDose: medicationConfigs.defaultDose,
+          administrationUnit: medicationConfigs.administrationUnit,
+          ampuleSize: medicationConfigs.ampuleSize,
+          ampuleTotalContent: medicationConfigs.ampuleTotalContent,
+          administrationRoute: medicationConfigs.administrationRoute,
+          isRateControlled: medicationConfigs.isRateControlled,
+          rateUnit: medicationConfigs.rateUnit,
+        })
+        .from(items)
+        .leftJoin(medicationConfigs, eq(items.id, medicationConfigs.itemId))
+        .where(eq(items.id, itemId))
+        .limit(1);
+
+      res.json(result[0] || await storage.getItem(itemId));
     } catch (error: any) {
       console.error("Error updating anesthesia config:", error);
       res.status(500).json({ message: "Failed to update anesthesia configuration" });
