@@ -29,6 +29,8 @@ type Item = {
   id: string;
   name: string;
   anesthesiaType: string;
+  medicationGroup?: string;
+  defaultDose?: string;
   administrationUnit?: string;
   ampuleConcentration?: string;
   administrationRoute?: string;
@@ -46,6 +48,8 @@ export default function AnesthesiaSettings() {
   // Configuration form state
   const [itemName, setItemName] = useState('');
   const [anesthesiaType, setAnesthesiaType] = useState<'medication' | 'infusion'>('medication');
+  const [medicationGroup, setMedicationGroup] = useState('');
+  const [defaultDose, setDefaultDose] = useState('');
   const [administrationUnit, setAdministrationUnit] = useState('mg');
   const [ampuleConcentration, setAmpuleConcentration] = useState('');
   const [administrationRoute, setAdministrationRoute] = useState('i.v.');
@@ -102,6 +106,8 @@ export default function AnesthesiaSettings() {
           setSelectedItemForConfig(item);
           setItemName(item.name);
           setAnesthesiaType('medication');
+          setMedicationGroup('');
+          setDefaultDose('');
           setAdministrationUnit('mg');
           setAmpuleConcentration('');
           setAdministrationRoute('i.v.');
@@ -137,6 +143,8 @@ export default function AnesthesiaSettings() {
     setSelectedItemForConfig(item);
     setItemName(item.name);
     setAnesthesiaType((item.anesthesiaType as 'medication' | 'infusion') || 'medication');
+    setMedicationGroup(item.medicationGroup || '');
+    setDefaultDose(item.defaultDose || '');
     setAdministrationUnit(item.administrationUnit || 'mg');
     setAmpuleConcentration(item.ampuleConcentration || '');
     setAdministrationRoute(item.administrationRoute || 'i.v.');
@@ -152,6 +160,8 @@ export default function AnesthesiaSettings() {
     const config: any = {
       name: itemName,
       anesthesiaType,
+      medicationGroup: medicationGroup || undefined,
+      defaultDose: defaultDose || undefined,
     };
 
     if (anesthesiaType === 'medication') {
@@ -249,6 +259,30 @@ export default function AnesthesiaSettings() {
                   <SelectItem value="infusion">Infusion</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Medication Group */}
+            <div>
+              <Label htmlFor="medication-group">Medication Group</Label>
+              <Input
+                id="medication-group"
+                value={medicationGroup}
+                onChange={(e) => setMedicationGroup(e.target.value)}
+                data-testid="input-medication-group"
+                placeholder="e.g., Hypnotika, Opioide, Muskelrelaxantien"
+              />
+            </div>
+
+            {/* Default Dose */}
+            <div>
+              <Label htmlFor="default-dose">Default Dose</Label>
+              <Input
+                id="default-dose"
+                value={defaultDose}
+                onChange={(e) => setDefaultDose(e.target.value)}
+                data-testid="input-default-dose"
+                placeholder="e.g., 2, 0.1, or range like 25-35-50"
+              />
             </div>
 
             {/* Medication Fields */}
