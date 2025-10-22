@@ -1,4 +1,4 @@
-CREATE TABLE "activities" (
+CREATE TABLE IF NOT EXISTS "activities" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"timestamp" timestamp DEFAULT now(),
 	"user_id" varchar NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE "activities" (
 	"metadata" jsonb
 );
 --> statement-breakpoint
-CREATE TABLE "administration_groups" (
+CREATE TABLE IF NOT EXISTS "administration_groups" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"hospital_id" varchar NOT NULL,
 	"name" varchar NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE "administration_groups" (
 	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
-CREATE TABLE "alerts" (
+CREATE TABLE IF NOT EXISTS "alerts" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"hospital_id" varchar NOT NULL,
 	"type" varchar NOT NULL,
@@ -40,7 +40,7 @@ CREATE TABLE "alerts" (
 	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
-CREATE TABLE "checklist_completions" (
+CREATE TABLE IF NOT EXISTS "checklist_completions" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"template_id" varchar NOT NULL,
 	"hospital_id" varchar NOT NULL,
@@ -53,7 +53,7 @@ CREATE TABLE "checklist_completions" (
 	"template_snapshot" jsonb NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "checklist_templates" (
+CREATE TABLE IF NOT EXISTS "checklist_templates" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"hospital_id" varchar NOT NULL,
 	"location_id" varchar NOT NULL,
@@ -69,7 +69,7 @@ CREATE TABLE "checklist_templates" (
 	"updated_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
-CREATE TABLE "controlled_checks" (
+CREATE TABLE IF NOT EXISTS "controlled_checks" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"hospital_id" varchar NOT NULL,
 	"location_id" varchar NOT NULL,
@@ -81,7 +81,7 @@ CREATE TABLE "controlled_checks" (
 	"notes" text
 );
 --> statement-breakpoint
-CREATE TABLE "folders" (
+CREATE TABLE IF NOT EXISTS "folders" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"hospital_id" varchar NOT NULL,
 	"location_id" varchar NOT NULL,
@@ -91,7 +91,7 @@ CREATE TABLE "folders" (
 	"updated_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
-CREATE TABLE "hospitals" (
+CREATE TABLE IF NOT EXISTS "hospitals" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"name" varchar NOT NULL,
 	"address" text,
@@ -104,7 +104,7 @@ CREATE TABLE "hospitals" (
 	"updated_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
-CREATE TABLE "import_jobs" (
+CREATE TABLE IF NOT EXISTS "import_jobs" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"hospital_id" varchar NOT NULL,
 	"location_id" varchar NOT NULL,
@@ -122,7 +122,7 @@ CREATE TABLE "import_jobs" (
 	"completed_at" timestamp
 );
 --> statement-breakpoint
-CREATE TABLE "items" (
+CREATE TABLE IF NOT EXISTS "items" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"hospital_id" varchar NOT NULL,
 	"location_id" varchar NOT NULL,
@@ -147,7 +147,7 @@ CREATE TABLE "items" (
 	"updated_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
-CREATE TABLE "locations" (
+CREATE TABLE IF NOT EXISTS "locations" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"hospital_id" varchar NOT NULL,
 	"name" varchar NOT NULL,
@@ -156,7 +156,7 @@ CREATE TABLE "locations" (
 	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
-CREATE TABLE "lots" (
+CREATE TABLE IF NOT EXISTS "lots" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"item_id" varchar NOT NULL,
 	"lot_number" varchar NOT NULL,
@@ -166,7 +166,7 @@ CREATE TABLE "lots" (
 	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
-CREATE TABLE "medication_configs" (
+CREATE TABLE IF NOT EXISTS "medication_configs" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"item_id" varchar NOT NULL,
 	"medication_group" varchar,
@@ -182,14 +182,14 @@ CREATE TABLE "medication_configs" (
 	CONSTRAINT "medication_configs_item_id_unique" UNIQUE("item_id")
 );
 --> statement-breakpoint
-CREATE TABLE "medication_groups" (
+CREATE TABLE IF NOT EXISTS "medication_groups" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"hospital_id" varchar NOT NULL,
 	"name" varchar NOT NULL,
 	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
-CREATE TABLE "order_lines" (
+CREATE TABLE IF NOT EXISTS "order_lines" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"order_id" varchar NOT NULL,
 	"item_id" varchar NOT NULL,
@@ -204,7 +204,7 @@ CREATE TABLE "order_lines" (
 	"receive_signature" text
 );
 --> statement-breakpoint
-CREATE TABLE "orders" (
+CREATE TABLE IF NOT EXISTS "orders" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"hospital_id" varchar NOT NULL,
 	"vendor_id" varchar,
@@ -215,13 +215,13 @@ CREATE TABLE "orders" (
 	"updated_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
-CREATE TABLE "sessions" (
+CREATE TABLE IF NOT EXISTS "sessions" (
 	"sid" varchar PRIMARY KEY NOT NULL,
 	"sess" jsonb NOT NULL,
 	"expire" timestamp NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "stock_levels" (
+CREATE TABLE IF NOT EXISTS "stock_levels" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"item_id" varchar NOT NULL,
 	"location_id" varchar NOT NULL,
@@ -230,7 +230,7 @@ CREATE TABLE "stock_levels" (
 	CONSTRAINT "unique_item_location" UNIQUE("item_id","location_id")
 );
 --> statement-breakpoint
-CREATE TABLE "surgery_rooms" (
+CREATE TABLE IF NOT EXISTS "surgery_rooms" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"hospital_id" varchar NOT NULL,
 	"name" varchar NOT NULL,
@@ -238,7 +238,7 @@ CREATE TABLE "surgery_rooms" (
 	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
-CREATE TABLE "user_hospital_roles" (
+CREATE TABLE IF NOT EXISTS "user_hospital_roles" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" varchar NOT NULL,
 	"hospital_id" varchar NOT NULL,
@@ -247,7 +247,7 @@ CREATE TABLE "user_hospital_roles" (
 	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
-CREATE TABLE "users" (
+CREATE TABLE IF NOT EXISTS "users" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"email" varchar,
 	"first_name" varchar,
@@ -262,7 +262,7 @@ CREATE TABLE "users" (
 	CONSTRAINT "users_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
-CREATE TABLE "vendors" (
+CREATE TABLE IF NOT EXISTS "vendors" (
 	"id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"hospital_id" varchar NOT NULL,
 	"name" varchar NOT NULL,

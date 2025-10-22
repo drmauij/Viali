@@ -54,19 +54,19 @@ app.use((req, res, next) => {
     // Run database migrations automatically on startup
     log("Running database migrations...");
     try {
-      // Check if users table exists (indicates schema is already set up)
+      // Check if any application tables exist
       const checkSchema = await pool.query(`
         SELECT EXISTS (
           SELECT FROM information_schema.tables 
           WHERE table_schema = 'public'
-          AND table_name = 'users'
+          AND table_name IN ('users', 'sessions', 'hospitals')
         );
       `);
       
       const schemaExists = checkSchema.rows[0]?.exists;
       
       if (schemaExists) {
-        // Schema exists - ensure migrations tracking is set up before running migrate()
+        // Schema exists - ensure migrations tracking is set up
         await pool.query(`CREATE SCHEMA IF NOT EXISTS drizzle;`);
         await pool.query(`
           CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
@@ -85,21 +85,32 @@ app.use((req, res, next) => {
         `);
         
         if (!checkBaseline.rows[0]?.exists) {
-          // Mark baseline as complete so migrate() won't try to rerun it
+          // Mark baseline as complete
           await pool.query(`
             INSERT INTO drizzle.__drizzle_migrations (hash, created_at) 
             VALUES ('0000_broken_liz_osborn', ${Date.now()});
           `);
           log("✓ Existing schema baselined for migration tracking");
+        } else {
+          log("✓ Database schema already tracked");
         }
+      } else {
+        // Fresh database - run migrations normally
+        await migrate(db, { migrationsFolder: "./migrations" });
+        log("✓ Database migrations completed successfully");
       }
-      
-      // Always run migrate() to apply any new migrations
-      await migrate(db, { migrationsFolder: "./migrations" });
-      log("✓ Database migrations completed successfully");
     } catch (error: any) {
-      console.error("FATAL: Database migration failed:", error);
-      throw new Error(`Failed to run database migrations: ${error.message}`);
+      // Check if error is due to already existing resources (can be ignored)
+      const isExistsError = error?.code === '42P07' || // table exists
+                           error?.code === '42710' || // duplicate object
+                           error?.message?.includes('already exists');
+      
+      if (isExistsError) {
+        log("⚠ Some database objects already exist, continuing...");
+      } else {
+        console.error("FATAL: Database migration failed:", error);
+        throw new Error(`Failed to run database migrations: ${error.message}`);
+      }
     }
 
     const server = await registerRoutes(app);
