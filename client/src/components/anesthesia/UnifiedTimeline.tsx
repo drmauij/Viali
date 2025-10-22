@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil, GripVertical } from "lucide-react";
+import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, ChevronUp, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,9 +17,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
 import { TimeAdjustInput } from "./TimeAdjustInput";
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { arrayMove } from "@dnd-kit/sortable";
 import { apiRequest } from "@/lib/queryClient";
 
 /**
@@ -306,32 +304,22 @@ export function UnifiedTimeline({
     },
   });
   
-  // Drag and drop sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-  
-  // Handle drag end for administration groups
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
+  // Move administration group up or down
+  const moveAdministrationGroup = (groupId: string, direction: 'up' | 'down') => {
+    const currentIndex = administrationGroups.findIndex(g => g.id === groupId);
+    if (currentIndex === -1) return;
     
-    if (!over || active.id === over.id) {
-      return;
-    }
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
     
-    const oldIndex = administrationGroups.findIndex(g => g.id === active.id);
-    const newIndex = administrationGroups.findIndex(g => g.id === over.id);
+    // Check bounds
+    if (newIndex < 0 || newIndex >= administrationGroups.length) return;
     
-    if (oldIndex !== -1 && newIndex !== -1) {
-      const reorderedGroups = arrayMove(administrationGroups, oldIndex, newIndex);
-      const groupIds = reorderedGroups.map(g => g.id);
-      
-      // Save the new order to the backend
-      reorderMutation.mutate(groupIds);
-    }
+    // Reorder the array
+    const reorderedGroups = arrayMove(administrationGroups, currentIndex, newIndex);
+    const groupIds = reorderedGroups.map(g => g.id);
+    
+    // Save the new order to the backend
+    reorderMutation.mutate(groupIds);
   };
   
   // State for collapsible parent swimlanes
@@ -3982,9 +3970,7 @@ export function UnifiedTimeline({
         </div>
 
         {/* Swimlane labels */}
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={administrationGroups.map(g => g.id)} strategy={verticalListSortingStrategy}>
-            {swimlanePositions.map((lane, index) => {
+        {swimlanePositions.map((lane, index) => {
           // Find the corresponding swimlane config to access metadata
           const swimlaneConfig = activeSwimlanes.find(s => s.id === lane.id);
           
@@ -4045,6 +4031,45 @@ export function UnifiedTimeline({
                 <span className={`${labelClass} text-black dark:text-white`}>
                   {lane.label}
                 </span>
+                
+                {/* Up/Down arrow buttons for administration groups */}
+                {swimlaneConfig?.hierarchyLevel === 'group' && (() => {
+                  const groupId = lane.id.replace('admingroup-', '');
+                  const currentIndex = administrationGroups.findIndex(g => g.id === groupId);
+                  const isFirst = currentIndex === 0;
+                  const isLast = currentIndex === administrationGroups.length - 1;
+                  
+                  return (
+                    <div className="flex items-center gap-0.5 ml-1">
+                      <button
+                        onClick={() => moveAdministrationGroup(groupId, 'up')}
+                        disabled={isFirst}
+                        className={`p-0.5 rounded transition-colors ${
+                          isFirst 
+                            ? 'opacity-30 cursor-not-allowed' 
+                            : 'hover:bg-background/50 cursor-pointer'
+                        }`}
+                        data-testid={`button-move-up-${groupId}`}
+                        title="Move up"
+                      >
+                        <ChevronUp className="w-3 h-3 text-foreground/70" />
+                      </button>
+                      <button
+                        onClick={() => moveAdministrationGroup(groupId, 'down')}
+                        disabled={isLast}
+                        className={`p-0.5 rounded transition-colors ${
+                          isLast 
+                            ? 'opacity-30 cursor-not-allowed' 
+                            : 'hover:bg-background/50 cursor-pointer'
+                        }`}
+                        data-testid={`button-move-down-${groupId}`}
+                        title="Move down"
+                      >
+                        <ChevronDown className="w-3 h-3 text-foreground/70" />
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
               
               {isZeitenLane && (
@@ -4060,8 +4085,6 @@ export function UnifiedTimeline({
             </div>
           );
         })}
-          </SortableContext>
-        </DndContext>
       </div>
 
       {/* ECharts timeline */}
