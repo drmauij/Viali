@@ -220,6 +220,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             theme="calendar_white"
             timeFormat="Clock24Hours"
             locale="en-us"
+            headerDateFormat="d/M"
           />
         )}
 
