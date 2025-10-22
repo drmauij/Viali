@@ -23,7 +23,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, X } from "lucide-react";
+
+type MedicationGroup = {
+  id: string;
+  name: string;
+  hospitalId: string;
+  createdAt: string;
+};
 
 type Item = {
   id: string;
@@ -68,6 +75,16 @@ export default function AnesthesiaSettings() {
     enabled: !!activeHospital?.id,
   });
 
+  // Fetch medication groups for this hospital
+  const { data: medicationGroups = [] } = useQuery<MedicationGroup[]>({
+    queryKey: [`/api/medication-groups/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id,
+  });
+
+  // State for inline group management
+  const [newGroupName, setNewGroupName] = useState('');
+  const [showNewGroupInput, setShowNewGroupInput] = useState(false);
+
   // Split items into available and selected
   const anesthesiaItemIds = new Set(anesthesiaItems.map(item => item.id));
   const availableItems = allItems.filter((item: Item) => !anesthesiaItemIds.has(item.id));
@@ -91,6 +108,37 @@ export default function AnesthesiaSettings() {
         variant: "destructive",
         title: "Error",
         description: error.message || "Failed to update configuration",
+      });
+    },
+  });
+
+  // Mutation to create medication group
+  const createGroupMutation = useMutation({
+    mutationFn: async (name: string) => {
+      return apiRequest('POST', '/api/medication-groups', {
+        hospitalId: activeHospital?.id,
+        name,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/medication-groups/${activeHospital?.id}`] });
+      toast({
+        title: "Group created",
+        description: "Medication group has been added",
+      });
+    },
+  });
+
+  // Mutation to delete medication group
+  const deleteGroupMutation = useMutation({
+    mutationFn: async (groupId: string) => {
+      return apiRequest('DELETE', `/api/medication-groups/${groupId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/medication-groups/${activeHospital?.id}`] });
+      toast({
+        title: "Group deleted",
+        description: "Medication group has been removed",
       });
     },
   });
@@ -361,15 +409,96 @@ export default function AnesthesiaSettings() {
             )}
 
             {/* Medication Group - at the end */}
-            <div>
-              <Label htmlFor="medication-group">Medication Group</Label>
-              <Input
-                id="medication-group"
-                value={medicationGroup}
-                onChange={(e) => setMedicationGroup(e.target.value)}
-                data-testid="input-medication-group"
-                placeholder="e.g., Hypnotika, Opioide, Muskelrelaxantien"
-              />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="medication-group">Medication Group</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowNewGroupInput(!showNewGroupInput)}
+                  data-testid="button-toggle-add-group"
+                  className="h-6 text-xs"
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add
+                </Button>
+              </div>
+              {showNewGroupInput && (
+                <div className="flex items-center gap-2">
+                  <Input
+                    placeholder="New group name"
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newGroupName.trim()) {
+                        createGroupMutation.mutate(newGroupName.trim());
+                        setMedicationGroup(newGroupName.trim());
+                        setNewGroupName('');
+                        setShowNewGroupInput(false);
+                      } else if (e.key === 'Escape') {
+                        setNewGroupName('');
+                        setShowNewGroupInput(false);
+                      }
+                    }}
+                    data-testid="input-new-group"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      if (newGroupName.trim()) {
+                        createGroupMutation.mutate(newGroupName.trim());
+                        setMedicationGroup(newGroupName.trim());
+                        setNewGroupName('');
+                        setShowNewGroupInput(false);
+                      }
+                    }}
+                    disabled={!newGroupName.trim()}
+                    data-testid="button-save-new-group"
+                  >
+                    Save
+                  </Button>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Select
+                  value={medicationGroup}
+                  onValueChange={setMedicationGroup}
+                >
+                  <SelectTrigger id="medication-group" data-testid="select-medication-group" className="flex-1">
+                    <SelectValue placeholder="Select a group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {medicationGroups.length === 0 ? (
+                      <SelectItem value="" disabled>No groups available</SelectItem>
+                    ) : (
+                      medicationGroups.map((group) => (
+                        <SelectItem key={group.id} value={group.name} data-testid={`group-option-${group.id}`}>
+                          {group.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                {medicationGroup && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    onClick={() => {
+                      const groupToDelete = medicationGroups.find(g => g.name === medicationGroup);
+                      if (groupToDelete) {
+                        deleteGroupMutation.mutate(groupToDelete.id);
+                        setMedicationGroup('');
+                      }
+                    }}
+                    data-testid="button-delete-selected-group"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
 
