@@ -5098,8 +5098,8 @@ export function UnifiedTimeline({
 
       {/* Interactive layers for infusion swimlanes - to place rate labels */}
       {!activeToolMode && (() => {
-        const infusionParentIndex = activeSwimlanes.findIndex(s => s.id === "infusionen");
-        if (infusionParentIndex === -1 || collapsedSwimlanes.has("infusionen")) return null;
+        const medicationParentIndex = activeSwimlanes.findIndex(s => s.id === "medikamente");
+        if (medicationParentIndex === -1 || collapsedSwimlanes.has("medikamente")) return null;
         
         return activeSwimlanes.map((lane, index) => {
           const isInfusionChild = lane.anesthesiaType === 'infusion';
