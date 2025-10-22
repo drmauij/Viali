@@ -181,53 +181,59 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       </div>
 
       {/* Calendar views */}
-      <div className="flex-1 overflow-auto px-4 pb-4">
+      <div className="flex-1 overflow-auto px-4 pb-4" style={{ minHeight: '600px' }}>
         {currentView === "day" && (
-          <DayPilotCalendar
-            viewType="Resources"
-            startDate={selectedDate.toISOString().split('T')[0]}
-            days={1}
-            businessBeginsHour={6}
-            businessEndsHour={20}
-            heightSpec="Full"
-            headerHeight={30}
-            hourWidth={60}
-            cellHeight={40}
-            columns={resources}
-            events={mockEvents}
-            onEventClick={handleEventClick}
-            theme="calendar_white"
-          />
+          <div style={{ height: '100%', minHeight: '600px' }}>
+            <DayPilotCalendar
+              viewType="Resources"
+              startDate={selectedDate.toISOString().split('T')[0]}
+              days={1}
+              businessBeginsHour={6}
+              businessEndsHour={20}
+              heightSpec="Full"
+              headerHeight={30}
+              hourWidth={60}
+              cellHeight={40}
+              columns={resources}
+              events={mockEvents}
+              onEventClick={handleEventClick}
+              theme="calendar_white"
+            />
+          </div>
         )}
 
         {currentView === "week" && (
-          <DayPilotCalendar
-            viewType="Week"
-            startDate={selectedDate.toISOString().split('T')[0]}
-            days={7}
-            businessBeginsHour={6}
-            businessEndsHour={20}
-            heightSpec="Full"
-            headerHeight={30}
-            hourWidth={60}
-            cellHeight={30}
-            events={mockEvents}
-            onEventClick={handleEventClick}
-            onTimeRangeSelected={handleDayClick}
-            theme="calendar_white"
-          />
+          <div style={{ height: '100%', minHeight: '600px' }}>
+            <DayPilotCalendar
+              viewType="Week"
+              startDate={selectedDate.toISOString().split('T')[0]}
+              days={7}
+              businessBeginsHour={6}
+              businessEndsHour={20}
+              heightSpec="Full"
+              headerHeight={30}
+              hourWidth={60}
+              cellHeight={30}
+              events={mockEvents}
+              onEventClick={handleEventClick}
+              onTimeRangeSelected={handleDayClick}
+              theme="calendar_white"
+            />
+          </div>
         )}
 
         {currentView === "month" && (
-          <DayPilotMonth
-            startDate={selectedDate.toISOString().split('T')[0]}
-            events={mockEvents}
-            onEventClick={handleEventClick}
-            onTimeRangeSelected={handleDayClick}
-            eventBarVisible={false}
-            cellHeight={80}
-            theme="month_white"
-          />
+          <div style={{ height: '100%', minHeight: '600px' }}>
+            <DayPilotMonth
+              startDate={selectedDate.toISOString().split('T')[0]}
+              events={mockEvents}
+              onEventClick={handleEventClick}
+              onTimeRangeSelected={handleDayClick}
+              eventBarVisible={false}
+              cellHeight={80}
+              theme="month_white"
+            />
+          </div>
         )}
       </div>
 
