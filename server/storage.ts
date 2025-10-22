@@ -17,6 +17,7 @@ import {
   checklistTemplates,
   checklistCompletions,
   medicationConfigs,
+  medicationGroups,
   type User,
   type UpsertUser,
   type Hospital,
@@ -43,6 +44,8 @@ import {
   type InsertChecklistCompletion,
   type MedicationConfig,
   type InsertMedicationConfig,
+  type MedicationGroup,
+  type InsertMedicationGroup,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, lte, gte } from "drizzle-orm";
@@ -167,6 +170,11 @@ export interface IStorage {
   getMedicationConfig(itemId: string): Promise<MedicationConfig | undefined>;
   upsertMedicationConfig(config: InsertMedicationConfig): Promise<MedicationConfig>;
   deleteMedicationConfig(itemId: string): Promise<void>;
+  
+  // Medication Group operations
+  getMedicationGroups(hospitalId: string): Promise<MedicationGroup[]>;
+  createMedicationGroup(group: InsertMedicationGroup): Promise<MedicationGroup>;
+  deleteMedicationGroup(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1169,6 +1177,29 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(medicationConfigs)
       .where(eq(medicationConfigs.itemId, itemId));
+  }
+
+  async getMedicationGroups(hospitalId: string): Promise<MedicationGroup[]> {
+    const groups = await db
+      .select()
+      .from(medicationGroups)
+      .where(eq(medicationGroups.hospitalId, hospitalId))
+      .orderBy(asc(medicationGroups.name));
+    return groups;
+  }
+
+  async createMedicationGroup(group: InsertMedicationGroup): Promise<MedicationGroup> {
+    const [newGroup] = await db
+      .insert(medicationGroups)
+      .values(group)
+      .returning();
+    return newGroup;
+  }
+
+  async deleteMedicationGroup(id: string): Promise<void> {
+    await db
+      .delete(medicationGroups)
+      .where(eq(medicationGroups.id, id));
   }
 }
 

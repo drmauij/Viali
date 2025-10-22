@@ -2,7 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage, db } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertItemSchema, insertFolderSchema, insertActivitySchema, insertChecklistTemplateSchema, insertChecklistCompletionSchema, orderLines, items, stockLevels, orders, users, userHospitalRoles, activities, locations, hospitals, medicationConfigs } from "@shared/schema";
+import { insertItemSchema, insertFolderSchema, insertActivitySchema, insertChecklistTemplateSchema, insertChecklistCompletionSchema, orderLines, items, stockLevels, orders, users, userHospitalRoles, activities, locations, hospitals, medicationConfigs, medicationGroups } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import OpenAI from "openai";
@@ -1283,6 +1283,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error updating anesthesia config:", error);
       res.status(500).json({ message: "Failed to update anesthesia configuration" });
+    }
+  });
+  
+  // Medication Groups API
+  // Get all medication groups for a hospital
+  app.get('/api/medication-groups/:hospitalId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const groups = await storage.getMedicationGroups(hospitalId);
+      res.json(groups);
+    } catch (error: any) {
+      console.error("Error fetching medication groups:", error);
+      res.status(500).json({ message: "Failed to fetch medication groups" });
+    }
+  });
+
+  // Create a new medication group
+  app.post('/api/medication-groups', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId, name } = req.body;
+      
+      if (!hospitalId || !name) {
+        return res.status(400).json({ message: "Hospital ID and name are required" });
+      }
+
+      const newGroup = await storage.createMedicationGroup({ hospitalId, name });
+      res.status(201).json(newGroup);
+    } catch (error: any) {
+      console.error("Error creating medication group:", error);
+      res.status(500).json({ message: "Failed to create medication group" });
+    }
+  });
+
+  // Delete a medication group
+  app.delete('/api/medication-groups/:groupId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { groupId } = req.params;
+      await storage.deleteMedicationGroup(groupId);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting medication group:", error);
+      res.status(500).json({ message: "Failed to delete medication group" });
     }
   });
   
