@@ -267,6 +267,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           opacity: 0.95;
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
           transition: all 0.2s ease;
+          margin: 2px 4px !important;
         }
 
         .calendar_white_event:hover {
@@ -280,7 +281,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           padding: 3px 8px;
           font-size: 12px;
           font-weight: 500;
-          margin: 2px 0;
+          margin: 3px 4px !important;
           opacity: 0.95;
           transition: opacity 0.2s ease;
         }
