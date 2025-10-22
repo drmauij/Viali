@@ -46,6 +46,9 @@ function parseConcentration(concentration: string): { content: string; size: str
   const parts = concentration.split('/').map(p => p.trim());
   if (parts.length !== 2) return null;
   
+  // Both parts must be non-empty
+  if (!parts[0] || !parts[1]) return null;
+  
   return {
     content: parts[0],  // e.g., "10mg"
     size: parts[1],     // e.g., "10ml"
@@ -316,6 +319,23 @@ export default function AnesthesiaSettings() {
               />
             </div>
 
+            {/* Ampule Concentration - only for medications */}
+            {anesthesiaType === 'medication' && (
+              <div>
+                <Label htmlFor="concentration">Ampule Concentration</Label>
+                <Input
+                  id="concentration"
+                  placeholder="e.g., 10mg/10ml or 50μg/2ml"
+                  value={ampuleConcentration}
+                  onChange={(e) => setAmpuleConcentration(e.target.value)}
+                  data-testid="input-concentration"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Required format: total drug / ampule volume (e.g., 10mg/10ml, 50μg/2ml)
+                </p>
+              </div>
+            )}
+
             {/* Default Dose */}
             <div>
               <Label htmlFor="default-dose">Default Dose</Label>
@@ -344,20 +364,6 @@ export default function AnesthesiaSettings() {
                       <SelectItem value="ml">ml (milliliters)</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="concentration">Ampule Concentration</Label>
-                  <Input
-                    id="concentration"
-                    placeholder="e.g., 10mg/10ml or 50μg/2ml"
-                    value={ampuleConcentration}
-                    onChange={(e) => setAmpuleConcentration(e.target.value)}
-                    data-testid="input-concentration"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Required format: total drug / ampule volume (e.g., 10mg/10ml, 50μg/2ml)
-                  </p>
                 </div>
 
                 <div>
