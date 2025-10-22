@@ -16,8 +16,8 @@
 
 .calendar_white_corner {
   background-color: transparent;
-  border-right: 1px solid #c0c0c0;
-  border-bottom: 1px solid #c0c0c0;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
 .calendar_white_corner_inner {
@@ -26,8 +26,8 @@
 
 .calendar_white_colheader {
   background-color: transparent;
-  border-right: 1px solid #c0c0c0;
-  border-bottom: 1px solid #c0c0c0;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
 .calendar_white_colheader_inner {
@@ -39,8 +39,8 @@
 
 .calendar_white_rowheader {
   background-color: var(--background);
-  border-right: 1px solid #c0c0c0;
-  border-bottom: 1px solid #e0e0e0;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
 .calendar_white_rowheader_inner {
@@ -51,39 +51,40 @@
 }
 
 .calendar_white_cell {
-  background-color: white;
-  border-right: 1px solid #e0e0e0;
-  border-bottom: 1px solid #e0e0e0;
+  background-color: var(--card);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
 .calendar_white_cell_business {
-  background-color: white;
+  background-color: var(--card);
 }
 
 .calendar_white_divider {
-  background-color: #c0c0c0;
+  background-color: var(--border);
   width: 1px;
 }
 
 .calendar_white_divider_horizontal {
-  background-color: #e0e0e0;
+  background-color: var(--border);
   height: 1px;
 }
 
 .calendar_white_now {
-  background-color: #ffd4d4;
+  background-color: var(--accent);
+  opacity: 0.2;
 }
 
 .calendar_white_shadow_inner {
-  background-color: #666;
+  background-color: var(--muted-foreground);
   opacity: 0.5;
 }
 
 .calendar_white_event {
-  color: #333;
-  border: 1px solid #666;
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
   border-radius: 4px;
-  background: #ffffff;
+  background: var(--card);
   opacity: 0.9;
   cursor: pointer;
 }
@@ -95,11 +96,13 @@
 
 .calendar_white_event:hover {
   opacity: 1;
+  background: var(--muted);
 }
 
 .calendar_white_event_selected {
-  background: #d4e8ff;
-  border: 2px solid #3b82f6;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: 2px solid var(--primary);
 }
 
 .calendar_white_event_bar {
@@ -108,7 +111,7 @@
   left: 0;
   bottom: 0;
   width: 4px;
-  background-color: #3b82f6;
+  background-color: var(--primary);
   border-radius: 4px 0 0 4px;
 }
 
@@ -129,20 +132,20 @@
 
 .calendar_white_event_continuetoright::after {
   right: 0;
-  border-left: 5px solid #666;
+  border-left: 5px solid var(--muted-foreground);
   border-top: 5px solid transparent;
   border-bottom: 5px solid transparent;
 }
 
 .calendar_white_event_continuefromleft::before {
   left: 0;
-  border-right: 5px solid #666;
+  border-right: 5px solid var(--muted-foreground);
   border-top: 5px solid transparent;
   border-bottom: 5px solid transparent;
 }
 
 .calendar_white_event_withheader {
-  border-top: 3px solid #3b82f6;
+  border-top: 3px solid var(--primary);
 }
 
 .calendar_white_event_withheader_inner {
