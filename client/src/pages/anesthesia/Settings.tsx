@@ -22,6 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Plus, X } from "lucide-react";
 
@@ -328,14 +329,20 @@ export default function AnesthesiaSettings() {
 
       {/* Configuration Dialog */}
       <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
-        <DialogContent data-testid="dialog-anesthesia-config">
+        <DialogContent data-testid="dialog-anesthesia-config" className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               Configure Medication/Infusion
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+          <Tabs defaultValue="config" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="config">Configuration</TabsTrigger>
+              <TabsTrigger value="groups">Groups</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="config" className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 mt-4">
             {/* Item Name */}
             <div>
               <Label htmlFor="item-name">Item Name</Label>
@@ -458,7 +465,9 @@ export default function AnesthesiaSettings() {
                 )}
               </>
             )}
+            </TabsContent>
 
+            <TabsContent value="groups" className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 mt-4">
             {/* Medication Group */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -636,7 +645,8 @@ export default function AnesthesiaSettings() {
                 )}
               </div>
             </div>
-          </div>
+            </TabsContent>
+          </Tabs>
 
           <DialogFooter>
             <Button
