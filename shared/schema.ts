@@ -95,6 +95,16 @@ export const locations: any = pgTable("locations", {
   index("idx_locations_parent").on(table.parentId),
 ]);
 
+// Medication Groups (for organizing anesthesia medications)
+export const medicationGroups = pgTable("medication_groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  name: varchar("name").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_medication_groups_hospital").on(table.hospitalId),
+]);
+
 // Folders (for organizing items)
 export const folders = pgTable("folders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -558,6 +568,11 @@ export const insertMedicationConfigSchema = createInsertSchema(medicationConfigs
   updatedAt: true,
 });
 
+export const insertMedicationGroupSchema = createInsertSchema(medicationGroups).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -589,6 +604,8 @@ export type ChecklistCompletion = typeof checklistCompletions.$inferSelect;
 export type InsertChecklistCompletion = z.infer<typeof insertChecklistCompletionSchema>;
 export type MedicationConfig = typeof medicationConfigs.$inferSelect;
 export type InsertMedicationConfig = z.infer<typeof insertMedicationConfigSchema>;
+export type MedicationGroup = typeof medicationGroups.$inferSelect;
+export type InsertMedicationGroup = z.infer<typeof insertMedicationGroupSchema>;
 
 // Bulk operations schemas
 export const bulkImportItemSchema = z.object({
