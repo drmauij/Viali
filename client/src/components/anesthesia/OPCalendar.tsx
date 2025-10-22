@@ -77,6 +77,13 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     }
   };
 
+  const handleBeforeHeaderRender = (args: any) => {
+    // Format hour labels to show "6:00" instead of "600"
+    if (args.header.start && args.header.start.getHours) {
+      args.header.html = args.header.start.toString("H:00");
+    }
+  };
+
   const goToToday = () => {
     setSelectedDate(new Date());
   };
@@ -197,6 +204,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             columns={resources}
             events={mockEvents}
             onEventClick={handleEventClick}
+            onBeforeHeaderRender={handleBeforeHeaderRender}
             theme="calendar_white"
             timeFormat="Clock24Hours"
             locale="en-us"
@@ -217,6 +225,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             events={mockEvents}
             onEventClick={handleEventClick}
             onTimeRangeSelected={handleDayClick}
+            onBeforeHeaderRender={handleBeforeHeaderRender}
             theme="calendar_white"
             timeFormat="Clock24Hours"
             locale="en-us"
