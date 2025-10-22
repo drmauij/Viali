@@ -7,16 +7,12 @@ channel = "stable-24_05"
 
 [deployment]
 deploymentTarget = "autoscale"
-build = ["sh", "-c", "NODE_TLS_REJECT_UNAUTHORIZED=0 npm run db:push -- --force && npm run build"]
+build = ["npm", "run", "build"]
 run = ["npm", "run", "start"]
 
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 38623
-externalPort = 3000
 
 [env]
 PORT = "5000"
