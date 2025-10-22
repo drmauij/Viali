@@ -342,7 +342,8 @@ export default function AnesthesiaSettings() {
               <TabsTrigger value="groups">Groups</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="config" className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 mt-4">
+            <TabsContent value="config" className="mt-4">
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
             {/* Item Name */}
             <div>
               <Label htmlFor="item-name">Item Name</Label>
@@ -465,9 +466,11 @@ export default function AnesthesiaSettings() {
                 )}
               </>
             )}
+              </div>
             </TabsContent>
 
-            <TabsContent value="groups" className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 mt-4">
+            <TabsContent value="groups" className="mt-4">
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
             {/* Medication Group */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -645,6 +648,7 @@ export default function AnesthesiaSettings() {
                 )}
               </div>
             </div>
+              </div>
             </TabsContent>
           </Tabs>
 
