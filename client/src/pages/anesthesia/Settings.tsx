@@ -190,12 +190,22 @@ export default function AnesthesiaSettings() {
       config.administrationUnit = administrationUnit;
       
       // Parse concentration and save to separate fields
-      const parsed = parseConcentration(ampuleConcentration);
-      if (parsed) {
-        config.ampuleTotalContent = parsed.content;
-        config.ampuleSize = parsed.size;
+      if (ampuleConcentration.trim()) {
+        const parsed = parseConcentration(ampuleConcentration);
+        if (parsed) {
+          config.ampuleTotalContent = parsed.content;
+          config.ampuleSize = parsed.size;
+        } else {
+          // Show warning if format is incorrect
+          toast({
+            variant: "destructive",
+            title: "Invalid concentration format",
+            description: "Please use format like '10mg/10ml' or leave empty",
+          });
+          return; // Don't save if format is invalid
+        }
       } else {
-        // If not in "X/Y" format, clear both fields
+        // Empty concentration - clear both fields
         config.ampuleTotalContent = undefined;
         config.ampuleSize = undefined;
       }
@@ -340,13 +350,13 @@ export default function AnesthesiaSettings() {
                   <Label htmlFor="concentration">Ampule Concentration</Label>
                   <Input
                     id="concentration"
-                    placeholder="e.g., 10mg/ml"
+                    placeholder="e.g., 10mg/10ml or 50μg/2ml"
                     value={ampuleConcentration}
                     onChange={(e) => setAmpuleConcentration(e.target.value)}
                     data-testid="input-concentration"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Format: amount per volume (e.g., 10mg/ml, 50μg/2ml)
+                    Required format: total drug / ampule volume (e.g., 10mg/10ml, 50μg/2ml)
                   </p>
                 </div>
 
