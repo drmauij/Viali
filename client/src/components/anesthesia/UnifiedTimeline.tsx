@@ -1053,7 +1053,7 @@ export function UnifiedTimeline({
                 height: 28,
                 ...medGroupColor,
                 anesthesiaType: item.anesthesiaType,
-                isRateControlled: item.isRateControlled || false,
+                isRateControlled: item.isRateControlled ?? undefined,
                 itemId: item.id,
                 hierarchyLevel: 'item',
               });
@@ -6199,9 +6199,11 @@ export function UnifiedTimeline({
             const visibleRange = visibleEnd - visibleStart;
             const svgWidth = typeof window !== 'undefined' ? window.innerWidth - 210 : 1000;
             
-            // Get infusion name and detect if it's free-flow
-            const infusionName = childLane.label.trim();
-            const isFreeFlow = isFreeFlowInfusion(infusionName);
+            // Determine if it's free-flow based on the item's isRateControlled field
+            // If isRateControlled is explicitly false → free-flow (dashed line)
+            // If isRateControlled is true → rate-controlled (solid line)
+            // If isRateControlled is undefined → default to solid line
+            const isFreeFlow = lane.isRateControlled === false;
             
             // Sort rate points by time
             const sortedRates = [...infusionData[lane.id]].sort((a, b) => a[0] - b[0]);
