@@ -223,6 +223,10 @@ type SwimlaneConfig = {
   height: number;
   colorLight: string;
   colorDark: string;
+  // Metadata for anesthesia items
+  anesthesiaType?: 'medication' | 'infusion';
+  isRateControlled?: boolean;
+  itemId?: string; // Reference to the original item
 };
 
 // Type for anesthesia-configured items
@@ -286,16 +290,11 @@ export function UnifiedTimeline({
   // State for collapsible parent swimlanes
   const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<Set<string>>(new Set());
   
-  // State for dynamic medications
-  const [medications, setMedications] = useState<string[]>([]);
-  const [showAddMedDialog, setShowAddMedDialog] = useState(false);
-  
   // State for medication dose data points (similar to ventilation)
   // Map medication swimlane ID to array of [timestamp, dose_string] points
   const [medicationDoseData, setMedicationDoseData] = useState<{
     [swimlaneId: string]: Array<[number, string]>; // [timestamp, "5mg"] format
   }>({});
-  const [newMedName, setNewMedName] = useState("");
 
   // State for current time indicator - updates every minute
   const [currentTime, setCurrentTime] = useState<number>(now || Date.now());
@@ -1035,6 +1034,9 @@ export function UnifiedTimeline({
                 label: `  ${formatItemDisplayName(item)}`,
                 height: 30,
                 ...medGroupColor,
+                anesthesiaType: item.anesthesiaType,
+                isRateControlled: item.isRateControlled || false,
+                itemId: item.id,
               });
             });
           }
@@ -1085,20 +1087,6 @@ export function UnifiedTimeline({
   };
 
   const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [collapsedSwimlanes, swimlanes, administrationGroups, itemsByAdminGroup]);
-
-  // Add medication handler
-  const handleAddMedication = () => {
-    if (newMedName.trim()) {
-      setMedications([...medications, newMedName.trim()]);
-      setNewMedName("");
-      setShowAddMedDialog(false);
-    }
-  };
-
-  // Remove medication handler
-  const handleRemoveMedication = (index: number) => {
-    setMedications(medications.filter((_, i) => i !== index));
-  };
 
   // Handle editing vital values
   const handleSaveEdit = (newValue: number) => {
@@ -3023,45 +3011,31 @@ export function UnifiedTimeline({
       
       // Step 3 & 4: Process each drug in the command
       const addedDrugs: string[] = [];
-      let newMedications = [...medications];
       const doseUpdates: Record<string, [number, string][]> = {};
       
       for (const drugCommand of response.drugs) {
         if (!drugCommand.drug || !drugCommand.dose) continue;
         
-        // Find matching medication swimlane or create new one
+        // Find matching medication from configured anesthesia items
         const match = findMatchingMedication(drugCommand.drug);
         
-        let targetSwimlaneId: string;
-        let matchInfo = "";
-        
         if (match) {
-          // Found a matching medication
-          targetSwimlaneId = match.swimlaneId;
-          matchInfo = ` (${Math.round(match.score * 100)}%)`;
+          // Found a matching medication from configured items
+          const targetSwimlaneId = match.swimlaneId;
+          const matchInfo = ` (${Math.round(match.score * 100)}%)`;
           console.log(`[Voice] Matched "${drugCommand.drug}" to "${match.fullName}" (score: ${match.score})`);
+          
+          // Prepare dose data point
+          if (!doseUpdates[targetSwimlaneId]) {
+            doseUpdates[targetSwimlaneId] = [];
+          }
+          doseUpdates[targetSwimlaneId].push([timestamp, drugCommand.dose] as [number, string]);
+          
+          addedDrugs.push(`${drugCommand.drug} ${drugCommand.dose}${matchInfo}`);
         } else {
-          // No match found - create new medication swimlane
-          const newMedName = `${drugCommand.drug} (voice)`;
-          const newIndex = newMedications.length;
-          targetSwimlaneId = `medication-dynamic-${newIndex}`;
-          newMedications.push(newMedName);
-          matchInfo = " (new)";
-          console.log(`[Voice] No match found, creating new medication: ${newMedName}`);
+          // No match found - skip this drug
+          console.log(`[Voice] No match found for "${drugCommand.drug}", skipping (item must be configured with administration group in settings)`);
         }
-        
-        // Prepare dose data point
-        if (!doseUpdates[targetSwimlaneId]) {
-          doseUpdates[targetSwimlaneId] = [];
-        }
-        doseUpdates[targetSwimlaneId].push([timestamp, drugCommand.dose] as [number, string]);
-        
-        addedDrugs.push(`${drugCommand.drug} ${drugCommand.dose}${matchInfo}`);
-      }
-      
-      // Update medications state if new ones were created
-      if (newMedications.length > medications.length) {
-        setMedications(newMedications);
       }
       
       // Update all dose data
@@ -3945,21 +3919,23 @@ export function UnifiedTimeline({
 
         {/* Swimlane labels */}
         {swimlanePositions.map((lane, index) => {
+          // Find the corresponding swimlane config to access metadata
+          const swimlaneConfig = activeSwimlanes.find(s => s.id === lane.id);
+          
           const isZeitenLane = lane.id === "zeiten";
           const isMedParent = lane.id === "medikamente";
           const isVentParent = lane.id === "ventilation";
           const isInfusionParent = lane.id === "infusionen";
           const isOutputParent = lane.id === "output";
           const isStaffParent = lane.id === "staff";
-          const isMedChild = lane.id.startsWith("medication-");
+          const isMedChild = swimlaneConfig?.anesthesiaType === 'medication';
           const isVentChild = lane.id.startsWith("ventilation-");
-          const isInfusionChild = lane.id.startsWith("infusion-");
+          const isInfusionChild = swimlaneConfig?.anesthesiaType === 'infusion';
           const isOutputChild = lane.id.startsWith("output-");
           const isStaffChild = lane.id.startsWith("staff-");
-          const isDynamicMed = lane.id.startsWith("medication-dynamic-");
+          const isAdminGroupParent = lane.id.startsWith("admingroup-") && !lane.id.includes("-item-");
           const isChild = isMedChild || isVentChild || isInfusionChild || isOutputChild || isStaffChild;
-          const isParent = isMedParent || isVentParent || isInfusionParent || isOutputParent || isStaffParent;
-          const medIndex = isDynamicMed ? parseInt(lane.id.split("-")[2]) : -1;
+          const isParent = isMedParent || isVentParent || isInfusionParent || isOutputParent || isStaffParent || isAdminGroupParent;
           
           return (
             <div 
@@ -4000,28 +3976,6 @@ export function UnifiedTimeline({
                   title="Edit Anesthesia Times"
                 >
                   <Clock className="w-4 h-4 text-foreground/70 group-hover:text-foreground transition-colors" />
-                </button>
-              )}
-              
-              {isMedParent && (
-                <button
-                  onClick={() => setShowAddMedDialog(true)}
-                  className="p-1 rounded hover:bg-background/50 transition-colors group"
-                  data-testid="button-add-medication"
-                  title="Add Medication"
-                >
-                  <Plus className="w-4 h-4 text-foreground/70 group-hover:text-foreground transition-colors" />
-                </button>
-              )}
-              
-              {isDynamicMed && (
-                <button
-                  onClick={() => handleRemoveMedication(medIndex)}
-                  className="p-1 rounded hover:bg-background/50 transition-colors group"
-                  data-testid={`button-remove-medication-${medIndex}`}
-                  title="Remove Medication"
-                >
-                  <X className="w-3 h-3 text-foreground/70 group-hover:text-foreground transition-colors" />
                 </button>
               )}
             </div>
@@ -4979,7 +4933,7 @@ export function UnifiedTimeline({
         if (medicationParentIndex === -1 || collapsedSwimlanes.has("medikamente")) return null;
         
         return activeSwimlanes.map((lane, index) => {
-          const isMedicationChild = lane.id.startsWith('medication-predefined-') || lane.id.startsWith('medication-dynamic-');
+          const isMedicationChild = lane.anesthesiaType === 'medication';
           if (!isMedicationChild) return null;
           
           const lanePosition = swimlanePositions.find(l => l.id === lane.id);
@@ -5116,7 +5070,7 @@ export function UnifiedTimeline({
         if (infusionParentIndex === -1 || collapsedSwimlanes.has("infusionen")) return null;
         
         return activeSwimlanes.map((lane, index) => {
-          const isInfusionChild = lane.id.startsWith('infusion-');
+          const isInfusionChild = lane.anesthesiaType === 'infusion';
           if (!isInfusionChild) return null;
           
           const lanePosition = swimlanePositions.find(l => l.id === lane.id);
@@ -6136,8 +6090,8 @@ export function UnifiedTimeline({
       })}
 
       {/* Medication dose values as DOM overlays */}
-      {!collapsedSwimlanes.has('medikamente') && activeSwimlanes.flatMap((lane, laneIndex) => {
-        const isMedicationChild = lane.id.startsWith('medication-predefined-') || lane.id.startsWith('medication-dynamic-');
+      {activeSwimlanes.flatMap((lane, laneIndex) => {
+        const isMedicationChild = lane.anesthesiaType === 'medication';
         
         if (!isMedicationChild || !medicationDoseData[lane.id]?.length) return [];
         
@@ -6202,7 +6156,7 @@ export function UnifiedTimeline({
           }}
         >
           {activeSwimlanes.flatMap((lane) => {
-            const isInfusionChild = lane.id.startsWith('infusion-');
+            const isInfusionChild = lane.anesthesiaType === 'infusion';
             if (!isInfusionChild || !infusionData[lane.id]?.length) return [];
             
             const childLane = swimlanePositions.find(pos => pos.id === lane.id);
@@ -6282,8 +6236,8 @@ export function UnifiedTimeline({
       )}
 
       {/* Infusion rate values as DOM overlays */}
-      {!collapsedSwimlanes.has('infusionen') && activeSwimlanes.flatMap((lane, laneIndex) => {
-        const isInfusionChild = lane.id.startsWith('infusion-');
+      {activeSwimlanes.flatMap((lane, laneIndex) => {
+        const isInfusionChild = lane.anesthesiaType === 'infusion';
         
         if (!isInfusionChild || !infusionData[lane.id]?.length) return [];
         
@@ -6335,52 +6289,6 @@ export function UnifiedTimeline({
           );
         }).filter(Boolean);
       })}
-
-      {/* Add Medication Dialog */}
-      <Dialog open={showAddMedDialog} onOpenChange={setShowAddMedDialog}>
-        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-add-medication">
-          <DialogHeader>
-            <DialogTitle>Add Medication</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="medication-name">Medication Name</Label>
-              <Input
-                id="medication-name"
-                data-testid="input-medication-name"
-                value={newMedName}
-                onChange={(e) => setNewMedName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleAddMedication();
-                  }
-                }}
-                placeholder="e.g., Propofol 1%"
-                autoFocus
-              />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowAddMedDialog(false);
-                setNewMedName("");
-              }}
-              data-testid="button-cancel-medication"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAddMedication}
-              data-testid="button-confirm-add-medication"
-              disabled={!newMedName.trim()}
-            >
-              Add
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Medication Dose Entry Dialog */}
       <Dialog open={showMedicationDoseDialog} onOpenChange={setShowMedicationDoseDialog}>
