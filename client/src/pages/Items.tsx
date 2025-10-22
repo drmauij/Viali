@@ -1332,14 +1332,10 @@ export default function Items() {
             autoMapping[header] = 'administrationRoute';
           } else if (lowerHeader === 'defaultdose' || lowerHeader === 'default dose') {
             autoMapping[header] = 'defaultDose';
-          } else if (lowerHeader === 'defaultdoseunit' || lowerHeader === 'default dose unit' || lowerHeader === 'dose unit') {
-            autoMapping[header] = 'doseUnit';
           } else if (lowerHeader === 'ampoulequantity' || lowerHeader === 'ampule quantity' || lowerHeader === 'ampoule quantity') {
             autoMapping[header] = 'ampuleQuantity';
           } else if (lowerHeader === 'ampouleunit' || lowerHeader === 'ampule unit' || lowerHeader === 'ampoule unit') {
             autoMapping[header] = 'ampuleUnit';
-          } else if (lowerHeader === 'concentrationdisplay' || lowerHeader === 'concentration display' || lowerHeader === 'concentration') {
-            autoMapping[header] = 'concentrationDisplay';
           } else if (lowerHeader === 'administrationunit' || lowerHeader === 'administration unit') {
             autoMapping[header] = 'administrationUnit';
           } else if (lowerHeader === 'isratecontrolled' || lowerHeader === 'is rate controlled' || lowerHeader === 'rate controlled') {
@@ -1419,12 +1415,8 @@ export default function Items() {
           case 'medicationGroup':
           case 'administrationRoute':
           case 'defaultDose':
-          case 'doseUnit':
           case 'administrationUnit':
           case 'rateUnit':
-            item[targetField] = value ? String(value) : undefined;
-            break;
-          case 'concentrationDisplay':
             item[targetField] = value ? String(value) : undefined;
             break;
           case 'isRateControlled':
@@ -1443,10 +1435,8 @@ export default function Items() {
       // Combine ampule quantity and unit into ampuleTotalContent
       if (ampuleQuantity && ampuleUnit) {
         item.ampuleTotalContent = `${ampuleQuantity} ${ampuleUnit}`;
-        item.concentrationDisplay = `${ampuleQuantity}${ampuleUnit}`;
       } else if (ampuleQuantity) {
         item.ampuleTotalContent = ampuleQuantity;
-        item.concentrationDisplay = ampuleQuantity;
       }
       
       if (item.name) {
@@ -3159,8 +3149,8 @@ export default function Items() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">Medication Configuration (Optional)</span>
                       <span className="text-xs text-muted-foreground">
-                        {Object.values(csvMapping).filter(v => ['medicationGroup', 'administrationRoute', 'defaultDose', 'doseUnit', 'ampuleQuantity', 'ampuleUnit', 'concentrationDisplay', 'administrationUnit', 'isRateControlled', 'rateUnit'].includes(v)).length > 0 
-                          ? `${Object.values(csvMapping).filter(v => ['medicationGroup', 'administrationRoute', 'defaultDose', 'doseUnit', 'ampuleQuantity', 'ampuleUnit', 'concentrationDisplay', 'administrationUnit', 'isRateControlled', 'rateUnit'].includes(v)).length} fields mapped`
+                        {Object.values(csvMapping).filter(v => ['medicationGroup', 'administrationRoute', 'defaultDose', 'ampuleQuantity', 'ampuleUnit', 'administrationUnit', 'isRateControlled', 'rateUnit'].includes(v)).length > 0 
+                          ? `${Object.values(csvMapping).filter(v => ['medicationGroup', 'administrationRoute', 'defaultDose', 'ampuleQuantity', 'ampuleUnit', 'administrationUnit', 'isRateControlled', 'rateUnit'].includes(v)).length} fields mapped`
                           : 'For anesthesia records'}
                       </span>
                     </div>
@@ -3171,10 +3161,8 @@ export default function Items() {
                         { key: 'medicationGroup', label: 'Medication Group' },
                         { key: 'administrationRoute', label: 'Administration Route' },
                         { key: 'defaultDose', label: 'Default Dose' },
-                        { key: 'doseUnit', label: 'Dose Unit' },
                         { key: 'ampuleQuantity', label: 'Ampule Quantity' },
                         { key: 'ampuleUnit', label: 'Ampule Unit' },
-                        { key: 'concentrationDisplay', label: 'Concentration Display' },
                         { key: 'administrationUnit', label: 'Administration Unit' },
                         { key: 'isRateControlled', label: 'Is Rate Controlled' },
                         { key: 'rateUnit', label: 'Rate Unit' },
