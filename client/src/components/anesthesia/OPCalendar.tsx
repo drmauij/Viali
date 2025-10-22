@@ -77,23 +77,6 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     }
   };
 
-  const handleBeforeHeaderRender = (args: any) => {
-    // Format hour labels to show "6:00" instead of "600"
-    // Only format row headers (time labels on left), not column headers (dates on top)
-    // Column headers have args.header.columns, row headers don't
-    if (args.header && !args.header.columns && args.header.start) {
-      try {
-        const formatted = args.header.start.toString("H:00");
-        // Only apply if it looks like a time format
-        if (formatted && formatted.match(/^\d{1,2}:00$/)) {
-          args.header.html = formatted;
-        }
-      } catch (e) {
-        // Ignore formatting errors
-      }
-    }
-  };
-
   const goToToday = () => {
     setSelectedDate(new Date());
   };
@@ -214,7 +197,6 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             columns={resources}
             events={mockEvents}
             onEventClick={handleEventClick}
-            onBeforeHeaderRender={handleBeforeHeaderRender}
             theme="calendar_white"
             timeFormat="Clock24Hours"
             locale="en-us"
@@ -235,7 +217,6 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             events={mockEvents}
             onEventClick={handleEventClick}
             onTimeRangeSelected={handleDayClick}
-            onBeforeHeaderRender={handleBeforeHeaderRender}
             theme="calendar_white"
             timeFormat="Clock24Hours"
             locale="en-us"
@@ -277,7 +258,6 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           opacity: 0.95;
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
           transition: all 0.2s ease;
-          margin: 2px 4px !important;
         }
 
         .calendar_white_event:hover {
@@ -291,7 +271,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           padding: 3px 8px;
           font-size: 12px;
           font-weight: 500;
-          margin: 3px 4px !important;
+          margin: 2px 0;
           opacity: 0.95;
           transition: opacity 0.2s ease;
         }
