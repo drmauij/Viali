@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { DayPilot, DayPilotCalendar, DayPilotMonth } from "@daypilot/daypilot-lite-react";
 import { Button } from "@/components/ui/button";
 import { Calendar, CalendarDays, CalendarRange } from "lucide-react";
@@ -13,7 +13,6 @@ interface OPCalendarProps {
 export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   const [currentView, setCurrentView] = useState<ViewType>("day");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const calendarRef = useRef<any>(null);
 
   // Fetch surgery rooms
   const { data: surgeryRooms = [] } = useQuery<any[]>({
@@ -117,17 +116,30 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     return selectedDate.toLocaleDateString("en-US", options);
   };
 
-  // Set up time header formatting when calendar is initialized
+  // Format time labels using DOM manipulation
   useEffect(() => {
-    if (calendarRef.current && calendarRef.current.control) {
-      const control = calendarRef.current.control;
-      control.onBeforeTimeHeaderRender = (args: any) => {
-        // Format the time label as "H:mm" (e.g., "6:00", "7:00", "13:00")
-        args.header.html = args.header.start.toString("H:mm");
-      };
-      control.update();
-    }
-  }, [currentView, calendarRef.current]);
+    const formatTimeLabels = () => {
+      const rowHeaders = document.querySelectorAll('.calendar_white_rowheader_inner');
+      rowHeaders.forEach((header: Element) => {
+        const text = (header as HTMLElement).innerText.trim();
+        // Check if it's a time label like "600", "700", etc.
+        if (/^\d{3,4}$/.test(text)) {
+          // Parse the time (e.g., "600" -> 6, "1300" -> 13)
+          const timeNum = parseInt(text, 10);
+          const hour = Math.floor(timeNum / 100);
+          const minute = timeNum % 100;
+          // Format as "H:mm" (e.g., "6:00", "13:00")
+          (header as HTMLElement).innerText = `${hour}:${minute.toString().padStart(2, '0')}`;
+        }
+      });
+    };
+
+    // Run immediately and also after a short delay to catch any dynamic updates
+    formatTimeLabels();
+    const timer = setTimeout(formatTimeLabels, 100);
+    
+    return () => clearTimeout(timer);
+  }, [currentView, selectedDate, resources]);
 
   return (
     <div className="flex flex-col h-full">
@@ -198,7 +210,6 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       <div className="flex-1 px-4 pb-4">
         {currentView === "day" && (
           <DayPilotCalendar
-            ref={calendarRef}
             viewType="Resources"
             startDate={selectedDate.toISOString().split('T')[0]}
             days={1}
@@ -219,7 +230,6 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
 
         {currentView === "week" && (
           <DayPilotCalendar
-            ref={calendarRef}
             viewType="Week"
             startDate={selectedDate.toISOString().split('T')[0]}
             days={7}
