@@ -32,11 +32,33 @@ type Item = {
   medicationGroup?: string;
   defaultDose?: string;
   administrationUnit?: string;
-  ampuleConcentration?: string;
+  ampuleSize?: string;
+  ampuleTotalContent?: string;
   administrationRoute?: string;
   isRateControlled?: boolean;
   rateUnit?: string;
 };
+
+// Helper function to parse concentration strings like "10mg/10ml"
+function parseConcentration(concentration: string): { content: string; size: string } | null {
+  if (!concentration || !concentration.trim()) return null;
+  
+  const parts = concentration.split('/').map(p => p.trim());
+  if (parts.length !== 2) return null;
+  
+  return {
+    content: parts[0],  // e.g., "10mg"
+    size: parts[1],     // e.g., "10ml"
+  };
+}
+
+// Helper function to combine ampuleSize and ampuleTotalContent for display
+function formatConcentration(totalContent?: string, size?: string): string {
+  if (!totalContent && !size) return '';
+  if (!totalContent) return size || '';
+  if (!size) return totalContent;
+  return `${totalContent}/${size}`;
+}
 
 export default function AnesthesiaSettings() {
   const { user } = useAuth();
@@ -121,7 +143,6 @@ export default function AnesthesiaSettings() {
             config: {
               anesthesiaType: 'medication',
               administrationUnit: 'mg',
-              ampuleConcentration: '',
               administrationRoute: 'i.v.',
             },
           });
@@ -146,7 +167,8 @@ export default function AnesthesiaSettings() {
     setMedicationGroup(item.medicationGroup || '');
     setDefaultDose(item.defaultDose || '');
     setAdministrationUnit(item.administrationUnit || 'mg');
-    setAmpuleConcentration(item.ampuleConcentration || '');
+    // Combine ampuleSize and ampuleTotalContent for display
+    setAmpuleConcentration(formatConcentration(item.ampuleTotalContent, item.ampuleSize));
     setAdministrationRoute(item.administrationRoute || 'i.v.');
     setIsRateControlled(item.isRateControlled || false);
     setRateUnit(item.rateUnit || 'ml/h');
@@ -166,7 +188,18 @@ export default function AnesthesiaSettings() {
 
     if (anesthesiaType === 'medication') {
       config.administrationUnit = administrationUnit;
-      config.ampuleConcentration = ampuleConcentration;
+      
+      // Parse concentration and save to separate fields
+      const parsed = parseConcentration(ampuleConcentration);
+      if (parsed) {
+        config.ampuleTotalContent = parsed.content;
+        config.ampuleSize = parsed.size;
+      } else {
+        // If not in "X/Y" format, clear both fields
+        config.ampuleTotalContent = undefined;
+        config.ampuleSize = undefined;
+      }
+      
       config.administrationRoute = administrationRoute;
     } else {
       config.isRateControlled = isRateControlled;
