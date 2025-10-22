@@ -1032,7 +1032,7 @@ export function UnifiedTimeline({
             // Add administration group header (non-collapsible, just a label)
             lanes.push({
               id: `admingroup-${group.id}`,
-              label: group.name,
+              label: group.name.toUpperCase(),
               height: 32,
               ...medGroupColor,
               hierarchyLevel: 'group',
