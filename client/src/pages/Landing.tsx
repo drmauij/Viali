@@ -16,7 +16,7 @@ export default function Landing() {
   const { toast } = useToast();
 
   const handleGoogleLogin = () => {
-    window.location.href = "/api/login";
+    window.location.href = "/api/auth/google";
   };
 
   const handleLocalLogin = async (e: React.FormEvent<HTMLFormElement>) => {

@@ -21,10 +21,10 @@ The frontend uses React, TypeScript, and Vite, with Wouter for routing, TanStack
 Key features include barcode scanning, a signature pad, real-time item quick panels, and a hospital switcher.
 
 ### Backend
-The backend uses Express.js and TypeScript with a PostgreSQL database via Drizzle ORM, hosted on Neon serverless PostgreSQL. Authentication uses OpenID Connect (OIDC) via Replit Auth, supplemented by local email/password, with session-based authentication. The API is RESTful with JSON communication, centralized error handling, bcrypt for password hashing, and role-based access control.
+The backend uses Express.js and TypeScript with a PostgreSQL database via Drizzle ORM. It supports both external PostgreSQL databases (Exoscale, Aiven, etc.) and Replit's managed PostgreSQL. Authentication uses standard Google OAuth via passport-google-oauth20, supplemented by local email/password, with session-based authentication. The API is RESTful with JSON communication, centralized error handling, bcrypt for password hashing, and role-based access control.
 
 ### Authentication & Authorization
-Viali uses a hybrid authentication strategy supporting Google OAuth (OIDC) and local credentials, configurable per hospital. Authorization is role-based and multi-hospital. A robust user management system includes creation, password changes, hospital assignment, and deletion, secured with AD role authorization and bcrypt.
+Viali uses a hybrid authentication strategy supporting standard Google OAuth and local email/password credentials. Google OAuth is optional and can be disabled if environment variables are not provided. Authorization is role-based and multi-hospital. A robust user management system includes creation, password changes, hospital assignment, and deletion, secured with role-based authorization and bcrypt.
 
 ### Database Schema
 The database schema includes `Users`, `Hospitals` (with `anesthesiaLocationId` linking to a specific location's inventory for the anesthesia module), `UserHospitalRoles`, `Items` (with barcode support, min/max thresholds, critical/controlled flags, `trackExactQuantity`, `currentUnits`, `packSize`, anesthesia configuration fields: `anesthesiaType`, `administrationUnit`, `ampuleConcentration`, `administrationRoute`, `isRateControlled`, `rateUnit`), `StockLevels`, `Lots` (batch tracking, expiry), `Orders`, `OrderLines`, `Activities` (audit trails), `Alerts`, `Vendors`, `Locations`, `ImportJobs` (async bulk import), `ChecklistTemplates`, and `ChecklistCompletions`. It uses UUID primary keys, timestamp tracking, separate lot tracking, and JSONB fields with Zod validation.
@@ -49,8 +49,9 @@ The `EditableValue` component provides a consistent click-to-edit experience acr
 - Neon Serverless PostgreSQL
 
 **Authentication Services:**
-- Replit OIDC Provider
-- connect-pg-simple
+- Google OAuth 2.0 (via passport-google-oauth20)
+- Passport.js
+- connect-pg-simple (PostgreSQL session store)
 
 **UI Component Libraries:**
 - Radix UI
@@ -79,3 +80,128 @@ The `EditableValue` component provides a consistent click-to-edit experience acr
 - nanoid
 - memoizee
 - jsPDF & jspdf-autotable
+
+**Email Service:**
+- Resend (direct API integration)
+
+**AI Services:**
+- OpenAI Vision API (for image analysis and OCR)
+- OpenAI GPT-4 (for voice transcription and drug command parsing)
+
+## Environment Variables
+
+### Required Variables (Both Development & Production)
+
+```bash
+# Database Connection
+DATABASE_URL="postgres://user:password@host:port/database?sslmode=require"
+
+# Session Security
+SESSION_SECRET="your-long-random-secret-minimum-32-characters"
+
+# Data Encryption (for patient data)
+ENCRYPTION_SECRET="another-long-random-secret-minimum-32-characters"
+
+# OpenAI API (for AI features)
+OPENAI_API_KEY="sk-proj-xxxxxxxxxxxxx"
+```
+
+### Optional Variables
+
+```bash
+# Google OAuth (optional - if not provided, only email/password auth works)
+GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET="your-client-secret"
+
+# Email Service (optional - if not provided, email features disabled)
+RESEND_API_KEY="re_xxxxxxxxxxxxx"
+RESEND_FROM_EMAIL="noreply@yourdomain.com"
+
+# Production URL (for OAuth callbacks and email links)
+PRODUCTION_URL="https://yourdomain.com"
+
+# Server Port (defaults to 5000)
+PORT="5000"
+
+# Barcode Lookup API (optional)
+EAN_SEARCH_API_KEY="your-ean-api-key"
+```
+
+### Generating Secrets
+
+Use Node.js to generate random secrets:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+## Deployment
+
+### Self-Hosting on Exoscale (or any server)
+
+Viali can be deployed on any server with Node.js and PostgreSQL. Here's how to deploy on Exoscale:
+
+**Prerequisites:**
+- Node.js 20 or higher
+- PostgreSQL database (Exoscale, Aiven, or any provider)
+- SSH access to your server
+
+**Steps:**
+
+1. **Set up PostgreSQL database** (if not done):
+   - Create a database on Exoscale, Aiven, or your preferred provider
+   - Note the connection string with SSL support
+
+2. **Clone your repository**:
+   ```bash
+   git clone your-repo-url
+   cd viali
+   ```
+
+3. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+4. **Set environment variables**:
+   Create a `.env` file with all required variables listed above, or use PM2 ecosystem config.
+
+5. **Build the application**:
+   ```bash
+   npm run build
+   ```
+
+6. **Start with PM2** (recommended):
+   ```bash
+   npm install -g pm2
+   pm2 start npm --name "viali" -- start
+   pm2 save
+   pm2 startup  # Enable auto-start on reboot
+   ```
+
+7. **Set up Nginx** (optional, for reverse proxy):
+   Configure Nginx to proxy requests to your Node.js app on port 5000.
+
+**Database Migrations:**
+The app automatically runs database migrations on startup, so no manual migration steps are needed.
+
+### Google OAuth Setup
+
+To enable Google OAuth login:
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select existing one
+3. Enable Google+ API
+4. Create OAuth 2.0 credentials:
+   - Application type: Web application
+   - Authorized redirect URIs: `https://yourdomain.com/api/auth/google/callback`
+5. Copy the Client ID and Client Secret to your environment variables
+
+### Resend Email Setup
+
+To enable email features:
+
+1. Sign up at [resend.com](https://resend.com)
+2. Verify your domain or use their test domain
+3. Create an API key
+4. Set `RESEND_API_KEY` and `RESEND_FROM_EMAIL` in your environment variables
