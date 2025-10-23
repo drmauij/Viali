@@ -1693,16 +1693,19 @@ export function UnifiedTimeline({
         separatorLines.push({
           type: 'line',
           z: 100,
+          left: GRID_LEFT,
+          top: currentY,
           shape: {
-            x1: GRID_LEFT,
-            y1: currentY,
-            x2: `calc(100% - ${GRID_RIGHT}px)` as any,
-            y2: currentY,
+            x1: 0,
+            y1: 0,
+            x2: 5000, // Long enough to span the entire chart width
+            y2: 0,
           },
           style: {
             stroke: isDark ? '#ffffff' : '#000000',
             lineWidth: 1,
           },
+          silent: true,
         });
       }
     });
@@ -2310,6 +2313,8 @@ export function UnifiedTimeline({
       graphic: [
         // Y-axis labels
         ...yAxisLabels.map((label, i) => ({ ...label, id: `y-label-${i}` })),
+        // Medication group separator lines
+        ...separatorLines.map((line, i) => ({ ...line, id: `separator-${i}` })),
         // Zone placeholders (will be replaced by useEffect)
         {
           id: 'past-non-editable-zone',
