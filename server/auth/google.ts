@@ -5,6 +5,7 @@ import type { Express, RequestHandler } from "express";
 import connectPg from "connect-pg-simple";
 import { storage } from "../storage";
 import { Pool } from "pg";
+import { seedHospitalData } from "../seed-hospital";
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
@@ -56,7 +57,7 @@ async function upsertUser(profile: any) {
   // Check if user has any hospitals assigned
   const userHospitals = await storage.getUserHospitals(user.id);
   
-  // If user has no hospitals, create one and assign them as admin
+  // If user has no hospitals, create one and seed it with default data
   if (userHospitals.length === 0) {
     const firstName = profile.name?.givenName || profile.given_name || "User";
     const hospitalName = `${firstName}'s Hospital`;
@@ -64,47 +65,11 @@ async function upsertUser(profile: any) {
     // Create hospital
     const hospital = await storage.createHospital(hospitalName);
 
-    // Create 4 default locations
-    const anesthesyLocation = await storage.createLocation({
-      hospitalId: hospital.id,
-      name: "Anesthesy",
-      type: "anesthesy",
-      parentId: null,
-    });
+    // Seed hospital with default data (locations, surgery rooms, admin groups, medications)
+    // This includes: 4 locations, 3 surgery rooms, 5 admin groups, and 13 medications
+    await seedHospitalData(hospital.id, user.id);
     
-    await storage.createLocation({
-      hospitalId: hospital.id,
-      name: "Operating Room (OR)",
-      type: "or",
-      parentId: null,
-    });
-    
-    await storage.createLocation({
-      hospitalId: hospital.id,
-      name: "Emergency Room (ER)",
-      type: "er",
-      parentId: null,
-    });
-    
-    await storage.createLocation({
-      hospitalId: hospital.id,
-      name: "Intensive Care Unit (ICU)",
-      type: "icu",
-      parentId: null,
-    });
-
-    // Assign user as admin to the first location (Anesthesy)
-    await storage.createUserHospitalRole({
-      userId: user.id,
-      hospitalId: hospital.id,
-      locationId: anesthesyLocation.id,
-      role: "admin",
-    });
-
-    // Configure Anesthesia Module Location to use Anesthesy location
-    await storage.updateHospital(hospital.id, {
-      anesthesiaLocationId: anesthesyLocation.id
-    });
+    console.log(`[Auth] Created and seeded new hospital for user ${user.id}`);
   }
   
   return user;

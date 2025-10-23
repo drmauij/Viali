@@ -159,47 +159,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create hospital
       const hospital = await storage.createHospital(hospitalName);
 
-      // Create 4 default locations
-      const anesthesyLocation = await storage.createLocation({
-        hospitalId: hospital.id,
-        name: "Anesthesy",
-        type: "anesthesy",
-        parentId: null,
-      });
+      // Seed hospital with default data (locations, surgery rooms, admin groups, medications)
+      // This includes: 4 locations, 3 surgery rooms, 5 admin groups, and 13 medications
+      const { seedHospitalData } = await import('./seed-hospital');
+      await seedHospitalData(hospital.id, user.id);
       
-      await storage.createLocation({
-        hospitalId: hospital.id,
-        name: "Operating Room (OR)",
-        type: "or",
-        parentId: null,
-      });
-      
-      await storage.createLocation({
-        hospitalId: hospital.id,
-        name: "Emergency Room (ER)",
-        type: "er",
-        parentId: null,
-      });
-      
-      await storage.createLocation({
-        hospitalId: hospital.id,
-        name: "Intensive Care Unit (ICU)",
-        type: "icu",
-        parentId: null,
-      });
-
-      // Assign user as admin to the first location (Anesthesy)
-      await storage.createUserHospitalRole({
-        userId: user.id,
-        hospitalId: hospital.id,
-        locationId: anesthesyLocation.id,
-        role: "admin",
-      });
-
-      // Configure Anesthesia Module Location to use Anesthesy location
-      await storage.updateHospital(hospital.id, {
-        anesthesiaLocationId: anesthesyLocation.id
-      });
+      console.log(`[Auth] Created and seeded new hospital for user ${user.id}`);
 
       // Log the user in by creating a session
       req.login({ 
@@ -3925,6 +3890,41 @@ If unable to parse any drugs, return:
     } catch (error) {
       console.error("Error fetching checklist completion:", error);
       res.status(500).json({ message: "Failed to fetch checklist completion" });
+    }
+  });
+
+  // Seed hospital with default data (admin only)
+  app.post('/api/hospitals/:id/seed', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id: hospitalId } = req.params;
+      const userId = req.user.id;
+
+      // Check if user has admin access to this hospital
+      const hospitals = await storage.getUserHospitals(userId);
+      const hospital = hospitals.find(h => h.id === hospitalId && h.role === 'admin');
+      
+      if (!hospital) {
+        return res.status(403).json({ message: "Admin access required to seed hospital data" });
+      }
+
+      // Import seedHospitalData function
+      const { seedHospitalData } = await import('./seed-hospital');
+      
+      // Seed the hospital (only adds missing data, never replaces)
+      const result = await seedHospitalData(hospitalId);
+      
+      res.json({
+        message: "Hospital seeded successfully",
+        result: {
+          locationsCreated: result.locationsCreated,
+          surgeryRoomsCreated: result.surgeryRoomsCreated,
+          adminGroupsCreated: result.adminGroupsCreated,
+          medicationsCreated: result.medicationsCreated,
+        }
+      });
+    } catch (error) {
+      console.error("Error seeding hospital:", error);
+      res.status(500).json({ message: "Failed to seed hospital data" });
     }
   });
 

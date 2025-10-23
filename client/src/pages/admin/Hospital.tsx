@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +31,9 @@ export default function Hospital() {
   // Anesthesia location states
   const [anesthesiaLocationDialogOpen, setAnesthesiaLocationDialogOpen] = useState(false);
   const [selectedAnesthesiaLocationId, setSelectedAnesthesiaLocationId] = useState(activeHospital?.anesthesiaLocationId || "none");
+
+  // Seed data states
+  const [seedDialogOpen, setSeedDialogOpen] = useState(false);
 
   // Location states
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
@@ -197,6 +201,33 @@ export default function Hospital() {
     },
     onError: (error: any) => {
       toast({ title: t("common.error"), description: error.message || "Failed to update anesthesia location", variant: "destructive" });
+    },
+  });
+
+  // Seed hospital mutation
+  const seedHospitalMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/hospitals/${activeHospital?.id}/seed`, {});
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      // Invalidate all relevant queries to refresh data
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/locations`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/surgery-rooms/${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/administration-groups/${activeHospital?.id}`] });
+      // Invalidate item queries to show newly seeded medications
+      queryClient.invalidateQueries({ queryKey: ['/api/items'] });
+      setSeedDialogOpen(false);
+      
+      const result = data.result || {};
+      const message = `Added: ${result.locationsCreated || 0} locations, ${result.surgeryRoomsCreated || 0} surgery rooms, ${result.adminGroupsCreated || 0} admin groups, ${result.medicationsCreated || 0} medications`;
+      toast({ 
+        title: "Hospital seeded successfully", 
+        description: message,
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to seed hospital data", variant: "destructive" });
     },
   });
 
@@ -421,6 +452,44 @@ export default function Hospital() {
           >
             <i className="fas fa-edit mr-2"></i>
             Configure
+          </Button>
+        </div>
+      </div>
+
+      {/* Seed Default Data Card */}
+      <div className="bg-card border border-border rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-foreground text-lg">
+              <i className="fas fa-database mr-2 text-primary"></i>
+              Default Data Setup
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Populate hospital with default locations, surgery rooms, administration groups, and medications
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              <i className="fas fa-info-circle mr-1"></i>
+              Only adds missing items - never replaces existing data
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSeedDialogOpen(true)}
+            disabled={seedHospitalMutation.isPending}
+            data-testid="button-seed-hospital"
+          >
+            {seedHospitalMutation.isPending ? (
+              <>
+                <i className="fas fa-spinner fa-spin mr-2"></i>
+                Seeding...
+              </>
+            ) : (
+              <>
+                <i className="fas fa-seedling mr-2"></i>
+                Seed Default Data
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -878,6 +947,38 @@ export default function Hospital() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Seed Hospital Confirmation Dialog */}
+      <AlertDialog open={seedDialogOpen} onOpenChange={setSeedDialogOpen}>
+        <AlertDialogContent data-testid="dialog-seed-confirm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Seed Hospital with Default Data?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>This will add the following default data to your hospital:</p>
+              <ul className="list-disc pl-5 space-y-1 text-sm">
+                <li><strong>4 Locations:</strong> Anesthesy, OR, ER, ICU</li>
+                <li><strong>3 Surgery Rooms:</strong> OP1, OP2, OP3</li>
+                <li><strong>5 Administration Groups:</strong> Infusions, Pumps, Bolus, Short IVs, Antibiotics</li>
+                <li><strong>13 Medications:</strong> Common anesthesia medications with complete configuration</li>
+              </ul>
+              <p className="text-xs mt-2 text-muted-foreground">
+                <i className="fas fa-shield-check mr-1"></i>
+                <strong>Safe operation:</strong> Only adds items that don't already exist. Your existing data will not be modified or deleted.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-seed">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => seedHospitalMutation.mutate()}
+              disabled={seedHospitalMutation.isPending}
+              data-testid="button-confirm-seed"
+            >
+              {seedHospitalMutation.isPending ? "Seeding..." : "Seed Default Data"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
