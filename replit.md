@@ -39,6 +39,13 @@ The system provides comprehensive inventory management:
 - **Custom Sorting**: Drag-and-drop functionality for organizing folders and moving items, with persistent `sortOrder` and bulk sort API endpoints.
 - **Bulk Import with AI**: AI-powered bulk photo import using OpenAI Vision API for automated item extraction, processed via an asynchronous job queue.
 - **Anesthesia Module Configuration & Access Control**: Hospitals configure an `anesthesiaLocationId` in Hospital Settings to designate which inventory location's items are available in the anesthesia module. Only users assigned to this specific location can access the anesthesia module, ensuring proper access control and enabling intelligent module defaulting. If a user is assigned to the anesthesia location, the system defaults to the anesthesia module on sign-in (if no module preference is saved). This provides a seamless workflow for anesthesia staff while maintaining security boundaries.
+- **Hospital Seed Data System**: Comprehensive default data seeding system that automatically provisions new hospitals with essential configurations. Centralized configuration in `server/seed-data.ts` defines 4 default locations (Anesthesy, OR, ER, ICU), 3 surgery rooms (OP1-OP3), 5 administration groups (Infusions, Pumps, Bolus, Short IVs, Antibiotics), and 13 pre-configured medications including Propofol with specialized rate-controlled administration (mg/kg/h). The system features:
+  - **Automatic Seeding**: Both Google OAuth and email/password signup flows automatically seed new hospitals
+  - **Manual Seeding**: Admin UI button ("Seed Default Data") for seeding existing hospitals
+  - **Additive-Only Logic**: Only creates missing items, never replaces existing customizations (safe, idempotent)
+  - **User Assignment**: Automatically assigns creating user as admin to Anesthesy location and configures anesthesiaLocationId
+  - **Centralized Configuration**: All default data maintained in `server/seed-data.ts` for easy editing and expansion
+  - **Query Invalidation**: UI automatically refreshes after manual seeding to show newly created items
 
 ### Universal Value Editing System
 The `EditableValue` component provides a consistent click-to-edit experience across modules for various data types (text, number, date, vital-point), including time-based editing for vital signs. It supports validation, optional deletion, and is responsive.
