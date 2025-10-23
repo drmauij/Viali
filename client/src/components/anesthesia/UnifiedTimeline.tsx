@@ -1213,9 +1213,9 @@ export function UnifiedTimeline({
     const time = Math.round(clickTime / oneMinute) * oneMinute;
     
     // Validate that time is within editable boundaries
-    const fifteenMinutes = 15 * 60 * 1000;
-    const editableStartBoundary = chartInitTime - fifteenMinutes;
-    const editableEndBoundary = currentTime + fifteenMinutes;
+    const tenMinutes = 10 * 60 * 1000;
+    const editableStartBoundary = currentTime - tenMinutes;
+    const editableEndBoundary = currentTime + tenMinutes;
     
     if (time < editableStartBoundary || time > editableEndBoundary) {
       // Click is outside editable window - ignore
@@ -4106,9 +4106,9 @@ export function UnifiedTimeline({
             time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
             
             // Check if time is within editable boundaries (only show hover if editable)
-            const fifteenMinutes = 15 * 60 * 1000;
-            const editableStartBoundary = chartInitTime - fifteenMinutes;
-            const editableEndBoundary = currentTime + fifteenMinutes;
+            const tenMinutes = 10 * 60 * 1000;
+            const editableStartBoundary = currentTime - tenMinutes;
+            const editableEndBoundary = currentTime + tenMinutes;
             const isEditable = time >= editableStartBoundary && time <= editableEndBoundary;
             
             // Convert y-position to value based on active tool
@@ -4418,9 +4418,9 @@ export function UnifiedTimeline({
             }
             
             // Validate that click time is within editable boundaries
-            const fifteenMinutes = 15 * 60 * 1000;
-            const editableStartBoundary = chartInitTime - fifteenMinutes;
-            const editableEndBoundary = currentTime + fifteenMinutes;
+            const tenMinutes = 10 * 60 * 1000;
+            const editableStartBoundary = currentTime - tenMinutes;
+            const editableEndBoundary = currentTime + tenMinutes;
             
             if (clickInfo.time < editableStartBoundary || clickInfo.time > editableEndBoundary) {
               // Click is outside editable window - ignore
@@ -4715,9 +4715,9 @@ export function UnifiedTimeline({
               time = Math.round(time / oneMinute) * oneMinute;
               
               // Validate that time is within editable boundaries
-              const fifteenMinutes = 15 * 60 * 1000;
-              const editableStartBoundary = chartInitTime - fifteenMinutes;
-              const editableEndBoundary = currentTime + fifteenMinutes;
+              const tenMinutes = 10 * 60 * 1000;
+              const editableStartBoundary = currentTime - tenMinutes;
+              const editableEndBoundary = currentTime + tenMinutes;
               
               if (time < editableStartBoundary || time > editableEndBoundary) {
                 // Click is outside editable window - ignore
@@ -5389,9 +5389,9 @@ export function UnifiedTimeline({
               time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
               
               // Validate that time is within editable boundaries
-              const fifteenMinutes = 15 * 60 * 1000;
-              const editableStartBoundary = chartInitTime - fifteenMinutes;
-              const editableEndBoundary = currentTime + fifteenMinutes;
+              const tenMinutes = 10 * 60 * 1000;
+              const editableStartBoundary = currentTime - tenMinutes;
+              const editableEndBoundary = currentTime + tenMinutes;
               
               if (time < editableStartBoundary || time > editableEndBoundary) {
                 // Click is outside editable window - ignore
@@ -5477,9 +5477,9 @@ export function UnifiedTimeline({
               time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
               
               // Validate that time is within editable boundaries
-              const fifteenMinutes = 15 * 60 * 1000;
-              const editableStartBoundary = chartInitTime - fifteenMinutes;
-              const editableEndBoundary = currentTime + fifteenMinutes;
+              const tenMinutes = 10 * 60 * 1000;
+              const editableStartBoundary = currentTime - tenMinutes;
+              const editableEndBoundary = currentTime + tenMinutes;
               
               if (time < editableStartBoundary || time > editableEndBoundary) {
                 // Click is outside editable window - ignore
