@@ -1669,45 +1669,28 @@ export function UnifiedTimeline({
     const initialStartTime = currentTime - thirtyMinutes;
     const initialEndTime = currentTime + thirtyMinutes;
 
-    // Calculate swimlane positions dynamically
+    // Calculate swimlane positions dynamically with darker group headers
     let currentTop = SWIMLANE_START;
     const swimlaneGrids = activeSwimlanes.map((lane) => {
+      // Use darker background for medication group headers
+      let backgroundColor: string;
+      if (lane.hierarchyLevel === 'group') {
+        // Darker shade for group headers
+        backgroundColor = isDark ? "hsl(150, 45%, 12%)" : "rgba(200, 242, 221, 1)";
+      } else {
+        // Regular color for other lanes
+        backgroundColor = isDark ? lane.colorDark : lane.colorLight;
+      }
+      
       const grid = {
         left: GRID_LEFT,
         right: GRID_RIGHT,
         top: currentTop,
         height: lane.height,
-        backgroundColor: isDark ? lane.colorDark : lane.colorLight,
+        backgroundColor,
       };
       currentTop += lane.height;
       return grid;
-    });
-    
-    // Create separator lines for medication group swimlanes
-    const separatorLines: any[] = [];
-    let currentY = SWIMLANE_START;
-    activeSwimlanes.forEach((lane) => {
-      currentY += lane.height;
-      // Add horizontal line under medication group headers
-      if (lane.hierarchyLevel === 'group') {
-        separatorLines.push({
-          type: 'line',
-          z: 100,
-          left: GRID_LEFT,
-          top: currentY,
-          shape: {
-            x1: 0,
-            y1: 0,
-            x2: 5000, // Long enough to span the entire chart width
-            y2: 0,
-          },
-          style: {
-            stroke: isDark ? '#ffffff' : '#000000',
-            lineWidth: 1,
-          },
-          silent: true,
-        });
-      }
     });
 
     // Combine all grids: vitals + swimlanes
@@ -2313,8 +2296,6 @@ export function UnifiedTimeline({
       graphic: [
         // Y-axis labels
         ...yAxisLabels.map((label, i) => ({ ...label, id: `y-label-${i}` })),
-        // Medication group separator lines
-        ...separatorLines.map((line, i) => ({ ...line, id: `separator-${i}` })),
         // Zone placeholders (will be replaced by useEffect)
         {
           id: 'past-non-editable-zone',
