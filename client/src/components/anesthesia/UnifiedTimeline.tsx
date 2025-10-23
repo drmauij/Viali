@@ -1324,14 +1324,15 @@ export function UnifiedTimeline({
   // Track initial zoom state
   const hasSetInitialZoomRef = useRef(false);
 
-  // Handle chart ready - set initial 60-minute zoom (1 hour)
+  // Handle chart ready - set initial zoom (5min non-editable + 10min editable before NOW, 10min after NOW)
   const handleChartReady = (chart: any) => {
     if (hasSetInitialZoomRef.current) return;
 
     const currentTime = now || data.endTime;
-    const thirtyMinutes = 30 * 60 * 1000;
-    const initialStartTime = currentTime - thirtyMinutes;
-    const initialEndTime = currentTime + thirtyMinutes;
+    const fifteenMinutes = 15 * 60 * 1000;  // 5min non-editable + 10min editable
+    const tenMinutes = 10 * 60 * 1000;
+    const initialStartTime = currentTime - fifteenMinutes;
+    const initialEndTime = currentTime + tenMinutes;
     
     const startPercent = ((initialStartTime - data.startTime) / (data.endTime - data.startTime)) * 100;
     const endPercent = ((initialEndTime - data.startTime) / (data.endTime - data.startTime)) * 100;
@@ -1671,13 +1672,20 @@ export function UnifiedTimeline({
     // Calculate swimlane positions dynamically
     let currentTop = SWIMLANE_START;
     const swimlaneGrids = activeSwimlanes.map((lane) => {
-      const grid = {
+      const grid: any = {
         left: GRID_LEFT,
         right: GRID_RIGHT,
         top: currentTop,
         height: lane.height,
         backgroundColor: isDark ? lane.colorDark : lane.colorLight,
       };
+      
+      // Add bottom border to medication group swimlanes
+      if (lane.hierarchyLevel === 'group') {
+        grid.borderColor = isDark ? '#ffffff' : '#000000';
+        grid.borderWidth = 1;
+      }
+      
       currentTop += lane.height;
       return grid;
     });
@@ -1695,52 +1703,65 @@ export function UnifiedTimeline({
       ...swimlaneGrids,
     ];
 
-    // Create x-axis for each grid with consistent configuration
-    const createXAxis = (gridIndex: number) => ({
-      type: "time" as const,
-      gridIndex,
-      min: data.startTime,
-      max: data.endTime,
-      boundaryGap: false,
-      axisLabel: {
-        show: false, // Hide labels - they're shown in the sticky header
-        formatter: "{HH}:{mm}",
-        fontSize: 11,
-        fontFamily: "Poppins, sans-serif",
-        color: isDark ? "#ffffff" : "#000000",
-        fontWeight: 500,
-      },
-      axisLine: { 
-        show: false, // Hide axis line
-        lineStyle: { color: isDark ? "#444444" : "#d1d5db" }
-      },
-      axisTick: { 
-        show: false, // Hide ticks
-        lineStyle: { color: isDark ? "#444444" : "#d1d5db" }
-      },
-      splitLine: { 
-        show: true, // Show vertical grid lines - ECharts auto-calculates optimal intervals
-        lineStyle: {
-          color: isDark ? "#444444" : "#d1d5db",
-          width: 1,
-          type: "solid" as const,
+    // Create x-axis for each grid with conditional grid line visibility
+    const createXAxis = (gridIndex: number, lane?: SwimlaneConfig) => {
+      // Determine if grid lines should be shown for this swimlane
+      const hideGridLines = lane && (
+        lane.id === "medikamente" ||    // Parent Medications swimlane
+        lane.hierarchyLevel === 'group' || // Medication group headers
+        lane.id === "staff"                // Parent Staff swimlane
+      );
+      
+      return {
+        type: "time" as const,
+        gridIndex,
+        min: data.startTime,
+        max: data.endTime,
+        boundaryGap: false,
+        axisLabel: {
+          show: false, // Hide labels - they're shown in the sticky header
+          formatter: "{HH}:{mm}",
+          fontSize: 11,
+          fontFamily: "Poppins, sans-serif",
+          color: isDark ? "#ffffff" : "#000000",
+          fontWeight: 500,
         },
-      },
-      minorTick: {
-        show: true,
-      },
-      minorSplitLine: {
-        show: true, // Show minor grid lines - ECharts auto-calculates subdivisions
-        lineStyle: {
-          color: isDark ? "#333333" : "#e5e7eb",
-          width: 0.5,
-          type: "dashed" as const,
+        axisLine: { 
+          show: false, // Hide axis line
+          lineStyle: { color: isDark ? "#444444" : "#d1d5db" }
         },
-      },
-      position: "top",
-    });
+        axisTick: { 
+          show: false, // Hide ticks
+          lineStyle: { color: isDark ? "#444444" : "#d1d5db" }
+        },
+        splitLine: { 
+          show: !hideGridLines, // Conditionally show vertical grid lines
+          lineStyle: {
+            color: isDark ? "#444444" : "#d1d5db",
+            width: 1,
+            type: "solid" as const,
+          },
+        },
+        minorTick: {
+          show: !hideGridLines,
+        },
+        minorSplitLine: {
+          show: !hideGridLines, // Conditionally show minor grid lines
+          lineStyle: {
+            color: isDark ? "#333333" : "#e5e7eb",
+            width: 0.5,
+            type: "dashed" as const,
+          },
+        },
+        position: "top",
+      };
+    };
 
-    const xAxes = grids.map((_, index) => createXAxis(index));
+    const xAxes = grids.map((_, index) => {
+      // Grid 0 is vitals, rest are swimlanes
+      const lane = index === 0 ? undefined : activeSwimlanes[index - 1];
+      return createXAxis(index, lane);
+    });
 
     // Y-axes: vitals (dual) + swimlanes (categorical)
     const yAxes = [
@@ -4983,7 +5004,7 @@ export function UnifiedTimeline({
                 right: '10px',
                 top: `${lanePosition.top}px`,
                 height: `${lanePosition.height}px`,
-                zIndex: 35,
+                zIndex: 30,
               }}
               onMouseMove={(e) => {
                 if (isTouchDevice) return;
@@ -5130,7 +5151,7 @@ export function UnifiedTimeline({
                 right: '10px',
                 top: `${lanePosition.top}px`,
                 height: `${lanePosition.height}px`,
-                zIndex: 35,
+                zIndex: 30,
               }}
               onMouseMove={(e) => {
                 if (isTouchDevice) return;
@@ -5394,7 +5415,7 @@ export function UnifiedTimeline({
               right: '10px',
               top: `${outputParentLane.top}px`,
               height: `${outputParentLane.height}px`,
-              zIndex: 35,
+              zIndex: 30,
             }}
             onMouseMove={(e) => {
               if (isTouchDevice) return;
@@ -5505,7 +5526,7 @@ export function UnifiedTimeline({
                 right: '10px',
                 top: `${lanePosition.top}px`,
                 height: `${lanePosition.height}px`,
-                zIndex: 35,
+                zIndex: 30,
               }}
               onMouseMove={(e) => {
                 if (isTouchDevice) return;
@@ -5626,7 +5647,7 @@ export function UnifiedTimeline({
                 right: '10px',
                 top: `${lanePosition.top}px`,
                 height: `${lanePosition.height}px`,
-                zIndex: 35,
+                zIndex: 30,
               }}
               onMouseMove={(e) => {
                 if (isTouchDevice) return;
