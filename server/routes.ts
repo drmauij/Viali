@@ -196,6 +196,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: "admin",
       });
 
+      // Configure Anesthesia Module Location to use Anesthesy location
+      await storage.updateHospital(hospital.id, {
+        anesthesiaLocationId: anesthesyLocation.id
+      });
+
       // Log the user in by creating a session
       req.login({ 
         id: user.id,
@@ -489,6 +494,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hospitalId: hospital.id,
         locationId: anesthesyLocation.id,
         role: "admin",
+      });
+
+      // Configure Anesthesia Module Location to use Anesthesy location
+      await storage.updateHospital(hospital.id, {
+        anesthesiaLocationId: anesthesyLocation.id
       });
 
       res.status(201).json({ 

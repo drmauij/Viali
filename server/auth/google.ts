@@ -100,6 +100,11 @@ async function upsertUser(profile: any) {
       locationId: anesthesyLocation.id,
       role: "admin",
     });
+
+    // Configure Anesthesia Module Location to use Anesthesy location
+    await storage.updateHospital(hospital.id, {
+      anesthesiaLocationId: anesthesyLocation.id
+    });
   }
   
   return user;
