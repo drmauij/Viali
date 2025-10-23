@@ -679,8 +679,8 @@ export function UnifiedTimeline({
         const rawValue = Math.round(maxVal - (yPercent * (maxVal - minVal)));
         value = Math.min(rawValue, 100);
       } else {
-        const minVal = -20;
-        const maxVal = 240;
+        const minVal = 0;
+        const maxVal = 220;
         value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
       }
       
@@ -1384,7 +1384,7 @@ export function UnifiedTimeline({
     const updateZones = () => {
       // Calculate heights outside try block for error logging
       const VITALS_TOP = 32;
-      const VITALS_HEIGHT = 340;
+      const VITALS_HEIGHT = 500;
       const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
       const chartHeight = VITALS_HEIGHT + swimlanesHeight;
       
@@ -1659,8 +1659,8 @@ export function UnifiedTimeline({
   const option = useMemo(() => {
     // Layout constants
     const VITALS_TOP = 32; // Space for sticky header (32px)
-    const VITALS_HEIGHT = 340;
-    const SWIMLANE_START = VITALS_TOP + VITALS_HEIGHT; // 396px
+    const VITALS_HEIGHT = 500;
+    const SWIMLANE_START = VITALS_TOP + VITALS_HEIGHT; // 532px
     const GRID_LEFT = 200; // Increased width to accommodate longer header text
     const GRID_RIGHT = 10;
 
@@ -1773,12 +1773,12 @@ export function UnifiedTimeline({
 
     // Y-axes: vitals (dual) + swimlanes (categorical)
     const yAxes = [
-      // Vitals grid - First y-axis (BP/HR: -20 to 240 range for top and bottom padding, showing 0-220 labels)
+      // Vitals grid - First y-axis (BP/HR: 0 to 220 range, showing 20-220 labels)
       {
         type: "value" as const,
         gridIndex: 0,
-        min: -20,
-        max: 240,
+        min: 0,
+        max: 220,
         interval: 20,
         axisLabel: { show: false }, // Hide labels (we render manually)
         axisLine: { show: false }, // Hide axis line
@@ -2250,9 +2250,9 @@ export function UnifiedTimeline({
     // Generate manual y-axis labels in the white space
     const yAxisLabels: any[] = [];
     
-    // First y-axis (0-220, interval 20) - positioned at x=140px, grid extends -20 to 240 for top and bottom padding
-    for (let val = 0; val <= 220; val += 20) {
-      const yPercent = ((240 - val) / 260) * 100; // Invert because top is 0, using 260 range (-20 to 240)
+    // First y-axis (20-220, interval 20) - positioned at x=140px, grid extends 0 to 220
+    for (let val = 20; val <= 220; val += 20) {
+      const yPercent = ((220 - val) / 220) * 100; // Invert because top is 0, using 220 range (0 to 220)
       const yPos = VITALS_TOP + (yPercent / 100) * VITALS_HEIGHT;
       yAxisLabels.push({
         type: "text",
@@ -2388,7 +2388,7 @@ export function UnifiedTimeline({
   }, [data, isDark, activeSwimlanes, now, hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, medicationDoseData, zoomPercent, pendingSysValue, bpEntryMode, currentTime, collapsedSwimlanes, dragPosition, selectedPoint]);
 
   // Calculate component height
-  const VITALS_HEIGHT = 340;
+  const VITALS_HEIGHT = 500;
   const VITALS_TOP_POS = 32; // Position accounting for sticky header (32px)
   const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
   const componentHeight = height ?? (VITALS_TOP_POS + VITALS_HEIGHT + swimlanesHeight);
@@ -4111,17 +4111,17 @@ export function UnifiedTimeline({
                 const rawValue = Math.round(maxVal - (yPercent * (maxVal - minVal)));
                 value = Math.min(rawValue, 100);
               } else {
-                const minVal = -20;
-                const maxVal = 240;
+                const minVal = 0;
+                const maxVal = 220;
                 value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
               }
               const fixedTime = selectedPoint.originalTime; // Keep time constant during drag
               setDragPosition({ time: fixedTime, value });
               setHoverInfo({ x: e.clientX, y: e.clientY, value, time: fixedTime });
             } else if (isEditable && (activeToolMode === 'hr' || activeToolMode === 'bp' || (activeToolMode === 'blend' && (blendSequenceStep === 'sys' || blendSequenceStep === 'dia' || blendSequenceStep === 'hr')))) {
-              // BP/HR scale: -20 to 240 (only show if within editable window)
-              const minVal = -20;
-              const maxVal = 240;
+              // BP/HR scale: 0 to 220 (only show if within editable window)
+              const minVal = 0;
+              const maxVal = 220;
               value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
               setHoverInfo({ x: e.clientX, y: e.clientY, value, time });
             } else if (isEditable && (activeToolMode === 'spo2' || (activeToolMode === 'blend' && blendSequenceStep === 'spo2'))) {
@@ -4173,8 +4173,8 @@ export function UnifiedTimeline({
               const xPos = ((time - visibleStart) / visibleRange) * rect.width;
               let yPos: number;
               if (scale === 'bp-hr') {
-                const minVal = -20;
-                const maxVal = 240;
+                const minVal = 0;
+                const maxVal = 220;
                 yPos = ((maxVal - value) / (maxVal - minVal)) * rect.height;
               } else {
                 const minVal = 45;
@@ -4281,8 +4281,8 @@ export function UnifiedTimeline({
               const xPos = ((time - visibleStart) / visibleRange) * rect.width;
               let yPos: number;
               if (scale === 'bp-hr') {
-                const minVal = -20;
-                const maxVal = 240;
+                const minVal = 0;
+                const maxVal = 220;
                 yPos = ((maxVal - value) / (maxVal - minVal)) * rect.height;
               } else {
                 const minVal = 45;
@@ -4381,8 +4381,8 @@ export function UnifiedTimeline({
               let value: number;
               
               if (activeToolMode === 'hr' || activeToolMode === 'bp' || (activeToolMode === 'blend' && (blendSequenceStep === 'sys' || blendSequenceStep === 'dia' || blendSequenceStep === 'hr'))) {
-                const minVal = -20;
-                const maxVal = 240;
+                const minVal = 0;
+                const maxVal = 220;
                 value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
               } else if (activeToolMode === 'spo2' || (activeToolMode === 'blend' && blendSequenceStep === 'spo2')) {
                 // SpO2 scale: 45 to 105, capped at 100%
