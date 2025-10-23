@@ -123,6 +123,11 @@ PRODUCTION_URL="https://yourdomain.com"
 # Server Port (defaults to 5000)
 PORT="5000"
 
+# Database SSL Certificate Validation (optional)
+# Set to 'false' ONLY if using self-signed certificates (e.g., development)
+# Default: true (secure - validates certificates)
+DB_SSL_REJECT_UNAUTHORIZED="false"
+
 # Barcode Lookup API (optional)
 EAN_SEARCH_API_KEY="your-ean-api-key"
 ```

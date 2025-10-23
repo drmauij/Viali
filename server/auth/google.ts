@@ -10,12 +10,15 @@ export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const pgStore = connectPg(session);
   
-  // Create a pool with SSL configuration for custom PostgreSQL servers (e.g., Exoscale)
+  // Create a pool with SSL configuration for PostgreSQL
+  // Only accept self-signed certificates if explicitly configured
+  const sslConfig = process.env.DATABASE_URL?.includes('sslmode=require')
+    ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' }
+    : undefined;
+  
   const sessionPool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: {
-      rejectUnauthorized: false // Accept self-signed certificates
-    }
+    ssl: sslConfig
   });
   
   const sessionStore = new pgStore({
@@ -101,6 +104,11 @@ async function upsertUser(profile: any) {
   return user;
 }
 
+// Check if Google OAuth is configured
+export function isGoogleOAuthConfigured(): boolean {
+  return !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+}
+
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
   app.use(getSession());
@@ -113,13 +121,15 @@ export async function setupAuth(app: Express) {
     return `${baseUrl}/api/auth/google/callback`;
   };
 
+  const googleConfigured = isGoogleOAuthConfigured();
+
   // Setup Google OAuth strategy if credentials are provided
-  if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  if (googleConfigured) {
     console.log('[Auth] Setting up Google OAuth strategy');
     
     passport.use(new GoogleStrategy({
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      clientID: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       callbackURL: getCallbackURL(),
       scope: ['profile', 'email']
     }, async (accessToken, refreshToken, profile, done) => {
@@ -139,8 +149,38 @@ export async function setupAuth(app: Express) {
         done(error);
       }
     }));
+
+    // Google OAuth routes - only mount if configured
+    app.get("/api/auth/google", 
+      passport.authenticate("google", { 
+        scope: ["profile", "email"] 
+      })
+    );
+
+    app.get("/api/auth/google/callback",
+      passport.authenticate("google", {
+        failureRedirect: "/login",
+      }),
+      (req, res) => {
+        // Successful authentication, redirect home
+        res.redirect("/");
+      }
+    );
   } else {
     console.log('[Auth] Google OAuth not configured (missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET)');
+    
+    // Return 503 Service Unavailable when Google OAuth is not configured
+    app.get("/api/auth/google", (req, res) => {
+      res.status(503).json({ 
+        message: "Google OAuth is not configured on this server. Please use email/password login or contact your administrator." 
+      });
+    });
+
+    app.get("/api/auth/google/callback", (req, res) => {
+      res.status(503).json({ 
+        message: "Google OAuth is not configured on this server." 
+      });
+    });
   }
 
   passport.serializeUser((user: any, done) => {
@@ -151,23 +191,6 @@ export async function setupAuth(app: Express) {
     done(null, user);
   });
 
-  // Google OAuth routes
-  app.get("/api/auth/google", 
-    passport.authenticate("google", { 
-      scope: ["profile", "email"] 
-    })
-  );
-
-  app.get("/api/auth/google/callback",
-    passport.authenticate("google", {
-      failureRedirect: "/login",
-    }),
-    (req, res) => {
-      // Successful authentication, redirect home
-      res.redirect("/");
-    }
-  );
-
   app.get("/api/logout", (req, res) => {
     req.logout((err) => {
       if (err) {
@@ -175,6 +198,11 @@ export async function setupAuth(app: Express) {
       }
       res.redirect("/");
     });
+  });
+
+  // API endpoint to check if Google OAuth is available
+  app.get("/api/auth/google/status", (req, res) => {
+    res.json({ available: googleConfigured });
   });
 }
 

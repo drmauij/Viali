@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,16 @@ export default function Landing() {
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetSent, setResetSent] = useState(false);
+  const [googleOAuthAvailable, setGoogleOAuthAvailable] = useState(false);
   const { toast } = useToast();
+
+  // Check if Google OAuth is available
+  useEffect(() => {
+    fetch('/api/auth/google/status')
+      .then(res => res.json())
+      .then(data => setGoogleOAuthAvailable(data.available))
+      .catch(() => setGoogleOAuthAvailable(false));
+  }, []);
 
   const handleGoogleLogin = () => {
     window.location.href = "/api/auth/google";
@@ -105,23 +114,27 @@ export default function Landing() {
           <CardContent className="p-6">
             {!showSignup ? (
               <>
-                {/* Google OAuth Login */}
-                <Button 
-                  className="w-full mb-4" 
-                  size="lg"
-                  onClick={handleGoogleLogin}
-                  data-testid="login-btn"
-                >
-                  <i className="fab fa-google mr-2"></i>
-                  Sign in with Google
-                </Button>
-                
-                {/* Divider */}
-                <div className="flex items-center gap-4 my-6">
-                  <div className="flex-1 h-px bg-border"></div>
-                  <span className="text-sm text-muted-foreground">or</span>
-                  <div className="flex-1 h-px bg-border"></div>
-                </div>
+                {/* Google OAuth Login - only show if available */}
+                {googleOAuthAvailable && (
+                  <>
+                    <Button 
+                      className="w-full mb-4" 
+                      size="lg"
+                      onClick={handleGoogleLogin}
+                      data-testid="login-btn"
+                    >
+                      <i className="fab fa-google mr-2"></i>
+                      Sign in with Google
+                    </Button>
+                    
+                    {/* Divider */}
+                    <div className="flex items-center gap-4 my-6">
+                      <div className="flex-1 h-px bg-border"></div>
+                      <span className="text-sm text-muted-foreground">or</span>
+                      <div className="flex-1 h-px bg-border"></div>
+                    </div>
+                  </>
+                )}
                 
                 {/* Email/Password Form */}
                 <form className="space-y-4" onSubmit={handleLocalLogin}>
@@ -191,24 +204,28 @@ export default function Landing() {
                   Sign up to create a new hospital account. You'll be assigned as the admin automatically.
                 </p>
                 
-                {/* Google OAuth Signup */}
-                <Button 
-                  className="w-full mb-4" 
-                  size="lg"
-                  onClick={handleGoogleLogin}
-                  data-testid="signup-google-btn"
-                  disabled={isLoading}
-                >
-                  <i className="fab fa-google mr-2"></i>
-                  Sign up with Google
-                </Button>
-                
-                {/* Divider */}
-                <div className="flex items-center gap-4 my-6">
-                  <div className="flex-1 h-px bg-border"></div>
-                  <span className="text-sm text-muted-foreground">or</span>
-                  <div className="flex-1 h-px bg-border"></div>
-                </div>
+                {/* Google OAuth Signup - only show if available */}
+                {googleOAuthAvailable && (
+                  <>
+                    <Button 
+                      className="w-full mb-4" 
+                      size="lg"
+                      onClick={handleGoogleLogin}
+                      data-testid="signup-google-btn"
+                      disabled={isLoading}
+                    >
+                      <i className="fab fa-google mr-2"></i>
+                      Sign up with Google
+                    </Button>
+                    
+                    {/* Divider */}
+                    <div className="flex items-center gap-4 my-6">
+                      <div className="flex-1 h-px bg-border"></div>
+                      <span className="text-sm text-muted-foreground">or</span>
+                      <div className="flex-1 h-px bg-border"></div>
+                    </div>
+                  </>
+                )}
                 
                 {/* Email/Password Signup Form */}
                 <form className="space-y-4" onSubmit={handleEmailSignup}>
