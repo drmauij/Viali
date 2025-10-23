@@ -127,9 +127,6 @@ PORT="5000"
 # Set to 'false' ONLY if using self-signed certificates (e.g., development)
 # Default: true (secure - validates certificates)
 DB_SSL_REJECT_UNAUTHORIZED="false"
-
-# Barcode Lookup API (optional)
-EAN_SEARCH_API_KEY="your-ean-api-key"
 ```
 
 ### Generating Secrets

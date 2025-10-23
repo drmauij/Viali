@@ -81,8 +81,8 @@ Viali can be deployed on any server with Node.js and PostgreSQL. This guide cove
 
 #### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/viali.git
-cd viali
+git clone https://github.com/drmauij/Viali.git
+cd Viali
 ```
 
 #### 2. Install Dependencies
@@ -132,9 +132,6 @@ PORT="5000"
 # Database SSL Certificate Validation (defaults to true for security)
 # Set to 'false' ONLY if using self-signed certificates in development
 DB_SSL_REJECT_UNAUTHORIZED="false"
-
-# Barcode Lookup API (optional)
-EAN_SEARCH_API_KEY="your-ean-api-key"
 ```
 
 **Generate Random Secrets:**
