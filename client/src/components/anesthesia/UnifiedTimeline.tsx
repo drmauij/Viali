@@ -1672,22 +1672,39 @@ export function UnifiedTimeline({
     // Calculate swimlane positions dynamically
     let currentTop = SWIMLANE_START;
     const swimlaneGrids = activeSwimlanes.map((lane) => {
-      const grid: any = {
+      const grid = {
         left: GRID_LEFT,
         right: GRID_RIGHT,
         top: currentTop,
         height: lane.height,
         backgroundColor: isDark ? lane.colorDark : lane.colorLight,
       };
-      
-      // Add bottom border to medication group swimlanes
-      if (lane.hierarchyLevel === 'group') {
-        grid.borderColor = isDark ? '#ffffff' : '#000000';
-        grid.borderWidth = 1;
-      }
-      
       currentTop += lane.height;
       return grid;
+    });
+    
+    // Create separator lines for medication group swimlanes
+    const separatorLines: any[] = [];
+    let currentY = SWIMLANE_START;
+    activeSwimlanes.forEach((lane) => {
+      currentY += lane.height;
+      // Add horizontal line under medication group headers
+      if (lane.hierarchyLevel === 'group') {
+        separatorLines.push({
+          type: 'line',
+          z: 100,
+          shape: {
+            x1: GRID_LEFT,
+            y1: currentY,
+            x2: `calc(100% - ${GRID_RIGHT}px)` as any,
+            y2: currentY,
+          },
+          style: {
+            stroke: isDark ? '#ffffff' : '#000000',
+            lineWidth: 1,
+          },
+        });
+      }
     });
 
     // Combine all grids: vitals + swimlanes
