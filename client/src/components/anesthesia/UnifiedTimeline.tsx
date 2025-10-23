@@ -1214,8 +1214,8 @@ export function UnifiedTimeline({
     
     // Validate that time is within editable boundaries
     const tenMinutes = 10 * 60 * 1000;
-    const editableStartBoundary = currentTime - tenMinutes;
-    const editableEndBoundary = currentTime + tenMinutes;
+    const editableStartBoundary = chartInitTime - tenMinutes; // FIXED boundary
+    const editableEndBoundary = currentTime + tenMinutes; // MOVING boundary
     
     if (time < editableStartBoundary || time > editableEndBoundary) {
       // Click is outside editable window - ignore
@@ -1387,11 +1387,11 @@ export function UnifiedTimeline({
         const tenMinutes = 10 * 60 * 1000;
         
         // Progressive editable window:
-        // Zone 1 (past/non-editable): from data.startTime to (currentTime - 10 min) [MOVING]
-        // Zone 2 (editable): from (currentTime - 10 min) to (currentTime + 10 min) [20 min around NOW, EXPANDING]
+        // Zone 1 (past/non-editable): from data.startTime to (chartInitTime - 10 min) [FIXED]
+        // Zone 2 (editable): from (chartInitTime - 10 min) to (currentTime + 10 min) [EXPANDING as time progresses]
         // Zone 3 (future/non-editable): from (currentTime + 10 min) to data.endTime [MOVING]
-        const editableStartBoundary = currentTime - tenMinutes; // 10min before NOW
-        const editableEndBoundary = currentTime + tenMinutes; // 10min after NOW
+        const editableStartBoundary = chartInitTime - tenMinutes; // FIXED - 10min before case start
+        const editableEndBoundary = currentTime + tenMinutes; // MOVING - 10min after NOW
         
         // Use convertToPixel to get accurate pixel positions based on current zoom
         const startPx = chart.convertToPixel({ xAxisIndex: 0 }, data.startTime);
@@ -4088,8 +4088,8 @@ export function UnifiedTimeline({
             
             // Check if time is within editable boundaries (only show hover if editable)
             const tenMinutes = 10 * 60 * 1000;
-            const editableStartBoundary = currentTime - tenMinutes;
-            const editableEndBoundary = currentTime + tenMinutes;
+            const editableStartBoundary = chartInitTime - tenMinutes; // FIXED boundary
+            const editableEndBoundary = currentTime + tenMinutes; // MOVING boundary
             const isEditable = time >= editableStartBoundary && time <= editableEndBoundary;
             
             // Convert y-position to value based on active tool
@@ -4697,8 +4697,8 @@ export function UnifiedTimeline({
               
               // Validate that time is within editable boundaries
               const tenMinutes = 10 * 60 * 1000;
-              const editableStartBoundary = currentTime - tenMinutes;
-              const editableEndBoundary = currentTime + tenMinutes;
+              const editableStartBoundary = chartInitTime - tenMinutes; // FIXED boundary
+              const editableEndBoundary = currentTime + tenMinutes; // MOVING boundary
               
               if (time < editableStartBoundary || time > editableEndBoundary) {
                 // Click is outside editable window - ignore
@@ -4786,6 +4786,16 @@ export function UnifiedTimeline({
               const oneMinute = 60 * 1000;
               time = Math.round(time / oneMinute) * oneMinute;
               
+              // Validate that time is within editable boundaries
+              const tenMinutes = 10 * 60 * 1000;
+              const editableStartBoundary = chartInitTime - tenMinutes; // FIXED boundary
+              const editableEndBoundary = currentTime + tenMinutes; // MOVING boundary
+              
+              if (time < editableStartBoundary || time > editableEndBoundary) {
+                // Click is outside editable window - ignore
+                return;
+              }
+              
               setPendingHeartRhythm({ time });
               setEditingHeartRhythm(null);
               setHeartRhythmInput("");
@@ -4870,6 +4880,16 @@ export function UnifiedTimeline({
               // Snap to 1-minute intervals
               const oneMinute = 60 * 1000;
               time = Math.round(time / oneMinute) * oneMinute;
+              
+              // Validate that time is within editable boundaries
+              const tenMinutes = 10 * 60 * 1000;
+              const editableStartBoundary = chartInitTime - tenMinutes; // FIXED boundary
+              const editableEndBoundary = currentTime + tenMinutes; // MOVING boundary
+              
+              if (time < editableStartBoundary || time > editableEndBoundary) {
+                // Click is outside editable window - ignore
+                return;
+              }
               
               // Prefill with current user's name
               const userFirstName = (user as any)?.firstName || "";
@@ -4957,6 +4977,16 @@ export function UnifiedTimeline({
               // Snap to 1-minute intervals
               const oneMinute = 60 * 1000;
               time = Math.round(time / oneMinute) * oneMinute;
+              
+              // Validate that time is within editable boundaries
+              const tenMinutes = 10 * 60 * 1000;
+              const editableStartBoundary = chartInitTime - tenMinutes; // FIXED boundary
+              const editableEndBoundary = currentTime + tenMinutes; // MOVING boundary
+              
+              if (time < editableStartBoundary || time > editableEndBoundary) {
+                // Click is outside editable window - ignore
+                return;
+              }
               
               setPendingPosition({ time });
               setEditingPosition(null);
@@ -5371,8 +5401,8 @@ export function UnifiedTimeline({
               
               // Validate that time is within editable boundaries
               const tenMinutes = 10 * 60 * 1000;
-              const editableStartBoundary = currentTime - tenMinutes;
-              const editableEndBoundary = currentTime + tenMinutes;
+              const editableStartBoundary = chartInitTime - tenMinutes; // FIXED boundary
+              const editableEndBoundary = currentTime + tenMinutes; // MOVING boundary
               
               if (time < editableStartBoundary || time > editableEndBoundary) {
                 // Click is outside editable window - ignore
@@ -5459,8 +5489,8 @@ export function UnifiedTimeline({
               
               // Validate that time is within editable boundaries
               const tenMinutes = 10 * 60 * 1000;
-              const editableStartBoundary = currentTime - tenMinutes;
-              const editableEndBoundary = currentTime + tenMinutes;
+              const editableStartBoundary = chartInitTime - tenMinutes; // FIXED boundary
+              const editableEndBoundary = currentTime + tenMinutes; // MOVING boundary
               
               if (time < editableStartBoundary || time > editableEndBoundary) {
                 // Click is outside editable window - ignore
@@ -5571,9 +5601,9 @@ export function UnifiedTimeline({
                 time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
                 
                 // Validate that time is within editable boundaries
-                const fifteenMinutes = 15 * 60 * 1000;
-                const editableStartBoundary = chartInitTime - fifteenMinutes;
-                const editableEndBoundary = currentTime + fifteenMinutes;
+                const tenMinutes = 10 * 60 * 1000;
+                const editableStartBoundary = chartInitTime - tenMinutes; // FIXED boundary
+                const editableEndBoundary = currentTime + tenMinutes; // MOVING boundary
                 
                 if (time < editableStartBoundary || time > editableEndBoundary) {
                   // Click is outside editable window - ignore
