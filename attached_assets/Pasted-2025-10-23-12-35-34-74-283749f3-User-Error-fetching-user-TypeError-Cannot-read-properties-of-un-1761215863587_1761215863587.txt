@@ -1,0 +1,112 @@
+2025-10-23 12:35:34.74
+283749f3
+User
+Error fetching user: TypeError: Cannot read properties of undefined (reading 'sub')
+2025-10-23 12:35:34.74
+283749f3
+User
+at file:///home/runner/workspace/dist/index.js:2437:38
+2025-10-23 12:35:34.74
+283749f3
+User
+at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+2025-10-23 12:35:34.74
+283749f3
+User
+at next (/home/runner/workspace/node_modules/express/lib/router/route.js:149:13)
+2025-10-23 12:35:34.74
+283749f3
+User
+at isAuthenticated (file:///home/runner/workspace/dist/index.js:2125:10)
+2025-10-23 12:35:34.74
+283749f3
+User
+at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+2025-10-23 12:35:34.74
+283749f3
+User
+at next (/home/runner/workspace/node_modules/express/lib/router/route.js:149:13)
+2025-10-23 12:35:34.74
+283749f3
+User
+at Route.dispatch (/home/runner/workspace/node_modules/express/lib/router/route.js:119:3)
+2025-10-23 12:35:34.74
+283749f3
+User
+at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+2025-10-23 12:35:34.74
+283749f3
+User
+at /home/runner/workspace/node_modules/express/lib/router/index.js:284:15
+2025-10-23 12:35:34.74
+283749f3
+User
+at Function.process_params (/home/runner/workspace/node_modules/express/lib/router/index.js:346:12)
+2025-10-23 12:35:34.79
+283749f3
+User
+10:35:34 AM [express] GET /api/auth/user 500 in 92ms :: {"message":"Failed to fetch user"}
+2025-10-23 12:35:35.02
+283749f3
+User
+10:35:35 AM [express] GET /api/auth/google/status 304 in 91ms :: {"available":true}
+2025-10-23 12:36:00.05
+283749f3
+User
+10:36:00 AM [express] GET /api/auth/google 302 in 350ms
+2025-10-23 12:36:01.11
+283749f3
+User
+10:36:01 AM [express] GET /api/auth/google/callback 302 in 637ms
+2025-10-23 12:36:02.08
+283749f3
+User
+Error fetching user: TypeError: Cannot read properties of undefined (reading 'sub')
+2025-10-23 12:36:02.08
+283749f3
+User
+at file:///home/runner/workspace/dist/index.js:2437:38
+2025-10-23 12:36:02.08
+283749f3
+User
+at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+2025-10-23 12:36:02.08
+283749f3
+User
+at next (/home/runner/workspace/node_modules/express/lib/router/route.js:149:13)
+2025-10-23 12:36:02.08
+283749f3
+User
+at isAuthenticated (file:///home/runner/workspace/dist/index.js:2125:10)
+2025-10-23 12:36:02.08
+283749f3
+User
+at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+2025-10-23 12:36:02.08
+283749f3
+User
+at next (/home/runner/workspace/node_modules/express/lib/router/route.js:149:13)
+2025-10-23 12:36:02.08
+283749f3
+User
+at Route.dispatch (/home/runner/workspace/node_modules/express/lib/router/route.js:119:3)
+2025-10-23 12:36:02.08
+283749f3
+User
+at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+2025-10-23 12:36:02.08
+283749f3
+User
+at /home/runner/workspace/node_modules/express/lib/router/index.js:284:15
+2025-10-23 12:36:02.08
+283749f3
+User
+at Function.process_params (/home/runner/workspace/node_modules/express/lib/router/index.js:346:12)
+2025-10-23 12:36:02.13
+283749f3
+User
+10:36:02 AM [express] GET /api/auth/user 500 in 89ms :: {"message":"Failed to fetch user"}
+2025-10-23 12:36:02.36
+283749f3
+User
+10:36:02 AM [express] GET /api/auth/google/status 304 in 88ms :: {"available":true}
