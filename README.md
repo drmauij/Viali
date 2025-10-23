@@ -81,8 +81,8 @@ Viali can be deployed on any server with Node.js and PostgreSQL. This guide cove
 
 #### 1. Clone the Repository
 ```bash
-git clone https://github.com/drmauij/Viali.git
-cd Viali
+git clone https://github.com/drmauij/viali.git
+cd viali
 ```
 
 #### 2. Install Dependencies
