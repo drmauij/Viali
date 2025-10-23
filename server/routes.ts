@@ -286,7 +286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Change own password route
   app.post('/api/auth/change-password', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { currentPassword, newPassword } = req.body;
 
       if (!currentPassword || !newPassword) {
@@ -423,7 +423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
@@ -448,7 +448,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/signup', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { hospitalName } = req.body;
 
       if (!hospitalName) {
@@ -522,7 +522,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { hospitalId } = req.params;
       const { locationId } = req.query;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Verify user has access to this hospital and location
       const userHospitals = await storage.getUserHospitals(userId);
@@ -542,7 +542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/folders', isAuthenticated, async (req: any, res) => {
     try {
       const folderData = insertFolderSchema.parse(req.body);
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       const locationId = await getUserLocationForHospital(userId, folderData.hospitalId);
       if (!locationId || locationId !== folderData.locationId) {
@@ -561,7 +561,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/folders/bulk-sort', isAuthenticated, async (req: any, res) => {
     try {
       const { folders: folderUpdates } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       if (!folderUpdates || !Array.isArray(folderUpdates)) {
         return res.status(400).json({ message: "Folders array is required" });
@@ -598,7 +598,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { folderId } = req.params;
       const updates = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       const folder = await storage.getFolder(folderId);
       if (!folder) {
@@ -621,7 +621,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/folders/:folderId', isAuthenticated, async (req: any, res) => {
     try {
       const { folderId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       const folder = await storage.getFolder(folderId);
       if (!folder) {
@@ -646,7 +646,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { hospitalId } = req.params;
       const { critical, controlled, belowMin, expiring, locationId } = req.query;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Verify user has access to this hospital and location
       const userHospitals = await storage.getUserHospitals(userId);
@@ -678,7 +678,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/items/detail/:itemId', isAuthenticated, async (req: any, res) => {
     try {
       const { itemId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       const item = await storage.getItem(itemId);
       if (!item) {
@@ -760,7 +760,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/items/bulk-update', isAuthenticated, async (req: any, res) => {
     try {
       const { items: bulkItems } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       if (!bulkItems || !Array.isArray(bulkItems) || bulkItems.length === 0) {
         return res.status(400).json({ message: "Items array is required" });
@@ -841,7 +841,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/items/bulk-sort', isAuthenticated, async (req: any, res) => {
     try {
       const { items: itemUpdates } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       if (!itemUpdates || !Array.isArray(itemUpdates)) {
         return res.status(400).json({ message: "Items array is required" });
@@ -873,7 +873,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/items/:itemId', isAuthenticated, async (req: any, res) => {
     try {
       const { itemId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Get the item to verify access
       const item = await storage.getItem(itemId);
@@ -953,7 +953,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/items/:itemId/reduce-unit', isAuthenticated, async (req: any, res) => {
     try {
       const { itemId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Get the item to verify access and current values
       const item = await storage.getItem(itemId);
@@ -1023,7 +1023,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/items/:itemId', isAuthenticated, async (req: any, res) => {
     try {
       const { itemId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Get the item to verify access
       const item = await storage.getItem(itemId);
@@ -1050,7 +1050,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/items/bulk-delete', isAuthenticated, async (req: any, res) => {
     try {
       const { itemIds } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       if (!Array.isArray(itemIds) || itemIds.length === 0) {
         return res.status(400).json({ message: "Item IDs array is required" });
@@ -1103,7 +1103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/anesthesia/items/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Verify user has access to this hospital
       const userLocationId = await getUserLocationForHospital(userId, hospitalId);
@@ -1182,7 +1182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/items/:itemId/anesthesia-config', isAuthenticated, async (req: any, res) => {
     try {
       const { itemId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Get the item to verify access
       const item = await storage.getItem(itemId);
@@ -1879,7 +1879,7 @@ If unable to parse any drugs, return:
   app.post('/api/items/bulk', isAuthenticated, async (req: any, res) => {
     try {
       const { items: bulkItems, hospitalId } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       if (!bulkItems || !Array.isArray(bulkItems) || bulkItems.length === 0) {
         return res.status(400).json({ message: "Items array is required" });
@@ -1985,7 +1985,7 @@ If unable to parse any drugs, return:
   app.post('/api/import-jobs', isAuthenticated, async (req: any, res) => {
     try {
       const { images, hospitalId } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
 
       if (!images || !Array.isArray(images) || images.length === 0) {
         return res.status(400).json({ message: "Images array is required" });
@@ -2060,7 +2060,7 @@ If unable to parse any drugs, return:
   app.get('/api/import-jobs/:id', isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
 
       const job = await storage.getImportJob(id);
       if (!job) {
@@ -2174,7 +2174,7 @@ If unable to parse any drugs, return:
         return res.status(400).json({ message: "Barcode and hospitalId are required" });
       }
       
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const locationId = await getUserLocationForHospital(userId, hospitalId);
       if (!locationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
@@ -2252,7 +2252,7 @@ If unable to parse any drugs, return:
   app.post('/api/stock/update', isAuthenticated, async (req: any, res) => {
     try {
       const { itemId, qty, delta, notes } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       if (!itemId || qty === undefined) {
         return res.status(400).json({ message: "Missing required fields" });
@@ -2300,7 +2300,7 @@ If unable to parse any drugs, return:
     try {
       const { hospitalId } = req.params;
       const { status } = req.query;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Verify user has access to this hospital
       const locationId = await getUserLocationForHospital(userId, hospitalId);
@@ -2319,7 +2319,7 @@ If unable to parse any drugs, return:
   app.get('/api/orders/open-items/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Verify user has access to this hospital
       const locationId = await getUserLocationForHospital(userId, hospitalId);
@@ -2359,7 +2359,7 @@ If unable to parse any drugs, return:
   app.post('/api/orders', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId, vendorId, orderLines: lines } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       if (!hospitalId) {
         return res.status(400).json({ message: "Hospital ID is required" });
@@ -2395,7 +2395,7 @@ If unable to parse any drugs, return:
   app.post('/api/orders/quick-add', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId, itemId, vendorId, qty, packSize } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       if (!hospitalId || !itemId) {
         return res.status(400).json({ message: "Hospital ID and Item ID are required" });
@@ -2421,7 +2421,7 @@ If unable to parse any drugs, return:
     try {
       const { orderId } = req.params;
       const { status } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       if (!status) {
         return res.status(400).json({ message: "Status is required" });
@@ -2451,7 +2451,7 @@ If unable to parse any drugs, return:
     try {
       const { lineId } = req.params;
       const { qty } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       if (!qty || qty < 1) {
         return res.status(400).json({ message: "Valid quantity is required" });
@@ -2487,7 +2487,7 @@ If unable to parse any drugs, return:
     try {
       const { lineId } = req.params;
       const { notes, signature } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Get order line with item details
       const [lineWithItem] = await db
@@ -2614,7 +2614,7 @@ If unable to parse any drugs, return:
   app.delete('/api/order-lines/:lineId', isAuthenticated, async (req: any, res) => {
     try {
       const { lineId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Get order line to find associated order
       const [line] = await db.select().from(orderLines).where(eq(orderLines.id, lineId));
@@ -2645,7 +2645,7 @@ If unable to parse any drugs, return:
   app.delete('/api/orders/:orderId', isAuthenticated, async (req: any, res) => {
     try {
       const { orderId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Get order to verify access
       const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
@@ -2739,7 +2739,7 @@ If unable to parse any drugs, return:
 
   app.post('/api/controlled/dispense', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { items: dispenseItems, patientId, patientPhoto, notes, signatures } = req.body;
       
       if (!dispenseItems || !Array.isArray(dispenseItems) || dispenseItems.length === 0) {
@@ -2830,7 +2830,7 @@ If unable to parse any drugs, return:
   // Manual adjustment of controlled substance inventory
   app.post('/api/controlled/adjust', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { itemId, newCurrentUnits, notes, signature } = req.body;
       
       if (!itemId) {
@@ -2918,7 +2918,7 @@ If unable to parse any drugs, return:
   app.get('/api/controlled/log/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       const locationId = await getUserLocationForHospital(userId, hospitalId);
       if (!locationId) {
@@ -2964,7 +2964,7 @@ If unable to parse any drugs, return:
 
   app.post('/api/controlled/checks', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { hospitalId, locationId, signature, checkItems, notes } = req.body;
       
       if (!hospitalId || !locationId || !signature || !checkItems) {
@@ -2998,7 +2998,7 @@ If unable to parse any drugs, return:
   app.get('/api/controlled/checks/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       const locationId = await getUserLocationForHospital(userId, hospitalId);
       if (!locationId) {
@@ -3017,7 +3017,7 @@ If unable to parse any drugs, return:
     try {
       const { activityId } = req.params;
       const { signature } = req.body;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       if (!signature) {
         return res.status(400).json({ message: "Signature is required" });
@@ -3059,7 +3059,7 @@ If unable to parse any drugs, return:
     try {
       const { hospitalId } = req.params;
       const { locationId, acknowledged } = req.query;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Verify user has access to this hospital and location
       const userHospitals = await storage.getUserHospitals(userId);
@@ -3080,7 +3080,7 @@ If unable to parse any drugs, return:
   app.post('/api/alerts/:alertId/acknowledge', isAuthenticated, async (req: any, res) => {
     try {
       const { alertId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       const alert = await storage.acknowledgeAlert(alertId, userId);
       res.json(alert);
@@ -3111,7 +3111,7 @@ If unable to parse any drugs, return:
   app.get('/api/activities/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       const locationId = await getUserLocationForHospital(userId, hospitalId);
       if (!locationId) {
@@ -3133,7 +3133,7 @@ If unable to parse any drugs, return:
   // Admin middleware - check if user has admin role
   async function isAdmin(req: any, res: Response, next: NextFunction) {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { hospitalId } = req.params;
       
       const hospitals = await storage.getUserHospitals(userId);
@@ -3239,7 +3239,7 @@ If unable to parse any drugs, return:
       }
       
       // Check admin access
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const hospitals = await storage.getUserHospitals(userId);
       const hospital = hospitals.find(h => h.id === location.hospitalId);
       if (!hospital || hospital.role !== 'admin') {
@@ -3263,7 +3263,7 @@ If unable to parse any drugs, return:
     try {
       const { locationId } = req.params;
       const { hospitalId } = req.query;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Check admin access - user must be admin for ANY location in this hospital
       const hospitals = await storage.getUserHospitals(userId);
@@ -3317,7 +3317,7 @@ If unable to parse any drugs, return:
       }
       
       // Check if user is admin of at least one hospital
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const hospitals = await storage.getUserHospitals(userId);
       const isAdmin = hospitals.some(h => h.role === 'admin');
       if (!isAdmin) {
@@ -3366,7 +3366,7 @@ If unable to parse any drugs, return:
       const { locationId, role, hospitalId } = req.body;
       
       // Check admin access - user may have multiple roles for same hospital
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const hospitals = await storage.getUserHospitals(userId);
       const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
       if (!hasAdminRole) {
@@ -3391,7 +3391,7 @@ If unable to parse any drugs, return:
       const { hospitalId } = req.query;
       
       // Check admin access - user may have multiple roles for same hospital
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const hospitals = await storage.getUserHospitals(userId);
       const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
       if (!hasAdminRole) {
@@ -3486,7 +3486,7 @@ If unable to parse any drugs, return:
       }
 
       // Check admin access - user may have multiple roles for same hospital
-      const currentUserId = req.user.claims.sub;
+      const currentUserId = req.user.id;
       const hospitals = await storage.getUserHospitals(currentUserId);
       const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
       if (!hasAdminRole) {
@@ -3515,7 +3515,7 @@ If unable to parse any drugs, return:
       }
       
       // Check admin access - user may have multiple roles for same hospital
-      const currentUserId = req.user.claims.sub;
+      const currentUserId = req.user.id;
       const hospitals = await storage.getUserHospitals(currentUserId);
       console.log('[Delete User] User hospitals:', hospitals.map(h => ({ id: h.id, role: h.role })));
       
@@ -3590,7 +3590,7 @@ If unable to parse any drugs, return:
   // Create checklist template (admin only)
   app.post('/api/checklists/templates', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const templateData = req.body;
       
       if (!templateData.hospitalId) {
@@ -3637,7 +3637,7 @@ If unable to parse any drugs, return:
   app.get('/api/checklists/templates/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const active = req.query.active !== 'false'; // Default to active only
       
       // Get all user's locations for this hospital
@@ -3673,7 +3673,7 @@ If unable to parse any drugs, return:
   app.patch('/api/checklists/templates/:id', isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const updates = req.body;
       
       const template = await storage.getChecklistTemplate(id);
@@ -3722,7 +3722,7 @@ If unable to parse any drugs, return:
   app.delete('/api/checklists/templates/:id', isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       const template = await storage.getChecklistTemplate(id);
       if (!template) {
@@ -3751,7 +3751,7 @@ If unable to parse any drugs, return:
   app.get('/api/checklists/pending/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Get all user's locations for this hospital
       const hospitals = await storage.getUserHospitals(userId);
@@ -3788,7 +3788,7 @@ If unable to parse any drugs, return:
   app.get('/api/checklists/count/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Get all user's locations for this hospital
       const hospitals = await storage.getUserHospitals(userId);
@@ -3818,7 +3818,7 @@ If unable to parse any drugs, return:
   // Complete a checklist
   app.post('/api/checklists/complete', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const completionData = req.body;
       
       if (!completionData.templateId || !completionData.signature) {
@@ -3863,7 +3863,7 @@ If unable to parse any drugs, return:
   app.get('/api/checklists/history/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { templateId, limit } = req.query;
       
       // Get all user's locations for this hospital
@@ -3902,7 +3902,7 @@ If unable to parse any drugs, return:
   app.get('/api/checklists/completion/:id', isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       const completion = await storage.getChecklistCompletion(id);
       if (!completion) {
