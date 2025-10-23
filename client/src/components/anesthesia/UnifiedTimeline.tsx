@@ -1329,10 +1329,10 @@ export function UnifiedTimeline({
     if (hasSetInitialZoomRef.current) return;
 
     const currentTime = now || data.endTime;
-    const twentyMinutes = 20 * 60 * 1000;
-    const fortyMinutes = 40 * 60 * 1000;
-    const initialStartTime = currentTime - twentyMinutes;  // 20min before NOW
-    const initialEndTime = currentTime + fortyMinutes;      // 40min after NOW
+    const fifteenMinutes = 15 * 60 * 1000;
+    const fortyFiveMinutes = 45 * 60 * 1000;
+    const initialStartTime = currentTime - fifteenMinutes;  // 15min before NOW
+    const initialEndTime = currentTime + fortyFiveMinutes;  // 45min after NOW
     
     const startPercent = ((initialStartTime - data.startTime) / (data.endTime - data.startTime)) * 100;
     const endPercent = ((initialEndTime - data.startTime) / (data.endTime - data.startTime)) * 100;
@@ -1384,14 +1384,14 @@ export function UnifiedTimeline({
       const chartHeight = VITALS_HEIGHT + swimlanesHeight;
       
       try {
-        const fifteenMinutes = 15 * 60 * 1000;
+        const tenMinutes = 10 * 60 * 1000;
         
         // Progressive editable window:
-        // Zone 1 (past/non-editable): from data.startTime to (chartInitTime - 15 min) [FIXED]
-        // Zone 2 (editable): from (chartInitTime - 15 min) to (currentTime + 15 min) [EXPANDING]
-        // Zone 3 (future/non-editable): from (currentTime + 15 min) to data.endTime [MOVING]
-        const editableStartBoundary = chartInitTime - fifteenMinutes; // Fixed past boundary
-        const editableEndBoundary = currentTime + fifteenMinutes; // Moving future boundary
+        // Zone 1 (past/non-editable): from data.startTime to (currentTime - 10 min) [MOVING]
+        // Zone 2 (editable): from (currentTime - 10 min) to (currentTime + 10 min) [20 min around NOW, EXPANDING]
+        // Zone 3 (future/non-editable): from (currentTime + 10 min) to data.endTime [MOVING]
+        const editableStartBoundary = currentTime - tenMinutes; // 10min before NOW
+        const editableEndBoundary = currentTime + tenMinutes; // 10min after NOW
         
         // Use convertToPixel to get accurate pixel positions based on current zoom
         const startPx = chart.convertToPixel({ xAxisIndex: 0 }, data.startTime);
