@@ -1,8 +1,11 @@
 import { useState, useMemo, useEffect } from "react";
 import { DayPilot, DayPilotCalendar, DayPilotMonth } from "@daypilot/daypilot-lite-react";
 import { Button } from "@/components/ui/button";
-import { Calendar, CalendarDays, CalendarRange } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Calendar, CalendarDays, CalendarRange, Building2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useLocation } from "wouter";
 
 type ViewType = "day" | "week" | "month";
 
@@ -13,10 +16,13 @@ interface OPCalendarProps {
 export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   const [currentView, setCurrentView] = useState<ViewType>("day");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const activeHospital = useActiveHospital();
+  const [, setLocation] = useLocation();
 
-  // Fetch surgery rooms
-  const { data: surgeryRooms = [] } = useQuery<any[]>({
-    queryKey: [`/api/surgery-rooms/test-hospital-1`],
+  // Fetch surgery rooms for the active hospital
+  const { data: surgeryRooms = [], isLoading } = useQuery<any[]>({
+    queryKey: [`/api/surgery-rooms/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id,
   });
 
   // Mock events data - will be replaced with real data
@@ -206,9 +212,47 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         </div>
       </div>
 
+      {/* Empty state when no hospital selected */}
+      {!activeHospital && (
+        <div className="flex-1 px-4 pb-4 flex items-center justify-center">
+          <Card className="max-w-md w-full">
+            <CardContent className="py-12 text-center">
+              <Building2 className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <h3 className="text-lg font-semibold mb-2">No Hospital Selected</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Please select a hospital from the top bar to view the OP Schedule.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Empty state when no surgery rooms */}
+      {activeHospital && !isLoading && surgeryRooms.length === 0 && (
+        <div className="flex-1 px-4 pb-4 flex items-center justify-center">
+          <Card className="max-w-md w-full">
+            <CardContent className="py-12 text-center">
+              <Building2 className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+              <h3 className="text-lg font-semibold mb-2">No Surgery Rooms Configured</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                To use the OP Schedule calendar, you need to configure surgery rooms first.
+              </p>
+              <Button 
+                onClick={() => setLocation("/anesthesia/settings")}
+                data-testid="button-configure-rooms"
+              >
+                <i className="fas fa-cog mr-2"></i>
+                Configure Rooms
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Calendar views */}
-      <div className="flex-1 px-4 pb-4">
-        {currentView === "day" && (
+      {surgeryRooms.length > 0 && (
+        <div className="flex-1 px-4 pb-4">
+          {currentView === "day" && (
           <DayPilotCalendar
             viewType="Resources"
             startDate={selectedDate.toISOString().split('T')[0]}
@@ -260,7 +304,8 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             theme="month_white"
           />
         )}
-      </div>
+        </div>
+      )}
 
       {/* Custom styles to match UI */}
       <style>{`
