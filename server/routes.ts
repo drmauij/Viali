@@ -198,13 +198,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Log the user in by creating a session
       req.login({ 
-        claims: { 
-          sub: user.id,
-          email: user.email,
-          first_name: user.firstName,
-          last_name: user.lastName,
-          profile_image_url: user.profileImageUrl
-        },
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profileImageUrl: user.profileImageUrl,
         expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) // 1 week
       }, (err) => {
         if (err) {
@@ -252,13 +250,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Log the user in
       req.login({
-        claims: {
-          sub: user.id,
-          email: user.email,
-          first_name: user.firstName,
-          last_name: user.lastName,
-          profile_image_url: user.profileImageUrl
-        },
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profileImageUrl: user.profileImageUrl,
         expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60), // 1 week
         mustChangePassword: user.mustChangePassword
       }, (err) => {
