@@ -162,8 +162,6 @@ export const items = pgTable("items", {
   barcodes: text("barcodes").array(), // Multiple barcodes per item
   imageUrl: varchar("image_url"),
   sortOrder: integer("sort_order").default(0),
-  // Anesthesia type flag (detailed config in medicationConfigs table)
-  anesthesiaType: varchar("anesthesia_type", { enum: ["none", "medication", "infusion"] }).default("none").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -171,7 +169,6 @@ export const items = pgTable("items", {
   index("idx_items_location").on(table.locationId),
   index("idx_items_vendor").on(table.vendorId),
   index("idx_items_folder").on(table.folderId),
-  index("idx_items_anesthesia_type").on(table.anesthesiaType),
 ]);
 
 // Stock Levels
@@ -383,9 +380,9 @@ export const medicationConfigs = pgTable("medication_configs", {
   administrationRoute: varchar("administration_route"), // "i.v.", "s.c.", "p.o.", "spinal", etc.
   administrationUnit: varchar("administration_unit"), // "μg", "mg", "g", "ml"
   
-  // Infusion-specific
-  isRateControlled: boolean("is_rate_controlled").default(false), // For perfusor/continuous infusions
-  rateUnit: varchar("rate_unit"), // "ml/h", "μg/kg/min", "mg/kg/h"
+  // Rate control (determines visualization and behavior)
+  // null = bolus, "free" = free-running infusion (dashed line), actual unit = rate-controlled pump (solid line)
+  rateUnit: varchar("rate_unit"), // null, "free", "ml/h", "μg/kg/min", "mg/kg/h"
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
