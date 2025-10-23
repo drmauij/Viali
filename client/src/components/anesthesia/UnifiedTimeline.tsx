@@ -224,8 +224,8 @@ type SwimlaneConfig = {
   colorLight: string;
   colorDark: string;
   // Metadata for anesthesia items
-  anesthesiaType?: 'medication' | 'infusion';
-  isRateControlled?: boolean;
+  // rateUnit determines item type: null = bolus, "free" = free-flow infusion, other = rate-controlled pump
+  rateUnit?: string | null;
   defaultDose?: string | null; // Default dose value (e.g., "12" or "25-35-50" for ranges)
   itemId?: string; // Reference to the original item
   hierarchyLevel?: 'parent' | 'group' | 'item'; // For three-level hierarchy styling
@@ -235,12 +235,10 @@ type SwimlaneConfig = {
 type AnesthesiaItem = {
   id: string;
   name: string;
-  anesthesiaType?: 'medication' | 'infusion';
   administrationUnit?: string;
   administrationRoute?: string;
   ampuleConcentration?: string;
-  isRateControlled?: boolean;
-  rateUnit?: string;
+  rateUnit?: string | null; // null = bolus, "free" = free-flow infusion, other = rate-controlled pump
   administrationGroup?: string;
   defaultDose?: string | null;
 };
@@ -867,8 +865,13 @@ export function UnifiedTimeline({
   const formatItemDisplayName = (item: AnesthesiaItem): string => {
     const parts = [item.name];
     
-    if (item.anesthesiaType === 'medication') {
-      // Format: "Name (concentration) (unit, route)"
+    // Determine type from rateUnit: null = bolus, "free" = free-flow, other = rate-controlled
+    const isBolus = !item.rateUnit;
+    const isFreeFlow = item.rateUnit === 'free';
+    const isRateControlled = item.rateUnit && item.rateUnit !== 'free';
+    
+    if (isBolus) {
+      // Bolus medication: "Name (concentration) (unit, route)"
       // Example: "Rocuronium (10mg/ml) (mg, i.v.)"
       if (item.ampuleConcentration) {
         parts.push(`(${item.ampuleConcentration})`);
@@ -879,12 +882,10 @@ export function UnifiedTimeline({
         if (item.administrationRoute) unitParts.push(item.administrationRoute);
         parts.push(`(${unitParts.join(', ')})`);
       }
-    } else if (item.anesthesiaType === 'infusion') {
-      // Format: "Name (unit, route/rate-type)"
+    } else {
+      // Infusion (free-flow or rate-controlled): "Name (unit, route/rate-type)"
       // Example: "Ringer Acetate (ml, i.v./free-flow)" or "NaCl 0.9% (ml, i.v./ml/h)"
-      const rateInfo = item.isRateControlled 
-        ? (item.rateUnit || 'ml/h')
-        : 'free-flow';
+      const rateInfo = isFreeFlow ? 'free-flow' : item.rateUnit;
       
       const unitParts = [];
       if (item.administrationUnit) unitParts.push(item.administrationUnit);
@@ -1054,8 +1055,7 @@ export function UnifiedTimeline({
                 label: formatItemDisplayName(item),
                 height: 28,
                 ...medGroupColor,
-                anesthesiaType: item.anesthesiaType,
-                isRateControlled: item.isRateControlled ?? undefined,
+                rateUnit: item.rateUnit ?? null,
                 defaultDose: item.defaultDose ?? null,
                 itemId: item.id,
                 hierarchyLevel: 'item',
@@ -4968,7 +4968,7 @@ export function UnifiedTimeline({
         if (medicationParentIndex === -1 || collapsedSwimlanes.has("medikamente")) return null;
         
         return activeSwimlanes.map((lane, index) => {
-          const isMedicationChild = lane.anesthesiaType === 'medication';
+          const isMedicationChild = !lane.rateUnit;
           if (!isMedicationChild) return null;
           
           const lanePosition = swimlanePositions.find(l => l.id === lane.id);
@@ -5115,7 +5115,7 @@ export function UnifiedTimeline({
         if (medicationParentIndex === -1 || collapsedSwimlanes.has("medikamente")) return null;
         
         return activeSwimlanes.map((lane, index) => {
-          const isInfusionChild = lane.anesthesiaType === 'infusion';
+          const isInfusionChild = lane.rateUnit !== null && lane.rateUnit !== undefined;
           if (!isInfusionChild) return null;
           
           const lanePosition = swimlanePositions.find(l => l.id === lane.id);
@@ -5202,7 +5202,7 @@ export function UnifiedTimeline({
                   setShowInfusionEditDialog(true);
                 } else {
                   // Check if this is a free-flow infusion (no rate)
-                  if (lane.isRateControlled === false) {
+                  if (lane.rateUnit === 'free') {
                     // Free-flow infusion: insert marker (value "0") without dialog
                     const updated = { ...infusionData };
                     if (!updated[lane.id]) updated[lane.id] = [];
@@ -6153,7 +6153,7 @@ export function UnifiedTimeline({
 
       {/* Medication dose values as DOM overlays */}
       {activeSwimlanes.flatMap((lane, laneIndex) => {
-        const isMedicationChild = lane.anesthesiaType === 'medication';
+        const isMedicationChild = !lane.rateUnit;
         
         if (!isMedicationChild || !medicationDoseData[lane.id]?.length) return [];
         
@@ -6218,7 +6218,7 @@ export function UnifiedTimeline({
           }}
         >
           {activeSwimlanes.flatMap((lane) => {
-            const isInfusionChild = lane.anesthesiaType === 'infusion';
+            const isInfusionChild = lane.rateUnit !== null && lane.rateUnit !== undefined;
             if (!isInfusionChild || !infusionData[lane.id]?.length) return [];
             
             const childLane = swimlanePositions.find(pos => pos.id === lane.id);
@@ -6229,11 +6229,10 @@ export function UnifiedTimeline({
             const visibleRange = visibleEnd - visibleStart;
             const svgWidth = typeof window !== 'undefined' ? window.innerWidth - 210 : 1000;
             
-            // Determine if it's free-flow based on the item's isRateControlled field
-            // If isRateControlled is explicitly false → free-flow (dashed line)
-            // If isRateControlled is true → rate-controlled (solid line)
-            // If isRateControlled is undefined → default to solid line
-            const isFreeFlow = lane.isRateControlled === false;
+            // Determine if it's free-flow based on the item's rateUnit field
+            // If rateUnit === 'free' → free-flow (dashed line)
+            // Otherwise → rate-controlled (solid line)
+            const isFreeFlow = lane.rateUnit === 'free';
             
             // Sort rate points by time
             const sortedRates = [...infusionData[lane.id]].sort((a, b) => a[0] - b[0]);
@@ -6301,7 +6300,7 @@ export function UnifiedTimeline({
 
       {/* Infusion rate values as DOM overlays */}
       {activeSwimlanes.flatMap((lane, laneIndex) => {
-        const isInfusionChild = lane.anesthesiaType === 'infusion';
+        const isInfusionChild = lane.rateUnit !== null && lane.rateUnit !== undefined;
         
         if (!isInfusionChild || !infusionData[lane.id]?.length) return [];
         
@@ -6313,7 +6312,7 @@ export function UnifiedTimeline({
         const visibleRange = visibleEnd - visibleStart;
         
         // Check if this is a free-flow infusion (no rate values should be displayed)
-        const isFreeFlow = lane.isRateControlled === false;
+        const isFreeFlow = lane.rateUnit === 'free';
         
         // Don't render any values for free-flow infusions
         if (isFreeFlow) return [];

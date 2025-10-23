@@ -1095,8 +1095,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const anesthesiaLocationId = hospital[0].anesthesiaLocationId;
 
-      // Get all items from the hospital's anesthesia location that are configured for anesthesia
-      // Join with medicationConfigs to get complete medication data
+      // Get all items from the hospital's anesthesia location that have medication configs
+      // INNER JOIN ensures we only get items with medication configurations
       const anesthesiaItems = await db
         .select({
           id: items.id,
@@ -1118,7 +1118,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           barcodes: items.barcodes,
           imageUrl: items.imageUrl,
           sortOrder: items.sortOrder,
-          anesthesiaType: items.anesthesiaType,
           createdAt: items.createdAt,
           updatedAt: items.updatedAt,
           // Flatten medication config fields to top level
@@ -1128,16 +1127,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           administrationUnit: medicationConfigs.administrationUnit,
           ampuleTotalContent: medicationConfigs.ampuleTotalContent,
           administrationRoute: medicationConfigs.administrationRoute,
-          isRateControlled: medicationConfigs.isRateControlled,
           rateUnit: medicationConfigs.rateUnit,
         })
         .from(items)
-        .leftJoin(medicationConfigs, eq(items.id, medicationConfigs.itemId))
+        .innerJoin(medicationConfigs, eq(items.id, medicationConfigs.itemId))
         .where(
           and(
             eq(items.hospitalId, hospitalId),
-            eq(items.locationId, anesthesiaLocationId),
-            sql`${items.anesthesiaType} != 'none'`
+            eq(items.locationId, anesthesiaLocationId)
           )
         )
         .orderBy(items.name);
@@ -1167,47 +1164,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied to this item" });
       }
 
-      // Validate anesthesia configuration
-      const anesthesiaType = req.body.anesthesiaType || 'none';
-      
-      // Update item table (only anesthesiaType and optionally name)
-      const itemUpdates: any = {
-        anesthesiaType,
-      };
-
       // Update item name if provided
       if (req.body.name) {
-        itemUpdates.name = req.body.name;
+        await db
+          .update(items)
+          .set({ name: req.body.name })
+          .where(eq(items.id, itemId));
       }
-      
-      await db
-        .update(items)
-        .set(itemUpdates)
-        .where(eq(items.id, itemId));
 
-      // Handle medication_configs table
-      if (anesthesiaType === 'medication' || anesthesiaType === 'infusion') {
-        // Prepare medication config data
+      // Check if we have any medication config data
+      const hasMedicationConfig = req.body.medicationGroup || req.body.administrationGroup || 
+        req.body.defaultDose || req.body.administrationUnit || req.body.ampuleTotalContent || 
+        req.body.administrationRoute || req.body.rateUnit;
+
+      if (hasMedicationConfig) {
+        // Prepare medication config data - all fields are optional
         const configData: any = {
           itemId,
           medicationGroup: req.body.medicationGroup || null,
           administrationGroup: req.body.administrationGroup || null,
           defaultDose: req.body.defaultDose || null,
+          administrationUnit: req.body.administrationUnit || null,
+          ampuleTotalContent: req.body.ampuleTotalContent || null,
+          administrationRoute: req.body.administrationRoute || null,
+          rateUnit: req.body.rateUnit || null,
         };
-
-        if (anesthesiaType === 'medication') {
-          configData.administrationUnit = req.body.administrationUnit || null;
-          configData.ampuleTotalContent = req.body.ampuleTotalContent || null;
-          configData.administrationRoute = req.body.administrationRoute || null;
-          configData.isRateControlled = false;
-          configData.rateUnit = null;
-        } else if (anesthesiaType === 'infusion') {
-          configData.ampuleTotalContent = req.body.ampuleTotalContent || null;
-          configData.isRateControlled = req.body.isRateControlled || false;
-          configData.rateUnit = req.body.rateUnit || null;
-          configData.administrationUnit = null;
-          configData.administrationRoute = null;
-        }
 
         // Check if config exists
         const existingConfig = await db
@@ -1226,11 +1207,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Insert new config
           await db.insert(medicationConfigs).values(configData);
         }
-      } else if (anesthesiaType === 'none') {
-        // Remove medication config if type is 'none'
-        await db
-          .delete(medicationConfigs)
-          .where(eq(medicationConfigs.itemId, itemId));
       }
 
       // Fetch the updated item with medication config
@@ -1238,14 +1214,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .select({
           id: items.id,
           name: items.name,
-          anesthesiaType: items.anesthesiaType,
           medicationGroup: medicationConfigs.medicationGroup,
           administrationGroup: medicationConfigs.administrationGroup,
           defaultDose: medicationConfigs.defaultDose,
           administrationUnit: medicationConfigs.administrationUnit,
           ampuleTotalContent: medicationConfigs.ampuleTotalContent,
           administrationRoute: medicationConfigs.administrationRoute,
-          isRateControlled: medicationConfigs.isRateControlled,
           rateUnit: medicationConfigs.rateUnit,
         })
         .from(items)
@@ -1899,7 +1873,6 @@ If unable to parse any drugs, return:
           bulkItem.defaultDose ||
           bulkItem.administrationRoute ||
           bulkItem.administrationUnit ||
-          bulkItem.isRateControlled ||
           bulkItem.rateUnit
         );
 
@@ -1918,7 +1891,6 @@ If unable to parse any drugs, return:
           trackExactQuantity: bulkItem.trackExactQuantity ?? false,
           currentUnits: bulkItem.currentUnits ?? 0,
           folderId: bulkItem.folderId ?? null,
-          anesthesiaType: hasMedicationConfig ? ('medication' as const) : ('none' as const),
         };
 
         const item = await storage.createItem(itemData);
@@ -1928,11 +1900,11 @@ If unable to parse any drugs, return:
           await storage.upsertMedicationConfig({
             itemId: item.id,
             medicationGroup: bulkItem.medicationGroup ?? null,
+            administrationGroup: bulkItem.administrationGroup ?? null,
             ampuleTotalContent: bulkItem.ampuleTotalContent ?? null,
             defaultDose: bulkItem.defaultDose ?? null,
             administrationRoute: bulkItem.administrationRoute ?? null,
             administrationUnit: bulkItem.administrationUnit ?? null,
-            isRateControlled: bulkItem.isRateControlled ?? false,
             rateUnit: bulkItem.rateUnit ?? null,
           });
         }

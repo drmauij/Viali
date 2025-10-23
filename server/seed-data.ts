@@ -39,8 +39,8 @@ export interface SeedMedication {
   defaultDose: string;
   administrationRoute: string;
   administrationUnit: string;
-  isRateControlled: boolean;
-  rateUnit?: string;
+  // Rate control: null = bolus, "free" = free-running infusion, actual unit = rate-controlled pump
+  rateUnit?: string | null;
 }
 
 /**
@@ -97,7 +97,7 @@ export const DEFAULT_ADMINISTRATION_GROUPS: SeedAdministrationGroup[] = [
  * These medications are created for every new hospital with complete anesthesia configuration
  */
 export const DEFAULT_MEDICATIONS: SeedMedication[] = [
-  // INFUSIONS (Free-running infusions, not rate-controlled)
+  // INFUSIONS (Free-running infusions)
   {
     name: "Ringer's Lactate",
     unit: "bag",
@@ -107,7 +107,7 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
     defaultDose: "500",
     administrationUnit: "ml",
     administrationRoute: "i.v.",
-    isRateControlled: false,
+    rateUnit: "free",
   },
   {
     name: "Glucose 5%",
@@ -118,7 +118,7 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
     defaultDose: "500",
     administrationUnit: "ml",
     administrationRoute: "i.v.",
-    isRateControlled: false,
+    rateUnit: "free",
   },
 
   // PUMPS (Rate-controlled infusions/Perfusors)
@@ -132,7 +132,6 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
     defaultDose: "150",
     administrationUnit: "mg",
     administrationRoute: "i.v.",
-    isRateControlled: true,
     rateUnit: "mg/kg/h",
   },
   {
@@ -145,7 +144,6 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
     defaultDose: "0.05",
     administrationUnit: "mg",
     administrationRoute: "i.v.",
-    isRateControlled: true,
     rateUnit: "μg/kg/min",
   },
   {
@@ -158,11 +156,10 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
     defaultDose: "250",
     administrationUnit: "μg",
     administrationRoute: "i.v.",
-    isRateControlled: true,
     rateUnit: "μg/kg/min",
   },
 
-  // BOLUS (Single injection medications)
+  // BOLUS (Single injection medications - no rateUnit)
   {
     name: "Fentanyl",
     unit: "amp",
@@ -173,7 +170,6 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
     defaultDose: "100",
     administrationUnit: "μg",
     administrationRoute: "i.v.",
-    isRateControlled: false,
   },
   {
     name: "Rocuronium",
@@ -185,7 +181,6 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
     defaultDose: "50",
     administrationUnit: "mg",
     administrationRoute: "i.v.",
-    isRateControlled: false,
   },
   {
     name: "Atropine",
@@ -197,10 +192,9 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
     defaultDose: "0.5",
     administrationUnit: "mg",
     administrationRoute: "i.v.",
-    isRateControlled: false,
   },
 
-  // SHORT IVs (Short infusions)
+  // SHORT IVs (Short infusions - no rateUnit)
   {
     name: "Paracetamol",
     unit: "bag",
@@ -211,7 +205,6 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
     defaultDose: "1000",
     administrationUnit: "mg",
     administrationRoute: "i.v.",
-    isRateControlled: false,
   },
   {
     name: "Metamizole",
@@ -223,10 +216,9 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
     defaultDose: "1000",
     administrationUnit: "mg",
     administrationRoute: "i.v.",
-    isRateControlled: false,
   },
 
-  // ANTIBIOTICS
+  // ANTIBIOTICS (no rateUnit)
   {
     name: "Cefazolin",
     unit: "vial",
@@ -237,7 +229,6 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
     defaultDose: "2000",
     administrationUnit: "mg",
     administrationRoute: "i.v.",
-    isRateControlled: false,
   },
   {
     name: "Cefuroxime",
@@ -249,7 +240,6 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
     defaultDose: "1500",
     administrationUnit: "mg",
     administrationRoute: "i.v.",
-    isRateControlled: false,
   },
   {
     name: "Amoxicillin/Clavulanic acid",
@@ -261,6 +251,5 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
     defaultDose: "2200",
     administrationUnit: "mg",
     administrationRoute: "i.v.",
-    isRateControlled: false,
   },
 ];

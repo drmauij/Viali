@@ -1338,8 +1338,6 @@ export default function Items() {
             autoMapping[header] = 'ampuleUnit';
           } else if (lowerHeader === 'administrationunit' || lowerHeader === 'administration unit') {
             autoMapping[header] = 'administrationUnit';
-          } else if (lowerHeader === 'isratecontrolled' || lowerHeader === 'is rate controlled' || lowerHeader === 'rate controlled') {
-            autoMapping[header] = 'isRateControlled';
           } else if (lowerHeader === 'rateunit' || lowerHeader === 'rate unit') {
             autoMapping[header] = 'rateUnit';
           }
@@ -1418,10 +1416,6 @@ export default function Items() {
           case 'administrationUnit':
           case 'rateUnit':
             item[targetField] = value ? String(value) : undefined;
-            break;
-          case 'isRateControlled':
-            const rateControlledVal = String(value).toLowerCase();
-            item[targetField] = rateControlledVal === 'true' || rateControlledVal === 'yes' || rateControlledVal === '1';
             break;
           case 'ampuleQuantity':
             ampuleQuantity = value ? String(value) : '';
@@ -3149,8 +3143,8 @@ export default function Items() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">Medication Configuration (Optional)</span>
                       <span className="text-xs text-muted-foreground">
-                        {Object.values(csvMapping).filter(v => ['medicationGroup', 'administrationRoute', 'defaultDose', 'ampuleQuantity', 'ampuleUnit', 'administrationUnit', 'isRateControlled', 'rateUnit'].includes(v)).length > 0 
-                          ? `${Object.values(csvMapping).filter(v => ['medicationGroup', 'administrationRoute', 'defaultDose', 'ampuleQuantity', 'ampuleUnit', 'administrationUnit', 'isRateControlled', 'rateUnit'].includes(v)).length} fields mapped`
+                        {Object.values(csvMapping).filter(v => ['medicationGroup', 'administrationRoute', 'defaultDose', 'ampuleQuantity', 'ampuleUnit', 'administrationUnit', 'rateUnit'].includes(v)).length > 0 
+                          ? `${Object.values(csvMapping).filter(v => ['medicationGroup', 'administrationRoute', 'defaultDose', 'ampuleQuantity', 'ampuleUnit', 'administrationUnit', 'rateUnit'].includes(v)).length} fields mapped`
                           : 'For anesthesia records'}
                       </span>
                     </div>
@@ -3164,8 +3158,7 @@ export default function Items() {
                         { key: 'ampuleQuantity', label: 'Ampule Quantity' },
                         { key: 'ampuleUnit', label: 'Ampule Unit' },
                         { key: 'administrationUnit', label: 'Administration Unit' },
-                        { key: 'isRateControlled', label: 'Is Rate Controlled' },
-                        { key: 'rateUnit', label: 'Rate Unit' },
+                        { key: 'rateUnit', label: 'Rate Unit (null=bolus, "free"=free-flow, unit=rate-controlled)' },
                       ].map(({ key, label}) => (
                         <div key={key}>
                           <Label className="text-xs">{label}</Label>

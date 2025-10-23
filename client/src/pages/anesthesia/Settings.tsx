@@ -53,15 +53,13 @@ type SurgeryRoom = {
 type Item = {
   id: string;
   name: string;
-  anesthesiaType: string;
   medicationGroup?: string;
   administrationGroup?: string;
   defaultDose?: string;
   administrationUnit?: string;
   ampuleTotalContent?: string;
   administrationRoute?: string;
-  isRateControlled?: boolean;
-  rateUnit?: string;
+  rateUnit?: string | null;
 };
 
 export default function AnesthesiaSettings() {
@@ -337,19 +335,17 @@ export default function AnesthesiaSettings() {
           await updateConfigMutation.mutateAsync({
             itemId,
             config: {
-              anesthesiaType: 'medication',
+              rateUnit: null,
               administrationUnit: 'mg',
               administrationRoute: 'i.v.',
             },
           });
         }
       } else {
-        // Removing from anesthesia items
+        // Removing from anesthesia items - just send empty config
         await updateConfigMutation.mutateAsync({
           itemId,
-          config: {
-            anesthesiaType: 'none',
-          },
+          config: {},
         });
       }
     }
@@ -359,16 +355,33 @@ export default function AnesthesiaSettings() {
   const handleItemClick = (item: Item) => {
     setSelectedItemForConfig(item);
     setItemName(item.name);
-    const itemType = (item.anesthesiaType as 'medication' | 'infusion') || 'medication';
-    setAnesthesiaType(itemType);
+    
+    // Derive UI state from rateUnit:
+    // - null/undefined = bolus medication
+    // - "free" = free-running infusion
+    // - actual unit = rate-controlled infusion
+    const itemRateUnit = item.rateUnit;
+    if (!itemRateUnit) {
+      // Bolus medication
+      setAnesthesiaType('medication');
+      setIsRateControlled(false);
+    } else if (itemRateUnit === 'free') {
+      // Free-running infusion
+      setAnesthesiaType('infusion');
+      setIsRateControlled(false);
+    } else {
+      // Rate-controlled infusion
+      setAnesthesiaType('infusion');
+      setIsRateControlled(true);
+      setRateUnit(itemRateUnit);
+    }
+    
     setMedicationGroup(item.medicationGroup || '');
     setAdministrationGroup(item.administrationGroup || '');
     setDefaultDose(item.defaultDose || '');
     setAdministrationUnit(item.administrationUnit || 'mg');
-    setAmpuleContent(item.ampuleTotalContent || ''); // Load content for both medications and infusions
+    setAmpuleContent(item.ampuleTotalContent || '');
     setAdministrationRoute(item.administrationRoute || 'i.v.');
-    setIsRateControlled(item.isRateControlled || false);
-    setRateUnit(item.rateUnit || 'ml/h');
     setConfigDialogOpen(true);
   };
 
@@ -376,27 +389,31 @@ export default function AnesthesiaSettings() {
   const handleConfigSave = async () => {
     if (!selectedItemForConfig) return;
 
+    // Derive rateUnit value from UI state:
+    // - Medication → null
+    // - Infusion without rate control → "free"
+    // - Infusion with rate control → selected rate unit
+    let derivedRateUnit: string | null | undefined = undefined;
+    if (anesthesiaType === 'medication') {
+      derivedRateUnit = null; // Bolus medications have no rate
+    } else if (anesthesiaType === 'infusion') {
+      if (isRateControlled) {
+        derivedRateUnit = rateUnit; // Rate-controlled pump
+      } else {
+        derivedRateUnit = 'free'; // Free-running infusion
+      }
+    }
+
     const config: any = {
       name: itemName,
-      anesthesiaType,
       medicationGroup: medicationGroup || undefined,
       administrationGroup: administrationGroup || undefined,
       defaultDose: defaultDose || undefined,
       ampuleTotalContent: ampuleContent.trim() || undefined,
-      administrationRoute: administrationRoute, // For both medications and infusions
+      administrationRoute: administrationRoute,
+      administrationUnit: administrationUnit || undefined, // Keep for all types (medications and infusions)
+      rateUnit: derivedRateUnit,
     };
-
-    if (anesthesiaType === 'medication') {
-      config.administrationUnit = administrationUnit;
-      // Clear infusion-only fields for medications
-      config.isRateControlled = undefined;
-      config.rateUnit = undefined;
-    } else {
-      // For infusions: clear medication-specific fields
-      config.administrationUnit = undefined;
-      config.isRateControlled = isRateControlled;
-      config.rateUnit = rateUnit;
-    }
 
     await updateConfigMutation.mutateAsync({
       itemId: selectedItemForConfig.id,

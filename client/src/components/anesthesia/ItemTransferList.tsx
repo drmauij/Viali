@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 type Item = {
   id: string;
   name: string;
-  anesthesiaType: string;
+  rateUnit?: string | null; // null = bolus, "free" = free-flow, actual unit = rate-controlled
 };
 
 type ItemTransferListProps = {
@@ -234,14 +234,14 @@ export function ItemTransferList({
                   />
                   <div className="flex-1">
                     <span className="text-sm">{item.name}</span>
-                    {item.anesthesiaType !== 'none' && (
+                    {item.rateUnit && (
                       <span className={cn(
                         "ml-2 text-xs px-1.5 py-0.5 rounded",
-                        item.anesthesiaType === 'medication' 
-                          ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
+                        item.rateUnit === 'free' 
+                          ? "bg-cyan-100 dark:bg-cyan-900 text-cyan-700 dark:text-cyan-300"
                           : "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"
                       )}>
-                        {item.anesthesiaType}
+                        {item.rateUnit === 'free' ? 'Free-flow' : 'Rate-controlled'}
                       </span>
                     )}
                   </div>

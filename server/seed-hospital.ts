@@ -137,7 +137,6 @@ export async function seedHospitalData(
         maxThreshold: 100,
         currentUnits: 0,
         packSize: 1,
-        anesthesiaType: "medication",
       });
 
       // Create medication configuration
@@ -149,7 +148,6 @@ export async function seedHospitalData(
         defaultDose: medData.defaultDose,
         administrationRoute: medData.administrationRoute,
         administrationUnit: medData.administrationUnit,
-        isRateControlled: medData.isRateControlled,
         rateUnit: medData.rateUnit || null,
       });
 
