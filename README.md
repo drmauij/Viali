@@ -37,8 +37,8 @@ Viali is a professional healthcare management platform that streamlines hospital
 - **Dark Mode Support**: Comfortable viewing in any environment
 - **Real-Time Updates**: Live data synchronization
 - **Professional UI**: Built with Shadcn/ui and Tailwind CSS
-- **Secure Authentication**: OpenID Connect (OIDC) via Replit Auth + local credentials
-- **Database Rollback**: Built-in checkpoint system for data recovery
+- **Secure Authentication**: Google OAuth + local email/password credentials
+- **Production-Ready**: Deploy anywhere with Node.js and PostgreSQL
 - **Electronic Signatures**: Print-ready signature capture for controlled substances
 - **PDF Export**: Generate professional reports and order forms
 
@@ -62,56 +62,212 @@ Viali is a professional healthcare management platform that streamlines hospital
 - **Resend** for email notifications
 
 ### Infrastructure
-- **Replit** for hosting and deployment
-- **Neon** for PostgreSQL database
-- **OpenID Connect** for enterprise authentication
+- **Self-Hosted** on any server with Node.js 20+
+- **PostgreSQL** (Exoscale, Aiven, or any provider)
+- **Google OAuth 2.0** (optional)
+- **PM2** for process management (recommended)
 
-## 🚀 Getting Started
+## 🚀 Self-Hosting Guide
+
+Viali can be deployed on any server with Node.js and PostgreSQL. This guide covers deployment on EU-based servers like Exoscale, but works for any hosting provider.
 
 ### Prerequisites
-- Node.js 20+
-- PostgreSQL database (or use Replit's built-in database)
-- OpenAI API key (for AI features)
+- **Node.js** 20 or higher
+- **PostgreSQL** database with SSL support (Exoscale, Aiven, or any provider)
+- **SSH access** to your server
+- **OpenAI API key** (required for AI features)
 
-### Installation
+### Quick Start
 
-1. Clone the repository:
+#### 1. Clone the Repository
 ```bash
 git clone https://github.com/yourusername/viali.git
 cd viali
 ```
 
-2. Install dependencies:
+#### 2. Install Dependencies
 ```bash
 npm install
 ```
 
-3. Set up environment variables:
+#### 3. Set Up Environment Variables
+
+Create a `.env` file in the project root with the following variables:
+
 ```bash
-# Database
-DATABASE_URL=your_postgresql_url
+# ========================================
+# REQUIRED VARIABLES
+# ========================================
 
-# Authentication (optional - for production)
-ISSUER_URL=your_oidc_provider_url
+# PostgreSQL Database Connection (with SSL)
+DATABASE_URL="postgresql://user:password@host:port/database?sslmode=require"
 
-# AI Features (optional)
-OPENAI_API_KEY=your_openai_key
+# Session Security (generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+SESSION_SECRET="your-random-secret-minimum-32-characters"
 
-# Email (optional)
-RESEND_API_KEY=your_resend_key
+# Data Encryption for Patient Data
+ENCRYPTION_SECRET="another-random-secret-minimum-32-characters"
+
+# OpenAI API Key (for AI-powered features)
+OPENAI_API_KEY="sk-proj-xxxxxxxxxxxxx"
+
+# ========================================
+# OPTIONAL VARIABLES
+# ========================================
+
+# Google OAuth (optional - if not set, only email/password auth works)
+GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com"
+GOOGLE_CLIENT_SECRET="your-client-secret"
+
+# Email Service (optional - if not set, email features are disabled)
+RESEND_API_KEY="re_xxxxxxxxxxxxx"
+RESEND_FROM_EMAIL="noreply@yourdomain.com"
+
+# Production URL (for OAuth callbacks and email links)
+PRODUCTION_URL="https://yourdomain.com"
+
+# Server Port (defaults to 5000)
+PORT="5000"
+
+# Database SSL Certificate Validation (defaults to true for security)
+# Set to 'false' ONLY if using self-signed certificates in development
+DB_SSL_REJECT_UNAUTHORIZED="false"
+
+# Barcode Lookup API (optional)
+EAN_SEARCH_API_KEY="your-ean-api-key"
 ```
 
-4. Run database migrations:
+**Generate Random Secrets:**
 ```bash
-npm run db:push
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-5. Start the development server:
+#### 4. Build the Application
+```bash
+npm run build
+```
+
+#### 5. Database Setup
+
+The application automatically runs database migrations on startup - no manual migration steps needed!
+
+#### 6. Start the Application
+
+**Option A: Using PM2 (Recommended for Production)**
+```bash
+# Install PM2 globally
+npm install -g pm2
+
+# Start the application
+pm2 start npm --name "viali" -- start
+
+# Save the process list
+pm2 save
+
+# Enable auto-start on server reboot
+pm2 startup
+```
+
+**Option B: Direct Node.js (Development)**
 ```bash
 npm run dev
 ```
 
 The application will be available at `http://localhost:5000`
+
+### 🔐 Authentication Setup
+
+Viali supports two authentication methods that can work independently or together:
+
+#### Google OAuth (Optional)
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Enable the **Google+ API**
+4. Navigate to **Credentials** → **Create Credentials** → **OAuth 2.0 Client ID**
+5. Configure:
+   - **Application type**: Web application
+   - **Authorized redirect URIs**: `https://yourdomain.com/api/auth/google/callback`
+6. Copy the **Client ID** and **Client Secret** to your `.env` file
+
+If Google OAuth is not configured, the login page will only show email/password authentication.
+
+#### Local Email/Password (Always Available)
+
+Email/password authentication works out of the box. Users can sign up and log in using email credentials without any additional setup.
+
+### 📧 Email Service Setup (Optional)
+
+To enable email features (password reset, notifications):
+
+1. Sign up at [resend.com](https://resend.com)
+2. Verify your domain or use their test domain for development
+3. Create an API key in your Resend dashboard
+4. Add `RESEND_API_KEY` and `RESEND_FROM_EMAIL` to your `.env` file
+
+If email is not configured, the app works normally but email features will be disabled.
+
+### 🌐 Nginx Reverse Proxy (Optional)
+
+For production deployments, use Nginx as a reverse proxy:
+
+```nginx
+server {
+    listen 80;
+    server_name yourdomain.com;
+    
+    location / {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+### 🔒 SSL/TLS Certificate
+
+Use [Certbot](https://certbot.eff.org/) to get a free SSL certificate:
+
+```bash
+sudo apt-get install certbot python3-certbot-nginx
+sudo certbot --nginx -d yourdomain.com
+```
+
+### 📊 Database Providers
+
+Viali works with any PostgreSQL provider. Popular options:
+
+- **[Exoscale](https://www.exoscale.com/)** - EU-based, GDPR compliant
+- **[Aiven](https://aiven.io/)** - Multi-cloud PostgreSQL
+- **[DigitalOcean](https://www.digitalocean.com/products/managed-databases-postgresql)** - Managed PostgreSQL
+- **[Neon](https://neon.tech/)** - Serverless PostgreSQL
+- **Self-hosted** PostgreSQL on your own server
+
+Make sure your database connection string includes `?sslmode=require` for secure connections.
+
+### 🔄 Updating the Application
+
+```bash
+# Pull latest changes
+git pull origin main
+
+# Install any new dependencies
+npm install
+
+# Rebuild the application
+npm run build
+
+# Restart with PM2
+pm2 restart viali
+```
+
+Database migrations run automatically on startup.
 
 ## 📱 Usage
 
