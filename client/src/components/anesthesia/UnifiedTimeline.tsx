@@ -1681,7 +1681,7 @@ export function UnifiedTimeline({
       let backgroundColor: string;
       if (lane.hierarchyLevel === 'group') {
         // Darker shade for group headers
-        backgroundColor = isDark ? "hsl(150, 45%, 12%)" : "rgba(200, 242, 221, 1)";
+        backgroundColor = isDark ? "hsl(150, 45%, 12%)" : "hsl(150, 40%, 85%)";
       } else {
         // Regular color for other lanes
         backgroundColor = isDark ? lane.colorDark : lane.colorLight;
@@ -1694,6 +1694,7 @@ export function UnifiedTimeline({
         height: lane.height,
         backgroundColor,
       };
+      
       currentTop += lane.height;
       return grid;
     });
@@ -5877,6 +5878,21 @@ export function UnifiedTimeline({
         }}
         data-testid="now-line-indicator"
       />
+
+      {/* Separator lines above medication group headers */}
+      {swimlanePositions.filter(lane => lane.hierarchyLevel === 'group').map(lane => (
+        <div
+          key={`separator-${lane.id}`}
+          className="absolute z-10 pointer-events-none"
+          style={{
+            left: '200px',
+            right: '10px',
+            top: `${lane.top}px`,
+            height: '2px',
+            backgroundColor: isDark ? '#4b5563' : '#d1d5db',
+          }}
+        />
+      ))}
 
       {/* Heart Rhythm values as DOM overlays */}
       {heartRhythmData.map(([timestamp, rhythm], index) => {
