@@ -1583,11 +1583,21 @@ export function UnifiedTimeline({
             
             if (typeof tick1Value === 'number' && typeof tick2Value === 'number') {
               const actualInterval = Math.abs(tick2Value - tick1Value);
+              const intervalMinutes = actualInterval / (60 * 1000);
               
-              // Use the real interval ECharts is displaying
-              vitalsSnapInterval = actualInterval;
+              // Map actual tick interval to fixed snap intervals
+              // Rule 1: tick interval <= 2 min → snap to 1 min
+              // Rule 2: tick interval > 2 and <= 15 min → snap to 5 min
+              // Rule 3: tick interval > 15 min → snap to 10 min
+              if (intervalMinutes <= 2) {
+                vitalsSnapInterval = 1 * 60 * 1000;
+              } else if (intervalMinutes <= 15) {
+                vitalsSnapInterval = 5 * 60 * 1000;
+              } else {
+                vitalsSnapInterval = 10 * 60 * 1000;
+              }
               
-              console.log(`[Snap Interval] ECharts interval: ${actualInterval / 60000} min (${actualInterval}ms)`);
+              console.log(`[Snap Interval] ECharts tick: ${intervalMinutes.toFixed(1)} min → snap: ${vitalsSnapInterval / 60000} min`);
             } else {
               throw new Error('Tick values not numeric');
             }
@@ -1598,19 +1608,23 @@ export function UnifiedTimeline({
           throw new Error('Axis API not available');
         }
       } catch (error) {
-        // Fallback to visible range calculation if ECharts API fails
+        // Fallback: estimate tick interval from visible range
+        // Assume ECharts typically shows ~12-20 ticks, use 15 as average
         const visibleRangeMs = visibleEnd - visibleStart;
-        const visibleRangeMinutes = visibleRangeMs / (60 * 1000);
+        const estimatedTickCount = 15;
+        const estimatedTickInterval = visibleRangeMs / estimatedTickCount;
+        const intervalMinutes = estimatedTickInterval / (60 * 1000);
         
-        if (visibleRangeMinutes < 10) {
+        // Map estimated tick interval to fixed snap intervals (same rules)
+        if (intervalMinutes <= 2) {
           vitalsSnapInterval = 1 * 60 * 1000;
-        } else if (visibleRangeMinutes < 30) {
+        } else if (intervalMinutes <= 15) {
           vitalsSnapInterval = 5 * 60 * 1000;
         } else {
           vitalsSnapInterval = 10 * 60 * 1000;
         }
         
-        console.log(`[Snap Interval] Fallback (${visibleRangeMinutes.toFixed(1)} min visible): ${vitalsSnapInterval / 60000} min`);
+        console.log(`[Snap Interval] Fallback estimated tick: ${intervalMinutes.toFixed(1)} min → snap: ${vitalsSnapInterval / 60000} min`);
       }
       
       setCurrentVitalsSnapInterval(vitalsSnapInterval);
