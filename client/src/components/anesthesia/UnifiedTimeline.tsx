@@ -1324,15 +1324,14 @@ export function UnifiedTimeline({
   // Track initial zoom state
   const hasSetInitialZoomRef = useRef(false);
 
-  // Handle chart ready - set initial zoom (5min non-editable + 10min editable before NOW, 10min after NOW)
+  // Handle chart ready - set initial zoom to 60-minute window centered on NOW
   const handleChartReady = (chart: any) => {
     if (hasSetInitialZoomRef.current) return;
 
     const currentTime = now || data.endTime;
-    const fifteenMinutes = 15 * 60 * 1000;  // 5min non-editable + 10min editable
-    const tenMinutes = 10 * 60 * 1000;
-    const initialStartTime = currentTime - fifteenMinutes;
-    const initialEndTime = currentTime + tenMinutes;
+    const thirtyMinutes = 30 * 60 * 1000;
+    const initialStartTime = currentTime - thirtyMinutes;
+    const initialEndTime = currentTime + thirtyMinutes;
     
     const startPercent = ((initialStartTime - data.startTime) / (data.endTime - data.startTime)) * 100;
     const endPercent = ((initialEndTime - data.startTime) / (data.endTime - data.startTime)) * 100;
