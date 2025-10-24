@@ -566,7 +566,13 @@ export function UnifiedTimeline({
   const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; value: number; time: number } | null>(null);
   
   // State for Zeiten hover tooltip
-  const [zeitenHoverInfo, setZeitenHoverInfo] = useState<{ x: number; y: number; time: number; nextMarker: string | null } | null>(null);
+  const [zeitenHoverInfo, setZeitenHoverInfo] = useState<{ 
+    x: number; 
+    y: number; 
+    time: number; 
+    nextMarker: string | null;
+    existingMarker?: { code: string; label: string; time: number };
+  } | null>(null);
 
   // State for medication dose entry
   const [medicationHoverInfo, setMedicationHoverInfo] = useState<{ x: number; y: number; time: number; swimlaneId: string; label: string } | null>(null);
@@ -4617,7 +4623,16 @@ export function UnifiedTimeline({
             top: zeitenHoverInfo.y - 40,
           }}
         >
-          {zeitenHoverInfo.nextMarker ? (
+          {zeitenHoverInfo.existingMarker ? (
+            <>
+              <div className="text-sm font-semibold text-green-600 dark:text-green-400">
+                {zeitenHoverInfo.existingMarker.code} - {zeitenHoverInfo.existingMarker.label}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Set at {new Date(zeitenHoverInfo.existingMarker.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+              </div>
+            </>
+          ) : zeitenHoverInfo.nextMarker ? (
             <>
               <div className="text-sm font-semibold text-primary">
                 {zeitenHoverInfo.nextMarker}
@@ -4669,6 +4684,12 @@ export function UnifiedTimeline({
               const oneMinute = 60 * 1000;
               time = Math.round(time / oneMinute) * oneMinute;
               
+              // Check if we're hovering over an existing marker (within 3 minutes threshold)
+              const threeMinutes = 3 * 60 * 1000;
+              const existingMarker = timeMarkers.find(m => 
+                m.time !== null && Math.abs(m.time - time) < threeMinutes
+              );
+              
               // Find next unplaced marker
               const nextMarkerIndex = timeMarkers.findIndex(m => m.time === null);
               const nextMarker = nextMarkerIndex !== -1 ? timeMarkers[nextMarkerIndex] : null;
@@ -4676,8 +4697,13 @@ export function UnifiedTimeline({
               setZeitenHoverInfo({ 
                 x: e.clientX, 
                 y: e.clientY, 
-                time,
-                nextMarker: nextMarker ? `${nextMarker.code} - ${nextMarker.label}` : null
+                time: existingMarker ? existingMarker.time! : time,
+                nextMarker: nextMarker ? `${nextMarker.code} - ${nextMarker.label}` : null,
+                existingMarker: existingMarker ? {
+                  code: existingMarker.code,
+                  label: existingMarker.label,
+                  time: existingMarker.time!
+                } : undefined
               });
             }}
             onMouseLeave={() => setZeitenHoverInfo(null)}
@@ -6780,19 +6806,33 @@ export function UnifiedTimeline({
                     </div>
                   )}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    const updated = [...timeMarkers];
-                    updated[index] = { ...updated[index], time: null };
-                    setTimeMarkers(updated);
-                  }}
-                  data-testid={`button-clear-${marker.code}`}
-                  disabled={marker.time === null}
-                >
-                  Clear
-                </Button>
+                {marker.time === null ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const updated = [...timeMarkers];
+                      updated[index] = { ...updated[index], time: Date.now() };
+                      setTimeMarkers(updated);
+                    }}
+                    data-testid={`button-now-${marker.code}`}
+                  >
+                    Now
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const updated = [...timeMarkers];
+                      updated[index] = { ...updated[index], time: null };
+                      setTimeMarkers(updated);
+                    }}
+                    data-testid={`button-clear-${marker.code}`}
+                  >
+                    Clear
+                  </Button>
+                )}
               </div>
             ))}
           </div>
