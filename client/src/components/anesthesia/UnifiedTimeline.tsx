@@ -1384,7 +1384,7 @@ export function UnifiedTimeline({
     const updateZones = () => {
       // Calculate heights outside try block for error logging
       const VITALS_TOP = 32;
-      const VITALS_HEIGHT = 340;
+      const VITALS_HEIGHT = 380;
       const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
       const chartHeight = VITALS_HEIGHT + swimlanesHeight;
       
@@ -1673,8 +1673,8 @@ export function UnifiedTimeline({
   const option = useMemo(() => {
     // Layout constants
     const VITALS_TOP = 32; // Space for sticky header (32px)
-    const VITALS_HEIGHT = 340;
-    const SWIMLANE_START = VITALS_TOP + VITALS_HEIGHT; // 396px
+    const VITALS_HEIGHT = 380;
+    const SWIMLANE_START = VITALS_TOP + VITALS_HEIGHT; // 412px
     const GRID_LEFT = 200; // Increased width to accommodate longer header text
     const GRID_RIGHT = 10;
 
@@ -2403,7 +2403,7 @@ export function UnifiedTimeline({
   }, [data, isDark, activeSwimlanes, now, hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, medicationDoseData, zoomPercent, pendingSysValue, bpEntryMode, currentTime, collapsedSwimlanes, dragPosition, selectedPoint]);
 
   // Calculate component height
-  const VITALS_HEIGHT = 340;
+  const VITALS_HEIGHT = 380;
   const VITALS_TOP_POS = 32; // Position accounting for sticky header (32px)
   const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
   const componentHeight = height ?? (VITALS_TOP_POS + VITALS_HEIGHT + swimlanesHeight);
@@ -3868,7 +3868,7 @@ export function UnifiedTimeline({
       {/* Left sidebar */}
       <div className="absolute left-0 top-0 w-[200px] h-full border-r border-border z-30 bg-background">
         {/* Y-axis scales - manually rendered on right side of white area */}
-        <div className="absolute top-[32px] h-[340px] w-full pointer-events-none z-50">
+        <div className="absolute top-[32px] h-[380px] w-full pointer-events-none z-50">
           {/* First scale: 20-220 with 20-unit steps (11 values) - close to grid, grid extends 0 to 240 for top and bottom padding */}
           {[20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220].map((val) => {
             const yPercent = ((240 - val) / 240) * 100;
@@ -3908,7 +3908,7 @@ export function UnifiedTimeline({
         </div>
         
         {/* Vitals icon buttons */}
-        <div className="absolute top-[32px] h-[340px] w-full flex flex-col items-start justify-center gap-2 pl-4">
+        <div className="absolute top-[32px] h-[380px] w-full flex flex-col items-start justify-center gap-2 pl-4">
           <button
             onClick={() => {
               if (activeToolMode === 'bp') {
@@ -4109,7 +4109,7 @@ export function UnifiedTimeline({
             left: '200px',
             right: '10px',
             top: '32px',
-            height: '340px',
+            height: '380px',
           }}
           onMouseMove={(e) => {
             // Skip hover preview on touch devices
