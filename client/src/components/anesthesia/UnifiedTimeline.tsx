@@ -465,6 +465,7 @@ export function UnifiedTimeline({
   const [eventTextInput, setEventTextInput] = useState("");
   const [eventEditTime, setEventEditTime] = useState<number>(Date.now());
   const [eventHoverInfo, setEventHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
+  const [hoveredEvent, setHoveredEvent] = useState<{ event: EventComment; x: number; y: number } | null>(null);
 
   // State for medication dose edit dialog
   const [showMedicationEditDialog, setShowMedicationEditDialog] = useState(false);
@@ -4804,6 +4805,55 @@ export function UnifiedTimeline({
         </div>
       )}
 
+      {/* Inline popup for existing events */}
+      {hoveredEvent && !isTouchDevice && (
+        <div
+          className="fixed z-50 pointer-events-none"
+          style={{
+            left: hoveredEvent.x,
+            top: hoveredEvent.y - 20,
+            transform: 'translate(-50%, -100%)',
+          }}
+        >
+          <div className="bg-background border-2 border-primary rounded-lg shadow-xl max-w-md p-4 relative">
+            <div className="flex items-center gap-2 mb-2">
+              <MessageSquareText className="w-4 h-4 text-primary" />
+              <span className="text-sm font-semibold text-primary">Event Comment</span>
+              <span className="text-xs text-muted-foreground ml-auto">
+                {new Date(hoveredEvent.event.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+              </span>
+            </div>
+            <div className="text-sm text-foreground whitespace-pre-wrap break-words max-h-48 overflow-y-auto">
+              {hoveredEvent.event.text}
+            </div>
+            <div className="text-xs text-muted-foreground mt-2 italic">
+              Click to edit
+            </div>
+            {/* Arrow pointing down to the icon - double layer for border effect */}
+            {/* Outer arrow (border) */}
+            <div
+              className="absolute left-1/2 -translate-x-1/2 w-0 h-0"
+              style={{
+                bottom: '-12px',
+                borderLeft: '12px solid transparent',
+                borderRight: '12px solid transparent',
+                borderTop: '12px solid hsl(var(--primary))',
+              }}
+            />
+            {/* Inner arrow (background) */}
+            <div
+              className="absolute left-1/2 -translate-x-1/2 w-0 h-0"
+              style={{
+                bottom: '-10px',
+                borderLeft: '10px solid transparent',
+                borderRight: '10px solid transparent',
+                borderTop: '10px solid hsl(var(--background))',
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Interactive layer for Heart Rhythm swimlane - to add rhythm entries */}
       {!activeToolMode && (() => {
         const rhythmLane = swimlanePositions.find(lane => lane.id === 'herzrhythmus');
@@ -5923,7 +5973,17 @@ export function UnifiedTimeline({
               setEventEditTime(event.time);
               setShowEventDialog(true);
             }}
-            title={event.text}
+            onMouseEnter={(e) => {
+              if (!isTouchDevice) {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setHoveredEvent({
+                  event,
+                  x: rect.left + rect.width / 2,
+                  y: rect.top,
+                });
+              }
+            }}
+            onMouseLeave={() => setHoveredEvent(null)}
             data-testid={`event-icon-${event.id}`}
           >
             <MessageSquareText className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
