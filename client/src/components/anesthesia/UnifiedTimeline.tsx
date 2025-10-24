@@ -3467,8 +3467,8 @@ export function UnifiedTimeline({
   };
 
   // Handle heart rhythm save
-  const handleHeartRhythmSave = () => {
-    const rhythm = heartRhythmInput.trim();
+  const handleHeartRhythmSave = (rhythmValue?: string) => {
+    const rhythm = (rhythmValue || heartRhythmInput).trim();
     if (!rhythm) return;
     
     // Determine time to use
@@ -7360,32 +7360,65 @@ export function UnifiedTimeline({
             <div className="grid gap-2">
               <Label>Select Rhythm</Label>
               <div className="grid gap-1">
-                {['SR', 'SVES', 'VES', 'VHF', 'Vorhofflattern', 'Schrittmacher', 'AV Block III', 'Kammerflimmern', 'Torsade de pointes', 'Defibrillator'].map((rhythm) => (
-                  <Button
-                    key={rhythm}
-                    variant={heartRhythmInput === rhythm ? 'default' : 'outline'}
-                    className="justify-start h-12 text-left"
-                    onClick={() => {
-                      setHeartRhythmInput(rhythm);
-                    }}
-                    data-testid={`button-rhythm-${rhythm.toLowerCase().replace(/\s+/g, '-')}`}
-                  >
-                    {rhythm}
-                  </Button>
-                ))}
-                <Input
-                  placeholder="Custom value..."
-                  value={heartRhythmInput && !['SR', 'SVES', 'VES', 'VHF', 'Vorhofflattern', 'Schrittmacher', 'AV Block III', 'Kammerflimmern', 'Torsade de pointes', 'Defibrillator'].includes(heartRhythmInput) ? heartRhythmInput : ''}
-                  onChange={(e) => setHeartRhythmInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && heartRhythmInput.trim() && pendingHeartRhythm) {
-                      // Allow Enter key to submit custom input
-                      handleHeartRhythmSave();
-                    }
-                  }}
-                  className="mt-2"
-                  data-testid="input-heart-rhythm-custom"
-                />
+                {editingHeartRhythm ? (
+                  // When editing, show buttons to select new rhythm but require Save
+                  <>
+                    {['SR', 'SVES', 'VES', 'VHF', 'Vorhofflattern', 'Schrittmacher', 'AV Block III', 'Kammerflimmern', 'Torsade de pointes', 'Defibrillator'].map((rhythm) => (
+                      <Button
+                        key={rhythm}
+                        variant={heartRhythmInput === rhythm ? 'default' : 'outline'}
+                        className="justify-start h-12 text-left"
+                        onClick={() => {
+                          setHeartRhythmInput(rhythm);
+                        }}
+                        data-testid={`button-rhythm-${rhythm.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        {rhythm}
+                      </Button>
+                    ))}
+                    <Input
+                      placeholder="Custom value..."
+                      value={heartRhythmInput && !['SR', 'SVES', 'VES', 'VHF', 'Vorhofflattern', 'Schrittmacher', 'AV Block III', 'Kammerflimmern', 'Torsade de pointes', 'Defibrillator'].includes(heartRhythmInput) ? heartRhythmInput : ''}
+                      onChange={(e) => setHeartRhythmInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && heartRhythmInput.trim()) {
+                          handleHeartRhythmSave();
+                        }
+                      }}
+                      className="mt-2"
+                      data-testid="input-heart-rhythm-custom"
+                    />
+                  </>
+                ) : (
+                  // When adding new, preset buttons immediately save
+                  <>
+                    {['SR', 'SVES', 'VES', 'VHF', 'Vorhofflattern', 'Schrittmacher', 'AV Block III', 'Kammerflimmern', 'Torsade de pointes', 'Defibrillator'].map((rhythm) => (
+                      <Button
+                        key={rhythm}
+                        variant="outline"
+                        className="justify-start h-12 text-left"
+                        onClick={() => {
+                          handleHeartRhythmSave(rhythm);
+                        }}
+                        data-testid={`button-rhythm-${rhythm.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        {rhythm}
+                      </Button>
+                    ))}
+                    <Input
+                      placeholder="Custom value..."
+                      value={heartRhythmInput}
+                      onChange={(e) => setHeartRhythmInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && heartRhythmInput.trim()) {
+                          handleHeartRhythmSave();
+                        }
+                      }}
+                      className="mt-2"
+                      data-testid="input-heart-rhythm-custom"
+                    />
+                  </>
+                )}
               </div>
             </div>
           </div>
