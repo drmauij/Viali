@@ -6907,9 +6907,12 @@ export function UnifiedTimeline({
               // Determine if line crosses NOW
               const crossesNow = timestamp <= currentTime && nextTimestamp > currentTime;
               
+              // Check if this is a stop marker (empty string)
+              const isStopMarker = rate === "";
+              
               return (
                 <g key={`infusion-line-${lane.id}-${timestamp}-${index}`}>
-                  {/* Vertical tick at start with rate value */}
+                  {/* Vertical tick at start - always shown */}
                   <line
                     x1={xStart}
                     y1={y - 10}
@@ -6919,30 +6922,35 @@ export function UnifiedTimeline({
                     strokeWidth={2}
                   />
                   
-                  {/* Red portion (before NOW) */}
-                  {timestamp < currentTime && (
-                    <line
-                      x1={xStart}
-                      y1={y}
-                      x2={crossesNow ? nowX : xEnd}
-                      y2={y}
-                      stroke={isDark ? '#ef4444' : '#dc2626'}
-                      strokeWidth={2}
-                      strokeDasharray={isFreeFlow ? '5,5' : '0'}
-                    />
-                  )}
-                  
-                  {/* Gray portion (after NOW) */}
-                  {nextTimestamp > currentTime && (
-                    <line
-                      x1={crossesNow ? nowX : xStart}
-                      y1={y}
-                      x2={xEnd}
-                      y2={y}
-                      stroke={isDark ? '#6b7280' : '#9ca3af'}
-                      strokeWidth={2}
-                      strokeDasharray={isFreeFlow ? '5,5' : '0'}
-                    />
+                  {/* Only render horizontal lines if NOT a stop marker */}
+                  {!isStopMarker && (
+                    <>
+                      {/* Red portion (before NOW) */}
+                      {timestamp < currentTime && (
+                        <line
+                          x1={xStart}
+                          y1={y}
+                          x2={crossesNow ? nowX : xEnd}
+                          y2={y}
+                          stroke={isDark ? '#ef4444' : '#dc2626'}
+                          strokeWidth={2}
+                          strokeDasharray={isFreeFlow ? '5,5' : '0'}
+                        />
+                      )}
+                      
+                      {/* Gray portion (after NOW) */}
+                      {nextTimestamp > currentTime && (
+                        <line
+                          x1={crossesNow ? nowX : xStart}
+                          y1={y}
+                          x2={xEnd}
+                          y2={y}
+                          stroke={isDark ? '#6b7280' : '#9ca3af'}
+                          strokeWidth={2}
+                          strokeDasharray={isFreeFlow ? '5,5' : '0'}
+                        />
+                      )}
+                    </>
                   )}
                 </g>
               );
