@@ -6461,7 +6461,15 @@ export function UnifiedTimeline({
       })}
 
       {/* Medication Dose Entry Dialog */}
-      <Dialog open={showMedicationDoseDialog} onOpenChange={setShowMedicationDoseDialog}>
+      <Dialog open={showMedicationDoseDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowMedicationDoseDialog(false);
+          setPendingMedicationDose(null);
+          setMedicationDoseInput("");
+        } else {
+          setShowMedicationDoseDialog(true);
+        }
+      }}>
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-medication-dose">
           <DialogHeader>
             <DialogTitle>Add Dose</DialogTitle>
@@ -6504,7 +6512,15 @@ export function UnifiedTimeline({
       </Dialog>
 
       {/* Infusion Value Entry Dialog */}
-      <Dialog open={showInfusionDialog} onOpenChange={setShowInfusionDialog}>
+      <Dialog open={showInfusionDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowInfusionDialog(false);
+          setPendingInfusionValue(null);
+          setInfusionInput("");
+        } else {
+          setShowInfusionDialog(true);
+        }
+      }}>
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-infusion-value">
           <DialogHeader>
             <DialogTitle>Add Infusion Rate</DialogTitle>
@@ -6547,7 +6563,16 @@ export function UnifiedTimeline({
       </Dialog>
 
       {/* Infusion Value Edit Dialog */}
-      <Dialog open={showInfusionEditDialog} onOpenChange={setShowInfusionEditDialog}>
+      <Dialog open={showInfusionEditDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowInfusionEditDialog(false);
+          setEditingInfusionValue(null);
+          setInfusionEditInput("");
+          setInfusionEditTime(0);
+        } else {
+          setShowInfusionEditDialog(true);
+        }
+      }}>
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-infusion-edit">
           <DialogHeader>
             <DialogTitle>Edit Infusion Rate</DialogTitle>
@@ -6591,7 +6616,15 @@ export function UnifiedTimeline({
       </Dialog>
 
       {/* Output Value Entry Dialog */}
-      <Dialog open={showOutputDialog} onOpenChange={setShowOutputDialog}>
+      <Dialog open={showOutputDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowOutputDialog(false);
+          setPendingOutputValue(null);
+          setOutputValueInput("");
+        } else {
+          setShowOutputDialog(true);
+        }
+      }}>
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-output-value">
           <DialogHeader>
             <DialogTitle>Add Output Value</DialogTitle>
@@ -6636,7 +6669,15 @@ export function UnifiedTimeline({
       </Dialog>
 
       {/* Ventilation Parameter Entry Dialog */}
-      <Dialog open={showVentilationDialog} onOpenChange={setShowVentilationDialog}>
+      <Dialog open={showVentilationDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowVentilationDialog(false);
+          setPendingVentilationValue(null);
+          setVentilationValueInput("");
+        } else {
+          setShowVentilationDialog(true);
+        }
+      }}>
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-ventilation-value">
           <DialogHeader>
             <DialogTitle>Add Value</DialogTitle>
@@ -6782,7 +6823,14 @@ export function UnifiedTimeline({
       </Dialog>
 
       {/* Edit Single Time Marker Dialog */}
-      <Dialog open={timeMarkerEditDialogOpen} onOpenChange={setTimeMarkerEditDialogOpen}>
+      <Dialog open={timeMarkerEditDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setTimeMarkerEditDialogOpen(false);
+          setEditingTimeMarker(null);
+        } else {
+          setTimeMarkerEditDialogOpen(true);
+        }
+      }}>
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-edit-time-marker">
           <DialogHeader>
             <DialogTitle>Edit Time Marker</DialogTitle>
@@ -7736,7 +7784,7 @@ function EditValueForm({
 }
 
 // Dialog Footer Component with Time Navigation (matches screenshot design)
-// Left: Time with arrows, Right: Delete icon button, Cancel & Save buttons
+// Left: Time with arrows, Right: Delete icon button and Save button
 function DialogFooterWithTime({
   time,
   onTimeChange,
@@ -7771,7 +7819,7 @@ function DialogFooterWithTime({
         )}
       </div>
       
-      {/* Right: Delete, Cancel and Save buttons */}
+      {/* Right: Delete and Save buttons */}
       <div className="flex gap-2 ml-auto">
         {showDelete && onDelete && (
           <Button
@@ -7784,13 +7832,6 @@ function DialogFooterWithTime({
             <Trash2 className="w-4 h-4" />
           </Button>
         )}
-        <Button
-          variant="outline"
-          onClick={onCancel}
-          data-testid="button-cancel"
-        >
-          {cancelLabel}
-        </Button>
         <Button
           onClick={onSave}
           data-testid="button-save"
