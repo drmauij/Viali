@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
+import { sql } from "drizzle-orm";
 import { db, pool } from "./db";
 
 const app = express();
@@ -55,40 +56,40 @@ app.use((req, res, next) => {
     log("Running database migrations...");
     try {
       // Check if any application tables exist
-      const checkSchema = await pool.query(`
+      const checkSchema = await db.execute(sql`
         SELECT EXISTS (
           SELECT FROM information_schema.tables 
           WHERE table_schema = 'public'
           AND table_name IN ('users', 'sessions', 'hospitals')
-        );
+        )
       `);
       
       const schemaExists = checkSchema.rows[0]?.exists;
       
       if (schemaExists) {
         // Schema exists - ensure migrations tracking is set up
-        await pool.query(`CREATE SCHEMA IF NOT EXISTS drizzle;`);
-        await pool.query(`
+        await db.execute(sql`CREATE SCHEMA IF NOT EXISTS drizzle`);
+        await db.execute(sql`
           CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
             id SERIAL PRIMARY KEY,
             hash text NOT NULL,
             created_at bigint
-          );
+          )
         `);
         
         // Check if baseline migration is tracked
-        const checkBaseline = await pool.query(`
+        const checkBaseline = await db.execute(sql`
           SELECT EXISTS (
             SELECT FROM drizzle.__drizzle_migrations 
             WHERE hash = '0000_broken_liz_osborn'
-          );
+          )
         `);
         
         if (!checkBaseline.rows[0]?.exists) {
           // Mark baseline as complete
-          await pool.query(`
+          await db.execute(sql`
             INSERT INTO drizzle.__drizzle_migrations (hash, created_at) 
-            VALUES ('0000_broken_liz_osborn', ${Date.now()});
+            VALUES ('0000_broken_liz_osborn', ${Date.now()})
           `);
           log("✓ Existing schema baselined for migration tracking");
         } else {
