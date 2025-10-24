@@ -5824,12 +5824,39 @@ export function UnifiedTimeline({
                       });
                       setShowRateSelectionDialog(true);
                     } else {
-                      // Simple numeric default: insert it directly
-                      const updated = { ...infusionData };
-                      if (!updated[lane.id]) updated[lane.id] = [];
-                      const newEntry: [number, string] = [time, lane.defaultDose];
-                      updated[lane.id] = [...updated[lane.id], newEntry].sort((a, b) => a[0] - b[0]);
-                      setInfusionData(updated);
+                      // Simple numeric default: check if there are any existing rates
+                      const existingRates = infusionData[lane.id] || [];
+                      
+                      if (existingRates.length > 0) {
+                        // Rates already exist - show management dialog instead of adding same value
+                        // Find the most recent rate before this time (or any rate if none before)
+                        const ratesBeforeOrAt = existingRates.filter(([t]) => t <= time);
+                        const targetRate = ratesBeforeOrAt.length > 0 
+                          ? ratesBeforeOrAt[ratesBeforeOrAt.length - 1]
+                          : existingRates[0];
+                        
+                        const [valueTime, value] = targetRate;
+                        const valueIndex = existingRates.findIndex(([t, v]) => t === valueTime && v === value);
+                        
+                        setManagingRate({
+                          swimlaneId: lane.id,
+                          time: valueTime,
+                          value: value.toString(),
+                          index: valueIndex,
+                          label: lane.label.trim(),
+                          rateOptions: undefined, // No range options for simple default
+                        });
+                        setRateManageTime(time);
+                        setRateManageInput(value.toString());
+                        setShowRateManageDialog(true);
+                      } else {
+                        // No existing rates: insert default directly for first click
+                        const updated = { ...infusionData };
+                        if (!updated[lane.id]) updated[lane.id] = [];
+                        const newEntry: [number, string] = [time, lane.defaultDose];
+                        updated[lane.id] = [...updated[lane.id], newEntry].sort((a, b) => a[0] - b[0]);
+                        setInfusionData(updated);
+                      }
                     }
                   } else {
                     // No default dose: open dialog
