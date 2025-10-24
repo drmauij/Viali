@@ -3837,18 +3837,32 @@ export function UnifiedTimeline({
       
       {/* Swimlane backgrounds - explicit height matching vertical lines extent */}
       <div className="absolute left-0 top-0 right-0 pointer-events-none z-0" style={{ height: `${backgroundsHeight}px` }}>
-        {swimlanePositions.map((lane, index) => (
-          <div 
-            key={lane.id}
-            className="absolute w-full border-b" 
-            style={{ 
-              top: `${lane.top}px`, 
-              height: `${lane.height}px`, 
-              backgroundColor: isDark ? lane.colorDark : lane.colorLight,
-              borderColor: isDark ? "#444444" : "#d1d5db"
-            }} 
-          />
-        ))}
+        {swimlanePositions.map((lane, index) => {
+          // Apply same darker background logic for group headers
+          let swimlaneBackgroundColor: string;
+          if (lane.hierarchyLevel === 'group') {
+            // Match the darker background used for group headers
+            swimlaneBackgroundColor = isDark ? "hsl(150, 45%, 8%)" : "hsl(150, 50%, 75%)";
+          } else {
+            swimlaneBackgroundColor = isDark ? lane.colorDark : lane.colorLight;
+          }
+          
+          // Remove border-b from group headers
+          const shouldShowBorder = lane.hierarchyLevel !== 'group';
+          
+          return (
+            <div 
+              key={lane.id}
+              className={`absolute w-full ${shouldShowBorder ? 'border-b' : ''}`}
+              style={{ 
+                top: `${lane.top}px`, 
+                height: `${lane.height}px`, 
+                backgroundColor: swimlaneBackgroundColor,
+                borderColor: isDark ? "#444444" : "#d1d5db"
+              }} 
+            />
+          );
+        })}
       </div>
 
       {/* Left sidebar */}
