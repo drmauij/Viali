@@ -12,14 +12,12 @@ export function getSession() {
   const pgStore = connectPg(session);
   
   // Create a pool with SSL configuration for PostgreSQL
-  // Only accept self-signed certificates if explicitly configured
-  const sslConfig = process.env.DATABASE_URL?.includes('sslmode=require')
-    ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' }
-    : undefined;
-  
+  // Accept self-signed certificates (for Exoscale, Aiven, etc.)
   const sessionPool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: sslConfig
+    ssl: {
+      rejectUnauthorized: false
+    }
   });
   
   const sessionStore = new pgStore({
