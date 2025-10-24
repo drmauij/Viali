@@ -27,6 +27,9 @@ export function getSession() {
     tableName: "sessions",
   });
   
+  // Only use secure cookies when actually using HTTPS
+  const isHttps = process.env.PRODUCTION_URL?.startsWith('https://') || false;
+  
   return session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
@@ -34,7 +37,7 @@ export function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isHttps,
       sameSite: 'lax',
       maxAge: sessionTtl,
     },
