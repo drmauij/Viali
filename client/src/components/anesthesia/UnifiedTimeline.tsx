@@ -5562,16 +5562,19 @@ export function UnifiedTimeline({
                 } else {
                   // Check if this is a free-flow infusion (no rate)
                   if (lane.rateUnit === 'free') {
-                    // Check if there's an existing free-flow session at this time
+                    // Check if there's any active free-flow session on this swimlane
                     const sessions = freeFlowSessions[lane.id] || [];
-                    const existingSession = sessions.find(session => 
-                      Math.abs(session.startTime - time) <= clickTolerance
-                    );
                     
-                    if (existingSession) {
-                      // Second click: show management dialog
-                      setManagingFreeFlowSession(existingSession);
-                      setFreeFlowManageTime(time); // Use current click time, not start time
+                    if (sessions.length > 0) {
+                      // Swimlane is already busy - find the closest session and show management dialog
+                      const closestSession = sessions.reduce((closest, session) => {
+                        const currentDist = Math.abs(session.startTime - time);
+                        const closestDist = Math.abs(closest.startTime - time);
+                        return currentDist < closestDist ? session : closest;
+                      }, sessions[0]);
+                      
+                      setManagingFreeFlowSession(closestSession);
+                      setFreeFlowManageTime(time);
                       setShowFreeFlowManageDialog(true);
                     } else {
                       // First click: check for default dose
@@ -6717,13 +6720,12 @@ export function UnifiedTimeline({
         const visibleEnd = currentZoomEnd ?? data.endTime;
         const visibleRange = visibleEnd - visibleStart;
         
-        // Check if this is a free-flow infusion (no rate values should be displayed)
+        // Check if this is a free-flow infusion
         const isFreeFlow = lane.rateUnit === 'free';
         
-        // Don't render any values for free-flow infusions
-        if (isFreeFlow) return [];
-        
         return infusionData[lane.id].map(([timestamp, rate], index) => {
+          // Skip rendering empty string markers (stop markers)
+          if (rate === "") return null;
           const xFraction = (timestamp - visibleStart) / visibleRange;
           
           if (xFraction < 0 || xFraction > 1) return null;
