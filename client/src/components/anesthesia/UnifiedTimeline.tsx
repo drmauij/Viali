@@ -577,6 +577,29 @@ export function UnifiedTimeline({
   const [managingFreeFlowSession, setManagingFreeFlowSession] = useState<FreeFlowSession | null>(null);
   const [freeFlowManageTime, setFreeFlowManageTime] = useState<number>(0);
   
+  // State for rate-controlled infusion rate selection dialog (range defaults like "6-12-16")
+  const [showRateSelectionDialog, setShowRateSelectionDialog] = useState(false);
+  const [pendingRateSelection, setPendingRateSelection] = useState<{ 
+    swimlaneId: string; 
+    time: number; 
+    label: string;
+    rateOptions: string[]; // parsed from defaultDose like "6-12-16"
+  } | null>(null);
+  const [customRateInput, setCustomRateInput] = useState("");
+  
+  // State for rate-controlled infusion management dialog (edit/stop/change existing rate)
+  const [showRateManageDialog, setShowRateManageDialog] = useState(false);
+  const [managingRate, setManagingRate] = useState<{
+    swimlaneId: string;
+    time: number;
+    value: string;
+    index: number;
+    label: string;
+    rateOptions?: string[]; // from defaultDose if available
+  } | null>(null);
+  const [rateManageTime, setRateManageTime] = useState<number>(0);
+  const [rateManageInput, setRateManageInput] = useState("");
+  
   // State for BP dual entry (systolic then diastolic)
   const [bpEntryMode, setBpEntryMode] = useState<'sys' | 'dia'>('sys');
   const [pendingSysValue, setPendingSysValue] = useState<{ time: number; value: number } | null>(null);
@@ -3529,6 +3552,160 @@ export function UnifiedTimeline({
     setFreeFlowManageTime(0);
   };
 
+  // Handle rate selection (from rate options or custom input)
+  const handleRateSelection = (selectedRate: string) => {
+    if (!pendingRateSelection) return;
+    
+    const { swimlaneId, time } = pendingRateSelection;
+    
+    // Add the selected rate to infusion data
+    setInfusionData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      return {
+        ...prev,
+        [swimlaneId]: [...existingData, [time, selectedRate] as [number, string]].sort((a, b) => a[0] - b[0]),
+      };
+    });
+    
+    toast({
+      title: "Rate set",
+      description: `${pendingRateSelection.label} set to ${selectedRate}`,
+    });
+    
+    // Reset dialog state
+    setShowRateSelectionDialog(false);
+    setPendingRateSelection(null);
+    setCustomRateInput("");
+  };
+
+  // Handle custom rate entry (from rate selection dialog)
+  const handleCustomRateEntry = () => {
+    const rate = customRateInput.trim();
+    if (!rate || isNaN(Number(rate)) || Number(rate) <= 0) {
+      toast({
+        title: "Invalid rate",
+        description: "Please enter a valid positive number",
+        variant: "destructive",
+      });
+      return;
+    }
+    handleRateSelection(rate);
+  };
+
+  // Handle rate stop (from management dialog)
+  const handleRateStop = () => {
+    if (!managingRate) return;
+    
+    const { swimlaneId, time: originalTime } = managingRate;
+    const stopTime = rateManageTime;
+    
+    // Find all rate changes after the current one
+    const existingData = infusionData[swimlaneId] || [];
+    const laterRates = existingData.filter(([t]) => t > originalTime);
+    
+    if (laterRates.length > 0) {
+      // There are later rates - just remove this one and let the next rate take over
+      setInfusionData(prev => {
+        const data = prev[swimlaneId] || [];
+        return {
+          ...prev,
+          [swimlaneId]: data.filter(([t]) => t !== originalTime),
+        };
+      });
+    } else {
+      // No later rates - add a stop marker at the new time if different
+      if (stopTime > originalTime) {
+        setInfusionData(prev => {
+          const data = prev[swimlaneId] || [];
+          // Remove the current rate and add an empty marker to stop the line
+          const filtered = data.filter(([t]) => t !== originalTime);
+          return {
+            ...prev,
+            [swimlaneId]: [...filtered, [stopTime, ""] as [number, string]].sort((a, b) => a[0] - b[0]),
+          };
+        });
+      } else {
+        // Just remove the rate
+        setInfusionData(prev => {
+          const data = prev[swimlaneId] || [];
+          return {
+            ...prev,
+            [swimlaneId]: data.filter(([t]) => t !== originalTime),
+          };
+        });
+      }
+    }
+    
+    toast({
+      title: "Rate stopped",
+      description: `${managingRate.label} stopped`,
+    });
+    
+    // Reset dialog state
+    setShowRateManageDialog(false);
+    setManagingRate(null);
+    setRateManageTime(0);
+    setRateManageInput("");
+  };
+
+  // Handle start new rate (from management dialog)
+  const handleRateStartNew = (newRate: string) => {
+    if (!managingRate) return;
+    
+    const { swimlaneId, label } = managingRate;
+    const newTime = rateManageTime;
+    
+    // Add new rate at the specified time
+    setInfusionData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      return {
+        ...prev,
+        [swimlaneId]: [...existingData, [newTime, newRate] as [number, string]].sort((a, b) => a[0] - b[0]),
+      };
+    });
+    
+    toast({
+      title: "New rate started",
+      description: `${label} set to ${newRate}`,
+    });
+    
+    // Reset dialog state
+    setShowRateManageDialog(false);
+    setManagingRate(null);
+    setRateManageTime(0);
+    setRateManageInput("");
+  };
+
+  // Handle change rate (update existing rate value)
+  const handleRateChange = (newRate: string) => {
+    if (!managingRate) return;
+    
+    const { swimlaneId, time, label } = managingRate;
+    
+    // Update the rate value at the same time
+    setInfusionData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      const updated = existingData.map(([t, v]) => 
+        t === time ? [t, newRate] as [number, string] : [t, v] as [number, string]
+      );
+      return {
+        ...prev,
+        [swimlaneId]: updated,
+      };
+    });
+    
+    toast({
+      title: "Rate changed",
+      description: `${label} changed to ${newRate}`,
+    });
+    
+    // Reset dialog state
+    setShowRateManageDialog(false);
+    setManagingRate(null);
+    setRateManageTime(0);
+    setRateManageInput("");
+  };
+
   // Handle output value entry (single parameter)
   const handleOutputValueEntry = () => {
     if (!pendingOutputValue || !outputValueInput.trim()) return;
@@ -5548,17 +5725,42 @@ export function UnifiedTimeline({
                 );
                 
                 if (existingValueAtTime) {
-                  // Open edit dialog for existing value
-                  const [valueTime, value] = existingValueAtTime;
-                  const valueIndex = existingValues.findIndex(([t, v]) => t === valueTime && v === value);
-                  setEditingInfusionValue({
-                    swimlaneId: lane.id,
-                    time: valueTime,
-                    value: value.toString(),
-                    index: valueIndex,
-                  });
-                  setInfusionEditInput(value.toString());
-                  setShowInfusionEditDialog(true);
+                  // Check if this is a rate-controlled infusion or free-flow
+                  if (lane.rateUnit === 'free') {
+                    // For free-flow, open edit dialog (they don't use management dialog)
+                    const [valueTime, value] = existingValueAtTime;
+                    const valueIndex = existingValues.findIndex(([t, v]) => t === valueTime && v === value);
+                    setEditingInfusionValue({
+                      swimlaneId: lane.id,
+                      time: valueTime,
+                      value: value.toString(),
+                      index: valueIndex,
+                    });
+                    setInfusionEditInput(value.toString());
+                    setShowInfusionEditDialog(true);
+                  } else {
+                    // For rate-controlled, open management dialog with stop/change/start new options
+                    const [valueTime, value] = existingValueAtTime;
+                    const valueIndex = existingValues.findIndex(([t, v]) => t === valueTime && v === value);
+                    
+                    // Parse rate options from defaultDose if it's a range
+                    let rateOptions: string[] | undefined;
+                    if (lane.defaultDose && lane.defaultDose.includes('-')) {
+                      rateOptions = lane.defaultDose.split('-').map(v => v.trim()).filter(v => v);
+                    }
+                    
+                    setManagingRate({
+                      swimlaneId: lane.id,
+                      time: valueTime,
+                      value: value.toString(),
+                      index: valueIndex,
+                      label: lane.label.trim(),
+                      rateOptions,
+                    });
+                    setRateManageTime(time);
+                    setRateManageInput(value.toString());
+                    setShowRateManageDialog(true);
+                  }
                 } else {
                   // Check if this is a free-flow infusion (no rate)
                   if (lane.rateUnit === 'free') {
@@ -5608,12 +5810,27 @@ export function UnifiedTimeline({
                       }
                     }
                   } else if (lane.defaultDose) {
-                    // Has default dose: insert it directly without dialog
-                    const updated = { ...infusionData };
-                    if (!updated[lane.id]) updated[lane.id] = [];
-                    const newEntry: [number, string] = [time, lane.defaultDose];
-                    updated[lane.id] = [...updated[lane.id], newEntry].sort((a, b) => a[0] - b[0]);
-                    setInfusionData(updated);
+                    // Check if defaultDose is a range (contains dashes like "6-12-16")
+                    const isRange = lane.defaultDose.includes('-');
+                    
+                    if (isRange) {
+                      // Parse range and show rate selection dialog
+                      const rateOptions = lane.defaultDose.split('-').map(v => v.trim()).filter(v => v);
+                      setPendingRateSelection({
+                        swimlaneId: lane.id,
+                        time,
+                        label: lane.label.trim(),
+                        rateOptions,
+                      });
+                      setShowRateSelectionDialog(true);
+                    } else {
+                      // Simple numeric default: insert it directly
+                      const updated = { ...infusionData };
+                      if (!updated[lane.id]) updated[lane.id] = [];
+                      const newEntry: [number, string] = [time, lane.defaultDose];
+                      updated[lane.id] = [...updated[lane.id], newEntry].sort((a, b) => a[0] - b[0]);
+                      setInfusionData(updated);
+                    }
                   } else {
                     // No default dose: open dialog
                     setPendingInfusionValue({ 
@@ -7031,6 +7248,271 @@ export function UnifiedTimeline({
               setShowFreeFlowManageDialog(false);
               setManagingFreeFlowSession(null);
               setFreeFlowManageTime(0);
+            }}
+            saveDisabled={false}
+            saveLabel="Close"
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Rate Selection Dialog (for range defaults like "6-12-16") */}
+      <Dialog open={showRateSelectionDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowRateSelectionDialog(false);
+          setPendingRateSelection(null);
+          setCustomRateInput("");
+        } else {
+          setShowRateSelectionDialog(true);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-rate-selection">
+          <DialogHeader>
+            <DialogTitle>Select Rate</DialogTitle>
+            <DialogDescription>
+              {pendingRateSelection ? `${pendingRateSelection.label}` : 'Select a rate or enter a custom value'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="text-sm font-medium">Choose from preset rates:</div>
+            <div className="grid grid-cols-3 gap-2">
+              {pendingRateSelection?.rateOptions.map((rate, idx) => (
+                <Button
+                  key={idx}
+                  onClick={() => handleRateSelection(rate)}
+                  variant="outline"
+                  className="h-12"
+                  data-testid={`button-rate-option-${rate}`}
+                >
+                  {rate}
+                </Button>
+              ))}
+            </div>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or enter custom
+                </span>
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="custom-rate">Custom Rate</Label>
+              <Input
+                id="custom-rate"
+                type="number"
+                inputMode="decimal"
+                data-testid="input-custom-rate"
+                value={customRateInput}
+                onChange={(e) => setCustomRateInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleCustomRateEntry();
+                  }
+                }}
+                placeholder="e.g., 8"
+              />
+            </div>
+          </div>
+          <DialogFooterWithTime
+            time={pendingRateSelection?.time}
+            onTimeChange={(newTime) => setPendingRateSelection(prev => prev ? { ...prev, time: newTime } : null)}
+            showDelete={false}
+            onCancel={() => {
+              setShowRateSelectionDialog(false);
+              setPendingRateSelection(null);
+              setCustomRateInput("");
+            }}
+            onSave={handleCustomRateEntry}
+            saveDisabled={!customRateInput.trim()}
+            saveLabel="Set Custom"
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Rate Management Dialog (edit/stop/change existing rate) */}
+      <Dialog open={showRateManageDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowRateManageDialog(false);
+          setManagingRate(null);
+          setRateManageTime(0);
+          setRateManageInput("");
+        } else {
+          setShowRateManageDialog(true);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-rate-manage">
+          <DialogHeader>
+            <DialogTitle>Manage Rate</DialogTitle>
+            <DialogDescription>
+              {managingRate ? `${managingRate.label} - Current: ${managingRate.value}` : 'Manage this rate'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="text-sm font-medium">Actions:</div>
+            <div className="flex flex-col gap-2">
+              <Button
+                onClick={handleRateStop}
+                variant="outline"
+                className="w-full justify-start gap-2"
+                data-testid="button-rate-stop"
+              >
+                <X className="w-4 h-4" />
+                Stop Infusion
+              </Button>
+            </div>
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Change Rate
+                </span>
+              </div>
+            </div>
+            
+            {managingRate?.rateOptions && managingRate.rateOptions.length > 0 ? (
+              <>
+                <div className="text-sm font-medium">Select new rate:</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {managingRate.rateOptions.map((rate, idx) => (
+                    <Button
+                      key={idx}
+                      onClick={() => handleRateChange(rate)}
+                      variant="outline"
+                      className="h-12"
+                      data-testid={`button-change-rate-${rate}`}
+                    >
+                      {rate}
+                    </Button>
+                  ))}
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">
+                      Or custom
+                    </span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-sm font-medium">Enter new rate:</div>
+            )}
+            
+            <div className="grid gap-2">
+              <Label htmlFor="rate-manage-input">New Rate</Label>
+              <Input
+                id="rate-manage-input"
+                type="number"
+                inputMode="decimal"
+                data-testid="input-rate-manage"
+                value={rateManageInput}
+                onChange={(e) => setRateManageInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && rateManageInput.trim() && !isNaN(Number(rateManageInput)) && Number(rateManageInput) > 0) {
+                    handleRateChange(rateManageInput.trim());
+                  }
+                }}
+                placeholder="e.g., 10"
+              />
+              <Button
+                onClick={() => handleRateChange(rateManageInput.trim())}
+                disabled={!rateManageInput.trim() || isNaN(Number(rateManageInput)) || Number(rateManageInput) <= 0}
+                className="w-full"
+                data-testid="button-change-rate-custom"
+              >
+                Change to {rateManageInput.trim() || "..."}
+              </Button>
+            </div>
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Start New
+                </span>
+              </div>
+            </div>
+            
+            {managingRate?.rateOptions && managingRate.rateOptions.length > 0 ? (
+              <>
+                <div className="text-sm font-medium">Start new rate:</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {managingRate.rateOptions.map((rate, idx) => (
+                    <Button
+                      key={idx}
+                      onClick={() => handleRateStartNew(rate)}
+                      variant="outline"
+                      className="h-12"
+                      data-testid={`button-start-new-rate-${rate}`}
+                    >
+                      {rate}
+                    </Button>
+                  ))}
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">
+                      Or custom
+                    </span>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => {
+                    if (rateManageInput.trim() && !isNaN(Number(rateManageInput)) && Number(rateManageInput) > 0) {
+                      handleRateStartNew(rateManageInput.trim());
+                    }
+                  }}
+                  disabled={!rateManageInput.trim() || isNaN(Number(rateManageInput)) || Number(rateManageInput) <= 0}
+                  className="w-full"
+                  data-testid="button-start-new-custom"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Start New at {rateManageInput.trim() || "..."}
+                </Button>
+              </>
+            ) : (
+              <Button
+                onClick={() => {
+                  if (rateManageInput.trim() && !isNaN(Number(rateManageInput)) && Number(rateManageInput) > 0) {
+                    handleRateStartNew(rateManageInput.trim());
+                  }
+                }}
+                disabled={!rateManageInput.trim() || isNaN(Number(rateManageInput)) || Number(rateManageInput) <= 0}
+                className="w-full"
+                data-testid="button-start-new-custom"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Start New at {rateManageInput.trim() || "..."}
+              </Button>
+            )}
+          </div>
+          <DialogFooterWithTime
+            time={rateManageTime}
+            onTimeChange={setRateManageTime}
+            showDelete={false}
+            onCancel={() => {
+              setShowRateManageDialog(false);
+              setManagingRate(null);
+              setRateManageTime(0);
+              setRateManageInput("");
+            }}
+            onSave={() => {
+              setShowRateManageDialog(false);
+              setManagingRate(null);
+              setRateManageTime(0);
+              setRateManageInput("");
             }}
             saveDisabled={false}
             saveLabel="Close"
