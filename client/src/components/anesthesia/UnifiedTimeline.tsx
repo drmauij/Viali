@@ -680,7 +680,7 @@ export function UnifiedTimeline({
         value = Math.min(rawValue, 100);
       } else {
         const minVal = 0;
-        const maxVal = 260;
+        const maxVal = 240;
         value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
       }
       
@@ -1788,12 +1788,12 @@ export function UnifiedTimeline({
 
     // Y-axes: vitals (dual) + swimlanes (categorical)
     const yAxes = [
-      // Vitals grid - First y-axis (BP/HR: 0 to 260 range for top and bottom padding, showing 20-220 labels)
+      // Vitals grid - First y-axis (BP/HR: 0 to 240 range for top and bottom padding, showing 20-220 labels)
       {
         type: "value" as const,
         gridIndex: 0,
         min: 0,
-        max: 260,
+        max: 240,
         interval: 20,
         axisLabel: { show: false }, // Hide labels (we render manually)
         axisLine: { show: false }, // Hide axis line
@@ -2265,9 +2265,9 @@ export function UnifiedTimeline({
     // Generate manual y-axis labels in the white space
     const yAxisLabels: any[] = [];
     
-    // First y-axis (20-220, interval 20) - positioned at x=140px, grid extends 0 to 260 for top and bottom padding
+    // First y-axis (20-220, interval 20) - positioned at x=140px, grid extends 0 to 240 for top and bottom padding
     for (let val = 20; val <= 220; val += 20) {
-      const yPercent = ((260 - val) / 260) * 100; // Invert because top is 0, using 260 range (0 to 260)
+      const yPercent = ((240 - val) / 240) * 100; // Invert because top is 0, using 240 range (0 to 240)
       const yPos = VITALS_TOP + (yPercent / 100) * VITALS_HEIGHT;
       yAxisLabels.push({
         type: "text",
@@ -3869,9 +3869,9 @@ export function UnifiedTimeline({
       <div className="absolute left-0 top-0 w-[200px] h-full border-r border-border z-30 bg-background">
         {/* Y-axis scales - manually rendered on right side of white area */}
         <div className="absolute top-[32px] h-[340px] w-full pointer-events-none z-50">
-          {/* First scale: 20-220 with 20-unit steps (11 values) - close to grid, grid extends 0 to 260 for top and bottom padding */}
+          {/* First scale: 20-220 with 20-unit steps (11 values) - close to grid, grid extends 0 to 240 for top and bottom padding */}
           {[20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220].map((val) => {
-            const yPercent = ((260 - val) / 260) * 100;
+            const yPercent = ((240 - val) / 240) * 100;
             return (
               <div 
                 key={`scale1-${val}`}
@@ -4153,16 +4153,16 @@ export function UnifiedTimeline({
                 value = Math.min(rawValue, 100);
               } else {
                 const minVal = 0;
-                const maxVal = 260;
+                const maxVal = 240;
                 value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
               }
               const fixedTime = selectedPoint.originalTime; // Keep time constant during drag
               setDragPosition({ time: fixedTime, value });
               setHoverInfo({ x: e.clientX, y: e.clientY, value, time: fixedTime });
             } else if (isEditable && (activeToolMode === 'hr' || activeToolMode === 'bp' || (activeToolMode === 'blend' && (blendSequenceStep === 'sys' || blendSequenceStep === 'dia' || blendSequenceStep === 'hr')))) {
-              // BP/HR scale: 0 to 260 (only show if within editable window)
+              // BP/HR scale: 0 to 240 (only show if within editable window)
               const minVal = 0;
-              const maxVal = 260;
+              const maxVal = 240;
               value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
               setHoverInfo({ x: e.clientX, y: e.clientY, value, time });
             } else if (isEditable && (activeToolMode === 'spo2' || (activeToolMode === 'blend' && blendSequenceStep === 'spo2'))) {
@@ -4215,7 +4215,7 @@ export function UnifiedTimeline({
               let yPos: number;
               if (scale === 'bp-hr') {
                 const minVal = 0;
-                const maxVal = 260;
+                const maxVal = 240;
                 yPos = ((maxVal - value) / (maxVal - minVal)) * rect.height;
               } else {
                 const minVal = 45;
@@ -4323,7 +4323,7 @@ export function UnifiedTimeline({
               let yPos: number;
               if (scale === 'bp-hr') {
                 const minVal = 0;
-                const maxVal = 260;
+                const maxVal = 240;
                 yPos = ((maxVal - value) / (maxVal - minVal)) * rect.height;
               } else {
                 const minVal = 45;
@@ -4423,7 +4423,7 @@ export function UnifiedTimeline({
               
               if (activeToolMode === 'hr' || activeToolMode === 'bp' || (activeToolMode === 'blend' && (blendSequenceStep === 'sys' || blendSequenceStep === 'dia' || blendSequenceStep === 'hr'))) {
                 const minVal = 0;
-                const maxVal = 260;
+                const maxVal = 240;
                 value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
               } else if (activeToolMode === 'spo2' || (activeToolMode === 'blend' && blendSequenceStep === 'spo2')) {
                 // SpO2 scale: 45 to 105, capped at 100%
