@@ -3478,8 +3478,20 @@ export function UnifiedTimeline({
   const handleFreeFlowStartNew = () => {
     if (!managingFreeFlowSession) return;
     
-    const { swimlaneId, label, dose } = managingFreeFlowSession;
+    const { swimlaneId, label, dose, startTime: oldStartTime } = managingFreeFlowSession;
     const newStartTime = freeFlowManageTime;
+    
+    // Stop the current session by adding a stop marker just before the new start
+    const stopTime = newStartTime - 1000; // 1 second before new start
+    
+    // Remove the old session
+    setFreeFlowSessions(prev => {
+      const sessions = prev[swimlaneId] || [];
+      return {
+        ...prev,
+        [swimlaneId]: sessions.filter(s => s.startTime !== oldStartTime),
+      };
+    });
     
     // Create new session with same dose
     const newSession: FreeFlowSession = {
@@ -3497,12 +3509,13 @@ export function UnifiedTimeline({
       };
     });
     
-    // Add visual marker at new time
+    // Add stop marker for old segment, then start marker for new segment
     setInfusionData(prev => {
       const existingData = prev[swimlaneId] || [];
+      const withStop = [...existingData, [stopTime, ""] as [number, string]];
       return {
         ...prev,
-        [swimlaneId]: [...existingData, [newStartTime, dose] as [number, string]].sort((a, b) => a[0] - b[0]),
+        [swimlaneId]: [...withStop, [newStartTime, dose] as [number, string]].sort((a, b) => a[0] - b[0]),
       };
     });
     
@@ -3652,15 +3665,18 @@ export function UnifiedTimeline({
   const handleRateStartNew = (newRate: string) => {
     if (!managingRate) return;
     
-    const { swimlaneId, label } = managingRate;
+    const { swimlaneId, label, time: oldTime } = managingRate;
     const newTime = rateManageTime;
     
-    // Add new rate at the specified time
+    // Add stop marker just before new rate, then add new rate
+    const stopTime = newTime - 1000; // 1 second before new start
+    
     setInfusionData(prev => {
       const existingData = prev[swimlaneId] || [];
+      const withStop = [...existingData, [stopTime, ""] as [number, string]];
       return {
         ...prev,
-        [swimlaneId]: [...existingData, [newTime, newRate] as [number, string]].sort((a, b) => a[0] - b[0]),
+        [swimlaneId]: [...withStop, [newTime, newRate] as [number, string]].sort((a, b) => a[0] - b[0]),
       };
     });
     
