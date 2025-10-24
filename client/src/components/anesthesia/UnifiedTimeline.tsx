@@ -1691,11 +1691,11 @@ export function UnifiedTimeline({
     // Calculate swimlane positions dynamically with darker group headers
     let currentTop = SWIMLANE_START;
     const swimlaneGrids = activeSwimlanes.map((lane) => {
-      // Use darker background for medication group headers
+      // Use significantly darker background for medication group headers
       let backgroundColor: string;
       if (lane.hierarchyLevel === 'group') {
-        // Darker shade for group headers
-        backgroundColor = isDark ? "hsl(150, 45%, 12%)" : "hsl(150, 40%, 85%)";
+        // Much darker shade for group headers - more pronounced difference
+        backgroundColor = isDark ? "hsl(150, 45%, 8%)" : "hsl(150, 50%, 75%)";
       } else {
         // Regular color for other lanes
         backgroundColor = isDark ? lane.colorDark : lane.colorLight;
@@ -4016,14 +4016,26 @@ export function UnifiedTimeline({
             labelClass = "text-sm";
           }
           
+          // Apply same darker background logic to label area as swimlane area
+          let labelBackgroundColor: string;
+          if (swimlaneConfig?.hierarchyLevel === 'group') {
+            // Match the darker background used in swimlane area for group headers
+            labelBackgroundColor = isDark ? "hsl(150, 45%, 8%)" : "hsl(150, 50%, 75%)";
+          } else {
+            labelBackgroundColor = isDark ? lane.colorDark : lane.colorLight;
+          }
+          
+          // Remove border-b from group headers
+          const shouldShowBorder = swimlaneConfig?.hierarchyLevel !== 'group';
+          
           return (
             <div 
               key={lane.id}
-              className="absolute w-full flex items-center justify-between px-2 border-b" 
+              className={`absolute w-full flex items-center justify-between px-2 ${shouldShowBorder ? 'border-b' : ''}`}
               style={{ 
                 top: `${lane.top}px`,
                 height: `${lane.height}px`,
-                backgroundColor: isDark ? lane.colorDark : lane.colorLight,
+                backgroundColor: labelBackgroundColor,
                 borderColor: isDark ? "#444444" : "#d1d5db"
               }}
             >
