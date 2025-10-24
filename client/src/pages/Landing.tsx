@@ -61,6 +61,37 @@ export default function Landing() {
     }
   };
 
+  const handleDemoLogin = async () => {
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: 'demo@viali.app', 
+          password: 'demo123' 
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Demo login failed');
+      }
+
+      toast({ title: "Success", description: "Welcome to the demo!" });
+      window.location.href = "/";
+    } catch (error: any) {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Demo login failed. Please contact support.", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleEmailSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
@@ -195,6 +226,25 @@ export default function Landing() {
                     {isLoading ? "Signing In..." : "Sign In"}
                   </Button>
                 </form>
+                
+                {/* Demo Login Button */}
+                <div className="mt-4">
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    className="w-full border-2 border-blue-500 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:border-blue-600 dark:hover:bg-blue-950" 
+                    size="lg" 
+                    disabled={isLoading}
+                    onClick={handleDemoLogin}
+                    data-testid="demo-login-button"
+                  >
+                    <i className="fas fa-play-circle mr-2"></i>
+                    Try Demo
+                  </Button>
+                  <p className="text-xs text-center text-muted-foreground mt-2">
+                    One-click access to explore the platform
+                  </p>
+                </div>
               </>
             ) : (
               <>
