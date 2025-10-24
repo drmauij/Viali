@@ -558,6 +558,25 @@ export function UnifiedTimeline({
   const [infusionEditInput, setInfusionEditInput] = useState("");
   const [infusionEditTime, setInfusionEditTime] = useState<number>(0);
   
+  // State for free-flow infusion sessions (map swimlaneId to active session info)
+  type FreeFlowSession = {
+    swimlaneId: string;
+    startTime: number;
+    dose: string;
+    label: string;
+  };
+  const [freeFlowSessions, setFreeFlowSessions] = useState<{ [swimlaneId: string]: FreeFlowSession[] }>({});
+  
+  // State for free-flow dose entry dialog (first click, no default dose)
+  const [showFreeFlowDoseDialog, setShowFreeFlowDoseDialog] = useState(false);
+  const [pendingFreeFlowDose, setPendingFreeFlowDose] = useState<{ swimlaneId: string; time: number; label: string } | null>(null);
+  const [freeFlowDoseInput, setFreeFlowDoseInput] = useState("");
+  
+  // State for free-flow management dialog (second click on existing session)
+  const [showFreeFlowManageDialog, setShowFreeFlowManageDialog] = useState(false);
+  const [managingFreeFlowSession, setManagingFreeFlowSession] = useState<FreeFlowSession | null>(null);
+  const [freeFlowManageTime, setFreeFlowManageTime] = useState<number>(0);
+  
   // State for BP dual entry (systolic then diastolic)
   const [bpEntryMode, setBpEntryMode] = useState<'sys' | 'dia'>('sys');
   const [pendingSysValue, setPendingSysValue] = useState<{ time: number; value: number } | null>(null);
@@ -3345,6 +3364,163 @@ export function UnifiedTimeline({
     setInfusionEditInput("");
   };
 
+  // Handle free-flow dose entry (first click, no default dose)
+  const handleFreeFlowDoseEntry = () => {
+    if (!pendingFreeFlowDose || !freeFlowDoseInput.trim()) return;
+    
+    const { swimlaneId, time, label } = pendingFreeFlowDose;
+    
+    // Accept any non-empty dose value (numeric, ranges, or with units)
+    const doseValue = freeFlowDoseInput.trim();
+    
+    // Create new session
+    const newSession: FreeFlowSession = {
+      swimlaneId,
+      startTime: time,
+      dose: doseValue,
+      label,
+    };
+    
+    setFreeFlowSessions(prev => {
+      const sessions = prev[swimlaneId] || [];
+      return {
+        ...prev,
+        [swimlaneId]: [...sessions, newSession].sort((a, b) => a.startTime - b.startTime),
+      };
+    });
+    
+    // Add visual marker
+    setInfusionData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      return {
+        ...prev,
+        [swimlaneId]: [...existingData, [time, doseValue] as [number, string]].sort((a, b) => a[0] - b[0]),
+      };
+    });
+    
+    // Reset dialog state
+    setShowFreeFlowDoseDialog(false);
+    setPendingFreeFlowDose(null);
+    setFreeFlowDoseInput("");
+  };
+
+  // Handle free-flow stop (second click)
+  const handleFreeFlowStop = () => {
+    if (!managingFreeFlowSession) return;
+    
+    const { swimlaneId, startTime } = managingFreeFlowSession;
+    const stopTime = freeFlowManageTime;
+    
+    // Remove the session from active sessions (stopping it)
+    setFreeFlowSessions(prev => {
+      const sessions = prev[swimlaneId] || [];
+      return {
+        ...prev,
+        [swimlaneId]: sessions.filter(s => s.startTime !== startTime),
+      };
+    });
+    
+    // Add a stop marker to terminate the dashed line
+    // Use empty string as value to indicate stop point
+    setInfusionData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      // Always add stop marker (ensure it's at least 1ms after start to avoid duplicate)
+      const actualStopTime = stopTime <= startTime ? startTime + 60000 : stopTime; // Add 1 minute if same time
+      return {
+        ...prev,
+        [swimlaneId]: [...existingData, [actualStopTime, ""] as [number, string]].sort((a, b) => a[0] - b[0]),
+      };
+    });
+    
+    toast({
+      title: "Administration stopped",
+      description: `${managingFreeFlowSession.label} stopped at ${new Date(stopTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`,
+    });
+    
+    // Reset dialog state
+    setShowFreeFlowManageDialog(false);
+    setManagingFreeFlowSession(null);
+    setFreeFlowManageTime(0);
+  };
+
+  // Handle free-flow start new (from management dialog)
+  const handleFreeFlowStartNew = () => {
+    if (!managingFreeFlowSession) return;
+    
+    const { swimlaneId, label, dose } = managingFreeFlowSession;
+    const newStartTime = freeFlowManageTime;
+    
+    // Create new session with same dose
+    const newSession: FreeFlowSession = {
+      swimlaneId,
+      startTime: newStartTime,
+      dose,
+      label,
+    };
+    
+    setFreeFlowSessions(prev => {
+      const sessions = prev[swimlaneId] || [];
+      return {
+        ...prev,
+        [swimlaneId]: [...sessions, newSession].sort((a, b) => a.startTime - b.startTime),
+      };
+    });
+    
+    // Add visual marker at new time
+    setInfusionData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      return {
+        ...prev,
+        [swimlaneId]: [...existingData, [newStartTime, dose] as [number, string]].sort((a, b) => a[0] - b[0]),
+      };
+    });
+    
+    toast({
+      title: "New administration started",
+      description: `${label} started with dose ${dose}`,
+    });
+    
+    // Reset dialog state
+    setShowFreeFlowManageDialog(false);
+    setManagingFreeFlowSession(null);
+    setFreeFlowManageTime(0);
+  };
+
+  // Handle free-flow delete (from management dialog)
+  const handleFreeFlowDelete = () => {
+    if (!managingFreeFlowSession) return;
+    
+    const { swimlaneId, startTime } = managingFreeFlowSession;
+    
+    // Remove session
+    setFreeFlowSessions(prev => {
+      const sessions = prev[swimlaneId] || [];
+      return {
+        ...prev,
+        [swimlaneId]: sessions.filter(s => s.startTime !== startTime),
+      };
+    });
+    
+    // Remove visual marker
+    setInfusionData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      return {
+        ...prev,
+        [swimlaneId]: existingData.filter(([time]) => time !== startTime),
+      };
+    });
+    
+    toast({
+      title: "Administration deleted",
+      description: `${managingFreeFlowSession.label} administration removed`,
+    });
+    
+    // Reset dialog state
+    setShowFreeFlowManageDialog(false);
+    setManagingFreeFlowSession(null);
+    setFreeFlowManageTime(0);
+  };
+
   // Handle output value entry (single parameter)
   const handleOutputValueEntry = () => {
     if (!pendingOutputValue || !outputValueInput.trim()) return;
@@ -5378,12 +5554,48 @@ export function UnifiedTimeline({
                 } else {
                   // Check if this is a free-flow infusion (no rate)
                   if (lane.rateUnit === 'free') {
-                    // Free-flow infusion: insert marker (value "0") without dialog
-                    const updated = { ...infusionData };
-                    if (!updated[lane.id]) updated[lane.id] = [];
-                    const newEntry: [number, string] = [time, "0"];
-                    updated[lane.id] = [...updated[lane.id], newEntry].sort((a, b) => a[0] - b[0]);
-                    setInfusionData(updated);
+                    // Check if there's an existing free-flow session at this time
+                    const sessions = freeFlowSessions[lane.id] || [];
+                    const existingSession = sessions.find(session => 
+                      Math.abs(session.startTime - time) <= clickTolerance
+                    );
+                    
+                    if (existingSession) {
+                      // Second click: show management dialog
+                      setManagingFreeFlowSession(existingSession);
+                      setFreeFlowManageTime(time); // Use current click time, not start time
+                      setShowFreeFlowManageDialog(true);
+                    } else {
+                      // First click: check for default dose
+                      if (lane.defaultDose) {
+                        // Create new session with default dose
+                        const newSession: FreeFlowSession = {
+                          swimlaneId: lane.id,
+                          startTime: time,
+                          dose: lane.defaultDose,
+                          label: lane.label.trim(),
+                        };
+                        const updatedSessions = { ...freeFlowSessions };
+                        if (!updatedSessions[lane.id]) updatedSessions[lane.id] = [];
+                        updatedSessions[lane.id] = [...updatedSessions[lane.id], newSession].sort((a, b) => a.startTime - b.startTime);
+                        setFreeFlowSessions(updatedSessions);
+                        
+                        // Add visual marker
+                        const updated = { ...infusionData };
+                        if (!updated[lane.id]) updated[lane.id] = [];
+                        const newEntry: [number, string] = [time, lane.defaultDose];
+                        updated[lane.id] = [...updated[lane.id], newEntry].sort((a, b) => a[0] - b[0]);
+                        setInfusionData(updated);
+                      } else {
+                        // No default dose: show dose entry dialog
+                        setPendingFreeFlowDose({
+                          swimlaneId: lane.id,
+                          time,
+                          label: lane.label.trim(),
+                        });
+                        setShowFreeFlowDoseDialog(true);
+                      }
+                    }
                   } else if (lane.defaultDose) {
                     // Has default dose: insert it directly without dialog
                     const updated = { ...infusionData };
@@ -6696,6 +6908,120 @@ export function UnifiedTimeline({
             }}
             onSave={handleInfusionValueEditSave}
             saveDisabled={!infusionEditInput.trim()}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Free-Flow Dose Entry Dialog */}
+      <Dialog open={showFreeFlowDoseDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowFreeFlowDoseDialog(false);
+          setPendingFreeFlowDose(null);
+          setFreeFlowDoseInput("");
+        } else {
+          setShowFreeFlowDoseDialog(true);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-freeflow-dose">
+          <DialogHeader>
+            <DialogTitle>Enter Dose</DialogTitle>
+            <DialogDescription>
+              {pendingFreeFlowDose ? `${pendingFreeFlowDose.label}` : 'Enter the dose for this free-flow infusion'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="freeflow-dose">Dose</Label>
+              <Input
+                id="freeflow-dose"
+                data-testid="input-freeflow-dose"
+                value={freeFlowDoseInput}
+                onChange={(e) => setFreeFlowDoseInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleFreeFlowDoseEntry();
+                  }
+                }}
+                placeholder="e.g., 100, 50, 25-35-50, 12ml"
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooterWithTime
+            time={pendingFreeFlowDose?.time}
+            onTimeChange={(newTime) => setPendingFreeFlowDose(prev => prev ? { ...prev, time: newTime } : null)}
+            showDelete={false}
+            onCancel={() => {
+              setShowFreeFlowDoseDialog(false);
+              setPendingFreeFlowDose(null);
+              setFreeFlowDoseInput("");
+            }}
+            onSave={handleFreeFlowDoseEntry}
+            saveDisabled={!freeFlowDoseInput.trim()}
+            saveLabel="Start"
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Free-Flow Management Dialog */}
+      <Dialog open={showFreeFlowManageDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowFreeFlowManageDialog(false);
+          setManagingFreeFlowSession(null);
+          setFreeFlowManageTime(0);
+        } else {
+          setShowFreeFlowManageDialog(true);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-freeflow-manage">
+          <DialogHeader>
+            <DialogTitle>Manage Free-Flow Infusion</DialogTitle>
+            <DialogDescription>
+              {managingFreeFlowSession ? `${managingFreeFlowSession.label} - Dose: ${managingFreeFlowSession.dose}` : 'Manage this infusion'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="text-sm text-muted-foreground">
+              Choose an action for this free-flow infusion:
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button
+                onClick={handleFreeFlowStop}
+                variant="outline"
+                className="w-full justify-start gap-2"
+                data-testid="button-freeflow-stop"
+              >
+                <X className="w-4 h-4" />
+                Stop Current Administration
+              </Button>
+              <Button
+                onClick={handleFreeFlowStartNew}
+                variant="outline"
+                className="w-full justify-start gap-2"
+                data-testid="button-freeflow-start-new"
+              >
+                <Plus className="w-4 h-4" />
+                Start New Administration
+              </Button>
+            </div>
+          </div>
+          <DialogFooterWithTime
+            time={freeFlowManageTime}
+            onTimeChange={setFreeFlowManageTime}
+            showDelete={true}
+            onDelete={handleFreeFlowDelete}
+            onCancel={() => {
+              setShowFreeFlowManageDialog(false);
+              setManagingFreeFlowSession(null);
+              setFreeFlowManageTime(0);
+            }}
+            onSave={() => {
+              setShowFreeFlowManageDialog(false);
+              setManagingFreeFlowSession(null);
+              setFreeFlowManageTime(0);
+            }}
+            saveDisabled={false}
+            saveLabel="Close"
           />
         </DialogContent>
       </Dialog>
