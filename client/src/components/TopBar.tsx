@@ -142,18 +142,20 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
                 <span>{language === 'en' ? t('topBar.german') : t('topBar.english')}</span>
               </button>
               
-              {/* Change Password */}
-              <button
-                className="w-full px-4 py-3 text-left hover:bg-accent hover:text-accent-foreground border-b border-border flex items-center gap-3"
-                onClick={() => {
-                  setShowChangePassword(true);
-                  setShowUserMenu(false);
-                }}
-                data-testid="button-change-password"
-              >
-                <i className="fas fa-key w-4"></i>
-                <span>{t('auth.changePassword')}</span>
-              </button>
+              {/* Change Password - Hidden for demo user */}
+              {(user as any)?.email !== 'demo@viali.app' && (
+                <button
+                  className="w-full px-4 py-3 text-left hover:bg-accent hover:text-accent-foreground border-b border-border flex items-center gap-3"
+                  onClick={() => {
+                    setShowChangePassword(true);
+                    setShowUserMenu(false);
+                  }}
+                  data-testid="button-change-password"
+                >
+                  <i className="fas fa-key w-4"></i>
+                  <span>{t('auth.changePassword')}</span>
+                </button>
+              )}
               
               {/* Logout */}
               <button
