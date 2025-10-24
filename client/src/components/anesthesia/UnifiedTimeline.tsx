@@ -3366,12 +3366,20 @@ export function UnifiedTimeline({
 
   // Handle free-flow dose entry (first click, no default dose)
   const handleFreeFlowDoseEntry = () => {
-    if (!pendingFreeFlowDose || !freeFlowDoseInput.trim()) return;
+    if (!pendingFreeFlowDose) return;
     
     const { swimlaneId, time, label } = pendingFreeFlowDose;
     
-    // Accept any non-empty dose value (numeric, ranges, or with units)
+    // Validate numeric input only
     const doseValue = freeFlowDoseInput.trim();
+    if (!doseValue || isNaN(Number(doseValue)) || Number(doseValue) <= 0) {
+      toast({
+        title: "Invalid dose",
+        description: "Please enter a valid numeric dose value",
+        variant: "destructive",
+      });
+      return;
+    }
     
     // Create new session
     const newSession: FreeFlowSession = {
@@ -6934,6 +6942,8 @@ export function UnifiedTimeline({
               <Label htmlFor="freeflow-dose">Dose</Label>
               <Input
                 id="freeflow-dose"
+                type="number"
+                inputMode="decimal"
                 data-testid="input-freeflow-dose"
                 value={freeFlowDoseInput}
                 onChange={(e) => setFreeFlowDoseInput(e.target.value)}
@@ -6942,7 +6952,7 @@ export function UnifiedTimeline({
                     handleFreeFlowDoseEntry();
                   }
                 }}
-                placeholder="e.g., 100, 50, 25-35-50, 12ml"
+                placeholder="e.g., 100"
                 autoFocus
               />
             </div>
