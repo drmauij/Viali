@@ -1200,13 +1200,16 @@ export function UnifiedTimeline({
     const xPercent = x / rect.width;
     let clickTime = visibleStart + (xPercent * visibleRange);
     
-    // Check if clicking on an existing marker (within 20px tolerance)
-    const clickTolerance = 20; // pixels
-    const timeTolerance = (clickTolerance / rect.width) * visibleRange;
+    // Always snap to 1-minute intervals for time markers
+    const oneMinute = 60 * 1000;
+    const snappedTime = Math.round(clickTime / oneMinute) * oneMinute;
+    
+    // Check if clicking on an existing marker (within 1 minute tolerance)
+    const timeTolerance = oneMinute;
     
     for (let i = 0; i < timeMarkers.length; i++) {
       const marker = timeMarkers[i];
-      if (marker.time !== null && Math.abs(clickTime - marker.time) < timeTolerance) {
+      if (marker.time !== null && Math.abs(snappedTime - marker.time) < timeTolerance) {
         // Clicking on existing marker - open edit dialog
         setEditingTimeMarker({ index: i, marker });
         setTimeMarkerEditDialogOpen(true);
@@ -1220,23 +1223,19 @@ export function UnifiedTimeline({
       return;
     }
     
-    // Always snap to 1-minute intervals for time markers
-    const oneMinute = 60 * 1000;
-    const time = Math.round(clickTime / oneMinute) * oneMinute;
-    
     // Validate that time is within editable boundaries
     const tenMinutes = 10 * 60 * 1000;
     const editableStartBoundary = chartInitTime - tenMinutes; // FIXED boundary
     const editableEndBoundary = currentTime + tenMinutes; // MOVING boundary
     
-    if (time < editableStartBoundary || time > editableEndBoundary) {
+    if (snappedTime < editableStartBoundary || snappedTime > editableEndBoundary) {
       // Click is outside editable window - ignore
       return;
     }
     
     // Update the marker with the time
     const updated = [...timeMarkers];
-    updated[nextMarkerIndex] = { ...updated[nextMarkerIndex], time };
+    updated[nextMarkerIndex] = { ...updated[nextMarkerIndex], time: snappedTime };
     setTimeMarkers(updated);
   };
 
