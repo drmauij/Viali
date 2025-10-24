@@ -5919,20 +5919,6 @@ export function UnifiedTimeline({
         data-testid="now-line-indicator"
       />
 
-      {/* Separator lines above medication group headers */}
-      {swimlanePositions.filter(lane => lane.hierarchyLevel === 'group').map(lane => (
-        <div
-          key={`separator-${lane.id}`}
-          className="absolute z-10 pointer-events-none"
-          style={{
-            left: '200px',
-            right: '10px',
-            top: `${lane.top}px`,
-            height: '2px',
-            backgroundColor: isDark ? '#4b5563' : '#d1d5db',
-          }}
-        />
-      ))}
 
       {/* Heart Rhythm values as DOM overlays */}
       {heartRhythmData.map(([timestamp, rhythm], index) => {
