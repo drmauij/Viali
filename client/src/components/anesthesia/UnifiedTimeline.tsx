@@ -6992,8 +6992,6 @@ export function UnifiedTimeline({
         const isFreeFlow = lane.rateUnit === 'free';
         
         return infusionData[lane.id].map(([timestamp, rate], index) => {
-          // Skip rendering empty string markers (stop markers)
-          if (rate === "") return null;
           const xFraction = (timestamp - visibleStart) / visibleRange;
           
           if (xFraction < 0 || xFraction > 1) return null;
@@ -7003,14 +7001,17 @@ export function UnifiedTimeline({
           // Extract infusion name from lane label (remove leading spaces)
           const infusionName = childLane.label.trim();
           
+          // Check if this is a stop marker
+          const isStopMarker = rate === "";
+          
           return (
             <div
               key={`infusion-${lane.id}-${timestamp}-${index}`}
-              className="absolute z-40 cursor-pointer flex items-center justify-center group font-mono font-bold text-sm"
+              className={`absolute z-40 cursor-pointer flex items-center justify-center group text-sm ${isStopMarker ? 'font-bold' : 'font-mono font-bold'}`}
               style={{
                 left: leftPosition,
                 top: `${childLane.top + 7}px`,
-                minWidth: '40px',
+                minWidth: isStopMarker ? '50px' : '40px',
                 height: '20px',
               }}
               onClick={() => {
@@ -7024,12 +7025,21 @@ export function UnifiedTimeline({
                 setInfusionEditTime(timestamp);
                 setShowInfusionEditDialog(true);
               }}
-              title={`${infusionName}: ${rate} at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
+              title={isStopMarker 
+                ? `${infusionName}: STOP at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+                : `${infusionName}: ${rate} at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
+              }
               data-testid={`infusion-rate-${lane.id}-${index}`}
             >
-              <span className="group-hover:scale-110 transition-transform">
-                {rate}
-              </span>
+              {isStopMarker ? (
+                <span className="group-hover:scale-110 transition-transform px-1 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded text-xs border border-red-300 dark:border-red-700">
+                  STOP
+                </span>
+              ) : (
+                <span className="group-hover:scale-110 transition-transform">
+                  {rate}
+                </span>
+              )}
             </div>
           );
         }).filter(Boolean);
