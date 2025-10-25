@@ -7015,15 +7015,38 @@ export function UnifiedTimeline({
                 height: '20px',
               }}
               onClick={() => {
-                setEditingInfusionValue({
-                  swimlaneId: lane.id,
-                  time: timestamp,
-                  value: rate.toString(),
-                  index,
-                });
-                setInfusionEditInput(rate.toString());
-                setInfusionEditTime(timestamp);
-                setShowInfusionEditDialog(true);
+                // Check if this is a rate-controlled infusion or free-flow
+                if (isFreeFlow) {
+                  // For free-flow, open simple edit dialog
+                  setEditingInfusionValue({
+                    swimlaneId: lane.id,
+                    time: timestamp,
+                    value: rate.toString(),
+                    index,
+                  });
+                  setInfusionEditInput(rate.toString());
+                  setInfusionEditTime(timestamp);
+                  setShowInfusionEditDialog(true);
+                } else {
+                  // For rate-controlled, open management dialog with Stop/Start New options
+                  // Parse rate options from defaultDose if it's a range
+                  let rateOptions: string[] | undefined;
+                  if (lane.defaultDose && lane.defaultDose.includes('-')) {
+                    rateOptions = lane.defaultDose.split('-').map(v => v.trim()).filter(v => v);
+                  }
+                  
+                  setManagingRate({
+                    swimlaneId: lane.id,
+                    time: timestamp,
+                    value: rate.toString(),
+                    index,
+                    label: lane.label.trim(),
+                    rateOptions,
+                  });
+                  setRateManageTime(timestamp);
+                  setRateManageInput(rate.toString());
+                  setShowRateManageDialog(true);
+                }
               }}
               title={isStopMarker 
                 ? `${infusionName}: STOP at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
