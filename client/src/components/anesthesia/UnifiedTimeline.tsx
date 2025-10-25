@@ -3474,6 +3474,49 @@ export function UnifiedTimeline({
     setFreeFlowManageTime(0);
   };
 
+  // Handle free-flow start (resume a stopped segment)
+  const handleFreeFlowStart = () => {
+    if (!managingFreeFlowSession) return;
+    
+    const { swimlaneId, label, dose, startTime } = managingFreeFlowSession;
+    const resumeTime = freeFlowManageTime;
+    
+    // Create new session to resume the infusion
+    const newSession: FreeFlowSession = {
+      swimlaneId,
+      startTime: resumeTime,
+      dose,
+      label,
+    };
+    
+    setFreeFlowSessions(prev => {
+      const sessions = prev[swimlaneId] || [];
+      return {
+        ...prev,
+        [swimlaneId]: [...sessions, newSession].sort((a, b) => a.startTime - b.startTime),
+      };
+    });
+    
+    // Add visual marker for resume
+    setInfusionData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      return {
+        ...prev,
+        [swimlaneId]: [...existingData, [resumeTime, dose] as [number, string]].sort((a, b) => a[0] - b[0]),
+      };
+    });
+    
+    toast({
+      title: "Administration resumed",
+      description: `${label} resumed with dose ${dose}`,
+    });
+    
+    // Reset dialog state
+    setShowFreeFlowManageDialog(false);
+    setManagingFreeFlowSession(null);
+    setFreeFlowManageTime(0);
+  };
+
   // Handle free-flow start new (from management dialog)
   const handleFreeFlowStartNew = () => {
     if (!managingFreeFlowSession) return;
@@ -3603,6 +3646,34 @@ export function UnifiedTimeline({
       return;
     }
     handleRateSelection(rate);
+  };
+
+  // Handle rate start (resume a stopped rate-controlled infusion)
+  const handleRateStart = (rate: string) => {
+    if (!managingRate) return;
+    
+    const { swimlaneId, label } = managingRate;
+    const resumeTime = rateManageTime;
+    
+    // Add new rate marker to resume the infusion
+    setInfusionData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      return {
+        ...prev,
+        [swimlaneId]: [...existingData, [resumeTime, rate] as [number, string]].sort((a, b) => a[0] - b[0]),
+      };
+    });
+    
+    toast({
+      title: "Infusion resumed",
+      description: `${label} resumed at ${rate}`,
+    });
+    
+    // Reset dialog state
+    setShowRateManageDialog(false);
+    setManagingRate(null);
+    setRateManageTime(0);
+    setRateManageInput("");
   };
 
   // Handle rate stop (from management dialog)
@@ -7295,24 +7366,74 @@ export function UnifiedTimeline({
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-2">
-              <Button
-                onClick={handleFreeFlowStop}
-                variant="outline"
-                className="h-20 flex flex-col gap-2"
-                data-testid="button-freeflow-stop"
-              >
-                <StopCircle className="w-6 h-6" />
-                <span className="text-sm">Stop</span>
-              </Button>
-              <Button
-                onClick={handleFreeFlowStartNew}
-                variant="outline"
-                className="h-20 flex flex-col gap-2"
-                data-testid="button-freeflow-start-new"
-              >
-                <PlayCircle className="w-6 h-6" />
-                <span className="text-sm">Start New</span>
-              </Button>
+              {/* Check if segment is currently running */}
+              {managingFreeFlowSession && (() => {
+                const { swimlaneId } = managingFreeFlowSession;
+                
+                // Check if there's currently an active session for this swimlane
+                // A session is active if it exists in freeFlowSessions (regardless of startTime)
+                const hasActiveSession = (freeFlowSessions[swimlaneId] || []).length > 0;
+                
+                // Find the latest NON-EMPTY marker to determine running state
+                // This handles same-timestamp scenarios correctly
+                const existingData = infusionData[swimlaneId] || [];
+                const sortedData = [...existingData].sort((a, b) => b[0] - a[0]); // Sort descending by time
+                
+                // Find the first non-empty marker (most recent dose value)
+                const latestDoseMarker = sortedData.find(([_, val]) => val !== "");
+                // Find the first empty marker (most recent stop)
+                const latestStopMarker = sortedData.find(([_, val]) => val === "");
+                
+                // Infusion is running if:
+                // 1. There's a dose marker AND
+                // 2. (No stop marker OR dose marker is same time or newer than stop marker) AND
+                // 3. Has active session
+                // Using >= instead of > to handle same-timestamp resume scenarios
+                const isRunning = latestDoseMarker && 
+                  (!latestStopMarker || latestDoseMarker[0] >= latestStopMarker[0]) &&
+                  hasActiveSession;
+                
+                return (
+                  <>
+                    {/* Stop button - only visible for running infusions */}
+                    {isRunning && (
+                      <Button
+                        onClick={handleFreeFlowStop}
+                        variant="outline"
+                        className="h-20 flex flex-col gap-2"
+                        data-testid="button-freeflow-stop"
+                      >
+                        <StopCircle className="w-6 h-6" />
+                        <span className="text-sm">Stop</span>
+                      </Button>
+                    )}
+                    
+                    {/* Start button - only visible for stopped infusions */}
+                    {!isRunning && (
+                      <Button
+                        onClick={handleFreeFlowStart}
+                        variant="outline"
+                        className="h-20 flex flex-col gap-2"
+                        data-testid="button-freeflow-start"
+                      >
+                        <PlayCircle className="w-6 h-6" />
+                        <span className="text-sm">Start</span>
+                      </Button>
+                    )}
+                    
+                    {/* Start New button - always visible */}
+                    <Button
+                      onClick={handleFreeFlowStartNew}
+                      variant="outline"
+                      className="h-20 flex flex-col gap-2"
+                      data-testid="button-freeflow-start-new"
+                    >
+                      <PlayCircle className="w-6 h-6" />
+                      <span className="text-sm">Start New</span>
+                    </Button>
+                  </>
+                );
+              })()}
             </div>
           </div>
           <DialogFooterWithTime
@@ -7431,33 +7552,87 @@ export function UnifiedTimeline({
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            {/* Uniform Stop/Start New Actions */}
+            {/* Conditional Stop/Start/Start New Actions */}
             <div className="grid grid-cols-2 gap-2">
-              <Button
-                onClick={handleRateStop}
-                variant="outline"
-                className="h-20 flex flex-col gap-2"
-                data-testid="button-rate-stop"
-              >
-                <StopCircle className="w-6 h-6" />
-                <span className="text-sm">Stop</span>
-              </Button>
-              <Button
-                onClick={() => {
+              {managingRate && (() => {
+                const { swimlaneId } = managingRate;
+                const existingData = infusionData[swimlaneId] || [];
+                
+                // Find the latest NON-EMPTY marker to determine running state
+                // This handles same-timestamp scenarios correctly
+                const sortedData = [...existingData].sort((a, b) => b[0] - a[0]); // Sort descending by time
+                
+                // Find the first non-empty marker (most recent rate value)
+                const latestRateMarker = sortedData.find(([_, val]) => val !== "");
+                // Find the first empty marker (most recent stop)
+                const latestStopMarker = sortedData.find(([_, val]) => val === "");
+                
+                // Infusion is running if:
+                // 1. There's a rate marker AND
+                // 2. (No stop marker OR rate marker is same time or newer than stop marker)
+                // Using >= instead of > to handle same-timestamp resume scenarios
+                const isRunning = latestRateMarker && 
+                  (!latestStopMarker || latestRateMarker[0] >= latestStopMarker[0]);
+                
+                // Get default rate for Start/Start New buttons
+                const getDefaultRate = () => {
                   if (rateManageInput.trim() && !isNaN(Number(rateManageInput)) && Number(rateManageInput) > 0) {
-                    handleRateStartNew(rateManageInput.trim());
+                    return rateManageInput.trim();
+                  } else if (managingRate?.value && managingRate.value !== "") {
+                    return managingRate.value;
                   } else if (managingRate?.rateOptions && managingRate.rateOptions.length > 0) {
-                    // Use first preset rate if no custom input
-                    handleRateStartNew(managingRate.rateOptions[0]);
+                    return managingRate.rateOptions[0];
                   }
-                }}
-                variant="outline"
-                className="h-20 flex flex-col gap-2"
-                data-testid="button-rate-start-new"
-              >
-                <PlayCircle className="w-6 h-6" />
-                <span className="text-sm">Start New</span>
-              </Button>
+                  return "";
+                };
+                
+                return (
+                  <>
+                    {/* Stop button - only visible for running infusions */}
+                    {isRunning && (
+                      <Button
+                        onClick={handleRateStop}
+                        variant="outline"
+                        className="h-20 flex flex-col gap-2"
+                        data-testid="button-rate-stop"
+                      >
+                        <StopCircle className="w-6 h-6" />
+                        <span className="text-sm">Stop</span>
+                      </Button>
+                    )}
+                    
+                    {/* Start button - only visible for stopped infusions */}
+                    {!isRunning && (
+                      <Button
+                        onClick={() => {
+                          const rate = getDefaultRate();
+                          if (rate) handleRateStart(rate);
+                        }}
+                        variant="outline"
+                        className="h-20 flex flex-col gap-2"
+                        data-testid="button-rate-start"
+                      >
+                        <PlayCircle className="w-6 h-6" />
+                        <span className="text-sm">Start</span>
+                      </Button>
+                    )}
+                    
+                    {/* Start New button - always visible */}
+                    <Button
+                      onClick={() => {
+                        const rate = getDefaultRate();
+                        if (rate) handleRateStartNew(rate);
+                      }}
+                      variant="outline"
+                      className="h-20 flex flex-col gap-2"
+                      data-testid="button-rate-start-new"
+                    >
+                      <PlayCircle className="w-6 h-6" />
+                      <span className="text-sm">Start New</span>
+                    </Button>
+                  </>
+                );
+              })()}
             </div>
             
             {/* Separate Change Rate Section */}
