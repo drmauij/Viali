@@ -5901,39 +5901,86 @@ export function UnifiedTimeline({
                     const isRange = lane.defaultDose.includes('-');
                     
                     if (isRange) {
-                      // Parse range and show rate selection dialog
+                      // Parse range options
                       const rateOptions = lane.defaultDose.split('-').map(v => v.trim()).filter(v => v);
-                      setPendingRateSelection({
-                        swimlaneId: lane.id,
-                        time,
-                        label: lane.label.trim(),
-                        rateOptions,
-                      });
-                      setShowRateSelectionDialog(true);
-                    } else {
-                      // Simple numeric default: check if there are any existing rates
+                      
+                      // Check if there are any existing rates
                       const existingRates = infusionData[lane.id] || [];
                       
                       if (existingRates.length > 0) {
-                        // Rates already exist - show management dialog instead of adding same value
-                        // Find the most recent rate before this time (or any rate if none before)
+                        // Rates already exist - show management dialog for the active segment
+                        // Find the active segment: last rate before or at click time
+                        // If clicking after all rates, use the last rate
                         const ratesBeforeOrAt = existingRates.filter(([t]) => t <= time);
-                        const targetRate = ratesBeforeOrAt.length > 0 
-                          ? ratesBeforeOrAt[ratesBeforeOrAt.length - 1]
-                          : existingRates[0];
+                        let targetIndex: number;
+                        let targetRate: [number, string];
+                        
+                        if (ratesBeforeOrAt.length > 0) {
+                          // Use the last rate before or at the click
+                          targetRate = ratesBeforeOrAt[ratesBeforeOrAt.length - 1];
+                          targetIndex = existingRates.indexOf(targetRate);
+                        } else {
+                          // Clicking before all rates - use the first rate
+                          targetRate = existingRates[0];
+                          targetIndex = 0;
+                        }
                         
                         const [valueTime, value] = targetRate;
-                        const valueIndex = existingRates.findIndex(([t, v]) => t === valueTime && v === value);
                         
                         setManagingRate({
                           swimlaneId: lane.id,
                           time: valueTime,
                           value: value.toString(),
-                          index: valueIndex,
+                          index: targetIndex,
+                          label: lane.label.trim(),
+                          rateOptions, // Include range options for change rate section
+                        });
+                        setRateManageTime(valueTime); // Use segment timestamp, not click time
+                        setRateManageInput(value.toString());
+                        setShowRateManageDialog(true);
+                      } else {
+                        // No existing rates: show rate selection dialog to start first infusion
+                        setPendingRateSelection({
+                          swimlaneId: lane.id,
+                          time,
+                          label: lane.label.trim(),
+                          rateOptions,
+                        });
+                        setShowRateSelectionDialog(true);
+                      }
+                    } else {
+                      // Simple numeric default: check if there are any existing rates
+                      const existingRates = infusionData[lane.id] || [];
+                      
+                      if (existingRates.length > 0) {
+                        // Rates already exist - show management dialog for the active segment
+                        // Find the active segment: last rate before or at click time
+                        // If clicking after all rates, use the last rate
+                        const ratesBeforeOrAt = existingRates.filter(([t]) => t <= time);
+                        let targetIndex: number;
+                        let targetRate: [number, string];
+                        
+                        if (ratesBeforeOrAt.length > 0) {
+                          // Use the last rate before or at the click
+                          targetRate = ratesBeforeOrAt[ratesBeforeOrAt.length - 1];
+                          targetIndex = existingRates.indexOf(targetRate);
+                        } else {
+                          // Clicking before all rates - use the first rate
+                          targetRate = existingRates[0];
+                          targetIndex = 0;
+                        }
+                        
+                        const [valueTime, value] = targetRate;
+                        
+                        setManagingRate({
+                          swimlaneId: lane.id,
+                          time: valueTime,
+                          value: value.toString(),
+                          index: targetIndex,
                           label: lane.label.trim(),
                           rateOptions: undefined, // No range options for simple default
                         });
-                        setRateManageTime(time);
+                        setRateManageTime(valueTime); // Use segment timestamp, not click time
                         setRateManageInput(value.toString());
                         setShowRateManageDialog(true);
                       } else {
