@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil } from "lucide-react";
+import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil, StopCircle, PlayCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7255,33 +7255,30 @@ export function UnifiedTimeline({
       }}>
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-freeflow-manage">
           <DialogHeader>
-            <DialogTitle>Manage Free-Flow Infusion</DialogTitle>
+            <DialogTitle>Manage Infusion</DialogTitle>
             <DialogDescription>
               {managingFreeFlowSession ? `${managingFreeFlowSession.label} - Dose: ${managingFreeFlowSession.dose}` : 'Manage this infusion'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="text-sm text-muted-foreground">
-              Choose an action for this free-flow infusion:
-            </div>
-            <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 onClick={handleFreeFlowStop}
                 variant="outline"
-                className="w-full justify-start gap-2"
+                className="h-20 flex flex-col gap-2"
                 data-testid="button-freeflow-stop"
               >
-                <X className="w-4 h-4" />
-                Stop Current Administration
+                <StopCircle className="w-6 h-6" />
+                <span className="text-sm">Stop</span>
               </Button>
               <Button
                 onClick={handleFreeFlowStartNew}
                 variant="outline"
-                className="w-full justify-start gap-2"
+                className="h-20 flex flex-col gap-2"
                 data-testid="button-freeflow-start-new"
               >
-                <Plus className="w-4 h-4" />
-                Start New Administration
+                <PlayCircle className="w-6 h-6" />
+                <span className="text-sm">Start New</span>
               </Button>
             </div>
           </div>
@@ -7395,25 +7392,42 @@ export function UnifiedTimeline({
       }}>
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-rate-manage">
           <DialogHeader>
-            <DialogTitle>Manage Rate</DialogTitle>
+            <DialogTitle>Manage Infusion</DialogTitle>
             <DialogDescription>
               {managingRate ? `${managingRate.label} - Current: ${managingRate.value}` : 'Manage this rate'}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="text-sm font-medium">Actions:</div>
-            <div className="flex flex-col gap-2">
+            {/* Uniform Stop/Start New Actions */}
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 onClick={handleRateStop}
                 variant="outline"
-                className="w-full justify-start gap-2"
+                className="h-20 flex flex-col gap-2"
                 data-testid="button-rate-stop"
               >
-                <X className="w-4 h-4" />
-                Stop Infusion
+                <StopCircle className="w-6 h-6" />
+                <span className="text-sm">Stop</span>
+              </Button>
+              <Button
+                onClick={() => {
+                  if (rateManageInput.trim() && !isNaN(Number(rateManageInput)) && Number(rateManageInput) > 0) {
+                    handleRateStartNew(rateManageInput.trim());
+                  } else if (managingRate?.rateOptions && managingRate.rateOptions.length > 0) {
+                    // Use first preset rate if no custom input
+                    handleRateStartNew(managingRate.rateOptions[0]);
+                  }
+                }}
+                variant="outline"
+                className="h-20 flex flex-col gap-2"
+                data-testid="button-rate-start-new"
+              >
+                <PlayCircle className="w-6 h-6" />
+                <span className="text-sm">Start New</span>
               </Button>
             </div>
             
+            {/* Separate Change Rate Section */}
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t" />
@@ -7425,9 +7439,9 @@ export function UnifiedTimeline({
               </div>
             </div>
             
-            {managingRate?.rateOptions && managingRate.rateOptions.length > 0 ? (
+            {managingRate?.rateOptions && managingRate.rateOptions.length > 0 && (
               <>
-                <div className="text-sm font-medium">Select new rate:</div>
+                <div className="text-sm font-medium">Preset rates:</div>
                 <div className="grid grid-cols-3 gap-2">
                   {managingRate.rateOptions.map((rate, idx) => (
                     <Button
@@ -7452,12 +7466,10 @@ export function UnifiedTimeline({
                   </div>
                 </div>
               </>
-            ) : (
-              <div className="text-sm font-medium">Enter new rate:</div>
             )}
             
             <div className="grid gap-2">
-              <Label htmlFor="rate-manage-input">New Rate</Label>
+              <Label htmlFor="rate-manage-input">Custom Rate</Label>
               <Input
                 id="rate-manage-input"
                 type="number"
@@ -7481,73 +7493,6 @@ export function UnifiedTimeline({
                 Change to {rateManageInput.trim() || "..."}
               </Button>
             </div>
-            
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  Start New
-                </span>
-              </div>
-            </div>
-            
-            {managingRate?.rateOptions && managingRate.rateOptions.length > 0 ? (
-              <>
-                <div className="text-sm font-medium">Start new rate:</div>
-                <div className="grid grid-cols-3 gap-2">
-                  {managingRate.rateOptions.map((rate, idx) => (
-                    <Button
-                      key={idx}
-                      onClick={() => handleRateStartNew(rate)}
-                      variant="outline"
-                      className="h-12"
-                      data-testid={`button-start-new-rate-${rate}`}
-                    >
-                      {rate}
-                    </Button>
-                  ))}
-                </div>
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">
-                      Or custom
-                    </span>
-                  </div>
-                </div>
-                <Button
-                  onClick={() => {
-                    if (rateManageInput.trim() && !isNaN(Number(rateManageInput)) && Number(rateManageInput) > 0) {
-                      handleRateStartNew(rateManageInput.trim());
-                    }
-                  }}
-                  disabled={!rateManageInput.trim() || isNaN(Number(rateManageInput)) || Number(rateManageInput) <= 0}
-                  className="w-full"
-                  data-testid="button-start-new-custom"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Start New at {rateManageInput.trim() || "..."}
-                </Button>
-              </>
-            ) : (
-              <Button
-                onClick={() => {
-                  if (rateManageInput.trim() && !isNaN(Number(rateManageInput)) && Number(rateManageInput) > 0) {
-                    handleRateStartNew(rateManageInput.trim());
-                  }
-                }}
-                disabled={!rateManageInput.trim() || isNaN(Number(rateManageInput)) || Number(rateManageInput) <= 0}
-                className="w-full"
-                data-testid="button-start-new-custom"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Start New at {rateManageInput.trim() || "..."}
-              </Button>
-            )}
           </div>
           <DialogFooterWithTime
             time={rateManageTime}
