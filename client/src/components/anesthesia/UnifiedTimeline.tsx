@@ -3799,7 +3799,11 @@ export function UnifiedTimeline({
       description: `${label} stopped`,
     });
     
-    // Keep sheet open to show updated status
+    // Close sheet
+    setShowFreeFlowSheet(false);
+    setFreeFlowSheetSession(null);
+    setSheetDoseInput("");
+    setSheetTimeInput(0);
   };
 
   // Handle sheet start (resume)
@@ -3843,7 +3847,11 @@ export function UnifiedTimeline({
       description: `${label} resumed with dose ${dose}`,
     });
     
-    // Keep sheet open to show updated status
+    // Close sheet
+    setShowFreeFlowSheet(false);
+    setFreeFlowSheetSession(null);
+    setSheetDoseInput("");
+    setSheetTimeInput(0);
   };
 
   // Handle sheet start new
