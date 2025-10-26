@@ -7447,7 +7447,10 @@ export function UnifiedTimeline({
                 height: `${childLane.height}px`,
                 zIndex: 35,
               }}
-              onClick={() => {
+              onClick={(e) => {
+                // Stop propagation to prevent the interactive layer below from handling this click
+                e.stopPropagation();
+                
                 // Find the session for this marker
                 const sessions = freeFlowSessions[lane.id] || [];
                 const session = sessions.find(s => s.startTime === timestamp) || {
