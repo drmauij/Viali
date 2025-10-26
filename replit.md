@@ -39,7 +39,15 @@ The system provides comprehensive inventory management:
 - **User Management**: Creation, role assignment, password changes, and deletion with strong security.
 - **Signature Capture**: Print-ready electronic signatures for controlled substance transactions.
 - **Custom Sorting**: Drag-and-drop functionality for organizing folders and moving items, with persistent `sortOrder` and bulk sort API endpoints.
-- **Bulk Import with AI**: AI-powered bulk photo import using OpenAI Vision API for automated item extraction, processed via an asynchronous job queue.
+- **Bulk Import with AI & Background Worker**: AI-powered bulk photo import using OpenAI Vision API for automated item extraction, processed via an asynchronous job queue with background worker architecture. The system reliably handles large batches (50+ images) using:
+  - **Job Queue System**: Import jobs are queued in PostgreSQL and processed asynchronously by a background worker
+  - **Real-time Progress Tracking**: Database-backed progress updates showing current image and percentage complete
+  - **Automatic Stuck Job Detection**: Worker detects and fails jobs stuck in processing for >30 minutes
+  - **Batch Processing**: Images processed in batches of 3 to stay within API rate limits while maximizing throughput
+  - **Frontend Progress Display**: Live progress bar and "X/Y images (Z%)" status updates
+  - **Email Notifications**: Automatic email when import completes with preview link
+  - **Production Architecture**: Designed for deployment with PM2 for process management and nginx for timeout handling
+  - **Zero-Timeout Uploads**: Client uploads images and receives job ID immediately; processing happens in background
 - **Anesthesia Module Configuration & Access Control**: Hospitals configure an `anesthesiaLocationId` in Hospital Settings to designate which inventory location's items are available in the anesthesia module. Only users assigned to this specific location can access the anesthesia module, ensuring proper access control and enabling intelligent module defaulting. If a user is assigned to the anesthesia location, the system defaults to the anesthesia module on sign-in (if no module preference is saved). This provides a seamless workflow for anesthesia staff while maintaining security boundaries.
 - **Hospital Seed Data System**: Comprehensive default data seeding system that automatically provisions new hospitals with essential configurations. Centralized configuration in `server/seed-data.ts` defines 4 default locations (Anesthesy, OR, ER, ICU), 3 surgery rooms (OP1-OP3), 5 administration groups (Infusions, Pumps, Bolus, Short IVs, Antibiotics), and 13 pre-configured medications including Propofol with specialized rate-controlled administration (mg/kg/h). The system features:
   - **Automatic Seeding**: Both Google OAuth and email/password signup flows automatically seed new hospitals
@@ -150,51 +158,69 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ### Self-Hosting on Exoscale (or any server)
 
-Viali can be deployed on any server with Node.js and PostgreSQL. Here's how to deploy on Exoscale:
+Viali can be deployed on any server with Node.js and PostgreSQL. The application uses a **background worker architecture** for reliable bulk image processing.
 
 **Prerequisites:**
 - Node.js 20 or higher
 - PostgreSQL database (Exoscale, Aiven, or any provider)
+- PM2 process manager (for managing app + worker)
+- nginx web server (for reverse proxy and timeout handling)
 - SSH access to your server
 
-**Steps:**
+**Quick Start:**
 
-1. **Set up PostgreSQL database** (if not done):
-   - Create a database on Exoscale, Aiven, or your preferred provider
+1. **Set up PostgreSQL database**:
+   - Create a database on your provider
    - Note the connection string with SSL support
 
-2. **Clone your repository**:
+2. **Clone and install**:
    ```bash
    git clone your-repo-url
    cd viali
-   ```
-
-3. **Install dependencies**:
-   ```bash
    npm install
    ```
 
-4. **Set environment variables**:
-   Create a `.env` file with all required variables listed above, or use PM2 ecosystem config.
+3. **Configure environment**:
+   Create a `.env` file with all required variables (see Environment Variables section above).
 
-5. **Build the application**:
+4. **Apply database schema**:
    ```bash
-   npm run build
+   npm run db:push --force
    ```
 
-6. **Start with PM2** (recommended):
+5. **Start with PM2** (runs both app and background worker):
    ```bash
    npm install -g pm2
-   pm2 start npm --name "viali" -- start
+   pm2 start ecosystem.config.js
    pm2 save
    pm2 startup  # Enable auto-start on reboot
    ```
 
-7. **Set up Nginx** (optional, for reverse proxy):
-   Configure Nginx to proxy requests to your Node.js app on port 5000.
+6. **Configure nginx** for reverse proxy and proper timeout handling:
+   - Set `client_max_body_size 100M` for bulk uploads
+   - Configure proxy timeouts (60s recommended)
+   - See `DEPLOYMENT.md` for complete nginx configuration
 
-**Database Migrations:**
-The app automatically runs database migrations on startup, so no manual migration steps are needed.
+**Important Files:**
+- `ecosystem.config.js`: PM2 configuration for app + worker processes
+- `server/worker.ts`: Background worker for processing import jobs
+- `DEPLOYMENT.md`: Comprehensive deployment guide with nginx config, monitoring, troubleshooting, and production best practices
+
+**Architecture:**
+- **Main App**: Handles web requests, queues import jobs (PM2 process: `viali-app`)
+- **Background Worker**: Processes jobs asynchronously with progress tracking (PM2 process: `viali-worker`)
+- **Database**: PostgreSQL job queue with real-time progress updates
+- **nginx**: Handles uploads and proxies to the app with proper timeout configuration
+
+**For complete deployment instructions including:**
+- Detailed nginx configuration
+- PM2 monitoring and management
+- Stuck job detection and cleanup
+- Log management and rotation
+- Backup strategies
+- Troubleshooting guide
+
+**See the full [DEPLOYMENT.md](./DEPLOYMENT.md) guide.**
 
 ### Google OAuth Setup
 
