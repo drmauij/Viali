@@ -78,6 +78,16 @@ export default function BottomNav() {
             } else if (jobStatus.status === 'failed') {
               localStorage.removeItem(`import-job-${activeHospital.id}`);
               setHasCompletedImport(false);
+            } else if (jobStatus.status === 'processing') {
+              // Update progress information
+              const processingJob = {
+                jobId: job.jobId,
+                status: 'processing' as const,
+                itemCount: jobStatus.totalImages || job.itemCount,
+                currentImage: jobStatus.currentImage || 0,
+                progressPercent: jobStatus.progressPercent || 0,
+              };
+              localStorage.setItem(`import-job-${activeHospital.id}`, JSON.stringify(processingJob));
             }
           } else if (job.status === 'completed') {
             setHasCompletedImport(true);

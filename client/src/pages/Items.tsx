@@ -166,6 +166,8 @@ export default function Items() {
     jobId: string;
     status: 'processing' | 'completed';
     itemCount: number;
+    currentImage?: number;
+    progressPercent?: number;
   } | null>(null);
   
   // Bulk edit state
@@ -1662,9 +1664,20 @@ export default function Items() {
           {importJob.status === 'processing' ? (
             <>
               <i className="fas fa-spinner fa-spin text-blue-600 dark:text-blue-400"></i>
-              <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                Processing {importJob.itemCount} images...
-              </span>
+              <div className="flex-1">
+                <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                  Processing images: {importJob.currentImage || 0}/{importJob.itemCount}
+                  {importJob.progressPercent !== undefined && ` (${importJob.progressPercent}%)`}
+                </span>
+                {importJob.progressPercent !== undefined && (
+                  <div className="w-full bg-blue-200 dark:bg-blue-900 rounded-full h-1.5 mt-1">
+                    <div 
+                      className="bg-blue-600 dark:bg-blue-400 h-1.5 rounded-full transition-all duration-300" 
+                      style={{ width: `${importJob.progressPercent}%` }}
+                    ></div>
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <>
