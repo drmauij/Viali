@@ -7408,10 +7408,22 @@ export function UnifiedTimeline({
         const isInfusionChild = lane.rateUnit !== null && lane.rateUnit !== undefined;
         const isFreeFlow = lane.rateUnit === 'free';
         
+        console.log('[Free-Flow Overlays] Lane:', lane.label, {
+          isInfusionChild,
+          isFreeFlow,
+          hasData: infusionData[lane.id]?.length > 0,
+          dataCount: infusionData[lane.id]?.length,
+        });
+        
         if (!isInfusionChild || !isFreeFlow || !infusionData[lane.id]?.length) return [];
         
         const childLane = swimlanePositions.find(pos => pos.id === lane.id);
-        if (!childLane) return [];
+        if (!childLane) {
+          console.log('[Free-Flow Overlays] No childLane found for:', lane.id);
+          return [];
+        }
+        
+        console.log('[Free-Flow Overlays] Creating overlays for lane:', lane.label, 'data points:', infusionData[lane.id].length);
         
         const visibleStart = currentZoomStart ?? data.startTime;
         const visibleEnd = currentZoomEnd ?? data.endTime;
