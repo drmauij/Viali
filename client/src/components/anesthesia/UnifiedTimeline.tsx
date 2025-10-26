@@ -3732,19 +3732,21 @@ export function UnifiedTimeline({
       }
       
       // Find the next stop marker after the segment start
-      let segmentEndIndex = sortedData.findIndex((marker, idx) => 
+      const segmentEndIndex = sortedData.findIndex((marker, idx) => 
         idx > segmentStartIndex && marker[1] === ""
       );
       
-      // If no stop marker found, delete all markers from start to end
+      // Remove markers based on whether a stop marker exists
+      let filtered;
       if (segmentEndIndex === -1) {
-        segmentEndIndex = sortedData.length;
+        // No stop marker: only delete the start marker itself (currently running segment)
+        filtered = sortedData.filter((_, idx) => idx !== segmentStartIndex);
+      } else {
+        // Stop marker exists: delete all markers from start to stop (inclusive)
+        filtered = sortedData.filter((_, idx) => 
+          idx < segmentStartIndex || idx > segmentEndIndex
+        );
       }
-      
-      // Remove all markers from segmentStartIndex to segmentEndIndex
-      const filtered = sortedData.filter((_, idx) => 
-        idx < segmentStartIndex || idx > segmentEndIndex
-      );
       
       return {
         ...prev,
