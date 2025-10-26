@@ -170,6 +170,7 @@ export interface IStorage {
   getImportJob(id: string): Promise<ImportJob | undefined>;
   getImportJobs(hospitalId: string, userId?: string, status?: string): Promise<ImportJob[]>;
   getNextQueuedJob(): Promise<ImportJob | undefined>;
+  getStuckJobs(thresholdMinutes?: number): Promise<ImportJob[]>;
   updateImportJob(id: string, updates: Partial<ImportJob>): Promise<ImportJob>;
   
   // Medication Config operations
@@ -990,6 +991,24 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     
     return job;
+  }
+
+  async getStuckJobs(thresholdMinutes: number = 30): Promise<ImportJob[]> {
+    // Find jobs that have been "processing" for longer than threshold
+    const thresholdTime = new Date(Date.now() - thresholdMinutes * 60 * 1000);
+    
+    const jobs = await db
+      .select()
+      .from(importJobs)
+      .where(
+        and(
+          eq(importJobs.status, 'processing'),
+          sql`${importJobs.startedAt} < ${thresholdTime}`
+        )
+      )
+      .orderBy(asc(importJobs.startedAt));
+    
+    return jobs;
   }
 
   async updateImportJob(id: string, updates: Partial<ImportJob>): Promise<ImportJob> {
