@@ -7439,13 +7439,14 @@ export function UnifiedTimeline({
           return (
             <div
               key={`segment-overlay-${lane.id}-${timestamp}-${index}`}
-              className="absolute cursor-pointer hover:bg-primary/10 transition-colors"
+              className="absolute cursor-pointer hover:bg-red-500/30 transition-colors border border-blue-500/50"
               style={{
                 left: `calc(200px + ${leftPercent}% * (100% - 210px) / 100)`,
                 width: `calc(${widthPercent}% * (100% - 210px) / 100)`,
                 top: `${childLane.top}px`,
                 height: `${childLane.height}px`,
                 zIndex: 35,
+                backgroundColor: 'rgba(255, 0, 0, 0.1)',
               }}
               onClick={(e) => {
                 // Stop propagation to prevent the interactive layer below from handling this click
