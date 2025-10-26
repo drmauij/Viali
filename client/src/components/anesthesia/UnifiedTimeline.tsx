@@ -558,6 +558,12 @@ export function UnifiedTimeline({
   const [infusionEditInput, setInfusionEditInput] = useState("");
   const [infusionEditTime, setInfusionEditTime] = useState<number>(0);
   
+  // State for Edit Segment dialog (free-flow)
+  const [showEditSegmentDialog, setShowEditSegmentDialog] = useState(false);
+  const [editingSegment, setEditingSegment] = useState<{ swimlaneId: string; time: number; dose: string; index: number; label: string } | null>(null);
+  const [segmentDoseInput, setSegmentDoseInput] = useState("");
+  const [segmentTimeInput, setSegmentTimeInput] = useState<number>(0);
+  
   // State for free-flow infusion sessions (map swimlaneId to active session info)
   type FreeFlowSession = {
     swimlaneId: string;
@@ -3522,10 +3528,12 @@ export function UnifiedTimeline({
     if (!managingFreeFlowSession) return;
     
     const { swimlaneId, label, dose, startTime: oldStartTime } = managingFreeFlowSession;
-    const newStartTime = freeFlowManageTime;
+    const baseTime = freeFlowManageTime;
     
-    // Stop the current session by adding a stop marker just before the new start
-    const stopTime = newStartTime - 1000; // 1 second before new start
+    // Stop the current session 1 second before the base time
+    const stopTime = baseTime - 1000;
+    // Start the new session 60 seconds after the base time (60-second gap)
+    const newStartTime = baseTime + 60000;
     
     // Remove the old session
     setFreeFlowSessions(prev => {
@@ -3536,7 +3544,7 @@ export function UnifiedTimeline({
       };
     });
     
-    // Create new session with same dose
+    // Create new session with same dose at the new start time
     const newSession: FreeFlowSession = {
       swimlaneId,
       startTime: newStartTime,
@@ -3552,7 +3560,7 @@ export function UnifiedTimeline({
       };
     });
     
-    // Add stop marker for old segment, then start marker for new segment
+    // Add stop marker for old segment, then start marker for new segment (60 seconds later)
     setInfusionData(prev => {
       const existingData = prev[swimlaneId] || [];
       const withStop = [...existingData, [stopTime, ""] as [number, string]];
@@ -3588,12 +3596,40 @@ export function UnifiedTimeline({
       };
     });
     
-    // Remove visual marker
+    // Remove ALL associated markers from infusionData for this segment
+    // Find and remove all markers between session's startTime and the next stop marker (or end)
     setInfusionData(prev => {
       const existingData = prev[swimlaneId] || [];
+      const sortedData = [...existingData].sort((a, b) => a[0] - b[0]);
+      
+      // Find the index of the segment start
+      const segmentStartIndex = sortedData.findIndex(([time]) => time === startTime);
+      
+      if (segmentStartIndex === -1) {
+        // Segment not found, return as is
+        return prev;
+      }
+      
+      // Find the next stop marker (empty string) after the segment start
+      const segmentEndIndex = sortedData.findIndex((marker, idx) => 
+        idx > segmentStartIndex && marker[1] === ""
+      );
+      
+      // Remove markers based on whether a stop marker exists
+      let filtered;
+      if (segmentEndIndex === -1) {
+        // No stop marker: only delete the start marker itself (currently running segment)
+        filtered = sortedData.filter((_, idx) => idx !== segmentStartIndex);
+      } else {
+        // Stop marker exists: delete all markers from start to stop (inclusive)
+        filtered = sortedData.filter((_, idx) => 
+          idx < segmentStartIndex || idx > segmentEndIndex
+        );
+      }
+      
       return {
         ...prev,
-        [swimlaneId]: existingData.filter(([time]) => time !== startTime),
+        [swimlaneId]: filtered,
       };
     });
     
@@ -3606,6 +3642,126 @@ export function UnifiedTimeline({
     setShowFreeFlowManageDialog(false);
     setManagingFreeFlowSession(null);
     setFreeFlowManageTime(0);
+  };
+
+  // Handle segment edit (from Edit Segment dialog)
+  const handleSegmentEdit = () => {
+    if (!editingSegment) return;
+    
+    const { swimlaneId, time: oldTime, index } = editingSegment;
+    const newDose = segmentDoseInput.trim();
+    const newTime = segmentTimeInput;
+    
+    if (!newDose) {
+      toast({
+        title: "Invalid dose",
+        description: "Please enter a dose value",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Update the infusion data
+    setInfusionData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      const updated = [...existingData];
+      
+      // Update the marker at the specified index
+      updated[index] = [newTime, newDose];
+      
+      // Sort by time
+      return {
+        ...prev,
+        [swimlaneId]: updated.sort((a, b) => a[0] - b[0]),
+      };
+    });
+    
+    // Update the session if time changed
+    if (oldTime !== newTime) {
+      setFreeFlowSessions(prev => {
+        const sessions = prev[swimlaneId] || [];
+        const updated = sessions.map(session => 
+          session.startTime === oldTime 
+            ? { ...session, startTime: newTime, dose: newDose }
+            : session
+        );
+        return {
+          ...prev,
+          [swimlaneId]: updated.sort((a, b) => a.startTime - b.startTime),
+        };
+      });
+    }
+    
+    toast({
+      title: "Segment updated",
+      description: `${editingSegment.label} segment updated`,
+    });
+    
+    // Reset dialog state
+    setShowEditSegmentDialog(false);
+    setEditingSegment(null);
+    setSegmentDoseInput("");
+    setSegmentTimeInput(0);
+  };
+
+  // Handle segment delete (from Edit Segment dialog)
+  const handleSegmentDelete = () => {
+    if (!editingSegment) return;
+    
+    const { swimlaneId, time: startTime } = editingSegment;
+    
+    // Remove session
+    setFreeFlowSessions(prev => {
+      const sessions = prev[swimlaneId] || [];
+      return {
+        ...prev,
+        [swimlaneId]: sessions.filter(s => s.startTime !== startTime),
+      };
+    });
+    
+    // Remove ALL associated markers from infusionData for this segment
+    setInfusionData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      const sortedData = [...existingData].sort((a, b) => a[0] - b[0]);
+      
+      // Find the index of the segment start
+      const segmentStartIndex = sortedData.findIndex(([time]) => time === startTime);
+      
+      if (segmentStartIndex === -1) {
+        return prev;
+      }
+      
+      // Find the next stop marker after the segment start
+      let segmentEndIndex = sortedData.findIndex((marker, idx) => 
+        idx > segmentStartIndex && marker[1] === ""
+      );
+      
+      // If no stop marker found, delete all markers from start to end
+      if (segmentEndIndex === -1) {
+        segmentEndIndex = sortedData.length;
+      }
+      
+      // Remove all markers from segmentStartIndex to segmentEndIndex
+      const filtered = sortedData.filter((_, idx) => 
+        idx < segmentStartIndex || idx > segmentEndIndex
+      );
+      
+      return {
+        ...prev,
+        [swimlaneId]: filtered,
+      };
+    });
+    
+    toast({
+      title: "Segment deleted",
+      description: `${editingSegment.label} segment removed`,
+    });
+    
+    // Reset dialog state
+    setShowEditSegmentDialog(false);
+    setEditingSegment(null);
+    setSegmentDoseInput("");
+    setSegmentTimeInput(0);
   };
 
   // Handle rate selection (from rate options or custom input)
@@ -5814,17 +5970,19 @@ export function UnifiedTimeline({
                 if (existingValueAtTime) {
                   // Check if this is a rate-controlled infusion or free-flow
                   if (lane.rateUnit === 'free') {
-                    // For free-flow, open edit dialog (they don't use management dialog)
+                    // For free-flow, open Edit Segment dialog
                     const [valueTime, value] = existingValueAtTime;
                     const valueIndex = existingValues.findIndex(([t, v]) => t === valueTime && v === value);
-                    setEditingInfusionValue({
+                    setEditingSegment({
                       swimlaneId: lane.id,
                       time: valueTime,
-                      value: value.toString(),
+                      dose: value.toString(),
                       index: valueIndex,
+                      label: lane.label.trim(),
                     });
-                    setInfusionEditInput(value.toString());
-                    setShowInfusionEditDialog(true);
+                    setSegmentDoseInput(value.toString());
+                    setSegmentTimeInput(valueTime);
+                    setShowEditSegmentDialog(true);
                   } else {
                     // For rate-controlled, open management dialog with stop/change/start new options
                     const [valueTime, value] = existingValueAtTime;
@@ -7172,11 +7330,7 @@ export function UnifiedTimeline({
               }
               data-testid={`infusion-rate-${lane.id}-${index}`}
             >
-              {isStopMarker ? (
-                <span className="group-hover:scale-110 transition-transform px-1 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded text-xs border border-red-300 dark:border-red-700">
-                  STOP
-                </span>
-              ) : (
+              {isStopMarker ? null : (
                 <span className="group-hover:scale-110 transition-transform">
                   {rate}
                 </span>
@@ -7394,7 +7548,87 @@ export function UnifiedTimeline({
         </DialogContent>
       </Dialog>
 
-      {/* Free-Flow Management Dialog */}
+      {/* Edit Segment Dialog (free-flow) */}
+      <Dialog open={showEditSegmentDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowEditSegmentDialog(false);
+          setEditingSegment(null);
+          setSegmentDoseInput("");
+          setSegmentTimeInput(0);
+        } else {
+          setShowEditSegmentDialog(true);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-edit-segment">
+          <DialogHeader>
+            <DialogTitle>Edit Segment</DialogTitle>
+            <DialogDescription>
+              {editingSegment ? `${editingSegment.label}` : 'Edit this segment'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="segment-dose">Quantity</Label>
+              <Input
+                id="segment-dose"
+                type="number"
+                inputMode="decimal"
+                data-testid="input-segment-dose"
+                value={segmentDoseInput}
+                onChange={(e) => setSegmentDoseInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSegmentEdit();
+                  }
+                }}
+                placeholder="e.g., 100"
+                autoFocus
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="segment-time">Start Time</Label>
+              <TimeAdjustInput
+                value={segmentTimeInput}
+                onChange={setSegmentTimeInput}
+                data-testid="input-segment-time"
+              />
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-2 pt-4">
+            <Button
+              variant="destructive"
+              onClick={handleSegmentDelete}
+              data-testid="button-delete-segment"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </Button>
+            <div className="flex gap-2 ml-auto">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowEditSegmentDialog(false);
+                  setEditingSegment(null);
+                  setSegmentDoseInput("");
+                  setSegmentTimeInput(0);
+                }}
+                data-testid="button-cancel-segment"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSegmentEdit}
+                data-testid="button-save-segment"
+                disabled={!segmentDoseInput.trim()}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Free-Flow Management Dialog - Simplified */}
       <Dialog open={showFreeFlowManageDialog} onOpenChange={(open) => {
         if (!open) {
           setShowFreeFlowManageDialog(false);
@@ -7411,96 +7645,76 @@ export function UnifiedTimeline({
               {managingFreeFlowSession ? `${managingFreeFlowSession.label} - Dose: ${managingFreeFlowSession.dose}` : 'Manage this infusion'}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-2">
-              {/* Check if segment is currently running */}
-              {managingFreeFlowSession && (() => {
-                const { swimlaneId } = managingFreeFlowSession;
-                
-                // Check if there's currently an active session for this swimlane
-                // A session is active if it exists in freeFlowSessions (regardless of startTime)
-                const hasActiveSession = (freeFlowSessions[swimlaneId] || []).length > 0;
-                
-                // Find the latest NON-EMPTY marker to determine running state
-                // This handles same-timestamp scenarios correctly
-                const existingData = infusionData[swimlaneId] || [];
-                const sortedData = [...existingData].sort((a, b) => b[0] - a[0]); // Sort descending by time
-                
-                // Find the first non-empty marker (most recent dose value)
-                const latestDoseMarker = sortedData.find(([_, val]) => val !== "");
-                // Find the first empty marker (most recent stop)
-                const latestStopMarker = sortedData.find(([_, val]) => val === "");
-                
-                // Infusion is running if:
-                // 1. There's a dose marker AND
-                // 2. (No stop marker OR dose marker is same time or newer than stop marker) AND
-                // 3. Has active session
-                // Using >= instead of > to handle same-timestamp resume scenarios
-                const isRunning = latestDoseMarker && 
-                  (!latestStopMarker || latestDoseMarker[0] >= latestStopMarker[0]) &&
-                  hasActiveSession;
-                
-                return (
-                  <>
-                    {/* Stop button - only visible for running infusions */}
-                    {isRunning && (
-                      <Button
-                        onClick={handleFreeFlowStop}
-                        variant="outline"
-                        className="h-20 flex flex-col gap-2"
-                        data-testid="button-freeflow-stop"
-                      >
-                        <StopCircle className="w-6 h-6" />
-                        <span className="text-sm">Stop</span>
-                      </Button>
-                    )}
-                    
-                    {/* Start button - only visible for stopped infusions */}
-                    {!isRunning && (
-                      <Button
-                        onClick={handleFreeFlowStart}
-                        variant="outline"
-                        className="h-20 flex flex-col gap-2"
-                        data-testid="button-freeflow-start"
-                      >
-                        <PlayCircle className="w-6 h-6" />
-                        <span className="text-sm">Start</span>
-                      </Button>
-                    )}
-                    
-                    {/* Start New button - always visible */}
+          <div className="grid gap-3 py-4">
+            {/* Check if segment is currently running */}
+            {managingFreeFlowSession && (() => {
+              const { swimlaneId } = managingFreeFlowSession;
+              
+              // Check if there's currently an active session for this swimlane
+              // A session is active if it exists in freeFlowSessions (regardless of startTime)
+              const hasActiveSession = (freeFlowSessions[swimlaneId] || []).length > 0;
+              
+              // Find the latest NON-EMPTY marker to determine running state
+              // This handles same-timestamp scenarios correctly
+              const existingData = infusionData[swimlaneId] || [];
+              const sortedData = [...existingData].sort((a, b) => b[0] - a[0]); // Sort descending by time
+              
+              // Find the first non-empty marker (most recent dose value)
+              const latestDoseMarker = sortedData.find(([_, val]) => val !== "");
+              // Find the first empty marker (most recent stop)
+              const latestStopMarker = sortedData.find(([_, val]) => val === "");
+              
+              // Infusion is running if:
+              // 1. There's a dose marker AND
+              // 2. (No stop marker OR dose marker is same time or newer than stop marker) AND
+              // 3. Has active session
+              // Using >= instead of > to handle same-timestamp resume scenarios
+              const isRunning = latestDoseMarker && 
+                (!latestStopMarker || latestDoseMarker[0] >= latestStopMarker[0]) &&
+                hasActiveSession;
+              
+              return (
+                <>
+                  {/* Stop button - only visible for running infusions */}
+                  {isRunning && (
                     <Button
-                      onClick={handleFreeFlowStartNew}
+                      onClick={handleFreeFlowStop}
                       variant="outline"
-                      className="h-20 flex flex-col gap-2"
-                      data-testid="button-freeflow-start-new"
+                      className="w-full h-16 flex flex-col gap-2"
+                      data-testid="button-freeflow-stop"
+                    >
+                      <StopCircle className="w-6 h-6" />
+                      <span className="text-sm">Stop</span>
+                    </Button>
+                  )}
+                  
+                  {/* Start button - only visible for stopped infusions */}
+                  {!isRunning && (
+                    <Button
+                      onClick={handleFreeFlowStart}
+                      variant="outline"
+                      className="w-full h-16 flex flex-col gap-2"
+                      data-testid="button-freeflow-start"
                     >
                       <PlayCircle className="w-6 h-6" />
-                      <span className="text-sm">Start New</span>
+                      <span className="text-sm">Start</span>
                     </Button>
-                  </>
-                );
-              })()}
-            </div>
+                  )}
+                  
+                  {/* Start New button - always visible */}
+                  <Button
+                    onClick={handleFreeFlowStartNew}
+                    variant="outline"
+                    className="w-full h-16 flex flex-col gap-2"
+                    data-testid="button-freeflow-start-new"
+                  >
+                    <PlayCircle className="w-6 h-6" />
+                    <span className="text-sm">Start New</span>
+                  </Button>
+                </>
+              );
+            })()}
           </div>
-          <DialogFooterWithTime
-            time={freeFlowManageTime}
-            onTimeChange={setFreeFlowManageTime}
-            showDelete={true}
-            onDelete={handleFreeFlowDelete}
-            onCancel={() => {
-              setShowFreeFlowManageDialog(false);
-              setManagingFreeFlowSession(null);
-              setFreeFlowManageTime(0);
-            }}
-            onSave={() => {
-              setShowFreeFlowManageDialog(false);
-              setManagingFreeFlowSession(null);
-              setFreeFlowManageTime(0);
-            }}
-            saveDisabled={false}
-            saveLabel="Close"
-          />
         </DialogContent>
       </Dialog>
 
