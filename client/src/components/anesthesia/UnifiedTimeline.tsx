@@ -1465,7 +1465,7 @@ export function UnifiedTimeline({
         
         // Get current graphic elements to preserve vertical lines and labels
         const currentOption = chart.getOption() as any;
-        const currentGraphic = currentOption.graphic?.[0]?.elements || [];
+        const currentGraphic = currentOption?.graphic?.[0]?.elements || [];
         
         // Find and update only the zone/indicator elements, preserve everything else
         const updatedGraphic = currentGraphic.map((el: any) => {
