@@ -3806,17 +3806,37 @@ export function UnifiedTimeline({
   const handleSheetStart = () => {
     if (!freeFlowSheetSession) return;
     
-    const { swimlaneId, label, dose } = freeFlowSheetSession;
-    const startTime = currentTime;
+    const { swimlaneId, label, dose, startTime: oldStartTime } = freeFlowSheetSession;
+    const newStartTime = currentTime;
+    
+    // Update the session with the new resume time
+    setFreeFlowSessions(prev => {
+      const sessions = prev[swimlaneId] || [];
+      const updated = sessions.map(session => 
+        session.startTime === oldStartTime 
+          ? { ...session, startTime: newStartTime }
+          : session
+      );
+      return {
+        ...prev,
+        [swimlaneId]: updated.sort((a, b) => a.startTime - b.startTime),
+      };
+    });
     
     // Add start marker with the same dose
     setInfusionData(prev => {
       const existingData = prev[swimlaneId] || [];
       return {
         ...prev,
-        [swimlaneId]: [...existingData, [startTime, dose] as [number, string]].sort((a, b) => a[0] - b[0]),
+        [swimlaneId]: [...existingData, [newStartTime, dose] as [number, string]].sort((a, b) => a[0] - b[0]),
       };
     });
+    
+    // Update the sheet session to reflect the new start time
+    setFreeFlowSheetSession(prev => prev ? {
+      ...prev,
+      startTime: newStartTime,
+    } : null);
     
     toast({
       title: "Infusion resumed",
@@ -7374,6 +7394,70 @@ export function UnifiedTimeline({
           })}
         </svg>
       )}
+      
+      {/* Clickable overlays for free-flow infusion segments */}
+      {!collapsedSwimlanes.has('infusionen') && activeSwimlanes.flatMap((lane) => {
+        const isInfusionChild = lane.rateUnit !== null && lane.rateUnit !== undefined;
+        const isFreeFlow = lane.rateUnit === 'free';
+        
+        if (!isInfusionChild || !isFreeFlow || !infusionData[lane.id]?.length) return [];
+        
+        const childLane = swimlanePositions.find(pos => pos.id === lane.id);
+        if (!childLane) return [];
+        
+        const visibleStart = currentZoomStart ?? data.startTime;
+        const visibleEnd = currentZoomEnd ?? data.endTime;
+        const visibleRange = visibleEnd - visibleStart;
+        
+        // Sort rate points by time
+        const sortedRates = [...infusionData[lane.id]].sort((a, b) => a[0] - b[0]);
+        
+        return sortedRates.map(([timestamp, rate], index) => {
+          // Check if this is a stop marker
+          const isStopMarker = rate === "";
+          if (isStopMarker) return null; // Don't add clickable overlay for stop markers
+          
+          // Calculate position for this segment
+          const xFraction = (timestamp - visibleStart) / visibleRange;
+          const nextTimestamp = sortedRates[index + 1]?.[0] ?? visibleEnd;
+          const nextXFraction = (nextTimestamp - visibleStart) / visibleRange;
+          
+          if (xFraction > 1 || nextXFraction < 0) return null; // Not visible
+          
+          const leftPercent = Math.max(0, xFraction * 100);
+          const rightPercent = Math.min(100, nextXFraction * 100);
+          const widthPercent = rightPercent - leftPercent;
+          
+          return (
+            <div
+              key={`segment-overlay-${lane.id}-${timestamp}-${index}`}
+              className="absolute z-35 cursor-pointer hover:bg-primary/10 transition-colors"
+              style={{
+                left: `calc(200px + ${leftPercent}% * (100% - 210px) / 100)`,
+                width: `calc(${widthPercent}% * (100% - 210px) / 100)`,
+                top: `${childLane.top}px`,
+                height: `${childLane.height}px`,
+              }}
+              onClick={() => {
+                // Find the session for this marker
+                const sessions = freeFlowSessions[lane.id] || [];
+                const session = sessions.find(s => s.startTime === timestamp) || {
+                  swimlaneId: lane.id,
+                  startTime: timestamp,
+                  dose: rate.toString(),
+                  label: lane.label.trim(),
+                };
+                
+                setFreeFlowSheetSession(session);
+                setSheetDoseInput(rate.toString());
+                setSheetTimeInput(timestamp);
+                setShowFreeFlowSheet(true);
+              }}
+              data-testid={`segment-${lane.id}-${index}`}
+            />
+          );
+        }).filter(Boolean);
+      })}
 
       {/* Infusion rate values as DOM overlays */}
       {activeSwimlanes.flatMap((lane, laneIndex) => {
