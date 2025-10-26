@@ -7439,12 +7439,13 @@ export function UnifiedTimeline({
           return (
             <div
               key={`segment-overlay-${lane.id}-${timestamp}-${index}`}
-              className="absolute z-35 cursor-pointer hover:bg-primary/10 transition-colors"
+              className="absolute cursor-pointer hover:bg-primary/10 transition-colors"
               style={{
                 left: `calc(200px + ${leftPercent}% * (100% - 210px) / 100)`,
                 width: `calc(${widthPercent}% * (100% - 210px) / 100)`,
                 top: `${childLane.top}px`,
                 height: `${childLane.height}px`,
+                zIndex: 35,
               }}
               onClick={() => {
                 // Find the session for this marker
