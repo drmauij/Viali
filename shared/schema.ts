@@ -304,6 +304,8 @@ export const importJobs = pgTable("import_jobs", {
   status: varchar("status").notNull().default("queued"), // queued, processing, completed, failed
   totalImages: integer("total_images").notNull(),
   processedImages: integer("processed_images").default(0),
+  currentImage: integer("current_image").default(0), // Current image being processed (for progress tracking)
+  progressPercent: integer("progress_percent").default(0), // Percentage of completion (0-100)
   extractedItems: integer("extracted_items").default(0),
   imagesData: jsonb("images_data"), // temporary storage for base64 images
   results: jsonb("results"), // array of extracted items
