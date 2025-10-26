@@ -7295,16 +7295,17 @@ export function UnifiedTimeline({
               onClick={() => {
                 // Check if this is a rate-controlled infusion or free-flow
                 if (isFreeFlow) {
-                  // For free-flow, open simple edit dialog
-                  setEditingInfusionValue({
+                  // For free-flow, open Edit Segment dialog
+                  setEditingSegment({
                     swimlaneId: lane.id,
                     time: timestamp,
-                    value: rate.toString(),
+                    dose: rate.toString(),
                     index,
+                    label: lane.label.trim(),
                   });
-                  setInfusionEditInput(rate.toString());
-                  setInfusionEditTime(timestamp);
-                  setShowInfusionEditDialog(true);
+                  setSegmentDoseInput(rate.toString());
+                  setSegmentTimeInput(timestamp);
+                  setShowEditSegmentDialog(true);
                 } else {
                   // For rate-controlled, open management dialog with Stop/Start New options
                   // Parse rate options from defaultDose if it's a range
