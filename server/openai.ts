@@ -86,7 +86,10 @@ interface BulkItemExtraction {
   controlled: boolean;
 }
 
-export async function analyzeBulkItemImages(base64Images: string[]): Promise<BulkItemExtraction[]> {
+export async function analyzeBulkItemImages(
+  base64Images: string[], 
+  onProgress?: (current: number, total: number, percent: number) => void | Promise<void>
+): Promise<BulkItemExtraction[]> {
   try {
     // Process images in small batches to stay within strict 30s deployment timeout
     // Each batch of 3 images takes ~12-20 seconds, safely completing under 30s
@@ -102,7 +105,17 @@ export async function analyzeBulkItemImages(base64Images: string[]): Promise<Bul
         }
       }));
 
-      console.log(`[Bulk Import] Processing batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(base64Images.length / BATCH_SIZE)} (${batch.length} images)`);
+      const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
+      const totalBatches = Math.ceil(base64Images.length / BATCH_SIZE);
+      const currentImage = Math.min(i + BATCH_SIZE, base64Images.length);
+      const progressPercent = Math.round((currentImage / base64Images.length) * 100);
+
+      console.log(`[Bulk Import] Processing batch ${batchNumber} of ${totalBatches} (images ${i + 1}-${currentImage}/${base64Images.length})`);
+
+      // Call progress callback if provided
+      if (onProgress) {
+        await onProgress(currentImage, base64Images.length, progressPercent);
+      }
 
       const visionResponse = await openai.chat.completions.create({
         model: "gpt-4o-mini",

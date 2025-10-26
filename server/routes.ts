@@ -2023,6 +2023,8 @@ If unable to parse any drugs, return:
         status: job.status,
         totalImages: job.totalImages,
         processedImages: job.processedImages,
+        currentImage: job.currentImage,
+        progressPercent: job.progressPercent,
         extractedItems: job.extractedItems,
         results: job.results,
         error: job.error,
@@ -2045,23 +2047,38 @@ If unable to parse any drugs, return:
         return res.json({ message: "No jobs in queue" });
       }
 
-      console.log(`[Import Job Worker] Processing job ${job.id}`);
+      console.log(`[Import Job Worker] Processing job ${job.id} with ${job.totalImages} images`);
 
       // Update job status to processing
       await storage.updateImportJob(job.id, {
         status: 'processing',
         startedAt: new Date(),
+        currentImage: 0,
+        progressPercent: 0,
       });
 
-      // Process images
+      // Process images with progress tracking
       const { analyzeBulkItemImages } = await import('./openai');
-      const extractedItems = await analyzeBulkItemImages(job.imagesData as string[]);
+      const extractedItems = await analyzeBulkItemImages(
+        job.imagesData as string[], 
+        async (currentImage, totalImages, progressPercent) => {
+          // Update progress in database
+          await storage.updateImportJob(job.id, {
+            currentImage,
+            processedImages: currentImage,
+            progressPercent,
+          });
+          console.log(`[Import Job Worker] Progress: ${currentImage}/${totalImages} (${progressPercent}%)`);
+        }
+      );
 
       // Update job with results
       await storage.updateImportJob(job.id, {
         status: 'completed',
         completedAt: new Date(),
         processedImages: job.totalImages,
+        currentImage: job.totalImages,
+        progressPercent: 100,
         extractedItems: extractedItems.length,
         results: extractedItems,
         imagesData: null, // Clear images to free up space
