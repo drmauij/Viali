@@ -19,8 +19,8 @@ module.exports = {
     },
     {
       name: 'viali-worker',
-      script: 'tsx',
-      args: 'server/worker.ts',
+      script: 'server/worker.ts',
+      interpreter: 'node_modules/.bin/tsx',
       env: {
         NODE_ENV: 'production',
       },

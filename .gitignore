@@ -4,3 +4,6 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# Production config with secrets - DO NOT COMMIT
+ecosystem.config.cjs

@@ -105,24 +105,63 @@ sudo systemctl reload nginx
 
 ## 3. Environment Variables
 
-Ensure all required environment variables are set. Create or update `.env` file:
+**IMPORTANT SECURITY NOTE**: On Exoscale, environment variables must be embedded in `ecosystem.config.cjs` because the build process cannot read system environment variables. This means your secrets will be in a file on your server.
+
+### Create ecosystem.config.cjs
+
+Copy the template and fill in your actual values:
 
 ```bash
-# Database
-DATABASE_URL=postgresql://user:password@localhost:5432/viali
-
-# OpenAI API
-OPENAI_API_KEY=sk-...
-
-# Email (Resend)
-RESEND_API_KEY=re_...
-
-# Application URL (for email links)
-VITE_PUBLIC_URL=https://your-domain.com
-
-# Node environment
-NODE_ENV=production
+cd /home/ubuntu/viali
+cp ecosystem.config.template.cjs ecosystem.config.cjs
+nano ecosystem.config.cjs  # Edit with your real secrets
 ```
+
+**CRITICAL**: The `ecosystem.config.cjs` file is in `.gitignore` to prevent secrets from being committed to git. Never commit this file!
+
+### Required Environment Variables
+
+Both the main app and worker need these variables set in `ecosystem.config.cjs`:
+
+**For viali-app:**
+- `NODE_ENV`: production
+- `PORT`: 5000
+- `DATABASE_URL`: PostgreSQL connection string
+- `SESSION_SECRET`: Random secret for sessions
+- `ENCRYPTION_SECRET`: Random secret for encryption
+- `OPENAI_API_KEY`: Your OpenAI API key
+- `GOOGLE_CLIENT_ID`: Google OAuth client ID
+- `GOOGLE_CLIENT_SECRET`: Google OAuth client secret
+- `RESEND_API_KEY`: Resend email API key
+- `RESEND_FROM_EMAIL`: Your verified sender email
+- `PRODUCTION_URL`: Your public domain (https://use.viali.app)
+- `DB_SSL_REJECT_UNAUTHORIZED`: false (for Aiven SSL)
+
+**For viali-worker:**
+- `NODE_ENV`: production
+- `DATABASE_URL`: PostgreSQL connection string (same as app)
+- `OPENAI_API_KEY`: Your OpenAI API key (same as app)
+- `DB_SSL_REJECT_UNAUTHORIZED`: false (for Aiven SSL)
+
+### Security Best Practices
+
+**CRITICAL**: Your production `ecosystem.config.cjs` contains all your secrets and must never be committed to git!
+
+1. **Never commit ecosystem.config.cjs** - It's already in `.gitignore`
+2. **Set restrictive file permissions:**
+   ```bash
+   chmod 600 /home/ubuntu/viali/ecosystem.config.cjs
+   ```
+3. **Use ecosystem.config.template.cjs** for version control - This has placeholder values and is safe to commit
+4. **Backup your ecosystem.config.cjs** securely - If you lose it, you'll need to regenerate all secrets
+5. **If secrets are ever exposed** (committed to git, leaked, etc.):
+   - Rotate ALL secrets immediately (database password, API keys, OAuth secrets, session secrets)
+   - Revoke the exposed credentials
+   - Generate new ones and update ecosystem.config.cjs
+   
+### Why Secrets Are in ecosystem.config.cjs
+
+On Exoscale (and most VPS environments), environment variables are not automatically available during the `npm run build` process. The build needs access to certain configuration, so PM2 provides them directly via the config file. This is different from managed platforms like Heroku or Vercel where environment variables are injected automatically.
 
 ## 4. PM2 Setup
 
@@ -136,11 +175,11 @@ npm install -g pm2
 
 ### Start Both Processes
 
-The project includes `ecosystem.config.js` which defines both processes:
+The project includes `ecosystem.config.cjs` which defines both processes:
 
 ```bash
 # Start both app and worker
-pm2 start ecosystem.config.js
+pm2 start ecosystem.config.cjs
 
 # View status
 pm2 status
@@ -154,6 +193,8 @@ pm2 logs viali-worker
 # View app logs specifically
 pm2 logs viali-app
 ```
+
+**Important**: Make sure you have the `ecosystem.config.cjs` file with your actual secrets before running PM2!
 
 ### PM2 Startup Script (Auto-restart on Reboot)
 
@@ -191,24 +232,79 @@ pm2 monit
 
 ## 5. Deployment Workflow
 
-Here's the complete workflow for deploying updates:
+### Initial Deployment
+
+First time setting up the server:
 
 ```bash
-# 1. Pull latest code
-cd /path/to/viali
+# 1. Clone repository
+cd /home/ubuntu
+git clone https://github.com/your-username/viali.git
+cd viali
+
+# 2. Copy and configure secrets
+cp ecosystem.config.template.cjs ecosystem.config.cjs
+nano ecosystem.config.cjs  # Add your real secrets
+
+# 3. Set restrictive permissions
+chmod 600 ecosystem.config.cjs
+
+# 4. Install dependencies
+npm ci
+
+# 5. Build the application
+npm run build
+
+# 6. Start with PM2
+pm2 start ecosystem.config.cjs
+
+# 7. Save PM2 process list
+pm2 save
+
+# 8. Setup PM2 startup script
+pm2 startup
+# Run the command it outputs, then:
+pm2 save
+```
+
+**Important Notes:**
+- Database migrations run automatically when the app starts, so you don't need to run `npm run db:push` manually
+- The worker process uses `tsx` from `node_modules/.bin/tsx` to run TypeScript directly
+- Both `npm ci` and `npm run build` must complete successfully before starting PM2
+
+### Deploying Updates (deploy.sh)
+
+Your `deploy.sh` script is correct! Here's what it does:
+
+```bash
+#!/bin/bash
+cd /home/ubuntu/viali
 git pull origin main
+npm ci
+npm run build
+pm2 reload ecosystem.config.cjs --update-env
+```
 
-# 2. Install dependencies
-npm install
+**What happens:**
+1. Pulls latest code from GitHub
+2. Installs dependencies (clean install)
+3. Builds the application
+4. Reloads PM2 processes with zero-downtime
+5. Database migrations run automatically on app startup
 
-# 3. Apply database migrations (if schema changed)
-npm run db:push --force
+**To deploy:**
+```bash
+chmod +x deploy.sh
+./deploy.sh
+```
 
-# 4. Restart PM2 processes
-pm2 restart all
-
-# 5. Check logs for any errors
+**Check deployment success:**
+```bash
+# View logs for any errors
 pm2 logs --lines 50
+
+# Check both processes are running
+pm2 status
 ```
 
 ## 6. Monitoring and Troubleshooting
