@@ -7558,6 +7558,36 @@ export function UnifiedTimeline({
                           data-testid={`segment-svg-${lane.id}-${index}`}
                         />
                       )}
+                      
+                      {/* Clickable area for rate-based segments (segment bar only) */}
+                      {!isFreeFlow && !isStopMarker && rate !== "" && (
+                        <rect
+                          x={xStart}
+                          y={y - 14}
+                          width={xEnd - xStart}
+                          height={28}
+                          fill="transparent"
+                          stroke="none"
+                          pointerEvents="all"
+                          cursor="pointer"
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
+                            
+                            // Open rate sheet in "segment" mode (Change Rate Now)
+                            setRateSheetSession({
+                              swimlaneId: lane.id,
+                              label: lane.label.trim(),
+                              clickMode: 'segment',
+                              rateUnit: lane.rateUnit || '',
+                              defaultDose: lane.defaultDose || undefined,
+                            });
+                            setSheetRateInput(rate.toString());
+                            setSheetRateTimeInput(timestamp);
+                            setShowRateSheet(true);
+                          }}
+                          data-testid={`segment-rate-bar-${lane.id}-${index}`}
+                        />
+                      )}
                     </>
                   )}
                 </g>
@@ -7624,24 +7654,17 @@ export function UnifiedTimeline({
                   setSheetTimeInput(timestamp);
                   setShowFreeFlowSheet(true);
                 } else {
-                  // For rate-controlled, open management dialog with Stop/Start New options
-                  // Parse rate options from defaultDose if it's a range
-                  let rateOptions: string[] | undefined;
-                  if (lane.defaultDose && lane.defaultDose.includes('-')) {
-                    rateOptions = lane.defaultDose.split('-').map(v => v.trim()).filter(v => v);
-                  }
-                  
-                  setManagingRate({
+                  // For rate-controlled, open unified Rate Sheet in "label" mode (Save Edit)
+                  setRateSheetSession({
                     swimlaneId: lane.id,
-                    time: timestamp,
-                    value: rate.toString(),
-                    index,
                     label: lane.label.trim(),
-                    rateOptions,
+                    clickMode: 'label',
+                    rateUnit: lane.rateUnit || '',
+                    defaultDose: lane.defaultDose || undefined,
                   });
-                  setRateManageTime(timestamp);
-                  setRateManageInput(rate.toString());
-                  setShowRateManageDialog(true);
+                  setSheetRateInput(rate.toString());
+                  setSheetRateTimeInput(timestamp);
+                  setShowRateSheet(true);
                 }
               }}
               title={isStopMarker 
