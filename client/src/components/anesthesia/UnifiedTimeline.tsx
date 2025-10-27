@@ -3782,15 +3782,48 @@ export function UnifiedTimeline({
   const handleSheetStop = () => {
     if (!freeFlowSheetSession) return;
     
-    const { swimlaneId, label, startTime } = freeFlowSheetSession;
+    const { swimlaneId, label, startTime, dose } = freeFlowSheetSession;
     const stopTime = currentTime;
+    
+    // Apply any edits first (if quantity or time was changed)
+    const newDose = sheetDoseInput.trim() || dose;
+    const newStartTime = sheetTimeInput || startTime;
+    
+    // If edits were made, update the infusion data
+    if (newDose !== dose || newStartTime !== startTime) {
+      setInfusionData(prev => {
+        const existingData = prev[swimlaneId] || [];
+        // Remove old marker and add updated one
+        const withoutOld = existingData.filter(([t, _]) => t !== startTime);
+        return {
+          ...prev,
+          [swimlaneId]: [...withoutOld, [newStartTime, newDose] as [number, string]].sort((a, b) => a[0] - b[0]),
+        };
+      });
+      
+      // Update session if time changed
+      if (newStartTime !== startTime) {
+        setFreeFlowSessions(prev => {
+          const sessions = prev[swimlaneId] || [];
+          const updated = sessions.map(s => 
+            s.startTime === startTime 
+              ? { ...s, startTime: newStartTime, dose: newDose }
+              : s
+          );
+          return {
+            ...prev,
+            [swimlaneId]: updated,
+          };
+        });
+      }
+    }
     
     // Remove the session from freeFlowSessions
     setFreeFlowSessions(prev => {
       const sessions = prev[swimlaneId] || [];
       return {
         ...prev,
-        [swimlaneId]: sessions.filter(s => s.startTime !== startTime),
+        [swimlaneId]: sessions.filter(s => s.startTime !== (newStartTime || startTime)),
       };
     });
     
