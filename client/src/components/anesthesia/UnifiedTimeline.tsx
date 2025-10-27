@@ -8518,19 +8518,17 @@ export function UnifiedTimeline({
                   </div>
                 </div>
 
-                {/* Time Editor (for editing historical data) */}
-                {clickMode === 'label' && (
-                  <div className="border-t border-border pt-4 mb-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="rate-time" className="text-xs">Start Time</Label>
-                      <TimeAdjustInput
-                        value={sheetRateTimeInput}
-                        onChange={setSheetRateTimeInput}
-                        data-testid="input-rate-time"
-                      />
-                    </div>
+                {/* Time Editor (always visible for fine adjustment) */}
+                <div className="border-t border-border pt-4 mb-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="rate-time" className="text-xs">Start Time</Label>
+                    <TimeAdjustInput
+                      value={sheetRateTimeInput}
+                      onChange={setSheetRateTimeInput}
+                      data-testid="input-rate-time"
+                    />
                   </div>
-                )}
+                </div>
 
                 {/* Footer Actions */}
                 <div className="flex items-center justify-between gap-2 pt-4 border-t border-border">
