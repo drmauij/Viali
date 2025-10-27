@@ -8396,6 +8396,11 @@ export function UnifiedTimeline({
             const currentSegment = session?.segments[session.segments.length - 1];
             const currentRate = currentSegment?.rate || '';
             
+            // Detect if user has made edits (for segment clicks on running infusions)
+            const hasEditedRate = sheetRateInput.trim() && sheetRateInput !== currentRate;
+            const hasEditedTime = sheetRateTimeInput && currentSegment && sheetRateTimeInput !== currentSegment.startTime;
+            const hasEdits = hasEditedRate || hasEditedTime;
+            
             return (
               <>
                 {/* Rate Picker - always visible */}
@@ -8506,14 +8511,26 @@ export function UnifiedTimeline({
                             >
                               Pause
                             </Button>
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={handleRateSheetChangeRate}
-                              data-testid="button-rate-change"
-                            >
-                              Change Rate Now
-                            </Button>
+                            {hasEdits ? (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={handleRateSheetChangeRate}
+                                data-testid="button-rate-change"
+                              >
+                                Change Rate
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={handleRateSheetStartNew}
+                                data-testid="button-rate-start-new"
+                              >
+                                <PlayCircle className="w-4 h-4 mr-1" />
+                                Start New
+                              </Button>
+                            )}
                           </>
                         )}
                         {isPaused && (
