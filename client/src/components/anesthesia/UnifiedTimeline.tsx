@@ -3867,27 +3867,36 @@ export function UnifiedTimeline({
     setSheetTimeInput(0);
   };
 
-  // Handle sheet start new
+  // Handle sheet start new (hang a new bag)
   const handleSheetStartNew = () => {
     if (!freeFlowSheetSession) return;
     
-    const { swimlaneId, label, dose, startTime: oldStartTime } = freeFlowSheetSession;
+    const { swimlaneId, label } = freeFlowSheetSession;
+    const newDose = sheetDoseInput.trim() || freeFlowSheetSession.dose;
     const newStartTime = currentTime;
     
-    // Remove the old session
+    if (!newDose) {
+      toast({
+        title: "Quantity required",
+        description: "Please enter the quantity for the new bag",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Stop any active sessions
     setFreeFlowSessions(prev => {
-      const sessions = prev[swimlaneId] || [];
       return {
         ...prev,
-        [swimlaneId]: sessions.filter(s => s.startTime !== oldStartTime),
+        [swimlaneId]: [],
       };
     });
     
-    // Create new session at current time
+    // Create new session at current time with new dose
     const newSession: FreeFlowSession = {
       swimlaneId,
       startTime: newStartTime,
-      dose,
+      dose: newDose,
       label,
     };
     
@@ -3899,19 +3908,19 @@ export function UnifiedTimeline({
       };
     });
     
-    // Add stop marker at current time for the old segment, then immediately start new segment
+    // Add stop marker at current time, then immediately start new segment with new dose
     setInfusionData(prev => {
       const existingData = prev[swimlaneId] || [];
       const withStop = [...existingData, [newStartTime, ""] as [number, string]];
       return {
         ...prev,
-        [swimlaneId]: [...withStop, [newStartTime, dose] as [number, string]].sort((a, b) => a[0] - b[0]),
+        [swimlaneId]: [...withStop, [newStartTime, newDose] as [number, string]].sort((a, b) => a[0] - b[0]),
       };
     });
     
     toast({
-      title: "New infusion started",
-      description: `${label} restarted at current time`,
+      title: "New bag started",
+      description: `${label} - new bag with ${newDose}ml started`,
     });
     
     // Close sheet
