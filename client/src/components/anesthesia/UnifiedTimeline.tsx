@@ -6627,16 +6627,18 @@ export function UnifiedTimeline({
                     const sessions = freeFlowSessions[lane.id] || [];
                     
                     if (sessions.length > 0) {
-                      // Swimlane is already busy - find the closest session and show management dialog
+                      // Swimlane is already busy - find the closest session and show unified sheet
                       const closestSession = sessions.reduce((closest, session) => {
                         const currentDist = Math.abs(session.startTime - time);
                         const closestDist = Math.abs(closest.startTime - time);
                         return currentDist < closestDist ? session : closest;
                       }, sessions[0]);
                       
-                      setManagingFreeFlowSession(closestSession);
-                      setFreeFlowManageTime(time);
-                      setShowFreeFlowManageDialog(true);
+                      // Open unified free-flow sheet in segment mode
+                      setFreeFlowSheetSession({ ...closestSession, clickMode: 'segment' });
+                      setSheetDoseInput(closestSession.dose);
+                      setSheetTimeInput(closestSession.startTime);
+                      setShowFreeFlowSheet(true);
                     } else {
                       // First click: check for default dose
                       if (lane.defaultDose) {
