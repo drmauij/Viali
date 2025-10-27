@@ -565,6 +565,7 @@ export function UnifiedTimeline({
     startTime: number;
     dose: string;
     label: string;
+    clickMode?: 'segment' | 'label';
   } | null>(null);
   const [sheetDoseInput, setSheetDoseInput] = useState("");
   const [sheetTimeInput, setSheetTimeInput] = useState<number>(0);
@@ -7900,7 +7901,7 @@ export function UnifiedTimeline({
                               label: lane.label.trim(),
                             };
                             
-                            setFreeFlowSheetSession(session);
+                            setFreeFlowSheetSession({ ...session, clickMode: 'segment' });
                             setSheetDoseInput(lastDose);
                             setSheetTimeInput(timestamp);
                             setShowFreeFlowSheet(true);
@@ -7990,7 +7991,7 @@ export function UnifiedTimeline({
               onClick={() => {
                 // Check if this is a rate-controlled infusion or free-flow
                 if (isFreeFlow) {
-                  // For free-flow, open unified Infusion Sheet
+                  // For free-flow, open unified Infusion Sheet in "label" mode (Save)
                   const sessions = freeFlowSessions[lane.id] || [];
                   const session = sessions.find(s => s.startTime === timestamp) || {
                     swimlaneId: lane.id,
@@ -7999,7 +8000,7 @@ export function UnifiedTimeline({
                     label: lane.label.trim(),
                   };
                   
-                  setFreeFlowSheetSession(session);
+                  setFreeFlowSheetSession({ ...session, clickMode: 'label' });
                   setSheetDoseInput(rate.toString());
                   setSheetTimeInput(timestamp);
                   setShowFreeFlowSheet(true);
@@ -8260,7 +8261,7 @@ export function UnifiedTimeline({
           </DialogHeader>
           
           {freeFlowSheetSession && (() => {
-            const { swimlaneId, startTime, dose } = freeFlowSheetSession;
+            const { swimlaneId, startTime, dose, clickMode } = freeFlowSheetSession;
             
             // Determine running state
             const hasActiveSession = (freeFlowSessions[swimlaneId] || []).length > 0;
@@ -8272,75 +8273,30 @@ export function UnifiedTimeline({
               (!latestStopMarker || latestDoseMarker[0] >= latestStopMarker[0]) &&
               hasActiveSession;
             
-            // Detect if user has made edits
-            const hasUnsavedEdits = (sheetDoseInput.trim() && sheetDoseInput !== dose) || 
-                                     (sheetTimeInput && sheetTimeInput !== startTime);
-            
             return (
               <>
-                {/* Status Display */}
-                <div className="bg-muted/50 border border-border rounded-lg p-4 mb-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    {isRunning ? (
-                      <>
-                        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-                        <span className="font-semibold text-green-600 dark:text-green-400">Running</span>
-                      </>
-                    ) : (
-                      <>
-                        <div className="w-3 h-3 bg-gray-400 rounded-full" />
-                        <span className="font-semibold text-gray-600 dark:text-gray-400">Stopped</span>
-                      </>
-                    )}
+                {/* Parameters - always visible */}
+                <div className="grid gap-3 mb-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="sheet-dose" className="text-xs">Quantity</Label>
+                    <Input
+                      id="sheet-dose"
+                      type="number"
+                      inputMode="decimal"
+                      data-testid="input-sheet-dose"
+                      value={sheetDoseInput}
+                      onChange={(e) => setSheetDoseInput(e.target.value)}
+                      placeholder="e.g., 1000"
+                      className="h-9"
+                    />
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    Since: {new Date(startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
-                  </div>
-                  <div className="text-sm font-mono font-bold mt-1">
-                    Quantity: {sheetDoseInput || freeFlowSheetSession.dose}
-                  </div>
-                </div>
-
-                {/* Stop Action (only when running) */}
-                {isRunning && (
-                  <div className="mb-4">
-                    <Button
-                      onClick={handleSheetStop}
-                      variant="destructive"
-                      className="w-full h-12"
-                      data-testid="button-sheet-stop"
-                    >
-                      <StopCircle className="w-4 h-4 mr-2" />
-                      Stop Infusion
-                    </Button>
-                  </div>
-                )}
-
-                {/* Editors - always visible */}
-                <div className="border-t border-border pt-4 mb-4">
-                  <h4 className="text-sm font-semibold mb-3">Adjust Parameters</h4>
-                  <div className="grid gap-3">
-                    <div className="grid gap-2">
-                      <Label htmlFor="sheet-dose" className="text-xs">Quantity</Label>
-                      <Input
-                        id="sheet-dose"
-                        type="number"
-                        inputMode="decimal"
-                        data-testid="input-sheet-dose"
-                        value={sheetDoseInput}
-                        onChange={(e) => setSheetDoseInput(e.target.value)}
-                        placeholder="e.g., 1000"
-                        className="h-9"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="sheet-time" className="text-xs">Start Time</Label>
-                      <TimeAdjustInput
-                        value={sheetTimeInput}
-                        onChange={setSheetTimeInput}
-                        data-testid="input-sheet-time"
-                      />
-                    </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="sheet-time" className="text-xs">Start Time</Label>
+                    <TimeAdjustInput
+                      value={sheetTimeInput}
+                      onChange={setSheetTimeInput}
+                      data-testid="input-sheet-time"
+                    />
                   </div>
                 </div>
 
@@ -8355,27 +8311,47 @@ export function UnifiedTimeline({
                     <Trash2 className="w-4 h-4 mr-1" />
                     Delete
                   </Button>
-                  {hasUnsavedEdits ? (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={handleSheetSave}
-                      data-testid="button-sheet-save"
-                      disabled={!sheetDoseInput.trim()}
-                    >
-                      Save
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={handleSheetStartNew}
-                      data-testid="button-sheet-start-new"
-                    >
-                      <PlayCircle className="w-4 h-4 mr-1" />
-                      Start New
-                    </Button>
-                  )}
+                  
+                  <div className="flex gap-2">
+                    {/* Stop button (when running) */}
+                    {isRunning && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleSheetStop}
+                        data-testid="button-sheet-stop"
+                      >
+                        <StopCircle className="w-4 h-4 mr-1" />
+                        Stop
+                      </Button>
+                    )}
+                    
+                    {/* Save button (when clicking label) */}
+                    {clickMode === 'label' && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleSheetSave}
+                        data-testid="button-sheet-save"
+                        disabled={!sheetDoseInput.trim()}
+                      >
+                        Save
+                      </Button>
+                    )}
+                    
+                    {/* Start New button (when clicking segment) */}
+                    {clickMode === 'segment' && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleSheetStartNew}
+                        data-testid="button-sheet-start-new"
+                      >
+                        <PlayCircle className="w-4 h-4 mr-1" />
+                        Start New
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </>
             );
