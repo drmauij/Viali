@@ -3778,6 +3778,47 @@ export function UnifiedTimeline({
     setSheetTimeInput(0);
   };
 
+  // Apply edits to free-flow sheet session (called when dialog closes or actions are taken)
+  const applySheetEdits = () => {
+    if (!freeFlowSheetSession) return;
+    
+    const { swimlaneId, startTime, dose } = freeFlowSheetSession;
+    const newDose = sheetDoseInput.trim();
+    const newStartTime = sheetTimeInput;
+    
+    // Only apply if there are actual changes
+    if (!newDose && !newStartTime) return;
+    if (newDose === dose && newStartTime === startTime) return;
+    
+    const finalDose = newDose || dose;
+    const finalStartTime = newStartTime || startTime;
+    
+    // Update infusion data
+    setInfusionData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      // Remove old marker and add updated one
+      const withoutOld = existingData.filter(([t, _]) => t !== startTime);
+      return {
+        ...prev,
+        [swimlaneId]: [...withoutOld, [finalStartTime, finalDose] as [number, string]].sort((a, b) => a[0] - b[0]),
+      };
+    });
+    
+    // Update session
+    setFreeFlowSessions(prev => {
+      const sessions = prev[swimlaneId] || [];
+      const updated = sessions.map(s => 
+        s.startTime === startTime 
+          ? { ...s, startTime: finalStartTime, dose: finalDose }
+          : s
+      );
+      return {
+        ...prev,
+        [swimlaneId]: updated,
+      };
+    });
+  };
+
   // Handle sheet stop
   const handleSheetStop = () => {
     if (!freeFlowSheetSession) return;
@@ -7801,6 +7842,9 @@ export function UnifiedTimeline({
       {/* Unified Free-Flow Infusion Sheet */}
       <Dialog open={showFreeFlowSheet} onOpenChange={(open) => {
         if (!open) {
+          // Apply any pending edits before closing
+          applySheetEdits();
+          
           setShowFreeFlowSheet(false);
           setFreeFlowSheetSession(null);
           setSheetDoseInput("");
