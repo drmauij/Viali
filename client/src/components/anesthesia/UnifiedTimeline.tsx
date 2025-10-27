@@ -7811,60 +7811,48 @@ export function UnifiedTimeline({
                   </div>
                 </div>
 
-                {/* Primary Action */}
-                <div className="mb-4">
-                  {isRunning ? (
+                {/* Stop Action (only when running) */}
+                {isRunning && (
+                  <div className="mb-4">
                     <Button
                       onClick={handleSheetStop}
-                      variant="outline"
-                      className="w-full h-14 text-lg"
+                      variant="destructive"
+                      className="w-full h-12"
                       data-testid="button-sheet-stop"
                     >
-                      <StopCircle className="w-5 h-5 mr-2" />
+                      <StopCircle className="w-4 h-4 mr-2" />
                       Stop Infusion
                     </Button>
-                  ) : (
-                    <Button
-                      onClick={handleSheetStart}
-                      variant="outline"
-                      className="w-full h-14 text-lg"
-                      data-testid="button-sheet-start"
-                    >
-                      <PlayCircle className="w-5 h-5 mr-2" />
-                      Resume Infusion
-                    </Button>
-                  )}
-                </div>
-
-                {/* Inline Editors - only show when running */}
-                {isRunning && (
-                  <div className="border-t border-border pt-4 mb-4">
-                    <h4 className="text-sm font-semibold mb-3">Adjust Parameters</h4>
-                    <div className="grid gap-3">
-                      <div className="grid gap-2">
-                        <Label htmlFor="sheet-dose" className="text-xs">Quantity</Label>
-                        <Input
-                          id="sheet-dose"
-                          type="number"
-                          inputMode="decimal"
-                          data-testid="input-sheet-dose"
-                          value={sheetDoseInput}
-                          onChange={(e) => setSheetDoseInput(e.target.value)}
-                          placeholder="e.g., 1000"
-                          className="h-9"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="sheet-time" className="text-xs">Start Time</Label>
-                        <TimeAdjustInput
-                          value={sheetTimeInput}
-                          onChange={setSheetTimeInput}
-                          data-testid="input-sheet-time"
-                        />
-                      </div>
-                    </div>
                   </div>
                 )}
+
+                {/* Editors - always visible */}
+                <div className="border-t border-border pt-4 mb-4">
+                  <h4 className="text-sm font-semibold mb-3">Adjust Parameters</h4>
+                  <div className="grid gap-3">
+                    <div className="grid gap-2">
+                      <Label htmlFor="sheet-dose" className="text-xs">Quantity</Label>
+                      <Input
+                        id="sheet-dose"
+                        type="number"
+                        inputMode="decimal"
+                        data-testid="input-sheet-dose"
+                        value={sheetDoseInput}
+                        onChange={(e) => setSheetDoseInput(e.target.value)}
+                        placeholder="e.g., 1000"
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="sheet-time" className="text-xs">Start Time</Label>
+                      <TimeAdjustInput
+                        value={sheetTimeInput}
+                        onChange={setSheetTimeInput}
+                        data-testid="input-sheet-time"
+                      />
+                    </div>
+                  </div>
+                </div>
 
                 {/* Footer Actions */}
                 <div className="flex items-center justify-between gap-2 pt-4 border-t border-border">
@@ -7877,27 +7865,25 @@ export function UnifiedTimeline({
                     <Trash2 className="w-4 h-4 mr-1" />
                     Delete
                   </Button>
-                  {isRunning && (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleSheetStartNew}
-                        data-testid="button-sheet-start-new"
-                      >
-                        <PlayCircle className="w-4 h-4 mr-1" />
-                        Start New
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={handleSheetSave}
-                        data-testid="button-sheet-save"
-                        disabled={!sheetDoseInput.trim()}
-                      >
-                        Save
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSheetStartNew}
+                      data-testid="button-sheet-start-new"
+                    >
+                      <PlayCircle className="w-4 h-4 mr-1" />
+                      Start New
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleSheetSave}
+                      data-testid="button-sheet-save"
+                      disabled={!sheetDoseInput.trim()}
+                    >
+                      Save
+                    </Button>
+                  </div>
                 </div>
               </>
             );
