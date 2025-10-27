@@ -7874,25 +7874,15 @@ export function UnifiedTimeline({
                     <Trash2 className="w-4 h-4 mr-1" />
                     Delete
                   </Button>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleSheetStartNew}
-                      data-testid="button-sheet-start-new"
-                    >
-                      <PlayCircle className="w-4 h-4 mr-1" />
-                      Start New
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleSheetSave}
-                      data-testid="button-sheet-save"
-                      disabled={!sheetDoseInput.trim()}
-                    >
-                      Save
-                    </Button>
-                  </div>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleSheetStartNew}
+                    data-testid="button-sheet-start-new"
+                  >
+                    <PlayCircle className="w-4 h-4 mr-1" />
+                    Start New
+                  </Button>
                 </div>
               </>
             );
