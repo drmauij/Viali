@@ -3819,8 +3819,12 @@ export function UnifiedTimeline({
   const handleSheetStart = () => {
     if (!freeFlowSheetSession) return;
     
-    const { swimlaneId, label, dose } = freeFlowSheetSession;
+    const { swimlaneId, label } = freeFlowSheetSession;
+    // Use the latest dose from input, or fallback to session dose
+    const dose = sheetDoseInput.trim() || freeFlowSheetSession.dose;
     const newStartTime = currentTime;
+    
+    console.log('[Resume] Creating session:', { swimlaneId, newStartTime, dose, label });
     
     // Create a new session at current time
     const newSession: FreeFlowSession = {
@@ -3832,18 +3836,22 @@ export function UnifiedTimeline({
     
     setFreeFlowSessions(prev => {
       const sessions = prev[swimlaneId] || [];
+      const updated = [...sessions, newSession].sort((a, b) => a.startTime - b.startTime);
+      console.log('[Resume] Updated sessions:', updated);
       return {
         ...prev,
-        [swimlaneId]: [...sessions, newSession].sort((a, b) => a.startTime - b.startTime),
+        [swimlaneId]: updated,
       };
     });
     
     // Add start marker with the same dose
     setInfusionData(prev => {
       const existingData = prev[swimlaneId] || [];
+      const updated = [...existingData, [newStartTime, dose] as [number, string]].sort((a, b) => a[0] - b[0]);
+      console.log('[Resume] Updated infusionData:', updated);
       return {
         ...prev,
-        [swimlaneId]: [...existingData, [newStartTime, dose] as [number, string]].sort((a, b) => a[0] - b[0]),
+        [swimlaneId]: updated,
       };
     });
     
