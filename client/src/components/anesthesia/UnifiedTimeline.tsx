@@ -7842,9 +7842,7 @@ export function UnifiedTimeline({
       {/* Unified Free-Flow Infusion Sheet */}
       <Dialog open={showFreeFlowSheet} onOpenChange={(open) => {
         if (!open) {
-          // Apply any pending edits before closing
-          applySheetEdits();
-          
+          // Don't auto-save - user must explicitly click Save or action button
           setShowFreeFlowSheet(false);
           setFreeFlowSheetSession(null);
           setSheetDoseInput("");
@@ -7860,7 +7858,7 @@ export function UnifiedTimeline({
           </DialogHeader>
           
           {freeFlowSheetSession && (() => {
-            const { swimlaneId, startTime } = freeFlowSheetSession;
+            const { swimlaneId, startTime, dose } = freeFlowSheetSession;
             
             // Determine running state
             const hasActiveSession = (freeFlowSessions[swimlaneId] || []).length > 0;
@@ -7871,6 +7869,10 @@ export function UnifiedTimeline({
             const isRunning = latestDoseMarker && 
               (!latestStopMarker || latestDoseMarker[0] >= latestStopMarker[0]) &&
               hasActiveSession;
+            
+            // Detect if user has made edits
+            const hasUnsavedEdits = (sheetDoseInput.trim() && sheetDoseInput !== dose) || 
+                                     (sheetTimeInput && sheetTimeInput !== startTime);
             
             return (
               <>
@@ -7951,15 +7953,27 @@ export function UnifiedTimeline({
                     <Trash2 className="w-4 h-4 mr-1" />
                     Delete
                   </Button>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={handleSheetStartNew}
-                    data-testid="button-sheet-start-new"
-                  >
-                    <PlayCircle className="w-4 h-4 mr-1" />
-                    Start New
-                  </Button>
+                  {hasUnsavedEdits ? (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handleSheetSave}
+                      data-testid="button-sheet-save"
+                      disabled={!sheetDoseInput.trim()}
+                    >
+                      Save
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handleSheetStartNew}
+                      data-testid="button-sheet-start-new"
+                    >
+                      <PlayCircle className="w-4 h-4 mr-1" />
+                      Start New
+                    </Button>
+                  )}
                 </div>
               </>
             );
