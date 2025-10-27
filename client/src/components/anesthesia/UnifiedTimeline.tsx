@@ -7394,6 +7394,34 @@ export function UnifiedTimeline({
                           strokeDasharray={isFreeFlow ? '5,5' : '0'}
                         />
                       )}
+                      
+                      {/* Clickable area for free-flow segments */}
+                      {isFreeFlow && (
+                        <rect
+                          x={xStart}
+                          y={y - 14}
+                          width={xEnd - xStart}
+                          height={28}
+                          fill="transparent"
+                          stroke="none"
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => {
+                            const sessions = freeFlowSessions[lane.id] || [];
+                            const session = sessions.find(s => s.startTime === timestamp) || {
+                              swimlaneId: lane.id,
+                              startTime: timestamp,
+                              dose: rate.toString(),
+                              label: lane.label.trim(),
+                            };
+                            
+                            setFreeFlowSheetSession(session);
+                            setSheetDoseInput(rate.toString());
+                            setSheetTimeInput(timestamp);
+                            setShowFreeFlowSheet(true);
+                          }}
+                          data-testid={`segment-svg-${lane.id}-${index}`}
+                        />
+                      )}
                     </>
                   )}
                 </g>
@@ -7403,104 +7431,6 @@ export function UnifiedTimeline({
         </svg>
       )}
       
-      {/* Clickable overlays for free-flow infusion segments */}
-      {!collapsedSwimlanes.has('infusionen') && activeSwimlanes.flatMap((lane) => {
-        const isInfusionChild = lane.rateUnit !== null && lane.rateUnit !== undefined;
-        const isFreeFlow = lane.rateUnit === 'free';
-        
-        console.log('[Free-Flow Overlays] Lane:', lane.label, {
-          isInfusionChild,
-          isFreeFlow,
-          hasData: infusionData[lane.id]?.length > 0,
-          dataCount: infusionData[lane.id]?.length,
-        });
-        
-        if (!isInfusionChild || !isFreeFlow || !infusionData[lane.id]?.length) return [];
-        
-        const childLane = swimlanePositions.find(pos => pos.id === lane.id);
-        if (!childLane) {
-          console.log('[Free-Flow Overlays] No childLane found for:', lane.id);
-          return [];
-        }
-        
-        console.log('[Free-Flow Overlays] Creating overlays for lane:', lane.label, 'data points:', infusionData[lane.id].length);
-        
-        const visibleStart = currentZoomStart ?? data.startTime;
-        const visibleEnd = currentZoomEnd ?? data.endTime;
-        const visibleRange = visibleEnd - visibleStart;
-        
-        // Sort rate points by time
-        const sortedRates = [...infusionData[lane.id]].sort((a, b) => a[0] - b[0]);
-        
-        return sortedRates.map(([timestamp, rate], index) => {
-          // Check if this is a stop marker
-          const isStopMarker = rate === "";
-          if (isStopMarker) {
-            console.log('[Free-Flow Overlays] Skipping stop marker at:', timestamp);
-            return null; // Don't add clickable overlay for stop markers
-          }
-          
-          // Calculate position for this segment
-          const xFraction = (timestamp - visibleStart) / visibleRange;
-          const nextTimestamp = sortedRates[index + 1]?.[0] ?? visibleEnd;
-          const nextXFraction = (nextTimestamp - visibleStart) / visibleRange;
-          
-          if (xFraction > 1 || nextXFraction < 0) {
-            console.log('[Free-Flow Overlays] Segment not visible:', { xFraction, nextXFraction });
-            return null; // Not visible
-          }
-          
-          const leftPercent = Math.max(0, xFraction * 100);
-          const rightPercent = Math.min(100, nextXFraction * 100);
-          const widthPercent = rightPercent - leftPercent;
-          
-          console.log('[Free-Flow Overlays] Creating overlay:', {
-            lane: lane.label,
-            timestamp,
-            rate,
-            leftPercent,
-            widthPercent,
-            top: childLane.top,
-            height: childLane.height,
-            calculatedLeft: `calc(200px + ${leftPercent}% * (100% - 210px) / 100)`,
-            calculatedWidth: `calc(${widthPercent}% * (100% - 210px) / 100)`,
-          });
-          
-          return (
-            <div
-              key={`segment-overlay-${lane.id}-${timestamp}-${index}`}
-              className="absolute cursor-pointer hover:bg-red-500/30 transition-colors border border-blue-500/50"
-              style={{
-                left: `calc(200px + ${leftPercent}% * (100% - 210px) / 100)`,
-                width: `calc(${widthPercent}% * (100% - 210px) / 100)`,
-                top: `${childLane.top}px`,
-                height: `${childLane.height}px`,
-                zIndex: 35,
-                backgroundColor: 'rgba(255, 0, 0, 0.1)',
-              }}
-              onClick={(e) => {
-                // Stop propagation to prevent the interactive layer below from handling this click
-                e.stopPropagation();
-                
-                // Find the session for this marker
-                const sessions = freeFlowSessions[lane.id] || [];
-                const session = sessions.find(s => s.startTime === timestamp) || {
-                  swimlaneId: lane.id,
-                  startTime: timestamp,
-                  dose: rate.toString(),
-                  label: lane.label.trim(),
-                };
-                
-                setFreeFlowSheetSession(session);
-                setSheetDoseInput(rate.toString());
-                setSheetTimeInput(timestamp);
-                setShowFreeFlowSheet(true);
-              }}
-              data-testid={`segment-${lane.id}-${index}`}
-            />
-          );
-        }).filter(Boolean);
-      })}
 
       {/* Infusion rate values as DOM overlays */}
       {activeSwimlanes.flatMap((lane, laneIndex) => {
