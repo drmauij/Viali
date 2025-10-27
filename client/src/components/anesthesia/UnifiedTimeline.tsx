@@ -7416,16 +7416,22 @@ export function UnifiedTimeline({
                           cursor="pointer"
                           onPointerDown={(e) => {
                             e.stopPropagation();
+                            
+                            // Find the last non-empty dose value for this lane
+                            const allData = infusionData[lane.id] || [];
+                            const sortedData = [...allData].sort((a, b) => b[0] - a[0]);
+                            const lastDose = sortedData.find(([_, val]) => val !== "")?.[1] || rate.toString();
+                            
                             const sessions = freeFlowSessions[lane.id] || [];
                             const session = sessions.find(s => s.startTime === timestamp) || {
                               swimlaneId: lane.id,
                               startTime: timestamp,
-                              dose: rate.toString(),
+                              dose: lastDose,
                               label: lane.label.trim(),
                             };
                             
                             setFreeFlowSheetSession(session);
-                            setSheetDoseInput(rate.toString());
+                            setSheetDoseInput(lastDose);
                             setSheetTimeInput(timestamp);
                             setShowFreeFlowSheet(true);
                           }}
