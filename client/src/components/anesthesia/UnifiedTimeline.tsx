@@ -583,6 +583,35 @@ export function UnifiedTimeline({
   const [pendingFreeFlowDose, setPendingFreeFlowDose] = useState<{ swimlaneId: string; time: number; label: string } | null>(null);
   const [freeFlowDoseInput, setFreeFlowDoseInput] = useState("");
   
+  // State for rate-based infusion sessions (map swimlaneId to active session info)
+  type RateInfusionSegment = {
+    startTime: number;
+    rate: string; // numeric rate value
+    rateUnit: string; // ml/h, μg/kg/min, etc.
+  };
+  
+  type RateInfusionSession = {
+    swimlaneId: string;
+    label: string;
+    syringeQuantity: string; // total amount in syringe (e.g., "50ml")
+    segments: RateInfusionSegment[]; // array of rate changes over time
+    state: 'running' | 'paused' | 'stopped'; // infusion state
+  };
+  const [rateInfusionSessions, setRateInfusionSessions] = useState<{ [swimlaneId: string]: RateInfusionSession }>({});
+  
+  // State for unified Rate Infusion Sheet
+  const [showRateSheet, setShowRateSheet] = useState(false);
+  const [rateSheetSession, setRateSheetSession] = useState<{
+    swimlaneId: string;
+    label: string;
+    clickMode: 'segment' | 'label'; // segment = change rate, label = edit
+    rateUnit: string; // from medication config
+    defaultDose?: string; // e.g., "4-10-16" for rate presets
+  } | null>(null);
+  const [sheetRateInput, setSheetRateInput] = useState("");
+  const [sheetRateTimeInput, setSheetRateTimeInput] = useState<number>(0);
+  const [sheetQuantityInput, setSheetQuantityInput] = useState(""); // for Start New
+  
   // State for free-flow management dialog (second click on existing session)
   const [showFreeFlowManageDialog, setShowFreeFlowManageDialog] = useState(false);
   const [managingFreeFlowSession, setManagingFreeFlowSession] = useState<FreeFlowSession | null>(null);
