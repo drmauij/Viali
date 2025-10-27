@@ -7420,7 +7420,15 @@ export function UnifiedTimeline({
                             // Find the last non-empty dose value for this lane
                             const allData = infusionData[lane.id] || [];
                             const sortedData = [...allData].sort((a, b) => b[0] - a[0]);
-                            const lastDose = sortedData.find(([_, val]) => val !== "")?.[1] || rate.toString();
+                            const lastDoseEntry = sortedData.find(([_, val]) => val !== "");
+                            const lastDose = lastDoseEntry?.[1] || (rate !== "" ? rate.toString() : "0");
+                            
+                            console.log('[Segment Click] Finding dose:', { 
+                              allData, 
+                              lastDoseEntry, 
+                              lastDose, 
+                              currentRate: rate 
+                            });
                             
                             const sessions = freeFlowSessions[lane.id] || [];
                             const session = sessions.find(s => s.startTime === timestamp) || {
