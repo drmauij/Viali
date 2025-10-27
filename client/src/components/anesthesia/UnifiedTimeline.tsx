@@ -4033,6 +4033,326 @@ export function UnifiedTimeline({
     setSheetTimeInput(0);
   };
 
+  // ============ Rate Infusion Sheet Handlers ============
+  
+  // Handle rate sheet save (editing historical rate data)
+  const handleRateSheetSave = () => {
+    if (!rateSheetSession) return;
+    
+    const { swimlaneId, label } = rateSheetSession;
+    const newRate = sheetRateInput.trim();
+    const newTime = sheetRateTimeInput;
+    
+    if (!newRate) {
+      toast({
+        title: "Invalid rate",
+        description: "Please enter a rate value",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Update the rate in infusionData and session segments
+    const session = rateInfusionSessions[swimlaneId];
+    if (session) {
+      setRateInfusionSessions(prev => {
+        const currentSession = prev[swimlaneId];
+        if (!currentSession) return prev;
+        
+        const updatedSegments = currentSession.segments.map((seg, idx) => 
+          idx === currentSession.segments.length - 1
+            ? { ...seg, rate: newRate, startTime: newTime || seg.startTime }
+            : seg
+        );
+        
+        return {
+          ...prev,
+          [swimlaneId]: {
+            ...currentSession,
+            segments: updatedSegments,
+          },
+        };
+      });
+    }
+    
+    // Update infusionData
+    setInfusionData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      const sortedData = [...existingData].sort((a, b) => b[0] - a[0]);
+      const latestIndex = sortedData.findIndex(([_, val]) => val !== "");
+      
+      if (latestIndex !== -1) {
+        const updated = [...existingData];
+        const originalTime = sortedData[latestIndex][0];
+        const replaceIndex = updated.findIndex(([t]) => t === originalTime);
+        if (replaceIndex !== -1) {
+          updated[replaceIndex] = [newTime || originalTime, newRate];
+        }
+        return {
+          ...prev,
+          [swimlaneId]: updated.sort((a, b) => a[0] - b[0]),
+        };
+      }
+      return prev;
+    });
+    
+    toast({
+      title: "Rate updated",
+      description: `${label} rate updated to ${newRate}`,
+    });
+    
+    setShowRateSheet(false);
+    setRateSheetSession(null);
+    setSheetRateInput("");
+    setSheetRateTimeInput(0);
+  };
+  
+  // Handle rate sheet pause
+  const handleRateSheetPause = () => {
+    if (!rateSheetSession) return;
+    
+    const { swimlaneId, label } = rateSheetSession;
+    
+    setRateInfusionSessions(prev => {
+      const session = prev[swimlaneId];
+      if (!session) return prev;
+      
+      return {
+        ...prev,
+        [swimlaneId]: {
+          ...session,
+          state: 'paused',
+        },
+      };
+    });
+    
+    toast({
+      title: "Infusion paused",
+      description: `${label} paused`,
+    });
+    
+    setShowRateSheet(false);
+    setRateSheetSession(null);
+  };
+  
+  // Handle rate sheet resume
+  const handleRateSheetResume = () => {
+    if (!rateSheetSession) return;
+    
+    const { swimlaneId, label } = rateSheetSession;
+    
+    setRateInfusionSessions(prev => {
+      const session = prev[swimlaneId];
+      if (!session) return prev;
+      
+      return {
+        ...prev,
+        [swimlaneId]: {
+          ...session,
+          state: 'running',
+        },
+      };
+    });
+    
+    toast({
+      title: "Infusion resumed",
+      description: `${label} resumed`,
+    });
+    
+    setShowRateSheet(false);
+    setRateSheetSession(null);
+  };
+  
+  // Handle rate sheet stop
+  const handleRateSheetStop = () => {
+    if (!rateSheetSession) return;
+    
+    const { swimlaneId, label } = rateSheetSession;
+    const stopTime = currentTime;
+    
+    // Add stop marker to infusionData
+    setInfusionData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      return {
+        ...prev,
+        [swimlaneId]: [...existingData, [stopTime, ""] as [number, string]].sort((a, b) => a[0] - b[0]),
+      };
+    });
+    
+    // Update session state to stopped
+    setRateInfusionSessions(prev => {
+      const session = prev[swimlaneId];
+      if (!session) return prev;
+      
+      return {
+        ...prev,
+        [swimlaneId]: {
+          ...session,
+          state: 'stopped',
+        },
+      };
+    });
+    
+    toast({
+      title: "Infusion stopped",
+      description: `${label} stopped`,
+    });
+    
+    setShowRateSheet(false);
+    setRateSheetSession(null);
+  };
+  
+  // Handle rate sheet change rate (creates new segment at current time)
+  const handleRateSheetChangeRate = () => {
+    if (!rateSheetSession) return;
+    
+    const { swimlaneId, label, rateUnit } = rateSheetSession;
+    const newRate = sheetRateInput.trim();
+    const changeTime = currentTime;
+    
+    if (!newRate) {
+      toast({
+        title: "Invalid rate",
+        description: "Please enter a rate value",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Add new rate segment
+    setRateInfusionSessions(prev => {
+      const session = prev[swimlaneId];
+      if (!session) return prev;
+      
+      const newSegment: RateInfusionSegment = {
+        startTime: changeTime,
+        rate: newRate,
+        rateUnit: rateUnit,
+      };
+      
+      return {
+        ...prev,
+        [swimlaneId]: {
+          ...session,
+          segments: [...session.segments, newSegment],
+        },
+      };
+    });
+    
+    // Add new rate to infusionData
+    setInfusionData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      return {
+        ...prev,
+        [swimlaneId]: [...existingData, [changeTime, newRate] as [number, string]].sort((a, b) => a[0] - b[0]),
+      };
+    });
+    
+    toast({
+      title: "Rate changed",
+      description: `${label} rate changed to ${newRate} ${rateUnit}`,
+    });
+    
+    setShowRateSheet(false);
+    setRateSheetSession(null);
+    setSheetRateInput("");
+  };
+  
+  // Handle rate sheet start new (new syringe with inventory deduction)
+  const handleRateSheetStartNew = () => {
+    if (!rateSheetSession) return;
+    
+    const { swimlaneId, label, rateUnit } = rateSheetSession;
+    const newRate = sheetRateInput.trim();
+    const newQuantity = sheetQuantityInput.trim();
+    const startTime = currentTime;
+    
+    if (!newRate) {
+      toast({
+        title: "Rate required",
+        description: "Please enter a rate value",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // TODO: Add inventory deduction here when implementing task 7
+    
+    // Create new session or update existing
+    const newSegment: RateInfusionSegment = {
+      startTime,
+      rate: newRate,
+      rateUnit: rateUnit,
+    };
+    
+    setRateInfusionSessions(prev => {
+      return {
+        ...prev,
+        [swimlaneId]: {
+          swimlaneId,
+          label,
+          syringeQuantity: newQuantity || "50ml", // Default if not specified
+          segments: [newSegment],
+          state: 'running',
+        },
+      };
+    });
+    
+    // Add start marker to infusionData
+    setInfusionData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      // Add stop marker first if there was a previous session, then start new
+      const withStop = existingData.length > 0 
+        ? [...existingData, [startTime, ""] as [number, string]]
+        : existingData;
+      return {
+        ...prev,
+        [swimlaneId]: [...withStop, [startTime, newRate] as [number, string]].sort((a, b) => a[0] - b[0]),
+      };
+    });
+    
+    toast({
+      title: "New infusion started",
+      description: `${label} started at ${newRate} ${rateUnit}`,
+    });
+    
+    setShowRateSheet(false);
+    setRateSheetSession(null);
+    setSheetRateInput("");
+    setSheetQuantityInput("");
+  };
+  
+  // Handle rate sheet delete
+  const handleRateSheetDelete = () => {
+    if (!rateSheetSession) return;
+    
+    const { swimlaneId, label } = rateSheetSession;
+    
+    // Remove entire session
+    setRateInfusionSessions(prev => {
+      const newSessions = { ...prev };
+      delete newSessions[swimlaneId];
+      return newSessions;
+    });
+    
+    // Remove all infusion data for this lane
+    setInfusionData(prev => {
+      const newData = { ...prev };
+      delete newData[swimlaneId];
+      return newData;
+    });
+    
+    toast({
+      title: "Infusion deleted",
+      description: `${label} removed`,
+    });
+    
+    setShowRateSheet(false);
+    setRateSheetSession(null);
+    setSheetRateInput("");
+    setSheetQuantityInput("");
+  };
+
   // Handle rate selection (from rate options or custom input)
   const handleRateSelection = (selectedRate: string) => {
     if (!pendingRateSelection) return;
@@ -8026,6 +8346,244 @@ export function UnifiedTimeline({
                       Start New
                     </Button>
                   )}
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Unified Rate Infusion Sheet */}
+      <Dialog open={showRateSheet} onOpenChange={(open) => {
+        if (!open) {
+          // Don't auto-save - user must explicitly click Save or action button
+          setShowRateSheet(false);
+          setRateSheetSession(null);
+          setSheetRateInput("");
+          setSheetRateTimeInput(0);
+          setSheetQuantityInput("");
+        }
+      }}>
+        <DialogContent className="sm:max-w-[500px]" data-testid="dialog-rate-sheet">
+          <DialogHeader>
+            <DialogTitle>{rateSheetSession?.label || 'Rate Infusion'}</DialogTitle>
+            <DialogDescription>
+              {rateSheetSession?.clickMode === 'segment' ? 'Adjust or change infusion rate' : 'Edit infusion settings'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {rateSheetSession && (() => {
+            const { swimlaneId, clickMode, rateUnit, defaultDose } = rateSheetSession;
+            
+            // Parse rate presets from defaultDose (e.g., "4-10-16")
+            const ratePresets = defaultDose && defaultDose.includes('-') 
+              ? defaultDose.split('-').map(v => v.trim()).filter(v => v)
+              : [];
+            
+            // Determine running state from session
+            const session = rateInfusionSessions[swimlaneId];
+            const isRunning = session?.state === 'running';
+            const isPaused = session?.state === 'paused';
+            const isStopped = !session || session.state === 'stopped';
+            
+            // Get current rate from session or input
+            const currentSegment = session?.segments[session.segments.length - 1];
+            const currentRate = currentSegment?.rate || '';
+            
+            // Detect if user has made edits
+            const hasUnsavedEdits = (sheetRateInput.trim() && sheetRateInput !== currentRate) || 
+                                     (sheetRateTimeInput && sheetRateTimeInput !== currentSegment?.startTime);
+            
+            return (
+              <>
+                {/* Status Display */}
+                <div className="bg-muted/50 border border-border rounded-lg p-4 mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    {isRunning && (
+                      <>
+                        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
+                        <span className="font-semibold text-green-600 dark:text-green-400">Running</span>
+                      </>
+                    )}
+                    {isPaused && (
+                      <>
+                        <div className="w-3 h-3 bg-yellow-500 rounded-full" />
+                        <span className="font-semibold text-yellow-600 dark:text-yellow-400">Paused</span>
+                      </>
+                    )}
+                    {isStopped && (
+                      <>
+                        <div className="w-3 h-3 bg-gray-400 rounded-full" />
+                        <span className="font-semibold text-gray-600 dark:text-gray-400">Stopped</span>
+                      </>
+                    )}
+                  </div>
+                  {currentSegment && (
+                    <>
+                      <div className="text-sm text-muted-foreground">
+                        Since: {new Date(currentSegment.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                      </div>
+                      <div className="text-sm font-mono font-bold mt-1">
+                        Rate: {sheetRateInput || currentRate} {rateUnit}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Rate Picker */}
+                <div className="border-t border-border pt-4 mb-4">
+                  <h4 className="text-sm font-semibold mb-3">Adjust Rate</h4>
+                  
+                  {/* Preset Buttons */}
+                  {ratePresets.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      {ratePresets.map((preset, idx) => (
+                        <Button
+                          key={idx}
+                          onClick={() => setSheetRateInput(preset)}
+                          variant={sheetRateInput === preset ? "default" : "outline"}
+                          className="h-10"
+                          data-testid={`button-rate-preset-${preset}`}
+                        >
+                          {preset}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Numeric Stepper */}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        const current = parseFloat(sheetRateInput) || 0;
+                        setSheetRateInput(Math.max(0, current - 1).toString());
+                      }}
+                      data-testid="button-rate-decrease"
+                    >
+                      −
+                    </Button>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      value={sheetRateInput}
+                      onChange={(e) => setSheetRateInput(e.target.value)}
+                      placeholder="Enter rate"
+                      className="text-center font-mono font-bold"
+                      data-testid="input-rate-value"
+                    />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        const current = parseFloat(sheetRateInput) || 0;
+                        setSheetRateInput((current + 1).toString());
+                      }}
+                      data-testid="button-rate-increase"
+                    >
+                      +
+                    </Button>
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">{rateUnit}</span>
+                  </div>
+                </div>
+
+                {/* Time Editor (for editing historical data) */}
+                {clickMode === 'label' && (
+                  <div className="border-t border-border pt-4 mb-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="rate-time" className="text-xs">Start Time</Label>
+                      <TimeAdjustInput
+                        value={sheetRateTimeInput}
+                        onChange={setSheetRateTimeInput}
+                        data-testid="input-rate-time"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Footer Actions */}
+                <div className="flex items-center justify-between gap-2 pt-4 border-t border-border">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleRateSheetDelete}
+                    data-testid="button-rate-delete"
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Delete
+                  </Button>
+                  
+                  <div className="flex gap-2">
+                    {/* Context-aware action buttons */}
+                    {hasUnsavedEdits ? (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={handleRateSheetSave}
+                        data-testid="button-rate-save"
+                        disabled={!sheetRateInput.trim()}
+                      >
+                        Save
+                      </Button>
+                    ) : (
+                      <>
+                        {clickMode === 'segment' && isRunning && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleRateSheetPause}
+                              data-testid="button-rate-pause"
+                            >
+                              Pause
+                            </Button>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={handleRateSheetChangeRate}
+                              data-testid="button-rate-change"
+                            >
+                              Change Rate Now
+                            </Button>
+                          </>
+                        )}
+                        {isPaused && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleRateSheetStop}
+                              data-testid="button-rate-stop"
+                            >
+                              <StopCircle className="w-4 h-4 mr-1" />
+                              Stop
+                            </Button>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={handleRateSheetResume}
+                              data-testid="button-rate-resume"
+                            >
+                              <PlayCircle className="w-4 h-4 mr-1" />
+                              Resume
+                            </Button>
+                          </>
+                        )}
+                        {(isStopped || clickMode === 'label') && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={handleRateSheetStartNew}
+                            data-testid="button-rate-start-new"
+                          >
+                            <PlayCircle className="w-4 h-4 mr-1" />
+                            Start New
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </>
             );
