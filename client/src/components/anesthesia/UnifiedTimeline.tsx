@@ -3782,8 +3782,17 @@ export function UnifiedTimeline({
   const handleSheetStop = () => {
     if (!freeFlowSheetSession) return;
     
-    const { swimlaneId, label } = freeFlowSheetSession;
+    const { swimlaneId, label, startTime } = freeFlowSheetSession;
     const stopTime = currentTime;
+    
+    // Remove the session from freeFlowSessions
+    setFreeFlowSessions(prev => {
+      const sessions = prev[swimlaneId] || [];
+      return {
+        ...prev,
+        [swimlaneId]: sessions.filter(s => s.startTime !== startTime),
+      };
+    });
     
     // Add stop marker
     setInfusionData(prev => {
@@ -3810,20 +3819,22 @@ export function UnifiedTimeline({
   const handleSheetStart = () => {
     if (!freeFlowSheetSession) return;
     
-    const { swimlaneId, label, dose, startTime: oldStartTime } = freeFlowSheetSession;
+    const { swimlaneId, label, dose } = freeFlowSheetSession;
     const newStartTime = currentTime;
     
-    // Update the session with the new resume time
+    // Create a new session at current time
+    const newSession: FreeFlowSession = {
+      swimlaneId,
+      startTime: newStartTime,
+      dose,
+      label,
+    };
+    
     setFreeFlowSessions(prev => {
       const sessions = prev[swimlaneId] || [];
-      const updated = sessions.map(session => 
-        session.startTime === oldStartTime 
-          ? { ...session, startTime: newStartTime }
-          : session
-      );
       return {
         ...prev,
-        [swimlaneId]: updated.sort((a, b) => a.startTime - b.startTime),
+        [swimlaneId]: [...sessions, newSession].sort((a, b) => a.startTime - b.startTime),
       };
     });
     
@@ -3835,12 +3846,6 @@ export function UnifiedTimeline({
         [swimlaneId]: [...existingData, [newStartTime, dose] as [number, string]].sort((a, b) => a[0] - b[0]),
       };
     });
-    
-    // Update the sheet session to reflect the new start time
-    setFreeFlowSheetSession(prev => prev ? {
-      ...prev,
-      startTime: newStartTime,
-    } : null);
     
     toast({
       title: "Infusion resumed",
@@ -3859,12 +3864,7 @@ export function UnifiedTimeline({
     if (!freeFlowSheetSession) return;
     
     const { swimlaneId, label, dose, startTime: oldStartTime } = freeFlowSheetSession;
-    const baseTime = currentTime;
-    
-    // Stop the current session 1 second before now
-    const stopTime = baseTime - 1000;
-    // Start the new session 60 seconds from now (60-second gap)
-    const newStartTime = baseTime + 60000;
+    const newStartTime = currentTime;
     
     // Remove the old session
     setFreeFlowSessions(prev => {
@@ -3875,7 +3875,7 @@ export function UnifiedTimeline({
       };
     });
     
-    // Create new session
+    // Create new session at current time
     const newSession: FreeFlowSession = {
       swimlaneId,
       startTime: newStartTime,
@@ -3891,10 +3891,10 @@ export function UnifiedTimeline({
       };
     });
     
-    // Add stop marker for old segment, then start marker for new segment
+    // Add stop marker at current time for the old segment, then immediately start new segment
     setInfusionData(prev => {
       const existingData = prev[swimlaneId] || [];
-      const withStop = [...existingData, [stopTime, ""] as [number, string]];
+      const withStop = [...existingData, [newStartTime, ""] as [number, string]];
       return {
         ...prev,
         [swimlaneId]: [...withStop, [newStartTime, dose] as [number, string]].sort((a, b) => a[0] - b[0]),
@@ -3902,8 +3902,8 @@ export function UnifiedTimeline({
     });
     
     toast({
-      title: "New segment started",
-      description: `${label} started with dose ${dose}`,
+      title: "New infusion started",
+      description: `${label} restarted at current time`,
     });
     
     // Close sheet
@@ -7402,9 +7402,8 @@ export function UnifiedTimeline({
                           y={y - 14}
                           width={xEnd - xStart}
                           height={28}
-                          fill="rgba(255, 0, 0, 0.3)"
-                          stroke="blue"
-                          strokeWidth="2"
+                          fill="transparent"
+                          stroke="none"
                           pointerEvents="all"
                           cursor="pointer"
                           onPointerDown={(e) => {
