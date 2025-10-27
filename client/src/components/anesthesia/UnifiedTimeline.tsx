@@ -8396,48 +8396,10 @@ export function UnifiedTimeline({
             const currentSegment = session?.segments[session.segments.length - 1];
             const currentRate = currentSegment?.rate || '';
             
-            // For rate infusions, we don't use "Save" mode - always show forward actions
-            // Time/rate adjustments are applied via Change Rate Now, Pause, Resume, etc.
-            
             return (
               <>
-                {/* Status Display */}
-                <div className="bg-muted/50 border border-border rounded-lg p-4 mb-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    {isRunning && (
-                      <>
-                        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-                        <span className="font-semibold text-green-600 dark:text-green-400">Running</span>
-                      </>
-                    )}
-                    {isPaused && (
-                      <>
-                        <div className="w-3 h-3 bg-yellow-500 rounded-full" />
-                        <span className="font-semibold text-yellow-600 dark:text-yellow-400">Paused</span>
-                      </>
-                    )}
-                    {isStopped && (
-                      <>
-                        <div className="w-3 h-3 bg-gray-400 rounded-full" />
-                        <span className="font-semibold text-gray-600 dark:text-gray-400">Stopped</span>
-                      </>
-                    )}
-                  </div>
-                  {currentSegment && (
-                    <>
-                      <div className="text-sm text-muted-foreground">
-                        Since: {new Date(currentSegment.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
-                      </div>
-                      <div className="text-sm font-mono font-bold mt-1">
-                        Rate: {sheetRateInput || currentRate} {rateUnit}
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {/* Rate Picker */}
-                <div className="border-t border-border pt-4 mb-4">
-                  <h4 className="text-sm font-semibold mb-3">Adjust Rate</h4>
+                {/* Rate Picker - always visible */}
+                <div className="mb-4">
                   
                   {/* Preset Buttons */}
                   {ratePresets.length > 0 && (
@@ -8518,59 +8480,76 @@ export function UnifiedTimeline({
                   </Button>
                   
                   <div className="flex gap-2">
-                    {/* Context-aware action buttons - always forward actions, no "Save" mode */}
-                    {clickMode === 'segment' && isRunning && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleRateSheetPause}
-                          data-testid="button-rate-pause"
-                        >
-                          Pause
-                        </Button>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={handleRateSheetChangeRate}
-                          data-testid="button-rate-change"
-                        >
-                          Change Rate Now
-                        </Button>
-                      </>
-                    )}
-                    {isPaused && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleRateSheetStop}
-                          data-testid="button-rate-stop"
-                        >
-                          <StopCircle className="w-4 h-4 mr-1" />
-                          Stop
-                        </Button>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={handleRateSheetResume}
-                          data-testid="button-rate-resume"
-                        >
-                          <PlayCircle className="w-4 h-4 mr-1" />
-                          Resume
-                        </Button>
-                      </>
-                    )}
-                    {(isStopped || clickMode === 'label') && (
+                    {/* Click-mode specific buttons */}
+                    {clickMode === 'label' && (
                       <Button
                         variant="default"
                         size="sm"
-                        onClick={handleRateSheetStartNew}
-                        data-testid="button-rate-start-new"
+                        onClick={handleRateSheetSave}
+                        data-testid="button-rate-save"
+                        disabled={!sheetRateInput.trim()}
                       >
-                        <PlayCircle className="w-4 h-4 mr-1" />
-                        Start New
+                        Save
                       </Button>
+                    )}
+                    
+                    {clickMode === 'segment' && (
+                      <>
+                        {/* State-specific buttons for segment clicks */}
+                        {isRunning && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleRateSheetPause}
+                              data-testid="button-rate-pause"
+                            >
+                              Pause
+                            </Button>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={handleRateSheetChangeRate}
+                              data-testid="button-rate-change"
+                            >
+                              Change Rate Now
+                            </Button>
+                          </>
+                        )}
+                        {isPaused && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleRateSheetStop}
+                              data-testid="button-rate-stop"
+                            >
+                              <StopCircle className="w-4 h-4 mr-1" />
+                              Stop
+                            </Button>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={handleRateSheetResume}
+                              data-testid="button-rate-resume"
+                            >
+                              <PlayCircle className="w-4 h-4 mr-1" />
+                              Resume
+                            </Button>
+                          </>
+                        )}
+                        {isStopped && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={handleRateSheetStartNew}
+                            data-testid="button-rate-start-new"
+                          >
+                            <PlayCircle className="w-4 h-4 mr-1" />
+                            Start New
+                          </Button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
