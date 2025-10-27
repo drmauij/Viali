@@ -7435,18 +7435,36 @@ export function UnifiedTimeline({
         return sortedRates.map(([timestamp, rate], index) => {
           // Check if this is a stop marker
           const isStopMarker = rate === "";
-          if (isStopMarker) return null; // Don't add clickable overlay for stop markers
+          if (isStopMarker) {
+            console.log('[Free-Flow Overlays] Skipping stop marker at:', timestamp);
+            return null; // Don't add clickable overlay for stop markers
+          }
           
           // Calculate position for this segment
           const xFraction = (timestamp - visibleStart) / visibleRange;
           const nextTimestamp = sortedRates[index + 1]?.[0] ?? visibleEnd;
           const nextXFraction = (nextTimestamp - visibleStart) / visibleRange;
           
-          if (xFraction > 1 || nextXFraction < 0) return null; // Not visible
+          if (xFraction > 1 || nextXFraction < 0) {
+            console.log('[Free-Flow Overlays] Segment not visible:', { xFraction, nextXFraction });
+            return null; // Not visible
+          }
           
           const leftPercent = Math.max(0, xFraction * 100);
           const rightPercent = Math.min(100, nextXFraction * 100);
           const widthPercent = rightPercent - leftPercent;
+          
+          console.log('[Free-Flow Overlays] Creating overlay:', {
+            lane: lane.label,
+            timestamp,
+            rate,
+            leftPercent,
+            widthPercent,
+            top: childLane.top,
+            height: childLane.height,
+            calculatedLeft: `calc(200px + ${leftPercent}% * (100% - 210px) / 100)`,
+            calculatedWidth: `calc(${widthPercent}% * (100% - 210px) / 100)`,
+          });
           
           return (
             <div
