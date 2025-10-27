@@ -7402,10 +7402,13 @@ export function UnifiedTimeline({
                           y={y - 14}
                           width={xEnd - xStart}
                           height={28}
-                          fill="transparent"
-                          stroke="none"
-                          style={{ cursor: 'pointer' }}
-                          onClick={() => {
+                          fill="rgba(255, 0, 0, 0.3)"
+                          stroke="blue"
+                          strokeWidth="2"
+                          pointerEvents="all"
+                          cursor="pointer"
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
                             const sessions = freeFlowSessions[lane.id] || [];
                             const session = sessions.find(s => s.startTime === timestamp) || {
                               swimlaneId: lane.id,
