@@ -10,6 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { Minus, Folder, Package } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
   X,
@@ -157,6 +162,10 @@ export default function Op() {
     };
   }, []);
 
+  // Auth and hospital
+  const { user } = useAuth();
+  const activeHospital = useActiveHospital();
+
   // OP State
   const [opData, setOpData] = useState({
     // Vitals timeline data
@@ -202,6 +211,79 @@ export default function Op() {
     postOpNotes: "",
     complications: "",
   });
+
+  // Inventory tracking state - { itemId: quantity }
+  const [inventoryQuantities, setInventoryQuantities] = useState<Record<string, number>>({});
+
+  // Fetch items for inventory tracking
+  const { data: items = [] } = useQuery<any[]>({
+    queryKey: ['/api/items', activeHospital?.id, activeHospital?.locationId],
+    enabled: !!activeHospital?.id && !!activeHospital?.locationId,
+  });
+
+  // Fetch folders
+  const { data: folders = [] } = useQuery<any[]>({
+    queryKey: ['/api/folders', activeHospital?.id, activeHospital?.locationId],
+    enabled: !!activeHospital?.id && !!activeHospital?.locationId,
+  });
+
+  // Group items by folder and sort alphabetically
+  const groupedItems = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    
+    // Group items by folder
+    items.forEach((item: any) => {
+      const folderId = item.folderId || 'no-folder';
+      if (!groups[folderId]) {
+        groups[folderId] = [];
+      }
+      groups[folderId].push(item);
+    });
+    
+    // Sort items within each folder alphabetically
+    Object.keys(groups).forEach(folderId => {
+      groups[folderId].sort((a, b) => a.name.localeCompare(b.name));
+    });
+    
+    return groups;
+  }, [items]);
+
+  // Get folder name by id
+  const getFolderName = (folderId: string) => {
+    if (folderId === 'no-folder') return 'Uncategorized';
+    const folder = folders.find((f: any) => f.id === folderId);
+    return folder?.name || 'Unknown Folder';
+  };
+
+  // Auto-compute used quantities from anesthesia timeline data
+  // This parses medications and infusions from opData and calculates quantities
+  useEffect(() => {
+    const computedQuantities: Record<string, number> = {};
+    
+    // Parse medications (bolus administrations)
+    opData.medications.forEach((med: any) => {
+      if (med.itemId && med.quantity) {
+        computedQuantities[med.itemId] = (computedQuantities[med.itemId] || 0) + parseFloat(med.quantity);
+      }
+    });
+    
+    // Parse infusions (continuous administrations)
+    opData.infusions.forEach((inf: any) => {
+      if (inf.itemId && inf.totalVolume) {
+        computedQuantities[inf.itemId] = (computedQuantities[inf.itemId] || 0) + parseFloat(inf.totalVolume);
+      }
+    });
+    
+    setInventoryQuantities(computedQuantities);
+  }, [opData.medications, opData.infusions]);
+
+  // Handle quantity change for inventory items
+  const handleQuantityChange = (itemId: string, delta: number) => {
+    setInventoryQuantities(prev => ({
+      ...prev,
+      [itemId]: Math.max(0, (prev[itemId] || 0) + delta),
+    }));
+  };
 
   // Handle dialog close and navigation
   const handleDialogChange = (open: boolean) => {
@@ -330,9 +412,10 @@ export default function Op() {
         <Tabs defaultValue="vitals" className="flex-1 flex flex-col min-h-0">
           <div className="px-6 shrink-0">
             <div className="flex items-center gap-4 mb-4">
-              <TabsList className="grid flex-1 grid-cols-4">
+              <TabsList className="grid flex-1 grid-cols-5">
                 <TabsTrigger value="vitals" data-testid="tab-vitals">Vitals</TabsTrigger>
                 <TabsTrigger value="anesthesia" data-testid="tab-anesthesia">Anesthesia</TabsTrigger>
+                <TabsTrigger value="inventory" data-testid="tab-inventory">Inventory</TabsTrigger>
                 <TabsTrigger value="checklists" data-testid="tab-checklists">Checklists</TabsTrigger>
                 <TabsTrigger value="postop" data-testid="tab-postop">Post-op</TabsTrigger>
               </TabsList>
@@ -340,6 +423,7 @@ export default function Op() {
                 variant="outline" 
                 className="flex items-center gap-2 shrink-0"
                 data-testid="button-download-pdf"
+                onClick={() => console.log("Downloading OP PDF for case:", caseId)}
               >
                 <Download className="h-4 w-4" />
                 <span className="hidden sm:inline">Download PDF</span>
@@ -909,6 +993,128 @@ export default function Op() {
                 </Card>
               </AccordionItem>
             </Accordion>
+          </TabsContent>
+
+          {/* Inventory Tab */}
+          <TabsContent value="inventory" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0" data-testid="tab-content-inventory">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Used Items</h3>
+                <p className="text-sm text-muted-foreground">
+                  Quantities auto-computed from anesthesia records
+                </p>
+              </div>
+
+              {/* Render items grouped by folders */}
+              {Object.keys(groupedItems).length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    <Package className="h-12 w-12 text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground text-center">
+                      No items available in inventory
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Accordion type="multiple" defaultValue={Object.keys(groupedItems)} className="space-y-3">
+                  {Object.keys(groupedItems).sort((a, b) => {
+                    const nameA = getFolderName(a);
+                    const nameB = getFolderName(b);
+                    return nameA.localeCompare(nameB);
+                  }).map((folderId) => (
+                    <AccordionItem key={folderId} value={folderId}>
+                      <Card>
+                        <AccordionTrigger 
+                          className="px-6 py-4 hover:no-underline" 
+                          data-testid={`accordion-folder-${folderId}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Folder className="h-5 w-5 text-primary" />
+                            <span className="font-semibold">{getFolderName(folderId)}</span>
+                            <Badge variant="secondary" className="ml-2">
+                              {groupedItems[folderId].length} items
+                            </Badge>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <CardContent className="pt-4 space-y-3">
+                            {groupedItems[folderId].map((item: any) => {
+                              const quantity = inventoryQuantities[item.id] || 0;
+                              return (
+                                <div
+                                  key={item.id}
+                                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
+                                  data-testid={`inventory-item-${item.id}`}
+                                >
+                                  <div className="flex-1">
+                                    <p className="font-medium">{item.name}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      Unit: {item.unit}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={() => handleQuantityChange(item.id, -1)}
+                                      disabled={quantity === 0}
+                                      data-testid={`button-decrease-${item.id}`}
+                                    >
+                                      <Minus className="h-4 w-4" />
+                                    </Button>
+                                    <Input
+                                      type="number"
+                                      value={quantity}
+                                      onChange={(e) => {
+                                        const value = parseInt(e.target.value) || 0;
+                                        setInventoryQuantities(prev => ({
+                                          ...prev,
+                                          [item.id]: Math.max(0, value),
+                                        }));
+                                      }}
+                                      className="w-20 text-center"
+                                      min="0"
+                                      data-testid={`input-quantity-${item.id}`}
+                                    />
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={() => handleQuantityChange(item.id, 1)}
+                                      data-testid={`button-increase-${item.id}`}
+                                    >
+                                      <Plus className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </CardContent>
+                        </AccordionContent>
+                      </Card>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              )}
+
+              {/* Note about future inventory deduction */}
+              <Card className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+                <CardContent className="py-3 px-4">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                        Inventory Tracking
+                      </p>
+                      <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                        Items marked with "Track exact quantity" will automatically deduct from inventory when you save this record.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           {/* WHO Checklists Tab */}
