@@ -154,27 +154,27 @@ const InfusionPill = ({
   // Don't render pills for stop markers
   if (isStopMarker) return null;
   
-  // Determine color based on time position
+  // Determine color based on time position - subtle teal for past, gray for future
   const pillColor = isBeforeNow 
-    ? (isDark ? '#ef4444' : '#dc2626')  // Red (past)
-    : (isDark ? '#6b7280' : '#9ca3af'); // Gray (future)
+    ? (isDark ? '#14b8a6' : '#0d9488')  // Teal (past)
+    : (isDark ? '#94a3b8' : '#64748b'); // Slate gray (future)
   
-  // Different styles for free-flow vs rate-based
+  // Different styles for free-flow vs rate-based - all subtle with thin borders
   const pillStyle: React.CSSProperties = isFreeFlow ? {
-    // Free-flow: Diagonal stripes background + dashed border
+    // Free-flow: Subtle diagonal stripes + thin dashed border
     background: `repeating-linear-gradient(
       45deg,
-      ${pillColor}22,
-      ${pillColor}22 6px,
-      ${pillColor}44 6px,
-      ${pillColor}44 12px
+      ${pillColor}0D,
+      ${pillColor}0D 6px,
+      ${pillColor}1A 6px,
+      ${pillColor}1A 12px
     )`,
-    border: `2px dashed ${pillColor}`,
+    border: `1px dashed ${pillColor}`,  // Thin dashed border
     borderRadius: '6px',
   } : {
-    // Rate-based: Solid background + solid border
-    background: `${pillColor}44`,
-    border: `2px solid ${pillColor}`,
+    // Rate-based: Very subtle solid background + thin border
+    background: `${pillColor}1A`,  // 10% opacity
+    border: `1px solid ${pillColor}`,  // Thin border
     borderRadius: '6px',
   };
   
@@ -191,13 +191,13 @@ const InfusionPill = ({
       }}
       data-testid={testId}
     >
-      {/* Label Click Zone (left ~30% of pill) */}
+      {/* Label Click Zone (left ~30% of pill) - Emphasized */}
       <div
-        className="flex items-center justify-center cursor-pointer hover:bg-black/10 dark:hover:bg-white/10 transition-colors px-2 h-full shrink-0"
+        className="flex items-center justify-center cursor-pointer hover:shadow-sm transition-all px-2 h-full shrink-0"
         style={{
           minWidth: '60px',
           maxWidth: '30%',
-          borderRight: `1px solid ${pillColor}66`,
+          borderRight: `1px solid ${pillColor}4D`,
         }}
         onClick={(e) => {
           e.stopPropagation();
@@ -205,7 +205,7 @@ const InfusionPill = ({
         }}
         data-testid={`${testId}-label`}
       >
-        <span className="text-xs font-bold truncate" style={{ color: pillColor }}>
+        <span className="text-sm font-semibold truncate" style={{ color: pillColor }}>
           {rate}
           {rateUnit && ` ${rateUnit}`}
         </span>
@@ -213,7 +213,7 @@ const InfusionPill = ({
       
       {/* Segment Click Zone (right ~70% of pill) */}
       <div
-        className="flex-1 flex items-center justify-center cursor-pointer hover:bg-black/10 dark:hover:bg-white/10 transition-colors px-2 h-full gap-1"
+        className="flex-1 flex items-center justify-center cursor-pointer hover:shadow-sm transition-all px-2 h-full gap-1"
         onClick={(e) => {
           e.stopPropagation();
           onSegmentClick();
@@ -253,21 +253,21 @@ const BolusPill = ({
   isDark,
   testId,
 }: BolusPillProps) => {
-  // Determine color based on time position
+  // Determine color based on time position - subtle teal for past, gray for future
   const pillColor = isBeforeNow 
-    ? (isDark ? '#ef4444' : '#dc2626')  // Red (past)
-    : (isDark ? '#6b7280' : '#9ca3af'); // Gray (future)
+    ? (isDark ? '#14b8a6' : '#0d9488')  // Teal (past)
+    : (isDark ? '#94a3b8' : '#64748b'); // Slate gray (future)
   
-  // Bolus pills are solid (not striped like free-flow)
+  // Subtle background with thin border, emphasis on label
   const pillStyle: React.CSSProperties = {
-    background: `${pillColor}44`,
-    border: `2px solid ${pillColor}`,
+    background: `${pillColor}1A`,  // 10% opacity - very subtle
+    border: `1px solid ${pillColor}`,  // Thin border
     borderRadius: '6px',
   };
   
   return (
     <div
-      className="absolute flex items-center justify-center overflow-hidden cursor-pointer hover:bg-black/10 dark:hover:bg-white/10 transition-colors px-3"
+      className="absolute flex items-center justify-center overflow-hidden cursor-pointer hover:shadow-md transition-all px-3"
       style={{
         left: `calc(200px + ((100% - 210px) * ${leftPercent} / 100) - 30px)`,
         width: '60px', // Fixed width for bolus pills
@@ -282,7 +282,7 @@ const BolusPill = ({
       }}
       data-testid={testId}
     >
-      <span className="text-xs font-bold truncate" style={{ color: pillColor }}>
+      <span className="text-sm font-semibold truncate" style={{ color: pillColor }}>
         {dose}
       </span>
     </div>
