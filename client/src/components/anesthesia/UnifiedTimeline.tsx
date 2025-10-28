@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil, StopCircle, PlayCircle } from "lucide-react";
+import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil, StopCircle, PlayCircle, Droplet } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -110,6 +110,126 @@ export const ANESTHESIA_TIME_MARKERS: Omit<AnesthesiaTimeMarker, 'time'>[] = [
   { id: 'A2', code: 'A2', label: 'Anesthesia Presence End', color: '#FFFFFF', bgColor: '#EF4444' }, // Red
   { id: 'P', code: 'P', label: 'PACU End', color: '#FFFFFF', bgColor: '#EC4899' }, // Pink
 ];
+
+// InfusionPill Component - Unified horizontal bar for both free-flow and rate-based infusions
+type InfusionPillProps = {
+  startTime: number;
+  endTime: number;
+  rate: string;
+  isFreeFlow: boolean;
+  isBeforeNow: boolean;
+  isAfterNow: boolean;
+  crossesNow: boolean;
+  currentTime: number;
+  onLabelClick: () => void;
+  onSegmentClick: () => void;
+  leftPercent: number;
+  widthPercent: number;
+  yPosition: number;
+  isDark: boolean;
+  rateUnit?: string;
+  testId: string;
+};
+
+const InfusionPill = ({
+  startTime,
+  endTime,
+  rate,
+  isFreeFlow,
+  isBeforeNow,
+  isAfterNow,
+  crossesNow,
+  currentTime,
+  onLabelClick,
+  onSegmentClick,
+  leftPercent,
+  widthPercent,
+  yPosition,
+  isDark,
+  rateUnit,
+  testId,
+}: InfusionPillProps) => {
+  const isStopMarker = rate === "";
+  
+  // Don't render pills for stop markers
+  if (isStopMarker) return null;
+  
+  // Determine color based on time position
+  const pillColor = isBeforeNow 
+    ? (isDark ? '#ef4444' : '#dc2626')  // Red (past)
+    : (isDark ? '#6b7280' : '#9ca3af'); // Gray (future)
+  
+  // Different styles for free-flow vs rate-based
+  const pillStyle: React.CSSProperties = isFreeFlow ? {
+    // Free-flow: Diagonal stripes background + dashed border
+    background: `repeating-linear-gradient(
+      45deg,
+      ${pillColor}22,
+      ${pillColor}22 6px,
+      ${pillColor}44 6px,
+      ${pillColor}44 12px
+    )`,
+    border: `2px dashed ${pillColor}`,
+    borderRadius: '6px',
+  } : {
+    // Rate-based: Solid background + solid border
+    background: `${pillColor}44`,
+    border: `2px solid ${pillColor}`,
+    borderRadius: '6px',
+  };
+  
+  return (
+    <div
+      className="absolute flex items-center overflow-hidden"
+      style={{
+        left: `calc(200px + ${leftPercent}%)`,
+        width: `calc(${widthPercent}% * (100% - 210px) / 100)`,
+        top: `${yPosition}px`,
+        height: '32px',
+        zIndex: 40,
+        ...pillStyle,
+      }}
+      data-testid={testId}
+    >
+      {/* Label Click Zone (left ~30% of pill) */}
+      <div
+        className="flex items-center justify-center cursor-pointer hover:bg-black/10 dark:hover:bg-white/10 transition-colors px-2 h-full shrink-0"
+        style={{
+          minWidth: '60px',
+          maxWidth: '30%',
+          borderRight: `1px solid ${pillColor}66`,
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onLabelClick();
+        }}
+        data-testid={`${testId}-label`}
+      >
+        <span className="text-xs font-bold truncate" style={{ color: pillColor }}>
+          {rate}
+          {rateUnit && ` ${rateUnit}`}
+        </span>
+      </div>
+      
+      {/* Segment Click Zone (right ~70% of pill) */}
+      <div
+        className="flex-1 flex items-center justify-center cursor-pointer hover:bg-black/10 dark:hover:bg-white/10 transition-colors px-2 h-full gap-1"
+        onClick={(e) => {
+          e.stopPropagation();
+          onSegmentClick();
+        }}
+        data-testid={`${testId}-segment`}
+      >
+        {isFreeFlow ? (
+          <Droplet className="w-4 h-4 flex-shrink-0" style={{ color: pillColor, strokeWidth: 2 }} />
+        ) : null}
+        <span className="text-xs font-medium truncate" style={{ color: pillColor }}>
+          {isFreeFlow ? 'Free Flow' : 'Running'}
+        </span>
+      </div>
+    </div>
+  );
+};
 
 // Helper: Create custom series for Lucide icon symbols (supports stroke rendering)
 function createLucideIconSeries(
@@ -7776,185 +7896,9 @@ export function UnifiedTimeline({
         }).filter(Boolean);
       })}
 
-      {/* SVG overlay for continuous infusion lines */}
-      {!collapsedSwimlanes.has('infusionen') && (
-        <svg
-          className="absolute pointer-events-none z-30"
-          style={{
-            left: '200px',
-            top: 0,
-            width: 'calc(100% - 200px)',
-            height: `${backgroundsHeight}px`,
-          }}
-        >
-          {activeSwimlanes.flatMap((lane) => {
-            const isInfusionChild = lane.rateUnit !== null && lane.rateUnit !== undefined;
-            if (!isInfusionChild || !infusionData[lane.id]?.length) return [];
-            
-            const childLane = swimlanePositions.find(pos => pos.id === lane.id);
-            if (!childLane) return [];
-            
-            const visibleStart = currentZoomStart ?? data.startTime;
-            const visibleEnd = currentZoomEnd ?? data.endTime;
-            const visibleRange = visibleEnd - visibleStart;
-            const svgWidth = typeof window !== 'undefined' ? window.innerWidth - 210 : 1000;
-            
-            // Determine if it's free-flow based on the item's rateUnit field
-            // If rateUnit === 'free' → free-flow (dashed line)
-            // Otherwise → rate-controlled (solid line)
-            const isFreeFlow = lane.rateUnit === 'free';
-            
-            // Sort rate points by time
-            const sortedRates = [...infusionData[lane.id]].sort((a, b) => a[0] - b[0]);
-            
-            return sortedRates.map(([timestamp, rate], index) => {
-              // Calculate x position for this rate point
-              const xStart = ((timestamp - visibleStart) / visibleRange) * svgWidth;
-              
-              // Determine end point (next rate change or end of timeline)
-              const nextTimestamp = sortedRates[index + 1]?.[0] ?? visibleEnd;
-              const xEnd = ((nextTimestamp - visibleStart) / visibleRange) * svgWidth;
-              
-              // Calculate y position (center of swimlane)
-              const y = childLane.top + childLane.height / 2;
-              
-              // Calculate NOW position for color split
-              const nowX = ((currentTime - visibleStart) / visibleRange) * svgWidth;
-              
-              // Determine if line crosses NOW
-              const crossesNow = timestamp <= currentTime && nextTimestamp > currentTime;
-              
-              // Check if this is a stop marker (empty string)
-              const isStopMarker = rate === "";
-              
-              return (
-                <g key={`infusion-line-${lane.id}-${timestamp}-${index}`}>
-                  {/* Vertical tick at start - always shown */}
-                  <line
-                    x1={xStart}
-                    y1={y - 10}
-                    x2={xStart}
-                    y2={y + 10}
-                    stroke={isDark ? '#ef4444' : '#dc2626'}
-                    strokeWidth={2}
-                  />
-                  
-                  {/* Only render horizontal lines if NOT a stop marker */}
-                  {!isStopMarker && (
-                    <>
-                      {/* Red portion (before NOW) */}
-                      {timestamp < currentTime && (
-                        <line
-                          x1={xStart}
-                          y1={y}
-                          x2={crossesNow ? nowX : xEnd}
-                          y2={y}
-                          stroke={isDark ? '#ef4444' : '#dc2626'}
-                          strokeWidth={2}
-                          strokeDasharray={isFreeFlow ? '5,5' : '0'}
-                        />
-                      )}
-                      
-                      {/* Gray portion (after NOW) */}
-                      {nextTimestamp > currentTime && (
-                        <line
-                          x1={crossesNow ? nowX : xStart}
-                          y1={y}
-                          x2={xEnd}
-                          y2={y}
-                          stroke={isDark ? '#6b7280' : '#9ca3af'}
-                          strokeWidth={2}
-                          strokeDasharray={isFreeFlow ? '5,5' : '0'}
-                        />
-                      )}
-                      
-                      {/* Clickable area for free-flow segments */}
-                      {isFreeFlow && (
-                        <rect
-                          x={xStart}
-                          y={y - 14}
-                          width={xEnd - xStart}
-                          height={28}
-                          fill="transparent"
-                          stroke="none"
-                          pointerEvents="all"
-                          cursor="pointer"
-                          onPointerDown={(e) => {
-                            e.stopPropagation();
-                            
-                            // Find the last non-empty dose value for this lane
-                            const allData = infusionData[lane.id] || [];
-                            const sortedData = [...allData].sort((a, b) => b[0] - a[0]);
-                            const lastDoseEntry = sortedData.find(([_, val]) => val !== "");
-                            const lastDose = lastDoseEntry?.[1] || (rate !== "" ? rate.toString() : "0");
-                            
-                            console.log('[Segment Click] Finding dose:', { 
-                              allData, 
-                              lastDoseEntry, 
-                              lastDose, 
-                              currentRate: rate 
-                            });
-                            
-                            const sessions = freeFlowSessions[lane.id] || [];
-                            const session = sessions.find(s => s.startTime === timestamp) || {
-                              swimlaneId: lane.id,
-                              startTime: timestamp,
-                              dose: lastDose,
-                              label: lane.label.trim(),
-                            };
-                            
-                            setFreeFlowSheetSession({ ...session, clickMode: 'segment' });
-                            setSheetDoseInput(lastDose);
-                            setSheetTimeInput(timestamp);
-                            setShowFreeFlowSheet(true);
-                          }}
-                          data-testid={`segment-svg-${lane.id}-${index}`}
-                        />
-                      )}
-                      
-                      {/* Clickable area for rate-based segments (segment bar only) */}
-                      {!isFreeFlow && !isStopMarker && rate !== "" && (
-                        <rect
-                          x={xStart}
-                          y={y - 14}
-                          width={xEnd - xStart}
-                          height={28}
-                          fill="transparent"
-                          stroke="none"
-                          pointerEvents="all"
-                          cursor="pointer"
-                          onPointerDown={(e) => {
-                            e.stopPropagation();
-                            
-                            // Open rate sheet in "segment" mode (Change Rate Now)
-                            setRateSheetSession({
-                              swimlaneId: lane.id,
-                              label: lane.label.trim(),
-                              clickMode: 'segment',
-                              rateUnit: lane.rateUnit || '',
-                              defaultDose: lane.defaultDose || undefined,
-                            });
-                            setSheetRateInput(rate.toString());
-                            setSheetRateTimeInput(timestamp);
-                            setShowRateSheet(true);
-                          }}
-                          data-testid={`segment-rate-bar-${lane.id}-${index}`}
-                        />
-                      )}
-                    </>
-                  )}
-                </g>
-              );
-            });
-          })}
-        </svg>
-      )}
-      
-
-      {/* Infusion rate values as DOM overlays */}
-      {activeSwimlanes.flatMap((lane, laneIndex) => {
+      {/* Infusion Pills - Horizontal bars with label and segment click zones */}
+      {!collapsedSwimlanes.has('infusionen') && activeSwimlanes.flatMap((lane) => {
         const isInfusionChild = lane.rateUnit !== null && lane.rateUnit !== undefined;
-        
         if (!isInfusionChild || !infusionData[lane.id]?.length) return [];
         
         const childLane = swimlanePositions.find(pos => pos.id === lane.id);
@@ -7964,36 +7908,41 @@ export function UnifiedTimeline({
         const visibleEnd = currentZoomEnd ?? data.endTime;
         const visibleRange = visibleEnd - visibleStart;
         
-        // Check if this is a free-flow infusion
         const isFreeFlow = lane.rateUnit === 'free';
+        const sortedRates = [...infusionData[lane.id]].sort((a, b) => a[0] - b[0]);
         
-        return infusionData[lane.id].map(([timestamp, rate], index) => {
-          const xFraction = (timestamp - visibleStart) / visibleRange;
+        return sortedRates.map(([timestamp, rate], index) => {
+          const nextTimestamp = sortedRates[index + 1]?.[0] ?? visibleEnd;
           
-          if (xFraction < 0 || xFraction > 1) return null;
+          const leftPercent = ((timestamp - visibleStart) / visibleRange) * 100;
+          const widthPercent = ((nextTimestamp - timestamp) / visibleRange) * 100;
           
-          const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 20px)`;
+          const isBeforeNow = timestamp < currentTime;
+          const isAfterNow = nextTimestamp > currentTime;
+          const crossesNow = timestamp <= currentTime && nextTimestamp > currentTime;
           
-          // Extract infusion name from lane label (remove leading spaces)
-          const infusionName = childLane.label.trim();
-          
-          // Check if this is a stop marker
-          const isStopMarker = rate === "";
+          const yPosition = childLane.top + (childLane.height / 2) - 16; // Center pill vertically
           
           return (
-            <div
-              key={`infusion-${lane.id}-${timestamp}-${index}`}
-              className={`absolute z-40 cursor-pointer flex items-center justify-center group text-sm ${isStopMarker ? 'font-bold' : 'font-mono font-bold'}`}
-              style={{
-                left: leftPosition,
-                top: `${childLane.top + 7}px`,
-                minWidth: isStopMarker ? '50px' : '40px',
-                height: '20px',
-              }}
-              onClick={() => {
-                // Check if this is a rate-controlled infusion or free-flow
+            <InfusionPill
+              key={`infusion-pill-${lane.id}-${timestamp}-${index}`}
+              startTime={timestamp}
+              endTime={nextTimestamp}
+              rate={rate.toString()}
+              isFreeFlow={isFreeFlow}
+              isBeforeNow={isBeforeNow}
+              isAfterNow={isAfterNow}
+              crossesNow={crossesNow}
+              currentTime={currentTime}
+              leftPercent={leftPercent}
+              widthPercent={widthPercent}
+              yPosition={yPosition}
+              isDark={isDark}
+              rateUnit={lane.rateUnit || undefined}
+              testId={`pill-${lane.id}-${index}`}
+              onLabelClick={() => {
+                // Label click: Edit historical value
                 if (isFreeFlow) {
-                  // For free-flow, open unified Infusion Sheet in "label" mode (Save)
                   const sessions = freeFlowSessions[lane.id] || [];
                   const session = sessions.find(s => s.startTime === timestamp) || {
                     swimlaneId: lane.id,
@@ -8007,7 +7956,6 @@ export function UnifiedTimeline({
                   setSheetTimeInput(timestamp);
                   setShowFreeFlowSheet(true);
                 } else {
-                  // For rate-controlled, open unified Rate Sheet in "label" mode (Save Edit)
                   setRateSheetSession({
                     swimlaneId: lane.id,
                     label: lane.label.trim(),
@@ -8020,20 +7968,42 @@ export function UnifiedTimeline({
                   setShowRateSheet(true);
                 }
               }}
-              title={isStopMarker 
-                ? `${infusionName}: STOP at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-                : `${infusionName}: ${rate} at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`
-              }
-              data-testid={`infusion-rate-${lane.id}-${index}`}
-            >
-              {isStopMarker ? null : (
-                <span className="group-hover:scale-110 transition-transform">
-                  {rate}
-                </span>
-              )}
-            </div>
+              onSegmentClick={() => {
+                // Segment click: Forward actions (Start New, Stop, Change Rate)
+                if (isFreeFlow) {
+                  const allData = infusionData[lane.id] || [];
+                  const sortedData = [...allData].sort((a, b) => b[0] - a[0]);
+                  const lastDoseEntry = sortedData.find(([_, val]) => val !== "");
+                  const lastDose = lastDoseEntry?.[1] || (rate !== "" ? rate.toString() : "0");
+                  
+                  const sessions = freeFlowSessions[lane.id] || [];
+                  const session = sessions.find(s => s.startTime === timestamp) || {
+                    swimlaneId: lane.id,
+                    startTime: timestamp,
+                    dose: lastDose,
+                    label: lane.label.trim(),
+                  };
+                  
+                  setFreeFlowSheetSession({ ...session, clickMode: 'segment' });
+                  setSheetDoseInput(lastDose);
+                  setSheetTimeInput(timestamp);
+                  setShowFreeFlowSheet(true);
+                } else {
+                  setRateSheetSession({
+                    swimlaneId: lane.id,
+                    label: lane.label.trim(),
+                    clickMode: 'segment',
+                    rateUnit: lane.rateUnit || '',
+                    defaultDose: lane.defaultDose || undefined,
+                  });
+                  setSheetRateInput(rate.toString());
+                  setSheetRateTimeInput(timestamp);
+                  setShowRateSheet(true);
+                }
+              }}
+            />
           );
-        }).filter(Boolean);
+        });
       })}
 
       {/* Medication Dose Entry Dialog */}
