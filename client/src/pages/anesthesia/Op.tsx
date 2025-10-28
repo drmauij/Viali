@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { Minus, Folder, Package } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { VerticalBookmarkNav } from "@/components/anesthesia/VerticalBookmarkNav";
 import {
   X,
   Gauge,
@@ -323,12 +324,18 @@ export default function Op() {
     return "N/A";
   };
 
+  const patientName = `${currentPatient.surname}, ${currentPatient.firstName}`;
+
   return (
     <>
     <Dialog open={isOpen} onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col [&>button]:hidden" aria-describedby="op-dialog-description">
         <h2 className="sr-only" id="op-dialog-title">Intraoperative Monitoring - {currentPatient.surname}, {currentPatient.firstName}</h2>
         <p className="sr-only" id="op-dialog-description">Professional anesthesia monitoring system for tracking vitals, medications, and clinical events during surgery</p>
+        
+        {/* Vertical Bookmark Navigation */}
+        <VerticalBookmarkNav caseId={caseId!} patientName={patientName} />
+        
         {/* Fixed Patient Info Header */}
         <div className="shrink-0 bg-background relative">
           {/* Close Button - Fixed top-right */}
