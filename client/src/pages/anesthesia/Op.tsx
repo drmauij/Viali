@@ -215,16 +215,16 @@ export default function Op() {
   // Inventory tracking state - { itemId: quantity }
   const [inventoryQuantities, setInventoryQuantities] = useState<Record<string, number>>({});
 
-  // Fetch items for inventory tracking
+  // Fetch items for inventory tracking - filtered by anesthesia location
   const { data: items = [] } = useQuery<any[]>({
-    queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId],
-    enabled: !!activeHospital?.id && !!activeHospital?.locationId,
+    queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.anesthesiaLocationId}`, activeHospital?.anesthesiaLocationId],
+    enabled: !!activeHospital?.id && !!activeHospital?.anesthesiaLocationId,
   });
 
-  // Fetch folders
+  // Fetch folders - filtered by anesthesia location
   const { data: folders = [] } = useQuery<any[]>({
-    queryKey: [`/api/folders/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId],
-    enabled: !!activeHospital?.id && !!activeHospital?.locationId,
+    queryKey: [`/api/folders/${activeHospital?.id}?locationId=${activeHospital?.anesthesiaLocationId}`, activeHospital?.anesthesiaLocationId],
+    enabled: !!activeHospital?.id && !!activeHospital?.anesthesiaLocationId,
   });
 
   // Group items by folder and sort alphabetically
