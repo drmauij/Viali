@@ -2,7 +2,7 @@ import { useRoute, useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -672,10 +672,21 @@ export default function PatientDetail() {
           
           <Tabs defaultValue="assessment" className="flex-1 flex flex-col min-h-0">
             <div className="px-6 shrink-0">
-              <TabsList className="grid w-full grid-cols-2 mb-4">
-                <TabsTrigger value="assessment" data-testid="tab-assessment">Pre-OP Assessment</TabsTrigger>
-                <TabsTrigger value="consent" data-testid="tab-consent">Informed Consent</TabsTrigger>
-              </TabsList>
+              <div className="flex items-center gap-4 mb-4">
+                <TabsList className="grid flex-1 grid-cols-2">
+                  <TabsTrigger value="assessment" data-testid="tab-assessment">Pre-OP Assessment</TabsTrigger>
+                  <TabsTrigger value="consent" data-testid="tab-consent">Informed Consent</TabsTrigger>
+                </TabsList>
+                <Button 
+                  variant="outline" 
+                  className="flex items-center gap-2 shrink-0"
+                  onClick={() => console.log("Downloading Pre-OP PDF for case:", selectedCaseId)}
+                  data-testid="button-download-preop-pdf"
+                >
+                  <Download className="h-4 w-4" />
+                  <span className="hidden sm:inline">Download PDF</span>
+                </Button>
+              </div>
             </div>
             
             <TabsContent value="assessment" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0">
