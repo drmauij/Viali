@@ -269,7 +269,7 @@ const BolusPill = ({
     <div
       className="absolute flex items-center justify-center overflow-hidden cursor-pointer hover:bg-black/10 dark:hover:bg-white/10 transition-colors px-3"
       style={{
-        left: `calc(200px + ${leftPercent}% - 30px)`, // Center the pill on the timestamp
+        left: `calc(200px + ((100% - 210px) * ${leftPercent} / 100) - 30px)`,
         width: '60px', // Fixed width for bolus pills
         top: `${yPosition}px`,
         height: '32px',
@@ -7913,9 +7913,16 @@ export function UnifiedTimeline({
         const visibleRange = visibleEnd - visibleStart;
         
         return medicationDoseData[lane.id].map(([timestamp, dose], index) => {
-          const leftPercent = ((timestamp - visibleStart) / visibleRange) * 100;
+          let leftPercent = ((timestamp - visibleStart) / visibleRange) * 100;
           
           if (leftPercent < 0 || leftPercent > 100) return null;
+          
+          // Ensure pills don't overflow into swimlane label column
+          // Pills are 60px wide with 30px offset for centering
+          // Minimum safe position: 200px (label width) + 30px (half pill) = 230px from left
+          // This translates to approximately 5% of most screen widths as a conservative minimum
+          // Maximum safe position: stay within right boundary (95%)
+          leftPercent = Math.max(5, Math.min(95, leftPercent));
           
           const isBeforeNow = timestamp < currentTime;
           const yPosition = childLane.top + (childLane.height / 2) - 16; // Center pill vertically
