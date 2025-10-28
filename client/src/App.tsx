@@ -30,11 +30,9 @@ import PatientDetail from "@/pages/anesthesia/PatientDetail";
 import CaseDetail from "@/pages/anesthesia/CaseDetail";
 import PreOpList from "@/pages/anesthesia/PreOpList";
 import OpList from "@/pages/anesthesia/OpList";
-import Preop from "@/pages/anesthesia/Preop";
 import Op from "@/pages/anesthesia/Op";
 import Pacu from "@/pages/anesthesia/Pacu";
 import CasePacu from "@/pages/anesthesia/CasePacu";
-import PacuDetail from "@/pages/anesthesia/PacuDetail";
 import AnesthesiaReports from "@/pages/anesthesia/Reports";
 import AnesthesiaSettings from "@/pages/anesthesia/Settings";
 import EditableValuesDemo from "@/pages/EditableValuesDemo";
@@ -130,10 +128,9 @@ function Router() {
             <Route path="/anesthesia/cases/:id" component={CaseDetail} />
             <Route path="/anesthesia/preop" component={PreOpList} />
             <Route path="/anesthesia/op" component={OpList} />
-            <Route path="/anesthesia/cases/:id/preop" component={Preop} />
             <Route path="/anesthesia/cases/:id/op" component={Op} />
             <Route path="/anesthesia/pacu" component={Pacu} />
-            <Route path="/anesthesia/cases/:id/pacu" component={PacuDetail} />
+            <Route path="/anesthesia/cases/:id/pacu" component={CasePacu} />
             <Route path="/anesthesia/reports" component={AnesthesiaReports} />
             <Route path="/anesthesia/settings" component={AnesthesiaSettings} />
             {/* Admin Module */}
