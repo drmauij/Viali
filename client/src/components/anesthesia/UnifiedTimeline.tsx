@@ -231,6 +231,64 @@ const InfusionPill = ({
   );
 };
 
+// BolusPill Component - Horizontal bar for bolus medication administration
+type BolusPillProps = {
+  timestamp: number;
+  dose: string;
+  isBeforeNow: boolean;
+  onClick: () => void;
+  leftPercent: number;
+  yPosition: number;
+  isDark: boolean;
+  testId: string;
+};
+
+const BolusPill = ({
+  timestamp,
+  dose,
+  isBeforeNow,
+  onClick,
+  leftPercent,
+  yPosition,
+  isDark,
+  testId,
+}: BolusPillProps) => {
+  // Determine color based on time position
+  const pillColor = isBeforeNow 
+    ? (isDark ? '#ef4444' : '#dc2626')  // Red (past)
+    : (isDark ? '#6b7280' : '#9ca3af'); // Gray (future)
+  
+  // Bolus pills are solid (not striped like free-flow)
+  const pillStyle: React.CSSProperties = {
+    background: `${pillColor}44`,
+    border: `2px solid ${pillColor}`,
+    borderRadius: '6px',
+  };
+  
+  return (
+    <div
+      className="absolute flex items-center justify-center overflow-hidden cursor-pointer hover:bg-black/10 dark:hover:bg-white/10 transition-colors px-3"
+      style={{
+        left: `calc(200px + ${leftPercent}% - 30px)`, // Center the pill on the timestamp
+        width: '60px', // Fixed width for bolus pills
+        top: `${yPosition}px`,
+        height: '32px',
+        zIndex: 40,
+        ...pillStyle,
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      data-testid={testId}
+    >
+      <span className="text-xs font-bold truncate" style={{ color: pillColor }}>
+        {dose}
+      </span>
+    </div>
+  );
+};
+
 // Helper: Create custom series for Lucide icon symbols (supports stroke rendering)
 function createLucideIconSeries(
   name: string,
@@ -7841,7 +7899,7 @@ export function UnifiedTimeline({
         }).filter(Boolean);
       })}
 
-      {/* Medication dose values as DOM overlays */}
+      {/* Bolus Medication Pills - Horizontal bars for single-point doses */}
       {activeSwimlanes.flatMap((lane, laneIndex) => {
         const isMedicationChild = !lane.rateUnit;
         
@@ -7855,25 +7913,23 @@ export function UnifiedTimeline({
         const visibleRange = visibleEnd - visibleStart;
         
         return medicationDoseData[lane.id].map(([timestamp, dose], index) => {
-          const xFraction = (timestamp - visibleStart) / visibleRange;
+          const leftPercent = ((timestamp - visibleStart) / visibleRange) * 100;
           
-          if (xFraction < 0 || xFraction > 1) return null;
+          if (leftPercent < 0 || leftPercent > 100) return null;
           
-          const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 20px)`;
-          
-          // Extract drug name from lane label (remove leading spaces)
-          const drugName = childLane.label.trim();
+          const isBeforeNow = timestamp < currentTime;
+          const yPosition = childLane.top + (childLane.height / 2) - 16; // Center pill vertically
           
           return (
-            <div
-              key={`med-${lane.id}-${timestamp}-${index}`}
-              className="absolute z-40 cursor-pointer flex items-center justify-center group font-mono font-bold text-sm"
-              style={{
-                left: leftPosition,
-                top: `${childLane.top + 7}px`,
-                minWidth: '40px',
-                height: '20px',
-              }}
+            <BolusPill
+              key={`bolus-pill-${lane.id}-${timestamp}-${index}`}
+              timestamp={timestamp}
+              dose={dose.toString()}
+              isBeforeNow={isBeforeNow}
+              leftPercent={leftPercent}
+              yPosition={yPosition}
+              isDark={isDark}
+              testId={`bolus-pill-${lane.id}-${index}`}
               onClick={() => {
                 setEditingMedicationDose({
                   swimlaneId: lane.id,
@@ -7885,13 +7941,7 @@ export function UnifiedTimeline({
                 setMedicationEditTime(timestamp);
                 setShowMedicationEditDialog(true);
               }}
-              title={`${drugName} ${dose} mg at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
-              data-testid={`med-dose-${lane.id}-${index}`}
-            >
-              <span className="group-hover:scale-110 transition-transform">
-                {dose}
-              </span>
-            </div>
+            />
           );
         }).filter(Boolean);
       })}
@@ -9340,22 +9390,69 @@ export function UnifiedTimeline({
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="dose-edit-value">Dose</Label>
-              <Input
-                id="dose-edit-value"
-                data-testid="input-dose-edit-value"
-                value={medicationEditInput}
-                onChange={(e) => setMedicationEditInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleMedicationDoseEditSave();
-                  }
-                }}
-                placeholder="e.g., 5mg, 100mg, 2ml"
-                autoFocus
-              />
-            </div>
+            {(() => {
+              // Get the swimlane to check for range defaults
+              const swimlane = editingMedicationDose 
+                ? activeSwimlanes.find(lane => lane.id === editingMedicationDose.swimlaneId)
+                : null;
+              
+              // Parse dose presets from defaultDose (e.g., "25-35-50")
+              const dosePresets = swimlane?.defaultDose && swimlane.defaultDose.includes('-')
+                ? swimlane.defaultDose.split('-').map(v => v.trim()).filter(v => v)
+                : [];
+              
+              return (
+                <>
+                  {/* Preset Buttons if available */}
+                  {dosePresets.length > 0 && (
+                    <>
+                      <div className="text-sm font-medium">Quick doses:</div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {dosePresets.map((dose, idx) => (
+                          <Button
+                            key={idx}
+                            onClick={() => setMedicationEditInput(dose)}
+                            variant="outline"
+                            className="h-12"
+                            data-testid={`button-dose-preset-${dose}`}
+                          >
+                            {dose}
+                          </Button>
+                        ))}
+                      </div>
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <span className="w-full border-t" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                          <span className="bg-background px-2 text-muted-foreground">
+                            Or custom
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  
+                  {/* Dose Input */}
+                  <div className="grid gap-2">
+                    <Label htmlFor="dose-edit-value">Dose</Label>
+                    <Input
+                      id="dose-edit-value"
+                      data-testid="input-dose-edit-value"
+                      value={medicationEditInput}
+                      onChange={(e) => setMedicationEditInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleMedicationDoseEditSave();
+                        }
+                      }}
+                      placeholder="e.g., 5mg, 100mg, 2ml"
+                      autoFocus
+                    />
+                  </div>
+                </>
+              );
+            })()}
           </div>
           <DialogFooterWithTime
             time={medicationEditTime}
