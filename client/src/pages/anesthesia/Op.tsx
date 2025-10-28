@@ -217,13 +217,13 @@ export default function Op() {
 
   // Fetch items for inventory tracking
   const { data: items = [] } = useQuery<any[]>({
-    queryKey: ['/api/items', activeHospital?.id, activeHospital?.locationId],
+    queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId],
     enabled: !!activeHospital?.id && !!activeHospital?.locationId,
   });
 
   // Fetch folders
   const { data: folders = [] } = useQuery<any[]>({
-    queryKey: ['/api/folders', activeHospital?.id, activeHospital?.locationId],
+    queryKey: [`/api/folders/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId],
     enabled: !!activeHospital?.id && !!activeHospital?.locationId,
   });
 
@@ -411,22 +411,35 @@ export default function Op() {
         {/* Tabbed Content */}
         <Tabs defaultValue="vitals" className="flex-1 flex flex-col min-h-0">
           <div className="px-6 shrink-0">
-            <div className="flex items-center gap-4 mb-4">
-              <TabsList className="grid flex-1 grid-cols-5">
-                <TabsTrigger value="vitals" data-testid="tab-vitals">Vitals</TabsTrigger>
-                <TabsTrigger value="anesthesia" data-testid="tab-anesthesia">Anesthesia</TabsTrigger>
-                <TabsTrigger value="inventory" data-testid="tab-inventory">Inventory</TabsTrigger>
-                <TabsTrigger value="checklists" data-testid="tab-checklists">Checklists</TabsTrigger>
-                <TabsTrigger value="postop" data-testid="tab-postop">Post-op</TabsTrigger>
-              </TabsList>
+            <div className="flex items-center gap-2 sm:gap-4 mb-4">
+              <div className="flex-1 overflow-x-auto">
+                <TabsList className="inline-flex w-auto min-w-full">
+                  <TabsTrigger value="vitals" data-testid="tab-vitals" className="text-xs sm:text-sm whitespace-nowrap">
+                    Vitals
+                  </TabsTrigger>
+                  <TabsTrigger value="anesthesia" data-testid="tab-anesthesia" className="text-xs sm:text-sm whitespace-nowrap">
+                    Anesthesia
+                  </TabsTrigger>
+                  <TabsTrigger value="inventory" data-testid="tab-inventory" className="text-xs sm:text-sm whitespace-nowrap">
+                    Inventory
+                  </TabsTrigger>
+                  <TabsTrigger value="checklists" data-testid="tab-checklists" className="text-xs sm:text-sm whitespace-nowrap">
+                    Checklists
+                  </TabsTrigger>
+                  <TabsTrigger value="postop" data-testid="tab-postop" className="text-xs sm:text-sm whitespace-nowrap">
+                    Post-op
+                  </TabsTrigger>
+                </TabsList>
+              </div>
               <Button 
                 variant="outline" 
-                className="flex items-center gap-2 shrink-0"
+                size="sm"
+                className="flex items-center gap-1 sm:gap-2 shrink-0"
                 data-testid="button-download-pdf"
                 onClick={() => console.log("Downloading OP PDF for case:", caseId)}
               >
                 <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">Download PDF</span>
+                <span className="hidden sm:inline">PDF</span>
               </Button>
             </div>
           </div>
