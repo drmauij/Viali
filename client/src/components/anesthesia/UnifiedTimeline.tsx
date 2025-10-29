@@ -6619,7 +6619,8 @@ export function UnifiedTimeline({
                     dose: dose.toString(),
                     index: doseIndex,
                   });
-                  setMedicationEditInput(dose.toString());
+                  // If dose contains hyphens (range values), start with empty field for custom entry
+                  setMedicationEditInput(dose.toString().includes('-') ? '' : dose.toString());
                   setShowMedicationEditDialog(true);
                 } else {
                   // Check if there's a default dose
@@ -7944,7 +7945,8 @@ export function UnifiedTimeline({
                   dose: dose.toString(),
                   index,
                 });
-                setMedicationEditInput(dose.toString());
+                // If dose contains hyphens (range values), start with empty field for custom entry
+                setMedicationEditInput(dose.toString().includes('-') ? '' : dose.toString());
                 setMedicationEditTime(timestamp);
                 setShowMedicationEditDialog(true);
               }}
