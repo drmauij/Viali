@@ -111,93 +111,157 @@ export const ANESTHESIA_TIME_MARKERS: Omit<AnesthesiaTimeMarker, 'time'>[] = [
   { id: 'P', code: 'P', label: 'PACU End', color: '#FFFFFF', bgColor: '#EC4899' }, // Pink
 ];
 
-// InfusionPill Component - Unified horizontal bar for both free-flow and rate-based infusions
-type InfusionPillProps = {
-  startTime: number;
-  endTime: number;
+// BolusLine Component - Vertical line with dose label for bolus medications
+type BolusLineProps = {
+  timestamp: number;
+  dose: string;
+  isBeforeNow: boolean;
+  onClick: () => void;
+  xFraction: number;
+  swimlaneTop: number;
+  swimlaneHeight: number;
+  isDark: boolean;
+  testId: string;
+};
+
+const BolusLine = ({
+  timestamp,
+  dose,
+  isBeforeNow,
+  onClick,
+  xFraction,
+  swimlaneTop,
+  swimlaneHeight,
+  isDark,
+  testId,
+}: BolusLineProps) => {
+  // Determine color based on time position - teal for past, gray for future
+  const lineColor = isBeforeNow 
+    ? (isDark ? '#14b8a6' : '#0d9488')  // Teal (active)
+    : (isDark ? '#94a3b8' : '#64748b'); // Slate gray (inactive)
+  
+  const leftPosition = `calc(200px + ${xFraction} * (100% - 210px))`;
+  
+  // Short vertical line (1/3 of swimlane height)
+  const lineHeight = swimlaneHeight * 0.33;
+  const lineTop = swimlaneTop + (swimlaneHeight - lineHeight) / 2;
+  
+  return (
+    <>
+      {/* Vertical Line */}
+      <div
+        className="absolute cursor-pointer"
+        style={{
+          left: leftPosition,
+          top: `${lineTop}px`,
+          width: '3px',
+          height: `${lineHeight}px`,
+          backgroundColor: lineColor,
+          zIndex: 25, // Below sidebar (z-30) so it goes under when scrolling
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+        data-testid={testId}
+      />
+      {/* Dose Label at Top */}
+      <div
+        className="absolute cursor-pointer text-xs font-semibold whitespace-nowrap"
+        style={{
+          left: leftPosition,
+          top: `${lineTop - 16}px`,
+          color: lineColor,
+          transform: 'translateX(-50%)',
+          zIndex: 26, // Below sidebar (z-30) so it goes under when scrolling
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+        data-testid={`${testId}-label`}
+      >
+        {dose}
+      </div>
+    </>
+  );
+};
+
+// InfusionLine Component - Vertical line with rate/quantity label for infusions
+type InfusionLineProps = {
+  timestamp: number;
   rate: string;
   isFreeFlow: boolean;
   isBeforeNow: boolean;
-  isAfterNow: boolean;
-  crossesNow: boolean;
-  currentTime: number;
   onLabelClick: () => void;
   onSegmentClick: () => void;
-  leftPercent: number;
-  widthPercent: number;
-  yPosition: number;
+  xFraction: number;
+  swimlaneTop: number;
+  swimlaneHeight: number;
   isDark: boolean;
   rateUnit?: string;
   testId: string;
 };
 
-const InfusionPill = ({
-  startTime,
-  endTime,
+const InfusionLine = ({
+  timestamp,
   rate,
   isFreeFlow,
   isBeforeNow,
-  isAfterNow,
-  crossesNow,
-  currentTime,
   onLabelClick,
   onSegmentClick,
-  leftPercent,
-  widthPercent,
-  yPosition,
+  xFraction,
+  swimlaneTop,
+  swimlaneHeight,
   isDark,
   rateUnit,
   testId,
-}: InfusionPillProps) => {
+}: InfusionLineProps) => {
   const isStopMarker = rate === "";
   
-  // Don't render pills for stop markers
+  // Don't render lines for stop markers
   if (isStopMarker) return null;
   
-  // Determine color based on time position - subtle teal for past, gray for future
-  const pillColor = isBeforeNow 
-    ? (isDark ? '#14b8a6' : '#0d9488')  // Teal (past)
-    : (isDark ? '#94a3b8' : '#64748b'); // Slate gray (future)
+  // Determine color based on time position - teal for past, gray for future
+  const lineColor = isBeforeNow 
+    ? (isDark ? '#14b8a6' : '#0d9488')  // Teal (active)
+    : (isDark ? '#94a3b8' : '#64748b'); // Slate gray (inactive)
   
-  // Different styles for free-flow vs rate-based - all subtle with thin borders
-  const pillStyle: React.CSSProperties = isFreeFlow ? {
-    // Free-flow: Subtle diagonal stripes + thin dashed border
-    background: `repeating-linear-gradient(
-      45deg,
-      ${pillColor}0D,
-      ${pillColor}0D 6px,
-      ${pillColor}1A 6px,
-      ${pillColor}1A 12px
-    )`,
-    border: `1px dashed ${pillColor}`,  // Thin dashed border
-    borderRadius: '6px',
-  } : {
-    // Rate-based: Very subtle solid background + thin border
-    background: `${pillColor}1A`,  // 10% opacity
-    border: `1px solid ${pillColor}`,  // Thin border
-    borderRadius: '6px',
-  };
+  const leftPosition = `calc(200px + ${xFraction} * (100% - 210px))`;
+  
+  // Tall vertical line (full swimlane height)
+  const lineHeight = swimlaneHeight;
+  const lineTop = swimlaneTop;
   
   return (
-    <div
-      className="absolute flex items-center overflow-hidden"
-      style={{
-        left: `calc(200px + ${leftPercent}%)`,
-        width: `calc(${widthPercent}% * (100% - 210px) / 100)`,
-        top: `${yPosition}px`,
-        height: '32px',
-        zIndex: 40,
-        ...pillStyle,
-      }}
-      data-testid={testId}
-    >
-      {/* Label Click Zone (left ~30% of pill) - Emphasized */}
+    <>
+      {/* Vertical Line */}
       <div
-        className="flex items-center justify-center cursor-pointer hover:shadow-sm transition-all px-2 h-full shrink-0"
+        className="absolute cursor-pointer"
         style={{
-          minWidth: '60px',
-          maxWidth: '30%',
-          borderRight: `1px solid ${pillColor}4D`,
+          left: leftPosition,
+          top: `${lineTop}px`,
+          width: '3px',
+          height: `${lineHeight}px`,
+          borderLeft: isFreeFlow ? `3px dashed ${lineColor}` : 'none',
+          backgroundColor: isFreeFlow ? 'transparent' : lineColor,
+          zIndex: 25, // Below sidebar (z-30) so it goes under when scrolling
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSegmentClick();
+        }}
+        data-testid={`${testId}-line`}
+      />
+      {/* Rate/Quantity Label at Top */}
+      <div
+        className="absolute cursor-pointer text-xs font-semibold whitespace-nowrap"
+        style={{
+          left: leftPosition,
+          top: `${lineTop - 16}px`,
+          color: lineColor,
+          transform: 'translateX(-50%)',
+          zIndex: 26, // Below sidebar (z-30) so it goes under when scrolling
         }}
         onClick={(e) => {
           e.stopPropagation();
@@ -205,87 +269,9 @@ const InfusionPill = ({
         }}
         data-testid={`${testId}-label`}
       >
-        <span className="text-sm font-semibold truncate" style={{ color: pillColor }}>
-          {rate}
-          {rateUnit && ` ${rateUnit}`}
-        </span>
+        {rate}{rateUnit && ` ${rateUnit}`}
       </div>
-      
-      {/* Segment Click Zone (right ~70% of pill) */}
-      <div
-        className="flex-1 flex items-center justify-center cursor-pointer hover:shadow-sm transition-all px-2 h-full gap-1"
-        onClick={(e) => {
-          e.stopPropagation();
-          onSegmentClick();
-        }}
-        data-testid={`${testId}-segment`}
-      >
-        {isFreeFlow ? (
-          <Droplet className="w-4 h-4 flex-shrink-0" style={{ color: pillColor, strokeWidth: 2 }} />
-        ) : null}
-        <span className="text-xs font-medium truncate" style={{ color: pillColor }}>
-          {isFreeFlow ? 'Free Flow' : 'Running'}
-        </span>
-      </div>
-    </div>
-  );
-};
-
-// BolusPill Component - Horizontal bar for bolus medication administration
-type BolusPillProps = {
-  timestamp: number;
-  dose: string;
-  isBeforeNow: boolean;
-  onClick: () => void;
-  leftPercent: number;
-  yPosition: number;
-  isDark: boolean;
-  testId: string;
-};
-
-const BolusPill = ({
-  timestamp,
-  dose,
-  isBeforeNow,
-  onClick,
-  leftPercent,
-  yPosition,
-  isDark,
-  testId,
-}: BolusPillProps) => {
-  // Determine color based on time position - subtle teal for past, gray for future
-  const pillColor = isBeforeNow 
-    ? (isDark ? '#14b8a6' : '#0d9488')  // Teal (past)
-    : (isDark ? '#94a3b8' : '#64748b'); // Slate gray (future)
-  
-  // Subtle background with thin border, emphasis on label
-  const pillStyle: React.CSSProperties = {
-    background: `${pillColor}1A`,  // 10% opacity - very subtle
-    border: `1px solid ${pillColor}`,  // Thin border
-    borderRadius: '6px',
-  };
-  
-  return (
-    <div
-      className="absolute flex items-center justify-center overflow-hidden cursor-pointer hover:shadow-md transition-all px-3"
-      style={{
-        left: `calc(200px + ((100% - 210px) * ${leftPercent} / 100) - 30px)`,
-        width: '60px', // Fixed width for bolus pills
-        top: `${yPosition}px`,
-        height: '32px',
-        zIndex: 40,
-        ...pillStyle,
-      }}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-      data-testid={testId}
-    >
-      <span className="text-sm font-semibold truncate" style={{ color: pillColor }}>
-        {dose}
-      </span>
-    </div>
+    </>
   );
 };
 
@@ -7900,7 +7886,7 @@ export function UnifiedTimeline({
         }).filter(Boolean);
       })}
 
-      {/* Bolus Medication Pills - Horizontal bars for single-point doses */}
+      {/* Bolus Medication Lines - Vertical lines with dose labels */}
       {activeSwimlanes.flatMap((lane, laneIndex) => {
         const isMedicationChild = !lane.rateUnit;
         
@@ -7914,30 +7900,24 @@ export function UnifiedTimeline({
         const visibleRange = visibleEnd - visibleStart;
         
         return medicationDoseData[lane.id].map(([timestamp, dose], index) => {
-          let leftPercent = ((timestamp - visibleStart) / visibleRange) * 100;
+          const xFraction = (timestamp - visibleStart) / visibleRange;
           
-          if (leftPercent < 0 || leftPercent > 100) return null;
-          
-          // Ensure pills don't overflow into swimlane label column
-          // Pills are 60px wide with 30px offset for centering
-          // Minimum safe position: 200px (label width) + 30px (half pill) = 230px from left
-          // This translates to approximately 5% of most screen widths as a conservative minimum
-          // Maximum safe position: stay within right boundary (95%)
-          leftPercent = Math.max(5, Math.min(95, leftPercent));
+          // Only render if in visible range
+          if (xFraction < 0 || xFraction > 1) return null;
           
           const isBeforeNow = timestamp < currentTime;
-          const yPosition = childLane.top + (childLane.height / 2) - 16; // Center pill vertically
           
           return (
-            <BolusPill
-              key={`bolus-pill-${lane.id}-${timestamp}-${index}`}
+            <BolusLine
+              key={`bolus-line-${lane.id}-${timestamp}-${index}`}
               timestamp={timestamp}
               dose={dose.toString()}
               isBeforeNow={isBeforeNow}
-              leftPercent={leftPercent}
-              yPosition={yPosition}
+              xFraction={xFraction}
+              swimlaneTop={childLane.top}
+              swimlaneHeight={childLane.height}
               isDark={isDark}
-              testId={`bolus-pill-${lane.id}-${index}`}
+              testId={`bolus-line-${lane.id}-${index}`}
               onClick={() => {
                 setEditingMedicationDose({
                   swimlaneId: lane.id,
@@ -7955,7 +7935,7 @@ export function UnifiedTimeline({
         }).filter(Boolean);
       })}
 
-      {/* Infusion Pills - Horizontal bars with label and segment click zones */}
+      {/* Infusion Lines - Vertical lines with rate/quantity labels */}
       {!collapsedSwimlanes.has('infusionen') && activeSwimlanes.flatMap((lane) => {
         const isInfusionChild = lane.rateUnit !== null && lane.rateUnit !== undefined;
         if (!isInfusionChild || !infusionData[lane.id]?.length) return [];
@@ -7971,34 +7951,26 @@ export function UnifiedTimeline({
         const sortedRates = [...infusionData[lane.id]].sort((a, b) => a[0] - b[0]);
         
         return sortedRates.map(([timestamp, rate], index) => {
-          const nextTimestamp = sortedRates[index + 1]?.[0] ?? visibleEnd;
+          const xFraction = (timestamp - visibleStart) / visibleRange;
           
-          const leftPercent = ((timestamp - visibleStart) / visibleRange) * 100;
-          const widthPercent = ((nextTimestamp - timestamp) / visibleRange) * 100;
+          // Only render if in visible range
+          if (xFraction < 0 || xFraction > 1) return null;
           
           const isBeforeNow = timestamp < currentTime;
-          const isAfterNow = nextTimestamp > currentTime;
-          const crossesNow = timestamp <= currentTime && nextTimestamp > currentTime;
-          
-          const yPosition = childLane.top + (childLane.height / 2) - 16; // Center pill vertically
           
           return (
-            <InfusionPill
-              key={`infusion-pill-${lane.id}-${timestamp}-${index}`}
-              startTime={timestamp}
-              endTime={nextTimestamp}
+            <InfusionLine
+              key={`infusion-line-${lane.id}-${timestamp}-${index}`}
+              timestamp={timestamp}
               rate={rate.toString()}
               isFreeFlow={isFreeFlow}
               isBeforeNow={isBeforeNow}
-              isAfterNow={isAfterNow}
-              crossesNow={crossesNow}
-              currentTime={currentTime}
-              leftPercent={leftPercent}
-              widthPercent={widthPercent}
-              yPosition={yPosition}
+              xFraction={xFraction}
+              swimlaneTop={childLane.top}
+              swimlaneHeight={childLane.height}
               isDark={isDark}
               rateUnit={lane.rateUnit || undefined}
-              testId={`pill-${lane.id}-${index}`}
+              testId={`infusion-line-${lane.id}-${index}`}
               onLabelClick={() => {
                 // Label click: Edit historical value
                 if (isFreeFlow) {
