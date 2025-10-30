@@ -397,7 +397,7 @@ export default function Users() {
                       <div key={idx} className="inline-flex items-center bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
                         <span className="text-xs font-medium text-primary">{getRoleName(roleInfo.role)}</span>
                         <span className="text-xs text-primary/60 mx-1.5">@</span>
-                        <span className="text-xs text-primary/80">{roleInfo.units.name}</span>
+                        <span className="text-xs text-primary/80">{roleInfo.units?.name || 'N/A'}</span>
                       </div>
                     ))}
                   </div>
