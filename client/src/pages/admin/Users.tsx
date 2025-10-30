@@ -9,15 +9,15 @@ import { Label } from "@/components/ui/label";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Location, UserHospitalRole, User } from "@shared/schema";
+import type { Unit, UserHospitalRole, User } from "@shared/schema";
 
 interface HospitalUser extends UserHospitalRole {
   user: User;
-  units: Location;
+  units: Unit;
 }
 
 interface GroupedHospitalUser extends HospitalUser {
-  roles: Array<{ role: string; units: Location; roleId: string; unitId: string }>;
+  roles: Array<{ role: string; units: Unit; roleId: string; unitId: string }>;
 }
 
 export default function Users() {
@@ -48,8 +48,8 @@ export default function Users() {
   const isAdmin = activeHospital?.role === "admin";
 
   // Fetch units
-  const { data: units = [] } = useQuery<Location[]>({
-    queryKey: [`/api/admin/${hospitalId}/units`],
+  const { data: units = [] } = useQuery<Unit[]>({
+    queryKey: [`/api/admin/${activeHospital?.id}/units`],
     enabled: !!activeHospital?.id && isAdmin,
   });
 
@@ -560,7 +560,7 @@ export default function Users() {
               </div>
             </div>
 
-            {/* Role/Location Pairs */}
+            {/* Role/Unit Pairs */}
             <div className="border-t pt-4">
               <Label className="text-base font-semibold">{t("admin.roleLocationPairs")}</Label>
               <div className="space-y-2 mt-3">
