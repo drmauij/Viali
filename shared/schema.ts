@@ -429,6 +429,43 @@ export const hospitalAnesthesiaSettings = pgTable("hospital_anesthesia_settings"
   index("idx_hospital_anesthesia_settings_hospital").on(table.hospitalId),
 ]);
 
+// Patients - Patient demographics and core information
+export const patients = pgTable("patients", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  
+  // Demographics
+  patientNumber: varchar("patient_number").notNull(), // Hospital-specific patient ID (e.g., "P-2024-001")
+  surname: varchar("surname").notNull(),
+  firstName: varchar("first_name").notNull(),
+  birthday: varchar("birthday").notNull(), // YYYY-MM-DD format
+  sex: varchar("sex", { enum: ["M", "F", "O"] }).notNull(),
+  
+  // Contact Information
+  email: varchar("email"),
+  phone: varchar("phone"),
+  address: text("address"),
+  emergencyContact: text("emergency_contact"),
+  
+  // Insurance & Administrative
+  insuranceProvider: varchar("insurance_provider"),
+  insuranceNumber: varchar("insurance_number"),
+  
+  // Medical Information
+  allergies: text("allergies").array(),
+  allergyNotes: text("allergy_notes"),
+  medicalNotes: text("medical_notes"),
+  
+  // Audit
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_patients_hospital").on(table.hospitalId),
+  index("idx_patients_surname").on(table.surname),
+  index("idx_patients_number").on(table.hospitalId, table.patientNumber),
+]);
+
 // Cases (Episode of Care) - Container for patient hospital stay
 export const cases = pgTable("cases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -928,6 +965,12 @@ export const insertHospitalAnesthesiaSettingsSchema = createInsertSchema(hospita
   updatedAt: true,
 });
 
+export const insertPatientSchema = createInsertSchema(patients).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertCaseSchema = createInsertSchema(cases).omit({
   id: true,
   createdAt: true,
@@ -1020,6 +1063,8 @@ export type InsertSurgeryRoom = z.infer<typeof insertSurgeryRoomSchema>;
 // Anesthesia Module Types
 export type HospitalAnesthesiaSettings = typeof hospitalAnesthesiaSettings.$inferSelect;
 export type InsertHospitalAnesthesiaSettings = z.infer<typeof insertHospitalAnesthesiaSettingsSchema>;
+export type Patient = typeof patients.$inferSelect;
+export type InsertPatient = z.infer<typeof insertPatientSchema>;
 export type Case = typeof cases.$inferSelect;
 export type InsertCase = z.infer<typeof insertCaseSchema>;
 export type Surgery = typeof surgeries.$inferSelect;

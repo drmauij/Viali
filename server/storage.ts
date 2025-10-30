@@ -22,6 +22,7 @@ import {
   surgeryRooms,
   // Anesthesia module tables
   hospitalAnesthesiaSettings,
+  patients,
   cases,
   surgeries,
   anesthesiaRecords,
@@ -66,6 +67,8 @@ import {
   // Anesthesia module types
   type HospitalAnesthesiaSettings,
   type InsertHospitalAnesthesiaSettings,
+  type Patient,
+  type InsertPatient,
   type Case,
   type InsertCase,
   type Surgery,
@@ -86,7 +89,7 @@ import {
   type InsertAuditTrail,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, asc, sql, inArray, lte, gte } from "drizzle-orm";
+import { eq, and, desc, asc, sql, inArray, lte, gte, or, ilike } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -234,6 +237,14 @@ export interface IStorage {
   // Hospital Anesthesia Settings operations
   getHospitalAnesthesiaSettings(hospitalId: string): Promise<HospitalAnesthesiaSettings | undefined>;
   upsertHospitalAnesthesiaSettings(settings: InsertHospitalAnesthesiaSettings): Promise<HospitalAnesthesiaSettings>;
+  
+  // Patient operations
+  getPatients(hospitalId: string, search?: string): Promise<Patient[]>;
+  getPatient(id: string): Promise<Patient | undefined>;
+  createPatient(patient: InsertPatient): Promise<Patient>;
+  updatePatient(id: string, updates: Partial<Patient>): Promise<Patient>;
+  deletePatient(id: string): Promise<void>;
+  generatePatientNumber(hospitalId: string): Promise<string>;
   
   // Case operations
   getCases(hospitalId: string, patientId?: string, status?: string): Promise<Case[]>;
@@ -1478,6 +1489,81 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return upserted;
+  }
+
+  // Patient operations
+  async getPatients(hospitalId: string, search?: string): Promise<Patient[]> {
+    let query = db
+      .select()
+      .from(patients)
+      .where(eq(patients.hospitalId, hospitalId));
+
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim()}%`;
+      query = query.where(
+        and(
+          eq(patients.hospitalId, hospitalId),
+          or(
+            ilike(patients.surname, searchTerm),
+            ilike(patients.firstName, searchTerm),
+            ilike(patients.patientNumber, searchTerm)
+          )
+        )
+      );
+    }
+
+    const result = await query.orderBy(asc(patients.surname), asc(patients.firstName));
+    return result;
+  }
+
+  async getPatient(id: string): Promise<Patient | undefined> {
+    const [patient] = await db.select().from(patients).where(eq(patients.id, id));
+    return patient;
+  }
+
+  async createPatient(patient: InsertPatient): Promise<Patient> {
+    const [created] = await db.insert(patients).values(patient).returning();
+    return created;
+  }
+
+  async updatePatient(id: string, updates: Partial<Patient>): Promise<Patient> {
+    const [updated] = await db
+      .update(patients)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(patients.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deletePatient(id: string): Promise<void> {
+    await db.delete(patients).where(eq(patients.id, id));
+  }
+
+  async generatePatientNumber(hospitalId: string): Promise<string> {
+    const year = new Date().getFullYear();
+    const prefix = `P-${year}-`;
+    
+    // Get the latest patient number for this hospital and year
+    const latestPatient = await db
+      .select()
+      .from(patients)
+      .where(
+        and(
+          eq(patients.hospitalId, hospitalId),
+          ilike(patients.patientNumber, `${prefix}%`)
+        )
+      )
+      .orderBy(desc(patients.patientNumber))
+      .limit(1);
+
+    if (latestPatient.length === 0) {
+      return `${prefix}001`;
+    }
+
+    // Extract the number part and increment
+    const lastNumber = latestPatient[0].patientNumber.split('-')[2];
+    const nextNumber = (parseInt(lastNumber, 10) + 1).toString().padStart(3, '0');
+    return `${prefix}${nextNumber}`;
   }
 
   // Case operations

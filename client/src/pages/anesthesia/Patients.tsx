@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -8,45 +9,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { Search, UserPlus, ScanBarcode, UserCircle, UserRound } from "lucide-react";
-
-const mockPatients = [
-  {
-    id: "1",
-    patientId: "P-2024-001",
-    surname: "Rossi",
-    firstName: "Maria",
-    birthday: "1968-05-12",
-    sex: "F",
-  },
-  {
-    id: "2",
-    patientId: "P-2024-002",
-    surname: "Bianchi",
-    firstName: "Giovanni",
-    birthday: "1957-11-03",
-    sex: "M",
-  },
-  {
-    id: "3",
-    patientId: "P-2024-003",
-    surname: "Ferrari",
-    firstName: "Laura",
-    birthday: "1982-08-22",
-    sex: "F",
-  },
-  {
-    id: "4",
-    patientId: "P-2024-004",
-    surname: "Colombo",
-    firstName: "Marco",
-    birthday: "1975-03-15",
-    sex: "M",
-  },
-];
+import { Search, UserPlus, ScanBarcode, UserCircle, UserRound, Loader2 } from "lucide-react";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { Patient } from "@shared/schema";
 
 export default function Patients() {
   const [, setLocation] = useLocation();
+  const activeHospital = useActiveHospital();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newPatient, setNewPatient] = useState({
@@ -70,6 +42,45 @@ export default function Patients() {
     "Muscle relaxants",
   ];
 
+  // Fetch patients
+  const { data: patients = [], isLoading, error } = useQuery<Patient[]>({
+    queryKey: ['/api/patients', activeHospital?.id],
+    enabled: !!activeHospital?.id,
+  });
+
+  // Create patient mutation
+  const createPatientMutation = useMutation({
+    mutationFn: async (patientData: any) => {
+      return await apiRequest('/api/patients', 'POST', patientData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/patients'] });
+      toast({
+        title: "Patient created",
+        description: "Patient has been created successfully",
+      });
+      setIsCreateDialogOpen(false);
+      setNewPatient({ 
+        surname: "", 
+        firstName: "", 
+        birthday: "", 
+        sex: "",
+        email: "",
+        phone: "",
+        allergies: [],
+        allergyNotes: "",
+        notes: ""
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create patient",
+        variant: "destructive",
+      });
+    },
+  });
+
   const toggleAllergy = (allergy: string) => {
     if (newPatient.allergies.includes(allergy)) {
       setNewPatient({ ...newPatient, allergies: newPatient.allergies.filter(a => a !== allergy) });
@@ -84,14 +95,16 @@ export default function Patients() {
   };
 
   // Filter and sort patients alphabetically by surname, then firstName
-  const filteredPatients = mockPatients
+  const filteredPatients = patients
     .filter(patient => {
+      if (!searchQuery.trim()) return true;
+      
       const query = searchQuery.toLowerCase();
       const formattedBirthday = formatDate(patient.birthday).toLowerCase();
       
       return patient.surname.toLowerCase().includes(query) ||
         patient.firstName.toLowerCase().includes(query) ||
-        patient.patientId.toLowerCase().includes(query) ||
+        patient.patientNumber.toLowerCase().includes(query) ||
         patient.birthday.includes(searchQuery) || // ISO format search
         formattedBirthday.includes(query); // Display format search (DD/MM/YYYY)
     })
@@ -107,23 +120,40 @@ export default function Patients() {
   };
 
   const handleCreatePatient = () => {
-    // Auto-generate patient ID
-    const year = new Date().getFullYear();
-    const patientId = `P-${year}-${String(mockPatients.length + 1).padStart(3, '0')}`;
-    
-    console.log("Creating patient:", { ...newPatient, patientId });
-    setIsCreateDialogOpen(false);
-    setNewPatient({ 
-      surname: "", 
-      firstName: "", 
-      birthday: "", 
-      sex: "",
-      email: "",
-      phone: "",
-      allergies: [],
-      allergyNotes: "",
-      notes: ""
-    });
+    if (!activeHospital?.id) {
+      toast({
+        title: "Error",
+        description: "No active hospital selected",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate required fields
+    if (!newPatient.surname || !newPatient.firstName || !newPatient.birthday || !newPatient.sex) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Prepare patient data (patientNumber will be auto-generated by the backend)
+    const patientData = {
+      hospitalId: activeHospital.id,
+      surname: newPatient.surname,
+      firstName: newPatient.firstName,
+      birthday: newPatient.birthday,
+      sex: newPatient.sex,
+      email: newPatient.email || null,
+      phone: newPatient.phone || null,
+      allergies: newPatient.allergies.length > 0 ? newPatient.allergies : null,
+      allergyNotes: newPatient.allergyNotes || null,
+      medicalNotes: newPatient.notes || null,
+    };
+
+    createPatientMutation.mutate(patientData);
   };
 
   return (
@@ -266,8 +296,20 @@ export default function Patients() {
                 * Required fields. Patient ID will be auto-generated.
               </div>
 
-              <Button onClick={handleCreatePatient} className="w-full" data-testid="button-submit-patient">
-                Create Patient
+              <Button 
+                onClick={handleCreatePatient} 
+                className="w-full" 
+                data-testid="button-submit-patient"
+                disabled={createPatientMutation.isPending}
+              >
+                {createPatientMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create Patient"
+                )}
               </Button>
             </div>
           </DialogContent>
@@ -298,41 +340,54 @@ export default function Patients() {
         </div>
       </div>
 
-      <div className="space-y-4">
-        {filteredPatients.map((patient) => (
-          <Card 
-            key={patient.id}
-            className="p-4 cursor-pointer hover:bg-accent/50 transition-colors"
-            data-testid={`patient-item-${patient.id}`}
-            onClick={() => setLocation(`/anesthesia/patients/${patient.id}`)}
-          >
-            <div className="flex items-center gap-2">
-              {patient.sex === "M" ? (
-                <UserCircle className="h-5 w-5 text-blue-500" />
-              ) : patient.sex === "F" ? (
-                <UserRound className="h-5 w-5 text-pink-500" />
-              ) : (
-                <UserCircle className="h-5 w-5 text-gray-500" />
-              )}
-              <div className="font-semibold text-foreground">
-                {patient.surname}, {patient.firstName}
-              </div>
-            </div>
-            <div className="text-sm text-muted-foreground mt-1 ml-7">
-              {formatDate(patient.birthday)} • {patient.patientId}
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      {filteredPatients.length === 0 && (
+      {isLoading ? (
         <div className="text-center py-12">
-          <UserPlus className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No patients found</h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            {searchQuery ? "Try adjusting your search" : "Create your first patient to get started"}
-          </p>
+          <Loader2 className="h-12 w-12 text-muted-foreground mx-auto mb-4 animate-spin" />
+          <p className="text-sm text-muted-foreground">Loading patients...</p>
         </div>
+      ) : error ? (
+        <div className="text-center py-12">
+          <p className="text-sm text-destructive">Failed to load patients. Please try again.</p>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-4">
+            {filteredPatients.map((patient) => (
+              <Card 
+                key={patient.id}
+                className="p-4 cursor-pointer hover:bg-accent/50 transition-colors"
+                data-testid={`patient-item-${patient.id}`}
+                onClick={() => setLocation(`/anesthesia/patients/${patient.id}`)}
+              >
+                <div className="flex items-center gap-2">
+                  {patient.sex === "M" ? (
+                    <UserCircle className="h-5 w-5 text-blue-500" />
+                  ) : patient.sex === "F" ? (
+                    <UserRound className="h-5 w-5 text-pink-500" />
+                  ) : (
+                    <UserCircle className="h-5 w-5 text-gray-500" />
+                  )}
+                  <div className="font-semibold text-foreground">
+                    {patient.surname}, {patient.firstName}
+                  </div>
+                </div>
+                <div className="text-sm text-muted-foreground mt-1 ml-7">
+                  {formatDate(patient.birthday)} • {patient.patientNumber}
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {filteredPatients.length === 0 && (
+            <div className="text-center py-12">
+              <UserPlus className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No patients found</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                {searchQuery ? "Try adjusting your search" : "Create your first patient to get started"}
+              </p>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

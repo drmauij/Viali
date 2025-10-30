@@ -9,6 +9,7 @@ import {
   insertChecklistTemplateSchema, 
   insertChecklistCompletionSchema,
   insertHospitalAnesthesiaSettingsSchema,
+  insertPatientSchema,
   insertCaseSchema,
   insertSurgerySchema,
   insertAnesthesiaRecordSchema,
@@ -4000,6 +4001,160 @@ If unable to parse any drugs, return:
       }
       console.error("Error updating anesthesia settings:", error);
       res.status(500).json({ message: "Failed to update anesthesia settings" });
+    }
+  });
+
+  // ========== PATIENT MANAGEMENT ROUTES ==========
+
+  // Get patients with optional search
+  app.get('/api/patients', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId, search } = req.query;
+      const userId = req.user.id;
+
+      if (!hospitalId) {
+        return res.status(400).json({ message: "hospitalId is required" });
+      }
+
+      // Verify user has access to this hospital
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+
+      const patients = await storage.getPatients(hospitalId as string, search as string | undefined);
+      
+      res.json(patients);
+    } catch (error) {
+      console.error("Error fetching patients:", error);
+      res.status(500).json({ message: "Failed to fetch patients" });
+    }
+  });
+
+  // Get single patient
+  app.get('/api/patients/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      const patient = await storage.getPatient(id);
+      
+      if (!patient) {
+        return res.status(404).json({ message: "Patient not found" });
+      }
+
+      // Verify user has access to this hospital
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      res.json(patient);
+    } catch (error) {
+      console.error("Error fetching patient:", error);
+      res.status(500).json({ message: "Failed to fetch patient" });
+    }
+  });
+
+  // Create patient
+  app.post('/api/patients', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+
+      // Validate data
+      const validatedData = insertPatientSchema.parse(req.body);
+
+      // Verify user has access to this hospital
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === validatedData.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+
+      // Generate patient number if not provided
+      let patientNumber = validatedData.patientNumber;
+      if (!patientNumber) {
+        patientNumber = await storage.generatePatientNumber(validatedData.hospitalId);
+      }
+
+      const patient = await storage.createPatient({
+        ...validatedData,
+        patientNumber,
+        createdBy: userId,
+      });
+      
+      res.status(201).json(patient);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating patient:", error);
+      res.status(500).json({ message: "Failed to create patient" });
+    }
+  });
+
+  // Update patient
+  app.patch('/api/patients/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      // Get existing patient
+      const existingPatient = await storage.getPatient(id);
+      
+      if (!existingPatient) {
+        return res.status(404).json({ message: "Patient not found" });
+      }
+
+      // Verify user has access to this hospital
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === existingPatient.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const patient = await storage.updatePatient(id, req.body);
+      
+      res.json(patient);
+    } catch (error) {
+      console.error("Error updating patient:", error);
+      res.status(500).json({ message: "Failed to update patient" });
+    }
+  });
+
+  // Delete patient
+  app.delete('/api/patients/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      // Get existing patient
+      const existingPatient = await storage.getPatient(id);
+      
+      if (!existingPatient) {
+        return res.status(404).json({ message: "Patient not found" });
+      }
+
+      // Verify user has access to this hospital
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === existingPatient.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      await storage.deletePatient(id);
+      
+      res.json({ message: "Patient deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting patient:", error);
+      res.status(500).json({ message: "Failed to delete patient" });
     }
   });
 
