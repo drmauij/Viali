@@ -14,6 +14,7 @@ import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Patient } from "@shared/schema";
+import { formatDate } from "@/lib/dateUtils";
 
 export default function Patients() {
   const [, setLocation] = useLocation();
@@ -87,11 +88,6 @@ export default function Patients() {
     } else {
       setNewPatient({ ...newPatient, allergies: [...newPatient.allergies, allergy] });
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
   // Filter and sort patients alphabetically by surname, then firstName

@@ -19,6 +19,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { ChevronDown, ChevronUp } from "lucide-react";
 import type { Surgery } from "@shared/schema";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { formatDate, formatDateTimeForInput } from "@/lib/dateUtils";
 
 type Patient = {
   id: string;
@@ -504,7 +505,7 @@ export default function PatientDetail() {
     setEditCase({
       plannedSurgery: surgery.plannedSurgery,
       surgeon: surgery.surgeon || "",
-      plannedDate: new Date(surgery.plannedDate).toISOString().slice(0, 16),
+      plannedDate: formatDateTimeForInput(surgery.plannedDate),
       surgeryRoomId: surgery.surgeryRoomId || "",
     });
   };
@@ -560,11 +561,6 @@ export default function PatientDetail() {
       age--;
     }
     return age;
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
   
   const hasHeartData = () => {
@@ -1181,7 +1177,7 @@ export default function PatientDetail() {
                     <p className="text-muted-foreground">Planned Date</p>
                     <p className="font-medium flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
-                      {new Date(surgery.plannedDate).toLocaleDateString()}
+                      {formatDate(surgery.plannedDate)}
                     </p>
                   </div>
                 </div>
@@ -1358,11 +1354,7 @@ export default function PatientDetail() {
                         {(() => {
                           const plannedDate = surgeries?.find(s => s.id === selectedCaseId)?.plannedDate;
                           if (!plannedDate) return 'Not scheduled';
-                          try {
-                            return new Date(plannedDate).toLocaleDateString();
-                          } catch {
-                            return 'Invalid date';
-                          }
+                          return formatDate(plannedDate);
                         })()}
                       </p>
                     </div>
