@@ -47,9 +47,9 @@ async function getUserRole(userId: string, hospitalId: string): Promise<string |
   return hospital?.role || null;
 }
 
-async function verifyUserHospitalUnitAccess(userId: string, hospitalId: string, locationId: string): Promise<{ hasAccess: boolean; role: string | null }> {
+async function verifyUserHospitalUnitAccess(userId: string, hospitalId: string, unitId: string): Promise<{ hasAccess: boolean; role: string | null }> {
   const hospitals = await storage.getUserHospitals(userId);
-  const match = hospitals.find(h => h.id === hospitalId && h.unitId === locationId);
+  const match = hospitals.find(h => h.id === hospitalId && h.unitId === unitId);
   return {
     hasAccess: !!match,
     role: match?.role || null

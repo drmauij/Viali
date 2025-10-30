@@ -100,9 +100,9 @@ export default function ControlledLog() {
   const [showAdjustmentSignaturePad, setShowAdjustmentSignaturePad] = useState(false);
 
   const { data: controlledItems = [] } = useQuery<ItemWithStock[]>({
-    queryKey: [`/api/items/${activeHospital?.id}?units?Id=${activeHospital?.unitId}&controlled=true`, activeHospital?.unitId, { controlled: true }],
+    queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}&controlled=true`, activeHospital?.unitId, { controlled: true }],
     queryFn: async () => {
-      const response = await fetch(`/api/items/${activeHospital?.id}?units?Id=${activeHospital?.unitId}&controlled=true`);
+      const response = await fetch(`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}&controlled=true`);
       if (!response.ok) throw new Error("Failed to fetch items");
       return response.json();
     },
@@ -132,7 +132,7 @@ export default function ControlledLog() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/controlled/log/${activeHospital?.id}`, activeHospital?.unitId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?units?Id=${activeHospital?.unitId}&controlled=true`, activeHospital?.unitId, { controlled: true }] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}&controlled=true`, activeHospital?.unitId, { controlled: true }] });
       toast({
         title: "Administration Recorded",
         description: "Controlled substance administration has been logged.",
@@ -252,7 +252,7 @@ export default function ControlledLog() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/controlled/log/${activeHospital?.id}`, activeHospital?.unitId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?units?Id=${activeHospital?.unitId}&controlled=true`, activeHospital?.unitId, { controlled: true }] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}&controlled=true`, activeHospital?.unitId, { controlled: true }] });
       toast({
         title: "Adjustment Recorded",
         description: "Controlled substance adjustment has been logged.",

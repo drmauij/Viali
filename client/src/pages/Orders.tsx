@@ -87,7 +87,7 @@ export default function Orders() {
   });
 
   const { data: items = [] } = useQuery<ItemWithStock[]>({
-    queryKey: [`/api/items/${activeHospital?.id}?units?Id=${activeHospital?.unitId}`, activeHospital?.unitId],
+    queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId],
     enabled: !!activeHospital?.id && !!activeHospital?.unitId,
   });
 
@@ -133,7 +133,7 @@ export default function Orders() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?units?Id=${activeHospital?.unitId}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
       queryClient.invalidateQueries({ queryKey: [`/api/orders/open-items/${activeHospital?.id}`, activeHospital?.unitId] });
       toast({
         title: t('orders.orderUpdated'),
@@ -271,7 +271,7 @@ export default function Orders() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?units?Id=${activeHospital?.unitId}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
       toast({
         title: "Item Received",
         description: "Item has been marked as received and stock updated.",

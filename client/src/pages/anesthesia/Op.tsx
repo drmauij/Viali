@@ -246,13 +246,13 @@ export default function Op() {
 
   // Fetch items for inventory tracking - filtered by anesthesia units?
   const { data: items = [] } = useQuery<any[]>({
-    queryKey: [`/api/items/${activeHospital?.id}?units?Id=${activeHospital?.anesthesiaUnitId}`, activeHospital?.anesthesiaUnitId],
+    queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.anesthesiaUnitId}`, activeHospital?.anesthesiaUnitId],
     enabled: !!activeHospital?.id && !!activeHospital?.anesthesiaUnitId,
   });
 
   // Fetch folders - filtered by anesthesia units?
   const { data: folders = [] } = useQuery<any[]>({
-    queryKey: [`/api/folders/${activeHospital?.id}?units?Id=${activeHospital?.anesthesiaUnitId}`, activeHospital?.anesthesiaUnitId],
+    queryKey: [`/api/folders/${activeHospital?.id}?unitId=${activeHospital?.anesthesiaUnitId}`, activeHospital?.anesthesiaUnitId],
     enabled: !!activeHospital?.id && !!activeHospital?.anesthesiaUnitId,
   });
 

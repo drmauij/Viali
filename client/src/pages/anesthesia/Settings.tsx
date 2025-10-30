@@ -83,7 +83,7 @@ export default function AnesthesiaSettings() {
 
   // Fetch all items for the hospital's anesthesia units?
   const { data: allItems = [], isLoading } = useQuery<Item[]>({
-    queryKey: [`/api/items/${activeHospital?.id}?units?Id=${activeHospital?.anesthesiaUnitId}`],
+    queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.anesthesiaUnitId}`],
     enabled: !!activeHospital?.id && !!activeHospital?.anesthesiaUnitId,
   });
 
@@ -139,7 +139,7 @@ export default function AnesthesiaSettings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/items/${activeHospital?.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?units?Id=${activeHospital?.anesthesiaUnitId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.anesthesiaUnitId}`] });
       toast({
         title: "Configuration updated",
         description: "Anesthesia item configuration has been saved",
