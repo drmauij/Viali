@@ -51,7 +51,7 @@ export default function Patients() {
   // Create patient mutation
   const createPatientMutation = useMutation({
     mutationFn: async (patientData: any) => {
-      return await apiRequest('/api/patients', 'POST', patientData);
+      return await apiRequest('POST', '/api/patients', patientData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/patients'] });
