@@ -394,6 +394,321 @@ export const medicationConfigs = pgTable("medication_configs", {
   index("idx_medication_configs_admin_group").on(table.administrationGroup),
 ]);
 
+// ==================== ANESTHESIA MODULE TABLES ====================
+
+// Hospital Anesthesia Settings (customizable illness lists and checklist items)
+export const hospitalAnesthesiaSettings = pgTable("hospital_anesthesia_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id).unique(),
+  
+  // Customizable illness lists per medical system (JSONB for flexibility)
+  illnessLists: jsonb("illness_lists").$type<{
+    cardiovascular?: string[];
+    pulmonary?: string[];
+    gastrointestinal?: string[];
+    kidney?: string[];
+    metabolic?: string[];
+    neurological?: string[];
+    psychiatric?: string[];
+    skeletal?: string[];
+    woman?: string[];
+    noxen?: string[];
+    children?: string[];
+  }>(),
+  
+  // Customizable WHO checklist items (JSONB for flexibility)
+  checklistItems: jsonb("checklist_items").$type<{
+    signIn?: string[];
+    timeOut?: string[];
+    signOut?: string[];
+  }>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_hospital_anesthesia_settings_hospital").on(table.hospitalId),
+]);
+
+// Cases (Episode of Care) - Container for patient hospital stay
+export const cases = pgTable("cases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  patientId: varchar("patient_id").notNull(), // External reference (may integrate with patient management later)
+  admissionDate: timestamp("admission_date").notNull(),
+  dischargeDate: timestamp("discharge_date"),
+  status: varchar("status", { enum: ["planned", "active", "finished", "cancelled"] }).notNull().default("active"),
+  type: varchar("type", { enum: ["inpatient", "outpatient", "emergency"] }).notNull().default("inpatient"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_cases_hospital").on(table.hospitalId),
+  index("idx_cases_patient").on(table.patientId),
+  index("idx_cases_status").on(table.status),
+]);
+
+// Surgeries (Encounters) - Individual surgical procedures
+export const surgeries = pgTable("surgeries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  caseId: varchar("case_id").references(() => cases.id), // Optional: links to case if using episode of care
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  patientId: varchar("patient_id").notNull(), // External reference
+  surgeryRoomId: varchar("surgery_room_id").references(() => surgeryRooms.id),
+  
+  // Planning
+  plannedDate: timestamp("planned_date").notNull(),
+  plannedSurgery: varchar("planned_surgery").notNull(),
+  surgeon: varchar("surgeon"),
+  
+  // Actual execution
+  actualStartTime: timestamp("actual_start_time"),
+  actualEndTime: timestamp("actual_end_time"),
+  
+  status: varchar("status", { enum: ["planned", "in-progress", "completed", "cancelled"] }).notNull().default("planned"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_surgeries_case").on(table.caseId),
+  index("idx_surgeries_hospital").on(table.hospitalId),
+  index("idx_surgeries_patient").on(table.patientId),
+  index("idx_surgeries_room").on(table.surgeryRoomId),
+  index("idx_surgeries_status").on(table.status),
+  index("idx_surgeries_planned_date").on(table.plannedDate),
+]);
+
+// Anesthesia Records - Main perioperative anesthesia data
+export const anesthesiaRecords = pgTable("anesthesia_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  surgeryId: varchar("surgery_id").notNull().references(() => surgeries.id).unique(), // One-to-one with surgery
+  
+  // Financial/Billing critical fields
+  anesthesiaStartTime: timestamp("anesthesia_start_time"), // When prep begins in OR
+  anesthesiaEndTime: timestamp("anesthesia_end_time"), // When patient transferred to PACU
+  providerId: varchar("provider_id").references(() => users.id), // Anesthesiologist/CRNA
+  physicalStatus: varchar("physical_status", { enum: ["P1", "P2", "P3", "P4", "P5", "P6"] }), // ASA status
+  emergencyCase: boolean("emergency_case").default(false), // Affects billing
+  procedureCode: varchar("procedure_code"), // CPT code
+  diagnosisCodes: text("diagnosis_codes").array(), // ICD-10 codes
+  
+  // Anesthesia details
+  anesthesiaType: varchar("anesthesia_type", { 
+    enum: ["general", "spinal", "epidural", "regional", "sedation", "combined"] 
+  }),
+  
+  // Case status
+  caseStatus: varchar("case_status", { enum: ["open", "closed", "amended"] }).notNull().default("open"),
+  closedAt: timestamp("closed_at"),
+  closedBy: varchar("closed_by").references(() => users.id),
+  
+  // WHO Checklists (stored as JSONB for flexibility)
+  signInChecklist: jsonb("sign_in_checklist").$type<Record<string, boolean>>(),
+  timeOutChecklist: jsonb("time_out_checklist").$type<Record<string, boolean>>(),
+  signOutChecklist: jsonb("sign_out_checklist").$type<Record<string, boolean>>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_anesthesia_records_surgery").on(table.surgeryId),
+  index("idx_anesthesia_records_provider").on(table.providerId),
+  index("idx_anesthesia_records_status").on(table.caseStatus),
+]);
+
+// Pre-Op Assessments
+export const preOpAssessments = pgTable("preop_assessments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  surgeryId: varchar("surgery_id").notNull().references(() => surgeries.id).unique(), // One-to-one with surgery
+  
+  // Basic vitals (height/weight now in header, but can store here for history)
+  height: varchar("height"),
+  weight: varchar("weight"),
+  
+  // Allergies & CAVE (also in header, but stored for record)
+  allergies: text("allergies").array(),
+  allergiesOther: text("allergies_other"),
+  cave: text("cave"),
+  
+  // Classification
+  asa: varchar("asa"),
+  specialNotes: text("special_notes"),
+  
+  // Medications (JSONB arrays for flexibility)
+  anticoagulationMeds: text("anticoagulation_meds").array(),
+  anticoagulationMedsOther: text("anticoagulation_meds_other"),
+  generalMeds: text("general_meds").array(),
+  generalMedsOther: text("general_meds_other"),
+  medicationsNotes: text("medications_notes"),
+  
+  // Medical History (JSONB - references hospital's custom illness lists)
+  heartIllnesses: jsonb("heart_illnesses").$type<Record<string, boolean>>(),
+  heartNotes: text("heart_notes"),
+  lungIllnesses: jsonb("lung_illnesses").$type<Record<string, boolean>>(),
+  lungNotes: text("lung_notes"),
+  giIllnesses: jsonb("gi_illnesses").$type<Record<string, boolean>>(),
+  kidneyIllnesses: jsonb("kidney_illnesses").$type<Record<string, boolean>>(),
+  metabolicIllnesses: jsonb("metabolic_illnesses").$type<Record<string, boolean>>(),
+  giKidneyMetabolicNotes: text("gi_kidney_metabolic_notes"),
+  neuroIllnesses: jsonb("neuro_illnesses").$type<Record<string, boolean>>(),
+  psychIllnesses: jsonb("psych_illnesses").$type<Record<string, boolean>>(),
+  skeletalIllnesses: jsonb("skeletal_illnesses").$type<Record<string, boolean>>(),
+  neuroPsychSkeletalNotes: text("neuro_psych_skeletal_notes"),
+  womanIssues: jsonb("woman_issues").$type<Record<string, boolean>>(),
+  womanNotes: text("woman_notes"),
+  noxen: jsonb("noxen").$type<Record<string, boolean>>(),
+  noxenNotes: text("noxen_notes"),
+  childrenIssues: jsonb("children_issues").$type<Record<string, boolean>>(),
+  childrenNotes: text("children_notes"),
+  
+  // Airway Assessment
+  mallampati: varchar("mallampati"),
+  mouthOpening: varchar("mouth_opening"),
+  dentition: varchar("dentition"),
+  airwayDifficult: varchar("airway_difficult"),
+  airwayNotes: text("airway_notes"),
+  
+  // Fasting
+  lastSolids: varchar("last_solids"),
+  lastClear: varchar("last_clear"),
+  
+  // Planned Anesthesia
+  anesthesiaTechniques: jsonb("anesthesia_techniques").$type<Record<string, boolean>>(),
+  postOpICU: boolean("post_op_icu").default(false),
+  anesthesiaOther: text("anesthesia_other"),
+  
+  // Installations
+  installations: jsonb("installations").$type<Record<string, boolean>>(),
+  installationsOther: text("installations_other"),
+  
+  // Approval
+  surgicalApproval: text("surgical_approval"),
+  
+  // Assessment metadata
+  assessmentDate: varchar("assessment_date"),
+  doctorName: varchar("doctor_name"),
+  doctorSignature: text("doctor_signature"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_preop_assessments_surgery").on(table.surgeryId),
+]);
+
+// Vitals Snapshots (Time-series data stored as JSONB for efficiency)
+export const vitalsSnapshots = pgTable("vitals_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: 'cascade' }),
+  timestamp: timestamp("timestamp").notNull(),
+  
+  // All vitals stored as JSONB for flexibility and efficiency
+  data: jsonb("data").$type<{
+    hr?: number;
+    sysBP?: number;
+    diaBP?: number;
+    meanBP?: number;
+    spo2?: number;
+    temp?: number;
+    etco2?: number;
+    pip?: number;
+    peep?: number;
+    tidalVolume?: number;
+    respiratoryRate?: number;
+    minuteVolume?: number;
+    fio2?: number;
+  }>().notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_vitals_snapshots_record").on(table.anesthesiaRecordId),
+  index("idx_vitals_snapshots_timestamp").on(table.timestamp),
+]);
+
+// Anesthesia Medications (Boluses and Infusions) - Links to inventory
+export const anesthesiaMedications = pgTable("anesthesia_medications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: 'cascade' }),
+  itemId: varchar("item_id").notNull().references(() => items.id), // Link to inventory
+  
+  timestamp: timestamp("timestamp").notNull(),
+  type: varchar("type", { 
+    enum: ["bolus", "infusion_start", "infusion_stop", "rate_change"] 
+  }).notNull(),
+  
+  // Dosing
+  dose: varchar("dose"), // For boluses
+  unit: varchar("unit"), // mg, ml, μg, etc.
+  route: varchar("route"), // i.v., s.c., p.o., spinal
+  
+  // Rate (for infusions)
+  rate: varchar("rate"), // e.g., "5 ml/hr", "0.1 μg/kg/min"
+  endTimestamp: timestamp("end_timestamp"), // When infusion stopped
+  
+  // User tracking
+  administeredBy: varchar("administered_by").references(() => users.id),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_anesthesia_medications_record").on(table.anesthesiaRecordId),
+  index("idx_anesthesia_medications_item").on(table.itemId),
+  index("idx_anesthesia_medications_timestamp").on(table.timestamp),
+  index("idx_anesthesia_medications_type").on(table.type),
+]);
+
+// Anesthesia Events (Timeline markers)
+export const anesthesiaEvents = pgTable("anesthesia_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: 'cascade' }),
+  
+  timestamp: timestamp("timestamp").notNull(),
+  eventType: varchar("event_type"), // intubation, incision, extubation, complication, etc.
+  description: text("description"),
+  
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_anesthesia_events_record").on(table.anesthesiaRecordId),
+  index("idx_anesthesia_events_timestamp").on(table.timestamp),
+  index("idx_anesthesia_events_type").on(table.eventType),
+]);
+
+// Inventory Usage (Auto-computed from medication records)
+export const inventoryUsage = pgTable("inventory_usage", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: 'cascade' }),
+  itemId: varchar("item_id").notNull().references(() => items.id),
+  
+  quantityUsed: integer("quantity_used").notNull(),
+  autoComputed: boolean("auto_computed").default(true), // True if calculated from medication records
+  manualOverride: boolean("manual_override").default(false), // True if manually adjusted
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_inventory_usage_record").on(table.anesthesiaRecordId),
+  index("idx_inventory_usage_item").on(table.itemId),
+]);
+
+// Audit Trail (Immutable log of all changes for compliance)
+export const auditTrail = pgTable("audit_trail", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  recordType: varchar("record_type").notNull(), // anesthesia_record, vitals_snapshot, medication, etc.
+  recordId: varchar("record_id").notNull(), // ID of the record being changed
+  
+  action: varchar("action", { enum: ["create", "update", "delete", "amend"] }).notNull(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  
+  oldValue: jsonb("old_value"), // Previous state (for updates/deletes)
+  newValue: jsonb("new_value"), // New state (for creates/updates)
+  reason: text("reason"), // Required for amendments to closed cases
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_audit_trail_record").on(table.recordType, table.recordId),
+  index("idx_audit_trail_user").on(table.userId),
+  index("idx_audit_trail_timestamp").on(table.timestamp),
+  index("idx_audit_trail_action").on(table.action),
+]);
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   userHospitalRoles: many(userHospitalRoles),
@@ -606,6 +921,64 @@ export const insertSurgeryRoomSchema = createInsertSchema(surgeryRooms).omit({
   createdAt: true,
 });
 
+// Anesthesia Module Insert Schemas
+export const insertHospitalAnesthesiaSettingsSchema = createInsertSchema(hospitalAnesthesiaSettings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCaseSchema = createInsertSchema(cases).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSurgerySchema = createInsertSchema(surgeries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAnesthesiaRecordSchema = createInsertSchema(anesthesiaRecords).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPreOpAssessmentSchema = createInsertSchema(preOpAssessments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertVitalsSnapshotSchema = createInsertSchema(vitalsSnapshots).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAnesthesiaMedicationSchema = createInsertSchema(anesthesiaMedications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAnesthesiaEventSchema = createInsertSchema(anesthesiaEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertInventoryUsageSchema = createInsertSchema(inventoryUsage).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAuditTrailSchema = createInsertSchema(auditTrail).omit({
+  id: true,
+  createdAt: true,
+  timestamp: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -643,6 +1016,28 @@ export type AdministrationGroup = typeof administrationGroups.$inferSelect;
 export type InsertAdministrationGroup = z.infer<typeof insertAdministrationGroupSchema>;
 export type SurgeryRoom = typeof surgeryRooms.$inferSelect;
 export type InsertSurgeryRoom = z.infer<typeof insertSurgeryRoomSchema>;
+
+// Anesthesia Module Types
+export type HospitalAnesthesiaSettings = typeof hospitalAnesthesiaSettings.$inferSelect;
+export type InsertHospitalAnesthesiaSettings = z.infer<typeof insertHospitalAnesthesiaSettingsSchema>;
+export type Case = typeof cases.$inferSelect;
+export type InsertCase = z.infer<typeof insertCaseSchema>;
+export type Surgery = typeof surgeries.$inferSelect;
+export type InsertSurgery = z.infer<typeof insertSurgerySchema>;
+export type AnesthesiaRecord = typeof anesthesiaRecords.$inferSelect;
+export type InsertAnesthesiaRecord = z.infer<typeof insertAnesthesiaRecordSchema>;
+export type PreOpAssessment = typeof preOpAssessments.$inferSelect;
+export type InsertPreOpAssessment = z.infer<typeof insertPreOpAssessmentSchema>;
+export type VitalsSnapshot = typeof vitalsSnapshots.$inferSelect;
+export type InsertVitalsSnapshot = z.infer<typeof insertVitalsSnapshotSchema>;
+export type AnesthesiaMedication = typeof anesthesiaMedications.$inferSelect;
+export type InsertAnesthesiaMedication = z.infer<typeof insertAnesthesiaMedicationSchema>;
+export type AnesthesiaEvent = typeof anesthesiaEvents.$inferSelect;
+export type InsertAnesthesiaEvent = z.infer<typeof insertAnesthesiaEventSchema>;
+export type InventoryUsage = typeof inventoryUsage.$inferSelect;
+export type InsertInventoryUsage = z.infer<typeof insertInventoryUsageSchema>;
+export type AuditTrail = typeof auditTrail.$inferSelect;
+export type InsertAuditTrail = z.infer<typeof insertAuditTrailSchema>;
 
 // Bulk operations schemas
 export const bulkImportItemSchema = z.object({

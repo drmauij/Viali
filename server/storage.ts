@@ -20,6 +20,17 @@ import {
   medicationGroups,
   administrationGroups,
   surgeryRooms,
+  // Anesthesia module tables
+  hospitalAnesthesiaSettings,
+  cases,
+  surgeries,
+  anesthesiaRecords,
+  preOpAssessments,
+  vitalsSnapshots,
+  anesthesiaMedications,
+  anesthesiaEvents,
+  inventoryUsage,
+  auditTrail,
   type User,
   type UpsertUser,
   type Hospital,
@@ -52,6 +63,27 @@ import {
   type InsertAdministrationGroup,
   type SurgeryRoom,
   type InsertSurgeryRoom,
+  // Anesthesia module types
+  type HospitalAnesthesiaSettings,
+  type InsertHospitalAnesthesiaSettings,
+  type Case,
+  type InsertCase,
+  type Surgery,
+  type InsertSurgery,
+  type AnesthesiaRecord,
+  type InsertAnesthesiaRecord,
+  type PreOpAssessment,
+  type InsertPreOpAssessment,
+  type VitalsSnapshot,
+  type InsertVitalsSnapshot,
+  type AnesthesiaMedication,
+  type InsertAnesthesiaMedication,
+  type AnesthesiaEvent,
+  type InsertAnesthesiaEvent,
+  type InventoryUsage,
+  type InsertInventoryUsage,
+  type AuditTrail,
+  type InsertAuditTrail,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, lte, gte } from "drizzle-orm";
@@ -196,6 +228,67 @@ export interface IStorage {
   updateSurgeryRoom(id: string, room: Partial<InsertSurgeryRoom>): Promise<SurgeryRoom>;
   deleteSurgeryRoom(id: string): Promise<void>;
   reorderSurgeryRooms(roomIds: string[]): Promise<void>;
+  
+  // ========== ANESTHESIA MODULE OPERATIONS ==========
+  
+  // Hospital Anesthesia Settings operations
+  getHospitalAnesthesiaSettings(hospitalId: string): Promise<HospitalAnesthesiaSettings | undefined>;
+  upsertHospitalAnesthesiaSettings(settings: InsertHospitalAnesthesiaSettings): Promise<HospitalAnesthesiaSettings>;
+  
+  // Case operations
+  getCases(hospitalId: string, patientId?: string, status?: string): Promise<Case[]>;
+  getCase(id: string): Promise<Case | undefined>;
+  createCase(caseData: InsertCase): Promise<Case>;
+  updateCase(id: string, updates: Partial<Case>): Promise<Case>;
+  
+  // Surgery operations
+  getSurgeries(hospitalId: string, filters?: {
+    caseId?: string;
+    patientId?: string;
+    status?: string;
+    roomId?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+  }): Promise<Surgery[]>;
+  getSurgery(id: string): Promise<Surgery | undefined>;
+  createSurgery(surgery: InsertSurgery): Promise<Surgery>;
+  updateSurgery(id: string, updates: Partial<Surgery>): Promise<Surgery>;
+  
+  // Anesthesia Record operations
+  getAnesthesiaRecord(surgeryId: string): Promise<AnesthesiaRecord | undefined>;
+  createAnesthesiaRecord(record: InsertAnesthesiaRecord): Promise<AnesthesiaRecord>;
+  updateAnesthesiaRecord(id: string, updates: Partial<AnesthesiaRecord>): Promise<AnesthesiaRecord>;
+  closeAnesthesiaRecord(id: string, closedBy: string): Promise<AnesthesiaRecord>;
+  amendAnesthesiaRecord(id: string, updates: Partial<AnesthesiaRecord>, reason: string, userId: string): Promise<AnesthesiaRecord>;
+  
+  // Pre-Op Assessment operations
+  getPreOpAssessment(surgeryId: string): Promise<PreOpAssessment | undefined>;
+  createPreOpAssessment(assessment: InsertPreOpAssessment): Promise<PreOpAssessment>;
+  updatePreOpAssessment(id: string, updates: Partial<PreOpAssessment>): Promise<PreOpAssessment>;
+  
+  // Vitals Snapshots operations
+  getVitalsSnapshots(anesthesiaRecordId: string): Promise<VitalsSnapshot[]>;
+  createVitalsSnapshot(snapshot: InsertVitalsSnapshot): Promise<VitalsSnapshot>;
+  updateVitalsSnapshot(id: string, updates: Partial<VitalsSnapshot>, userId: string): Promise<VitalsSnapshot>;
+  
+  // Anesthesia Medication operations
+  getAnesthesiaMedications(anesthesiaRecordId: string): Promise<AnesthesiaMedication[]>;
+  createAnesthesiaMedication(medication: InsertAnesthesiaMedication): Promise<AnesthesiaMedication>;
+  updateAnesthesiaMedication(id: string, updates: Partial<AnesthesiaMedication>): Promise<AnesthesiaMedication>;
+  deleteAnesthesiaMedication(id: string, userId: string): Promise<void>;
+  
+  // Anesthesia Event operations
+  getAnesthesiaEvents(anesthesiaRecordId: string): Promise<AnesthesiaEvent[]>;
+  createAnesthesiaEvent(event: InsertAnesthesiaEvent): Promise<AnesthesiaEvent>;
+  
+  // Inventory Usage operations
+  getInventoryUsage(anesthesiaRecordId: string): Promise<InventoryUsage[]>;
+  calculateInventoryUsage(anesthesiaRecordId: string): Promise<InventoryUsage[]>;
+  updateInventoryUsage(id: string, quantityUsed: number): Promise<InventoryUsage>;
+  
+  // Audit Trail operations
+  getAuditTrail(recordType: string, recordId: string): Promise<AuditTrail[]>;
+  createAuditLog(log: InsertAuditTrail): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1358,6 +1451,396 @@ export class DatabaseStorage implements IStorage {
           .where(eq(surgeryRooms.id, id))
       )
     );
+  }
+
+  // ========== ANESTHESIA MODULE IMPLEMENTATIONS ==========
+
+  // Hospital Anesthesia Settings operations
+  async getHospitalAnesthesiaSettings(hospitalId: string): Promise<HospitalAnesthesiaSettings | undefined> {
+    const [settings] = await db
+      .select()
+      .from(hospitalAnesthesiaSettings)
+      .where(eq(hospitalAnesthesiaSettings.hospitalId, hospitalId));
+    return settings;
+  }
+
+  async upsertHospitalAnesthesiaSettings(settings: InsertHospitalAnesthesiaSettings): Promise<HospitalAnesthesiaSettings> {
+    const [upserted] = await db
+      .insert(hospitalAnesthesiaSettings)
+      .values(settings)
+      .onConflictDoUpdate({
+        target: hospitalAnesthesiaSettings.hospitalId,
+        set: {
+          illnessLists: settings.illnessLists,
+          checklistItems: settings.checklistItems,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return upserted;
+  }
+
+  // Case operations
+  async getCases(hospitalId: string, patientId?: string, status?: string): Promise<Case[]> {
+    const conditions = [eq(cases.hospitalId, hospitalId)];
+    if (patientId) conditions.push(eq(cases.patientId, patientId));
+    if (status) conditions.push(sql`${cases.status} = ${status}`);
+
+    const result = await db
+      .select()
+      .from(cases)
+      .where(and(...conditions))
+      .orderBy(desc(cases.admissionDate));
+    
+    return result;
+  }
+
+  async getCase(id: string): Promise<Case | undefined> {
+    const [caseRecord] = await db.select().from(cases).where(eq(cases.id, id));
+    return caseRecord;
+  }
+
+  async createCase(caseData: InsertCase): Promise<Case> {
+    const [created] = await db.insert(cases).values(caseData).returning();
+    return created;
+  }
+
+  async updateCase(id: string, updates: Partial<Case>): Promise<Case> {
+    const [updated] = await db
+      .update(cases)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(cases.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Surgery operations
+  async getSurgeries(hospitalId: string, filters?: {
+    caseId?: string;
+    patientId?: string;
+    status?: string;
+    roomId?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+  }): Promise<Surgery[]> {
+    const conditions = [eq(surgeries.hospitalId, hospitalId)];
+    
+    if (filters?.caseId) conditions.push(eq(surgeries.caseId, filters.caseId));
+    if (filters?.patientId) conditions.push(eq(surgeries.patientId, filters.patientId));
+    if (filters?.status) conditions.push(sql`${surgeries.status} = ${filters.status}`);
+    if (filters?.roomId) conditions.push(eq(surgeries.surgeryRoomId, filters.roomId));
+    if (filters?.dateFrom) conditions.push(gte(surgeries.plannedDate, filters.dateFrom));
+    if (filters?.dateTo) conditions.push(lte(surgeries.plannedDate, filters.dateTo));
+
+    const result = await db
+      .select()
+      .from(surgeries)
+      .where(and(...conditions))
+      .orderBy(desc(surgeries.plannedDate));
+    
+    return result;
+  }
+
+  async getSurgery(id: string): Promise<Surgery | undefined> {
+    const [surgery] = await db.select().from(surgeries).where(eq(surgeries.id, id));
+    return surgery;
+  }
+
+  async createSurgery(surgery: InsertSurgery): Promise<Surgery> {
+    const [created] = await db.insert(surgeries).values(surgery).returning();
+    return created;
+  }
+
+  async updateSurgery(id: string, updates: Partial<Surgery>): Promise<Surgery> {
+    const [updated] = await db
+      .update(surgeries)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(surgeries.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Anesthesia Record operations
+  async getAnesthesiaRecord(surgeryId: string): Promise<AnesthesiaRecord | undefined> {
+    const [record] = await db
+      .select()
+      .from(anesthesiaRecords)
+      .where(eq(anesthesiaRecords.surgeryId, surgeryId));
+    return record;
+  }
+
+  async createAnesthesiaRecord(record: InsertAnesthesiaRecord): Promise<AnesthesiaRecord> {
+    const [created] = await db.insert(anesthesiaRecords).values(record).returning();
+    return created;
+  }
+
+  async updateAnesthesiaRecord(id: string, updates: Partial<AnesthesiaRecord>): Promise<AnesthesiaRecord> {
+    const [updated] = await db
+      .update(anesthesiaRecords)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(anesthesiaRecords.id, id))
+      .returning();
+    return updated;
+  }
+
+  async closeAnesthesiaRecord(id: string, closedBy: string): Promise<AnesthesiaRecord> {
+    const [updated] = await db
+      .update(anesthesiaRecords)
+      .set({
+        caseStatus: 'closed',
+        closedAt: new Date(),
+        closedBy,
+        updatedAt: new Date(),
+      })
+      .where(eq(anesthesiaRecords.id, id))
+      .returning();
+    return updated;
+  }
+
+  async amendAnesthesiaRecord(id: string, updates: Partial<AnesthesiaRecord>, reason: string, userId: string): Promise<AnesthesiaRecord> {
+    // Get current record for audit log
+    const [currentRecord] = await db
+      .select()
+      .from(anesthesiaRecords)
+      .where(eq(anesthesiaRecords.id, id));
+
+    // Update the record
+    const [updated] = await db
+      .update(anesthesiaRecords)
+      .set({
+        ...updates,
+        caseStatus: 'amended',
+        updatedAt: new Date(),
+      })
+      .where(eq(anesthesiaRecords.id, id))
+      .returning();
+
+    // Create audit log entry
+    await this.createAuditLog({
+      recordType: 'anesthesia_record',
+      recordId: id,
+      action: 'amend',
+      userId,
+      oldValue: currentRecord,
+      newValue: updated,
+      reason,
+    });
+
+    return updated;
+  }
+
+  // Pre-Op Assessment operations
+  async getPreOpAssessment(surgeryId: string): Promise<PreOpAssessment | undefined> {
+    const [assessment] = await db
+      .select()
+      .from(preOpAssessments)
+      .where(eq(preOpAssessments.surgeryId, surgeryId));
+    return assessment;
+  }
+
+  async createPreOpAssessment(assessment: InsertPreOpAssessment): Promise<PreOpAssessment> {
+    const [created] = await db.insert(preOpAssessments).values(assessment).returning();
+    return created;
+  }
+
+  async updatePreOpAssessment(id: string, updates: Partial<PreOpAssessment>): Promise<PreOpAssessment> {
+    const [updated] = await db
+      .update(preOpAssessments)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(preOpAssessments.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Vitals Snapshots operations
+  async getVitalsSnapshots(anesthesiaRecordId: string): Promise<VitalsSnapshot[]> {
+    const snapshots = await db
+      .select()
+      .from(vitalsSnapshots)
+      .where(eq(vitalsSnapshots.anesthesiaRecordId, anesthesiaRecordId))
+      .orderBy(asc(vitalsSnapshots.timestamp));
+    return snapshots;
+  }
+
+  async createVitalsSnapshot(snapshot: InsertVitalsSnapshot): Promise<VitalsSnapshot> {
+    const [created] = await db.insert(vitalsSnapshots).values(snapshot).returning();
+    return created;
+  }
+
+  async updateVitalsSnapshot(id: string, updates: Partial<VitalsSnapshot>, userId: string): Promise<VitalsSnapshot> {
+    // Get current snapshot for audit log
+    const [currentSnapshot] = await db
+      .select()
+      .from(vitalsSnapshots)
+      .where(eq(vitalsSnapshots.id, id));
+
+    // Update the snapshot
+    const [updated] = await db
+      .update(vitalsSnapshots)
+      .set(updates)
+      .where(eq(vitalsSnapshots.id, id))
+      .returning();
+
+    // Create audit log entry
+    await this.createAuditLog({
+      recordType: 'vitals_snapshot',
+      recordId: id,
+      action: 'update',
+      userId,
+      oldValue: currentSnapshot,
+      newValue: updated,
+    });
+
+    return updated;
+  }
+
+  // Anesthesia Medication operations
+  async getAnesthesiaMedications(anesthesiaRecordId: string): Promise<AnesthesiaMedication[]> {
+    const medications = await db
+      .select()
+      .from(anesthesiaMedications)
+      .where(eq(anesthesiaMedications.anesthesiaRecordId, anesthesiaRecordId))
+      .orderBy(asc(anesthesiaMedications.timestamp));
+    return medications;
+  }
+
+  async createAnesthesiaMedication(medication: InsertAnesthesiaMedication): Promise<AnesthesiaMedication> {
+    const [created] = await db.insert(anesthesiaMedications).values(medication).returning();
+    return created;
+  }
+
+  async updateAnesthesiaMedication(id: string, updates: Partial<AnesthesiaMedication>): Promise<AnesthesiaMedication> {
+    const [updated] = await db
+      .update(anesthesiaMedications)
+      .set(updates)
+      .where(eq(anesthesiaMedications.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteAnesthesiaMedication(id: string, userId: string): Promise<void> {
+    // Get current medication for audit log
+    const [currentMedication] = await db
+      .select()
+      .from(anesthesiaMedications)
+      .where(eq(anesthesiaMedications.id, id));
+
+    // Delete the medication
+    await db.delete(anesthesiaMedications).where(eq(anesthesiaMedications.id, id));
+
+    // Create audit log entry
+    await this.createAuditLog({
+      recordType: 'anesthesia_medication',
+      recordId: id,
+      action: 'delete',
+      userId,
+      oldValue: currentMedication,
+      newValue: null,
+    });
+  }
+
+  // Anesthesia Event operations
+  async getAnesthesiaEvents(anesthesiaRecordId: string): Promise<AnesthesiaEvent[]> {
+    const events = await db
+      .select()
+      .from(anesthesiaEvents)
+      .where(eq(anesthesiaEvents.anesthesiaRecordId, anesthesiaRecordId))
+      .orderBy(asc(anesthesiaEvents.timestamp));
+    return events;
+  }
+
+  async createAnesthesiaEvent(event: InsertAnesthesiaEvent): Promise<AnesthesiaEvent> {
+    const [created] = await db.insert(anesthesiaEvents).values(event).returning();
+    return created;
+  }
+
+  // Inventory Usage operations
+  async getInventoryUsage(anesthesiaRecordId: string): Promise<InventoryUsage[]> {
+    const usage = await db
+      .select()
+      .from(inventoryUsage)
+      .where(eq(inventoryUsage.anesthesiaRecordId, anesthesiaRecordId));
+    return usage;
+  }
+
+  async calculateInventoryUsage(anesthesiaRecordId: string): Promise<InventoryUsage[]> {
+    // Get all medications for this anesthesia record
+    const medications = await db
+      .select()
+      .from(anesthesiaMedications)
+      .where(eq(anesthesiaMedications.anesthesiaRecordId, anesthesiaRecordId));
+
+    // Group by itemId and count occurrences
+    const usageMap = new Map<string, number>();
+    
+    for (const med of medications) {
+      const currentCount = usageMap.get(med.itemId) || 0;
+      usageMap.set(med.itemId, currentCount + 1);
+    }
+
+    // Upsert inventory usage records
+    const usageRecords: InventoryUsage[] = [];
+    
+    for (const [itemId, quantityUsed] of Array.from(usageMap.entries())) {
+      const [upserted] = await db
+        .insert(inventoryUsage)
+        .values({
+          anesthesiaRecordId,
+          itemId,
+          quantityUsed,
+          autoComputed: true,
+          manualOverride: false,
+        })
+        .onConflictDoUpdate({
+          target: [inventoryUsage.anesthesiaRecordId, inventoryUsage.itemId],
+          set: {
+            quantityUsed,
+            autoComputed: true,
+            updatedAt: new Date(),
+          },
+          // Only update if not manually overridden
+          where: sql`${inventoryUsage.manualOverride} = false`,
+        })
+        .returning();
+      
+      if (upserted) {
+        usageRecords.push(upserted);
+      }
+    }
+
+    return usageRecords;
+  }
+
+  async updateInventoryUsage(id: string, quantityUsed: number): Promise<InventoryUsage> {
+    const [updated] = await db
+      .update(inventoryUsage)
+      .set({
+        quantityUsed,
+        manualOverride: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(inventoryUsage.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Audit Trail operations
+  async getAuditTrail(recordType: string, recordId: string): Promise<AuditTrail[]> {
+    const trail = await db
+      .select()
+      .from(auditTrail)
+      .where(
+        and(
+          eq(auditTrail.recordType, recordType),
+          eq(auditTrail.recordId, recordId)
+        )
+      )
+      .orderBy(desc(auditTrail.timestamp));
+    return trail;
+  }
+
+  async createAuditLog(log: InsertAuditTrail): Promise<void> {
+    await db.insert(auditTrail).values(log);
   }
 }
 
