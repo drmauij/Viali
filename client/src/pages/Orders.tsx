@@ -148,7 +148,7 @@ export default function Orders() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.units?.href = "/api/login";
+          window.location.href = "/api/login";
         }, 500);
         return;
       }
@@ -287,7 +287,7 @@ export default function Orders() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.units?.href = "/api/login";
+          window.location.href = "/api/login";
         }, 500);
         return;
       }
@@ -475,8 +475,8 @@ export default function Orders() {
   };
 
   const getOrderLocation = (order: OrderWithDetails) => {
-    const units? = new Set(order.orderLines.map(line => line.item.units?.name));
-    return Array.from(units?).join(", ");
+    const locations = new Set(order.orderLines.map(line => line.item.units?.name));
+    return Array.from(locations).join(", ");
   };
 
   const resetReceiveForm = () => {

@@ -344,7 +344,7 @@ export default function Items() {
         body: JSON.stringify({
           ...data,
           hospitalId: activeHospital?.id,
-          units?Id: activeHospital?.unitId,
+          unitId: activeHospital?.unitId,
         }),
         credentials: "include",
       });
@@ -718,7 +718,7 @@ export default function Items() {
       const response = await apiRequest("POST", "/api/folders", {
         name,
         hospitalId: activeHospital?.id,
-        units?Id: activeHospital?.unitId,
+        unitId: activeHospital?.unitId,
       });
       return await response.json();
     },

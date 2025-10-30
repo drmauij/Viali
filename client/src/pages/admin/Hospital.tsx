@@ -578,7 +578,7 @@ export default function Hospital() {
           onClick={() => setActiveTab("units")}
           data-testid="tab-units"
         >
-          <i className="fas fa-units?-dot mr-2"></i>
+          <i className="fas fa-location-dot mr-2"></i>
           {t("admin.units")}
         </button>
         <button
@@ -606,13 +606,13 @@ export default function Hospital() {
             </Button>
           </div>
 
-          {units?Loading ? (
+          {locationLoading ? (
             <div className="text-center py-8">
               <i className="fas fa-spinner fa-spin text-2xl text-primary"></i>
             </div>
-          ) : units?.length === 0 ? (
+          ) : location.length === 0 ? (
             <div className="bg-card border border-border rounded-lg p-8 text-center">
-              <i className="fas fa-units?-dot text-4xl text-muted-foreground mb-4"></i>
+              <i className="fas fa-location-dot text-4xl text-muted-foreground mb-4"></i>
               <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.noLocations")}</h3>
               <p className="text-muted-foreground mb-4">{t("admin.noLocationsMessage")}</p>
               <Button onClick={handleAddLocation} size="sm">
@@ -622,21 +622,21 @@ export default function Hospital() {
             </div>
           ) : (
             <div className="space-y-2">
-              {units?.map((units?) => (
-                <div key={units?.id} className="bg-card border border-border rounded-lg p-4" data-testid={`units?-${units?.id}`}>
+              {location.map((location) => (
+                <div key={location.id} className="bg-card border border-border rounded-lg p-4" data-testid={`location-${location.id}`}>
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-semibold text-foreground">{units?.name}</h3>
-                      {units?.type && (
-                        <p className="text-sm text-muted-foreground">{units?.type}</p>
+                      <h3 className="font-semibold text-foreground">{location.name}</h3>
+                      {location.type && (
+                        <p className="text-sm text-muted-foreground">{location.type}</p>
                       )}
                     </div>
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleEditLocation(units?)}
-                        data-testid={`button-edit-units?-${units?.id}`}
+                        onClick={() => handleEditLocation(location)}
+                        data-testid={`button-edit-location-${location.id}`}
                       >
                         <i className="fas fa-edit"></i>
                       </Button>
@@ -645,10 +645,10 @@ export default function Hospital() {
                         size="sm"
                         onClick={() => {
                           if (confirm(t("admin.deleteLocationConfirm"))) {
-                            deleteLocationMutation.mutate(units?.id);
+                            deleteLocationMutation.mutate(location.id);
                           }
                         }}
-                        data-testid={`button-delete-units?-${units?.id}`}
+                        data-testid={`button-delete-location-${location.id}`}
                       >
                         <i className="fas fa-trash text-destructive"></i>
                       </Button>
@@ -702,9 +702,9 @@ export default function Hospital() {
                             {t(`checklists.role.${template.role}`)}
                           </span>
                         )}
-                        {template.units? && (
+                        {template.location && (
                           <span className="status-chip chip-muted text-xs">
-                            {template.units?.name}
+                            {template.location.name}
                           </span>
                         )}
                         <span className="text-xs">
@@ -743,30 +743,30 @@ export default function Hospital() {
       )}
 
       {/* Location Dialog */}
-      <Dialog open={units?DialogOpen} onOpenChange={setLocationDialogOpen}>
+      <Dialog open={locationDialogOpen} onOpenChange={setLocationDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingLocation ? t("admin.editLocation") : t("admin.addLocation")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="units?-name">{t("admin.units?Name")} *</Label>
+              <Label htmlFor="location-name">{t("admin.unitName")} *</Label>
               <Input
-                id="units?-name"
-                value={units?Form.name}
-                onChange={(e) => setLocationForm({ ...units?Form, name: e.target.value })}
-                placeholder={t("admin.units?Placeholder")}
-                data-testid="input-units?-name"
+                id="location-name"
+                value={locationForm.name}
+                onChange={(e) => setLocationForm({ ...locationForm, name: e.target.value })}
+                placeholder={t("admin.locationPlaceholder")}
+                data-testid="input-location-name"
               />
             </div>
             <div>
-              <Label htmlFor="units?-type">{t("admin.type")}</Label>
+              <Label htmlFor="location-type">{t("admin.type")}</Label>
               <Input
-                id="units?-type"
-                value={units?Form.type}
-                onChange={(e) => setLocationForm({ ...units?Form, type: e.target.value })}
+                id="location-type"
+                value={locationForm.type}
+                onChange={(e) => setLocationForm({ ...locationForm, type: e.target.value })}
                 placeholder={t("admin.typePlaceholder")}
-                data-testid="input-units?-type"
+                data-testid="input-location-type"
               />
             </div>
             <div className="flex gap-2 justify-end">
@@ -776,7 +776,7 @@ export default function Hospital() {
               <Button
                 onClick={handleSaveLocation}
                 disabled={createLocationMutation.isPending || updateLocationMutation.isPending}
-                data-testid="button-save-units?"
+                data-testid="button-save-location"
               >
                 {editingLocation ? t("common.edit") : t("common.save")}
               </Button>
@@ -821,18 +821,18 @@ export default function Hospital() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label htmlFor="template-units?">{t("admin.units?")} *</Label>
+                <Label htmlFor="template-location">{t("admin.location")} *</Label>
                 <Select
                   value={templateForm.unitId}
-                  onValueChange={(value) => setTemplateForm({ ...templateForm, units?Id: value })}
+                  onValueChange={(value) => setTemplateForm({ ...templateForm, unitId: value })}
                 >
-                  <SelectTrigger data-testid="select-template-units?">
+                  <SelectTrigger data-testid="select-template-location">
                     <SelectValue placeholder={t("admin.selectLocation")} />
                   </SelectTrigger>
                   <SelectContent>
-                    {units?.map((units?) => (
-                      <SelectItem key={units?.id} value={units?.id}>
-                        {units?.name}
+                    {location.map((location) => (
+                      <SelectItem key={location.id} value={location.id}>
+                        {location.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -981,25 +981,25 @@ export default function Hospital() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="anesthesia-units?">Select Location</Label>
+              <Label htmlFor="anesthesia-location">Select Location</Label>
               <p className="text-sm text-muted-foreground mb-2">
-                Choose which units?'s inventory will be used for anesthesia medications and infusions.
-                Only users assigned to this units? can access the anesthesia module.
+                Choose which location's inventory will be used for anesthesia medications and infusions.
+                Only users assigned to this location can access the anesthesia module.
               </p>
               <Select
                 value={selectedAnesthesiaLocationId}
                 onValueChange={setSelectedAnesthesiaLocationId}
               >
-                <SelectTrigger id="anesthesia-units?" data-testid="select-anesthesia-units?">
-                  <SelectValue placeholder="Select a units?" />
+                <SelectTrigger id="anesthesia-location" data-testid="select-anesthesia-location">
+                  <SelectValue placeholder="Select a location" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none" data-testid="option-none">
                     None (Disable anesthesia module)
                   </SelectItem>
-                  {units?.map((units?) => (
-                    <SelectItem key={units?.id} value={units?.id} data-testid={`option-units?-${units?.id}`}>
-                      {units?.name} {units?.type ? `(${units?.type})` : ""}
+                  {location.map((location) => (
+                    <SelectItem key={location.id} value={location.id} data-testid={`option-location-${location.id}`}>
+                      {location.name} {location.type ? `(${location.type})` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1012,7 +1012,7 @@ export default function Hospital() {
               <Button
                 onClick={handleSaveAnesthesiaLocation}
                 disabled={updateAnesthesiaLocationMutation.isPending}
-                data-testid="button-save-anesthesia-units?"
+                data-testid="button-save-anesthesia-location"
               >
                 {t("common.save")}
               </Button>
@@ -1029,24 +1029,24 @@ export default function Hospital() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="surgery-units?">Select Location</Label>
+              <Label htmlFor="surgery-location">Select Location</Label>
               <p className="text-sm text-muted-foreground mb-2">
-                Doctors assigned to this units? will be available as surgeons
+                Doctors assigned to this location will be available as surgeons
               </p>
               <Select
                 value={selectedSurgeryLocationId}
                 onValueChange={setSelectedSurgeryLocationId}
               >
-                <SelectTrigger id="surgery-units?" data-testid="select-surgery-units?">
-                  <SelectValue placeholder="Select a units?" />
+                <SelectTrigger id="surgery-location" data-testid="select-surgery-location">
+                  <SelectValue placeholder="Select a location" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none" data-testid="option-none-surgery">
                     None (Disable surgery module)
                   </SelectItem>
-                  {units?.map((units?) => (
-                    <SelectItem key={units?.id} value={units?.id} data-testid={`option-surgery-units?-${units?.id}`}>
-                      {units?.name} {units?.type ? `(${units?.type})` : ""}
+                  {location.map((location) => (
+                    <SelectItem key={location.id} value={location.id} data-testid={`option-surgery-location-${location.id}`}>
+                      {location.name} {location.type ? `(${location.type})` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1059,7 +1059,7 @@ export default function Hospital() {
               <Button
                 onClick={handleSaveSurgeryLocation}
                 disabled={updateSurgeryLocationMutation.isPending}
-                data-testid="button-save-surgery-units?"
+                data-testid="button-save-surgery-location"
               >
                 {t("common.save")}
               </Button>

@@ -32,7 +32,7 @@ export default function Checklists() {
     name: "",
     recurrency: "",
     items: [] as string[],
-    units?Id: "",
+    unitId: "",
     role: "",
     startDate: new Date().toISOString().split('T')[0],
   });
@@ -41,8 +41,8 @@ export default function Checklists() {
   // Check if user is admin
   const isAdmin = activeHospital?.role === "admin";
 
-  // Fetch units?
-  const { data: units? = [] } = useQuery<Location[]>({
+  // Fetch units
+  const { data: units = [] } = useQuery<Location[]>({
     queryKey: [`/api/admin/${hospitalId}/units`],
     enabled: !!activeHospital?.id && isAdmin,
   });
@@ -127,7 +127,7 @@ export default function Checklists() {
       name: "",
       recurrency: "",
       items: [],
-      units?Id: "",
+      unitId: "",
       role: "",
       startDate: new Date().toISOString().split('T')[0],
     });
@@ -146,7 +146,7 @@ export default function Checklists() {
       name: template.name,
       recurrency: template.recurrency,
       items: (template.items || []).map((item: any) => typeof item === 'string' ? item : (item.description || "")),
-      units?Id: template.unitId || "",
+      unitId: template.unitId || "",
       role: template.role || "",
       startDate: template.startDate?.split('T')[0] || new Date().toISOString().split('T')[0],
     });
@@ -163,7 +163,7 @@ export default function Checklists() {
       return;
     }
     if (!templateForm.unitId) {
-      toast({ title: t("common.error"), description: t("admin.units?Required"), variant: "destructive" });
+      toast({ title: t("common.error"), description: t("admin.unitsRequired"), variant: "destructive" });
       return;
     }
     if (templateForm.items.length === 0) {
@@ -175,7 +175,7 @@ export default function Checklists() {
       name: templateForm.name.trim(),
       recurrency: templateForm.recurrency,
       items: templateForm.items.filter(item => item.trim()).map(item => ({ description: item.trim() })),
-      units?Id: templateForm.unitId,
+      unitId: templateForm.unitId,
       role: templateForm.role || null,
       startDate: templateForm.startDate,
     };
@@ -313,9 +313,9 @@ export default function Checklists() {
                           {t(`checklists.role.${template.role}`)}
                         </span>
                       )}
-                      {template.units? && (
+                      {template.units && (
                         <span className="status-chip chip-muted text-xs">
-                          {template.units?.name}
+                          {template.units.name}
                         </span>
                       )}
                       <span className="text-xs">
@@ -388,18 +388,18 @@ export default function Checklists() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label htmlFor="template-units?">{t("admin.units?")} *</Label>
+                <Label htmlFor="template-units">{t("admin.units")} *</Label>
                 <Select
                   value={templateForm.unitId}
-                  onValueChange={(value) => setTemplateForm({ ...templateForm, units?Id: value })}
+                  onValueChange={(value) => setTemplateForm({ ...templateForm, unitId: value })}
                 >
-                  <SelectTrigger data-testid="select-template-units?">
+                  <SelectTrigger data-testid="select-template-units">
                     <SelectValue placeholder={t("admin.selectLocation")} />
                   </SelectTrigger>
                   <SelectContent>
-                    {units?.map((units?) => (
-                      <SelectItem key={units?.id} value={units?.id}>
-                        {units?.name}
+                    {units.map((units) => (
+                      <SelectItem key={units.id} value={units.id}>
+                        {units.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

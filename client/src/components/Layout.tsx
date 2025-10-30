@@ -9,8 +9,8 @@ interface Hospital {
   id: string;
   name: string;
   role: string;
-  units?Id: string;
-  units?Name: string;
+  unitId: string;
+  unitName: string;
 }
 
 interface LayoutProps {
@@ -53,7 +53,7 @@ export default function Layout({ children }: LayoutProps) {
     window.dispatchEvent(new CustomEvent("hospital-changed"));
     setActiveHospital(hospital);
     // Reload the page to refetch all queries with the new hospital/role context
-    window.units?.reload();
+    window.location.reload();
   };
 
   if (!isAuthenticated) {

@@ -13,11 +13,11 @@ import type { Location, UserHospitalRole, User } from "@shared/schema";
 
 interface HospitalUser extends UserHospitalRole {
   user: User;
-  units?: Location;
+  units: Location;
 }
 
 interface GroupedHospitalUser extends HospitalUser {
-  roles: Array<{ role: string; units?: Location; roleId: string; units?Id: string }>;
+  roles: Array<{ role: string; units: Location; roleId: string; unitId: string }>;
 }
 
 export default function Users() {
@@ -38,17 +38,17 @@ export default function Users() {
     password: "",
     firstName: "",
     lastName: "",
-    units?Id: "",
+    unitId: "",
     role: "",
   });
-  const [roleLocationPairs, setRoleLocationPairs] = useState<Array<{ id?: string; role: string; units?Id: string }>>([]);
-  const [newPair, setNewPair] = useState({ role: "", units?Id: "" });
+  const [roleLocationPairs, setRoleLocationPairs] = useState<Array<{ id?: string; role: string; unitId: string }>>([]);
+  const [newPair, setNewPair] = useState({ role: "", unitId: "" });
 
   // Check if user is admin
   const isAdmin = activeHospital?.role === "admin";
 
-  // Fetch units?
-  const { data: units? = [] } = useQuery<Location[]>({
+  // Fetch units
+  const { data: units = [] } = useQuery<Location[]>({
     queryKey: [`/api/admin/${hospitalId}/units`],
     enabled: !!activeHospital?.id && isAdmin,
   });
@@ -70,18 +70,18 @@ export default function Users() {
           ...userRole,
           roles: [{
             role: userRole.role,
-            units?: userRole.units?,
+            units: userRole.units,
             roleId: userRole.id,
-            units?Id: userRole.unitId
+            unitId: userRole.unitId
           }]
         });
       } else {
         const existing = grouped.get(userId)!;
         existing.roles.push({
           role: userRole.role,
-          units?: userRole.units?,
+          units: userRole.units,
           roleId: userRole.id,
-          units?Id: userRole.unitId
+          unitId: userRole.unitId
         });
       }
     });
@@ -188,7 +188,7 @@ export default function Users() {
   });
 
   const resetUserForm = () => {
-    setUserForm({ email: "", password: "", firstName: "", lastName: "", units?Id: "", role: "" });
+    setUserForm({ email: "", password: "", firstName: "", lastName: "", unitId: "", role: "" });
   };
 
   const handleCreateUser = () => {
@@ -200,7 +200,7 @@ export default function Users() {
     const userPairs = user.roles?.map((r: any) => ({ 
       id: r.roleId, 
       role: r.role, 
-      units?Id: r.unitId 
+      unitId: r.unitId 
     })) || [];
     
     setEditingUserDetails(user.user);
@@ -210,7 +210,7 @@ export default function Users() {
       lastName: user.user.lastName || "",
     });
     setRoleLocationPairs(userPairs);
-    setNewPair({ role: "", units?Id: "" });
+    setNewPair({ role: "", unitId: "" });
     setEditUserDialogOpen(true);
   };
 
@@ -222,7 +222,7 @@ export default function Users() {
         const userPairs = user.roles?.map((r: any) => ({ 
           id: r.roleId, 
           role: r.role, 
-          units?Id: r.unitId 
+          unitId: r.unitId 
         })) || [];
         setRoleLocationPairs(userPairs);
       }
@@ -288,17 +288,17 @@ export default function Users() {
     if (!editingUserDetails) return;
 
     const tempId = `temp-${Date.now()}`;
-    const optimisticPair = { id: tempId, role: newPair.role, units?Id: newPair.unitId };
+    const optimisticPair = { id: tempId, role: newPair.role, unitId: newPair.unitId };
     setRoleLocationPairs([...roleLocationPairs, optimisticPair]);
 
     try {
       await createUserRoleMutation.mutateAsync({
         userId: editingUserDetails.id,
         role: newPair.role,
-        units?Id: newPair.unitId,
+        unitId: newPair.unitId,
       });
 
-      setNewPair({ role: "", units?Id: "" });
+      setNewPair({ role: "", unitId: "" });
     } catch (error) {
       setRoleLocationPairs(prev => prev.filter(p => p.id !== tempId));
     }
@@ -397,7 +397,7 @@ export default function Users() {
                       <div key={idx} className="inline-flex items-center bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
                         <span className="text-xs font-medium text-primary">{getRoleName(roleInfo.role)}</span>
                         <span className="text-xs text-primary/60 mx-1.5">@</span>
-                        <span className="text-xs text-primary/80">{roleInfo.units?.name}</span>
+                        <span className="text-xs text-primary/80">{roleInfo.units.name}</span>
                       </div>
                     ))}
                   </div>
@@ -480,18 +480,18 @@ export default function Users() {
               </div>
             </div>
             <div>
-              <Label htmlFor="user-units?">{t("admin.units?")} *</Label>
+              <Label htmlFor="user-units">{t("admin.units")} *</Label>
               <Select
                 value={userForm.unitId}
-                onValueChange={(value) => setUserForm({ ...userForm, units?Id: value })}
+                onValueChange={(value) => setUserForm({ ...userForm, unitId: value })}
               >
-                <SelectTrigger data-testid="select-user-units?">
+                <SelectTrigger data-testid="select-user-units">
                   <SelectValue placeholder={t("admin.selectLocation")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {units?.map((units?) => (
-                    <SelectItem key={units?.id} value={units?.id}>
-                      {units?.name}
+                  {units.map((units) => (
+                    <SelectItem key={units.id} value={units.id}>
+                      {units.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -565,13 +565,13 @@ export default function Users() {
               <Label className="text-base font-semibold">{t("admin.roleLocationPairs")}</Label>
               <div className="space-y-2 mt-3">
                 {roleLocationPairs.map((pair) => {
-                  const units? = units?.find(l => l.id === pair.unitId);
+                  const units = units.find(l => l.id === pair.unitId);
                   return (
                     <div key={pair.id} className="flex items-center justify-between bg-muted p-2 rounded-md">
                       <div className="inline-flex items-center bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
                         <span className="text-xs font-medium text-primary">{getRoleName(pair.role)}</span>
                         <span className="text-xs text-primary/60 mx-1.5">@</span>
-                        <span className="text-xs text-primary/80">{units??.name}</span>
+                        <span className="text-xs text-primary/80">{units?.name}</span>
                       </div>
                       {pair.id && (
                         <Button
@@ -608,15 +608,15 @@ export default function Users() {
                 </Select>
                 <Select
                   value={newPair.unitId}
-                  onValueChange={(value) => setNewPair({ ...newPair, units?Id: value })}
+                  onValueChange={(value) => setNewPair({ ...newPair, unitId: value })}
                 >
-                  <SelectTrigger className="flex-1" data-testid="select-new-units?">
+                  <SelectTrigger className="flex-1" data-testid="select-new-units">
                     <SelectValue placeholder={t("admin.selectLocation")} />
                   </SelectTrigger>
                   <SelectContent>
-                    {units?.map((units?) => (
-                      <SelectItem key={units?.id} value={units?.id}>
-                        {units?.name}
+                    {units.map((units) => (
+                      <SelectItem key={units.id} value={units.id}>
+                        {units.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

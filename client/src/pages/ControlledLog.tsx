@@ -148,7 +148,7 @@ export default function ControlledLog() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.units?.href = "/api/login";
+          window.location.href = "/api/login";
         }, 500);
         return;
       }
@@ -164,7 +164,7 @@ export default function ControlledLog() {
   const routineCheckMutation = useMutation({
     mutationFn: async (data: {
       hospitalId: string;
-      units?Id: string;
+      unitId: string;
       signature: string;
       checkItems: Array<{ itemId: string; name: string; expectedQty: number; actualQty: number; match: boolean }>;
       allMatch?: boolean;
@@ -190,7 +190,7 @@ export default function ControlledLog() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.units?.href = "/api/login";
+          window.location.href = "/api/login";
         }, 500);
         return;
       }
@@ -227,7 +227,7 @@ export default function ControlledLog() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.units?.href = "/api/login";
+          window.location.href = "/api/login";
         }, 500);
         return;
       }
@@ -268,7 +268,7 @@ export default function ControlledLog() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.units?.href = "/api/login";
+          window.location.href = "/api/login";
         }, 500);
         return;
       }
@@ -478,7 +478,7 @@ export default function ControlledLog() {
 
     routineCheckMutation.mutate({
       hospitalId: activeHospital.id,
-      units?Id: activeHospital.unitId,
+      unitId: activeHospital.unitId,
       signature: checkSignature,
       checkItems: routineCheckItems,
       allMatch,

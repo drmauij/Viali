@@ -65,7 +65,7 @@ export default function Scan() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.units?.href = "/api/login";
+          window.location.href = "/api/login";
         }, 500);
         return;
       }
@@ -177,7 +177,7 @@ export default function Scan() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.units?.href = "/api/login";
+          window.location.href = "/api/login";
         }, 500);
         return;
       }
