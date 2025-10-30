@@ -13,21 +13,21 @@
 
 import { storage } from "./storage";
 import {
-  DEFAULT_LOCATIONS,
+  DEFAULT_UNITS,
   DEFAULT_SURGERY_ROOMS,
   DEFAULT_ADMINISTRATION_GROUPS,
   DEFAULT_MEDICATIONS,
 } from "./seed-data";
 
 export interface SeedResult {
-  locationsCreated: number;
+  unitsCreated: number;
   surgeryRoomsCreated: number;
   adminGroupsCreated: number;
   medicationsCreated: number;
 }
 
 /**
- * Seeds a hospital with default data (locations, surgery rooms, admin groups, medications)
+ * Seeds a hospital with default data (units, surgery rooms, admin groups, medications)
  * Only creates items that don't already exist - never replaces existing data.
  * 
  * @param hospitalId - The hospital ID to seed
@@ -39,59 +39,59 @@ export async function seedHospitalData(
   userId?: string
 ): Promise<SeedResult> {
   const result: SeedResult = {
-    locationsCreated: 0,
+    unitsCreated: 0,
     surgeryRoomsCreated: 0,
     adminGroupsCreated: 0,
     medicationsCreated: 0,
   };
 
-  // 1. CREATE LOCATIONS (only if they don't exist)
-  const existingLocations = await storage.getLocations(hospitalId);
-  const existingLocationNames = new Set(existingLocations.map(l => l.name));
+  // 1. CREATE UNITS (only if they don't exist)
+  const existingUnits = await storage.getUnits(hospitalId);
+  const existingUnitNames = new Set(existingUnits.map(l => l.name));
 
-  let anesthesyLocation = existingLocations.find(l => l.name === "Anesthesy");
-  let orLocation = existingLocations.find(l => l.name === "Operating Room (OR)");
+  let anesthesyUnit = existingUnits.find(l => l.name === "Anesthesy");
+  let orUnit = existingUnits.find(l => l.name === "Operating Room (OR)");
 
-  for (const locationData of DEFAULT_LOCATIONS) {
-    if (!existingLocationNames.has(locationData.name)) {
-      const newLocation = await storage.createLocation({
+  for (const unitData of DEFAULT_UNITS) {
+    if (!existingUnitNames.has(unitData.name)) {
+      const newUnit = await storage.createUnit({
         hospitalId,
-        name: locationData.name,
-        type: locationData.type,
-        parentId: locationData.parentId,
+        name: unitData.name,
+        type: unitData.type,
+        parentId: unitData.parentId,
       });
-      result.locationsCreated++;
+      result.unitsCreated++;
 
-      // Keep references to key locations
-      if (locationData.name === "Anesthesy") {
-        anesthesyLocation = newLocation;
-      } else if (locationData.name === "Operating Room (OR)") {
-        orLocation = newLocation;
+      // Keep references to key units
+      if (unitData.name === "Anesthesy") {
+        anesthesyUnit = newUnit;
+      } else if (unitData.name === "Operating Room (OR)") {
+        orUnit = newUnit;
       }
     }
   }
 
-  // Ensure we have required locations
-  if (!anesthesyLocation) {
-    throw new Error("Anesthesy location not found - cannot seed medications");
+  // Ensure we have required units
+  if (!anesthesyUnit) {
+    throw new Error("Anesthesy unit not found - cannot seed medications");
   }
-  if (!orLocation) {
-    throw new Error("Operating Room location not found - cannot configure surgery module");
+  if (!orUnit) {
+    throw new Error("Operating Room unit not found - cannot configure surgery module");
   }
 
-  // If this is a new hospital with a user, assign user as admin to Anesthesy location
-  if (userId && existingLocations.length === 0) {
+  // If this is a new hospital with a user, assign user as admin to Anesthesy unit
+  if (userId && existingUnits.length === 0) {
     await storage.createUserHospitalRole({
       userId,
       hospitalId,
-      unitId: anesthesyLocation.id,
+      unitId: anesthesyUnit.id,
       role: "admin",
     });
 
-    // Configure modules to use appropriate locations
+    // Configure modules to use appropriate units
     await storage.updateHospital(hospitalId, {
-      anesthesiaLocationId: anesthesyLocation.id,
-      surgeryLocationId: orLocation.id, // Doctors in OR location are available as surgeons
+      anesthesiaUnitId: anesthesyUnit.id,
+      surgeryUnitId: orUnit.id, // Doctors in OR unit are available as surgeons
     });
   }
 
@@ -126,7 +126,7 @@ export async function seedHospitalData(
   }
 
   // 4. CREATE MEDICATIONS (only if they don't exist)
-  const existingItems = await storage.getItems(hospitalId, anesthesyLocation.id);
+  const existingItems = await storage.getItems(hospitalId, anesthesyUnit.id);
   const existingItemNames = new Set(existingItems.map(i => i.name));
 
   for (const medData of DEFAULT_MEDICATIONS) {
@@ -134,7 +134,7 @@ export async function seedHospitalData(
       // Create the item
       const newItem = await storage.createItem({
         hospitalId,
-        unitId: anesthesyLocation.id,
+        unitId: anesthesyUnit.id,
         name: medData.name,
         unit: medData.unit,
         trackExactQuantity: medData.trackExactQuantity,
@@ -159,7 +159,7 @@ export async function seedHospitalData(
       });
 
       // Create initial stock level (0 quantity)
-      await storage.updateStockLevel(newItem.id, anesthesyLocation.id, 0);
+      await storage.updateStockLevel(newItem.id, anesthesyUnit.id, 0);
 
       result.medicationsCreated++;
     }

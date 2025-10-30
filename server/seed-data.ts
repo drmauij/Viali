@@ -10,7 +10,7 @@
  * missing items without losing any customizations.
  */
 
-export interface SeedLocation {
+export interface SeedUnit {
   name: string;
   type: string;
   parentId: null;
@@ -44,10 +44,10 @@ export interface SeedMedication {
 }
 
 /**
- * Default Locations
- * These locations are created for every new hospital
+ * Default Units
+ * These units are created for every new hospital
  */
-export const DEFAULT_LOCATIONS: SeedLocation[] = [
+export const DEFAULT_UNITS: SeedUnit[] = [
   {
     name: "Anesthesy",
     type: "anesthesy",
