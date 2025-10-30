@@ -81,7 +81,7 @@ export default function AnesthesiaSettings() {
   const [isRateControlled, setIsRateControlled] = useState(false);
   const [rateUnit, setRateUnit] = useState('ml/h');
 
-  // Fetch all items for the hospital's anesthesia units?
+  // Fetch all items for the hospital's anesthesia units
   const { data: allItems = [], isLoading } = useQuery<Item[]>({
     queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.anesthesiaUnitId}`],
     enabled: !!activeHospital?.id && !!activeHospital?.anesthesiaUnitId,
@@ -439,7 +439,7 @@ export default function AnesthesiaSettings() {
           <i className="fas fa-syringe text-4xl text-muted-foreground mb-4"></i>
           <h3 className="text-lg font-semibold text-foreground mb-2">Anesthesia Module Not Configured</h3>
           <p className="text-muted-foreground mb-4">
-            An administrator needs to configure which inventory units? should be used for anesthesia items.
+            An administrator needs to configure which inventory units should be used for anesthesia items.
             Please contact your hospital admin to set this up in Hospital Settings.
           </p>
         </div>

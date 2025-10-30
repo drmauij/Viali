@@ -14,7 +14,7 @@ export default function ResetPassword() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const params = new URLSearchParams(window.units?.search);
+    const params = new URLSearchParams(window.location.search);
     const resetToken = params.get('token');
     if (!resetToken) {
       toast({

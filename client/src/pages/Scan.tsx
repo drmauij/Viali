@@ -140,7 +140,7 @@ export default function Scan() {
   // Stock update mutation
   const updateStockMutation = useMutation({
     mutationFn: async ({ itemId, newQty }: { itemId: string; newQty: number }) => {
-      // Get current stock level first (simplified - would need units?)
+      // Get current stock level first (simplified - would need units)
       const currentQty = scannedItem?.stockLevel?.qtyOnHand || 0;
       const delta = newQty - currentQty;
       

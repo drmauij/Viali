@@ -21,14 +21,14 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import SignaturePad from "@/components/SignaturePad";
-import type { Order, Vendor, OrderLine, Item, StockLevel, Location } from "@shared/schema";
+import type { Order, Vendor, OrderLine, Item, StockLevel, Unit } from "@shared/schema";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Check } from "lucide-react";
 
 interface OrderWithDetails extends Order {
   vendor: Vendor | null;
-  orderLines: (OrderLine & { item: Item & { units?: Location; stockLevel?: StockLevel } })[];
+  orderLines: (OrderLine & { item: Item & { unit?: Unit; stockLevel?: StockLevel } })[];
 }
 
 interface ItemWithStock extends Item {
@@ -71,7 +71,7 @@ export default function Orders() {
   const [lineToRemove, setLineToRemove] = useState<string | null>(null);
   
   const [showReceiveDialog, setShowReceiveDialog] = useState(false);
-  const [selectedLineToReceive, setSelectedLineToReceive] = useState<(OrderLine & { item: Item & { units?: Location; stockLevel?: StockLevel } }) | null>(null);
+  const [selectedLineToReceive, setSelectedLineToReceive] = useState<(OrderLine & { item: Item & { unit?: Unit; stockLevel?: StockLevel } }) | null>(null);
   const [receiveNotes, setReceiveNotes] = useState("");
   const [receiveSignature, setReceiveSignature] = useState("");
   const [showReceiveSignaturePad, setShowReceiveSignaturePad] = useState(false);
@@ -475,7 +475,7 @@ export default function Orders() {
   };
 
   const getOrderLocation = (order: OrderWithDetails) => {
-    const locations = new Set(order.orderLines.map(line => line.item.units?.name));
+    const locations = new Set(order.orderLines.map(line => line.item.unit?.name));
     return Array.from(locations).join(", ");
   };
 
@@ -486,7 +486,7 @@ export default function Orders() {
     setShowReceiveSignaturePad(false);
   };
 
-  const handleReceiveLine = (line: OrderLine & { item: Item & { units?: Location; stockLevel?: StockLevel } }) => {
+  const handleReceiveLine = (line: OrderLine & { item: Item & { unit?: Unit; stockLevel?: StockLevel } }) => {
     setSelectedLineToReceive(line);
     setShowReceiveDialog(true);
   };
@@ -806,7 +806,7 @@ export default function Orders() {
             <div className="space-y-4">
               <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                 <div>
-                  <p className="text-sm text-muted-foreground">{t('orders.units?')}</p>
+                  <p className="text-sm text-muted-foreground">{t('orders.unit')}</p>
                   <p className="font-medium text-foreground">
                     <i className="fas fa-map-marker-alt mr-1"></i>
                     {getOrderLocation(selectedOrder)}

@@ -13,7 +13,7 @@ const mockCase = {
   surgeon: "Dr. Smith",
   plannedDate: "2025-10-09T14:30:00Z",
   status: "completed",
-  units?: "OR 3",
+  unit: "OR 3",
   createdAt: "2025-10-08T10:00:00Z",
 };
 
@@ -82,7 +82,7 @@ export default function CaseDetail() {
               <p className="text-muted-foreground">Location</p>
               <p className="font-medium flex items-center gap-1">
                 <MapPin className="h-3 w-3" />
-                {mockCase.units?}
+                {mockCase.unit}
               </p>
             </div>
             <div>

@@ -244,13 +244,13 @@ export default function Op() {
   // Inventory tracking state - { itemId: quantity }
   const [inventoryQuantities, setInventoryQuantities] = useState<Record<string, number>>({});
 
-  // Fetch items for inventory tracking - filtered by anesthesia units?
+  // Fetch items for inventory tracking - filtered by anesthesia units
   const { data: items = [] } = useQuery<any[]>({
     queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.anesthesiaUnitId}`, activeHospital?.anesthesiaUnitId],
     enabled: !!activeHospital?.id && !!activeHospital?.anesthesiaUnitId,
   });
 
-  // Fetch folders - filtered by anesthesia units?
+  // Fetch folders - filtered by anesthesia units
   const { data: folders = [] } = useQuery<any[]>({
     queryKey: [`/api/folders/${activeHospital?.id}?unitId=${activeHospital?.anesthesiaUnitId}`, activeHospital?.anesthesiaUnitId],
     enabled: !!activeHospital?.id && !!activeHospital?.anesthesiaUnitId,
@@ -523,8 +523,8 @@ export default function Op() {
                             <div className="grid grid-cols-2 gap-4">
                               <div className="space-y-2">
                                 <Label>Location</Label>
-                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-pv-units?-1">
-                                  <option value="">Select units?</option>
+                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-pv-location-1">
+                                  <option value="">Select location</option>
                                   <option value="right-hand">Right Hand (Dorsum)</option>
                                   <option value="left-hand">Left Hand (Dorsum)</option>
                                   <option value="right-forearm">Right Forearm</option>
@@ -568,8 +568,8 @@ export default function Op() {
                             <div className="grid grid-cols-2 gap-4">
                               <div className="space-y-2">
                                 <Label>Location</Label>
-                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-arterial-units?">
-                                  <option value="">Select units?</option>
+                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-arterial-location">
+                                  <option value="">Select location</option>
                                   <option value="radial-left">Radial - Left</option>
                                   <option value="radial-right">Radial - Right</option>
                                   <option value="femoral-left">Femoral - Left</option>
@@ -616,8 +616,8 @@ export default function Op() {
                             <div className="grid grid-cols-2 gap-4">
                               <div className="space-y-2">
                                 <Label>Location</Label>
-                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-cvc-units?">
-                                  <option value="">Select units?</option>
+                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-cvc-location">
+                                  <option value="">Select location</option>
                                   <option value="right-ijv">Right Internal Jugular</option>
                                   <option value="left-ijv">Left Internal Jugular</option>
                                   <option value="right-subclavian">Right Subclavian</option>

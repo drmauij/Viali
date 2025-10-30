@@ -104,7 +104,7 @@ export default function PatientDetail() {
   useEffect(() => {
     if (!patient) return;
     
-    const urlParams = new URLSearchParams(window.units?.search);
+    const urlParams = new URLSearchParams(window.location.search);
     const openPreOpCaseId = urlParams.get('openPreOp');
     
     if (openPreOpCaseId) {
@@ -116,7 +116,7 @@ export default function PatientDetail() {
       setIsPreOpOpen(true);
       
       // Clean up URL by removing only the openPreOp parameter
-      const url = new URL(window.units?.href);
+      const url = new URL(window.location.href);
       url.searchParams.delete('openPreOp');
       const newUrl = url.searchParams.toString() ? `${url.pathname}?${url.searchParams.toString()}` : url.pathname;
       window.history.replaceState({}, '', newUrl);

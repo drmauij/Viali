@@ -565,13 +565,13 @@ export default function Users() {
               <Label className="text-base font-semibold">{t("admin.roleLocationPairs")}</Label>
               <div className="space-y-2 mt-3">
                 {roleLocationPairs.map((pair) => {
-                  const units = units.find(l => l.id === pair.unitId);
+                  const unit = units.find(l => l.id === pair.unitId);
                   return (
                     <div key={pair.id} className="flex items-center justify-between bg-muted p-2 rounded-md">
                       <div className="inline-flex items-center bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
                         <span className="text-xs font-medium text-primary">{getRoleName(pair.role)}</span>
                         <span className="text-xs text-primary/60 mx-1.5">@</span>
-                        <span className="text-xs text-primary/80">{units?.name}</span>
+                        <span className="text-xs text-primary/80">{unit?.name}</span>
                       </div>
                       {pair.id && (
                         <Button

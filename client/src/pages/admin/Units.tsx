@@ -214,7 +214,7 @@ export default function Units() {
           </div>
         ) : units.length === 0 ? (
           <div className="bg-card border border-border rounded-lg p-8 text-center">
-            <i className="fas fa-units?-dot text-4xl text-muted-foreground mb-4"></i>
+            <i className="fas fa-location-dot text-4xl text-muted-foreground mb-4"></i>
             <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.noUnits")}</h3>
             <p className="text-muted-foreground mb-4">{t("admin.noUnitsMessage")}</p>
             <Button onClick={handleAddUnit} size="sm">

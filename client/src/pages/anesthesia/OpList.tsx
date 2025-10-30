@@ -19,7 +19,7 @@ const mockActiveSurgeries = [
     plannedDate: "2024-01-15",
     status: "in-progress",
     startTime: "08:00",
-    units?: "OR 3",
+    unit: "OR 3",
   },
   {
     id: "case-2",
@@ -32,7 +32,7 @@ const mockActiveSurgeries = [
     plannedDate: "2024-01-15",
     status: "in-progress",
     startTime: "09:30",
-    units?: "OR 1",
+    unit: "OR 1",
   },
 ];
 
@@ -47,7 +47,7 @@ export default function OpList() {
       case_.patientName.toLowerCase().includes(searchLower) ||
       case_.plannedSurgery.toLowerCase().includes(searchLower) ||
       case_.surgeon.toLowerCase().includes(searchLower) ||
-      case_.units?.toLowerCase().includes(searchLower)
+      case_.unit?.toLowerCase().includes(searchLower)
     );
   });
 
@@ -175,7 +175,7 @@ export default function OpList() {
                   {/* Location & Status */}
                   <div className="flex flex-col items-end gap-2">
                     <Badge className="bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700">
-                      {case_.units?}
+                      {case_.unit}
                     </Badge>
                     <Badge variant="outline" className="bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700">
                       In Progress
