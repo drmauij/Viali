@@ -44,7 +44,7 @@ export default function Patients() {
 
   // Fetch patients
   const { data: patients = [], isLoading, error } = useQuery<Patient[]>({
-    queryKey: ['/api/patients', activeHospital?.id],
+    queryKey: [`/api/patients?hospitalId=${activeHospital?.id}`],
     enabled: !!activeHospital?.id,
   });
 
@@ -54,7 +54,7 @@ export default function Patients() {
       return await apiRequest('POST', '/api/patients', patientData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/patients'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/patients?hospitalId=${activeHospital?.id}`] });
       toast({
         title: "Patient created",
         description: "Patient has been created successfully",
