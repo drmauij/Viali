@@ -14,8 +14,8 @@ import { ClipboardCheck, Clock, AlertCircle, FileSignature } from "lucide-react"
 import SignaturePad from "@/components/SignaturePad";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { formatShortDate, formatDateTimeLong } from "@/lib/dateUtils";
 import type { ChecklistTemplate, ChecklistCompletion, User } from "@shared/schema";
-import { format } from "date-fns";
 
 interface PendingChecklist extends ChecklistTemplate {
   lastCompletion?: ChecklistCompletion;
@@ -241,7 +241,7 @@ export default function Checklists() {
                           </span>
                           <span>•</span>
                           <span data-testid={`text-duedate-${checklist.id}`}>
-                            {t("checklists.dueDate")}: {format(new Date(checklist.nextDueDate), "PP")}
+                            {t("checklists.dueDate")}: {formatShortDate(checklist.nextDueDate)}
                           </span>
                           {checklist.role && (
                             <>
@@ -310,7 +310,7 @@ export default function Checklists() {
                         </CardTitle>
                         <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
                           <span data-testid={`text-completed-${completion.id}`}>
-                            {t("checklists.completedOn")}: {format(new Date(completion.completedAt!), "PPp")}
+                            {t("checklists.completedOn")}: {formatDateTimeLong(completion.completedAt)}
                           </span>
                           <span>•</span>
                           <span data-testid={`text-completedby-${completion.id}`}>

@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { formatDate, formatDateTime } from "@/lib/dateUtils";
 
 type PreOpAssessmentData = {
   // General Data
@@ -341,13 +342,13 @@ export function PreOpOverview({ data }: PreOpOverviewProps) {
             {data.last_solids.trim() && (
               <div>
                 <span className="text-muted-foreground text-xs">Last Solids: </span>
-                <span className="font-medium">{new Date(data.last_solids).toLocaleString()}</span>
+                <span className="font-medium">{formatDateTime(data.last_solids)}</span>
               </div>
             )}
             {data.last_clear.trim() && (
               <div>
                 <span className="text-muted-foreground text-xs">Last Clear Fluids: </span>
-                <span className="font-medium">{new Date(data.last_clear).toLocaleString()}</span>
+                <span className="font-medium">{formatDateTime(data.last_clear)}</span>
               </div>
             )}
           </CardContent>
@@ -425,7 +426,7 @@ export function PreOpOverview({ data }: PreOpOverviewProps) {
         <Card>
           <CardContent className="py-2 text-xs text-muted-foreground">
             {data.assessmentDate.trim() && (
-              <div>Assessed: {new Date(data.assessmentDate).toLocaleDateString()}</div>
+              <div>Assessed: {formatDate(data.assessmentDate)}</div>
             )}
             {data.doctorName.trim() && (
               <div>By: {data.doctorName}</div>

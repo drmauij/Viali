@@ -4,6 +4,7 @@ import { Search, BedDouble, Clock, TrendingUp, AlertCircle } from "lucide-react"
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { formatTime } from "@/lib/dateUtils";
 
 // Mock data for patients in PACU (Post-Anesthesia Care Unit)
 const mockPacuPatients = [
@@ -88,11 +89,6 @@ export default function Pacu() {
       default:
         return status;
     }
-  };
-
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
   const getTimeInPacu = (admittedAt: string) => {

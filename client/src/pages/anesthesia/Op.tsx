@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { Minus, Folder, Package, Loader2 } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { formatDate } from "@/lib/dateUtils";
 import {
   X,
   Gauge,
@@ -399,7 +400,7 @@ export default function Op() {
                 <p className="font-semibold text-sm text-primary">{surgery.plannedSurgery}</p>
                 {surgery.surgeon && (
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {surgery.surgeon} • {new Date(surgery.plannedDate).toLocaleDateString()}
+                    {surgery.surgeon} • {formatDate(surgery.plannedDate)}
                   </p>
                 )}
               </div>

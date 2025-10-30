@@ -1,5 +1,5 @@
 import { format as dateFnsFormat } from "date-fns";
-import { enGB } from "date-fns/locale";
+import { enGB, Locale } from "date-fns/locale";
 
 export interface DateFormatConfig {
   locale: string;
@@ -16,6 +16,10 @@ const DEFAULT_CONFIG: DateFormatConfig = {
 };
 
 let currentConfig: DateFormatConfig = DEFAULT_CONFIG;
+
+const getDateFnsLocale = (): Locale => {
+  return enGB;
+};
 
 export const setDateFormatConfig = (config: Partial<DateFormatConfig>) => {
   currentConfig = { ...currentConfig, ...config };
@@ -79,7 +83,7 @@ export const formatDateLong = (date: string | Date | null | undefined): string =
   
   try {
     const dateObj = typeof date === "string" ? new Date(date) : date;
-    return dateFnsFormat(dateObj, "PPP", { locale: enGB });
+    return dateFnsFormat(dateObj, "PPP", { locale: getDateFnsLocale() });
   } catch (error) {
     console.error("Error formatting date long:", error);
     return "Invalid date";
@@ -91,7 +95,7 @@ export const formatDateTimeLong = (date: string | Date | null | undefined): stri
   
   try {
     const dateObj = typeof date === "string" ? new Date(date) : date;
-    return dateFnsFormat(dateObj, "PPp", { locale: enGB });
+    return dateFnsFormat(dateObj, "PPp", { locale: getDateFnsLocale() });
   } catch (error) {
     console.error("Error formatting datetime long:", error);
     return "Invalid date";
@@ -124,7 +128,7 @@ export const formatDateTimeForInput = (date: string | Date | null | undefined): 
 
 export const formatDateHeader = (date: Date): string => {
   try {
-    return dateFnsFormat(date, "EEEE, d MMMM yyyy", { locale: enGB });
+    return dateFnsFormat(date, "EEEE, d MMMM yyyy", { locale: getDateFnsLocale() });
   } catch (error) {
     console.error("Error formatting date header:", error);
     return "Invalid date";
@@ -133,7 +137,7 @@ export const formatDateHeader = (date: Date): string => {
 
 export const formatMonthYear = (date: Date): string => {
   try {
-    return dateFnsFormat(date, "MMMM yyyy", { locale: enGB });
+    return dateFnsFormat(date, "MMMM yyyy", { locale: getDateFnsLocale() });
   } catch (error) {
     console.error("Error formatting month year:", error);
     return "Invalid date";
@@ -145,7 +149,7 @@ export const formatShortDate = (date: string | Date | null | undefined): string 
   
   try {
     const dateObj = typeof date === "string" ? new Date(date) : date;
-    return dateFnsFormat(dateObj, "PP", { locale: enGB });
+    return dateFnsFormat(dateObj, "PP", { locale: getDateFnsLocale() });
   } catch (error) {
     console.error("Error formatting short date:", error);
     return "Invalid date";

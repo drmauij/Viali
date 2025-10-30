@@ -5,6 +5,7 @@ import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
+import { formatDateTime } from "@/lib/dateUtils";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
@@ -273,7 +274,7 @@ export default function Alerts() {
                       )}
 
                       <p className="text-xs text-muted-foreground mt-2">
-                        {alert.createdAt ? new Date(alert.createdAt).toLocaleString() : ''}
+                        {alert.createdAt ? formatDateTime(alert.createdAt) : ''}
                       </p>
                     </div>
 

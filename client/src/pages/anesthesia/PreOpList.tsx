@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, UserCircle, UserRound, Calendar, User, ClipboardList } from "lucide-react";
+import { formatDate } from "@/lib/dateUtils";
 
 // Mock data for pre-op assessments
 const mockPreOpCases = [
@@ -120,7 +121,7 @@ export default function PreOpList() {
                     <div>
                       <h3 className="font-semibold text-lg">{case_.patientName}</h3>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(case_.birthday).toLocaleDateString()} ({calculateAge(case_.birthday)} years)
+                        {formatDate(case_.birthday)} ({calculateAge(case_.birthday)} years)
                       </p>
                     </div>
                   </div>
@@ -137,7 +138,7 @@ export default function PreOpList() {
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Calendar className="h-4 w-4" />
-                      <span>{new Date(case_.plannedDate).toLocaleDateString()}</span>
+                      <span>{formatDate(case_.plannedDate)}</span>
                     </div>
                   </div>
                 </div>

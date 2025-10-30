@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, UserCircle, UserRound, Calendar, User, Activity, Clock } from "lucide-react";
 import OPCalendar from "@/components/anesthesia/OPCalendar";
+import { formatDate } from "@/lib/dateUtils";
 
 // Mock data for active surgeries
 const mockActiveSurgeries = [
@@ -150,7 +151,7 @@ export default function OpList() {
                       <div>
                         <h3 className="font-semibold text-lg">{case_.patientName}</h3>
                         <p className="text-sm text-muted-foreground">
-                          {new Date(case_.birthday).toLocaleDateString()} ({calculateAge(case_.birthday)} years)
+                          {formatDate(case_.birthday)} ({calculateAge(case_.birthday)} years)
                         </p>
                       </div>
                     </div>

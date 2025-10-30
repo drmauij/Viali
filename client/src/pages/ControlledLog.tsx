@@ -6,6 +6,7 @@ import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
+import { formatDate, formatDateTime } from "@/lib/dateUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -566,7 +567,7 @@ export default function ControlledLog() {
     const diffInDays = Math.floor(diffInHours / 24);
     if (diffInDays === 1) return "Yesterday";
     if (diffInDays < 7) return `${diffInDays} days ago`;
-    return time.toLocaleDateString();
+    return formatDate(time);
   };
 
   const downloadMonthlyReport = () => {
@@ -637,8 +638,8 @@ export default function ControlledLog() {
         const qty = activity.movementType === 'IN' ? `+${Math.abs(delta)}` : `-${Math.abs(delta)}`;
         
         return [
-          activity.timestamp ? new Date(activity.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "N/A",
-          activity.timestamp ? new Date(activity.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "N/A",
+          activity.timestamp ? formatDate(activity.timestamp) : "N/A",
+          activity.timestamp ? formatTime(activity.timestamp) : "N/A",
           qty,
           activity.patientId || (activity.action === 'adjust' ? 'MANUAL ADJ' : "N/A"),
           `${activity.user.firstName} ${activity.user.lastName}`,
@@ -732,13 +733,13 @@ export default function ControlledLog() {
       doc.setFont("helvetica", "normal");
       doc.text(`${t('controlled.totalAdministrations')} ${monthlyActivities.length}`, 20, 20);
       doc.text(`Total Drugs: ${Object.keys(groupedByDrug).length}`, 20, 26);
-      doc.text(`Generated: ${new Date().toLocaleString("en-US")}`, 20, 32);
+      doc.text(`Generated: ${formatDateTime(new Date())}`, 20, 32);
     } else {
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.text(`${t('controlled.totalAdministrations')} ${monthlyActivities.length}`, 20, footerY + 10);
       doc.text(`Total Drugs: ${Object.keys(groupedByDrug).length}`, 20, footerY + 16);
-      doc.text(`Generated: ${new Date().toLocaleString("en-US")}`, 20, footerY + 22);
+      doc.text(`Generated: ${formatDateTime(new Date())}`, 20, footerY + 22);
     }
 
     // Download
@@ -1697,7 +1698,7 @@ export default function ControlledLog() {
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground mb-1">Timestamp</p>
                     <p className="font-medium text-foreground">
-                      {selectedActivity.timestamp ? new Date(selectedActivity.timestamp).toLocaleString() : 'Unknown'}
+                      {selectedActivity.timestamp ? formatDateTime(selectedActivity.timestamp) : 'Unknown'}
                     </p>
                     <p className="text-xs text-muted-foreground">{selectedActivity.timestamp ? formatTimeAgo(selectedActivity.timestamp) : 'Unknown'}</p>
                   </div>
@@ -1797,7 +1798,7 @@ export default function ControlledLog() {
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground mb-1">Timestamp</p>
                     <p className="font-medium text-foreground">
-                      {selectedCheck.timestamp ? new Date(selectedCheck.timestamp).toLocaleString() : 'Unknown'}
+                      {selectedCheck.timestamp ? formatDateTime(selectedCheck.timestamp) : 'Unknown'}
                     </p>
                     <p className="text-xs text-muted-foreground">{selectedCheck.timestamp ? formatTimeAgo(selectedCheck.timestamp) : 'Unknown'}</p>
                   </div>

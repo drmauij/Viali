@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, FileText, Calendar, MapPin, User, ClipboardList, Activity, BedDouble } from "lucide-react";
+import { formatDateTime } from "@/lib/dateUtils";
 
 const mockCase = {
   id: "case-1",
@@ -89,7 +90,7 @@ export default function CaseDetail() {
               <p className="text-muted-foreground">Planned Date</p>
               <p className="font-medium flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
-                {new Date(mockCase.plannedDate).toLocaleString()}
+                {formatDateTime(mockCase.plannedDate)}
               </p>
             </div>
           </div>

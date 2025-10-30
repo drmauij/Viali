@@ -7,6 +7,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarIcon, Trash2 } from "lucide-react";
 import { format } from "date-fns";
+import { enGB } from "date-fns/locale";
 
 export type EditableValueType = "text" | "number" | "date" | "time" | "datetime" | "vital-point";
 
@@ -149,7 +150,7 @@ export function EditValueProvider({ children }: { children: ReactNode }) {
                       data-testid="button-date-picker"
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {editedValue ? format(new Date(editedValue), "PPP") : <span>Pick a date</span>}
+                      {editedValue ? format(new Date(editedValue), "PPP", { locale: enGB }) : <span>Pick a date</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">

@@ -17,6 +17,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
 import { TimeAdjustInput } from "./TimeAdjustInput";
+import { formatTime } from "@/lib/dateUtils";
 
 /**
  * UnifiedTimeline - Refactored for robustness and flexibility
@@ -2637,11 +2638,7 @@ export function UnifiedTimeline({
           if (!params || !params.data) return '';
           
           const [timestamp, value] = params.data;
-          const time = new Date(timestamp).toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: false
-          });
+          const time = formatTime(timestamp);
           
           let label = '';
           let unit = '';
@@ -3684,7 +3681,7 @@ export function UnifiedTimeline({
     
     toast({
       title: "Administration stopped",
-      description: `${managingFreeFlowSession.label} stopped at ${new Date(stopTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`,
+      description: `${managingFreeFlowSession.label} stopped at ${formatTime(stopTime)}`,
     });
     
     // Reset dialog state
@@ -6002,7 +5999,7 @@ export function UnifiedTimeline({
             {activeToolMode === 'blend' && blendSequenceStep === 'spo2' && `SpO2: ${hoverInfo.value}%`}
           </div>
           <div className="text-xs text-muted-foreground">
-            {new Date(hoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+            {formatTime(hoverInfo.time)}
           </div>
         </div>
       )}
@@ -6022,7 +6019,7 @@ export function UnifiedTimeline({
                 {zeitenHoverInfo.existingMarker.code} - {zeitenHoverInfo.existingMarker.label}
               </div>
               <div className="text-xs text-muted-foreground">
-                Set at {new Date(zeitenHoverInfo.existingMarker.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                Set at {formatTime(zeitenHoverInfo.existingMarker.time)}
               </div>
             </>
           ) : zeitenHoverInfo.nextMarker ? (
@@ -6031,7 +6028,7 @@ export function UnifiedTimeline({
                 {zeitenHoverInfo.nextMarker}
               </div>
               <div className="text-xs text-muted-foreground">
-                {new Date(zeitenHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                {formatTime(zeitenHoverInfo.time)}
               </div>
             </>
           ) : (
@@ -6192,7 +6189,7 @@ export function UnifiedTimeline({
             Click to add event
           </div>
           <div className="text-xs text-muted-foreground">
-            {new Date(eventHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+            {formatTime(eventHoverInfo.time)}
           </div>
         </div>
       )}
@@ -6212,7 +6209,7 @@ export function UnifiedTimeline({
               <MessageSquareText className="w-4 h-4 text-primary" />
               <span className="text-sm font-semibold text-primary">Event Comment</span>
               <span className="text-xs text-muted-foreground ml-auto">
-                {new Date(hoveredEvent.event.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                {formatTime(hoveredEvent.event.time)}
               </span>
             </div>
             <div className="text-sm text-foreground whitespace-pre-wrap break-words max-h-48 overflow-y-auto">
@@ -6334,7 +6331,7 @@ export function UnifiedTimeline({
             Click to add rhythm
           </div>
           <div className="text-xs text-muted-foreground">
-            {new Date(heartRhythmHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+            {formatTime(heartRhythmHoverInfo.time)}
           </div>
         </div>
       )}
@@ -6433,7 +6430,7 @@ export function UnifiedTimeline({
             Click to add {staffHoverInfo.role.toLowerCase()}
           </div>
           <div className="text-xs text-muted-foreground">
-            {new Date(staffHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+            {formatTime(staffHoverInfo.time)}
           </div>
         </div>
       )}
@@ -6525,7 +6522,7 @@ export function UnifiedTimeline({
             Click to add position
           </div>
           <div className="text-xs text-muted-foreground">
-            {new Date(positionHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+            {formatTime(positionHoverInfo.time)}
           </div>
         </div>
       )}
@@ -6672,7 +6669,7 @@ export function UnifiedTimeline({
               {medicationHoverInfo.label}
             </div>
             <div className="text-xs text-muted-foreground">
-              {new Date(medicationHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+              {formatTime(medicationHoverInfo.time)}
             </div>
           </div>
         );
@@ -6995,7 +6992,7 @@ export function UnifiedTimeline({
               {infusionHoverInfo.label}
             </div>
             <div className="text-xs text-muted-foreground">
-              {new Date(infusionHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+              {formatTime(infusionHoverInfo.time)}
             </div>
           </div>
         );
@@ -7025,7 +7022,7 @@ export function UnifiedTimeline({
               {outputHoverInfo.label}
             </div>
             <div className="text-xs text-muted-foreground">
-              {new Date(outputHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+              {formatTime(outputHoverInfo.time)}
             </div>
           </div>
         );
@@ -7114,7 +7111,7 @@ export function UnifiedTimeline({
             Click for bulk entry
           </div>
           <div className="text-xs text-muted-foreground">
-            {new Date(ventilationBulkHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+            {formatTime(ventilationBulkHoverInfo.time)}
           </div>
         </div>
       )}
@@ -7202,7 +7199,7 @@ export function UnifiedTimeline({
             Click for bulk entry
           </div>
           <div className="text-xs text-muted-foreground">
-            {new Date(outputBulkHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+            {formatTime(outputBulkHoverInfo.time)}
           </div>
         </div>
       )}
@@ -7323,7 +7320,7 @@ export function UnifiedTimeline({
             {ventilationHoverInfo.label}
           </div>
           <div className="text-xs text-muted-foreground">
-            {new Date(ventilationHoverInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+            {formatTime(ventilationHoverInfo.time)}
           </div>
         </div>
       )}
@@ -7602,7 +7599,7 @@ export function UnifiedTimeline({
               setHeartRhythmEditTime(timestamp);
               setShowHeartRhythmDialog(true);
             }}
-            title={`${rhythm} at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
+            title={`${rhythm} at ${formatTime(timestamp)}`}
             data-testid={`heart-rhythm-${index}`}
           >
             <span className="group-hover:scale-110 transition-transform text-pink-600 dark:text-pink-400">
@@ -7648,7 +7645,7 @@ export function UnifiedTimeline({
                 setStaffEditTime(timestamp);
                 setShowStaffDialog(true);
               }}
-              title={`${name} (${role}) at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
+              title={`${name} (${role}) at ${formatTime(timestamp)}`}
               data-testid={`staff-${role}-${index}`}
             >
               <span className="group-hover:scale-110 transition-transform text-slate-700 dark:text-slate-300">
@@ -7693,7 +7690,7 @@ export function UnifiedTimeline({
               setPositionEditTime(timestamp);
               setShowPositionDialog(true);
             }}
-            title={`${position} at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
+            title={`${position} at ${formatTime(timestamp)}`}
             data-testid={`position-${index}`}
           >
             <span className="group-hover:scale-110 transition-transform text-slate-600 dark:text-slate-400">
@@ -7737,7 +7734,7 @@ export function UnifiedTimeline({
               setVentilationModeEditTime(timestamp);
               setShowVentilationModeEditDialog(true);
             }}
-            title={`${mode} at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
+            title={`${mode} at ${formatTime(timestamp)}`}
             data-testid={`vent-mode-${index}`}
           >
             <span className="group-hover:scale-110 transition-transform">
@@ -7813,7 +7810,7 @@ export function UnifiedTimeline({
                 setVentilationEditTime(timestamp);
                 setShowVentilationEditDialog(true);
               }}
-              title={`${labelMap[paramKey]}: ${value} at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
+              title={`${labelMap[paramKey]}: ${value} at ${formatTime(timestamp)}`}
               data-testid={`vent-value-${paramKey}-${index}`}
             >
               <span className="group-hover:scale-110 transition-transform">
@@ -7889,7 +7886,7 @@ export function UnifiedTimeline({
                 setOutputEditTime(timestamp);
                 setShowOutputEditDialog(true);
               }}
-              title={`${labelMap[paramKey]}: ${value} ml at ${new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`}
+              title={`${labelMap[paramKey]}: ${value} ml at ${formatTime(timestamp)}`}
               data-testid={`output-value-${paramKey}-${index}`}
             >
               <span className="group-hover:scale-110 transition-transform">
@@ -9124,11 +9121,7 @@ export function UnifiedTimeline({
                   <div className="font-medium">{editingTimeMarker.marker.label}</div>
                   <div className="text-sm text-muted-foreground">
                     {editingTimeMarker.marker.time 
-                      ? new Date(editingTimeMarker.marker.time).toLocaleTimeString('en-US', { 
-                          hour: '2-digit', 
-                          minute: '2-digit',
-                          second: '2-digit'
-                        })
+                      ? formatTime(editingTimeMarker.marker.time)
                       : 'Not set'}
                   </div>
                 </div>
@@ -9309,12 +9302,7 @@ export function UnifiedTimeline({
 
               <div className="flex justify-between items-center text-xs text-muted-foreground pt-2 border-t">
                 <div>
-                  Time: {new Date(extractedData.timestamp).toLocaleString('en-US', { 
-                    hour: '2-digit', 
-                    minute: '2-digit',
-                    second: '2-digit',
-                    hour12: false 
-                  })}
+                  Time: {formatTime(extractedData.timestamp)}
                 </div>
                 <div className="flex items-center gap-1">
                   {extractedData.detectionMethod === 'local-ocr' && (

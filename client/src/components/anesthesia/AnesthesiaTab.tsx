@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Upload, Mic, Plus, LineChart, Camera, Activity } from "lucide-react";
+import { formatTime } from "@/lib/dateUtils";
 
 interface AnesthesiaTabProps {
   caseId: string;
@@ -353,7 +354,7 @@ export default function AnesthesiaTab({ caseId }: AnesthesiaTabProps) {
               {mockTimelineEntries.map((entry) => (
                 <TableRow key={entry.id} data-testid={`row-timeline-${entry.id}`}>
                   <TableCell className="font-mono text-sm">
-                    {new Date(entry.ts).toLocaleTimeString()}
+                    {formatTime(entry.ts)}
                   </TableCell>
                   <TableCell>{getSourceBadge(entry.source)}</TableCell>
                   <TableCell>

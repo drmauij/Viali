@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { formatTime } from "@/lib/dateUtils";
 
 interface TimeAdjustInputProps {
   value: number; // timestamp in milliseconds
@@ -16,12 +17,7 @@ export function TimeAdjustInput({
   className = "",
   'data-testid': testId 
 }: TimeAdjustInputProps) {
-  const date = new Date(value);
-  const timeStr = date.toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
-    minute: '2-digit', 
-    hour12: false 
-  });
+  const timeStr = formatTime(value);
 
   const adjustTime = (minutes: number) => {
     const newDate = new Date(value);

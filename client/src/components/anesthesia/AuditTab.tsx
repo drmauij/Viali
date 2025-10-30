@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Bot, User, FileText, Activity, Upload, Mic } from "lucide-react";
+import { formatDateTime } from "@/lib/dateUtils";
 
 interface AuditTabProps {
   caseId: string;
@@ -129,7 +130,7 @@ export default function AuditTab({ caseId }: AuditTabProps) {
                     <User className="h-3 w-3" />
                     <span>{entry.userName}</span>
                     <span>•</span>
-                    <span>{new Date(entry.ts).toLocaleString()}</span>
+                    <span>{formatDateTime(entry.ts)}</span>
                   </div>
                   {entry.details && (
                     <div className="bg-muted rounded-md p-3 text-xs font-mono">

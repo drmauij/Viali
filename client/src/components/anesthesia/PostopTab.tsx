@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Activity, AlertTriangle } from "lucide-react";
+import { formatTime } from "@/lib/dateUtils";
 
 interface PostopTabProps {
   caseId: string;
@@ -148,7 +149,7 @@ export default function PostopTab({ caseId }: PostopTabProps) {
               {mockPostopTimeline.map((entry) => (
                 <TableRow key={entry.id} data-testid={`row-postop-${entry.id}`}>
                   <TableCell className="font-mono text-sm">
-                    {new Date(entry.ts).toLocaleTimeString()}
+                    {formatTime(entry.ts)}
                   </TableCell>
                   <TableCell>{entry.vitals.HR} bpm</TableCell>
                   <TableCell>{entry.vitals.SpO2}%</TableCell>
@@ -226,7 +227,7 @@ export default function PostopTab({ caseId }: PostopTabProps) {
               <div key={idx} className="p-3 bg-muted rounded-md">
                 <p className="font-medium">{item.drug}</p>
                 <p className="text-sm text-muted-foreground">
-                  {item.dose} {item.route} at {new Date(item.time).toLocaleTimeString()}
+                  {item.dose} {item.route} at {formatTime(item.time)}
                 </p>
               </div>
             ))}

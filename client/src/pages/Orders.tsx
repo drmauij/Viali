@@ -6,6 +6,7 @@ import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
+import { formatDate, formatDateTime } from "@/lib/dateUtils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
@@ -347,13 +348,6 @@ export default function Orders() {
     }).format(Number(amount));
   };
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
-  };
-
   const downloadOrderPDF = (order: OrderWithDetails) => {
     const doc = new jsPDF();
     
@@ -363,7 +357,7 @@ export default function Orders() {
     
     // Order details
     doc.setFontSize(10);
-    const orderDate = order.createdAt ? new Date(order.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A";
+    const orderDate = order.createdAt ? formatDate(order.createdAt) : "N/A";
     doc.text(`PO Number: PO-${order.id.slice(-4)}`, 20, 40);
     doc.text(`Date: ${orderDate}`, 20, 46);
     doc.text(`Status: ${order.status.toUpperCase()}`, 20, 52);
@@ -411,7 +405,7 @@ export default function Orders() {
     const finalY = (doc as any).lastAutoTable.finalY || 70;
     doc.setFontSize(9);
     doc.text(`Total Items: ${order.orderLines.length}`, 20, finalY + 15);
-    doc.text(`Generated: ${new Date().toLocaleString("en-US")}`, 20, finalY + 21);
+    doc.text(`Generated: ${formatDateTime(new Date())}`, 20, finalY + 21);
     
     // Download
     doc.save(`PO-${order.id.slice(-4)}_${new Date().toISOString().split('T')[0]}.pdf`);

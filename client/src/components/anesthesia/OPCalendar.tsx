@@ -6,6 +6,7 @@ import { Calendar, CalendarDays, CalendarRange, Building2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useLocation } from "wouter";
+import { formatDateHeader as formatDateHeaderUtil, formatMonthYear } from "@/lib/dateUtils";
 
 type ViewType = "day" | "week" | "month";
 
@@ -167,14 +168,10 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   };
 
   const formatDateHeader = () => {
-    const options: Intl.DateTimeFormatOptions = 
-      currentView === "month" 
-        ? { year: "numeric", month: "long" }
-        : currentView === "week"
-        ? { year: "numeric", month: "long", day: "numeric" }
-        : { year: "numeric", month: "long", day: "numeric" };
-    
-    return selectedDate.toLocaleDateString("en-US", options);
+    if (currentView === "month") {
+      return formatMonthYear(selectedDate);
+    }
+    return formatDateHeaderUtil(selectedDate);
   };
 
   // Format time labels using DOM manipulation

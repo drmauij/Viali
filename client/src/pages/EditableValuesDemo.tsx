@@ -2,6 +2,7 @@ import { useState } from "react";
 import { EditableValue } from "@/components/EditableValue";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
+import { formatDate, formatTime } from "@/lib/dateUtils";
 
 export default function EditableValuesDemo() {
   const { toast } = useToast();
@@ -191,7 +192,7 @@ export default function EditableValuesDemo() {
                 testId="editable-appointment-date"
               >
                 <span className="font-semibold text-lg">
-                  {appointmentDate.toLocaleDateString()}
+                  {formatDate(appointmentDate)}
                 </span>
               </EditableValue>
             </div>
@@ -214,7 +215,7 @@ export default function EditableValuesDemo() {
                   className="flex items-center gap-4 p-3 rounded-lg bg-muted/50"
                 >
                   <span className="text-sm text-muted-foreground w-32">
-                    {new Date(vital.time).toLocaleTimeString()}
+                    {formatTime(vital.time)}
                   </span>
                   <EditableValue
                     type="vital-point"

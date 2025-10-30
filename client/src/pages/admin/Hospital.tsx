@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, Syringe, Stethoscope } from "lucide-react";
 import { format } from "date-fns";
+import { formatDateLong } from "@/lib/dateUtils";
 import type { Unit } from "@shared/schema";
 
 export default function Hospital() {
@@ -866,7 +867,7 @@ export default function Hospital() {
                     data-testid="input-template-start-date"
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {templateForm.startDate ? format(new Date(templateForm.startDate), "PPP") : t("admin.selectDate")}
+                    {templateForm.startDate ? formatDateLong(templateForm.startDate) : t("admin.selectDate")}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
