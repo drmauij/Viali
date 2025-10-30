@@ -3,7 +3,7 @@ import {
   hospitals,
   userHospitalRoles,
   vendors,
-  locations,
+  units,
   folders,
   items,
   stockLevels,
@@ -45,7 +45,7 @@ import {
   type Activity,
   type Alert,
   type Vendor,
-  type Location,
+  type Unit,
   type InsertFolder,
   type InsertItem,
   type InsertActivity,
@@ -98,19 +98,19 @@ export interface IStorage {
   
   // Hospital operations
   getHospital(id: string): Promise<Hospital | undefined>;
-  getUserHospitals(userId: string): Promise<(Hospital & { role: string; locationId: string; locationName: string })[]>;
+  getUserHospitals(userId: string): Promise<(Hospital & { role: string; unitId: string; unitName: string })[]>;
   createHospital(name: string): Promise<Hospital>;
   updateHospital(id: string, updates: Partial<Hospital>): Promise<Hospital>;
   
   // Folder operations
-  getFolders(hospitalId: string, locationId: string): Promise<Folder[]>;
+  getFolders(hospitalId: string, unitId: string): Promise<Folder[]>;
   getFolder(id: string): Promise<Folder | undefined>;
   createFolder(folder: InsertFolder): Promise<Folder>;
   updateFolder(id: string, updates: Partial<Folder>): Promise<Folder>;
   deleteFolder(id: string): Promise<void>;
   
   // Item operations
-  getItems(hospitalId: string, locationId: string, filters?: {
+  getItems(hospitalId: string, unitId: string, filters?: {
     critical?: boolean;
     controlled?: boolean;
     belowMin?: boolean;
@@ -122,15 +122,15 @@ export interface IStorage {
   deleteItem(id: string): Promise<void>;
   
   // Stock operations
-  getStockLevel(itemId: string, locationId: string): Promise<StockLevel | undefined>;
-  updateStockLevel(itemId: string, locationId: string, qty: number): Promise<StockLevel>;
+  getStockLevel(itemId: string, unitId: string): Promise<StockLevel | undefined>;
+  updateStockLevel(itemId: string, unitId: string, qty: number): Promise<StockLevel>;
   
   // Lot operations
   getLots(itemId: string): Promise<Lot[]>;
   createLot(lot: Omit<Lot, 'id' | 'createdAt'>): Promise<Lot>;
   
   // Order operations
-  getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { location: Location } })[] })[]>;
+  getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { unit: Unit } })[] })[]>;
   createOrder(order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order>;
   findOrCreateDraftOrder(hospitalId: string, vendorId: string | null, createdBy: string): Promise<Order>;
@@ -144,7 +144,7 @@ export interface IStorage {
   createActivity(activity: InsertActivity): Promise<Activity>;
   getActivities(filters: {
     hospitalId?: string;
-    locationId?: string;
+    unitId?: string;
     itemId?: string;
     userId?: string;
     controlled?: boolean;
@@ -152,7 +152,7 @@ export interface IStorage {
   }): Promise<(Activity & { user: User; item?: Item })[]>;
   
   // Alert operations
-  getAlerts(hospitalId: string, locationId: string, acknowledged?: boolean): Promise<(Alert & { item?: Item; lot?: Lot })[]>;
+  getAlerts(hospitalId: string, unitId: string, acknowledged?: boolean): Promise<(Alert & { item?: Item; lot?: Lot })[]>;
   acknowledgeAlert(id: string, userId: string): Promise<Alert>;
   snoozeAlert(id: string, until: Date): Promise<Alert>;
   
@@ -165,16 +165,16 @@ export interface IStorage {
   }>;
   
   // Barcode lookup
-  findItemByBarcode(barcode: string, hospitalId: string, locationId?: string): Promise<(Item & { stockLevel?: StockLevel }) | undefined>;
+  findItemByBarcode(barcode: string, hospitalId: string, unitId?: string): Promise<(Item & { stockLevel?: StockLevel }) | undefined>;
   
-  // Admin - Location management
-  getLocations(hospitalId: string): Promise<Location[]>;
-  createLocation(location: Omit<Location, 'id' | 'createdAt'>): Promise<Location>;
-  updateLocation(id: string, updates: Partial<Location>): Promise<Location>;
-  deleteLocation(id: string): Promise<void>;
+  // Admin - Unit management
+  getUnits(hospitalId: string): Promise<Unit[]>;
+  createUnit(unit: Omit<Unit, 'id' | 'createdAt'>): Promise<Unit>;
+  updateUnit(id: string, updates: Partial<Unit>): Promise<Unit>;
+  deleteUnit(id: string): Promise<void>;
   
   // Admin - User management
-  getHospitalUsers(hospitalId: string): Promise<(UserHospitalRole & { user: User; location: Location })[]>;
+  getHospitalUsers(hospitalId: string): Promise<(UserHospitalRole & { user: User; unit: Unit })[]>;
   createUserHospitalRole(data: Omit<UserHospitalRole, 'id' | 'createdAt'>): Promise<UserHospitalRole>;
   updateUserHospitalRole(id: string, updates: Partial<UserHospitalRole>): Promise<UserHospitalRole>;
   deleteUserHospitalRole(id: string): Promise<void>;
@@ -186,19 +186,19 @@ export interface IStorage {
   
   // Controlled Checks
   createControlledCheck(check: InsertControlledCheck): Promise<ControlledCheck>;
-  getControlledChecks(hospitalId: string, locationId: string, limit?: number): Promise<(ControlledCheck & { user: User })[]>;
+  getControlledChecks(hospitalId: string, unitId: string, limit?: number): Promise<(ControlledCheck & { user: User })[]>;
   
   // Checklist operations
   createChecklistTemplate(template: InsertChecklistTemplate): Promise<ChecklistTemplate>;
-  getChecklistTemplates(hospitalId: string, locationId?: string, active?: boolean): Promise<ChecklistTemplate[]>;
+  getChecklistTemplates(hospitalId: string, unitId?: string, active?: boolean): Promise<ChecklistTemplate[]>;
   getChecklistTemplate(id: string): Promise<ChecklistTemplate | undefined>;
   updateChecklistTemplate(id: string, updates: Partial<ChecklistTemplate>): Promise<ChecklistTemplate>;
   deleteChecklistTemplate(id: string): Promise<void>;
-  getPendingChecklists(hospitalId: string, locationId: string, role?: string): Promise<(ChecklistTemplate & { lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean })[]>;
+  getPendingChecklists(hospitalId: string, unitId: string, role?: string): Promise<(ChecklistTemplate & { lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean })[]>;
   completeChecklist(completion: InsertChecklistCompletion): Promise<ChecklistCompletion>;
-  getChecklistCompletions(hospitalId: string, locationId?: string, templateId?: string, limit?: number): Promise<(ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User })[]>;
+  getChecklistCompletions(hospitalId: string, unitId?: string, templateId?: string, limit?: number): Promise<(ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User })[]>;
   getChecklistCompletion(id: string): Promise<(ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User }) | undefined>;
-  getPendingChecklistCount(hospitalId: string, locationId: string, role?: string): Promise<number>;
+  getPendingChecklistCount(hospitalId: string, unitId: string, role?: string): Promise<number>;
   
   // Import Jobs
   createImportJob(job: Omit<ImportJob, 'id' | 'createdAt' | 'startedAt' | 'completedAt'>): Promise<ImportJob>;
@@ -331,20 +331,20 @@ export class DatabaseStorage implements IStorage {
     return hospital;
   }
 
-  async getUserHospitals(userId: string): Promise<(Hospital & { role: string; locationId: string; locationName: string })[]> {
+  async getUserHospitals(userId: string): Promise<(Hospital & { role: string; unitId: string; unitName: string })[]> {
     const result = await db
       .select()
       .from(hospitals)
       .innerJoin(userHospitalRoles, eq(hospitals.id, userHospitalRoles.hospitalId))
-      .innerJoin(locations, eq(userHospitalRoles.locationId, locations.id))
+      .innerJoin(units, eq(userHospitalRoles.unitId, units.id))
       .where(eq(userHospitalRoles.userId, userId));
     
     return result.map(row => ({
       ...row.hospitals,
       role: row.user_hospital_roles.role,
-      locationId: row.user_hospital_roles.locationId,
-      locationName: row.locations.name,
-    })) as (Hospital & { role: string; locationId: string; locationName: string })[];
+      unitId: row.user_hospital_roles.unitId,
+      unitName: row.units.name,
+    })) as (Hospital & { role: string; unitId: string; unitName: string })[];
   }
 
   async createHospital(name: string): Promise<Hospital> {
@@ -364,11 +364,11 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async getFolders(hospitalId: string, locationId: string): Promise<Folder[]> {
+  async getFolders(hospitalId: string, unitId: string): Promise<Folder[]> {
     return await db
       .select()
       .from(folders)
-      .where(and(eq(folders.hospitalId, hospitalId), eq(folders.locationId, locationId)))
+      .where(and(eq(folders.hospitalId, hospitalId), eq(folders.unitId, unitId)))
       .orderBy(asc(folders.sortOrder), asc(folders.name));
   }
 
@@ -402,7 +402,7 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getItems(hospitalId: string, locationId: string, filters?: {
+  async getItems(hospitalId: string, unitId: string, filters?: {
     critical?: boolean;
     controlled?: boolean;
     belowMin?: boolean;
@@ -417,15 +417,15 @@ export class DatabaseStorage implements IStorage {
       .from(items)
       .leftJoin(stockLevels, eq(items.id, stockLevels.itemId))
       .leftJoin(lots, eq(items.id, lots.itemId))
-      .where(and(eq(items.hospitalId, hospitalId), eq(items.locationId, locationId)))
+      .where(and(eq(items.hospitalId, hospitalId), eq(items.unitId, unitId)))
       .groupBy(items.id, stockLevels.id);
 
     // Apply filters
     if (filters?.critical) {
-      query = query.where(and(eq(items.hospitalId, hospitalId), eq(items.locationId, locationId), eq(items.critical, true)));
+      query = query.where(and(eq(items.hospitalId, hospitalId), eq(items.unitId, unitId), eq(items.critical, true)));
     }
     if (filters?.controlled) {
-      query = query.where(and(eq(items.hospitalId, hospitalId), eq(items.locationId, locationId), eq(items.controlled, true)));
+      query = query.where(and(eq(items.hospitalId, hospitalId), eq(items.unitId, unitId), eq(items.controlled, true)));
     }
 
     const result = await query.orderBy(asc(items.sortOrder), asc(items.name));
@@ -476,24 +476,24 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getStockLevel(itemId: string, locationId: string): Promise<StockLevel | undefined> {
+  async getStockLevel(itemId: string, unitId: string): Promise<StockLevel | undefined> {
     const [level] = await db
       .select()
       .from(stockLevels)
-      .where(and(eq(stockLevels.itemId, itemId), eq(stockLevels.locationId, locationId)));
+      .where(and(eq(stockLevels.itemId, itemId), eq(stockLevels.unitId, unitId)));
     return level;
   }
 
-  async updateStockLevel(itemId: string, locationId: string, qty: number): Promise<StockLevel> {
+  async updateStockLevel(itemId: string, unitId: string, qty: number): Promise<StockLevel> {
     const [updated] = await db
       .insert(stockLevels)
       .values({
         itemId,
-        locationId,
+        locationId: unitId,
         qtyOnHand: qty,
       })
       .onConflictDoUpdate({
-        target: [stockLevels.itemId, stockLevels.locationId],
+        target: [stockLevels.itemId, stockLevels.unitId],
         set: {
           qtyOnHand: qty,
           updatedAt: new Date(),
@@ -516,7 +516,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { location: Location } })[] })[]> {
+  async getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { unit: Unit } })[] })[]> {
     let query = db
       .select()
       .from(orders)
@@ -544,13 +544,13 @@ export class DatabaseStorage implements IStorage {
             unitPrice: orderLines.unitPrice,
             totalPrice: orderLines.totalPrice,
             item: items,
-            location: locations,
+            unit: units,
             stockLevel: stockLevels,
           })
           .from(orderLines)
           .innerJoin(items, eq(orderLines.itemId, items.id))
-          .innerJoin(locations, eq(items.locationId, locations.id))
-          .leftJoin(stockLevels, and(eq(stockLevels.itemId, items.id), eq(stockLevels.locationId, items.locationId)))
+          .innerJoin(units, eq(items.unitId, units.id))
+          .leftJoin(stockLevels, and(eq(stockLevels.itemId, items.id), eq(stockLevels.unitId, items.unitId)))
           .where(eq(orderLines.orderId, order.id));
 
         return {
@@ -566,7 +566,7 @@ export class DatabaseStorage implements IStorage {
             totalPrice: line.totalPrice,
             item: {
               ...line.item,
-              location: line.location,
+              unit: line.unit,
               stockLevel: line.stockLevel,
             },
           })),
@@ -734,7 +734,7 @@ export class DatabaseStorage implements IStorage {
 
   async getActivities(filters: {
     hospitalId?: string;
-    locationId?: string;
+    unitId?: string;
     itemId?: string;
     userId?: string;
     controlled?: boolean;
@@ -759,8 +759,8 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(items.hospitalId, filters.hospitalId));
     }
 
-    if (filters.locationId) {
-      conditions.push(eq(items.locationId, filters.locationId));
+    if (filters.unitId) {
+      conditions.push(eq(items.unitId, filters.unitId));
     }
 
     let query = db
@@ -786,7 +786,7 @@ export class DatabaseStorage implements IStorage {
     return await query;
   }
 
-  async getAlerts(hospitalId: string, locationId: string, acknowledged?: boolean): Promise<(Alert & { item?: Item; lot?: Lot })[]> {
+  async getAlerts(hospitalId: string, unitId: string, acknowledged?: boolean): Promise<(Alert & { item?: Item; lot?: Lot })[]> {
     let query = db
       .select({
         ...alerts,
@@ -796,10 +796,10 @@ export class DatabaseStorage implements IStorage {
       .from(alerts)
       .leftJoin(items, eq(alerts.itemId, items.id))
       .leftJoin(lots, eq(alerts.lotId, lots.id))
-      .where(and(eq(alerts.hospitalId, hospitalId), eq(items.locationId, locationId)));
+      .where(and(eq(alerts.hospitalId, hospitalId), eq(items.unitId, unitId)));
 
     if (acknowledged !== undefined) {
-      query = query.where(and(eq(alerts.hospitalId, hospitalId), eq(items.locationId, locationId), eq(alerts.acknowledged, acknowledged)));
+      query = query.where(and(eq(alerts.hospitalId, hospitalId), eq(items.unitId, unitId), eq(alerts.acknowledged, acknowledged)));
     }
 
     return await query.orderBy(desc(alerts.createdAt));
@@ -888,15 +888,15 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async findItemByBarcode(barcode: string, hospitalId: string, locationId?: string): Promise<(Item & { stockLevel?: StockLevel }) | undefined> {
+  async findItemByBarcode(barcode: string, hospitalId: string, unitId?: string): Promise<(Item & { stockLevel?: StockLevel }) | undefined> {
     const conditions = [
       eq(items.hospitalId, hospitalId),
       sql`${barcode} = ANY(${items.barcodes})`
     ];
     
-    // If locationId is provided, filter items by location
-    if (locationId) {
-      conditions.push(eq(items.locationId, locationId));
+    // If unitId is provided, filter items by unit
+    if (unitId) {
+      conditions.push(eq(items.unitId, unitId));
     }
     
     const [result] = await db
@@ -906,7 +906,7 @@ export class DatabaseStorage implements IStorage {
         stockLevels, 
         and(
           eq(items.id, stockLevels.itemId),
-          locationId ? eq(stockLevels.locationId, locationId) : undefined
+          unitId ? eq(stockLevels.unitId, unitId) : undefined
         )
       )
       .where(and(...conditions))
@@ -920,50 +920,50 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  // Admin - Location management
-  async getLocations(hospitalId: string): Promise<Location[]> {
+  // Admin - Unit management
+  async getUnits(hospitalId: string): Promise<Unit[]> {
     return await db
       .select()
-      .from(locations)
-      .where(eq(locations.hospitalId, hospitalId))
-      .orderBy(asc(locations.name));
+      .from(units)
+      .where(eq(units.hospitalId, hospitalId))
+      .orderBy(asc(units.name));
   }
 
-  async createLocation(location: Omit<Location, 'id' | 'createdAt'>): Promise<Location> {
-    const [newLocation] = await db
-      .insert(locations)
-      .values(location)
+  async createUnit(unit: Omit<Unit, 'id' | 'createdAt'>): Promise<Unit> {
+    const [newUnit] = await db
+      .insert(units)
+      .values(unit)
       .returning();
-    return newLocation;
+    return newUnit;
   }
 
-  async updateLocation(id: string, updates: Partial<Location>): Promise<Location> {
+  async updateUnit(id: string, updates: Partial<Unit>): Promise<Unit> {
     const [updated] = await db
-      .update(locations)
+      .update(units)
       .set(updates)
-      .where(eq(locations.id, id))
+      .where(eq(units.id, id))
       .returning();
     return updated;
   }
 
-  async deleteLocation(id: string): Promise<void> {
-    await db.delete(locations).where(eq(locations.id, id));
+  async deleteUnit(id: string): Promise<void> {
+    await db.delete(units).where(eq(units.id, id));
   }
 
   // Admin - User management
-  async getHospitalUsers(hospitalId: string): Promise<(UserHospitalRole & { user: User; location: Location })[]> {
+  async getHospitalUsers(hospitalId: string): Promise<(UserHospitalRole & { user: User; unit: Unit })[]> {
     const results = await db
       .select()
       .from(userHospitalRoles)
       .innerJoin(users, eq(userHospitalRoles.userId, users.id))
-      .innerJoin(locations, eq(userHospitalRoles.locationId, locations.id))
+      .innerJoin(units, eq(userHospitalRoles.unitId, units.id))
       .where(eq(userHospitalRoles.hospitalId, hospitalId))
       .orderBy(asc(users.email));
     
     return results.map(row => ({
       ...row.user_hospital_roles,
       user: row.users,
-      location: row.locations,
+      unit: row.units,
     }));
   }
 
@@ -1044,7 +1044,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
   
-  async getControlledChecks(hospitalId: string, locationId: string, limit: number = 50): Promise<(ControlledCheck & { user: User })[]> {
+  async getControlledChecks(hospitalId: string, unitId: string, limit: number = 50): Promise<(ControlledCheck & { user: User })[]> {
     const checks = await db
       .select({
         ...controlledChecks,
@@ -1054,7 +1054,7 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(users, eq(controlledChecks.userId, users.id))
       .where(and(
         eq(controlledChecks.hospitalId, hospitalId),
-        eq(controlledChecks.locationId, locationId)
+        eq(controlledChecks.unitId, unitId)
       ))
       .orderBy(desc(controlledChecks.timestamp))
       .limit(limit);
@@ -1130,9 +1130,9 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async getChecklistTemplates(hospitalId: string, locationId?: string, active: boolean = true): Promise<ChecklistTemplate[]> {
+  async getChecklistTemplates(hospitalId: string, unitId?: string, active: boolean = true): Promise<ChecklistTemplate[]> {
     const conditions = [eq(checklistTemplates.hospitalId, hospitalId)];
-    if (locationId) conditions.push(eq(checklistTemplates.locationId, locationId));
+    if (unitId) conditions.push(eq(checklistTemplates.unitId, unitId));
     if (active !== undefined) conditions.push(eq(checklistTemplates.active, active));
 
     const templates = await db
@@ -1165,10 +1165,10 @@ export class DatabaseStorage implements IStorage {
     await db.delete(checklistTemplates).where(eq(checklistTemplates.id, id));
   }
 
-  async getPendingChecklists(hospitalId: string, locationId: string, role?: string): Promise<(ChecklistTemplate & { lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean })[]> {
+  async getPendingChecklists(hospitalId: string, unitId: string, role?: string): Promise<(ChecklistTemplate & { lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean })[]> {
     const conditions = [
       eq(checklistTemplates.hospitalId, hospitalId),
-      eq(checklistTemplates.locationId, locationId),
+      eq(checklistTemplates.unitId, unitId),
       eq(checklistTemplates.active, true),
     ];
     
@@ -1245,9 +1245,9 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async getChecklistCompletions(hospitalId: string, locationId?: string, templateId?: string, limit: number = 50): Promise<(ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User })[]> {
+  async getChecklistCompletions(hospitalId: string, unitId?: string, templateId?: string, limit: number = 50): Promise<(ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User })[]> {
     const conditions = [eq(checklistCompletions.hospitalId, hospitalId)];
-    if (locationId) conditions.push(eq(checklistCompletions.locationId, locationId));
+    if (unitId) conditions.push(eq(checklistCompletions.unitId, unitId));
     if (templateId) conditions.push(eq(checklistCompletions.templateId, templateId));
 
     const completions = await db
@@ -1281,8 +1281,8 @@ export class DatabaseStorage implements IStorage {
     return completion as (ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User }) | undefined;
   }
 
-  async getPendingChecklistCount(hospitalId: string, locationId: string, role?: string): Promise<number> {
-    const pending = await this.getPendingChecklists(hospitalId, locationId, role);
+  async getPendingChecklistCount(hospitalId: string, unitId: string, role?: string): Promise<number> {
+    const pending = await this.getPendingChecklists(hospitalId, unitId, role);
     return pending.filter(c => c.isOverdue).length;
   }
 
