@@ -606,37 +606,37 @@ export default function Hospital() {
             </Button>
           </div>
 
-          {locationLoading ? (
+          {unitsLoading ? (
             <div className="text-center py-8">
               <i className="fas fa-spinner fa-spin text-2xl text-primary"></i>
             </div>
-          ) : location.length === 0 ? (
+          ) : units.length === 0 ? (
             <div className="bg-card border border-border rounded-lg p-8 text-center">
               <i className="fas fa-location-dot text-4xl text-muted-foreground mb-4"></i>
-              <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.noLocations")}</h3>
-              <p className="text-muted-foreground mb-4">{t("admin.noLocationsMessage")}</p>
-              <Button onClick={handleAddLocation} size="sm">
+              <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.noUnits")}</h3>
+              <p className="text-muted-foreground mb-4">{t("admin.noUnitsMessage")}</p>
+              <Button onClick={handleAddUnit} size="sm">
                 <i className="fas fa-plus mr-2"></i>
-                {t("admin.addLocation")}
+                {t("admin.addUnit")}
               </Button>
             </div>
           ) : (
             <div className="space-y-2">
-              {location.map((location) => (
-                <div key={location.id} className="bg-card border border-border rounded-lg p-4" data-testid={`location-${location.id}`}>
+              {units.map((unit) => (
+                <div key={unit.id} className="bg-card border border-border rounded-lg p-4" data-testid={`unit-${unit.id}`}>
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-semibold text-foreground">{location.name}</h3>
-                      {location.type && (
-                        <p className="text-sm text-muted-foreground">{location.type}</p>
+                      <h3 className="font-semibold text-foreground">{unit.name}</h3>
+                      {unit.type && (
+                        <p className="text-sm text-muted-foreground">{unit.type}</p>
                       )}
                     </div>
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleEditLocation(location)}
-                        data-testid={`button-edit-location-${location.id}`}
+                        onClick={() => handleEditUnit(unit)}
+                        data-testid={`button-edit-unit-${unit.id}`}
                       >
                         <i className="fas fa-edit"></i>
                       </Button>
@@ -830,9 +830,9 @@ export default function Hospital() {
                     <SelectValue placeholder={t("admin.selectLocation")} />
                   </SelectTrigger>
                   <SelectContent>
-                    {location.map((location) => (
-                      <SelectItem key={location.id} value={location.id}>
-                        {location.name}
+                    {units.map((unit) => (
+                      <SelectItem key={unit.id} value={unit.id}>
+                        {unit.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -997,9 +997,9 @@ export default function Hospital() {
                   <SelectItem value="none" data-testid="option-none">
                     None (Disable anesthesia module)
                   </SelectItem>
-                  {location.map((location) => (
-                    <SelectItem key={location.id} value={location.id} data-testid={`option-location-${location.id}`}>
-                      {location.name} {location.type ? `(${location.type})` : ""}
+                  {units.map((unit) => (
+                    <SelectItem key={unit.id} value={unit.id} data-testid={`option-unit-${unit.id}`}>
+                      {unit.name} {unit.type ? `(${unit.type})` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1044,9 +1044,9 @@ export default function Hospital() {
                   <SelectItem value="none" data-testid="option-none-surgery">
                     None (Disable surgery module)
                   </SelectItem>
-                  {location.map((location) => (
-                    <SelectItem key={location.id} value={location.id} data-testid={`option-surgery-location-${location.id}`}>
-                      {location.name} {location.type ? `(${location.type})` : ""}
+                  {units.map((unit) => (
+                    <SelectItem key={unit.id} value={unit.id} data-testid={`option-surgery-unit-${unit.id}`}>
+                      {unit.name} {unit.type ? `(${unit.type})` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
