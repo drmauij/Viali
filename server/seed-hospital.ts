@@ -84,7 +84,7 @@ export async function seedHospitalData(
     await storage.createUserHospitalRole({
       userId,
       hospitalId,
-      locationId: anesthesyLocation.id,
+      unitId: anesthesyLocation.id,
       role: "admin",
     });
 
@@ -134,7 +134,7 @@ export async function seedHospitalData(
       // Create the item
       const newItem = await storage.createItem({
         hospitalId,
-        locationId: anesthesyLocation.id,
+        unitId: anesthesyLocation.id,
         name: medData.name,
         unit: medData.unit,
         trackExactQuantity: medData.trackExactQuantity,

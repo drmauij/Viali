@@ -15,7 +15,7 @@ interface NavItem {
 
 export default function BottomNav() {
   const { t } = useTranslation();
-  const [units?, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const { user } = useAuth();
   const { activeModule } = useModule();
   const [hasCompletedImport, setHasCompletedImport] = useState(false);
@@ -143,12 +143,12 @@ export default function BottomNav() {
 
   const isActive = (path: string) => {
     if (path === "/inventory/items") {
-      return units? === "/inventory" || units?.startsWith("/inventory/items");
+      return location === "/inventory" || location?.startsWith("/inventory/items");
     }
     if (path === "/admin") {
-      return units? === "/admin";
+      return location === "/admin";
     }
-    return units?.startsWith(path);
+    return location?.startsWith(path);
   };
 
   return (

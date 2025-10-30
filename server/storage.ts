@@ -489,7 +489,7 @@ export class DatabaseStorage implements IStorage {
       .insert(stockLevels)
       .values({
         itemId,
-        locationId: unitId,
+        unitId: unitId,
         qtyOnHand: qty,
       })
       .onConflictDoUpdate({
