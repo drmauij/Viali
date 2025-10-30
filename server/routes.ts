@@ -3342,6 +3342,7 @@ If unable to parse any drugs, return:
       // Sanitize user objects - remove passwordHash from all users
       const sanitizedUsers = users.map(u => ({
         ...u,
+        units: u.unit, // Rename unit to units for frontend consistency
         user: {
           id: u.user.id,
           email: u.user.email,
