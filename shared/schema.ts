@@ -51,8 +51,8 @@ export const hospitals = pgTable("hospitals", {
   googleAuthEnabled: boolean("google_auth_enabled").default(true),
   localAuthEnabled: boolean("local_auth_enabled").default(true),
   licenseType: varchar("license_type", { enum: ["free", "basic"] }).default("free").notNull(),
-  anesthesiaLocationId: varchar("anesthesia_location_id").references(() => locations.id), // Designates which location's inventory is used for anesthesia module
-  surgeryLocationId: varchar("surgery_location_id").references(() => locations.id), // Designates which location's doctors are available as surgeons
+  anesthesiaUnitId: varchar("anesthesia_unit_id").references(() => units.id), // Designates which unit's inventory is used for anesthesia module
+  surgeryUnitId: varchar("surgery_unit_id").references(() => units.id), // Designates which unit's doctors are available as surgeons
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -62,13 +62,13 @@ export const userHospitalRoles = pgTable("user_hospital_roles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
-  locationId: varchar("location_id").notNull().references(() => locations.id),
+  unitId: varchar("unit_id").notNull().references(() => units.id),
   role: varchar("role").notNull(), // doctor, nurse, admin
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_user_hospital_roles_user").on(table.userId),
   index("idx_user_hospital_roles_hospital").on(table.hospitalId),
-  index("idx_user_hospital_roles_location").on(table.locationId),
+  index("idx_user_hospital_roles_unit").on(table.unitId),
 ]);
 
 // Vendors
@@ -83,8 +83,8 @@ export const vendors = pgTable("vendors", {
   index("idx_vendors_hospital").on(table.hospitalId),
 ]);
 
-// Locations
-export const locations: any = pgTable("locations", {
+// Units
+export const units: any = pgTable("units", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
   name: varchar("name").notNull(),
@@ -92,8 +92,8 @@ export const locations: any = pgTable("locations", {
   parentId: varchar("parent_id"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
-  index("idx_locations_hospital").on(table.hospitalId),
-  index("idx_locations_parent").on(table.parentId),
+  index("idx_units_hospital").on(table.hospitalId),
+  index("idx_units_parent").on(table.parentId),
 ]);
 
 // Medication Groups (for organizing anesthesia medications)
@@ -132,21 +132,21 @@ export const surgeryRooms = pgTable("surgery_rooms", {
 export const folders = pgTable("folders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
-  locationId: varchar("location_id").notNull().references(() => locations.id),
+  unitId: varchar("unit_id").notNull().references(() => units.id),
   name: varchar("name").notNull(),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_folders_hospital").on(table.hospitalId),
-  index("idx_folders_location").on(table.locationId),
+  index("idx_folders_unit").on(table.unitId),
 ]);
 
 // Items
 export const items = pgTable("items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
-  locationId: varchar("location_id").notNull().references(() => locations.id),
+  unitId: varchar("unit_id").notNull().references(() => units.id),
   folderId: varchar("folder_id").references(() => folders.id),
   name: varchar("name").notNull(),
   description: text("description"),
@@ -167,7 +167,7 @@ export const items = pgTable("items", {
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_items_hospital").on(table.hospitalId),
-  index("idx_items_location").on(table.locationId),
+  index("idx_items_unit").on(table.unitId),
   index("idx_items_vendor").on(table.vendorId),
   index("idx_items_folder").on(table.folderId),
 ]);
@@ -176,13 +176,13 @@ export const items = pgTable("items", {
 export const stockLevels = pgTable("stock_levels", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   itemId: varchar("item_id").notNull().references(() => items.id),
-  locationId: varchar("location_id").notNull().references(() => locations.id),
+  unitId: varchar("unit_id").notNull().references(() => units.id),
   qtyOnHand: integer("qty_on_hand").default(0),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_stock_levels_item").on(table.itemId),
-  index("idx_stock_levels_location").on(table.locationId),
-  unique("unique_item_location").on(table.itemId, table.locationId),
+  index("idx_stock_levels_unit").on(table.unitId),
+  unique("unique_item_unit").on(table.itemId, table.unitId),
 ]);
 
 // Lots (for expiry tracking)
@@ -191,7 +191,7 @@ export const lots = pgTable("lots", {
   itemId: varchar("item_id").notNull().references(() => items.id),
   lotNumber: varchar("lot_number").notNull(),
   expiryDate: timestamp("expiry_date"),
-  locationId: varchar("location_id").notNull().references(() => locations.id),
+  unitId: varchar("unit_id").notNull().references(() => units.id),
   qty: integer("qty").default(0),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
@@ -242,7 +242,7 @@ export const activities = pgTable("activities", {
   action: varchar("action").notNull(), // count, receive, dispense, adjust, etc.
   itemId: varchar("item_id").references(() => items.id),
   lotId: varchar("lot_id").references(() => lots.id),
-  locationId: varchar("location_id").references(() => locations.id),
+  unitId: varchar("unit_id").references(() => units.id),
   delta: integer("delta"), // quantity change
   movementType: varchar("movement_type", { enum: ["IN", "OUT"] }), // IN = stock increase, OUT = stock decrease
   notes: text("notes"),
@@ -283,7 +283,7 @@ export const alerts = pgTable("alerts", {
 export const controlledChecks = pgTable("controlled_checks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
-  locationId: varchar("location_id").notNull().references(() => locations.id),
+  unitId: varchar("unit_id").notNull().references(() => units.id),
   userId: varchar("user_id").notNull().references(() => users.id),
   timestamp: timestamp("timestamp").defaultNow(),
   signature: text("signature").notNull(),
@@ -292,7 +292,7 @@ export const controlledChecks = pgTable("controlled_checks", {
   notes: text("notes"),
 }, (table) => [
   index("idx_controlled_checks_hospital").on(table.hospitalId),
-  index("idx_controlled_checks_location").on(table.locationId),
+  index("idx_controlled_checks_unit").on(table.unitId),
   index("idx_controlled_checks_timestamp").on(table.timestamp),
 ]);
 
@@ -300,7 +300,7 @@ export const controlledChecks = pgTable("controlled_checks", {
 export const importJobs = pgTable("import_jobs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
-  locationId: varchar("location_id").notNull().references(() => locations.id),
+  unitId: varchar("unit_id").notNull().references(() => units.id),
   userId: varchar("user_id").notNull().references(() => users.id),
   status: varchar("status").notNull().default("queued"), // queued, processing, completed, failed
   totalImages: integer("total_images").notNull(),
@@ -327,7 +327,7 @@ export const importJobs = pgTable("import_jobs", {
 export const checklistTemplates = pgTable("checklist_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
-  locationId: varchar("location_id").notNull().references(() => locations.id),
+  unitId: varchar("unit_id").notNull().references(() => units.id),
   role: varchar("role"), // null = any role, otherwise specific role required
   name: varchar("name").notNull(), // e.g., "Emergency Backpack", "Ventilator"
   description: text("description"),
@@ -340,7 +340,7 @@ export const checklistTemplates = pgTable("checklist_templates", {
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_checklist_templates_hospital").on(table.hospitalId),
-  index("idx_checklist_templates_location").on(table.locationId),
+  index("idx_checklist_templates_unit").on(table.unitId),
   index("idx_checklist_templates_active").on(table.active),
 ]);
 
@@ -349,7 +349,7 @@ export const checklistCompletions = pgTable("checklist_completions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   templateId: varchar("template_id").notNull().references(() => checklistTemplates.id),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
-  locationId: varchar("location_id").notNull().references(() => locations.id),
+  unitId: varchar("unit_id").notNull().references(() => units.id),
   completedBy: varchar("completed_by").notNull().references(() => users.id),
   completedAt: timestamp("completed_at").defaultNow(),
   dueDate: timestamp("due_date").notNull(), // which recurrency period this completion covers
@@ -359,7 +359,7 @@ export const checklistCompletions = pgTable("checklist_completions", {
 }, (table) => [
   index("idx_checklist_completions_template").on(table.templateId),
   index("idx_checklist_completions_hospital").on(table.hospitalId),
-  index("idx_checklist_completions_location").on(table.locationId),
+  index("idx_checklist_completions_unit").on(table.unitId),
   index("idx_checklist_completions_completed_at").on(table.completedAt),
   index("idx_checklist_completions_due_date").on(table.dueDate),
 ]);
@@ -757,7 +757,7 @@ export const usersRelations = relations(users, ({ many }) => ({
 export const hospitalsRelations = relations(hospitals, ({ many }) => ({
   userHospitalRoles: many(userHospitalRoles),
   vendors: many(vendors),
-  locations: many(locations),
+  units: many(units),
   folders: many(folders),
   items: many(items),
   orders: many(orders),
@@ -775,10 +775,10 @@ export const vendorsRelations = relations(vendors, ({ one, many }) => ({
   orders: many(orders),
 }));
 
-export const locationsRelations = relations(locations, ({ one, many }) => ({
-  hospital: one(hospitals, { fields: [locations.hospitalId], references: [hospitals.id] }),
-  parent: one(locations, { fields: [locations.parentId], references: [locations.id] }),
-  children: many(locations),
+export const unitsRelations = relations(units, ({ one, many }) => ({
+  hospital: one(hospitals, { fields: [units.hospitalId], references: [hospitals.id] }),
+  parent: one(units, { fields: [units.parentId], references: [units.id] }),
+  children: many(units),
   folders: many(folders),
   stockLevels: many(stockLevels),
   lots: many(lots),
@@ -786,7 +786,7 @@ export const locationsRelations = relations(locations, ({ one, many }) => ({
 
 export const foldersRelations = relations(folders, ({ one, many }) => ({
   hospital: one(hospitals, { fields: [folders.hospitalId], references: [hospitals.id] }),
-  location: one(locations, { fields: [folders.locationId], references: [locations.id] }),
+  unit: one(units, { fields: [folders.unitId], references: [units.id] }),
   items: many(items),
 }));
 
@@ -804,12 +804,12 @@ export const itemsRelations = relations(items, ({ one, many }) => ({
 
 export const stockLevelsRelations = relations(stockLevels, ({ one }) => ({
   item: one(items, { fields: [stockLevels.itemId], references: [items.id] }),
-  location: one(locations, { fields: [stockLevels.locationId], references: [locations.id] }),
+  unit: one(units, { fields: [stockLevels.unitId], references: [units.id] }),
 }));
 
 export const lotsRelations = relations(lots, ({ one, many }) => ({
   item: one(items, { fields: [lots.itemId], references: [items.id] }),
-  location: one(locations, { fields: [lots.locationId], references: [locations.id] }),
+  unit: one(units, { fields: [lots.unitId], references: [units.id] }),
   activities: many(activities),
   alerts: many(alerts),
 }));
@@ -830,7 +830,7 @@ export const activitiesRelations = relations(activities, ({ one }) => ({
   user: one(users, { fields: [activities.userId], references: [users.id] }),
   item: one(items, { fields: [activities.itemId], references: [items.id] }),
   lot: one(lots, { fields: [activities.lotId], references: [lots.id] }),
-  location: one(locations, { fields: [activities.locationId], references: [locations.id] }),
+  unit: one(units, { fields: [activities.unitId], references: [units.id] }),
 }));
 
 export const alertsRelations = relations(alerts, ({ one }) => ({
@@ -842,19 +842,19 @@ export const alertsRelations = relations(alerts, ({ one }) => ({
 
 export const controlledChecksRelations = relations(controlledChecks, ({ one }) => ({
   hospital: one(hospitals, { fields: [controlledChecks.hospitalId], references: [hospitals.id] }),
-  location: one(locations, { fields: [controlledChecks.locationId], references: [locations.id] }),
+  unit: one(units, { fields: [controlledChecks.unitId], references: [units.id] }),
   user: one(users, { fields: [controlledChecks.userId], references: [users.id] }),
 }));
 
 export const importJobsRelations = relations(importJobs, ({ one }) => ({
   hospital: one(hospitals, { fields: [importJobs.hospitalId], references: [hospitals.id] }),
-  location: one(locations, { fields: [importJobs.locationId], references: [locations.id] }),
+  unit: one(units, { fields: [importJobs.unitId], references: [units.id] }),
   user: one(users, { fields: [importJobs.userId], references: [users.id] }),
 }));
 
 export const checklistTemplatesRelations = relations(checklistTemplates, ({ one, many }) => ({
   hospital: one(hospitals, { fields: [checklistTemplates.hospitalId], references: [hospitals.id] }),
-  location: one(locations, { fields: [checklistTemplates.locationId], references: [locations.id] }),
+  unit: one(units, { fields: [checklistTemplates.unitId], references: [units.id] }),
   createdByUser: one(users, { fields: [checklistTemplates.createdBy], references: [users.id] }),
   completions: many(checklistCompletions),
 }));
@@ -862,7 +862,7 @@ export const checklistTemplatesRelations = relations(checklistTemplates, ({ one,
 export const checklistCompletionsRelations = relations(checklistCompletions, ({ one }) => ({
   template: one(checklistTemplates, { fields: [checklistCompletions.templateId], references: [checklistTemplates.id] }),
   hospital: one(hospitals, { fields: [checklistCompletions.hospitalId], references: [hospitals.id] }),
-  location: one(locations, { fields: [checklistCompletions.locationId], references: [locations.id] }),
+  unit: one(units, { fields: [checklistCompletions.unitId], references: [units.id] }),
   completedByUser: one(users, { fields: [checklistCompletions.completedBy], references: [users.id] }),
 }));
 
@@ -1041,7 +1041,7 @@ export type OrderLine = typeof orderLines.$inferSelect;
 export type Activity = typeof activities.$inferSelect;
 export type Alert = typeof alerts.$inferSelect;
 export type Vendor = typeof vendors.$inferSelect;
-export type Location = typeof locations.$inferSelect;
+export type Unit = typeof units.$inferSelect;
 
 export type InsertFolder = z.infer<typeof insertFolderSchema>;
 export type InsertItem = z.infer<typeof insertItemSchema>;
