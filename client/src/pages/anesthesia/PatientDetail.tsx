@@ -5,8 +5,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Download, Loader2 } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Download, Loader2, Pencil, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -56,6 +57,23 @@ export default function PatientDetail() {
   const [isPatientCardVisible, setIsPatientCardVisible] = useState(true);
   const patientCardRef = useRef<HTMLDivElement>(null);
   const activeHospital = useActiveHospital();
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    surname: "",
+    firstName: "",
+    birthday: "",
+    sex: "M" as "M" | "F" | "O",
+    email: "",
+    phone: "",
+    address: "",
+    emergencyContact: "",
+    insuranceProvider: "",
+    insuranceNumber: "",
+    allergies: [] as string[],
+    allergyNotes: "",
+    medicalNotes: "",
+  });
   
   // Fetch patient data from API
   const { data: patient, isLoading, error } = useQuery<Patient>({
@@ -312,6 +330,51 @@ export default function PatientDetail() {
     },
   });
 
+  // Mutation to update a patient
+  const updatePatientMutation = useMutation({
+    mutationFn: async (patientData: Partial<Patient>) => {
+      return await apiRequest("PATCH", `/api/patients/${patient?.id}`, patientData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${params?.id}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/patients"] });
+      toast({
+        title: "Patient updated",
+        description: "The patient has been successfully updated.",
+      });
+      setIsEditDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update patient",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation to delete a patient
+  const deletePatientMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("DELETE", `/api/patients/${patient?.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/patients"] });
+      toast({
+        title: "Patient deleted",
+        description: "The patient has been successfully deleted.",
+      });
+      setLocation("/anesthesia/patients");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete patient",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCreateCase = () => {
     if (!newCase.plannedSurgery || !newCase.plannedDate) {
       toast({
@@ -536,18 +599,55 @@ export default function PatientDetail() {
 
         <Card ref={patientCardRef} data-testid="card-patient-details">
           <CardHeader>
-            <CardTitle className="flex items-center gap-3">
-              {patient.sex === "M" ? (
-                <UserCircle className="h-6 w-6 text-blue-500" data-testid="icon-sex-male-card" />
-              ) : (
-                <UserRound className="h-6 w-6 text-pink-500" data-testid="icon-sex-female-card" />
-              )}
-              <div>
-                <div data-testid="text-patient-fullname">{patient.surname}, {patient.firstName}</div>
-                <p className="text-sm font-normal mt-1">
-                  <span className="text-foreground font-medium" data-testid="text-patient-birthday">{formatDate(patient.birthday)} ({calculateAge(patient.birthday)} years)</span>
-                  <span className="text-muted-foreground" data-testid="text-patient-number"> • Patient ID: {patient.patientNumber}</span>
-                </p>
+            <CardTitle className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                {patient.sex === "M" ? (
+                  <UserCircle className="h-6 w-6 text-blue-500" data-testid="icon-sex-male-card" />
+                ) : (
+                  <UserRound className="h-6 w-6 text-pink-500" data-testid="icon-sex-female-card" />
+                )}
+                <div>
+                  <div data-testid="text-patient-fullname">{patient.surname}, {patient.firstName}</div>
+                  <p className="text-sm font-normal mt-1">
+                    <span className="text-foreground font-medium" data-testid="text-patient-birthday">{formatDate(patient.birthday)} ({calculateAge(patient.birthday)} years)</span>
+                    <span className="text-muted-foreground" data-testid="text-patient-number"> • Patient ID: {patient.patientNumber}</span>
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    setEditForm({
+                      surname: patient.surname,
+                      firstName: patient.firstName,
+                      birthday: patient.birthday,
+                      sex: patient.sex,
+                      email: patient.email || "",
+                      phone: patient.phone || "",
+                      address: patient.address || "",
+                      emergencyContact: patient.emergencyContact || "",
+                      insuranceProvider: patient.insuranceProvider || "",
+                      insuranceNumber: patient.insuranceNumber || "",
+                      allergies: patient.allergies || [],
+                      allergyNotes: patient.allergyNotes || "",
+                      medicalNotes: patient.medicalNotes || "",
+                    });
+                    setIsEditDialogOpen(true);
+                  }}
+                  data-testid="button-edit-patient"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                  data-testid="button-delete-patient"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
             </CardTitle>
           </CardHeader>
@@ -2301,6 +2401,264 @@ export default function PatientDetail() {
           </Tabs>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Patient Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Patient</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-surname">Surname *</Label>
+                <Input
+                  id="edit-surname"
+                  value={editForm.surname}
+                  onChange={(e) => setEditForm({ ...editForm, surname: e.target.value })}
+                  data-testid="input-edit-surname"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-firstName">First Name *</Label>
+                <Input
+                  id="edit-firstName"
+                  value={editForm.firstName}
+                  onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
+                  data-testid="input-edit-firstName"
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-birthday">Birthday *</Label>
+                <Input
+                  id="edit-birthday"
+                  type="date"
+                  value={editForm.birthday}
+                  onChange={(e) => setEditForm({ ...editForm, birthday: e.target.value })}
+                  data-testid="input-edit-birthday"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-sex">Sex *</Label>
+                <Select
+                  value={editForm.sex}
+                  onValueChange={(value: "M" | "F" | "O") => setEditForm({ ...editForm, sex: value })}
+                >
+                  <SelectTrigger data-testid="select-edit-sex">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="M">Male</SelectItem>
+                    <SelectItem value="F">Female</SelectItem>
+                    <SelectItem value="O">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-email">Email</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  data-testid="input-edit-email"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-phone">Phone</Label>
+                <Input
+                  id="edit-phone"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                  data-testid="input-edit-phone"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-address">Address</Label>
+              <Input
+                id="edit-address"
+                value={editForm.address}
+                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                data-testid="input-edit-address"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-emergencyContact">Emergency Contact</Label>
+              <Input
+                id="edit-emergencyContact"
+                value={editForm.emergencyContact}
+                onChange={(e) => setEditForm({ ...editForm, emergencyContact: e.target.value })}
+                data-testid="input-edit-emergencyContact"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-insuranceProvider">Insurance Provider</Label>
+                <Input
+                  id="edit-insuranceProvider"
+                  value={editForm.insuranceProvider}
+                  onChange={(e) => setEditForm({ ...editForm, insuranceProvider: e.target.value })}
+                  data-testid="input-edit-insuranceProvider"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-insuranceNumber">Insurance Number</Label>
+                <Input
+                  id="edit-insuranceNumber"
+                  value={editForm.insuranceNumber}
+                  onChange={(e) => setEditForm({ ...editForm, insuranceNumber: e.target.value })}
+                  data-testid="input-edit-insuranceNumber"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Allergies</Label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {commonAllergies.map((allergy) => (
+                  <Badge
+                    key={allergy}
+                    variant={editForm.allergies.includes(allergy) ? "default" : "outline"}
+                    className="cursor-pointer"
+                    onClick={() => {
+                      if (editForm.allergies.includes(allergy)) {
+                        setEditForm({
+                          ...editForm,
+                          allergies: editForm.allergies.filter((a) => a !== allergy),
+                        });
+                      } else {
+                        setEditForm({
+                          ...editForm,
+                          allergies: [...editForm.allergies, allergy],
+                        });
+                      }
+                    }}
+                    data-testid={`badge-edit-allergy-${allergy.toLowerCase()}`}
+                  >
+                    {allergy}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-allergyNotes">Allergy Notes</Label>
+              <Textarea
+                id="edit-allergyNotes"
+                value={editForm.allergyNotes}
+                onChange={(e) => setEditForm({ ...editForm, allergyNotes: e.target.value })}
+                data-testid="textarea-edit-allergyNotes"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-medicalNotes">Medical Notes</Label>
+              <Textarea
+                id="edit-medicalNotes"
+                value={editForm.medicalNotes}
+                onChange={(e) => setEditForm({ ...editForm, medicalNotes: e.target.value })}
+                data-testid="textarea-edit-medicalNotes"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setIsEditDialogOpen(false)}
+                data-testid="button-cancel-edit"
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  if (!editForm.surname || !editForm.firstName || !editForm.birthday) {
+                    toast({
+                      title: "Missing required fields",
+                      description: "Please fill in Surname, First Name, and Birthday",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  updatePatientMutation.mutate({
+                    surname: editForm.surname,
+                    firstName: editForm.firstName,
+                    birthday: editForm.birthday,
+                    sex: editForm.sex,
+                    email: editForm.email || null,
+                    phone: editForm.phone || null,
+                    address: editForm.address || null,
+                    emergencyContact: editForm.emergencyContact || null,
+                    insuranceProvider: editForm.insuranceProvider || null,
+                    insuranceNumber: editForm.insuranceNumber || null,
+                    allergies: editForm.allergies.length > 0 ? editForm.allergies : null,
+                    allergyNotes: editForm.allergyNotes || null,
+                    medicalNotes: editForm.medicalNotes || null,
+                  });
+                }}
+                disabled={updatePatientMutation.isPending}
+                data-testid="button-save-patient-edit"
+              >
+                {updatePatientMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Patient Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Patient</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this patient? This action cannot be undone.
+              <br /><br />
+              <strong>Patient: {patient.surname}, {patient.firstName}</strong>
+              <br />
+              Patient ID: {patient.patientNumber}
+              <br /><br />
+              All associated data, including surgeries and assessments, will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletePatientMutation.mutate()}
+              disabled={deletePatientMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-patient"
+            >
+              {deletePatientMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Patient"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

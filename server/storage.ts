@@ -89,7 +89,7 @@ import {
   type InsertAuditTrail,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, asc, sql, inArray, lte, gte, or, ilike } from "drizzle-orm";
+import { eq, and, desc, asc, sql, inArray, lte, gte, or, ilike, isNull } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
