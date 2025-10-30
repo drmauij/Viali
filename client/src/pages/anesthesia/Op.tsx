@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 import { UnifiedTimeline, type UnifiedTimelineData, type TimelineVitals, type TimelineEvent, type VitalPoint } from "@/components/anesthesia/UnifiedTimeline";
+import { PreOpOverview } from "@/components/anesthesia/PreOpOverview";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -419,6 +420,9 @@ export default function Op() {
                   </TabsTrigger>
                   <TabsTrigger value="anesthesia" data-testid="tab-anesthesia" className="text-xs sm:text-sm whitespace-nowrap">
                     Anesthesia
+                  </TabsTrigger>
+                  <TabsTrigger value="preop" data-testid="tab-preop" className="text-xs sm:text-sm whitespace-nowrap">
+                    Pre-Op
                   </TabsTrigger>
                   <TabsTrigger value="inventory" data-testid="tab-inventory" className="text-xs sm:text-sm whitespace-nowrap">
                     Inventory
@@ -1006,6 +1010,120 @@ export default function Op() {
                 </Card>
               </AccordionItem>
             </Accordion>
+          </TabsContent>
+
+          {/* Pre-Op Overview Tab */}
+          <TabsContent value="preop" className="flex-1 overflow-y-auto px-6 pb-6 mt-0" data-testid="tab-content-preop">
+            <PreOpOverview data={{
+              height: currentPatient.height || "",
+              weight: currentPatient.weight || "",
+              allergies: currentPatient.allergies || [],
+              allergiesOther: "",
+              cave: currentPatient.cave || "",
+              asa: "",
+              specialNotes: "",
+              anticoagulationMeds: [],
+              anticoagulationMedsOther: "",
+              generalMeds: [],
+              generalMedsOther: "",
+              medicationsNotes: "",
+              heartIllnesses: {
+                htn: false,
+                chd: false,
+                heartValve: false,
+                arrhythmia: false,
+                heartFailure: false,
+              },
+              heartNotes: "",
+              lungIllnesses: {
+                asthma: false,
+                copd: false,
+                sleepApnea: false,
+                pneumonia: false,
+              },
+              lungNotes: "",
+              giIllnesses: {
+                reflux: false,
+                ibd: false,
+                liverDisease: false,
+              },
+              kidneyIllnesses: {
+                ckd: false,
+                dialysis: false,
+              },
+              metabolicIllnesses: {
+                diabetes: false,
+                thyroid: false,
+              },
+              giKidneyMetabolicNotes: "",
+              neuroIllnesses: {
+                stroke: false,
+                epilepsy: false,
+                parkinsons: false,
+                dementia: false,
+              },
+              psychIllnesses: {
+                depression: false,
+                anxiety: false,
+                psychosis: false,
+              },
+              skeletalIllnesses: {
+                arthritis: false,
+                osteoporosis: false,
+                spineDisorders: false,
+              },
+              neuroPsychSkeletalNotes: "",
+              womanIssues: {
+                pregnancy: false,
+                breastfeeding: false,
+                menopause: false,
+                gynecologicalSurgery: false,
+              },
+              womanNotes: "",
+              noxen: {
+                nicotine: false,
+                alcohol: false,
+                drugs: false,
+              },
+              noxenNotes: "",
+              childrenIssues: {
+                prematurity: false,
+                developmentalDelay: false,
+                congenitalAnomalies: false,
+                vaccination: false,
+              },
+              childrenNotes: "",
+              mallampati: "",
+              mouth_opening: "",
+              dentition: "",
+              airwayDifficult: "",
+              airwayNotes: "",
+              last_solids: "",
+              last_clear: "",
+              anesthesiaTechniques: {
+                general: false,
+                spinal: false,
+                epidural: false,
+                regional: false,
+                sedation: false,
+                combined: false,
+              },
+              postOpICU: false,
+              anesthesiaOther: "",
+              installations: {
+                arterialLine: false,
+                cvc: false,
+                picLine: false,
+                urinaryCatheter: false,
+                nasogastricTube: false,
+                drainageTube: false,
+              },
+              installationsOther: "",
+              surgicalApproval: "",
+              assessmentDate: "",
+              doctorName: "",
+              doctorSignature: "",
+            }} />
           </TabsContent>
 
           {/* Inventory Tab */}
