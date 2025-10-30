@@ -1,5 +1,5 @@
 import { format as dateFnsFormat } from "date-fns";
-import { enGB, Locale } from "date-fns/locale";
+import { enGB, enUS, de, fr, es, it, Locale } from "date-fns/locale";
 
 export interface DateFormatConfig {
   locale: string;
@@ -17,8 +17,21 @@ const DEFAULT_CONFIG: DateFormatConfig = {
 
 let currentConfig: DateFormatConfig = DEFAULT_CONFIG;
 
+const localeMap: Record<string, Locale> = {
+  "en-GB": enGB,
+  "en-US": enUS,
+  "de": de,
+  "de-DE": de,
+  "fr": fr,
+  "fr-FR": fr,
+  "es": es,
+  "es-ES": es,
+  "it": it,
+  "it-IT": it,
+};
+
 const getDateFnsLocale = (): Locale => {
-  return enGB;
+  return localeMap[currentConfig.locale] || enGB;
 };
 
 export const setDateFormatConfig = (config: Partial<DateFormatConfig>) => {
@@ -34,11 +47,7 @@ export const formatDate = (date: string | Date | null | undefined): string => {
   
   try {
     const dateObj = typeof date === "string" ? new Date(date) : date;
-    return dateObj.toLocaleDateString(currentConfig.locale, {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
+    return dateFnsFormat(dateObj, currentConfig.dateFormat, { locale: getDateFnsLocale() });
   } catch (error) {
     console.error("Error formatting date:", error);
     return "Invalid date";
@@ -50,13 +59,7 @@ export const formatDateTime = (date: string | Date | null | undefined): string =
   
   try {
     const dateObj = typeof date === "string" ? new Date(date) : date;
-    return dateObj.toLocaleString(currentConfig.locale, {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return dateFnsFormat(dateObj, currentConfig.dateTimeFormat, { locale: getDateFnsLocale() });
   } catch (error) {
     console.error("Error formatting datetime:", error);
     return "Invalid date";
@@ -68,10 +71,7 @@ export const formatTime = (date: string | Date | null | undefined): string => {
   
   try {
     const dateObj = typeof date === "string" ? new Date(date) : date;
-    return dateObj.toLocaleTimeString(currentConfig.locale, {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    return dateFnsFormat(dateObj, currentConfig.timeFormat, { locale: getDateFnsLocale() });
   } catch (error) {
     console.error("Error formatting time:", error);
     return "Invalid time";
