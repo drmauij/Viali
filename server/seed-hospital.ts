@@ -158,5 +158,101 @@ export async function seedHospitalData(
     }
   }
 
+  // 5. CREATE HOSPITAL ANESTHESIA SETTINGS (only if they don't exist)
+  const existingSettings = await storage.getHospitalAnesthesiaSettings(hospitalId);
+  
+  if (!existingSettings) {
+    await storage.upsertHospitalAnesthesiaSettings({
+      hospitalId,
+      illnessLists: {
+        cardiovascular: [
+          "Hypertension",
+          "Coronary Artery Disease",
+          "Heart Failure",
+          "Arrhythmia",
+          "Valvular Disease",
+          "Cardiomyopathy",
+        ],
+        pulmonary: [
+          "Asthma",
+          "COPD",
+          "Sleep Apnea",
+          "Pulmonary Hypertension",
+          "Interstitial Lung Disease",
+        ],
+        gastrointestinal: [
+          "GERD",
+          "Hiatal Hernia",
+          "Liver Disease",
+          "Previous Bowel Surgery",
+        ],
+        kidney: [
+          "Chronic Kidney Disease",
+          "Dialysis",
+          "Renal Transplant",
+        ],
+        metabolic: [
+          "Diabetes Mellitus",
+          "Thyroid Disease",
+          "Adrenal Disease",
+          "Obesity",
+        ],
+        neurological: [
+          "Seizure Disorder",
+          "Stroke/TIA",
+          "Neuromuscular Disease",
+          "Previous CNS Surgery",
+        ],
+        psychiatric: [
+          "Anxiety Disorder",
+          "Depression",
+          "PTSD",
+        ],
+        noxen: [
+          "Smoking",
+          "Alcohol Abuse",
+          "Drug Abuse",
+        ],
+        woman: [
+          "Pregnancy",
+          "Previous C-Section",
+        ],
+        children: [
+          "Prematurity",
+          "Congenital Heart Disease",
+          "Developmental Delay",
+        ],
+      },
+      checklistItems: {
+        signIn: [
+          "Patient identity confirmed",
+          "Surgical site marked",
+          "Consent verified",
+          "Anesthesia equipment checked",
+          "Pulse oximeter on patient",
+          "Known allergies documented",
+          "Difficult airway assessment",
+          "Risk of blood loss >500ml",
+        ],
+        timeOut: [
+          "Team introductions complete",
+          "Correct patient confirmed",
+          "Correct procedure confirmed",
+          "Correct site/side confirmed",
+          "Anticipated critical events discussed",
+          "Antibiotics given (if required)",
+          "Essential imaging displayed",
+        ],
+        signOut: [
+          "Procedure name recorded",
+          "Instrument/sponge/needle counts correct",
+          "Specimen labeling confirmed",
+          "Equipment problems addressed",
+          "Key concerns for recovery discussed",
+        ],
+      },
+    });
+  }
+
   return result;
 }
