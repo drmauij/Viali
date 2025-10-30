@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, Syringe, Stethoscope } from "lucide-react";
 import { format } from "date-fns";
-import type { Location as Unit } from "@shared/schema";
+import type { Unit } from "@shared/schema";
 
 export default function Hospital() {
   const { t } = useTranslation();
@@ -977,21 +977,21 @@ export default function Hospital() {
       <Dialog open={anesthesiaUnitDialogOpen} onOpenChange={setAnesthesiaUnitDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Configure Anesthesia Module Location</DialogTitle>
+            <DialogTitle>Configure Anesthesia Module Unit</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="anesthesia-location">Select Location</Label>
+              <Label htmlFor="anesthesia-unit">Select Unit</Label>
               <p className="text-sm text-muted-foreground mb-2">
-                Choose which location's inventory will be used for anesthesia medications and infusions.
-                Only users assigned to this location can access the anesthesia module.
+                Choose which unit's inventory will be used for anesthesia medications and infusions.
+                Only users assigned to this unit can access the anesthesia module.
               </p>
               <Select
                 value={selectedAnesthesiaUnitId}
                 onValueChange={setSelectedAnesthesiaUnitId}
               >
-                <SelectTrigger id="anesthesia-location" data-testid="select-anesthesia-location">
-                  <SelectValue placeholder="Select a location" />
+                <SelectTrigger id="anesthesia-unit" data-testid="select-anesthesia-unit">
+                  <SelectValue placeholder="Select a unit" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none" data-testid="option-none">
@@ -1012,7 +1012,7 @@ export default function Hospital() {
               <Button
                 onClick={handleSaveAnesthesiaUnit}
                 disabled={updateAnesthesiaUnitMutation.isPending}
-                data-testid="button-save-anesthesia-location"
+                data-testid="button-save-anesthesia-unit"
               >
                 {t("common.save")}
               </Button>
@@ -1025,20 +1025,20 @@ export default function Hospital() {
       <Dialog open={surgeryUnitDialogOpen} onOpenChange={setSurgeryUnitDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Configure Surgery Module Location</DialogTitle>
+            <DialogTitle>Configure Surgery Module Unit</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="surgery-location">Select Location</Label>
+              <Label htmlFor="surgery-unit">Select Unit</Label>
               <p className="text-sm text-muted-foreground mb-2">
-                Doctors assigned to this location will be available as surgeons
+                Doctors assigned to this unit will be available as surgeons
               </p>
               <Select
                 value={selectedSurgeryUnitId}
                 onValueChange={setSelectedSurgeryUnitId}
               >
-                <SelectTrigger id="surgery-location" data-testid="select-surgery-location">
-                  <SelectValue placeholder="Select a location" />
+                <SelectTrigger id="surgery-unit" data-testid="select-surgery-unit">
+                  <SelectValue placeholder="Select a unit" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none" data-testid="option-none-surgery">
@@ -1059,7 +1059,7 @@ export default function Hospital() {
               <Button
                 onClick={handleSaveSurgeryUnit}
                 disabled={updateSurgeryUnitMutation.isPending}
-                data-testid="button-save-surgery-location"
+                data-testid="button-save-surgery-unit"
               >
                 {t("common.save")}
               </Button>
@@ -1076,7 +1076,7 @@ export default function Hospital() {
             <AlertDialogDescription className="space-y-2">
               <p>This will add the following default data to your hospital:</p>
               <ul className="list-disc pl-5 space-y-1 text-sm">
-                <li><strong>4 Locations:</strong> Anesthesy, OR, ER, ICU</li>
+                <li><strong>4 Units:</strong> Anesthesy, OR, ER, ICU</li>
                 <li><strong>3 Surgery Rooms:</strong> OP1, OP2, OP3</li>
                 <li><strong>5 Administration Groups:</strong> Infusions, Pumps, Bolus, Short IVs, Antibiotics</li>
                 <li><strong>13 Medications:</strong> Common anesthesia medications with complete configuration</li>
