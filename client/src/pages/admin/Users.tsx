@@ -97,6 +97,8 @@ export default function Users() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
+      // Refresh current user's auth data to update hospital switcher
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       toast({ title: t("common.success"), description: t("admin.roleLocationAdded") });
     },
     onError: (error: any) => {
@@ -111,6 +113,8 @@ export default function Users() {
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
+      // Refresh current user's auth data to update hospital switcher
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       toast({ title: t("common.success"), description: t("admin.roleLocationRemoved") });
     },
     onError: (error: any) => {
