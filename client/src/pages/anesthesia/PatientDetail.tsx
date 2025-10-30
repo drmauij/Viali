@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Download, Loader2, Pencil, Trash2 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -336,8 +336,12 @@ export default function PatientDetail() {
       return await apiRequest("PATCH", `/api/patients/${patient?.id}`, patientData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/patients/${params?.id}`] });
-      queryClient.invalidateQueries({ queryKey: ["/api/patients"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/patients');
+        }
+      });
       toast({
         title: "Patient updated",
         description: "The patient has been successfully updated.",
@@ -359,7 +363,12 @@ export default function PatientDetail() {
       return await apiRequest("DELETE", `/api/patients/${patient?.id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/patients"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/patients');
+        }
+      });
       toast({
         title: "Patient deleted",
         description: "The patient has been successfully deleted.",
@@ -730,6 +739,7 @@ export default function PatientDetail() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create New Surgery</DialogTitle>
+              <DialogDescription>Schedule a new surgery for this patient</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
@@ -912,6 +922,7 @@ export default function PatientDetail() {
       <Dialog open={isPreOpOpen} onOpenChange={setIsPreOpOpen}>
         <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col [&>button]:hidden">
           <DialogHeader className="p-4 md:p-6 pb-4 shrink-0 relative">
+            <DialogDescription className="sr-only">Pre-operative assessment and informed consent forms</DialogDescription>
             <div className="flex items-center justify-between mb-4 pr-10">
               <DialogTitle className="text-lg md:text-2xl">Pre-Operative Assessment</DialogTitle>
               <Button
@@ -2407,6 +2418,7 @@ export default function PatientDetail() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Patient</DialogTitle>
+            <DialogDescription>Update patient information and medical details</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
