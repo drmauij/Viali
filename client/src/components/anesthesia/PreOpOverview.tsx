@@ -182,11 +182,6 @@ export function PreOpOverview({ data }: PreOpOverviewProps) {
 
   // If no data at all, show empty state
   const hasAnyData = 
-    data.height.trim() ||
-    data.weight.trim() ||
-    data.allergies.length > 0 ||
-    data.allergiesOther.trim() ||
-    data.cave.trim() ||
     data.asa.trim() ||
     data.specialNotes.trim() ||
     data.anticoagulationMeds.length > 0 ||
@@ -220,60 +215,14 @@ export function PreOpOverview({ data }: PreOpOverviewProps) {
 
   return (
     <div className="space-y-3 text-sm">
-      {/* Allergies & CAVE */}
-      {hasData(data.allergies.length > 0 || !!data.allergiesOther.trim() || !!data.cave.trim()) && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Allergies & CAVE</CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3">
-            <div className="space-y-1.5">
-              {(data.allergies.length > 0 || data.allergiesOther.trim()) && (
-                <div>
-                  <span className="text-muted-foreground text-xs">Allergies: </span>
-                  <span className="font-medium">
-                    {[...data.allergies, data.allergiesOther].filter(Boolean).join(", ")}
-                  </span>
-                </div>
-              )}
-              {data.cave.trim() && (
-                <div>
-                  <span className="text-muted-foreground text-xs">CAVE: </span>
-                  <span className="font-medium text-amber-700 dark:text-amber-500">{data.cave}</span>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* ASA & Vitals */}
-      {hasData(!!data.asa.trim() || !!data.height.trim() || !!data.weight.trim()) && (
+      {hasData(!!data.asa.trim()) && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Classification & Vitals</CardTitle>
+            <CardTitle className="text-sm font-semibold">ASA Classification</CardTitle>
           </CardHeader>
           <CardContent className="pb-3">
-            <div className="flex flex-wrap gap-3">
-              {data.asa.trim() && (
-                <div>
-                  <span className="text-muted-foreground text-xs">ASA: </span>
-                  <Badge variant="outline" className="font-semibold">{data.asa}</Badge>
-                </div>
-              )}
-              {data.height.trim() && (
-                <div>
-                  <span className="text-muted-foreground text-xs">Height: </span>
-                  <span className="font-medium">{data.height} cm</span>
-                </div>
-              )}
-              {data.weight.trim() && (
-                <div>
-                  <span className="text-muted-foreground text-xs">Weight: </span>
-                  <span className="font-medium">{data.weight} kg</span>
-                </div>
-              )}
-            </div>
+            <Badge variant="outline" className="font-semibold">{data.asa}</Badge>
           </CardContent>
         </Card>
       )}

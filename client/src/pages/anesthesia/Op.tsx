@@ -354,9 +354,18 @@ export default function Op() {
                 )}
                 <div>
                   <h2 className="font-bold text-base md:text-lg">{currentPatient.surname}, {currentPatient.firstName}</h2>
-                  <p className="text-xs md:text-sm text-muted-foreground">
-                    {new Date(currentPatient.birthday).toLocaleDateString()} ({calculateAge(currentPatient.birthday)} y) • {currentPatient.patientId}
-                  </p>
+                  <div className="flex items-center gap-3 md:gap-4 flex-wrap">
+                    <p className="text-xs md:text-sm text-muted-foreground">
+                      {new Date(currentPatient.birthday).toLocaleDateString()} • {currentPatient.patientId}
+                    </p>
+                    <div className="flex items-center gap-3 font-semibold text-sm">
+                      <span className="text-foreground">{calculateAge(currentPatient.birthday)} y</span>
+                      <span className="text-muted-foreground">•</span>
+                      <span className="text-foreground">{currentPatient.height} cm</span>
+                      <span className="text-muted-foreground">•</span>
+                      <span className="text-foreground">{currentPatient.weight} kg</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -365,22 +374,6 @@ export default function Op() {
                 <p className="text-xs font-medium text-primary/70">PROCEDURE</p>
                 <p className="font-semibold text-sm text-primary">{currentCase.plannedSurgery}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">{currentCase.surgeon} • {new Date(currentCase.plannedDate).toLocaleDateString()}</p>
-              </div>
-
-              {/* Height/Weight/BMI - Hide on mobile, show on md+ */}
-              <div className="hidden md:flex gap-4">
-                <div>
-                  <p className="text-xs text-muted-foreground">Height</p>
-                  <p className="font-semibold">{currentPatient.height} cm</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Weight</p>
-                  <p className="font-semibold">{currentPatient.weight} kg</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">BMI</p>
-                  <p className="font-semibold">{calculateBMI()}</p>
-                </div>
               </div>
 
               {/* Allergies & CAVE - Clickable Display */}
@@ -1020,28 +1013,28 @@ export default function Op() {
               allergies: currentPatient.allergies || [],
               allergiesOther: "",
               cave: currentPatient.cave || "",
-              asa: "",
+              asa: "II",
               specialNotes: "",
-              anticoagulationMeds: [],
+              anticoagulationMeds: ["Aspirin"],
               anticoagulationMedsOther: "",
-              generalMeds: [],
-              generalMedsOther: "",
+              generalMeds: ["Metoprolol"],
+              generalMedsOther: "Atorvastatin 20mg",
               medicationsNotes: "",
               heartIllnesses: {
-                htn: false,
+                htn: true,
                 chd: false,
                 heartValve: false,
-                arrhythmia: false,
+                arrhythmia: true,
                 heartFailure: false,
               },
-              heartNotes: "",
+              heartNotes: "Well controlled on medication. AF diagnosed 2019.",
               lungIllnesses: {
                 asthma: false,
-                copd: false,
+                copd: true,
                 sleepApnea: false,
                 pneumonia: false,
               },
-              lungNotes: "",
+              lungNotes: "COPD GOLD Stage II. Uses Symbicort 2x daily.",
               giIllnesses: {
                 reflux: false,
                 ibd: false,
@@ -1081,11 +1074,11 @@ export default function Op() {
               },
               womanNotes: "",
               noxen: {
-                nicotine: false,
+                nicotine: true,
                 alcohol: false,
                 drugs: false,
               },
-              noxenNotes: "",
+              noxenNotes: "Smoker: 15 cigarettes/day for 20 years (30 pack-years)",
               childrenIssues: {
                 prematurity: false,
                 developmentalDelay: false,
