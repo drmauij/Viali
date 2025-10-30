@@ -42,6 +42,19 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Units
+export const units = pgTable("units", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  name: varchar("name").notNull(),
+  type: varchar("type"), // OR, ICU, Storage, etc.
+  parentId: varchar("parent_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_units_hospital").on(table.hospitalId),
+  index("idx_units_parent").on(table.parentId),
+]);
+
 // Hospital table
 export const hospitals = pgTable("hospitals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -81,19 +94,6 @@ export const vendors = pgTable("vendors", {
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_vendors_hospital").on(table.hospitalId),
-]);
-
-// Units
-export const units: any = pgTable("units", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
-  name: varchar("name").notNull(),
-  type: varchar("type"), // OR, ICU, Storage, etc.
-  parentId: varchar("parent_id"),
-  createdAt: timestamp("created_at").defaultNow(),
-}, (table) => [
-  index("idx_units_hospital").on(table.hospitalId),
-  index("idx_units_parent").on(table.parentId),
 ]);
 
 // Medication Groups (for organizing anesthesia medications)

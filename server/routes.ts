@@ -35,7 +35,7 @@ import { eq, and, inArray, sql } from "drizzle-orm";
 import OpenAI from "openai";
 import crypto from "crypto";
 
-async function getUserLocationForHospital(userId: string, hospitalId: string): Promise<string | null> {
+async function getUserUnitForHospital(userId: string, hospitalId: string): Promise<string | null> {
   const hospitals = await storage.getUserHospitals(userId);
   const hospital = hospitals.find(h => h.id === hospitalId);
   return hospital?.unitId || null;
@@ -47,7 +47,7 @@ async function getUserRole(userId: string, hospitalId: string): Promise<string |
   return hospital?.role || null;
 }
 
-async function verifyUserHospitalLocationAccess(userId: string, hospitalId: string, locationId: string): Promise<{ hasAccess: boolean; role: string | null }> {
+async function verifyUserHospitalUnitAccess(userId: string, hospitalId: string, locationId: string): Promise<{ hasAccess: boolean; role: string | null }> {
   const hospitals = await storage.getUserHospitals(userId);
   const match = hospitals.find(h => h.id === hospitalId && h.unitId === locationId);
   return {
@@ -542,7 +542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const folderData = insertFolderSchema.parse(req.body);
       const userId = req.user.id;
       
-      const locationId = await getUserLocationForHospital(userId, folderData.hospitalId);
+      const locationId = await getUserUnitForHospital(userId, folderData.hospitalId);
       if (!locationId || locationId !== folderData.unitId) {
         return res.status(403).json({ message: "Access denied to this hospital/location" });
       }
@@ -576,7 +576,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           continue;
         }
 
-        const locationId = await getUserLocationForHospital(userId, folder.hospitalId);
+        const locationId = await getUserUnitForHospital(userId, folder.hospitalId);
         if (!locationId || locationId !== folder.unitId) {
           continue;
         }
@@ -603,7 +603,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Folder not found" });
       }
       
-      const locationId = await getUserLocationForHospital(userId, folder.hospitalId);
+      const locationId = await getUserUnitForHospital(userId, folder.hospitalId);
       if (!locationId || locationId !== folder.unitId) {
         return res.status(403).json({ message: "Access denied to this folder" });
       }
@@ -626,7 +626,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Folder not found" });
       }
       
-      const locationId = await getUserLocationForHospital(userId, folder.hospitalId);
+      const locationId = await getUserUnitForHospital(userId, folder.hospitalId);
       if (!locationId || locationId !== folder.unitId) {
         return res.status(403).json({ message: "Access denied to this folder" });
       }
@@ -684,7 +684,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verify user has access to this item's location
-      const locationId = await getUserLocationForHospital(userId, item.hospitalId);
+      const locationId = await getUserUnitForHospital(userId, item.hospitalId);
       if (!locationId || locationId !== item.unitId) {
         return res.status(403).json({ message: "Access denied to this item" });
       }
@@ -777,7 +777,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Verify user has access to this item's location
-        const locationId = await getUserLocationForHospital(userId, item.hospitalId);
+        const locationId = await getUserUnitForHospital(userId, item.hospitalId);
         if (!locationId || locationId !== item.unitId) {
           continue;
         }
@@ -853,7 +853,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const item = await storage.getItem(itemUpdate.id);
         if (!item) continue;
 
-        const locationId = await getUserLocationForHospital(userId, item.hospitalId);
+        const locationId = await getUserUnitForHospital(userId, item.hospitalId);
         if (!locationId || locationId !== item.unitId) {
           continue;
         }
@@ -880,7 +880,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verify user has access to this item's location
-      const locationId = await getUserLocationForHospital(userId, item.hospitalId);
+      const locationId = await getUserUnitForHospital(userId, item.hospitalId);
       if (!locationId || locationId !== item.unitId) {
         return res.status(403).json({ message: "Access denied to this item" });
       }
@@ -960,7 +960,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verify user has access to this item's location
-      const locationId = await getUserLocationForHospital(userId, item.hospitalId);
+      const locationId = await getUserUnitForHospital(userId, item.hospitalId);
       if (!locationId || locationId !== item.unitId) {
         return res.status(403).json({ message: "Access denied to this item" });
       }
@@ -1030,7 +1030,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verify user has access to this item's location
-      const locationId = await getUserLocationForHospital(userId, item.hospitalId);
+      const locationId = await getUserUnitForHospital(userId, item.hospitalId);
       if (!locationId || locationId !== item.unitId) {
         return res.status(403).json({ message: "Access denied to this item" });
       }
@@ -1070,7 +1070,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // Verify user has access to this item's location
-          const locationId = await getUserLocationForHospital(userId, item.hospitalId);
+          const locationId = await getUserUnitForHospital(userId, item.hospitalId);
           if (!locationId || locationId !== item.unitId) {
             results.failed.push({ id: itemId, reason: "Access denied" });
             continue;
@@ -1104,7 +1104,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.id;
       
       // Verify user has access to this hospital
-      const userLocationId = await getUserLocationForHospital(userId, hospitalId);
+      const userLocationId = await getUserUnitForHospital(userId, hospitalId);
       if (!userLocationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -1186,7 +1186,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verify user has access to this item's location
-      const locationId = await getUserLocationForHospital(userId, item.hospitalId);
+      const locationId = await getUserUnitForHospital(userId, item.hospitalId);
       if (!locationId || locationId !== item.unitId) {
         return res.status(403).json({ message: "Access denied to this item" });
       }
@@ -1862,7 +1862,7 @@ If unable to parse any drugs, return:
       }
 
       // Verify user has access to this hospital
-      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      const locationId = await getUserUnitForHospital(userId, hospitalId);
       if (!locationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -1966,7 +1966,7 @@ If unable to parse any drugs, return:
       }
 
       // Verify user has access to this hospital
-      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      const locationId = await getUserUnitForHospital(userId, hospitalId);
       if (!locationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -2039,7 +2039,7 @@ If unable to parse any drugs, return:
 
       // Verify user owns this job or has access to the hospital
       if (job.userId !== userId) {
-        const locationId = await getUserLocationForHospital(userId, job.hospitalId);
+        const locationId = await getUserUnitForHospital(userId, job.hospitalId);
         if (!locationId) {
           return res.status(403).json({ message: "Access denied" });
         }
@@ -2162,7 +2162,7 @@ If unable to parse any drugs, return:
       }
       
       const userId = req.user.id;
-      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      const locationId = await getUserUnitForHospital(userId, hospitalId);
       if (!locationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -2252,7 +2252,7 @@ If unable to parse any drugs, return:
       }
       
       // Get user's locationId for this hospital
-      const locationId = await getUserLocationForHospital(userId, item.hospitalId);
+      const locationId = await getUserUnitForHospital(userId, item.hospitalId);
       if (!locationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -2290,7 +2290,7 @@ If unable to parse any drugs, return:
       const userId = req.user.id;
       
       // Verify user has access to this hospital
-      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      const locationId = await getUserUnitForHospital(userId, hospitalId);
       if (!locationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -2309,7 +2309,7 @@ If unable to parse any drugs, return:
       const userId = req.user.id;
       
       // Verify user has access to this hospital
-      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      const locationId = await getUserUnitForHospital(userId, hospitalId);
       if (!locationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -2353,7 +2353,7 @@ If unable to parse any drugs, return:
       }
       
       // Verify user has access to this hospital
-      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      const locationId = await getUserUnitForHospital(userId, hospitalId);
       if (!locationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -2389,7 +2389,7 @@ If unable to parse any drugs, return:
       }
       
       // Verify user has access to this hospital
-      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      const locationId = await getUserUnitForHospital(userId, hospitalId);
       if (!locationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -2421,7 +2421,7 @@ If unable to parse any drugs, return:
       }
       
       // Verify user has access to this hospital
-      const locationId = await getUserLocationForHospital(userId, order.hospitalId);
+      const locationId = await getUserUnitForHospital(userId, order.hospitalId);
       if (!locationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -2457,7 +2457,7 @@ If unable to parse any drugs, return:
       }
       
       // Verify user has access to this hospital
-      const locationId = await getUserLocationForHospital(userId, order.hospitalId);
+      const locationId = await getUserUnitForHospital(userId, order.hospitalId);
       if (!locationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -2500,7 +2500,7 @@ If unable to parse any drugs, return:
       }
       
       // Verify user has access to this hospital
-      const locationId = await getUserLocationForHospital(userId, order.hospitalId);
+      const locationId = await getUserUnitForHospital(userId, order.hospitalId);
       if (!locationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -2616,7 +2616,7 @@ If unable to parse any drugs, return:
       }
       
       // Verify user has access to this hospital
-      const locationId = await getUserLocationForHospital(userId, order.hospitalId);
+      const locationId = await getUserUnitForHospital(userId, order.hospitalId);
       if (!locationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -2641,7 +2641,7 @@ If unable to parse any drugs, return:
       }
       
       // Verify user has access to this hospital
-      const locationId = await getUserLocationForHospital(userId, order.hospitalId);
+      const locationId = await getUserUnitForHospital(userId, order.hospitalId);
       if (!locationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -2751,7 +2751,7 @@ If unable to parse any drugs, return:
           }
           
           // Get user's locationId for this hospital
-          const locationId = await getUserLocationForHospital(userId, itemData.hospitalId);
+          const locationId = await getUserUnitForHospital(userId, itemData.hospitalId);
           if (!locationId) {
             throw new Error("Access denied to this hospital");
           }
@@ -2849,7 +2849,7 @@ If unable to parse any drugs, return:
       }
       
       // Get user's locationId for this hospital
-      const locationId = await getUserLocationForHospital(userId, item.hospitalId);
+      const locationId = await getUserUnitForHospital(userId, item.hospitalId);
       if (!locationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -2907,7 +2907,7 @@ If unable to parse any drugs, return:
       const { hospitalId } = req.params;
       const userId = req.user.id;
       
-      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      const locationId = await getUserUnitForHospital(userId, hospitalId);
       if (!locationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -2958,7 +2958,7 @@ If unable to parse any drugs, return:
         return res.status(400).json({ message: "Missing required fields" });
       }
       
-      const userLocationId = await getUserLocationForHospital(userId, hospitalId);
+      const userLocationId = await getUserUnitForHospital(userId, hospitalId);
       if (!userLocationId || userLocationId !== locationId) {
         return res.status(403).json({ message: "Access denied to this location" });
       }
@@ -2987,7 +2987,7 @@ If unable to parse any drugs, return:
       const { hospitalId } = req.params;
       const userId = req.user.id;
       
-      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      const locationId = await getUserUnitForHospital(userId, hospitalId);
       if (!locationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -3023,7 +3023,7 @@ If unable to parse any drugs, return:
       }
       
       // Verify user has access to this hospital/location
-      const userLocationId = await getUserLocationForHospital(userId, item.hospitalId);
+      const userLocationId = await getUserUnitForHospital(userId, item.hospitalId);
       if (!userLocationId || userLocationId !== item.unitId) {
         return res.status(403).json({ message: "Access denied to this activity" });
       }
@@ -3100,7 +3100,7 @@ If unable to parse any drugs, return:
       const { hospitalId } = req.params;
       const userId = req.user.id;
       
-      const locationId = await getUserLocationForHospital(userId, hospitalId);
+      const locationId = await getUserUnitForHospital(userId, hospitalId);
       if (!locationId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -3884,7 +3884,7 @@ If unable to parse any drugs, return:
       }
       
       // Verify user has access to this specific hospital/location
-      const access = await verifyUserHospitalLocationAccess(userId, template.hospitalId, template.unitId);
+      const access = await verifyUserHospitalUnitAccess(userId, template.hospitalId, template.unitId);
       if (!access.hasAccess) {
         return res.status(403).json({ message: "Access denied to this location" });
       }
@@ -3962,7 +3962,7 @@ If unable to parse any drugs, return:
       }
       
       // Verify user has access to this specific hospital/location
-      const access = await verifyUserHospitalLocationAccess(userId, completion.hospitalId, completion.unitId);
+      const access = await verifyUserHospitalUnitAccess(userId, completion.hospitalId, completion.unitId);
       if (!access.hasAccess) {
         return res.status(403).json({ message: "Access denied to this location" });
       }

@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Location as Unit } from "@shared/schema";
+import type { Unit } from "@shared/schema";
 
 export default function Units() {
   const { t } = useTranslation();
