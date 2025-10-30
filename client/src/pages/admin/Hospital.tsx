@@ -644,11 +644,11 @@ export default function Hospital() {
                         variant="outline"
                         size="sm"
                         onClick={() => {
-                          if (confirm(t("admin.deleteLocationConfirm"))) {
-                            deleteLocationMutation.mutate(location.id);
+                          if (confirm(t("admin.deleteUnitConfirm"))) {
+                            deleteUnitMutation.mutate(unit.id);
                           }
                         }}
-                        data-testid={`button-delete-location-${location.id}`}
+                        data-testid={`button-delete-unit-${unit.id}`}
                       >
                         <i className="fas fa-trash text-destructive"></i>
                       </Button>
@@ -742,43 +742,43 @@ export default function Hospital() {
         </div>
       )}
 
-      {/* Location Dialog */}
-      <Dialog open={locationDialogOpen} onOpenChange={setLocationDialogOpen}>
+      {/* Unit Dialog */}
+      <Dialog open={unitDialogOpen} onOpenChange={setUnitDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingLocation ? t("admin.editLocation") : t("admin.addLocation")}</DialogTitle>
+            <DialogTitle>{editingUnit ? t("admin.editUnit") : t("admin.addUnit")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="location-name">{t("admin.unitName")} *</Label>
+              <Label htmlFor="unit-name">{t("admin.unitName")} *</Label>
               <Input
-                id="location-name"
-                value={locationForm.name}
-                onChange={(e) => setLocationForm({ ...locationForm, name: e.target.value })}
-                placeholder={t("admin.locationPlaceholder")}
-                data-testid="input-location-name"
+                id="unit-name"
+                value={unitForm.name}
+                onChange={(e) => setUnitForm({ ...unitForm, name: e.target.value })}
+                placeholder={t("admin.unitPlaceholder")}
+                data-testid="input-unit-name"
               />
             </div>
             <div>
-              <Label htmlFor="location-type">{t("admin.type")}</Label>
+              <Label htmlFor="unit-type">{t("admin.type")}</Label>
               <Input
-                id="location-type"
-                value={locationForm.type}
-                onChange={(e) => setLocationForm({ ...locationForm, type: e.target.value })}
+                id="unit-type"
+                value={unitForm.type}
+                onChange={(e) => setUnitForm({ ...unitForm, type: e.target.value })}
                 placeholder={t("admin.typePlaceholder")}
-                data-testid="input-location-type"
+                data-testid="input-unit-type"
               />
             </div>
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setLocationDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setUnitDialogOpen(false)}>
                 {t("common.cancel")}
               </Button>
               <Button
-                onClick={handleSaveLocation}
-                disabled={createLocationMutation.isPending || updateLocationMutation.isPending}
-                data-testid="button-save-location"
+                onClick={handleSaveUnit}
+                disabled={createUnitMutation.isPending || updateUnitMutation.isPending}
+                data-testid="button-save-unit"
               >
-                {editingLocation ? t("common.edit") : t("common.save")}
+                {editingUnit ? t("common.edit") : t("common.save")}
               </Button>
             </div>
           </div>
@@ -973,8 +973,8 @@ export default function Hospital() {
         </DialogContent>
       </Dialog>
 
-      {/* Anesthesia Location Dialog */}
-      <Dialog open={anesthesiaLocationDialogOpen} onOpenChange={setAnesthesiaLocationDialogOpen}>
+      {/* Anesthesia Unit Dialog */}
+      <Dialog open={anesthesiaUnitDialogOpen} onOpenChange={setAnesthesiaUnitDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Configure Anesthesia Module Location</DialogTitle>
@@ -987,8 +987,8 @@ export default function Hospital() {
                 Only users assigned to this location can access the anesthesia module.
               </p>
               <Select
-                value={selectedAnesthesiaLocationId}
-                onValueChange={setSelectedAnesthesiaLocationId}
+                value={selectedAnesthesiaUnitId}
+                onValueChange={setSelectedAnesthesiaUnitId}
               >
                 <SelectTrigger id="anesthesia-location" data-testid="select-anesthesia-location">
                   <SelectValue placeholder="Select a location" />
@@ -1006,12 +1006,12 @@ export default function Hospital() {
               </Select>
             </div>
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setAnesthesiaLocationDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setAnesthesiaUnitDialogOpen(false)}>
                 {t("common.cancel")}
               </Button>
               <Button
-                onClick={handleSaveAnesthesiaLocation}
-                disabled={updateAnesthesiaLocationMutation.isPending}
+                onClick={handleSaveAnesthesiaUnit}
+                disabled={updateAnesthesiaUnitMutation.isPending}
                 data-testid="button-save-anesthesia-location"
               >
                 {t("common.save")}
@@ -1021,8 +1021,8 @@ export default function Hospital() {
         </DialogContent>
       </Dialog>
 
-      {/* Surgery Location Dialog */}
-      <Dialog open={surgeryLocationDialogOpen} onOpenChange={setSurgeryLocationDialogOpen}>
+      {/* Surgery Unit Dialog */}
+      <Dialog open={surgeryUnitDialogOpen} onOpenChange={setSurgeryUnitDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Configure Surgery Module Location</DialogTitle>
@@ -1034,8 +1034,8 @@ export default function Hospital() {
                 Doctors assigned to this location will be available as surgeons
               </p>
               <Select
-                value={selectedSurgeryLocationId}
-                onValueChange={setSelectedSurgeryLocationId}
+                value={selectedSurgeryUnitId}
+                onValueChange={setSelectedSurgeryUnitId}
               >
                 <SelectTrigger id="surgery-location" data-testid="select-surgery-location">
                   <SelectValue placeholder="Select a location" />
@@ -1053,12 +1053,12 @@ export default function Hospital() {
               </Select>
             </div>
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setSurgeryLocationDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setSurgeryUnitDialogOpen(false)}>
                 {t("common.cancel")}
               </Button>
               <Button
-                onClick={handleSaveSurgeryLocation}
-                disabled={updateSurgeryLocationMutation.isPending}
+                onClick={handleSaveSurgeryUnit}
+                disabled={updateSurgeryUnitMutation.isPending}
                 data-testid="button-save-surgery-location"
               >
                 {t("common.save")}
