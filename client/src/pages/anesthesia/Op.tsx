@@ -12,10 +12,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
-import { Minus, Folder, Package } from "lucide-react";
+import { Minus, Folder, Package, Loader2 } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
   X,
@@ -46,81 +47,75 @@ import {
   Download
 } from "lucide-react";
 
-// Mock patients data
-const mockPatients = [
-  {
-    id: "1",
-    patientId: "P-2024-001",
-    surname: "Rossi",
-    firstName: "Maria",
-    birthday: "1968-05-12",
-    sex: "F",
-    height: "165",
-    weight: "68",
-    allergies: ["Latex", "Penicillin"],
-    cave: "NSAIDs contraindicated",
-  },
-  {
-    id: "2",
-    patientId: "P-2024-002",
-    surname: "Bianchi",
-    firstName: "Giovanni",
-    birthday: "1957-11-03",
-    sex: "M",
-    height: "180",
-    weight: "130",
-    allergies: ["None"],
-    cave: "",
-  },
-];
-
-const mockCases = [
-  {
-    id: "case-1",
-    patientId: "1",
-    plannedSurgery: "Laparoscopic Cholecystectomy",
-    surgeon: "Dr. Romano",
-    plannedDate: "2024-01-15",
-    status: "in-progress",
-  },
-  {
-    id: "case-2",
-    patientId: "2",
-    plannedSurgery: "Total Hip Replacement",
-    surgeon: "Dr. Smith",
-    plannedDate: "2024-01-20",
-    status: "scheduled",
-  },
-];
-
 export default function Op() {
   const params = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(true);
+  const activeHospital = useActiveHospital();
 
-  // Get case data from params
-  const caseId = params.id;
-  const currentCase = mockCases.find(c => c.id === caseId);
+  // Get surgeryId from params
+  const surgeryId = params.id;
 
-  // If no case found, redirect back
+  // Fetch surgery details
+  const { data: surgery, isLoading: isSurgeryLoading, error: surgeryError } = useQuery({
+    queryKey: [`/api/anesthesia/surgeries/${surgeryId}`],
+    enabled: !!surgeryId,
+  });
+
+  // Fetch anesthesia record
+  const { data: anesthesiaRecord, isLoading: isRecordLoading } = useQuery({
+    queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
+    enabled: !!surgeryId,
+  });
+
+  // Fetch pre-op assessment
+  const { data: preOpAssessment, isLoading: isPreOpLoading } = useQuery({
+    queryKey: [`/api/anesthesia/preop/surgery/${surgeryId}`],
+    enabled: !!surgeryId,
+  });
+
+  // Fetch vitals snapshots (requires recordId)
+  const { data: vitalsData = [], isLoading: isVitalsLoading } = useQuery({
+    queryKey: [`/api/anesthesia/vitals/${anesthesiaRecord?.id}`],
+    enabled: !!anesthesiaRecord?.id,
+  });
+
+  // Fetch medications (requires recordId)
+  const { data: medicationsData = [], isLoading: isMedicationsLoading } = useQuery({
+    queryKey: [`/api/anesthesia/medications/${anesthesiaRecord?.id}`],
+    enabled: !!anesthesiaRecord?.id,
+  });
+
+  // Fetch events (requires recordId)
+  const { data: eventsData = [], isLoading: isEventsLoading } = useQuery({
+    queryKey: [`/api/anesthesia/events/${anesthesiaRecord?.id}`],
+    enabled: !!anesthesiaRecord?.id,
+  });
+
+  // If surgery not found or error, redirect back
   useEffect(() => {
-    if (!currentCase) {
+    if (surgeryError || (!isSurgeryLoading && !surgery)) {
       setIsOpen(false);
       setTimeout(() => setLocation("/anesthesia/patients"), 100);
     }
-  }, [currentCase, setLocation]);
-
-  // Get patient data for this case
-  const currentPatient = currentCase ? mockPatients.find(p => p.id === currentCase.patientId) : null;
+  }, [surgery, surgeryError, isSurgeryLoading, setLocation]);
 
   // Dialog state for editing allergies and CAVE
   const [isAllergiesDialogOpen, setIsAllergiesDialogOpen] = useState(false);
-  const [allergies, setAllergies] = useState(currentPatient?.allergies.join(", ") || "");
-  const [cave, setCave] = useState(currentPatient?.cave || "");
+  const [allergies, setAllergies] = useState("");
+  const [cave, setCave] = useState("");
   
   // Temporary state for dialog editing
   const [tempAllergies, setTempAllergies] = useState("");
   const [tempCave, setTempCave] = useState("");
+
+  // Update allergies and cave when preOp data is loaded
+  useEffect(() => {
+    if (preOpAssessment) {
+      setAllergies(preOpAssessment.allergies?.join(", ") || "");
+      setCave(preOpAssessment.cave || "");
+    }
+  }, [preOpAssessment]);
   
   const handleOpenAllergiesDialog = () => {
     setTempAllergies(allergies);
@@ -134,17 +129,27 @@ export default function Op() {
     setIsAllergiesDialogOpen(false);
   };
 
-  if (!currentCase || !currentPatient) {
-    return null;
-  }
-
-  // Empty timeline data - starts with current time, no historical data
+  // Transform vitals data for timeline
   const timelineData = useMemo((): UnifiedTimelineData => {
-    const now = new Date().getTime(); // Current time
-    const sixHoursAgo = now - 6 * 60 * 60 * 1000; // 6 hours ago to allow zoom out
-    const sixHoursFuture = now + 6 * 60 * 60 * 1000; // 6 hours into future
+    if (!vitalsData || vitalsData.length === 0) {
+      const now = new Date().getTime();
+      const sixHoursAgo = now - 6 * 60 * 60 * 1000;
+      const sixHoursFuture = now + 6 * 60 * 60 * 1000;
 
-    // Empty vitals - no data points
+      return {
+        startTime: sixHoursAgo,
+        endTime: sixHoursFuture,
+        vitals: {
+          sysBP: [],
+          diaBP: [],
+          hr: [],
+          spo2: [],
+        },
+        events: [],
+      };
+    }
+
+    // Convert vitals snapshots to timeline format
     const vitals: TimelineVitals = {
       sysBP: [],
       diaBP: [],
@@ -152,20 +157,43 @@ export default function Op() {
       spo2: [],
     };
 
-    // Empty events - no timeline events
-    const events: TimelineEvent[] = [];
+    vitalsData.forEach((snapshot: any) => {
+      const timestamp = new Date(snapshot.timestamp).getTime();
+      const data = snapshot.data || {};
+
+      if (data.sysBP !== undefined) {
+        vitals.sysBP.push({ time: timestamp, value: data.sysBP });
+      }
+      if (data.diaBP !== undefined) {
+        vitals.diaBP.push({ time: timestamp, value: data.diaBP });
+      }
+      if (data.hr !== undefined) {
+        vitals.hr.push({ time: timestamp, value: data.hr });
+      }
+      if (data.spo2 !== undefined) {
+        vitals.spo2.push({ time: timestamp, value: data.spo2 });
+      }
+    });
+
+    // Convert events to timeline format
+    const events: TimelineEvent[] = (eventsData || []).map((event: any) => ({
+      time: new Date(event.timestamp).getTime(),
+      type: event.eventType || 'event',
+      description: event.description || '',
+    }));
+
+    // Calculate time range
+    const timestamps = vitalsData.map((s: any) => new Date(s.timestamp).getTime());
+    const minTime = timestamps.length > 0 ? Math.min(...timestamps) : new Date().getTime() - 6 * 60 * 60 * 1000;
+    const maxTime = timestamps.length > 0 ? Math.max(...timestamps) : new Date().getTime() + 6 * 60 * 60 * 1000;
 
     return {
-      startTime: sixHoursAgo, // Wide range to allow full zoom out to 10 hours
-      endTime: sixHoursFuture, // Wide range to allow full zoom out
+      startTime: minTime - 60 * 60 * 1000, // 1 hour before first data point
+      endTime: maxTime + 60 * 60 * 1000, // 1 hour after last data point
       vitals,
       events,
     };
-  }, []);
-
-  // Auth and hospital
-  const { user } = useAuth();
-  const activeHospital = useActiveHospital();
+  }, [vitalsData, eventsData]);
 
   // OP State
   const [opData, setOpData] = useState({
@@ -257,26 +285,21 @@ export default function Op() {
   };
 
   // Auto-compute used quantities from anesthesia timeline data
-  // This parses medications and infusions from opData and calculates quantities
   useEffect(() => {
+    if (!medicationsData) return;
+
     const computedQuantities: Record<string, number> = {};
     
-    // Parse medications (bolus administrations)
-    opData.medications.forEach((med: any) => {
-      if (med.itemId && med.quantity) {
-        computedQuantities[med.itemId] = (computedQuantities[med.itemId] || 0) + parseFloat(med.quantity);
-      }
-    });
-    
-    // Parse infusions (continuous administrations)
-    opData.infusions.forEach((inf: any) => {
-      if (inf.itemId && inf.totalVolume) {
-        computedQuantities[inf.itemId] = (computedQuantities[inf.itemId] || 0) + parseFloat(inf.totalVolume);
+    // Parse medications from backend
+    medicationsData.forEach((med: any) => {
+      if (med.itemId && med.dose) {
+        const quantity = parseFloat(med.dose) || 0;
+        computedQuantities[med.itemId] = (computedQuantities[med.itemId] || 0) + quantity;
       }
     });
     
     setInventoryQuantities(computedQuantities);
-  }, [opData.medications, opData.infusions]);
+  }, [medicationsData]);
 
   // Handle quantity change for inventory items
   const handleQuantityChange = (itemId: string, delta: number) => {
@@ -290,9 +313,8 @@ export default function Op() {
   const handleDialogChange = (open: boolean) => {
     setIsOpen(open);
     if (!open) {
-      // When dialog closes, navigate to patient detail
       setTimeout(() => {
-        setLocation(`/anesthesia/patients/${currentCase.patientId}`);
+        setLocation("/anesthesia/patients");
       }, 100);
     }
   };
@@ -302,33 +324,33 @@ export default function Op() {
     handleDialogChange(false);
   };
 
-  // Calculate age
-  const calculateAge = (birthday: string) => {
-    const birthDate = new Date(birthday);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  };
+  // Get patient weight from preOp assessment
+  const patientWeight = preOpAssessment?.weight ? parseFloat(preOpAssessment.weight) : undefined;
 
-  // Calculate BMI
-  const calculateBMI = () => {
-    if (currentPatient.height && currentPatient.weight) {
-      const heightM = parseFloat(currentPatient.height) / 100;
-      const weightKg = parseFloat(currentPatient.weight);
-      return (weightKg / (heightM * heightM)).toFixed(1);
-    }
-    return "N/A";
-  };
+  // Show loading state while initial data is loading
+  if (isSurgeryLoading || isPreOpLoading) {
+    return (
+      <Dialog open={isOpen} onOpenChange={handleDialogChange}>
+        <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col items-center justify-center [&>button]:hidden">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="text-lg font-medium">Loading surgery data...</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // If no surgery data, return null (redirect will happen via useEffect)
+  if (!surgery) {
+    return null;
+  }
 
   return (
     <>
     <Dialog open={isOpen} onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col [&>button]:hidden" aria-describedby="op-dialog-description">
-        <h2 className="sr-only" id="op-dialog-title">Intraoperative Monitoring - {currentPatient.surname}, {currentPatient.firstName}</h2>
+        <h2 className="sr-only" id="op-dialog-title">Intraoperative Monitoring - Patient {surgery.patientId}</h2>
         <p className="sr-only" id="op-dialog-description">Professional anesthesia monitoring system for tracking vitals, medications, and clinical events during surgery</p>
         {/* Fixed Patient Info Header */}
         <div className="shrink-0 bg-background relative">
@@ -347,24 +369,26 @@ export default function Op() {
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4 md:flex-wrap">
               {/* Patient Name & Icon */}
               <div className="flex items-center gap-3">
-                {currentPatient.sex === "M" ? (
-                  <UserCircle className="h-8 w-8 text-blue-500" />
-                ) : (
-                  <UserRound className="h-8 w-8 text-pink-500" />
-                )}
+                <UserCircle className="h-8 w-8 text-blue-500" />
                 <div>
-                  <h2 className="font-bold text-base md:text-lg">{currentPatient.surname}, {currentPatient.firstName}</h2>
+                  <h2 className="font-bold text-base md:text-lg">Patient {surgery.patientId}</h2>
                   <div className="flex items-center gap-3 md:gap-4 flex-wrap">
                     <p className="text-xs md:text-sm text-muted-foreground">
-                      {new Date(currentPatient.birthday).toLocaleDateString()} • {currentPatient.patientId}
+                      Surgery ID: {surgery.id}
                     </p>
-                    <div className="flex items-center gap-3 font-semibold text-sm">
-                      <span className="text-foreground">{calculateAge(currentPatient.birthday)} y</span>
-                      <span className="text-muted-foreground">•</span>
-                      <span className="text-foreground">{currentPatient.height} cm</span>
-                      <span className="text-muted-foreground">•</span>
-                      <span className="text-foreground">{currentPatient.weight} kg</span>
-                    </div>
+                    {preOpAssessment && (
+                      <div className="flex items-center gap-3 font-semibold text-sm">
+                        {preOpAssessment.height && (
+                          <>
+                            <span className="text-foreground">{preOpAssessment.height} cm</span>
+                            <span className="text-muted-foreground">•</span>
+                          </>
+                        )}
+                        {preOpAssessment.weight && (
+                          <span className="text-foreground">{preOpAssessment.weight} kg</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -372,8 +396,12 @@ export default function Op() {
               {/* Surgery Info */}
               <div className="px-3 py-2 bg-primary/10 border border-primary/30 rounded-lg">
                 <p className="text-xs font-medium text-primary/70">PROCEDURE</p>
-                <p className="font-semibold text-sm text-primary">{currentCase.plannedSurgery}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{currentCase.surgeon} • {new Date(currentCase.plannedDate).toLocaleDateString()}</p>
+                <p className="font-semibold text-sm text-primary">{surgery.plannedSurgery}</p>
+                {surgery.surgeon && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {surgery.surgeon} • {new Date(surgery.plannedDate).toLocaleDateString()}
+                  </p>
+                )}
               </div>
 
               {/* Allergies & CAVE - Clickable Display */}
@@ -387,13 +415,13 @@ export default function Op() {
                   <div className="flex-1 min-w-[120px]">
                     <p className="text-xs font-medium text-amber-700 dark:text-amber-300">ALLERGIES</p>
                     <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                      {allergies || "None"}
+                      {isPreOpLoading ? <Skeleton className="h-4 w-20" /> : (allergies || "None")}
                     </p>
                   </div>
                   <div className="flex-1 min-w-[120px]">
                     <p className="text-xs font-medium text-amber-700 dark:text-amber-300">CAVE</p>
                     <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                      {cave || "None"}
+                      {isPreOpLoading ? <Skeleton className="h-4 w-20" /> : (cave || "None")}
                     </p>
                   </div>
                 </div>
@@ -433,7 +461,7 @@ export default function Op() {
                 size="sm"
                 className="flex items-center gap-1 sm:gap-2 shrink-0"
                 data-testid="button-download-pdf"
-                onClick={() => console.log("Downloading OP PDF for case:", caseId)}
+                onClick={() => console.log("Downloading OP PDF for surgery:", surgeryId)}
               >
                 <Download className="h-4 w-4" />
                 <span className="hidden sm:inline">PDF</span>
@@ -444,776 +472,343 @@ export default function Op() {
           {/* Vitals & Timeline Tab */}
           <TabsContent value="vitals" className="data-[state=active]:flex-1 overflow-y-auto flex flex-col mt-0 px-0" data-testid="tab-content-vitals">
             <div className="border-t bg-card">
-              <UnifiedTimeline 
-                data={timelineData} 
-                now={new Date().getTime()} 
-                patientWeight={currentPatient.weight ? parseFloat(currentPatient.weight) : undefined}
-              />
+              {isVitalsLoading ? (
+                <div className="flex items-center justify-center h-64">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : (
+                <UnifiedTimeline 
+                  data={timelineData} 
+                  now={new Date().getTime()} 
+                  patientWeight={patientWeight}
+                />
+              )}
             </div>
           </TabsContent>
 
           {/* Anesthesia Documentation Tab */}
           <TabsContent value="anesthesia" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0">
-            <Accordion type="multiple" className="space-y-4 w-full">
-              {/* Installations Section */}
-              <AccordionItem value="installations">
-                <Card>
-                  <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-installations">
-                    <CardTitle className="text-lg">Installations</CardTitle>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <CardContent className="space-y-6 pt-0">
-                      {/* Peripheral Access */}
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-base font-semibold">Peripheral Venous Access</Label>
-                          <Button variant="outline" size="sm" data-testid="button-add-pv-access">
-                            <Plus className="h-4 w-4 mr-1" />
-                            Add Entry
-                          </Button>
-                        </div>
-
-                        {/* Entry 1 */}
-                        <div className="border rounded-lg p-4 space-y-3 bg-slate-50 dark:bg-slate-900">
+            {isRecordLoading ? (
+              <div className="flex items-center justify-center h-64">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <Accordion type="multiple" className="space-y-4 w-full">
+                {/* Installations Section */}
+                <AccordionItem value="installations">
+                  <Card>
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-installations">
+                      <CardTitle className="text-lg">Installations</CardTitle>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <CardContent className="space-y-6 pt-0">
+                        {/* Peripheral Access */}
+                        <div className="space-y-3">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">Entry #1</span>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" data-testid="button-remove-pv-1">
-                              <X className="h-4 w-4" />
+                            <Label className="text-base font-semibold">Peripheral Venous Access</Label>
+                            <Button variant="outline" size="sm" data-testid="button-add-pv-access">
+                              <Plus className="h-4 w-4 mr-1" />
+                              Add Entry
                             </Button>
                           </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label>Location</Label>
-                              <select className="w-full border rounded-md p-2 bg-background" data-testid="select-pv-location-1">
-                                <option value="">Select location</option>
-                                <option value="right-hand">Right Hand (Dorsum)</option>
-                                <option value="left-hand">Left Hand (Dorsum)</option>
-                                <option value="right-forearm">Right Forearm</option>
-                                <option value="left-forearm">Left Forearm</option>
-                                <option value="right-ac-fossa">Right Antecubital Fossa</option>
-                                <option value="left-ac-fossa">Left Antecubital Fossa</option>
-                                <option value="right-wrist">Right Wrist</option>
-                                <option value="left-wrist">Left Wrist</option>
-                                <option value="right-foot">Right Foot</option>
-                                <option value="left-foot">Left Foot</option>
-                              </select>
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Gauge</Label>
-                              <select className="w-full border rounded-md p-2 bg-background" data-testid="select-pv-gauge-1">
-                                <option value="">Select gauge</option>
-                                <option value="14G">14G (Orange)</option>
-                                <option value="16G">16G (Gray)</option>
-                                <option value="18G">18G (Green)</option>
-                                <option value="20G">20G (Pink)</option>
-                                <option value="22G">22G (Blue)</option>
-                                <option value="24G">24G (Yellow)</option>
-                              </select>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Number of Attempts</Label>
-                            <Input type="number" placeholder="1" defaultValue="1" data-testid="input-pv-attempts-1" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Notes</Label>
-                            <Textarea rows={2} placeholder="Additional notes..." data-testid="textarea-pv-notes-1" />
-                          </div>
-                        </div>
-                      </div>
 
-                      {/* Arterial Line */}
-                      <div className="space-y-3">
-                        <Label className="text-base font-semibold">Arterial Line</Label>
-                        <div className="border rounded-lg p-4 space-y-3">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label>Location</Label>
-                              <select className="w-full border rounded-md p-2 bg-background" data-testid="select-arterial-location">
-                                <option value="">Select location</option>
-                                <option value="radial-left">Radial - Left</option>
-                                <option value="radial-right">Radial - Right</option>
-                                <option value="femoral-left">Femoral - Left</option>
-                                <option value="femoral-right">Femoral - Right</option>
-                                <option value="brachial">Brachial</option>
-                              </select>
+                          {/* Entry 1 */}
+                          <div className="border rounded-lg p-4 space-y-3 bg-slate-50 dark:bg-slate-900">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium">Entry #1</span>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" data-testid="button-remove-pv-1">
+                                <X className="h-4 w-4" />
+                              </Button>
                             </div>
-                            <div className="space-y-2">
-                              <Label>Gauge</Label>
-                              <select className="w-full border rounded-md p-2 bg-background" data-testid="select-arterial-gauge">
-                                <option value="">Select gauge</option>
-                                <option value="18G">18G</option>
-                                <option value="20G">20G</option>
-                                <option value="22G">22G</option>
-                              </select>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label>Number of Attempts</Label>
-                              <Input type="number" placeholder="1" data-testid="input-arterial-attempts" />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Technique</Label>
-                              <select className="w-full border rounded-md p-2 bg-background" data-testid="select-arterial-technique">
-                                <option value="">Select technique</option>
-                                <option value="palpation">Palpation</option>
-                                <option value="ultrasound">Ultrasound-guided</option>
-                              </select>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Notes</Label>
-                            <Textarea rows={2} placeholder="Additional notes..." data-testid="textarea-arterial-notes" />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Central Venous Catheter */}
-                      <div className="space-y-3">
-                        <Label className="text-base font-semibold">Central Venous Catheter (CVC)</Label>
-                        <div className="border rounded-lg p-4 space-y-3">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label>Location</Label>
-                              <select className="w-full border rounded-md p-2 bg-background" data-testid="select-cvc-location">
-                                <option value="">Select location</option>
-                                <option value="ijv-right">Internal Jugular - Right</option>
-                                <option value="ijv-left">Internal Jugular - Left</option>
-                                <option value="subclavian-right">Subclavian - Right</option>
-                                <option value="subclavian-left">Subclavian - Left</option>
-                                <option value="femoral-right">Femoral - Right</option>
-                                <option value="femoral-left">Femoral - Left</option>
-                              </select>
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Type</Label>
-                              <select className="w-full border rounded-md p-2 bg-background" data-testid="select-cvc-type">
-                                <option value="">Select type</option>
-                                <option value="triple-lumen">Triple Lumen</option>
-                                <option value="double-lumen">Double Lumen</option>
-                                <option value="single-lumen">Single Lumen</option>
-                                <option value="introducer">Introducer (8.5Fr/9Fr)</option>
-                              </select>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label>Insertion Depth (cm)</Label>
-                              <Input type="number" placeholder="e.g., 15" data-testid="input-cvc-depth" />
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label>Location</Label>
+                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-pv-location-1">
+                                  <option value="">Select location</option>
+                                  <option value="right-hand">Right Hand (Dorsum)</option>
+                                  <option value="left-hand">Left Hand (Dorsum)</option>
+                                  <option value="right-forearm">Right Forearm</option>
+                                  <option value="left-forearm">Left Forearm</option>
+                                  <option value="right-ac-fossa">Right Antecubital Fossa</option>
+                                  <option value="left-ac-fossa">Left Antecubital Fossa</option>
+                                  <option value="right-wrist">Right Wrist</option>
+                                  <option value="left-wrist">Left Wrist</option>
+                                  <option value="right-foot">Right Foot</option>
+                                  <option value="left-foot">Left Foot</option>
+                                </select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Gauge</Label>
+                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-pv-gauge-1">
+                                  <option value="">Select gauge</option>
+                                  <option value="14G">14G (Orange)</option>
+                                  <option value="16G">16G (Gray)</option>
+                                  <option value="18G">18G (Green)</option>
+                                  <option value="20G">20G (Pink)</option>
+                                  <option value="22G">22G (Blue)</option>
+                                  <option value="24G">24G (Yellow)</option>
+                                </select>
+                              </div>
                             </div>
                             <div className="space-y-2">
                               <Label>Number of Attempts</Label>
-                              <Input type="number" placeholder="1" data-testid="input-cvc-attempts" />
+                              <Input type="number" placeholder="1" defaultValue="1" data-testid="input-pv-attempts-1" />
                             </div>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Technique</Label>
-                            <div className="flex gap-4">
-                              <label className="flex items-center space-x-2">
-                                <Checkbox data-testid="checkbox-cvc-ultrasound" />
-                                <span>Ultrasound-guided</span>
-                              </label>
-                              <label className="flex items-center space-x-2">
-                                <Checkbox data-testid="checkbox-cvc-landmark" />
-                                <span>Landmark</span>
-                              </label>
+                            <div className="space-y-2">
+                              <Label>Notes</Label>
+                              <Textarea rows={2} placeholder="Additional notes..." data-testid="textarea-pv-notes-1" />
                             </div>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Complications</Label>
-                            <Textarea rows={2} placeholder="None / Document any complications..." data-testid="textarea-cvc-complications" />
                           </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </AccordionContent>
-                </Card>
-              </AccordionItem>
 
-              {/* Airway Management Section */}
-              <AccordionItem value="airway">
-                <Card>
-                  <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-airway">
-                    <CardTitle className="text-lg">Airway Management</CardTitle>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <CardContent className="space-y-6 pt-0">
-                      {/* Airway Assessment */}
-                      <div className="space-y-3">
-                        <Label className="text-base font-semibold">Airway Assessment</Label>
-                        <div className="border rounded-lg p-4 space-y-3">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label>Mallampati Score</Label>
-                              <select className="w-full border rounded-md p-2 bg-background" data-testid="select-mallampati">
-                                <option value="">Select score</option>
-                                <option value="1">Class I</option>
-                                <option value="2">Class II</option>
-                                <option value="3">Class III</option>
-                                <option value="4">Class IV</option>
-                              </select>
+                        {/* Arterial Line */}
+                        <div className="space-y-3">
+                          <Label className="text-base font-semibold">Arterial Line</Label>
+                          <div className="border rounded-lg p-4 space-y-3">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label>Location</Label>
+                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-arterial-location">
+                                  <option value="">Select location</option>
+                                  <option value="radial-left">Radial - Left</option>
+                                  <option value="radial-right">Radial - Right</option>
+                                  <option value="femoral-left">Femoral - Left</option>
+                                  <option value="femoral-right">Femoral - Right</option>
+                                  <option value="brachial">Brachial</option>
+                                </select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Gauge</Label>
+                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-arterial-gauge">
+                                  <option value="">Select gauge</option>
+                                  <option value="18G">18G</option>
+                                  <option value="20G">20G</option>
+                                  <option value="22G">22G</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label>Number of Attempts</Label>
+                                <Input type="number" placeholder="1" data-testid="input-arterial-attempts" />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Technique</Label>
+                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-arterial-technique">
+                                  <option value="">Select technique</option>
+                                  <option value="direct">Direct (Seldinger)</option>
+                                  <option value="transfixion">Transfixion</option>
+                                  <option value="ultrasound">Ultrasound-guided</option>
+                                </select>
+                              </div>
                             </div>
                             <div className="space-y-2">
-                              <Label>Thyromental Distance</Label>
-                              <Input placeholder="e.g., >6.5 cm" data-testid="input-thyromental" />
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label>Mouth Opening</Label>
-                              <Input placeholder="e.g., >3 fingers" data-testid="input-mouth-opening" />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Neck Mobility</Label>
-                              <select className="w-full border rounded-md p-2 bg-background" data-testid="select-neck-mobility">
-                                <option value="">Select</option>
-                                <option value="full">Full</option>
-                                <option value="limited">Limited</option>
-                                <option value="severely-limited">Severely Limited</option>
-                              </select>
+                              <Label>Notes</Label>
+                              <Textarea rows={2} placeholder="Additional notes..." data-testid="textarea-arterial-notes" />
                             </div>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Airway Device */}
-                      <div className="space-y-3">
-                        <Label className="text-base font-semibold">Airway Device</Label>
-                        <div className="border rounded-lg p-4 space-y-3">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label>Device Type</Label>
-                              <select className="w-full border rounded-md p-2 bg-background" data-testid="select-airway-device">
-                                <option value="">Select device</option>
-                                <option value="ett">Endotracheal Tube (ETT)</option>
-                                <option value="lma">Laryngeal Mask Airway (LMA)</option>
-                                <option value="igel">I-gel</option>
-                                <option value="face-mask">Face Mask Only</option>
-                                <option value="tracheostomy">Tracheostomy</option>
-                              </select>
+                        {/* Central Line */}
+                        <div className="space-y-3">
+                          <Label className="text-base font-semibold">Central Venous Catheter</Label>
+                          <div className="border rounded-lg p-4 space-y-3">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label>Location</Label>
+                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-cvc-location">
+                                  <option value="">Select location</option>
+                                  <option value="right-ijv">Right Internal Jugular</option>
+                                  <option value="left-ijv">Left Internal Jugular</option>
+                                  <option value="right-subclavian">Right Subclavian</option>
+                                  <option value="left-subclavian">Left Subclavian</option>
+                                  <option value="femoral">Femoral</option>
+                                </select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Lumens</Label>
+                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-cvc-lumens">
+                                  <option value="">Select lumens</option>
+                                  <option value="1">Single</option>
+                                  <option value="2">Double</option>
+                                  <option value="3">Triple</option>
+                                  <option value="4">Quad</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label>Depth (cm)</Label>
+                                <Input type="number" placeholder="16" data-testid="input-cvc-depth" />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Technique</Label>
+                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-cvc-technique">
+                                  <option value="">Select technique</option>
+                                  <option value="landmark">Landmark</option>
+                                  <option value="ultrasound">Ultrasound-guided</option>
+                                </select>
+                              </div>
                             </div>
                             <div className="space-y-2">
-                              <Label>Size</Label>
-                              <Input placeholder="e.g., 7.5mm, #4" data-testid="input-airway-size" />
+                              <Label>Notes</Label>
+                              <Textarea rows={2} placeholder="Additional notes..." data-testid="textarea-cvc-notes" />
                             </div>
-                          </div>
-                          <div className="grid grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                              <Label>Cuff Pressure (cmH2O)</Label>
-                              <Input type="number" placeholder="20-30" data-testid="input-cuff-pressure" />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Depth at Teeth (cm)</Label>
-                              <Input type="number" placeholder="e.g., 21" data-testid="input-tube-depth" />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Number of Attempts</Label>
-                              <Input type="number" placeholder="1" data-testid="input-intubation-attempts" />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Laryngoscopy View (Cormack-Lehane)</Label>
-                            <select className="w-full border rounded-md p-2 bg-background" data-testid="select-cormack-lehane">
-                              <option value="">Select grade</option>
-                              <option value="1">Grade 1 - Full view of glottis</option>
-                              <option value="2">Grade 2 - Partial view of glottis</option>
-                              <option value="3">Grade 3 - Only epiglottis visible</option>
-                              <option value="4">Grade 4 - No glottic structures visible</option>
-                            </select>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Difficult Airway Documentation */}
-                      <div className="space-y-3">
-                        <Label className="text-base font-semibold text-red-600 dark:text-red-400">Difficult Airway Management</Label>
-                        <div className="border-2 border-red-300 dark:border-red-700 rounded-lg p-4 space-y-3">
-                          <div className="flex items-center space-x-2">
-                            <Checkbox data-testid="checkbox-difficult-airway" />
-                            <Label className="font-semibold">Difficult Airway Encountered</Label>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Difficulty Type</Label>
-                            <div className="grid grid-cols-2 gap-2">
-                              <label className="flex items-center space-x-2">
-                                <Checkbox data-testid="checkbox-difficult-ventilation" />
-                                <span>Difficult Mask Ventilation</span>
-                              </label>
-                              <label className="flex items-center space-x-2">
-                                <Checkbox data-testid="checkbox-difficult-intubation" />
-                                <span>Difficult Intubation</span>
-                              </label>
-                              <label className="flex items-center space-x-2">
-                                <Checkbox data-testid="checkbox-difficult-lma" />
-                                <span>Difficult LMA Placement</span>
-                              </label>
-                              <label className="flex items-center space-x-2">
-                                <Checkbox data-testid="checkbox-failed-intubation" />
-                                <span>Failed Intubation</span>
-                              </label>
+                        {/* Airway */}
+                        <div className="space-y-3">
+                          <Label className="text-base font-semibold">Airway Management</Label>
+                          <div className="border rounded-lg p-4 space-y-3">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label>Device</Label>
+                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-airway-device">
+                                  <option value="">Select device</option>
+                                  <option value="ett">Endotracheal Tube</option>
+                                  <option value="lma">Laryngeal Mask Airway</option>
+                                  <option value="facemask">Face Mask</option>
+                                  <option value="tracheostomy">Tracheostomy</option>
+                                </select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Size</Label>
+                                <Input type="text" placeholder="e.g., 7.5" data-testid="input-airway-size" />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label>Depth (cm at teeth)</Label>
+                                <Input type="number" placeholder="22" data-testid="input-airway-depth" />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Cuff Pressure (cmH₂O)</Label>
+                                <Input type="number" placeholder="20" data-testid="input-airway-cuff" />
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Notes</Label>
+                              <Textarea rows={2} placeholder="Additional notes..." data-testid="textarea-airway-notes" />
                             </div>
                           </div>
-                          <div className="space-y-2">
-                            <Label>Rescue Techniques Used</Label>
-                            <Textarea rows={3} placeholder="Document all rescue techniques, additional equipment used, personnel called for assistance..." data-testid="textarea-rescue-techniques" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Final Airway Outcome</Label>
-                            <Textarea rows={2} placeholder="Document final successful technique and airway status..." data-testid="textarea-airway-outcome" />
-                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </AccordionContent>
-                </Card>
-              </AccordionItem>
+                      </CardContent>
+                    </AccordionContent>
+                  </Card>
+                </AccordionItem>
 
-              {/* Central/Regional Anesthesia Section */}
-              <AccordionItem value="central-regional">
-                <Card>
-                  <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-central-regional">
-                    <CardTitle className="text-lg">Central/Regional Anesthesia</CardTitle>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <CardContent className="space-y-6 pt-0">
-                      {/* Spinal Anesthesia */}
-                      <div className="space-y-3">
-                        <Label className="text-base font-semibold">Spinal Anesthesia</Label>
-                        <div className="border rounded-lg p-4 space-y-3">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label>Level</Label>
-                              <Input placeholder="e.g., L3-L4" data-testid="input-spinal-level" />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Technique</Label>
-                              <select className="w-full border rounded-md p-2 bg-background" data-testid="select-spinal-technique">
-                                <option value="">Select technique</option>
-                                <option value="midline">Midline</option>
-                                <option value="paramedian">Paramedian</option>
-                                <option value="taylor">Taylor Approach</option>
-                              </select>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                              <Label>Needle Gauge</Label>
-                              <Input placeholder="e.g., 25G" data-testid="input-spinal-needle" />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Number of Attempts</Label>
-                              <Input type="number" placeholder="1" data-testid="input-spinal-attempts" />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Position</Label>
-                              <select className="w-full border rounded-md p-2 bg-background" data-testid="select-spinal-position">
-                                <option value="">Select</option>
-                                <option value="sitting">Sitting</option>
-                                <option value="lateral">Lateral</option>
-                              </select>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Local Anesthetic</Label>
-                            <Input placeholder="e.g., Bupivacaine 0.5% heavy 12.5mg" data-testid="input-spinal-drug" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Additives</Label>
-                            <Input placeholder="e.g., Fentanyl 20mcg, Morphine 100mcg" data-testid="input-spinal-additives" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Sensory Level Achieved</Label>
-                            <Input placeholder="e.g., T6" data-testid="input-sensory-level" />
-                          </div>
+                {/* Anesthesia Type */}
+                <AccordionItem value="anesthesia-type">
+                  <Card>
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-anesthesia-type">
+                      <CardTitle className="text-lg">Anesthesia Type</CardTitle>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <CardContent className="space-y-4 pt-0">
+                        <div className="space-y-2">
+                          <Label>Primary Anesthesia Type</Label>
+                          <Select value={anesthesiaRecord?.anesthesiaType || ""}>
+                            <SelectTrigger data-testid="select-anesthesia-type">
+                              <SelectValue placeholder="Select anesthesia type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="general">General Anesthesia</SelectItem>
+                              <SelectItem value="spinal">Spinal Anesthesia</SelectItem>
+                              <SelectItem value="epidural">Epidural Anesthesia</SelectItem>
+                              <SelectItem value="regional">Regional Anesthesia</SelectItem>
+                              <SelectItem value="sedation">Sedation</SelectItem>
+                              <SelectItem value="combined">Combined Technique</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
-                      </div>
-
-                      {/* Epidural Anesthesia */}
-                      <div className="space-y-3">
-                        <Label className="text-base font-semibold">Epidural Anesthesia (PDA)</Label>
-                        <div className="border rounded-lg p-4 space-y-3">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label>Level</Label>
-                              <Input placeholder="e.g., T8-T9" data-testid="input-epidural-level" />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Technique</Label>
-                              <select className="w-full border rounded-md p-2 bg-background" data-testid="select-epidural-technique">
-                                <option value="">Select technique</option>
-                                <option value="midline">Midline</option>
-                                <option value="paramedian">Paramedian</option>
-                                <option value="loss-of-resistance-air">Loss of Resistance - Air</option>
-                                <option value="loss-of-resistance-saline">Loss of Resistance - Saline</option>
-                              </select>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                              <Label>Needle Gauge</Label>
-                              <Input placeholder="e.g., 18G Tuohy" data-testid="input-epidural-needle" />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Number of Attempts</Label>
-                              <Input type="number" placeholder="1" data-testid="input-epidural-attempts" />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Catheter Depth (cm)</Label>
-                              <Input type="number" placeholder="e.g., 10" data-testid="input-catheter-depth" />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Test Dose</Label>
-                            <Input placeholder="e.g., Lidocaine 2% with Epi 1:200,000 - 3ml" data-testid="input-test-dose" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Loading Dose</Label>
-                            <Input placeholder="e.g., Ropivacaine 0.2% 10ml" data-testid="input-loading-dose" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Infusion Rate</Label>
-                            <Input placeholder="e.g., 6-8 ml/hr" data-testid="input-infusion-rate" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Sensory Level Achieved</Label>
-                            <Input placeholder="e.g., T4-T10" data-testid="input-epidural-sensory-level" />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Combined Spinal-Epidural */}
-                      <div className="space-y-3">
-                        <Label className="text-base font-semibold">Combined Spinal-Epidural (CSE)</Label>
-                        <div className="border rounded-lg p-4 space-y-3">
-                          <div className="space-y-2">
-                            <Label>Technique Details</Label>
-                            <Textarea rows={3} placeholder="Document needle-through-needle or separate space technique, medications used, catheter placement..." data-testid="textarea-cse-details" />
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </AccordionContent>
-                </Card>
-              </AccordionItem>
-
-              {/* Peripheral Regional Anesthesia Section */}
-              <AccordionItem value="peripheral-blocks">
-                <Card>
-                  <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-peripheral-blocks">
-                    <CardTitle className="text-lg">Peripheral Regional Anesthesia (Nerve Blocks)</CardTitle>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <CardContent className="space-y-6 pt-0">
-                      {/* Block Details */}
-                      <div className="space-y-3">
-                        <Label className="text-base font-semibold">Block Information</Label>
-                        <div className="border rounded-lg p-4 space-y-3">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label>Block Type</Label>
-                              <select className="w-full border rounded-md p-2 bg-background" data-testid="select-block-type">
-                                <option value="">Select block</option>
-                                <optgroup label="Upper Extremity">
-                                  <option value="interscalene">Interscalene Block</option>
-                                  <option value="supraclavicular">Supraclavicular Block</option>
-                                  <option value="infraclavicular">Infraclavicular Block</option>
-                                  <option value="axillary">Axillary Block</option>
-                                  <option value="pecs">PECS Block</option>
-                                </optgroup>
-                                <optgroup label="Lower Extremity">
-                                  <option value="femoral">Femoral Block</option>
-                                  <option value="sciatic">Sciatic Block</option>
-                                  <option value="popliteal">Popliteal Block</option>
-                                  <option value="adductor-canal">Adductor Canal Block</option>
-                                  <option value="ankle">Ankle Block</option>
-                                </optgroup>
-                                <optgroup label="Truncal">
-                                  <option value="tap">TAP Block</option>
-                                  <option value="ql">Quadratus Lumborum Block</option>
-                                  <option value="esp">Erector Spinae Plane Block</option>
-                                  <option value="paravertebral">Paravertebral Block</option>
-                                  <option value="intercostal">Intercostal Block</option>
-                                </optgroup>
-                              </select>
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Side</Label>
-                              <select className="w-full border rounded-md p-2 bg-background" data-testid="select-block-side">
-                                <option value="">Select side</option>
-                                <option value="left">Left</option>
-                                <option value="right">Right</option>
-                                <option value="bilateral">Bilateral</option>
-                              </select>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                              <Label>Technique</Label>
-                              <select className="w-full border rounded-md p-2 bg-background" data-testid="select-block-technique">
-                                <option value="">Select</option>
-                                <option value="ultrasound">Ultrasound-guided</option>
-                                <option value="nerve-stimulator">Nerve Stimulator</option>
-                                <option value="combined">Combined US + NS</option>
-                                <option value="landmark">Landmark</option>
-                              </select>
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Needle Size</Label>
-                              <Input placeholder="e.g., 22G 80mm" data-testid="input-block-needle" />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Number of Attempts</Label>
-                              <Input type="number" placeholder="1" data-testid="input-block-attempts" />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Local Anesthetic</Label>
-                            <Input placeholder="e.g., Ropivacaine 0.5% 20ml" data-testid="input-block-drug" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Additives</Label>
-                            <Input placeholder="e.g., Dexamethasone 4mg, Dexmedetomidine 50mcg" data-testid="input-block-additives" />
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label>Catheter Placed</Label>
-                              <select className="w-full border rounded-md p-2 bg-background" data-testid="select-catheter-placed">
-                                <option value="no">No</option>
-                                <option value="yes">Yes - Continuous Infusion</option>
-                              </select>
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Infusion Rate (if applicable)</Label>
-                              <Input placeholder="e.g., 5 ml/hr" data-testid="input-block-infusion" />
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Block Assessment</Label>
-                            <Textarea rows={2} placeholder="Document sensory/motor block onset time, distribution, quality..." data-testid="textarea-block-assessment" />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Complications</Label>
-                            <Textarea rows={2} placeholder="None / Document any complications..." data-testid="textarea-block-complications" />
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </AccordionContent>
-                </Card>
-              </AccordionItem>
-            </Accordion>
+                      </CardContent>
+                    </AccordionContent>
+                  </Card>
+                </AccordionItem>
+              </Accordion>
+            )}
           </TabsContent>
 
-          {/* Pre-Op Overview Tab */}
+          {/* Pre-Op Tab */}
           <TabsContent value="preop" className="flex-1 overflow-y-auto px-6 pb-6 mt-0" data-testid="tab-content-preop">
-            <PreOpOverview data={{
-              height: currentPatient.height || "",
-              weight: currentPatient.weight || "",
-              allergies: currentPatient.allergies || [],
-              allergiesOther: "",
-              cave: currentPatient.cave || "",
-              asa: "II",
-              specialNotes: "",
-              anticoagulationMeds: ["Aspirin"],
-              anticoagulationMedsOther: "",
-              generalMeds: ["Metoprolol"],
-              generalMedsOther: "Atorvastatin 20mg",
-              medicationsNotes: "",
-              heartIllnesses: {
-                htn: true,
-                chd: false,
-                heartValve: false,
-                arrhythmia: true,
-                heartFailure: false,
-              },
-              heartNotes: "Well controlled on medication. AF diagnosed 2019.",
-              lungIllnesses: {
-                asthma: false,
-                copd: true,
-                sleepApnea: false,
-                pneumonia: false,
-              },
-              lungNotes: "COPD GOLD Stage II. Uses Symbicort 2x daily.",
-              giIllnesses: {
-                reflux: false,
-                ibd: false,
-                liverDisease: false,
-              },
-              kidneyIllnesses: {
-                ckd: false,
-                dialysis: false,
-              },
-              metabolicIllnesses: {
-                diabetes: false,
-                thyroid: false,
-              },
-              giKidneyMetabolicNotes: "",
-              neuroIllnesses: {
-                stroke: false,
-                epilepsy: false,
-                parkinsons: false,
-                dementia: false,
-              },
-              psychIllnesses: {
-                depression: false,
-                anxiety: false,
-                psychosis: false,
-              },
-              skeletalIllnesses: {
-                arthritis: false,
-                osteoporosis: false,
-                spineDisorders: false,
-              },
-              neuroPsychSkeletalNotes: "",
-              womanIssues: {
-                pregnancy: false,
-                breastfeeding: false,
-                menopause: false,
-                gynecologicalSurgery: false,
-              },
-              womanNotes: "",
-              noxen: {
-                nicotine: true,
-                alcohol: false,
-                drugs: false,
-              },
-              noxenNotes: "Smoker: 15 cigarettes/day for 20 years (30 pack-years)",
-              childrenIssues: {
-                prematurity: false,
-                developmentalDelay: false,
-                congenitalAnomalies: false,
-                vaccination: false,
-              },
-              childrenNotes: "",
-              mallampati: "",
-              mouth_opening: "",
-              dentition: "",
-              airwayDifficult: "",
-              airwayNotes: "",
-              last_solids: "",
-              last_clear: "",
-              anesthesiaTechniques: {
-                general: false,
-                spinal: false,
-                epidural: false,
-                regional: false,
-                sedation: false,
-                combined: false,
-              },
-              postOpICU: false,
-              anesthesiaOther: "",
-              installations: {
-                arterialLine: false,
-                cvc: false,
-                picLine: false,
-                urinaryCatheter: false,
-                nasogastricTube: false,
-                drainageTube: false,
-              },
-              installationsOther: "",
-              surgicalApproval: "",
-              assessmentDate: "",
-              doctorName: "",
-              doctorSignature: "",
-            }} />
+            {isPreOpLoading ? (
+              <div className="flex items-center justify-center h-64">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <PreOpOverview surgeryId={surgeryId!} />
+            )}
           </TabsContent>
 
           {/* Inventory Tab */}
-          <TabsContent value="inventory" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0" data-testid="tab-content-inventory">
+          <TabsContent value="inventory" className="flex-1 overflow-y-auto px-6 pb-6 mt-0" data-testid="tab-content-inventory">
             <div className="space-y-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Used Items</h3>
-                <p className="text-sm text-muted-foreground">
-                  Quantities auto-computed from anesthesia records
-                </p>
+                <h3 className="text-lg font-semibold">Medication & Supply Usage</h3>
+                <Badge variant="outline" className="text-xs">
+                  Auto-tracked from timeline
+                </Badge>
               </div>
 
-              {/* Render items grouped by folders */}
               {Object.keys(groupedItems).length === 0 ? (
                 <Card>
-                  <CardContent className="flex flex-col items-center justify-center py-12">
-                    <Package className="h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground text-center">
-                      No items available in inventory
-                    </p>
+                  <CardContent className="py-12 text-center">
+                    <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                    <p className="text-muted-foreground">No inventory items available</p>
                   </CardContent>
                 </Card>
               ) : (
-                <Accordion type="multiple" defaultValue={Object.keys(groupedItems)} className="space-y-3">
-                  {Object.keys(groupedItems).sort((a, b) => {
-                    const nameA = getFolderName(a);
-                    const nameB = getFolderName(b);
-                    return nameA.localeCompare(nameB);
-                  }).map((folderId) => (
+                <Accordion type="multiple" className="space-y-2 w-full">
+                  {Object.keys(groupedItems).map((folderId) => (
                     <AccordionItem key={folderId} value={folderId}>
                       <Card>
-                        <AccordionTrigger 
-                          className="px-6 py-4 hover:no-underline" 
-                          data-testid={`accordion-folder-${folderId}`}
-                        >
+                        <AccordionTrigger className="px-4 py-3 hover:no-underline" data-testid={`accordion-folder-${folderId}`}>
                           <div className="flex items-center gap-2">
-                            <Folder className="h-5 w-5 text-primary" />
-                            <span className="font-semibold">{getFolderName(folderId)}</span>
-                            <Badge variant="secondary" className="ml-2">
-                              {groupedItems[folderId].length} items
+                            <Folder className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{getFolderName(folderId)}</span>
+                            <Badge variant="secondary" className="ml-2 text-xs">
+                              {groupedItems[folderId].length}
                             </Badge>
                           </div>
                         </AccordionTrigger>
                         <AccordionContent>
-                          <CardContent className="pt-4 space-y-3">
-                            {groupedItems[folderId].map((item: any) => {
-                              const quantity = inventoryQuantities[item.id] || 0;
-                              return (
-                                <div
-                                  key={item.id}
-                                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors"
-                                  data-testid={`inventory-item-${item.id}`}
-                                >
-                                  <div className="flex-1">
-                                    <p className="font-medium">{item.name}</p>
-                                    <p className="text-sm text-muted-foreground">
-                                      Unit: {item.unit}
-                                    </p>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Button
-                                      variant="outline"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => handleQuantityChange(item.id, -1)}
-                                      disabled={quantity === 0}
-                                      data-testid={`button-decrease-${item.id}`}
-                                    >
-                                      <Minus className="h-4 w-4" />
-                                    </Button>
-                                    <Input
-                                      type="number"
-                                      value={quantity}
-                                      onChange={(e) => {
-                                        const value = parseInt(e.target.value) || 0;
-                                        setInventoryQuantities(prev => ({
-                                          ...prev,
-                                          [item.id]: Math.max(0, value),
-                                        }));
-                                      }}
-                                      className="w-20 text-center"
-                                      min="0"
-                                      data-testid={`input-quantity-${item.id}`}
-                                    />
-                                    <Button
-                                      variant="outline"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => handleQuantityChange(item.id, 1)}
-                                      data-testid={`button-increase-${item.id}`}
-                                    >
-                                      <Plus className="h-4 w-4" />
-                                    </Button>
-                                  </div>
+                          <CardContent className="pt-0 space-y-2">
+                            {groupedItems[folderId].map((item: any) => (
+                              <div
+                                key={item.id}
+                                className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                                data-testid={`inventory-item-${item.id}`}
+                              >
+                                <div className="flex-1">
+                                  <p className="font-medium text-sm">{item.name}</p>
+                                  <p className="text-xs text-muted-foreground">{item.unit}</p>
                                 </div>
-                              );
-                            })}
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => handleQuantityChange(item.id, -1)}
+                                    data-testid={`button-decrease-${item.id}`}
+                                  >
+                                    <Minus className="h-4 w-4" />
+                                  </Button>
+                                  <span className="w-12 text-center font-semibold" data-testid={`quantity-${item.id}`}>
+                                    {inventoryQuantities[item.id] || 0}
+                                  </span>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => handleQuantityChange(item.id, 1)}
+                                    data-testid={`button-increase-${item.id}`}
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
                           </CardContent>
                         </AccordionContent>
                       </Card>
@@ -1221,267 +816,192 @@ export default function Op() {
                   ))}
                 </Accordion>
               )}
+            </div>
+          </TabsContent>
 
-              {/* Note about future inventory deduction */}
-              <Card className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
-                <CardContent className="py-3 px-4">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                        Inventory Tracking
-                      </p>
-                      <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                        Items marked with "Track exact quantity" will automatically deduct from inventory when you save this record.
-                      </p>
+          {/* Checklists Tab */}
+          <TabsContent value="checklists" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0" data-testid="tab-content-checklists">
+            <div className="space-y-4">
+              {/* Sign In */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ClipboardList className="h-5 w-5" />
+                    Sign In (Before Induction)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {anesthesiaRecord?.signInChecklist && Object.keys(anesthesiaRecord.signInChecklist).map((key) => (
+                    <div key={key} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`signin-${key}`}
+                        checked={anesthesiaRecord.signInChecklist[key] || false}
+                        data-testid={`checkbox-signin-${key}`}
+                      />
+                      <label
+                        htmlFor={`signin-${key}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        {key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
+                      </label>
                     </div>
-                  </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Time Out */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    Time Out (Before Incision)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {anesthesiaRecord?.timeOutChecklist && Object.keys(anesthesiaRecord.timeOutChecklist).map((key) => (
+                    <div key={key} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`timeout-${key}`}
+                        checked={anesthesiaRecord.timeOutChecklist[key] || false}
+                        data-testid={`checkbox-timeout-${key}`}
+                      />
+                      <label
+                        htmlFor={`timeout-${key}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        {key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
+                      </label>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              {/* Sign Out */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileCheck className="h-5 w-5" />
+                    Sign Out (Before Patient Leaves OR)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {anesthesiaRecord?.signOutChecklist && Object.keys(anesthesiaRecord.signOutChecklist).map((key) => (
+                    <div key={key} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`signout-${key}`}
+                        checked={anesthesiaRecord.signOutChecklist[key] || false}
+                        data-testid={`checkbox-signout-${key}`}
+                      />
+                      <label
+                        htmlFor={`signout-${key}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        {key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
+                      </label>
+                    </div>
+                  ))}
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
 
-          {/* WHO Checklists Tab */}
-          <TabsContent value="checklists" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0">
-            {/* Sign-In Checklist */}
-            <Card className="mb-4">
-              <CardHeader>
-                <CardTitle className="text-green-700 dark:text-green-300">Sign-In (Before Induction)</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="sign-in-identity" data-testid="checkbox-sign-in-identity" />
-                    <Label htmlFor="sign-in-identity" className="cursor-pointer">Patient identity confirmed</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="sign-in-site" data-testid="checkbox-sign-in-site" />
-                    <Label htmlFor="sign-in-site" className="cursor-pointer">Site marked</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="sign-in-consent" data-testid="checkbox-sign-in-consent" />
-                    <Label htmlFor="sign-in-consent" className="cursor-pointer">Consent confirmed</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="sign-in-anesthesia" data-testid="checkbox-sign-in-anesthesia" />
-                    <Label htmlFor="sign-in-anesthesia" className="cursor-pointer">Anesthesia safety check complete</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="sign-in-allergies" data-testid="checkbox-sign-in-allergies" />
-                    <Label htmlFor="sign-in-allergies" className="cursor-pointer">Known allergies reviewed</Label>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t">
-                  <Label>Notes</Label>
-                  <Textarea
-                    placeholder="Additional notes for Sign-In checklist..."
-                    rows={2}
-                    data-testid="textarea-signin-notes"
-                  />
-                </div>
-
-                <div>
-                  <Label>Verified By (Signature)</Label>
-                  <div className="border rounded-md p-2 bg-white dark:bg-slate-950 h-24" data-testid="signature-signin">
-                    <canvas className="w-full h-full" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Time-Out Checklist */}
-            <Card className="mb-4">
-              <CardHeader>
-                <CardTitle className="text-yellow-700 dark:text-yellow-300">Team Time-Out (Before Skin Incision)</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="timeout-intro" data-testid="checkbox-timeout-intro" />
-                    <Label htmlFor="timeout-intro" className="cursor-pointer">Team members introduced</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="timeout-patient" data-testid="checkbox-timeout-patient" />
-                    <Label htmlFor="timeout-patient" className="cursor-pointer">Patient, site, and procedure confirmed</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="timeout-antibiotics" data-testid="checkbox-timeout-antibiotics" />
-                    <Label htmlFor="timeout-antibiotics" className="cursor-pointer">Prophylactic antibiotics given</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="timeout-imaging" data-testid="checkbox-timeout-imaging" />
-                    <Label htmlFor="timeout-imaging" className="cursor-pointer">Essential imaging displayed</Label>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t">
-                  <Label>Notes</Label>
-                  <Textarea
-                    placeholder="Additional notes for Time-Out checklist..."
-                    rows={2}
-                    data-testid="textarea-timeout-notes"
-                  />
-                </div>
-
-                <div>
-                  <Label>Verified By (Signature)</Label>
-                  <div className="border rounded-md p-2 bg-white dark:bg-slate-950 h-24" data-testid="signature-timeout">
-                    <canvas className="w-full h-full" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Sign-Out Checklist */}
-            <Card className="mb-4">
-              <CardHeader>
-                <CardTitle className="text-red-700 dark:text-red-300">Sign-Out (Before Patient Leaves OR)</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="signout-procedure" data-testid="checkbox-signout-procedure" />
-                    <Label htmlFor="signout-procedure" className="cursor-pointer">Procedure recorded</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="signout-counts" data-testid="checkbox-signout-counts" />
-                    <Label htmlFor="signout-counts" className="cursor-pointer">Instrument/sponge counts correct</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="signout-specimens" data-testid="checkbox-signout-specimens" />
-                    <Label htmlFor="signout-specimens" className="cursor-pointer">Specimens labeled</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="signout-equipment" data-testid="checkbox-signout-equipment" />
-                    <Label htmlFor="signout-equipment" className="cursor-pointer">Equipment problems addressed</Label>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t">
-                  <Label>Notes</Label>
-                  <Textarea
-                    placeholder="Additional notes for Sign-Out checklist..."
-                    rows={2}
-                    data-testid="textarea-signout-notes"
-                  />
-                </div>
-
-                <div>
-                  <Label>Verified By (Signature)</Label>
-                  <div className="border rounded-md p-2 bg-white dark:bg-slate-950 h-24" data-testid="signature-signout">
-                    <canvas className="w-full h-full" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Post-op Management Tab */}
-          <TabsContent value="postop" className="flex-1 overflow-y-auto px-6 pb-6 space-y-6 mt-0">
+          {/* Post-op Tab */}
+          <TabsContent value="postop" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0" data-testid="tab-content-postop">
             <Card>
-            <CardHeader>
-              <CardTitle>Post-Operative Management</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label>Post-operative Destination</Label>
-                <Select 
-                  value={opData.postOpDestination}
-                  onValueChange={(value) => setOpData({ ...opData, postOpDestination: value })}
-                >
-                  <SelectTrigger data-testid="select-postop-destination">
-                    <SelectValue placeholder="Select post-operative destination" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="recovery_room">Recovery Room</SelectItem>
-                    <SelectItem value="regular_ward">Regular Ward</SelectItem>
-                    <SelectItem value="planned_outpatient_discharge">Planned Outpatient Discharge</SelectItem>
-                    <SelectItem value="unplanned_inpatient_admission">Unplanned Inpatient Admission</SelectItem>
-                    <SelectItem value="unplanned_transfer_emergency">Unplanned Transfer with Emergency Services</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Post-op Notes</Label>
-                <Textarea
-                  value={opData.postOpNotes}
-                  onChange={(e) => setOpData({ ...opData, postOpNotes: e.target.value })}
-                  placeholder="Document post-operative observations and instructions..."
-                  rows={6}
-                  data-testid="textarea-postop-notes"
-                />
-              </div>
-              <div>
-                <Label>Complications (if any)</Label>
-                <Textarea
-                  value={opData.complications}
-                  onChange={(e) => setOpData({ ...opData, complications: e.target.value })}
-                  placeholder="Document any complications encountered..."
-                  rows={4}
-                  data-testid="textarea-complications"
-                />
-              </div>
-              <Button className="w-full" size="lg" data-testid="button-save-op">
-                Save OP Record
-              </Button>
-            </CardContent>
-          </Card>
+              <CardHeader>
+                <CardTitle>Post-Operative Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Destination</Label>
+                  <Select value={opData.postOpDestination}>
+                    <SelectTrigger data-testid="select-postop-destination">
+                      <SelectValue placeholder="Select destination" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pacu">PACU</SelectItem>
+                      <SelectItem value="icu">ICU</SelectItem>
+                      <SelectItem value="ward">Ward</SelectItem>
+                      <SelectItem value="home">Home</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Post-Operative Notes</Label>
+                  <Textarea
+                    rows={4}
+                    placeholder="Enter post-operative notes..."
+                    value={opData.postOpNotes}
+                    data-testid="textarea-postop-notes"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Complications</Label>
+                  <Textarea
+                    rows={3}
+                    placeholder="Document any complications..."
+                    value={opData.complications}
+                    data-testid="textarea-postop-complications"
+                  />
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </DialogContent>
+    </Dialog>
 
-      {/* Allergies & CAVE Edit Dialog */}
-      <Dialog open={isAllergiesDialogOpen} onOpenChange={setIsAllergiesDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]" data-testid="dialog-edit-allergies-cave">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-              <h2 className="text-lg font-semibold">Edit Allergies & CAVE</h2>
-            </div>
-
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-allergies">Allergies</Label>
-                <Input
-                  id="edit-allergies"
-                  value={tempAllergies}
-                  onChange={(e) => setTempAllergies(e.target.value)}
-                  placeholder="Enter allergies (comma-separated)..."
-                  data-testid="input-edit-allergies"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="edit-cave">CAVE (Contraindications, Warnings)</Label>
-                <Input
-                  id="edit-cave"
-                  value={tempCave}
-                  onChange={(e) => setTempCave(e.target.value)}
-                  placeholder="Enter CAVE information..."
-                  data-testid="input-edit-cave"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => setIsAllergiesDialogOpen(false)}
-                data-testid="button-cancel-allergies"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSaveAllergies}
-                data-testid="button-save-allergies"
-              >
-                Save
-              </Button>
-            </div>
+    {/* Allergies & CAVE Edit Dialog */}
+    <Dialog open={isAllergiesDialogOpen} onOpenChange={setIsAllergiesDialogOpen}>
+      <DialogContent className="sm:max-w-[500px]">
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Edit Allergies & CAVE</h3>
           </div>
-        </DialogContent>
-      </Dialog>
+
+          <div className="space-y-2">
+            <Label htmlFor="allergies">Allergies</Label>
+            <Textarea
+              id="allergies"
+              rows={3}
+              placeholder="Enter allergies (comma separated)"
+              value={tempAllergies}
+              onChange={(e) => setTempAllergies(e.target.value)}
+              data-testid="textarea-edit-allergies"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="cave">CAVE (Contraindications)</Label>
+            <Textarea
+              id="cave"
+              rows={3}
+              placeholder="Enter contraindications and precautions"
+              value={tempCave}
+              onChange={(e) => setTempCave(e.target.value)}
+              data-testid="textarea-edit-cave"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsAllergiesDialogOpen(false)}
+              data-testid="button-cancel-allergies"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveAllergies}
+              data-testid="button-save-allergies"
+            >
+              Save
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
     </Dialog>
     </>
   );
