@@ -50,6 +50,7 @@ export async function seedHospitalData(
   const existingLocationNames = new Set(existingLocations.map(l => l.name));
 
   let anesthesyLocation = existingLocations.find(l => l.name === "Anesthesy");
+  let orLocation = existingLocations.find(l => l.name === "Operating Room (OR)");
 
   for (const locationData of DEFAULT_LOCATIONS) {
     if (!existingLocationNames.has(locationData.name)) {
@@ -61,16 +62,21 @@ export async function seedHospitalData(
       });
       result.locationsCreated++;
 
-      // Keep reference to Anesthesy location
+      // Keep references to key locations
       if (locationData.name === "Anesthesy") {
         anesthesyLocation = newLocation;
+      } else if (locationData.name === "Operating Room (OR)") {
+        orLocation = newLocation;
       }
     }
   }
 
-  // Ensure we have an Anesthesy location (required for medications)
+  // Ensure we have required locations
   if (!anesthesyLocation) {
     throw new Error("Anesthesy location not found - cannot seed medications");
+  }
+  if (!orLocation) {
+    throw new Error("Operating Room location not found - cannot configure surgery module");
   }
 
   // If this is a new hospital with a user, assign user as admin to Anesthesy location
@@ -82,9 +88,10 @@ export async function seedHospitalData(
       role: "admin",
     });
 
-    // Configure Anesthesia Module to use Anesthesy location
+    // Configure modules to use appropriate locations
     await storage.updateHospital(hospitalId, {
       anesthesiaLocationId: anesthesyLocation.id,
+      surgeryLocationId: orLocation.id, // Doctors in OR location are available as surgeons
     });
   }
 

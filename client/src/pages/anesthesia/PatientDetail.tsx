@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import type { Surgery } from "@shared/schema";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
 
 type Patient = {
   id: string;
@@ -38,6 +39,12 @@ type Patient = {
   updatedAt?: string | null;
 };
 
+type Surgeon = {
+  id: string;
+  name: string;
+  email: string | null;
+};
+
 export default function PatientDetail() {
   const [, params] = useRoute("/anesthesia/patients/:id");
   const [, setLocation] = useLocation();
@@ -46,6 +53,7 @@ export default function PatientDetail() {
   const [selectedCaseId, setSelectedCaseId] = useState<string>("");
   const [isPatientCardVisible, setIsPatientCardVisible] = useState(true);
   const patientCardRef = useRef<HTMLDivElement>(null);
+  const activeHospital = useActiveHospital();
   
   // Fetch patient data from API
   const { data: patient, isLoading, error } = useQuery<Patient>({
@@ -61,6 +69,15 @@ export default function PatientDetail() {
   } = useQuery<Surgery[]>({
     queryKey: [`/api/anesthesia/surgeries`, { patientId: params?.id }],
     enabled: !!params?.id,
+  });
+
+  // Fetch surgeons for the hospital
+  const {
+    data: surgeons = [],
+    isLoading: isLoadingSurgeons
+  } = useQuery<Surgeon[]>({
+    queryKey: [`/api/surgeons`, { hospitalId: activeHospital?.id }],
+    enabled: !!activeHospital?.id,
   });
   
   // Check for openPreOp query parameter and auto-open dialog
@@ -228,14 +245,6 @@ export default function PatientDetail() {
   
   const [openSections, setOpenSections] = useState<string[]>(["general", "medications", "heart", "lungs", "gi-kidney-metabolic", "neuro-psych-skeletal", "woman", "noxen", "children", "anesthesia"]);
 
-  const surgeons = [
-    "Dr. Smith",
-    "Dr. Johnson",
-    "Dr. Williams",
-    "Dr. Brown",
-    "Dr. Davis",
-  ];
-  
   const commonAllergies = [
     "Latex",
     "Penicillin",
@@ -581,16 +590,30 @@ export default function PatientDetail() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="surgeon">Surgeon</Label>
-                <Select value={newCase.surgeon} onValueChange={(value) => setNewCase({ ...newCase, surgeon: value })}>
+                <Select 
+                  value={newCase.surgeon} 
+                  onValueChange={(value) => setNewCase({ ...newCase, surgeon: value })}
+                  disabled={isLoadingSurgeons}
+                >
                   <SelectTrigger data-testid="select-surgeon">
-                    <SelectValue placeholder="Select surgeon" />
+                    <SelectValue placeholder={isLoadingSurgeons ? "Loading surgeons..." : "Select surgeon"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {surgeons.map((surgeon) => (
-                      <SelectItem key={surgeon} value={surgeon}>
-                        {surgeon}
+                    {isLoadingSurgeons ? (
+                      <SelectItem value="loading" disabled>
+                        Loading surgeons...
                       </SelectItem>
-                    ))}
+                    ) : surgeons.length === 0 ? (
+                      <SelectItem value="no-surgeons" disabled>
+                        No surgeons available
+                      </SelectItem>
+                    ) : (
+                      surgeons.map((surgeon) => (
+                        <SelectItem key={surgeon.id} value={surgeon.name}>
+                          {surgeon.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>

@@ -32,6 +32,10 @@ export default function Hospital() {
   const [anesthesiaLocationDialogOpen, setAnesthesiaLocationDialogOpen] = useState(false);
   const [selectedAnesthesiaLocationId, setSelectedAnesthesiaLocationId] = useState(activeHospital?.anesthesiaLocationId || "none");
 
+  // Surgery location states
+  const [surgeryLocationDialogOpen, setSurgeryLocationDialogOpen] = useState(false);
+  const [selectedSurgeryLocationId, setSelectedSurgeryLocationId] = useState(activeHospital?.surgeryLocationId || "none");
+
   // Seed data states
   const [seedDialogOpen, setSeedDialogOpen] = useState(false);
 
@@ -201,6 +205,22 @@ export default function Hospital() {
     },
     onError: (error: any) => {
       toast({ title: t("common.error"), description: error.message || "Failed to update anesthesia location", variant: "destructive" });
+    },
+  });
+
+  // Surgery location mutation
+  const updateSurgeryLocationMutation = useMutation({
+    mutationFn: async (surgeryLocationId: string | null) => {
+      const response = await apiRequest("POST", `/api/admin/${activeHospital?.id}/surgery-location`, { surgeryLocationId });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      setSurgeryLocationDialogOpen(false);
+      toast({ title: t("common.success"), description: "Surgery location updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to update surgery location", variant: "destructive" });
     },
   });
 
@@ -381,6 +401,17 @@ export default function Hospital() {
     );
   };
 
+  const handleEditSurgeryLocation = () => {
+    setSelectedSurgeryLocationId(activeHospital?.surgeryLocationId || "none");
+    setSurgeryLocationDialogOpen(true);
+  };
+
+  const handleSaveSurgeryLocation = () => {
+    updateSurgeryLocationMutation.mutate(
+      selectedSurgeryLocationId === 'none' ? null : selectedSurgeryLocationId
+    );
+  };
+
   if (!activeHospital) {
     return (
       <div className="p-4">
@@ -449,6 +480,32 @@ export default function Hospital() {
             size="sm"
             onClick={handleEditAnesthesiaLocation}
             data-testid="button-edit-anesthesia-location"
+          >
+            <i className="fas fa-edit mr-2"></i>
+            Configure
+          </Button>
+        </div>
+      </div>
+
+      {/* Surgery Location Configuration Card */}
+      <div className="bg-card border border-border rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-foreground text-lg">
+              <i className="fas fa-scalpel mr-2 text-primary"></i>
+              Surgery Module Location
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {activeHospital?.surgeryLocationId 
+                ? locations.find(l => l.id === activeHospital.surgeryLocationId)?.name || "Location not found"
+                : "Not configured - surgery module disabled"}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleEditSurgeryLocation}
+            data-testid="button-edit-surgery-location"
           >
             <i className="fas fa-edit mr-2"></i>
             Configure
@@ -940,6 +997,53 @@ export default function Hospital() {
                 onClick={handleSaveAnesthesiaLocation}
                 disabled={updateAnesthesiaLocationMutation.isPending}
                 data-testid="button-save-anesthesia-location"
+              >
+                {t("common.save")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Surgery Location Dialog */}
+      <Dialog open={surgeryLocationDialogOpen} onOpenChange={setSurgeryLocationDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Configure Surgery Module Location</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="surgery-location">Select Location</Label>
+              <p className="text-sm text-muted-foreground mb-2">
+                Doctors assigned to this location will be available as surgeons
+              </p>
+              <Select
+                value={selectedSurgeryLocationId}
+                onValueChange={setSelectedSurgeryLocationId}
+              >
+                <SelectTrigger id="surgery-location" data-testid="select-surgery-location">
+                  <SelectValue placeholder="Select a location" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none" data-testid="option-none-surgery">
+                    None (Disable surgery module)
+                  </SelectItem>
+                  {locations.map((location) => (
+                    <SelectItem key={location.id} value={location.id} data-testid={`option-surgery-location-${location.id}`}>
+                      {location.name} {location.type ? `(${location.type})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setSurgeryLocationDialogOpen(false)}>
+                {t("common.cancel")}
+              </Button>
+              <Button
+                onClick={handleSaveSurgeryLocation}
+                disabled={updateSurgeryLocationMutation.isPending}
+                data-testid="button-save-surgery-location"
               >
                 {t("common.save")}
               </Button>

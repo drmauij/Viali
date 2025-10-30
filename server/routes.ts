@@ -3179,6 +3179,71 @@ If unable to parse any drugs, return:
     }
   });
 
+  // Admin - Configure surgery location for hospital
+  app.patch('/api/admin/:hospitalId/surgery-location', isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const { surgeryLocationId } = req.body;
+
+      // Verify the location belongs to this hospital if provided
+      if (surgeryLocationId) {
+        const locations = await storage.getLocations(hospitalId);
+        const locationExists = locations.some(l => l.id === surgeryLocationId);
+        if (!locationExists) {
+          return res.status(400).json({ message: "Selected location does not belong to this hospital" });
+        }
+      }
+
+      const updated = await storage.updateHospital(hospitalId, { surgeryLocationId });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating surgery location:", error);
+      res.status(500).json({ message: "Failed to update surgery location" });
+    }
+  });
+
+  // Get surgeons (doctors from surgery location)
+  app.get('/api/surgeons', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.query;
+
+      if (!hospitalId) {
+        return res.status(400).json({ message: "hospitalId is required" });
+      }
+
+      // Verify user has access to this hospital
+      const userHospitals = await storage.getUserHospitals(req.user.id);
+      const hasAccess = userHospitals.some(h => h.id === hospitalId);
+
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+
+      // Get hospital's surgery location
+      const hospital = await storage.getHospital(hospitalId);
+      if (!hospital?.surgeryLocationId) {
+        return res.json([]); // No surgery location configured, return empty list
+      }
+
+      // Get all users for this hospital
+      const hospitalUsers = await storage.getHospitalUsers(hospitalId);
+      
+      // Filter for doctors in the surgery location
+      const surgeons = hospitalUsers
+        .filter(hu => hu.locationId === hospital.surgeryLocationId && hu.role === "doctor")
+        .map(hu => ({
+          id: hu.user.id,
+          name: `${hu.user.firstName || ''} ${hu.user.lastName || ''}`.trim() || hu.user.email || 'Unknown',
+          email: hu.user.email,
+        }));
+
+      res.json(surgeons);
+    } catch (error) {
+      console.error("Error fetching surgeons:", error);
+      res.status(500).json({ message: "Failed to fetch surgeons" });
+    }
+  });
+
   // Admin - Location routes
   app.get('/api/admin/:hospitalId/locations', isAuthenticated, isAdmin, async (req, res) => {
     try {
