@@ -4451,7 +4451,13 @@ If unable to parse any drugs, return:
         return res.status(403).json({ message: "Access denied" });
       }
 
-      const updatedSurgery = await storage.updateSurgery(id, req.body);
+      // Convert plannedDate string to Date object if present
+      const updateData = { ...req.body };
+      if (updateData.plannedDate && typeof updateData.plannedDate === 'string') {
+        updateData.plannedDate = new Date(updateData.plannedDate);
+      }
+
+      const updatedSurgery = await storage.updateSurgery(id, updateData);
       
       res.json(updatedSurgery);
     } catch (error) {
