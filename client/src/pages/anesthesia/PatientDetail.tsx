@@ -1166,7 +1166,7 @@ export default function PatientDetail() {
                     <p className="font-medium">{surgery.surgeon || 'Not assigned'}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Location</p>
+                    <p className="text-muted-foreground">Room</p>
                     <p className="font-medium">
                       {surgery.surgeryRoomId 
                         ? surgeryRooms.find(r => r.id === surgery.surgeryRoomId)?.name || surgery.surgeryRoomId
