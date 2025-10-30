@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import type { Surgery } from "@shared/schema";
 
 type Patient = {
   id: string;
@@ -37,27 +38,6 @@ type Patient = {
   updatedAt?: string | null;
 };
 
-const mockCases = [
-  {
-    id: "case-1",
-    title: "Laparoscopic Cholecystectomy",
-    plannedSurgery: "Laparoscopic Cholecystectomy",
-    surgeon: "Dr. Smith",
-    plannedDate: "2025-10-09T14:30:00Z",
-    status: "completed",
-    location: "OR 3",
-  },
-  {
-    id: "case-2",
-    title: "Hernia Repair",
-    plannedSurgery: "Inguinal Hernia Repair",
-    surgeon: "Dr. Johnson",
-    plannedDate: "2025-10-12T09:00:00Z",
-    status: "planned",
-    location: "OR 1",
-  },
-];
-
 export default function PatientDetail() {
   const [, params] = useRoute("/anesthesia/patients/:id");
   const [, setLocation] = useLocation();
@@ -70,6 +50,16 @@ export default function PatientDetail() {
   // Fetch patient data from API
   const { data: patient, isLoading, error } = useQuery<Patient>({
     queryKey: [`/api/patients/${params?.id}`],
+    enabled: !!params?.id,
+  });
+
+  // Fetch surgeries for this patient
+  const { 
+    data: surgeries, 
+    isLoading: isLoadingSurgeries,
+    error: surgeriesError 
+  } = useQuery<Surgery[]>({
+    queryKey: [`/api/anesthesia/surgeries`, { patientId: params?.id }],
     enabled: !!params?.id,
   });
   
@@ -566,7 +556,7 @@ export default function PatientDetail() {
       </div>
 
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Surgeries ({mockCases.length})</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Surgeries ({surgeries?.length || 0})</h2>
         <Dialog open={isCreateCaseOpen} onOpenChange={setIsCreateCaseOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2" data-testid="button-create-case">
@@ -622,88 +612,109 @@ export default function PatientDetail() {
         </Dialog>
       </div>
 
-      <div className="space-y-4">
-        {mockCases.map((caseItem) => (
-          <Card 
-            key={caseItem.id} 
-            data-testid={`card-case-${caseItem.id}`}
-          >
-            <CardContent className="pt-6 space-y-4">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <FileText className="h-5 w-5 text-primary" />
-                  <h3 className="font-semibold text-lg">{caseItem.title}</h3>
+      {isLoadingSurgeries ? (
+        <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" data-testid="loader-surgeries" />
+              <p className="text-muted-foreground">Loading surgeries...</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : surgeries && surgeries.length > 0 ? (
+        <div className="space-y-4">
+          {surgeries.map((surgery) => (
+            <Card 
+              key={surgery.id} 
+              data-testid={`card-case-${surgery.id}`}
+            >
+              <CardContent className="pt-6 space-y-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-5 w-5 text-primary" />
+                    <h3 className="font-semibold text-lg">{surgery.plannedSurgery}</h3>
+                  </div>
+                  <Badge className={getStatusColor(surgery.status)}>
+                    {surgery.status}
+                  </Badge>
                 </div>
-                <Badge className={getStatusColor(caseItem.status)}>
-                  {caseItem.status}
-                </Badge>
-              </div>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <p className="text-muted-foreground">Surgery</p>
-                  <p className="font-medium">{caseItem.plannedSurgery}</p>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Surgery</p>
+                    <p className="font-medium">{surgery.plannedSurgery}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Surgeon</p>
+                    <p className="font-medium">{surgery.surgeon || 'Not assigned'}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Location</p>
+                    <p className="font-medium">{surgery.surgeryRoomId || 'Not assigned'}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Planned Date</p>
+                    <p className="font-medium flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {new Date(surgery.plannedDate).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-muted-foreground">Surgeon</p>
-                  <p className="font-medium">{caseItem.surgeon}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Location</p>
-                  <p className="font-medium">{caseItem.location}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Planned Date</p>
-                  <p className="font-medium flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    {new Date(caseItem.plannedDate).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-3 gap-3 pt-2">
-                <Button
-                  variant="outline"
-                  className="h-auto py-4 flex-col gap-2"
-                  onClick={() => {
-                    setSelectedCaseId(caseItem.id);
-                    // Auto-fill allergies from patient
-                    setAssessmentData(prev => ({
-                      ...prev,
-                      allergies: patient.allergies || [],
-                    }));
-                    setIsPreOpOpen(true);
-                  }}
-                  data-testid={`button-preop-${caseItem.id}`}
-                >
-                  <ClipboardList className="h-10 w-10 text-primary" />
-                  <span className="text-sm font-medium">Pre-OP</span>
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  className="h-auto py-4 flex-col gap-2"
-                  onClick={() => setLocation(`/anesthesia/cases/${caseItem.id}/op`)}
-                  data-testid={`button-op-${caseItem.id}`}
-                >
-                  <Activity className="h-10 w-10 text-primary" />
-                  <span className="text-sm font-medium">OP</span>
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  className="h-auto py-4 flex-col gap-2"
-                  onClick={() => setLocation(`/anesthesia/cases/${caseItem.id}/pacu`)}
-                  data-testid={`button-pacu-${caseItem.id}`}
-                >
-                  <BedDouble className="h-10 w-10 text-primary" />
-                  <span className="text-sm font-medium">PACU</span>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                <div className="grid grid-cols-3 gap-3 pt-2">
+                  <Button
+                    variant="outline"
+                    className="h-auto py-4 flex-col gap-2"
+                    onClick={() => {
+                      setSelectedCaseId(surgery.id);
+                      // Auto-fill allergies from patient
+                      setAssessmentData(prev => ({
+                        ...prev,
+                        allergies: patient.allergies || [],
+                      }));
+                      setIsPreOpOpen(true);
+                    }}
+                    data-testid={`button-preop-${surgery.id}`}
+                  >
+                    <ClipboardList className="h-10 w-10 text-primary" />
+                    <span className="text-sm font-medium">Pre-OP</span>
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    className="h-auto py-4 flex-col gap-2"
+                    onClick={() => setLocation(`/anesthesia/cases/${surgery.id}/op`)}
+                    data-testid={`button-op-${surgery.id}`}
+                  >
+                    <Activity className="h-10 w-10 text-primary" />
+                    <span className="text-sm font-medium">OP</span>
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    className="h-auto py-4 flex-col gap-2"
+                    onClick={() => setLocation(`/anesthesia/cases/${surgery.id}/pacu`)}
+                    data-testid={`button-pacu-${surgery.id}`}
+                  >
+                    <BedDouble className="h-10 w-10 text-primary" />
+                    <span className="text-sm font-medium">PACU</span>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="flex flex-col items-center gap-3">
+              <FileText className="h-12 w-12 text-muted-foreground" data-testid="icon-no-surgeries" />
+              <p className="text-foreground font-semibold" data-testid="text-no-surgeries">No surgeries found</p>
+              <p className="text-sm text-muted-foreground">This patient has no scheduled surgeries yet.</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Pre-OP Full Screen Dialog */}
       <Dialog open={isPreOpOpen} onOpenChange={setIsPreOpOpen}>
@@ -809,17 +820,17 @@ export default function PatientDetail() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Planned Surgery</p>
-                      <p className="font-semibold text-base">{mockCases.find(c => c.id === selectedCaseId)?.plannedSurgery || selectedCaseId}</p>
+                      <p className="font-semibold text-base">{surgeries?.find(s => s.id === selectedCaseId)?.plannedSurgery || selectedCaseId}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Surgeon</p>
-                      <p className="font-semibold text-base">{mockCases.find(c => c.id === selectedCaseId)?.surgeon}</p>
+                      <p className="font-semibold text-base">{surgeries?.find(s => s.id === selectedCaseId)?.surgeon || 'Not assigned'}</p>
                     </div>
                     <div className="space-y-1">
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Planned Date</p>
                       <p className="font-semibold text-base">
                         {(() => {
-                          const plannedDate = mockCases.find(c => c.id === selectedCaseId)?.plannedDate;
+                          const plannedDate = surgeries?.find(s => s.id === selectedCaseId)?.plannedDate;
                           if (!plannedDate) return 'Not scheduled';
                           try {
                             return new Date(plannedDate).toLocaleDateString();
