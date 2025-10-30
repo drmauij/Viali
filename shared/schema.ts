@@ -461,6 +461,7 @@ export const patients = pgTable("patients", {
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
 }, (table) => [
   index("idx_patients_hospital").on(table.hospitalId),
   index("idx_patients_surname").on(table.surname),

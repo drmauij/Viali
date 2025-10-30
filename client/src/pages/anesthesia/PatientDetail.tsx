@@ -69,8 +69,8 @@ export default function PatientDetail() {
     isLoading: isLoadingSurgeries,
     error: surgeriesError 
   } = useQuery<Surgery[]>({
-    queryKey: [`/api/anesthesia/surgeries`, { patientId: params?.id }],
-    enabled: !!params?.id,
+    queryKey: [`/api/anesthesia/surgeries?hospitalId=${activeHospital?.id}&patientId=${params?.id}`],
+    enabled: !!params?.id && !!activeHospital?.id,
   });
 
   // Fetch surgeons for the hospital
@@ -78,7 +78,7 @@ export default function PatientDetail() {
     data: surgeons = [],
     isLoading: isLoadingSurgeons
   } = useQuery<Surgeon[]>({
-    queryKey: [`/api/surgeons`, { hospitalId: activeHospital?.id }],
+    queryKey: [`/api/surgeons?hospitalId=${activeHospital?.id}`],
     enabled: !!activeHospital?.id,
   });
   
@@ -294,7 +294,7 @@ export default function PatientDetail() {
     onSuccess: () => {
       // Invalidate surgeries query with same queryKey pattern as the fetch
       queryClient.invalidateQueries({ 
-        queryKey: [`/api/anesthesia/surgeries`, { patientId: params?.id }] 
+        queryKey: [`/api/anesthesia/surgeries?hospitalId=${activeHospital?.id}&patientId=${params?.id}`] 
       });
       toast({
         title: "Surgery created",

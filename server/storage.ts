@@ -1493,31 +1493,35 @@ export class DatabaseStorage implements IStorage {
 
   // Patient operations
   async getPatients(hospitalId: string, search?: string): Promise<Patient[]> {
-    let query = db
-      .select()
-      .from(patients)
-      .where(eq(patients.hospitalId, hospitalId));
+    let conditions = [
+      eq(patients.hospitalId, hospitalId),
+      isNull(patients.deletedAt) // Exclude soft-deleted patients
+    ];
 
     if (search && search.trim()) {
       const searchTerm = `%${search.trim()}%`;
-      query = query.where(
-        and(
-          eq(patients.hospitalId, hospitalId),
-          or(
-            ilike(patients.surname, searchTerm),
-            ilike(patients.firstName, searchTerm),
-            ilike(patients.patientNumber, searchTerm)
-          )
-        )
+      conditions.push(
+        or(
+          ilike(patients.surname, searchTerm),
+          ilike(patients.firstName, searchTerm),
+          ilike(patients.patientNumber, searchTerm)
+        )!
       );
     }
 
-    const result = await query.orderBy(asc(patients.surname), asc(patients.firstName));
+    const result = await db
+      .select()
+      .from(patients)
+      .where(and(...conditions))
+      .orderBy(asc(patients.surname), asc(patients.firstName));
     return result;
   }
 
   async getPatient(id: string): Promise<Patient | undefined> {
-    const [patient] = await db.select().from(patients).where(eq(patients.id, id));
+    const [patient] = await db
+      .select()
+      .from(patients)
+      .where(and(eq(patients.id, id), isNull(patients.deletedAt)));
     return patient;
   }
 
@@ -1536,7 +1540,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deletePatient(id: string): Promise<void> {
-    await db.delete(patients).where(eq(patients.id, id));
+    // Soft delete: set deletedAt timestamp instead of hard delete
+    await db
+      .update(patients)
+      .set({ deletedAt: new Date() })
+      .where(eq(patients.id, id));
   }
 
   async generatePatientNumber(hospitalId: string): Promise<string> {
