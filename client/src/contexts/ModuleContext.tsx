@@ -13,7 +13,7 @@ export interface ModuleContextType {
 const ModuleContext = createContext<ModuleContextType | undefined>(undefined);
 
 export function ModuleProvider({ children }: { children: ReactNode }) {
-  const [location] = useLocation();
+  const [units?] = useLocation();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   
   const [activeModule, setActiveModuleState] = useState<Module>(() => {
@@ -26,22 +26,22 @@ export function ModuleProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Don't switch modules on unauthenticated pages or home page (which handles its own redirect)
     const excludedPages = ["/", "/reset-password", "/signup"];
-    if (excludedPages.includes(location)) {
+    if (excludedPages.includes(units?)) {
       return;
     }
 
-    if (location.startsWith("/anesthesia")) {
+    if (units?.startsWith("/anesthesia")) {
       setActiveModuleState("anesthesia");
       localStorage.setItem("activeModule", "anesthesia");
-    } else if (location.startsWith("/admin")) {
+    } else if (units?.startsWith("/admin")) {
       setActiveModuleState("admin");
       localStorage.setItem("activeModule", "admin");
-    } else if (location.startsWith("/inventory")) {
+    } else if (units?.startsWith("/inventory")) {
       setActiveModuleState("inventory");
       localStorage.setItem("activeModule", "inventory");
     }
     // Note: old routes like /items, /orders will be redirected or removed
-  }, [location]);
+  }, [units?]);
 
   const setActiveModule = (module: Module) => {
     setActiveModuleState(module);

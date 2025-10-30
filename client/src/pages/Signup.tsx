@@ -19,7 +19,7 @@ export default function Signup() {
     onSuccess: () => {
       toast({ title: "Success", description: "Hospital created successfully!" });
       setTimeout(() => {
-        window.location.href = "/";
+        window.units?.href = "/";
       }, 1000);
     },
     onError: (error: any) => {

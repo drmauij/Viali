@@ -10,8 +10,8 @@ interface Hospital {
   id: string;
   name: string;
   role: string;
-  locationId: string;
-  locationName: string;
+  units?Id: string;
+  units?Name: string;
 }
 
 interface TopBarProps {
@@ -69,7 +69,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
                   <i className="fas fa-chevron-down text-xs text-muted-foreground"></i>
                 </div>
                 <span className="text-xs text-muted-foreground">
-                  {activeHospital?.locationName || t('topBar.noLocation')} • {activeHospital?.role || t('topBar.noRole')}
+                  {activeHospital?.units?Name || t('topBar.noLocation')} • {activeHospital?.role || t('topBar.noRole')}
                 </span>
               </div>
             </button>
@@ -87,7 +87,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
                     data-testid={`hospital-option-${hospital.id}`}
                   >
                     <div className="font-medium">{hospital.name}</div>
-                    <div className="text-xs text-muted-foreground">{hospital.locationName} • {hospital.role}</div>
+                    <div className="text-xs text-muted-foreground">{hospital.units?Name} • {hospital.role}</div>
                   </button>
                 ))}
               </div>
@@ -160,7 +160,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
               {/* Logout */}
               <button
                 className="w-full px-4 py-3 text-left hover:bg-accent hover:text-accent-foreground flex items-center gap-3 text-destructive"
-                onClick={() => window.location.href = "/api/logout"}
+                onClick={() => window.units?.href = "/api/logout"}
                 data-testid="button-logout"
               >
                 <i className="fas fa-sign-out-alt w-4"></i>

@@ -25,7 +25,7 @@ import {
   users, 
   userHospitalRoles, 
   activities, 
-  locations, 
+  units, 
   hospitals, 
   medicationConfigs, 
   medicationGroups 
@@ -38,7 +38,7 @@ import crypto from "crypto";
 async function getUserLocationForHospital(userId: string, hospitalId: string): Promise<string | null> {
   const hospitals = await storage.getUserHospitals(userId);
   const hospital = hospitals.find(h => h.id === hospitalId);
-  return hospital?.locationId || null;
+  return hospital?.unitId || null;
 }
 
 async function getUserRole(userId: string, hospitalId: string): Promise<string | null> {
@@ -49,7 +49,7 @@ async function getUserRole(userId: string, hospitalId: string): Promise<string |
 
 async function verifyUserHospitalLocationAccess(userId: string, hospitalId: string, locationId: string): Promise<{ hasAccess: boolean; role: string | null }> {
   const hospitals = await storage.getUserHospitals(userId);
-  const match = hospitals.find(h => h.id === hospitalId && h.locationId === locationId);
+  const match = hospitals.find(h => h.id === hospitalId && h.unitId === locationId);
   return {
     hasAccess: !!match,
     role: match?.role || null
@@ -451,46 +451,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create new hospital
       const hospital = await storage.createHospital(hospitalName);
 
-      // Create 4 default locations
-      const anesthesyLocation = await storage.createLocation({
+      // Create 4 default units
+      const anesthesyUnit = await storage.createUnit({
         hospitalId: hospital.id,
         name: "Anesthesy",
         type: "anesthesy",
         parentId: null,
       });
       
-      await storage.createLocation({
+      await storage.createUnit({
         hospitalId: hospital.id,
         name: "Operating Room (OR)",
         type: "or",
         parentId: null,
       });
       
-      await storage.createLocation({
+      await storage.createUnit({
         hospitalId: hospital.id,
         name: "Emergency Room (ER)",
         type: "er",
         parentId: null,
       });
       
-      await storage.createLocation({
+      await storage.createUnit({
         hospitalId: hospital.id,
         name: "Intensive Care Unit (ICU)",
         type: "icu",
         parentId: null,
       });
 
-      // Assign user as admin to the first location (Anesthesy)
+      // Assign user as admin to the first unit (Anesthesy)
       await storage.createUserHospitalRole({
         userId,
         hospitalId: hospital.id,
-        locationId: anesthesyLocation.id,
+        locationId: anesthesyUnit.id,
         role: "admin",
       });
 
-      // Configure Anesthesia Module Location to use Anesthesy location
+      // Configure Anesthesia Module Location to use Anesthesy unit
       await storage.updateHospital(hospital.id, {
-        anesthesiaLocationId: anesthesyLocation.id
+        anesthesiaUnitId: anesthesyUnit.id
       });
 
       res.status(201).json({ 
@@ -524,7 +524,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Verify user has access to this hospital and location
       const userHospitals = await storage.getUserHospitals(userId);
-      const hasAccess = userHospitals.some(h => h.id === hospitalId && h.locationId === locationId);
+      const hasAccess = userHospitals.some(h => h.id === hospitalId && h.unitId === locationId);
       if (!hasAccess) {
         return res.status(403).json({ message: "Access denied to this hospital or location" });
       }
@@ -543,7 +543,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.id;
       
       const locationId = await getUserLocationForHospital(userId, folderData.hospitalId);
-      if (!locationId || locationId !== folderData.locationId) {
+      if (!locationId || locationId !== folderData.unitId) {
         return res.status(403).json({ message: "Access denied to this hospital/location" });
       }
       
@@ -577,7 +577,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const locationId = await getUserLocationForHospital(userId, folder.hospitalId);
-        if (!locationId || locationId !== folder.locationId) {
+        if (!locationId || locationId !== folder.unitId) {
           continue;
         }
 
@@ -604,7 +604,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const locationId = await getUserLocationForHospital(userId, folder.hospitalId);
-      if (!locationId || locationId !== folder.locationId) {
+      if (!locationId || locationId !== folder.unitId) {
         return res.status(403).json({ message: "Access denied to this folder" });
       }
       
@@ -627,7 +627,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const locationId = await getUserLocationForHospital(userId, folder.hospitalId);
-      if (!locationId || locationId !== folder.locationId) {
+      if (!locationId || locationId !== folder.unitId) {
         return res.status(403).json({ message: "Access denied to this folder" });
       }
       
@@ -648,7 +648,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Verify user has access to this hospital and location
       const userHospitals = await storage.getUserHospitals(userId);
-      const hasAccess = userHospitals.some(h => h.id === hospitalId && h.locationId === locationId);
+      const hasAccess = userHospitals.some(h => h.id === hospitalId && h.unitId === locationId);
       if (!hasAccess) {
         return res.status(403).json({ message: "Access denied to this hospital or location" });
       }
@@ -685,7 +685,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Verify user has access to this item's location
       const locationId = await getUserLocationForHospital(userId, item.hospitalId);
-      if (!locationId || locationId !== item.locationId) {
+      if (!locationId || locationId !== item.unitId) {
         return res.status(403).json({ message: "Access denied to this item" });
       }
       
@@ -744,7 +744,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // If initialStock is provided, create stock level
       if (req.body.initialStock !== undefined && req.body.initialStock > 0) {
-        await storage.updateStockLevel(item.id, item.locationId, req.body.initialStock);
+        await storage.updateStockLevel(item.id, item.unitId, req.body.initialStock);
       }
       
       res.status(201).json(item);
@@ -778,7 +778,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Verify user has access to this item's location
         const locationId = await getUserLocationForHospital(userId, item.hospitalId);
-        if (!locationId || locationId !== item.locationId) {
+        if (!locationId || locationId !== item.unitId) {
           continue;
         }
 
@@ -819,10 +819,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .set({ currentUnits: bulkItem.currentUnits })
             .where(eq(items.id, bulkItem.id));
           
-          await storage.updateStockLevel(bulkItem.id, item.locationId, newStock);
+          await storage.updateStockLevel(bulkItem.id, item.unitId, newStock);
         } else if (bulkItem.actualStock !== undefined) {
           // For standard items: update stock directly
-          await storage.updateStockLevel(bulkItem.id, item.locationId, bulkItem.actualStock);
+          await storage.updateStockLevel(bulkItem.id, item.unitId, bulkItem.actualStock);
         }
         
         updatedItems.push({ id: bulkItem.id, ...updates });
@@ -854,7 +854,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!item) continue;
 
         const locationId = await getUserLocationForHospital(userId, item.hospitalId);
-        if (!locationId || locationId !== item.locationId) {
+        if (!locationId || locationId !== item.unitId) {
           continue;
         }
 
@@ -881,7 +881,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Verify user has access to this item's location
       const locationId = await getUserLocationForHospital(userId, item.hospitalId);
-      if (!locationId || locationId !== item.locationId) {
+      if (!locationId || locationId !== item.unitId) {
         return res.status(403).json({ message: "Access denied to this item" });
       }
       
@@ -961,7 +961,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Verify user has access to this item's location
       const locationId = await getUserLocationForHospital(userId, item.hospitalId);
-      if (!locationId || locationId !== item.locationId) {
+      if (!locationId || locationId !== item.unitId) {
         return res.status(403).json({ message: "Access denied to this item" });
       }
       
@@ -1031,7 +1031,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Verify user has access to this item's location
       const locationId = await getUserLocationForHospital(userId, item.hospitalId);
-      if (!locationId || locationId !== item.locationId) {
+      if (!locationId || locationId !== item.unitId) {
         return res.status(403).json({ message: "Access denied to this item" });
       }
       
@@ -1071,7 +1071,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Verify user has access to this item's location
           const locationId = await getUserLocationForHospital(userId, item.hospitalId);
-          if (!locationId || locationId !== item.locationId) {
+          if (!locationId || locationId !== item.unitId) {
             results.failed.push({ id: itemId, reason: "Access denied" });
             continue;
           }
@@ -1116,11 +1116,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(eq(hospitals.id, hospitalId))
         .limit(1);
 
-      if (!hospital.length || !hospital[0].anesthesiaLocationId) {
+      if (!hospital.length || !hospital[0].anesthesiaUnitId) {
         return res.json([]); // Return empty array if anesthesia location not configured
       }
 
-      const anesthesiaLocationId = hospital[0].anesthesiaLocationId;
+      const anesthesiaUnitId = hospital[0].anesthesiaUnitId;
 
       // Get all items from the hospital's anesthesia location that have medication configs
       // INNER JOIN ensures we only get items with medication configurations
@@ -1128,7 +1128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .select({
           id: items.id,
           hospitalId: items.hospitalId,
-          locationId: items.locationId,
+          locationId: items.unitId,
           folderId: items.folderId,
           name: items.name,
           description: items.description,
@@ -1161,7 +1161,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .where(
           and(
             eq(items.hospitalId, hospitalId),
-            eq(items.locationId, anesthesiaLocationId)
+            eq(items.unitId, anesthesiaUnitId)
           )
         )
         .orderBy(items.name);
@@ -1187,7 +1187,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Verify user has access to this item's location
       const locationId = await getUserLocationForHospital(userId, item.hospitalId);
-      if (!locationId || locationId !== item.locationId) {
+      if (!locationId || locationId !== item.unitId) {
         return res.status(403).json({ message: "Access denied to this item" });
       }
 
@@ -2258,7 +2258,7 @@ If unable to parse any drugs, return:
       }
       
       // Verify item belongs to user's location
-      if (item.locationId !== locationId) {
+      if (item.unitId !== locationId) {
         return res.status(403).json({ message: "Access denied to this item's location" });
       }
       
@@ -2522,7 +2522,7 @@ If unable to parse any drugs, return:
         .where(
           and(
             eq(stockLevels.itemId, item.id),
-            eq(stockLevels.locationId, item.locationId)
+            eq(stockLevels.unitId, item.unitId)
           )
         );
       
@@ -2530,7 +2530,7 @@ If unable to parse any drugs, return:
       const newQty = currentQty + line.qty;
       
       // Update stock level
-      await storage.updateStockLevel(item.id, item.locationId, newQty);
+      await storage.updateStockLevel(item.id, item.unitId, newQty);
       
       // For items with exact quantity tracking, also update current units
       let addedUnits = 0;
@@ -2569,7 +2569,7 @@ If unable to parse any drugs, return:
           userId,
           action: 'receive',
           itemId: item.id,
-          locationId: item.locationId,
+          locationId: item.unitId,
           delta: addedUnits || line.qty,
           movementType: 'IN',
           notes: notes || 'Order received',
@@ -2757,7 +2757,7 @@ If unable to parse any drugs, return:
           }
           
           // Verify item belongs to user's location
-          if (itemData.locationId !== locationId) {
+          if (itemData.unitId !== locationId) {
             throw new Error(`Access denied to item ${item.itemId}'s location`);
           }
           
@@ -2855,7 +2855,7 @@ If unable to parse any drugs, return:
       }
       
       // Verify item belongs to user's location
-      if (item.locationId !== locationId) {
+      if (item.unitId !== locationId) {
         return res.status(403).json({ message: "Access denied to this item's location" });
       }
       
@@ -3024,7 +3024,7 @@ If unable to parse any drugs, return:
       
       // Verify user has access to this hospital/location
       const userLocationId = await getUserLocationForHospital(userId, item.hospitalId);
-      if (!userLocationId || userLocationId !== item.locationId) {
+      if (!userLocationId || userLocationId !== item.unitId) {
         return res.status(403).json({ message: "Access denied to this activity" });
       }
       
@@ -3050,7 +3050,7 @@ If unable to parse any drugs, return:
       
       // Verify user has access to this hospital and location
       const userHospitals = await storage.getUserHospitals(userId);
-      const hasAccess = userHospitals.some(h => h.id === hospitalId && h.locationId === locationId);
+      const hasAccess = userHospitals.some(h => h.id === hospitalId && h.unitId === locationId);
       if (!hasAccess) {
         return res.status(403).json({ message: "Access denied to this hospital or location" });
       }
@@ -3160,18 +3160,18 @@ If unable to parse any drugs, return:
   app.patch('/api/admin/:hospitalId/anesthesia-location', isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { hospitalId } = req.params;
-      const { anesthesiaLocationId } = req.body;
+      const { anesthesiaUnitId } = req.body;
 
-      // Verify the location belongs to this hospital if provided
-      if (anesthesiaLocationId) {
-        const locations = await storage.getLocations(hospitalId);
-        const locationExists = locations.some(l => l.id === anesthesiaLocationId);
-        if (!locationExists) {
-          return res.status(400).json({ message: "Selected location does not belong to this hospital" });
+      // Verify the unit belongs to this hospital if provided
+      if (anesthesiaUnitId) {
+        const units = await storage.getUnits(hospitalId);
+        const unitExists = units.some(l => l.id === anesthesiaUnitId);
+        if (!unitExists) {
+          return res.status(400).json({ message: "Selected unit does not belong to this hospital" });
         }
       }
 
-      const updated = await storage.updateHospital(hospitalId, { anesthesiaLocationId });
+      const updated = await storage.updateHospital(hospitalId, { anesthesiaUnitId });
       res.json(updated);
     } catch (error) {
       console.error("Error updating anesthesia location:", error);
@@ -3183,18 +3183,18 @@ If unable to parse any drugs, return:
   app.patch('/api/admin/:hospitalId/surgery-location', isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { hospitalId } = req.params;
-      const { surgeryLocationId } = req.body;
+      const { surgeryUnitId } = req.body;
 
-      // Verify the location belongs to this hospital if provided
-      if (surgeryLocationId) {
-        const locations = await storage.getLocations(hospitalId);
-        const locationExists = locations.some(l => l.id === surgeryLocationId);
-        if (!locationExists) {
-          return res.status(400).json({ message: "Selected location does not belong to this hospital" });
+      // Verify the unit belongs to this hospital if provided
+      if (surgeryUnitId) {
+        const units = await storage.getUnits(hospitalId);
+        const unitExists = units.some(l => l.id === surgeryUnitId);
+        if (!unitExists) {
+          return res.status(400).json({ message: "Selected unit does not belong to this hospital" });
         }
       }
 
-      const updated = await storage.updateHospital(hospitalId, { surgeryLocationId });
+      const updated = await storage.updateHospital(hospitalId, { surgeryUnitId });
       res.json(updated);
     } catch (error) {
       console.error("Error updating surgery location:", error);
@@ -3221,7 +3221,7 @@ If unable to parse any drugs, return:
 
       // Get hospital's surgery location
       const hospital = await storage.getHospital(hospitalId);
-      if (!hospital?.surgeryLocationId) {
+      if (!hospital?.surgeryUnitId) {
         return res.json([]); // No surgery location configured, return empty list
       }
 
@@ -3230,7 +3230,7 @@ If unable to parse any drugs, return:
       
       // Filter for doctors in the surgery location
       const surgeons = hospitalUsers
-        .filter(hu => hu.locationId === hospital.surgeryLocationId && hu.role === "doctor")
+        .filter(hu => hu.unitId === hospital.surgeryUnitId && hu.role === "doctor")
         .map(hu => ({
           id: hu.user.id,
           name: `${hu.user.firstName || ''} ${hu.user.lastName || ''}`.trim() || hu.user.email || 'Unknown',
@@ -3244,56 +3244,56 @@ If unable to parse any drugs, return:
     }
   });
 
-  // Admin - Location routes
-  app.get('/api/admin/:hospitalId/locations', isAuthenticated, isAdmin, async (req, res) => {
+  // Admin - Unit routes
+  app.get('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { hospitalId } = req.params;
-      const locations = await storage.getLocations(hospitalId);
-      res.json(locations);
+      const units = await storage.getUnits(hospitalId);
+      res.json(units);
     } catch (error) {
-      console.error("Error fetching locations:", error);
-      res.status(500).json({ message: "Failed to fetch locations" });
+      console.error("Error fetching units:", error);
+      res.status(500).json({ message: "Failed to fetch units" });
     }
   });
 
-  app.post('/api/admin/:hospitalId/locations', isAuthenticated, isAdmin, async (req, res) => {
+  app.post('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { hospitalId } = req.params;
       const { name, type, parentId } = req.body;
       
       if (!name) {
-        return res.status(400).json({ message: "Location name is required" });
+        return res.status(400).json({ message: "Unit name is required" });
       }
       
-      const location = await storage.createLocation({
+      const unit = await storage.createUnit({
         hospitalId,
         name,
         type: type || null,
         parentId: parentId || null,
       });
-      res.status(201).json(location);
+      res.status(201).json(unit);
     } catch (error) {
-      console.error("Error creating location:", error);
-      res.status(500).json({ message: "Failed to create location" });
+      console.error("Error creating unit:", error);
+      res.status(500).json({ message: "Failed to create unit" });
     }
   });
 
-  app.patch('/api/admin/locations/:locationId', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/admin/units/:unitId', isAuthenticated, async (req: any, res) => {
     try {
-      const { locationId } = req.params;
+      const { unitId } = req.params;
       const { name, type, parentId } = req.body;
       
-      // Get location to verify hospital access
-      const locations = await storage.getLocations(req.body.hospitalId);
-      const location = locations.find(l => l.id === locationId);
-      if (!location) {
-        return res.status(404).json({ message: "Location not found" });
+      // Get unit to verify hospital access
+      const units = await storage.getUnits(req.body.hospitalId);
+      const unit = units.find(l => l.id === unitId);
+      if (!unit) {
+        return res.status(404).json({ message: "Unit not found" });
       }
       
       // Check admin access
       const userId = req.user.id;
       const hospitals = await storage.getUserHospitals(userId);
-      const hospital = hospitals.find(h => h.id === location.hospitalId);
+      const hospital = hospitals.find(h => h.id === unit.hospitalId);
       if (!hospital || hospital.role !== 'admin') {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -3303,33 +3303,33 @@ If unable to parse any drugs, return:
       if (type !== undefined) updates.type = type;
       if (parentId !== undefined) updates.parentId = parentId;
       
-      const updated = await storage.updateLocation(locationId, updates);
+      const updated = await storage.updateUnit(unitId, updates);
       res.json(updated);
     } catch (error) {
-      console.error("Error updating location:", error);
-      res.status(500).json({ message: "Failed to update location" });
+      console.error("Error updating unit:", error);
+      res.status(500).json({ message: "Failed to update unit" });
     }
   });
 
-  app.delete('/api/admin/locations/:locationId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/admin/units/:unitId', isAuthenticated, async (req: any, res) => {
     try {
-      const { locationId } = req.params;
+      const { unitId } = req.params;
       const { hospitalId } = req.query;
       const userId = req.user.id;
       
-      // Check admin access - user must be admin for ANY location in this hospital
+      // Check admin access - user must be admin for ANY unit in this hospital
       const hospitals = await storage.getUserHospitals(userId);
-      const adminLocations = hospitals.filter(h => h.id === hospitalId && h.role === 'admin');
+      const adminUnits = hospitals.filter(h => h.id === hospitalId && h.role === 'admin');
       
-      if (adminLocations.length === 0) {
+      if (adminUnits.length === 0) {
         return res.status(403).json({ message: "Admin access required" });
       }
       
-      await storage.deleteLocation(locationId);
+      await storage.deleteUnit(unitId);
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting location:", error);
-      res.status(500).json({ message: "Failed to delete location" });
+      console.error("Error deleting unit:", error);
+      res.status(500).json({ message: "Failed to delete unit" });
     }
   });
 
@@ -3426,7 +3426,7 @@ If unable to parse any drugs, return:
       }
       
       const updates: any = {};
-      if (locationId !== undefined) updates.locationId = locationId;
+      if (locationId !== undefined) updates.unitId = locationId;
       if (role !== undefined) updates.role = role;
       
       const updated = await storage.updateUserHospitalRole(roleId, updates);
@@ -3592,7 +3592,7 @@ If unable to parse any drugs, return:
             and(
               eq(userHospitalRoles.userId, userId),
               eq(userHospitalRoles.hospitalId, hospitalId),
-              eq(userHospitalRoles.locationId, role.locationId),
+              eq(userHospitalRoles.unitId, role.unitId),
               eq(userHospitalRoles.role, role.role)
             )
           );
@@ -3649,12 +3649,12 @@ If unable to parse any drugs, return:
         return res.status(400).json({ message: "Hospital ID is required" });
       }
       
-      if (!templateData.locationId) {
+      if (!templateData.unitId) {
         return res.status(400).json({ message: "Location ID is required" });
       }
       
       // Verify the locationId belongs to the hospital
-      const [location] = await db.select().from(locations).where(eq(locations.id, templateData.locationId));
+      const [location] = await db.select().from(locations).where(eq(locations.id, templateData.unitId));
       if (!location || location.hospitalId !== templateData.hospitalId) {
         return res.status(400).json({ message: "Invalid location for this hospital" });
       }
@@ -3701,7 +3701,7 @@ If unable to parse any drugs, return:
       }
       
       // Deduplicate location IDs to avoid redundant queries
-      const uniqueLocationIds = Array.from(new Set(userLocations.map(loc => loc.locationId)));
+      const uniqueLocationIds = Array.from(new Set(userLocations.map(loc => loc.unitId)));
       
       // Get templates for all unique locations
       const allTemplates = await Promise.all(
@@ -3734,8 +3734,8 @@ If unable to parse any drugs, return:
       }
       
       // If locationId is being updated, verify it belongs to the hospital
-      if (updates.locationId && updates.locationId !== template.locationId) {
-        const [location] = await db.select().from(locations).where(eq(locations.id, updates.locationId));
+      if (updates.unitId && updates.unitId !== template.unitId) {
+        const [location] = await db.select().from(locations).where(eq(locations.id, updates.unitId));
         if (!location || location.hospitalId !== template.hospitalId) {
           return res.status(400).json({ message: "Invalid location for this hospital" });
         }
@@ -3816,7 +3816,7 @@ If unable to parse any drugs, return:
       // Get pending checklists for all user's locations
       const allPending = await Promise.all(
         userLocations.map(loc => 
-          storage.getPendingChecklists(hospitalId, loc.locationId, loc.role)
+          storage.getPendingChecklists(hospitalId, loc.unitId, loc.role)
         )
       );
       
@@ -3853,7 +3853,7 @@ If unable to parse any drugs, return:
       // Get counts for all user's locations
       const counts = await Promise.all(
         userLocations.map(loc => 
-          storage.getPendingChecklistCount(hospitalId, loc.locationId, loc.role)
+          storage.getPendingChecklistCount(hospitalId, loc.unitId, loc.role)
         )
       );
       
@@ -3884,7 +3884,7 @@ If unable to parse any drugs, return:
       }
       
       // Verify user has access to this specific hospital/location
-      const access = await verifyUserHospitalLocationAccess(userId, template.hospitalId, template.locationId);
+      const access = await verifyUserHospitalLocationAccess(userId, template.hospitalId, template.unitId);
       if (!access.hasAccess) {
         return res.status(403).json({ message: "Access denied to this location" });
       }
@@ -3896,7 +3896,7 @@ If unable to parse any drugs, return:
         ...completionData,
         completedBy: userId,
         hospitalId: template.hospitalId,
-        locationId: template.locationId,
+        locationId: template.unitId,
         completedAt: new Date(),
       });
       
@@ -3931,7 +3931,7 @@ If unable to parse any drugs, return:
         userLocations.map(loc => 
           storage.getChecklistCompletions(
             hospitalId,
-            loc.locationId,
+            loc.unitId,
             templateId as string | undefined,
             limit ? parseInt(limit as string) : undefined
           )
@@ -3962,7 +3962,7 @@ If unable to parse any drugs, return:
       }
       
       // Verify user has access to this specific hospital/location
-      const access = await verifyUserHospitalLocationAccess(userId, completion.hospitalId, completion.locationId);
+      const access = await verifyUserHospitalLocationAccess(userId, completion.hospitalId, completion.unitId);
       if (!access.hasAccess) {
         return res.status(403).json({ message: "Access denied to this location" });
       }

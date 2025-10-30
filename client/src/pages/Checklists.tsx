@@ -41,12 +41,12 @@ export default function Checklists() {
   const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
 
   const { data: pendingChecklists = [], isLoading: isLoadingPending } = useQuery<PendingChecklist[]>({
-    queryKey: [`/api/checklists/pending/${activeHospital?.id}`, activeHospital?.locationId],
+    queryKey: [`/api/checklists/pending/${activeHospital?.id}`, activeHospital?.unitId],
     enabled: !!activeHospital?.id,
   });
 
   const { data: completionHistory = [], isLoading: isLoadingHistory } = useQuery<ChecklistCompletionWithDetails[]>({
-    queryKey: [`/api/checklists/history/${activeHospital?.id}`, activeHospital?.locationId],
+    queryKey: [`/api/checklists/history/${activeHospital?.id}`, activeHospital?.unitId],
     enabled: !!activeHospital?.id,
   });
 
@@ -58,7 +58,7 @@ export default function Checklists() {
       signature: string;
       templateSnapshot: Pick<ChecklistTemplate, 'name' | 'description' | 'recurrency' | 'items' | 'role'>;
     }) => {
-      if (!activeHospital?.id || !activeHospital?.locationId || !user?.id) {
+      if (!activeHospital?.id || !activeHospital?.unitId || !user?.id) {
         throw new Error("Missing required information");
       }
       

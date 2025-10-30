@@ -25,7 +25,7 @@ export default function Landing() {
   }, []);
 
   const handleGoogleLogin = () => {
-    window.location.href = "/api/auth/google";
+    window.units?.href = "/api/auth/google";
   };
 
   const handleLocalLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -49,7 +49,7 @@ export default function Landing() {
       }
 
       toast({ title: "Success", description: "Login successful!" });
-      window.location.href = "/";
+      window.units?.href = "/";
     } catch (error: any) {
       toast({ 
         title: "Error", 
@@ -80,7 +80,7 @@ export default function Landing() {
       }
 
       toast({ title: "Success", description: "Welcome to the demo!" });
-      window.location.href = "/";
+      window.units?.href = "/";
     } catch (error: any) {
       toast({ 
         title: "Error", 
@@ -116,7 +116,7 @@ export default function Landing() {
       }
 
       toast({ title: "Success", description: "Account created successfully!" });
-      window.location.href = "/";
+      window.units?.href = "/";
     } catch (error: any) {
       toast({ 
         title: "Error", 

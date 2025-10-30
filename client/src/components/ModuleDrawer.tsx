@@ -27,7 +27,7 @@ export default function ModuleDrawer() {
     const savedHospitalKey = localStorage.getItem('activeHospital');
     if (savedHospitalKey) {
       const saved = userHospitals.find((h: any) => 
-        `${h.id}-${h.locationId}-${h.role}` === savedHospitalKey
+        `${h.id}-${h.unitId}-${h.role}` === savedHospitalKey
       );
       if (saved) return saved;
     }
@@ -67,8 +67,8 @@ export default function ModuleDrawer() {
 
   // Check if user has access to anesthesia module
   const hasAnesthesiaAccess = useMemo(() => {
-    if (!activeHospital?.anesthesiaLocationId) return false;
-    return activeHospital.locationId === activeHospital.anesthesiaLocationId;
+    if (!activeHospital?.anesthesiaUnitId) return false;
+    return activeHospital.unitId === activeHospital.anesthesiaUnitId;
   }, [activeHospital]);
 
   const modules = allModules.filter(module => {

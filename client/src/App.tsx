@@ -67,14 +67,14 @@ function HomeRedirect() {
       let activeHospital = userHospitals[0];
       if (savedHospitalKey) {
         const saved = userHospitals.find((h: any) => 
-          `${h.id}-${h.locationId}-${h.role}` === savedHospitalKey
+          `${h.id}-${h.unitId}-${h.role}` === savedHospitalKey
         );
         if (saved) activeHospital = saved;
       }
 
-      // If user is assigned to the anesthesia location, default to anesthesia module
-      if (activeHospital.anesthesiaLocationId && 
-          activeHospital.locationId === activeHospital.anesthesiaLocationId) {
+      // If user is assigned to the anesthesia unit, default to anesthesia module
+      if (activeHospital.anesthesiaUnitId && 
+          activeHospital.unitId === activeHospital.anesthesiaUnitId) {
         navigate("/anesthesia/patients", { replace: true });
         return;
       }

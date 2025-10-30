@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, Syringe, Stethoscope } from "lucide-react";
 import { format } from "date-fns";
-import type { Location } from "@shared/schema";
+import type { Location as Unit } from "@shared/schema";
 
 export default function Hospital() {
   const { t } = useTranslation();
@@ -22,27 +22,27 @@ export default function Hospital() {
   const { toast } = useToast();
 
   // Internal tab state
-  const [activeTab, setActiveTab] = useState<"locations" | "checklists">("locations");
+  const [activeTab, setActiveTab] = useState<"units" | "checklists">("units");
 
   // Hospital name states
   const [hospitalDialogOpen, setHospitalDialogOpen] = useState(false);
   const [hospitalName, setHospitalName] = useState(activeHospital?.name || "");
 
-  // Anesthesia location states
-  const [anesthesiaLocationDialogOpen, setAnesthesiaLocationDialogOpen] = useState(false);
-  const [selectedAnesthesiaLocationId, setSelectedAnesthesiaLocationId] = useState(activeHospital?.anesthesiaLocationId || "none");
+  // Anesthesia unit states
+  const [anesthesiaUnitDialogOpen, setAnesthesiaUnitDialogOpen] = useState(false);
+  const [selectedAnesthesiaUnitId, setSelectedAnesthesiaUnitId] = useState(activeHospital?.anesthesiaUnitId || "none");
 
-  // Surgery location states
-  const [surgeryLocationDialogOpen, setSurgeryLocationDialogOpen] = useState(false);
-  const [selectedSurgeryLocationId, setSelectedSurgeryLocationId] = useState(activeHospital?.surgeryLocationId || "none");
+  // Surgery unit states
+  const [surgeryUnitDialogOpen, setSurgeryUnitDialogOpen] = useState(false);
+  const [selectedSurgeryUnitId, setSelectedSurgeryUnitId] = useState(activeHospital?.surgeryUnitId || "none");
 
   // Seed data states
   const [seedDialogOpen, setSeedDialogOpen] = useState(false);
 
-  // Location states
-  const [locationDialogOpen, setLocationDialogOpen] = useState(false);
-  const [editingLocation, setEditingLocation] = useState<Location | null>(null);
-  const [locationForm, setLocationForm] = useState({
+  // Unit states
+  const [unitDialogOpen, setUnitDialogOpen] = useState(false);
+  const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
+  const [unitForm, setUnitForm] = useState({
     name: "",
     type: "",
   });
@@ -55,7 +55,7 @@ export default function Hospital() {
     name: "",
     recurrency: "",
     items: [] as string[],
-    locationId: "",
+    unitId: "",
     role: "",
     startDate: new Date().toISOString().split('T')[0],
   });
@@ -64,9 +64,9 @@ export default function Hospital() {
   // Check if user is admin
   const isAdmin = activeHospital?.role === "admin";
 
-  // Fetch locations
-  const { data: locations = [], isLoading: locationsLoading } = useQuery<Location[]>({
-    queryKey: [`/api/admin/${activeHospital?.id}/locations`],
+  // Fetch units
+  const { data: units = [], isLoading: unitsLoading } = useQuery<Unit[]>({
+    queryKey: [`/api/admin/${activeHospital?.id}/units`],
     enabled: !!activeHospital?.id && isAdmin,
   });
 
@@ -76,50 +76,50 @@ export default function Hospital() {
     enabled: !!activeHospital?.id && isAdmin,
   });
 
-  // Location mutations
-  const createLocationMutation = useMutation({
+  // Unit mutations
+  const createUnitMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", `/api/admin/${activeHospital?.id}/locations`, data);
+      const response = await apiRequest("POST", `/api/admin/${activeHospital?.id}/units`, data);
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/locations`] });
-      setLocationDialogOpen(false);
-      resetLocationForm();
-      toast({ title: t("common.success"), description: t("admin.locationCreatedSuccess") });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/units`] });
+      setUnitDialogOpen(false);
+      resetUnitForm();
+      toast({ title: t("common.success"), description: t("admin.unitCreatedSuccess") });
     },
     onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || t("admin.failedToCreateLocation"), variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToCreateUnit"), variant: "destructive" });
     },
   });
 
-  const updateLocationMutation = useMutation({
+  const updateUnitMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const response = await apiRequest("PATCH", `/api/admin/locations/${id}`, { ...data, hospitalId: activeHospital?.id });
+      const response = await apiRequest("PATCH", `/api/admin/units/${id}`, { ...data, hospitalId: activeHospital?.id });
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/locations`] });
-      setLocationDialogOpen(false);
-      resetLocationForm();
-      toast({ title: t("common.success"), description: t("admin.locationUpdatedSuccess") });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/units`] });
+      setUnitDialogOpen(false);
+      resetUnitForm();
+      toast({ title: t("common.success"), description: t("admin.unitUpdatedSuccess") });
     },
     onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateLocation"), variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateUnit"), variant: "destructive" });
     },
   });
 
-  const deleteLocationMutation = useMutation({
+  const deleteUnitMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest("DELETE", `/api/admin/locations/${id}?hospitalId=${activeHospital?.id}`);
+      const response = await apiRequest("DELETE", `/api/admin/units/${id}?hospitalId=${activeHospital?.id}`);
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/locations`] });
-      toast({ title: t("common.success"), description: t("admin.locationDeletedSuccess") });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/units`] });
+      toast({ title: t("common.success"), description: t("admin.unitDeletedSuccess") });
     },
     onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || t("admin.failedToDeleteLocation"), variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToDeleteUnit"), variant: "destructive" });
     },
   });
 
@@ -192,35 +192,35 @@ export default function Hospital() {
     },
   });
 
-  // Anesthesia location mutation
-  const updateAnesthesiaLocationMutation = useMutation({
-    mutationFn: async (anesthesiaLocationId: string | null) => {
-      const response = await apiRequest("PATCH", `/api/admin/${activeHospital?.id}/anesthesia-location`, { anesthesiaLocationId });
+  // Anesthesia unit mutation
+  const updateAnesthesiaUnitMutation = useMutation({
+    mutationFn: async (anesthesiaUnitId: string | null) => {
+      const response = await apiRequest("PATCH", `/api/admin/${activeHospital?.id}/anesthesia-unit`, { anesthesiaUnitId });
       return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      setAnesthesiaLocationDialogOpen(false);
-      toast({ title: t("common.success"), description: "Anesthesia location updated successfully" });
+      setAnesthesiaUnitDialogOpen(false);
+      toast({ title: t("common.success"), description: "Anesthesia unit updated successfully" });
     },
     onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || "Failed to update anesthesia location", variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || "Failed to update anesthesia unit", variant: "destructive" });
     },
   });
 
-  // Surgery location mutation
-  const updateSurgeryLocationMutation = useMutation({
-    mutationFn: async (surgeryLocationId: string | null) => {
-      const response = await apiRequest("PATCH", `/api/admin/${activeHospital?.id}/surgery-location`, { surgeryLocationId });
+  // Surgery unit mutation
+  const updateSurgeryUnitMutation = useMutation({
+    mutationFn: async (surgeryUnitId: string | null) => {
+      const response = await apiRequest("PATCH", `/api/admin/${activeHospital?.id}/surgery-unit`, { surgeryUnitId });
       return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      setSurgeryLocationDialogOpen(false);
-      toast({ title: t("common.success"), description: "Surgery location updated successfully" });
+      setSurgeryUnitDialogOpen(false);
+      toast({ title: t("common.success"), description: "Surgery unit updated successfully" });
     },
     onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || "Failed to update surgery location", variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || "Failed to update surgery unit", variant: "destructive" });
     },
   });
 
@@ -232,7 +232,7 @@ export default function Hospital() {
     },
     onSuccess: (data) => {
       // Invalidate all relevant queries to refresh data
-      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/locations`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/units`] });
       queryClient.invalidateQueries({ queryKey: [`/api/surgery-rooms/${activeHospital?.id}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/administration-groups/${activeHospital?.id}`] });
       // Invalidate item queries to show newly seeded medications
@@ -240,7 +240,7 @@ export default function Hospital() {
       setSeedDialogOpen(false);
       
       const result = data.result || {};
-      const message = `Added: ${result.locationsCreated || 0} locations, ${result.surgeryRoomsCreated || 0} surgery rooms, ${result.adminGroupsCreated || 0} admin groups, ${result.medicationsCreated || 0} medications`;
+      const message = `Added: ${result.unitsCreated || 0} units, ${result.surgeryRoomsCreated || 0} surgery rooms, ${result.adminGroupsCreated || 0} admin groups, ${result.medicationsCreated || 0} medications`;
       toast({ 
         title: "Hospital seeded successfully", 
         description: message,
@@ -251,9 +251,9 @@ export default function Hospital() {
     },
   });
 
-  const resetLocationForm = () => {
-    setLocationForm({ name: "", type: "" });
-    setEditingLocation(null);
+  const resetUnitForm = () => {
+    setUnitForm({ name: "", type: "" });
+    setEditingUnit(null);
   };
 
   const resetTemplateForm = () => {
@@ -261,7 +261,7 @@ export default function Hospital() {
       name: "",
       recurrency: "",
       items: [],
-      locationId: "",
+      unitId: "",
       role: "",
       startDate: new Date().toISOString().split('T')[0],
     });
@@ -269,35 +269,35 @@ export default function Hospital() {
     setEditingTemplate(null);
   };
 
-  const handleAddLocation = () => {
-    resetLocationForm();
-    setLocationDialogOpen(true);
+  const handleAddUnit = () => {
+    resetUnitForm();
+    setUnitDialogOpen(true);
   };
 
-  const handleEditLocation = (location: Location) => {
-    setEditingLocation(location);
-    setLocationForm({
-      name: location.name,
-      type: location.type || "",
+  const handleEditUnit = (unit: Unit) => {
+    setEditingUnit(unit);
+    setUnitForm({
+      name: unit.name,
+      type: unit.type || "",
     });
-    setLocationDialogOpen(true);
+    setUnitDialogOpen(true);
   };
 
-  const handleSaveLocation = () => {
-    if (!locationForm.name) {
-      toast({ title: t("common.error"), description: t("admin.locationNameRequired"), variant: "destructive" });
+  const handleSaveUnit = () => {
+    if (!unitForm.name) {
+      toast({ title: t("common.error"), description: t("admin.unitNameRequired"), variant: "destructive" });
       return;
     }
 
     const data = {
-      name: locationForm.name,
-      type: locationForm.type || null,
+      name: unitForm.name,
+      type: unitForm.type || null,
     };
 
-    if (editingLocation) {
-      updateLocationMutation.mutate({ id: editingLocation.id, data });
+    if (editingUnit) {
+      updateUnitMutation.mutate({ id: editingUnit.id, data });
     } else {
-      createLocationMutation.mutate(data);
+      createUnitMutation.mutate(data);
     }
   };
 
@@ -312,7 +312,7 @@ export default function Hospital() {
       name: template.name,
       recurrency: template.recurrency,
       items: (template.items || []).map((item: any) => typeof item === 'string' ? item : (item.description || "")),
-      locationId: template.locationId || "",
+      unitId: template.unitId || "",
       role: template.role || "",
       startDate: template.startDate?.split('T')[0] || new Date().toISOString().split('T')[0],
     });
@@ -328,8 +328,8 @@ export default function Hospital() {
       toast({ title: t("common.error"), description: t("admin.recurrencyRequired"), variant: "destructive" });
       return;
     }
-    if (!templateForm.locationId) {
-      toast({ title: t("common.error"), description: t("admin.locationRequired"), variant: "destructive" });
+    if (!templateForm.unitId) {
+      toast({ title: t("common.error"), description: t("admin.unitRequired"), variant: "destructive" });
       return;
     }
     if (templateForm.items.length === 0) {
@@ -341,7 +341,7 @@ export default function Hospital() {
       name: templateForm.name.trim(),
       recurrency: templateForm.recurrency,
       items: templateForm.items.filter(item => item.trim()).map(item => ({ description: item.trim() })),
-      locationId: templateForm.locationId,
+      unitId: templateForm.unitId,
       role: templateForm.role || null,
       startDate: templateForm.startDate,
     };
@@ -390,25 +390,25 @@ export default function Hospital() {
     updateHospitalMutation.mutate(hospitalName);
   };
 
-  const handleEditAnesthesiaLocation = () => {
-    setSelectedAnesthesiaLocationId(activeHospital?.anesthesiaLocationId || "none");
-    setAnesthesiaLocationDialogOpen(true);
+  const handleEditAnesthesiaUnit = () => {
+    setSelectedAnesthesiaUnitId(activeHospital?.anesthesiaUnitId || "none");
+    setAnesthesiaUnitDialogOpen(true);
   };
 
-  const handleSaveAnesthesiaLocation = () => {
-    updateAnesthesiaLocationMutation.mutate(
-      selectedAnesthesiaLocationId === 'none' ? null : selectedAnesthesiaLocationId
+  const handleSaveAnesthesiaUnit = () => {
+    updateAnesthesiaUnitMutation.mutate(
+      selectedAnesthesiaUnitId === 'none' ? null : selectedAnesthesiaUnitId
     );
   };
 
-  const handleEditSurgeryLocation = () => {
-    setSelectedSurgeryLocationId(activeHospital?.surgeryLocationId || "none");
-    setSurgeryLocationDialogOpen(true);
+  const handleEditSurgeryUnit = () => {
+    setSelectedSurgeryUnitId(activeHospital?.surgeryUnitId || "none");
+    setSurgeryUnitDialogOpen(true);
   };
 
-  const handleSaveSurgeryLocation = () => {
-    updateSurgeryLocationMutation.mutate(
-      selectedSurgeryLocationId === 'none' ? null : selectedSurgeryLocationId
+  const handleSaveSurgeryUnit = () => {
+    updateSurgeryUnitMutation.mutate(
+      selectedSurgeryUnitId === 'none' ? null : selectedSurgeryUnitId
     );
   };
 
@@ -461,24 +461,24 @@ export default function Hospital() {
         </div>
       </div>
 
-      {/* Anesthesia Location Configuration Card */}
+      {/* Anesthesia Unit Configuration Card */}
       <div className="bg-card border border-border rounded-lg p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-start gap-3">
             <Syringe 
               className={`w-5 h-5 mt-0.5 ${
-                activeHospital?.anesthesiaLocationId 
+                activeHospital?.anesthesiaUnitId 
                   ? 'text-green-500' 
                   : 'text-gray-400'
               }`} 
             />
             <div>
               <h3 className="font-semibold text-foreground text-lg">
-                Anesthesia Module Location
+                Anesthesia Module Unit
               </h3>
               <p className="text-sm text-muted-foreground">
-                {activeHospital?.anesthesiaLocationId 
-                  ? locations.find(l => l.id === activeHospital.anesthesiaLocationId)?.name || "Location not found"
+                {activeHospital?.anesthesiaUnitId 
+                  ? units.find(l => l.id === activeHospital.anesthesiaUnitId)?.name || "Unit not found"
                   : "Not configured - anesthesia module disabled"}
               </p>
             </div>
@@ -486,8 +486,8 @@ export default function Hospital() {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleEditAnesthesiaLocation}
-            data-testid="button-edit-anesthesia-location"
+            onClick={handleEditAnesthesiaUnit}
+            data-testid="button-edit-anesthesia-unit"
           >
             <i className="fas fa-edit mr-2"></i>
             Configure
@@ -495,24 +495,24 @@ export default function Hospital() {
         </div>
       </div>
 
-      {/* Surgery Location Configuration Card */}
+      {/* Surgery Unit Configuration Card */}
       <div className="bg-card border border-border rounded-lg p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-start gap-3">
             <Stethoscope 
               className={`w-5 h-5 mt-0.5 ${
-                activeHospital?.surgeryLocationId 
+                activeHospital?.surgeryUnitId 
                   ? 'text-green-500' 
                   : 'text-gray-400'
               }`} 
             />
             <div>
               <h3 className="font-semibold text-foreground text-lg">
-                Surgery Module Location
+                Surgery Module Unit
               </h3>
               <p className="text-sm text-muted-foreground">
-                {activeHospital?.surgeryLocationId 
-                  ? locations.find(l => l.id === activeHospital.surgeryLocationId)?.name || "Location not found"
+                {activeHospital?.surgeryUnitId 
+                  ? units.find(l => l.id === activeHospital.surgeryUnitId)?.name || "Unit not found"
                   : "Not configured - surgery module disabled"}
               </p>
             </div>
@@ -520,8 +520,8 @@ export default function Hospital() {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleEditSurgeryLocation}
-            data-testid="button-edit-surgery-location"
+            onClick={handleEditSurgeryUnit}
+            data-testid="button-edit-surgery-unit"
           >
             <i className="fas fa-edit mr-2"></i>
             Configure
@@ -538,7 +538,7 @@ export default function Hospital() {
               Default Data Setup
             </h3>
             <p className="text-sm text-muted-foreground">
-              Populate hospital with default locations, surgery rooms, administration groups, and medications
+              Populate hospital with default units, surgery rooms, administration groups, and medications
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               <i className="fas fa-info-circle mr-1"></i>
@@ -571,15 +571,15 @@ export default function Hospital() {
       <div className="flex gap-2">
         <button
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === "locations"
+            activeTab === "units"
               ? "bg-primary text-primary-foreground"
               : "bg-muted text-muted-foreground hover:bg-muted/80"
           }`}
-          onClick={() => setActiveTab("locations")}
-          data-testid="tab-locations"
+          onClick={() => setActiveTab("units")}
+          data-testid="tab-units"
         >
-          <i className="fas fa-location-dot mr-2"></i>
-          {t("admin.locations")}
+          <i className="fas fa-units?-dot mr-2"></i>
+          {t("admin.units")}
         </button>
         <button
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -595,24 +595,24 @@ export default function Hospital() {
         </button>
       </div>
 
-      {/* Locations Tab Content */}
-      {activeTab === "locations" && (
+      {/* Units Tab Content */}
+      {activeTab === "units" && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-foreground">{t("admin.locations")}</h2>
-            <Button onClick={handleAddLocation} size="sm" data-testid="button-add-location">
+            <h2 className="text-lg font-semibold text-foreground">{t("admin.units")}</h2>
+            <Button onClick={handleAddUnit} size="sm" data-testid="button-add-unit">
               <i className="fas fa-plus mr-2"></i>
-              {t("admin.addLocation")}
+              {t("admin.addUnit")}
             </Button>
           </div>
 
-          {locationsLoading ? (
+          {units?Loading ? (
             <div className="text-center py-8">
               <i className="fas fa-spinner fa-spin text-2xl text-primary"></i>
             </div>
-          ) : locations.length === 0 ? (
+          ) : units?.length === 0 ? (
             <div className="bg-card border border-border rounded-lg p-8 text-center">
-              <i className="fas fa-location-dot text-4xl text-muted-foreground mb-4"></i>
+              <i className="fas fa-units?-dot text-4xl text-muted-foreground mb-4"></i>
               <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.noLocations")}</h3>
               <p className="text-muted-foreground mb-4">{t("admin.noLocationsMessage")}</p>
               <Button onClick={handleAddLocation} size="sm">
@@ -622,21 +622,21 @@ export default function Hospital() {
             </div>
           ) : (
             <div className="space-y-2">
-              {locations.map((location) => (
-                <div key={location.id} className="bg-card border border-border rounded-lg p-4" data-testid={`location-${location.id}`}>
+              {units?.map((units?) => (
+                <div key={units?.id} className="bg-card border border-border rounded-lg p-4" data-testid={`units?-${units?.id}`}>
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-semibold text-foreground">{location.name}</h3>
-                      {location.type && (
-                        <p className="text-sm text-muted-foreground">{location.type}</p>
+                      <h3 className="font-semibold text-foreground">{units?.name}</h3>
+                      {units?.type && (
+                        <p className="text-sm text-muted-foreground">{units?.type}</p>
                       )}
                     </div>
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleEditLocation(location)}
-                        data-testid={`button-edit-location-${location.id}`}
+                        onClick={() => handleEditLocation(units?)}
+                        data-testid={`button-edit-units?-${units?.id}`}
                       >
                         <i className="fas fa-edit"></i>
                       </Button>
@@ -645,10 +645,10 @@ export default function Hospital() {
                         size="sm"
                         onClick={() => {
                           if (confirm(t("admin.deleteLocationConfirm"))) {
-                            deleteLocationMutation.mutate(location.id);
+                            deleteLocationMutation.mutate(units?.id);
                           }
                         }}
-                        data-testid={`button-delete-location-${location.id}`}
+                        data-testid={`button-delete-units?-${units?.id}`}
                       >
                         <i className="fas fa-trash text-destructive"></i>
                       </Button>
@@ -702,9 +702,9 @@ export default function Hospital() {
                             {t(`checklists.role.${template.role}`)}
                           </span>
                         )}
-                        {template.location && (
+                        {template.units? && (
                           <span className="status-chip chip-muted text-xs">
-                            {template.location.name}
+                            {template.units?.name}
                           </span>
                         )}
                         <span className="text-xs">
@@ -743,30 +743,30 @@ export default function Hospital() {
       )}
 
       {/* Location Dialog */}
-      <Dialog open={locationDialogOpen} onOpenChange={setLocationDialogOpen}>
+      <Dialog open={units?DialogOpen} onOpenChange={setLocationDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingLocation ? t("admin.editLocation") : t("admin.addLocation")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="location-name">{t("admin.locationName")} *</Label>
+              <Label htmlFor="units?-name">{t("admin.units?Name")} *</Label>
               <Input
-                id="location-name"
-                value={locationForm.name}
-                onChange={(e) => setLocationForm({ ...locationForm, name: e.target.value })}
-                placeholder={t("admin.locationPlaceholder")}
-                data-testid="input-location-name"
+                id="units?-name"
+                value={units?Form.name}
+                onChange={(e) => setLocationForm({ ...units?Form, name: e.target.value })}
+                placeholder={t("admin.units?Placeholder")}
+                data-testid="input-units?-name"
               />
             </div>
             <div>
-              <Label htmlFor="location-type">{t("admin.type")}</Label>
+              <Label htmlFor="units?-type">{t("admin.type")}</Label>
               <Input
-                id="location-type"
-                value={locationForm.type}
-                onChange={(e) => setLocationForm({ ...locationForm, type: e.target.value })}
+                id="units?-type"
+                value={units?Form.type}
+                onChange={(e) => setLocationForm({ ...units?Form, type: e.target.value })}
                 placeholder={t("admin.typePlaceholder")}
-                data-testid="input-location-type"
+                data-testid="input-units?-type"
               />
             </div>
             <div className="flex gap-2 justify-end">
@@ -776,7 +776,7 @@ export default function Hospital() {
               <Button
                 onClick={handleSaveLocation}
                 disabled={createLocationMutation.isPending || updateLocationMutation.isPending}
-                data-testid="button-save-location"
+                data-testid="button-save-units?"
               >
                 {editingLocation ? t("common.edit") : t("common.save")}
               </Button>
@@ -821,18 +821,18 @@ export default function Hospital() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label htmlFor="template-location">{t("admin.location")} *</Label>
+                <Label htmlFor="template-units?">{t("admin.units?")} *</Label>
                 <Select
-                  value={templateForm.locationId}
-                  onValueChange={(value) => setTemplateForm({ ...templateForm, locationId: value })}
+                  value={templateForm.unitId}
+                  onValueChange={(value) => setTemplateForm({ ...templateForm, units?Id: value })}
                 >
-                  <SelectTrigger data-testid="select-template-location">
+                  <SelectTrigger data-testid="select-template-units?">
                     <SelectValue placeholder={t("admin.selectLocation")} />
                   </SelectTrigger>
                   <SelectContent>
-                    {locations.map((location) => (
-                      <SelectItem key={location.id} value={location.id}>
-                        {location.name}
+                    {units?.map((units?) => (
+                      <SelectItem key={units?.id} value={units?.id}>
+                        {units?.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -981,25 +981,25 @@ export default function Hospital() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="anesthesia-location">Select Location</Label>
+              <Label htmlFor="anesthesia-units?">Select Location</Label>
               <p className="text-sm text-muted-foreground mb-2">
-                Choose which location's inventory will be used for anesthesia medications and infusions.
-                Only users assigned to this location can access the anesthesia module.
+                Choose which units?'s inventory will be used for anesthesia medications and infusions.
+                Only users assigned to this units? can access the anesthesia module.
               </p>
               <Select
                 value={selectedAnesthesiaLocationId}
                 onValueChange={setSelectedAnesthesiaLocationId}
               >
-                <SelectTrigger id="anesthesia-location" data-testid="select-anesthesia-location">
-                  <SelectValue placeholder="Select a location" />
+                <SelectTrigger id="anesthesia-units?" data-testid="select-anesthesia-units?">
+                  <SelectValue placeholder="Select a units?" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none" data-testid="option-none">
                     None (Disable anesthesia module)
                   </SelectItem>
-                  {locations.map((location) => (
-                    <SelectItem key={location.id} value={location.id} data-testid={`option-location-${location.id}`}>
-                      {location.name} {location.type ? `(${location.type})` : ""}
+                  {units?.map((units?) => (
+                    <SelectItem key={units?.id} value={units?.id} data-testid={`option-units?-${units?.id}`}>
+                      {units?.name} {units?.type ? `(${units?.type})` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1012,7 +1012,7 @@ export default function Hospital() {
               <Button
                 onClick={handleSaveAnesthesiaLocation}
                 disabled={updateAnesthesiaLocationMutation.isPending}
-                data-testid="button-save-anesthesia-location"
+                data-testid="button-save-anesthesia-units?"
               >
                 {t("common.save")}
               </Button>
@@ -1029,24 +1029,24 @@ export default function Hospital() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="surgery-location">Select Location</Label>
+              <Label htmlFor="surgery-units?">Select Location</Label>
               <p className="text-sm text-muted-foreground mb-2">
-                Doctors assigned to this location will be available as surgeons
+                Doctors assigned to this units? will be available as surgeons
               </p>
               <Select
                 value={selectedSurgeryLocationId}
                 onValueChange={setSelectedSurgeryLocationId}
               >
-                <SelectTrigger id="surgery-location" data-testid="select-surgery-location">
-                  <SelectValue placeholder="Select a location" />
+                <SelectTrigger id="surgery-units?" data-testid="select-surgery-units?">
+                  <SelectValue placeholder="Select a units?" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none" data-testid="option-none-surgery">
                     None (Disable surgery module)
                   </SelectItem>
-                  {locations.map((location) => (
-                    <SelectItem key={location.id} value={location.id} data-testid={`option-surgery-location-${location.id}`}>
-                      {location.name} {location.type ? `(${location.type})` : ""}
+                  {units?.map((units?) => (
+                    <SelectItem key={units?.id} value={units?.id} data-testid={`option-surgery-units?-${units?.id}`}>
+                      {units?.name} {units?.type ? `(${units?.type})` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1059,7 +1059,7 @@ export default function Hospital() {
               <Button
                 onClick={handleSaveSurgeryLocation}
                 disabled={updateSurgeryLocationMutation.isPending}
-                data-testid="button-save-surgery-location"
+                data-testid="button-save-surgery-units?"
               >
                 {t("common.save")}
               </Button>

@@ -28,7 +28,7 @@ import { Check } from "lucide-react";
 
 interface OrderWithDetails extends Order {
   vendor: Vendor | null;
-  orderLines: (OrderLine & { item: Item & { location: Location; stockLevel?: StockLevel } })[];
+  orderLines: (OrderLine & { item: Item & { units?: Location; stockLevel?: StockLevel } })[];
 }
 
 interface ItemWithStock extends Item {
@@ -71,24 +71,24 @@ export default function Orders() {
   const [lineToRemove, setLineToRemove] = useState<string | null>(null);
   
   const [showReceiveDialog, setShowReceiveDialog] = useState(false);
-  const [selectedLineToReceive, setSelectedLineToReceive] = useState<(OrderLine & { item: Item & { location: Location; stockLevel?: StockLevel } }) | null>(null);
+  const [selectedLineToReceive, setSelectedLineToReceive] = useState<(OrderLine & { item: Item & { units?: Location; stockLevel?: StockLevel } }) | null>(null);
   const [receiveNotes, setReceiveNotes] = useState("");
   const [receiveSignature, setReceiveSignature] = useState("");
   const [showReceiveSignaturePad, setShowReceiveSignaturePad] = useState(false);
 
   const { data: orders = [], isLoading } = useQuery<OrderWithDetails[]>({
-    queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.locationId],
+    queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId],
     enabled: !!activeHospital?.id,
   });
 
   const { data: vendors = [] } = useQuery<Vendor[]>({
-    queryKey: [`/api/vendors/${activeHospital?.id}`, activeHospital?.locationId],
+    queryKey: [`/api/vendors/${activeHospital?.id}`, activeHospital?.unitId],
     enabled: !!activeHospital?.id,
   });
 
   const { data: items = [] } = useQuery<ItemWithStock[]>({
-    queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId],
-    enabled: !!activeHospital?.id && !!activeHospital?.locationId,
+    queryKey: [`/api/items/${activeHospital?.id}?units?Id=${activeHospital?.unitId}`, activeHospital?.unitId],
+    enabled: !!activeHospital?.id && !!activeHospital?.unitId,
   });
 
   useEffect(() => {
@@ -110,7 +110,7 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
       setNewOrderDialogOpen(false);
       toast({
         title: t('orders.orderCreated'),
@@ -132,9 +132,9 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.locationId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/open-items/${activeHospital?.id}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?units?Id=${activeHospital?.unitId}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/open-items/${activeHospital?.id}`, activeHospital?.unitId] });
       toast({
         title: t('orders.orderUpdated'),
         description: t('orders.orderStatusUpdated'),
@@ -148,7 +148,7 @@ export default function Orders() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.units?.href = "/api/login";
         }, 500);
         return;
       }
@@ -167,7 +167,7 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
       setEditingLineId(null);
       toast({
         title: t('orders.orderUpdated'),
@@ -189,7 +189,7 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
       toast({
         title: t('orders.itemRemoved'),
         description: t('orders.itemRemovedSuccess'),
@@ -210,7 +210,7 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
       setEditOrderDialogOpen(false);
       setSelectedOrder(null);
       toast({
@@ -242,7 +242,7 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
       toast({
         title: t('orders.itemAdded'),
         description: t('orders.itemAddedSuccess'),
@@ -270,8 +270,8 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.locationId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.locationId}`, activeHospital?.locationId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?units?Id=${activeHospital?.unitId}`, activeHospital?.unitId] });
       toast({
         title: "Item Received",
         description: "Item has been marked as received and stock updated.",
@@ -287,7 +287,7 @@ export default function Orders() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.units?.href = "/api/login";
         }, 500);
         return;
       }
@@ -475,8 +475,8 @@ export default function Orders() {
   };
 
   const getOrderLocation = (order: OrderWithDetails) => {
-    const locations = new Set(order.orderLines.map(line => line.item.location.name));
-    return Array.from(locations).join(", ");
+    const units? = new Set(order.orderLines.map(line => line.item.units?.name));
+    return Array.from(units?).join(", ");
   };
 
   const resetReceiveForm = () => {
@@ -486,7 +486,7 @@ export default function Orders() {
     setShowReceiveSignaturePad(false);
   };
 
-  const handleReceiveLine = (line: OrderLine & { item: Item & { location: Location; stockLevel?: StockLevel } }) => {
+  const handleReceiveLine = (line: OrderLine & { item: Item & { units?: Location; stockLevel?: StockLevel } }) => {
     setSelectedLineToReceive(line);
     setShowReceiveDialog(true);
   };
@@ -806,7 +806,7 @@ export default function Orders() {
             <div className="space-y-4">
               <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                 <div>
-                  <p className="text-sm text-muted-foreground">{t('orders.location')}</p>
+                  <p className="text-sm text-muted-foreground">{t('orders.units?')}</p>
                   <p className="font-medium text-foreground">
                     <i className="fas fa-map-marker-alt mr-1"></i>
                     {getOrderLocation(selectedOrder)}

@@ -38,12 +38,12 @@ export default function Home() {
   }, [user]);
 
   const { data: kpis } = useQuery<KPIData>({
-    queryKey: [`/api/dashboard/kpis/${activeHospital?.id}`, activeHospital?.locationId],
+    queryKey: [`/api/dashboard/kpis/${activeHospital?.id}`, activeHospital?.unitId],
     enabled: !!activeHospital?.id,
   });
 
   const { data: activities = [] } = useQuery<Activity[]>({
-    queryKey: [`/api/activities/${activeHospital?.id}`, activeHospital?.locationId],
+    queryKey: [`/api/activities/${activeHospital?.id}`, activeHospital?.unitId],
     enabled: !!activeHospital?.id,
   });
 

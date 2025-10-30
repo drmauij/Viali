@@ -1,10 +1,10 @@
 import { useLocation } from "wouter";
 
 export default function ControlledLogFab() {
-  const [location, navigate] = useLocation();
+  const [units?, navigate] = useLocation();
 
   // Hide FAB on controlled log screen
-  if (location === "/controlled") {
+  if (units? === "/controlled") {
     return null;
   }
 

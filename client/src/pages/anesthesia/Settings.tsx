@@ -81,10 +81,10 @@ export default function AnesthesiaSettings() {
   const [isRateControlled, setIsRateControlled] = useState(false);
   const [rateUnit, setRateUnit] = useState('ml/h');
 
-  // Fetch all items for the hospital's anesthesia location
+  // Fetch all items for the hospital's anesthesia units?
   const { data: allItems = [], isLoading } = useQuery<Item[]>({
-    queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.anesthesiaLocationId}`],
-    enabled: !!activeHospital?.id && !!activeHospital?.anesthesiaLocationId,
+    queryKey: [`/api/items/${activeHospital?.id}?units?Id=${activeHospital?.anesthesiaUnitId}`],
+    enabled: !!activeHospital?.id && !!activeHospital?.anesthesiaUnitId,
   });
 
   // Fetch anesthesia-configured items
@@ -139,7 +139,7 @@ export default function AnesthesiaSettings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/items/${activeHospital?.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?locationId=${activeHospital?.anesthesiaLocationId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?units?Id=${activeHospital?.anesthesiaUnitId}`] });
       toast({
         title: "Configuration updated",
         description: "Anesthesia item configuration has been saved",
@@ -432,14 +432,14 @@ export default function AnesthesiaSettings() {
     );
   }
 
-  if (!activeHospital?.anesthesiaLocationId) {
+  if (!activeHospital?.anesthesiaUnitId) {
     return (
       <div className="p-6">
         <div className="bg-card border border-border rounded-lg p-8 text-center">
           <i className="fas fa-syringe text-4xl text-muted-foreground mb-4"></i>
           <h3 className="text-lg font-semibold text-foreground mb-2">Anesthesia Module Not Configured</h3>
           <p className="text-muted-foreground mb-4">
-            An administrator needs to configure which inventory location should be used for anesthesia items.
+            An administrator needs to configure which inventory units? should be used for anesthesia items.
             Please contact your hospital admin to set this up in Hospital Settings.
           </p>
         </div>

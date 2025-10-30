@@ -15,7 +15,7 @@ interface NavItem {
 
 export default function BottomNav() {
   const { t } = useTranslation();
-  const [location, navigate] = useLocation();
+  const [units?, navigate] = useLocation();
   const { user } = useAuth();
   const { activeModule } = useModule();
   const [hasCompletedImport, setHasCompletedImport] = useState(false);
@@ -29,7 +29,7 @@ export default function BottomNav() {
     const savedHospitalKey = localStorage.getItem('activeHospital');
     if (savedHospitalKey) {
       const saved = userHospitals.find((h: any) => 
-        `${h.id}-${h.locationId}-${h.role}` === savedHospitalKey
+        `${h.id}-${h.unitId}-${h.role}` === savedHospitalKey
       );
       if (saved) return saved;
     }
@@ -143,12 +143,12 @@ export default function BottomNav() {
 
   const isActive = (path: string) => {
     if (path === "/inventory/items") {
-      return location === "/inventory" || location.startsWith("/inventory/items");
+      return units? === "/inventory" || units?.startsWith("/inventory/items");
     }
     if (path === "/admin") {
-      return location === "/admin";
+      return units? === "/admin";
     }
-    return location.startsWith(path);
+    return units?.startsWith(path);
   };
 
   return (

@@ -13,11 +13,11 @@ import type { Location, UserHospitalRole, User } from "@shared/schema";
 
 interface HospitalUser extends UserHospitalRole {
   user: User;
-  location: Location;
+  units?: Location;
 }
 
 interface GroupedHospitalUser extends HospitalUser {
-  roles: Array<{ role: string; location: Location; roleId: string; locationId: string }>;
+  roles: Array<{ role: string; units?: Location; roleId: string; units?Id: string }>;
 }
 
 export default function Users() {
@@ -38,18 +38,18 @@ export default function Users() {
     password: "",
     firstName: "",
     lastName: "",
-    locationId: "",
+    units?Id: "",
     role: "",
   });
-  const [roleLocationPairs, setRoleLocationPairs] = useState<Array<{ id?: string; role: string; locationId: string }>>([]);
-  const [newPair, setNewPair] = useState({ role: "", locationId: "" });
+  const [roleLocationPairs, setRoleLocationPairs] = useState<Array<{ id?: string; role: string; units?Id: string }>>([]);
+  const [newPair, setNewPair] = useState({ role: "", units?Id: "" });
 
   // Check if user is admin
   const isAdmin = activeHospital?.role === "admin";
 
-  // Fetch locations
-  const { data: locations = [] } = useQuery<Location[]>({
-    queryKey: [`/api/admin/${activeHospital?.id}/locations`],
+  // Fetch units?
+  const { data: units? = [] } = useQuery<Location[]>({
+    queryKey: [`/api/admin/${hospitalId}/units`],
     enabled: !!activeHospital?.id && isAdmin,
   });
 
@@ -70,18 +70,18 @@ export default function Users() {
           ...userRole,
           roles: [{
             role: userRole.role,
-            location: userRole.location,
+            units?: userRole.units?,
             roleId: userRole.id,
-            locationId: userRole.locationId
+            units?Id: userRole.unitId
           }]
         });
       } else {
         const existing = grouped.get(userId)!;
         existing.roles.push({
           role: userRole.role,
-          location: userRole.location,
+          units?: userRole.units?,
           roleId: userRole.id,
-          locationId: userRole.locationId
+          units?Id: userRole.unitId
         });
       }
     });
@@ -188,7 +188,7 @@ export default function Users() {
   });
 
   const resetUserForm = () => {
-    setUserForm({ email: "", password: "", firstName: "", lastName: "", locationId: "", role: "" });
+    setUserForm({ email: "", password: "", firstName: "", lastName: "", units?Id: "", role: "" });
   };
 
   const handleCreateUser = () => {
@@ -200,7 +200,7 @@ export default function Users() {
     const userPairs = user.roles?.map((r: any) => ({ 
       id: r.roleId, 
       role: r.role, 
-      locationId: r.locationId 
+      units?Id: r.unitId 
     })) || [];
     
     setEditingUserDetails(user.user);
@@ -210,7 +210,7 @@ export default function Users() {
       lastName: user.user.lastName || "",
     });
     setRoleLocationPairs(userPairs);
-    setNewPair({ role: "", locationId: "" });
+    setNewPair({ role: "", units?Id: "" });
     setEditUserDialogOpen(true);
   };
 
@@ -222,7 +222,7 @@ export default function Users() {
         const userPairs = user.roles?.map((r: any) => ({ 
           id: r.roleId, 
           role: r.role, 
-          locationId: r.locationId 
+          units?Id: r.unitId 
         })) || [];
         setRoleLocationPairs(userPairs);
       }
@@ -236,7 +236,7 @@ export default function Users() {
   };
 
   const handleSaveUser = () => {
-    if (!userForm.email || !userForm.password || !userForm.firstName || !userForm.lastName || !userForm.locationId || !userForm.role) {
+    if (!userForm.email || !userForm.password || !userForm.firstName || !userForm.lastName || !userForm.unitId || !userForm.role) {
       toast({ title: t("common.error"), description: t("admin.allFieldsRequired"), variant: "destructive" });
       return;
     }
@@ -271,13 +271,13 @@ export default function Users() {
   const handleAddRoleLocation = async () => {
     if (createUserRoleMutation.isPending) return;
 
-    if (!newPair.role || !newPair.locationId) {
+    if (!newPair.role || !newPair.unitId) {
       toast({ title: t("common.error"), description: t("admin.roleAndLocationRequired"), variant: "destructive" });
       return;
     }
 
     const isDuplicate = roleLocationPairs.some(
-      pair => pair.role === newPair.role && pair.locationId === newPair.locationId
+      pair => pair.role === newPair.role && pair.unitId === newPair.unitId
     );
 
     if (isDuplicate) {
@@ -288,17 +288,17 @@ export default function Users() {
     if (!editingUserDetails) return;
 
     const tempId = `temp-${Date.now()}`;
-    const optimisticPair = { id: tempId, role: newPair.role, locationId: newPair.locationId };
+    const optimisticPair = { id: tempId, role: newPair.role, units?Id: newPair.unitId };
     setRoleLocationPairs([...roleLocationPairs, optimisticPair]);
 
     try {
       await createUserRoleMutation.mutateAsync({
         userId: editingUserDetails.id,
         role: newPair.role,
-        locationId: newPair.locationId,
+        units?Id: newPair.unitId,
       });
 
-      setNewPair({ role: "", locationId: "" });
+      setNewPair({ role: "", units?Id: "" });
     } catch (error) {
       setRoleLocationPairs(prev => prev.filter(p => p.id !== tempId));
     }
@@ -397,7 +397,7 @@ export default function Users() {
                       <div key={idx} className="inline-flex items-center bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
                         <span className="text-xs font-medium text-primary">{getRoleName(roleInfo.role)}</span>
                         <span className="text-xs text-primary/60 mx-1.5">@</span>
-                        <span className="text-xs text-primary/80">{roleInfo.location.name}</span>
+                        <span className="text-xs text-primary/80">{roleInfo.units?.name}</span>
                       </div>
                     ))}
                   </div>
@@ -480,18 +480,18 @@ export default function Users() {
               </div>
             </div>
             <div>
-              <Label htmlFor="user-location">{t("admin.location")} *</Label>
+              <Label htmlFor="user-units?">{t("admin.units?")} *</Label>
               <Select
-                value={userForm.locationId}
-                onValueChange={(value) => setUserForm({ ...userForm, locationId: value })}
+                value={userForm.unitId}
+                onValueChange={(value) => setUserForm({ ...userForm, units?Id: value })}
               >
-                <SelectTrigger data-testid="select-user-location">
+                <SelectTrigger data-testid="select-user-units?">
                   <SelectValue placeholder={t("admin.selectLocation")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {locations.map((location) => (
-                    <SelectItem key={location.id} value={location.id}>
-                      {location.name}
+                  {units?.map((units?) => (
+                    <SelectItem key={units?.id} value={units?.id}>
+                      {units?.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -565,13 +565,13 @@ export default function Users() {
               <Label className="text-base font-semibold">{t("admin.roleLocationPairs")}</Label>
               <div className="space-y-2 mt-3">
                 {roleLocationPairs.map((pair) => {
-                  const location = locations.find(l => l.id === pair.locationId);
+                  const units? = units?.find(l => l.id === pair.unitId);
                   return (
                     <div key={pair.id} className="flex items-center justify-between bg-muted p-2 rounded-md">
                       <div className="inline-flex items-center bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
                         <span className="text-xs font-medium text-primary">{getRoleName(pair.role)}</span>
                         <span className="text-xs text-primary/60 mx-1.5">@</span>
-                        <span className="text-xs text-primary/80">{location?.name}</span>
+                        <span className="text-xs text-primary/80">{units??.name}</span>
                       </div>
                       {pair.id && (
                         <Button
@@ -607,16 +607,16 @@ export default function Users() {
                   </SelectContent>
                 </Select>
                 <Select
-                  value={newPair.locationId}
-                  onValueChange={(value) => setNewPair({ ...newPair, locationId: value })}
+                  value={newPair.unitId}
+                  onValueChange={(value) => setNewPair({ ...newPair, units?Id: value })}
                 >
-                  <SelectTrigger className="flex-1" data-testid="select-new-location">
+                  <SelectTrigger className="flex-1" data-testid="select-new-units?">
                     <SelectValue placeholder={t("admin.selectLocation")} />
                   </SelectTrigger>
                   <SelectContent>
-                    {locations.map((location) => (
-                      <SelectItem key={location.id} value={location.id}>
-                        {location.name}
+                    {units?.map((units?) => (
+                      <SelectItem key={units?.id} value={units?.id}>
+                        {units?.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

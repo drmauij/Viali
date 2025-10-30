@@ -32,7 +32,7 @@ export default function Checklists() {
     name: "",
     recurrency: "",
     items: [] as string[],
-    locationId: "",
+    units?Id: "",
     role: "",
     startDate: new Date().toISOString().split('T')[0],
   });
@@ -41,9 +41,9 @@ export default function Checklists() {
   // Check if user is admin
   const isAdmin = activeHospital?.role === "admin";
 
-  // Fetch locations
-  const { data: locations = [] } = useQuery<Location[]>({
-    queryKey: [`/api/admin/${activeHospital?.id}/locations`],
+  // Fetch units?
+  const { data: units? = [] } = useQuery<Location[]>({
+    queryKey: [`/api/admin/${hospitalId}/units`],
     enabled: !!activeHospital?.id && isAdmin,
   });
 
@@ -127,7 +127,7 @@ export default function Checklists() {
       name: "",
       recurrency: "",
       items: [],
-      locationId: "",
+      units?Id: "",
       role: "",
       startDate: new Date().toISOString().split('T')[0],
     });
@@ -146,7 +146,7 @@ export default function Checklists() {
       name: template.name,
       recurrency: template.recurrency,
       items: (template.items || []).map((item: any) => typeof item === 'string' ? item : (item.description || "")),
-      locationId: template.locationId || "",
+      units?Id: template.unitId || "",
       role: template.role || "",
       startDate: template.startDate?.split('T')[0] || new Date().toISOString().split('T')[0],
     });
@@ -162,8 +162,8 @@ export default function Checklists() {
       toast({ title: t("common.error"), description: t("admin.recurrencyRequired"), variant: "destructive" });
       return;
     }
-    if (!templateForm.locationId) {
-      toast({ title: t("common.error"), description: t("admin.locationRequired"), variant: "destructive" });
+    if (!templateForm.unitId) {
+      toast({ title: t("common.error"), description: t("admin.units?Required"), variant: "destructive" });
       return;
     }
     if (templateForm.items.length === 0) {
@@ -175,7 +175,7 @@ export default function Checklists() {
       name: templateForm.name.trim(),
       recurrency: templateForm.recurrency,
       items: templateForm.items.filter(item => item.trim()).map(item => ({ description: item.trim() })),
-      locationId: templateForm.locationId,
+      units?Id: templateForm.unitId,
       role: templateForm.role || null,
       startDate: templateForm.startDate,
     };
@@ -313,9 +313,9 @@ export default function Checklists() {
                           {t(`checklists.role.${template.role}`)}
                         </span>
                       )}
-                      {template.location && (
+                      {template.units? && (
                         <span className="status-chip chip-muted text-xs">
-                          {template.location.name}
+                          {template.units?.name}
                         </span>
                       )}
                       <span className="text-xs">
@@ -388,18 +388,18 @@ export default function Checklists() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label htmlFor="template-location">{t("admin.location")} *</Label>
+                <Label htmlFor="template-units?">{t("admin.units?")} *</Label>
                 <Select
-                  value={templateForm.locationId}
-                  onValueChange={(value) => setTemplateForm({ ...templateForm, locationId: value })}
+                  value={templateForm.unitId}
+                  onValueChange={(value) => setTemplateForm({ ...templateForm, units?Id: value })}
                 >
-                  <SelectTrigger data-testid="select-template-location">
+                  <SelectTrigger data-testid="select-template-units?">
                     <SelectValue placeholder={t("admin.selectLocation")} />
                   </SelectTrigger>
                   <SelectContent>
-                    {locations.map((location) => (
-                      <SelectItem key={location.id} value={location.id}>
-                        {location.name}
+                    {units?.map((units?) => (
+                      <SelectItem key={units?.id} value={units?.id}>
+                        {units?.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

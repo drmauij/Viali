@@ -8,9 +8,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Location } from "@shared/schema";
+import type { Location as Unit } from "@shared/schema";
 
-export default function Locations() {
+export default function Units() {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
   const { toast } = useToast();
@@ -19,10 +19,10 @@ export default function Locations() {
   const [hospitalDialogOpen, setHospitalDialogOpen] = useState(false);
   const [hospitalName, setHospitalName] = useState(activeHospital?.name || "");
 
-  // Location states
-  const [locationDialogOpen, setLocationDialogOpen] = useState(false);
-  const [editingLocation, setEditingLocation] = useState<Location | null>(null);
-  const [locationForm, setLocationForm] = useState({
+  // Unit states
+  const [unitDialogOpen, setUnitDialogOpen] = useState(false);
+  const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
+  const [unitForm, setUnitForm] = useState({
     name: "",
     type: "",
   });
@@ -30,56 +30,56 @@ export default function Locations() {
   // Check if user is admin
   const isAdmin = activeHospital?.role === "admin";
 
-  // Fetch locations
-  const { data: locations = [], isLoading: locationsLoading } = useQuery<Location[]>({
-    queryKey: [`/api/admin/${activeHospital?.id}/locations`],
+  // Fetch units
+  const { data: units = [], isLoading: unitsLoading } = useQuery<Unit[]>({
+    queryKey: [`/api/admin/${activeHospital?.id}/units`],
     enabled: !!activeHospital?.id && isAdmin,
   });
 
-  // Location mutations
-  const createLocationMutation = useMutation({
+  // Unit mutations
+  const createUnitMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", `/api/admin/${activeHospital?.id}/locations`, data);
+      const response = await apiRequest("POST", `/api/admin/${activeHospital?.id}/units`, data);
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/locations`] });
-      setLocationDialogOpen(false);
-      resetLocationForm();
-      toast({ title: t("common.success"), description: t("admin.locationCreatedSuccess") });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/units`] });
+      setUnitDialogOpen(false);
+      resetUnitForm();
+      toast({ title: t("common.success"), description: t("admin.unitCreatedSuccess") });
     },
     onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || t("admin.failedToCreateLocation"), variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToCreateUnit"), variant: "destructive" });
     },
   });
 
-  const updateLocationMutation = useMutation({
+  const updateUnitMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const response = await apiRequest("PATCH", `/api/admin/locations/${id}`, { ...data, hospitalId: activeHospital?.id });
+      const response = await apiRequest("PATCH", `/api/admin/units/${id}`, { ...data, hospitalId: activeHospital?.id });
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/locations`] });
-      setLocationDialogOpen(false);
-      resetLocationForm();
-      toast({ title: t("common.success"), description: t("admin.locationUpdatedSuccess") });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/units`] });
+      setUnitDialogOpen(false);
+      resetUnitForm();
+      toast({ title: t("common.success"), description: t("admin.unitUpdatedSuccess") });
     },
     onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateLocation"), variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateUnit"), variant: "destructive" });
     },
   });
 
-  const deleteLocationMutation = useMutation({
+  const deleteUnitMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest("DELETE", `/api/admin/locations/${id}?hospitalId=${activeHospital?.id}`);
+      const response = await apiRequest("DELETE", `/api/admin/units/${id}?hospitalId=${activeHospital?.id}`);
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/locations`] });
-      toast({ title: t("common.success"), description: t("admin.locationDeletedSuccess") });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/units`] });
+      toast({ title: t("common.success"), description: t("admin.unitDeletedSuccess") });
     },
     onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || t("admin.failedToDeleteLocation"), variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToDeleteUnit"), variant: "destructive" });
     },
   });
 
@@ -99,40 +99,40 @@ export default function Locations() {
     },
   });
 
-  const resetLocationForm = () => {
-    setLocationForm({ name: "", type: "" });
-    setEditingLocation(null);
+  const resetUnitForm = () => {
+    setUnitForm({ name: "", type: "" });
+    setEditingUnit(null);
   };
 
-  const handleAddLocation = () => {
-    resetLocationForm();
-    setLocationDialogOpen(true);
+  const handleAddUnit = () => {
+    resetUnitForm();
+    setUnitDialogOpen(true);
   };
 
-  const handleEditLocation = (location: Location) => {
-    setEditingLocation(location);
-    setLocationForm({
-      name: location.name,
-      type: location.type || "",
+  const handleEditUnit = (unit: Unit) => {
+    setEditingUnit(unit);
+    setUnitForm({
+      name: unit.name,
+      type: unit.type || "",
     });
-    setLocationDialogOpen(true);
+    setUnitDialogOpen(true);
   };
 
-  const handleSaveLocation = () => {
-    if (!locationForm.name) {
-      toast({ title: t("common.error"), description: t("admin.locationNameRequired"), variant: "destructive" });
+  const handleSaveUnit = () => {
+    if (!unitForm.name) {
+      toast({ title: t("common.error"), description: t("admin.unitNameRequired"), variant: "destructive" });
       return;
     }
 
     const data = {
-      name: locationForm.name,
-      type: locationForm.type || null,
+      name: unitForm.name,
+      type: unitForm.type || null,
     };
 
-    if (editingLocation) {
-      updateLocationMutation.mutate({ id: editingLocation.id, data });
+    if (editingUnit) {
+      updateUnitMutation.mutate({ id: editingUnit.id, data });
     } else {
-      createLocationMutation.mutate(data);
+      createUnitMutation.mutate(data);
     }
   };
 
@@ -176,7 +176,7 @@ export default function Locations() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">{t("admin.locations")}</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t("admin.units")}</h1>
       </div>
 
       {/* Hospital Info Card */}
@@ -198,47 +198,47 @@ export default function Locations() {
         </div>
       </div>
 
-      {/* Locations Content */}
+      {/* Units Content */}
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-foreground">{t("admin.locations")}</h2>
-          <Button onClick={handleAddLocation} size="sm" data-testid="button-add-location">
+          <h2 className="text-lg font-semibold text-foreground">{t("admin.units")}</h2>
+          <Button onClick={handleAddUnit} size="sm" data-testid="button-add-unit">
             <i className="fas fa-plus mr-2"></i>
-            {t("admin.addLocation")}
+            {t("admin.addUnit")}
           </Button>
         </div>
 
-        {locationsLoading ? (
+        {unitsLoading ? (
           <div className="text-center py-8">
             <i className="fas fa-spinner fa-spin text-2xl text-primary"></i>
           </div>
-        ) : locations.length === 0 ? (
+        ) : units.length === 0 ? (
           <div className="bg-card border border-border rounded-lg p-8 text-center">
-            <i className="fas fa-location-dot text-4xl text-muted-foreground mb-4"></i>
-            <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.noLocations")}</h3>
-            <p className="text-muted-foreground mb-4">{t("admin.noLocationsMessage")}</p>
-            <Button onClick={handleAddLocation} size="sm">
+            <i className="fas fa-units?-dot text-4xl text-muted-foreground mb-4"></i>
+            <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.noUnits")}</h3>
+            <p className="text-muted-foreground mb-4">{t("admin.noUnitsMessage")}</p>
+            <Button onClick={handleAddUnit} size="sm">
               <i className="fas fa-plus mr-2"></i>
-              {t("admin.addLocation")}
+              {t("admin.addUnit")}
             </Button>
           </div>
         ) : (
           <div className="space-y-2">
-            {locations.map((location) => (
-              <div key={location.id} className="bg-card border border-border rounded-lg p-4" data-testid={`location-${location.id}`}>
+            {units.map((unit) => (
+              <div key={unit.id} className="bg-card border border-border rounded-lg p-4" data-testid={`unit-${unit.id}`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="font-semibold text-foreground">{location.name}</h3>
-                    {location.type && (
-                      <p className="text-sm text-muted-foreground">{location.type}</p>
+                    <h3 className="font-semibold text-foreground">{unit.name}</h3>
+                    {unit.type && (
+                      <p className="text-sm text-muted-foreground">{unit.type}</p>
                     )}
                   </div>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleEditLocation(location)}
-                      data-testid={`button-edit-location-${location.id}`}
+                      onClick={() => handleEditUnit(unit)}
+                      data-testid={`button-edit-unit-${unit.id}`}
                     >
                       <i className="fas fa-edit"></i>
                     </Button>
@@ -246,11 +246,11 @@ export default function Locations() {
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        if (confirm(t("admin.deleteLocationConfirm"))) {
-                          deleteLocationMutation.mutate(location.id);
+                        if (confirm(t("admin.deleteUnitConfirm"))) {
+                          deleteUnitMutation.mutate(unit.id);
                         }
                       }}
-                      data-testid={`button-delete-location-${location.id}`}
+                      data-testid={`button-delete-unit-${unit.id}`}
                     >
                       <i className="fas fa-trash text-destructive"></i>
                     </Button>
@@ -262,43 +262,43 @@ export default function Locations() {
         )}
       </div>
 
-      {/* Location Dialog */}
-      <Dialog open={locationDialogOpen} onOpenChange={setLocationDialogOpen}>
+      {/* Unit Dialog */}
+      <Dialog open={unitDialogOpen} onOpenChange={setUnitDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingLocation ? t("admin.editLocation") : t("admin.addLocation")}</DialogTitle>
+            <DialogTitle>{editingUnit ? t("admin.editUnit") : t("admin.addUnit")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="location-name">{t("admin.locationName")} *</Label>
+              <Label htmlFor="unit-name">{t("admin.unitName")} *</Label>
               <Input
-                id="location-name"
-                value={locationForm.name}
-                onChange={(e) => setLocationForm({ ...locationForm, name: e.target.value })}
-                placeholder={t("admin.locationPlaceholder")}
-                data-testid="input-location-name"
+                id="unit-name"
+                value={unitForm.name}
+                onChange={(e) => setUnitForm({ ...unitForm, name: e.target.value })}
+                placeholder={t("admin.unitPlaceholder")}
+                data-testid="input-unit-name"
               />
             </div>
             <div>
-              <Label htmlFor="location-type">{t("admin.type")}</Label>
+              <Label htmlFor="unit-type">{t("admin.type")}</Label>
               <Input
-                id="location-type"
-                value={locationForm.type}
-                onChange={(e) => setLocationForm({ ...locationForm, type: e.target.value })}
+                id="unit-type"
+                value={unitForm.type}
+                onChange={(e) => setUnitForm({ ...unitForm, type: e.target.value })}
                 placeholder={t("admin.typePlaceholder")}
-                data-testid="input-location-type"
+                data-testid="input-unit-type"
               />
             </div>
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setLocationDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setUnitDialogOpen(false)}>
                 {t("common.cancel")}
               </Button>
               <Button
-                onClick={handleSaveLocation}
-                disabled={createLocationMutation.isPending || updateLocationMutation.isPending}
-                data-testid="button-save-location"
+                onClick={handleSaveUnit}
+                disabled={createUnitMutation.isPending || updateUnitMutation.isPending}
+                data-testid="button-save-unit"
               >
-                {editingLocation ? t("common.edit") : t("common.save")}
+                {editingUnit ? t("common.edit") : t("common.save")}
               </Button>
             </div>
           </div>

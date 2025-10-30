@@ -5,10 +5,10 @@ interface Hospital {
   id: string;
   name: string;
   role: string;
-  locationId: string;
-  locationName: string;
-  anesthesiaLocationId?: string;
-  surgeryLocationId?: string;
+  unitId: string;
+  unitName: string;
+  anesthesiaUnitId?: string;
+  surgeryUnitId?: string;
 }
 
 function subscribe(callback: () => void) {
@@ -34,7 +34,7 @@ export function useActiveHospital(): Hospital | null {
   // Try to get active hospital from localStorage
   if (savedHospitalKey) {
     const saved = userHospitals.find((h: any) => 
-      `${h.id}-${h.locationId}-${h.role}` === savedHospitalKey
+      `${h.id}-${h.unitId}-${h.role}` === savedHospitalKey
     );
     if (saved) return saved;
   }
