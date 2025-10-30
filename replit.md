@@ -14,6 +14,7 @@ The frontend is built with React, TypeScript, and Vite, utilizing Wouter for rou
 **Key Anesthesia Module Features:**
 - **OP Schedule:** Calendar view with Day/Week/Month modes, displaying surgery rooms as vertical swim lanes with time-based scheduling.
 - **OP Monitoring System:** Full-screen interface with Apache ECharts for vitals timeline visualization, real-time data entry, adaptive tick granularity, and a three-zone editing system. It includes AI-powered multi-monitor camera capture for data extraction via local OCR and OpenAI Vision API, with continuous infusion visualization.
+- **Pre-Op Overview Tab:** Compact, read-only summary of pre-operative assessment data displayed in the OP dialog, providing quick reference during surgery and handover. Shows only filled fields organized into logical sections (Allergies & CAVE, ASA & Vitals, Medications, Medical History, Airway, Fasting, Planned Anesthesia, Installations, Surgical Approval).
 - Barcode scanning, signature pads, real-time item quick panels, and a hospital switcher are integrated throughout.
 
 ### Backend
