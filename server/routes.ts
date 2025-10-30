@@ -4403,8 +4403,12 @@ If unable to parse any drugs, return:
   app.post('/api/anesthesia/surgeries', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
+      
+      console.log("Received surgery creation request:", JSON.stringify(req.body, null, 2));
 
       const validatedData = insertSurgerySchema.parse(req.body);
+      
+      console.log("Validated surgery data:", JSON.stringify(validatedData, null, 2));
 
       // Verify user has access to this hospital
       const hospitals = await storage.getUserHospitals(userId);
@@ -4419,6 +4423,7 @@ If unable to parse any drugs, return:
       res.status(201).json(newSurgery);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Zod validation error:", JSON.stringify(error.errors, null, 2));
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
       }
       console.error("Error creating surgery:", error);

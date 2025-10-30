@@ -292,7 +292,10 @@ export default function PatientDetail() {
       return await apiRequest("POST", "/api/anesthesia/surgeries", surgeryData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
+      // Invalidate surgeries query with same queryKey pattern as the fetch
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/anesthesia/surgeries`, { patientId: params?.id }] 
+      });
       toast({
         title: "Surgery created",
         description: "The surgery has been successfully created.",
@@ -321,13 +324,16 @@ export default function PatientDetail() {
 
     if (!patient || !activeHospital) return;
 
-    createSurgeryMutation.mutate({
+    const surgeryData = {
       hospitalId: activeHospital.id,
       patientId: patient.id,
       plannedSurgery: newCase.plannedSurgery,
       surgeon: newCase.surgeon || null,
-      plannedDate: new Date(newCase.plannedDate).toISOString(),
-    });
+      plannedDate: newCase.plannedDate, // Backend coerces to Date with z.coerce.date()
+    };
+    
+    console.log("Creating surgery with data:", surgeryData);
+    createSurgeryMutation.mutate(surgeryData);
   };
 
   const getStatusColor = (status: string) => {

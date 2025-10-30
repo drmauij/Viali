@@ -979,7 +979,9 @@ export const insertCaseSchema = createInsertSchema(cases).omit({
   updatedAt: true,
 });
 
-export const insertSurgerySchema = createInsertSchema(surgeries).omit({
+export const insertSurgerySchema = createInsertSchema(surgeries, {
+  plannedDate: z.coerce.date(), // Coerce string to Date
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
