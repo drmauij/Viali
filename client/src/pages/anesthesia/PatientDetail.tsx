@@ -99,6 +99,15 @@ export default function PatientDetail() {
     queryKey: [`/api/surgeons?hospitalId=${activeHospital?.id}`],
     enabled: !!activeHospital?.id,
   });
+
+  // Fetch surgery rooms for the hospital
+  const {
+    data: surgeryRooms = [],
+    isLoading: isLoadingSurgeryRooms
+  } = useQuery<{id: string; name: string}[]>({
+    queryKey: [`/api/surgery-rooms/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id,
+  });
   
   // Check for openPreOp query parameter and auto-open dialog
   useEffect(() => {
@@ -126,7 +135,16 @@ export default function PatientDetail() {
     plannedSurgery: "",
     surgeon: "",
     plannedDate: "",
+    surgeryRoomId: "",
   });
+  const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
+  const [editCase, setEditCase] = useState({
+    plannedSurgery: "",
+    surgeon: "",
+    plannedDate: "",
+    surgeryRoomId: "",
+  });
+  const [deleteDialogSurgeryId, setDeleteDialogSurgeryId] = useState<string | null>(null);
   const [consentData, setConsentData] = useState({
     general: false,
     regional: false,
@@ -306,25 +324,97 @@ export default function PatientDetail() {
       plannedSurgery: string;
       surgeon: string | null;
       plannedDate: string;
+      surgeryRoomId?: string | null;
     }) => {
       return await apiRequest("POST", "/api/anesthesia/surgeries", surgeryData);
     },
     onSuccess: () => {
-      // Invalidate surgeries query with same queryKey pattern as the fetch
+      // Invalidate patient-specific surgeries query
       queryClient.invalidateQueries({ 
         queryKey: [`/api/anesthesia/surgeries?hospitalId=${activeHospital?.id}&patientId=${params?.id}`] 
+      });
+      // Invalidate all surgery queries (for OP calendar)
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/anesthesia/surgeries'],
+        exact: false
       });
       toast({
         title: "Surgery created",
         description: "The surgery has been successfully created.",
       });
       setIsCreateCaseOpen(false);
-      setNewCase({ plannedSurgery: "", surgeon: "", plannedDate: "" });
+      setNewCase({ plannedSurgery: "", surgeon: "", plannedDate: "", surgeryRoomId: "" });
     },
     onError: (error: any) => {
       toast({
         title: "Error",
         description: error.message || "Failed to create surgery",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation to update a surgery
+  const updateSurgeryMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<{
+      plannedSurgery: string;
+      surgeon: string | null;
+      plannedDate: string;
+      surgeryRoomId: string | null;
+    }> }) => {
+      return await apiRequest("PATCH", `/api/anesthesia/surgeries/${id}`, data);
+    },
+    onSuccess: () => {
+      // Invalidate patient-specific surgeries query
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/anesthesia/surgeries?hospitalId=${activeHospital?.id}&patientId=${params?.id}`] 
+      });
+      // Invalidate all surgery queries (for OP calendar)
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/anesthesia/surgeries'],
+        exact: false
+      });
+      toast({
+        title: "Surgery updated",
+        description: "The surgery has been successfully updated.",
+      });
+      setEditingCaseId(null);
+      setEditCase({ plannedSurgery: "", surgeon: "", plannedDate: "", surgeryRoomId: "" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update surgery",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation to delete a surgery
+  const deleteSurgeryMutation = useMutation({
+    mutationFn: async (surgeryId: string) => {
+      return await apiRequest("DELETE", `/api/anesthesia/surgeries/${surgeryId}`);
+    },
+    onSuccess: () => {
+      // Invalidate patient-specific surgeries query
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/anesthesia/surgeries?hospitalId=${activeHospital?.id}&patientId=${params?.id}`] 
+      });
+      // Invalidate all surgery queries (for OP calendar)
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/anesthesia/surgeries'],
+        exact: false
+      });
+      toast({
+        title: "Surgery deleted",
+        description: "The surgery has been successfully deleted.",
+      });
+      setDeleteDialogSurgeryId(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete surgery",
         variant: "destructive",
       });
     },
@@ -401,11 +491,49 @@ export default function PatientDetail() {
       patientId: patient.id,
       plannedSurgery: newCase.plannedSurgery,
       surgeon: newCase.surgeon || null,
-      plannedDate: newCase.plannedDate, // Backend coerces to Date with z.coerce.date()
+      plannedDate: newCase.plannedDate,
+      surgeryRoomId: newCase.surgeryRoomId || null,
     };
     
     console.log("Creating surgery with data:", surgeryData);
     createSurgeryMutation.mutate(surgeryData);
+  };
+
+  const handleEditCase = (surgery: any) => {
+    setEditingCaseId(surgery.id);
+    setEditCase({
+      plannedSurgery: surgery.plannedSurgery,
+      surgeon: surgery.surgeon || "",
+      plannedDate: new Date(surgery.plannedDate).toISOString().slice(0, 16),
+      surgeryRoomId: surgery.surgeryRoomId || "",
+    });
+  };
+
+  const handleUpdateCase = () => {
+    if (!editCase.plannedSurgery || !editCase.plannedDate) {
+      toast({
+        title: "Missing required fields",
+        description: "Please fill in Planned Surgery and Planned Date",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!editingCaseId) return;
+
+    const updateData = {
+      plannedSurgery: editCase.plannedSurgery,
+      surgeon: editCase.surgeon || null,
+      plannedDate: editCase.plannedDate,
+      surgeryRoomId: editCase.surgeryRoomId || null,
+    };
+
+    updateSurgeryMutation.mutate({ id: editingCaseId, data: updateData });
+  };
+
+  const handleDeleteCase = () => {
+    if (!deleteDialogSurgeryId) return;
+    deleteSurgeryMutation.mutate(deleteDialogSurgeryId);
   };
 
   const getStatusColor = (status: string) => {
@@ -785,6 +913,38 @@ export default function PatientDetail() {
                 </Select>
               </div>
               <div className="space-y-2">
+                <Label htmlFor="surgery-room">Surgery Room <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                <Select 
+                  value={newCase.surgeryRoomId || "none"} 
+                  onValueChange={(value) => setNewCase({ ...newCase, surgeryRoomId: value === "none" ? "" : value })}
+                  disabled={isLoadingSurgeryRooms}
+                >
+                  <SelectTrigger data-testid="select-surgery-room">
+                    <SelectValue placeholder={isLoadingSurgeryRooms ? "Loading rooms..." : "Select surgery room (optional)"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      <span className="text-muted-foreground italic">No room selected</span>
+                    </SelectItem>
+                    {isLoadingSurgeryRooms ? (
+                      <SelectItem value="loading" disabled>
+                        Loading rooms...
+                      </SelectItem>
+                    ) : surgeryRooms.length === 0 ? (
+                      <SelectItem value="no-rooms" disabled>
+                        No surgery rooms available
+                      </SelectItem>
+                    ) : (
+                      surgeryRooms.map((room) => (
+                        <SelectItem key={room.id} value={room.id}>
+                          {room.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="date">Planned Date</Label>
                 <Input
                   id="date"
@@ -814,6 +974,147 @@ export default function PatientDetail() {
         </Dialog>
       </div>
 
+      {/* Edit Surgery Dialog */}
+      <Dialog open={!!editingCaseId} onOpenChange={(open) => !open && setEditingCaseId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Surgery</DialogTitle>
+            <DialogDescription>Update surgery details</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-surgery">Planned Surgery</Label>
+              <Input
+                id="edit-surgery"
+                placeholder="e.g., Laparoscopic Cholecystectomy"
+                value={editCase.plannedSurgery}
+                onChange={(e) => setEditCase({ ...editCase, plannedSurgery: e.target.value })}
+                data-testid="input-edit-planned-surgery"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-surgeon">Surgeon <span className="text-xs text-muted-foreground">(optional)</span></Label>
+              <Select 
+                value={editCase.surgeon || "none"} 
+                onValueChange={(value) => setEditCase({ ...editCase, surgeon: value === "none" ? "" : value })}
+                disabled={isLoadingSurgeons}
+              >
+                <SelectTrigger data-testid="select-edit-surgeon">
+                  <SelectValue placeholder={isLoadingSurgeons ? "Loading surgeons..." : "Select surgeon (optional)"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground italic">No surgeon selected</span>
+                  </SelectItem>
+                  {isLoadingSurgeons ? (
+                    <SelectItem value="loading" disabled>
+                      Loading surgeons...
+                    </SelectItem>
+                  ) : surgeons.length === 0 ? (
+                    <SelectItem value="no-surgeons" disabled>
+                      No surgeons available
+                    </SelectItem>
+                  ) : (
+                    surgeons.map((surgeon) => (
+                      <SelectItem key={surgeon.id} value={surgeon.name}>
+                        {surgeon.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-surgery-room">Surgery Room <span className="text-xs text-muted-foreground">(optional)</span></Label>
+              <Select 
+                value={editCase.surgeryRoomId || "none"} 
+                onValueChange={(value) => setEditCase({ ...editCase, surgeryRoomId: value === "none" ? "" : value })}
+                disabled={isLoadingSurgeryRooms}
+              >
+                <SelectTrigger data-testid="select-edit-surgery-room">
+                  <SelectValue placeholder={isLoadingSurgeryRooms ? "Loading rooms..." : "Select surgery room (optional)"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground italic">No room selected</span>
+                  </SelectItem>
+                  {isLoadingSurgeryRooms ? (
+                    <SelectItem value="loading" disabled>
+                      Loading rooms...
+                    </SelectItem>
+                  ) : surgeryRooms.length === 0 ? (
+                    <SelectItem value="no-rooms" disabled>
+                      No surgery rooms available
+                    </SelectItem>
+                  ) : (
+                    surgeryRooms.map((room) => (
+                      <SelectItem key={room.id} value={room.id}>
+                        {room.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-date">Planned Date</Label>
+              <Input
+                id="edit-date"
+                type="datetime-local"
+                value={editCase.plannedDate}
+                onChange={(e) => setEditCase({ ...editCase, plannedDate: e.target.value })}
+                data-testid="input-edit-planned-date"
+              />
+            </div>
+            <Button 
+              onClick={handleUpdateCase} 
+              className="w-full" 
+              data-testid="button-submit-edit-case"
+              disabled={updateSurgeryMutation.isPending}
+            >
+              {updateSurgeryMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Update Surgery"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Surgery Confirmation Dialog */}
+      <AlertDialog open={!!deleteDialogSurgeryId} onOpenChange={(open) => !open && setDeleteDialogSurgeryId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Surgery?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the surgery record.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-surgery">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteCase}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-surgery"
+              disabled={deleteSurgeryMutation.isPending}
+            >
+              {deleteSurgeryMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {isLoadingSurgeries ? (
         <Card>
           <CardContent className="flex items-center justify-center py-12">
@@ -836,9 +1137,27 @@ export default function PatientDetail() {
                     <FileText className="h-5 w-5 text-primary" />
                     <h3 className="font-semibold text-lg">{surgery.plannedSurgery}</h3>
                   </div>
-                  <Badge className={getStatusColor(surgery.status)}>
-                    {surgery.status}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge className={getStatusColor(surgery.status)}>
+                      {surgery.status}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEditCase(surgery)}
+                      data-testid={`button-edit-surgery-${surgery.id}`}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setDeleteDialogSurgeryId(surgery.id)}
+                      data-testid={`button-delete-surgery-${surgery.id}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
                 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -852,7 +1171,11 @@ export default function PatientDetail() {
                   </div>
                   <div>
                     <p className="text-muted-foreground">Location</p>
-                    <p className="font-medium">{surgery.surgeryRoomId || 'Not assigned'}</p>
+                    <p className="font-medium">
+                      {surgery.surgeryRoomId 
+                        ? surgeryRooms.find(r => r.id === surgery.surgeryRoomId)?.name || surgery.surgeryRoomId
+                        : 'Not assigned'}
+                    </p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Planned Date</p>

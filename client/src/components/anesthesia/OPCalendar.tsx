@@ -25,39 +25,94 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     enabled: !!activeHospital?.id,
   });
 
-  // Mock events data - will be replaced with real data
-  const mockEvents = useMemo(() => {
-    const formatDateTime = (hours: number, minutes: number) => {
-      const date = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), hours, minutes);
-      return date.toISOString();
-    };
+  // Calculate date range based on current view
+  const dateRange = useMemo(() => {
+    const start = new Date(selectedDate);
+    const end = new Date(selectedDate);
+    
+    if (currentView === "day") {
+      // Same day
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+    } else if (currentView === "week") {
+      // Week range (Monday to Sunday)
+      const dayOfWeek = start.getDay();
+      const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Adjust so Monday is first day
+      start.setDate(start.getDate() + diff);
+      start.setHours(0, 0, 0, 0);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+    } else {
+      // Month range
+      start.setDate(1);
+      start.setHours(0, 0, 0, 0);
+      end.setMonth(end.getMonth() + 1);
+      end.setDate(0);
+      end.setHours(23, 59, 59, 999);
+    }
+    
+    return { start, end };
+  }, [selectedDate, currentView]);
 
-    // Using app's color scheme: primary (blue) and accent (orange)
-    return [
-      {
-        id: "case-1",
-        text: "Rossi, Maria - Cholecystectomy",
-        start: formatDateTime(8, 0),
-        end: formatDateTime(11, 0),
-        resource: surgeryRooms[0]?.id || "or1",
-        barColor: "#2563eb", // Primary blue
-        backColor: "#eff6ff", // Very light blue
-        borderColor: "#93c5fd", // Light blue border
-        fontColor: "#1e40af", // Dark blue text
-      },
-      {
-        id: "case-2",
-        text: "Bianchi, Giovanni - Hip Replacement",
-        start: formatDateTime(9, 30),
-        end: formatDateTime(14, 0),
-        resource: surgeryRooms[1]?.id || "or2",
-        barColor: "#ea580c", // Accent orange
-        backColor: "#fff7ed", // Very light orange
-        borderColor: "#fdba74", // Light orange border
-        fontColor: "#9a3412", // Dark orange text
-      },
+  // Fetch surgeries for the date range
+  const { data: surgeries = [] } = useQuery<any[]>({
+    queryKey: [`/api/anesthesia/surgeries`, activeHospital?.id, dateRange.start.toISOString(), dateRange.end.toISOString()],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        hospitalId: activeHospital?.id || '',
+        dateFrom: dateRange.start.toISOString(),
+        dateTo: dateRange.end.toISOString(),
+      });
+      const response = await fetch(`/api/anesthesia/surgeries?${params}`);
+      if (!response.ok) throw new Error('Failed to fetch surgeries');
+      return response.json();
+    },
+    enabled: !!activeHospital?.id,
+  });
+
+  // Fetch patients for surgeries
+  const patientIds = useMemo(() => 
+    Array.from(new Set(surgeries.map((s: any) => s.patientId))),
+    [surgeries]
+  );
+
+  // Fetch all patients for the hospital (we'll filter by ID in the frontend)
+  const { data: allPatients = [] } = useQuery<any[]>({
+    queryKey: [`/api/patients?hospitalId=${activeHospital?.id}`],
+    enabled: !!activeHospital?.id && patientIds.length > 0,
+  });
+
+  // Transform surgeries into calendar events
+  const calendarEvents = useMemo(() => {
+    const colors = [
+      { barColor: "#2563eb", backColor: "#eff6ff", borderColor: "#93c5fd", fontColor: "#1e40af" }, // Blue
+      { barColor: "#ea580c", backColor: "#fff7ed", borderColor: "#fdba74", fontColor: "#9a3412" }, // Orange
+      { barColor: "#16a34a", backColor: "#f0fdf4", borderColor: "#86efac", fontColor: "#15803d" }, // Green
+      { barColor: "#9333ea", backColor: "#faf5ff", borderColor: "#d8b4fe", fontColor: "#7e22ce" }, // Purple
+      { barColor: "#dc2626", backColor: "#fef2f2", borderColor: "#fca5a5", fontColor: "#b91c1c" }, // Red
     ];
-  }, [selectedDate, surgeryRooms]);
+
+    return surgeries.map((surgery: any, index: number) => {
+      const patient = allPatients.find((p: any) => p.id === surgery.patientId);
+      const patientName = patient ? `${patient.surname}, ${patient.firstName}` : "Unknown Patient";
+      const plannedDate = new Date(surgery.plannedDate);
+      
+      // Default duration: 3 hours
+      const endTime = new Date(plannedDate);
+      endTime.setHours(endTime.getHours() + 3);
+      
+      const colorScheme = colors[index % colors.length];
+      
+      return {
+        id: surgery.id,
+        text: `${patientName} - ${surgery.plannedSurgery}`,
+        start: plannedDate.toISOString(),
+        end: surgery.actualEndTime || endTime.toISOString(),
+        resource: surgery.surgeryRoomId || (surgeryRooms[0]?.id || "unassigned"),
+        ...colorScheme,
+      };
+    });
+  }, [surgeries, allPatients, surgeryRooms]);
 
   // Convert surgery rooms to resources format
   const resources = useMemo(() => {
@@ -264,7 +319,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             hourWidth={60}
             cellHeight={40}
             columns={resources}
-            events={mockEvents}
+            events={calendarEvents}
             onEventClick={handleEventClick}
             theme="calendar_white"
             timeFormat="Clock24Hours"
@@ -283,7 +338,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             headerHeight={30}
             hourWidth={60}
             cellHeight={30}
-            events={mockEvents}
+            events={calendarEvents}
             onEventClick={handleEventClick}
             onTimeRangeSelected={handleDayClick}
             theme="calendar_white"
@@ -296,7 +351,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         {currentView === "month" && (
           <DayPilotMonth
             startDate={selectedDate.toISOString().split('T')[0]}
-            events={mockEvents}
+            events={calendarEvents}
             onEventClick={handleEventClick}
             onTimeRangeSelected={handleDayClick}
             eventBarVisible={false}
