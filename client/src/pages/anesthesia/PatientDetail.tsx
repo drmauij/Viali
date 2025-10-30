@@ -1,5 +1,7 @@
 import { useRoute, useLocation, Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -276,10 +278,56 @@ export default function PatientDetail() {
     "Omeprazole",
   ];
 
+  const { toast } = useToast();
+
+  // Mutation to create a surgery
+  const createSurgeryMutation = useMutation({
+    mutationFn: async (surgeryData: {
+      hospitalId: string;
+      patientId: string;
+      plannedSurgery: string;
+      surgeon: string | null;
+      plannedDate: string;
+    }) => {
+      return await apiRequest("POST", "/api/anesthesia/surgeries", surgeryData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
+      toast({
+        title: "Surgery created",
+        description: "The surgery has been successfully created.",
+      });
+      setIsCreateCaseOpen(false);
+      setNewCase({ plannedSurgery: "", surgeon: "", plannedDate: "" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create surgery",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCreateCase = () => {
-    console.log("Creating case:", { ...newCase, title: newCase.plannedSurgery });
-    setIsCreateCaseOpen(false);
-    setNewCase({ plannedSurgery: "", surgeon: "", plannedDate: "" });
+    if (!newCase.plannedSurgery || !newCase.plannedDate) {
+      toast({
+        title: "Missing required fields",
+        description: "Please fill in Planned Surgery and Planned Date",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!patient || !activeHospital) return;
+
+    createSurgeryMutation.mutate({
+      hospitalId: activeHospital.id,
+      patientId: patient.id,
+      plannedSurgery: newCase.plannedSurgery,
+      surgeon: newCase.surgeon || null,
+      plannedDate: new Date(newCase.plannedDate).toISOString(),
+    });
   };
 
   const getStatusColor = (status: string) => {
@@ -630,8 +678,20 @@ export default function PatientDetail() {
                   data-testid="input-planned-date"
                 />
               </div>
-              <Button onClick={handleCreateCase} className="w-full" data-testid="button-submit-case">
-                Create Surgery
+              <Button 
+                onClick={handleCreateCase} 
+                className="w-full" 
+                data-testid="button-submit-case"
+                disabled={createSurgeryMutation.isPending}
+              >
+                {createSurgeryMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create Surgery"
+                )}
               </Button>
             </div>
           </DialogContent>
