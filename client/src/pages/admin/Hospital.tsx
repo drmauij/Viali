@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Syringe, Stethoscope } from "lucide-react";
 import { format } from "date-fns";
 import type { Location } from "@shared/schema";
 
@@ -464,16 +464,24 @@ export default function Hospital() {
       {/* Anesthesia Location Configuration Card */}
       <div className="bg-card border border-border rounded-lg p-4">
         <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold text-foreground text-lg">
-              <i className="fas fa-syringe mr-2 text-primary"></i>
-              Anesthesia Module Location
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {activeHospital?.anesthesiaLocationId 
-                ? locations.find(l => l.id === activeHospital.anesthesiaLocationId)?.name || "Location not found"
-                : "Not configured - anesthesia module disabled"}
-            </p>
+          <div className="flex items-start gap-3">
+            <Syringe 
+              className={`w-5 h-5 mt-0.5 ${
+                activeHospital?.anesthesiaLocationId 
+                  ? 'text-green-500' 
+                  : 'text-gray-400'
+              }`} 
+            />
+            <div>
+              <h3 className="font-semibold text-foreground text-lg">
+                Anesthesia Module Location
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {activeHospital?.anesthesiaLocationId 
+                  ? locations.find(l => l.id === activeHospital.anesthesiaLocationId)?.name || "Location not found"
+                  : "Not configured - anesthesia module disabled"}
+              </p>
+            </div>
           </div>
           <Button
             variant="outline"
@@ -490,16 +498,24 @@ export default function Hospital() {
       {/* Surgery Location Configuration Card */}
       <div className="bg-card border border-border rounded-lg p-4">
         <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold text-foreground text-lg">
-              <i className="fas fa-scalpel mr-2 text-primary"></i>
-              Surgery Module Location
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {activeHospital?.surgeryLocationId 
-                ? locations.find(l => l.id === activeHospital.surgeryLocationId)?.name || "Location not found"
-                : "Not configured - surgery module disabled"}
-            </p>
+          <div className="flex items-start gap-3">
+            <Stethoscope 
+              className={`w-5 h-5 mt-0.5 ${
+                activeHospital?.surgeryLocationId 
+                  ? 'text-green-500' 
+                  : 'text-gray-400'
+              }`} 
+            />
+            <div>
+              <h3 className="font-semibold text-foreground text-lg">
+                Surgery Module Location
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {activeHospital?.surgeryLocationId 
+                  ? locations.find(l => l.id === activeHospital.surgeryLocationId)?.name || "Location not found"
+                  : "Not configured - surgery module disabled"}
+              </p>
+            </div>
           </div>
           <Button
             variant="outline"
