@@ -589,16 +589,19 @@ export default function PatientDetail() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="surgeon">Surgeon</Label>
+                <Label htmlFor="surgeon">Surgeon <span className="text-xs text-muted-foreground">(optional)</span></Label>
                 <Select 
-                  value={newCase.surgeon} 
-                  onValueChange={(value) => setNewCase({ ...newCase, surgeon: value })}
+                  value={newCase.surgeon || "none"} 
+                  onValueChange={(value) => setNewCase({ ...newCase, surgeon: value === "none" ? "" : value })}
                   disabled={isLoadingSurgeons}
                 >
                   <SelectTrigger data-testid="select-surgeon">
-                    <SelectValue placeholder={isLoadingSurgeons ? "Loading surgeons..." : "Select surgeon"} />
+                    <SelectValue placeholder={isLoadingSurgeons ? "Loading surgeons..." : "Select surgeon (optional)"} />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="none">
+                      <span className="text-muted-foreground italic">No surgeon selected</span>
+                    </SelectItem>
                     {isLoadingSurgeons ? (
                       <SelectItem value="loading" disabled>
                         Loading surgeons...
