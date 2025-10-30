@@ -1,8 +1,9 @@
 import { useRoute, useLocation, Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Download } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Download, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -14,19 +15,26 @@ import { Textarea } from "@/components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
-const mockPatient = {
-  id: "1",
-  patientId: "P-2024-001",
-  surname: "Rossi",
-  firstName: "Maria",
-  birthday: "1968-05-12",
-  sex: "F",
-  email: "maria.rossi@example.com",
-  phone: "+39 123 456 7890",
-  allergies: ["Latex", "Penicillin"],
-  allergyNotes: "Mild reaction to shellfish",
-  notes: "Prefers morning appointments. History of hypertension.",
-  createdAt: "2025-10-01T10:00:00Z",
+type Patient = {
+  id: string;
+  hospitalId: string;
+  patientNumber: string;
+  surname: string;
+  firstName: string;
+  birthday: string;
+  sex: "M" | "F" | "O";
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  emergencyContact?: string | null;
+  insuranceProvider?: string | null;
+  insuranceNumber?: string | null;
+  allergies?: string[] | null;
+  allergyNotes?: string | null;
+  medicalNotes?: string | null;
+  createdBy?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 };
 
 const mockCases = [
@@ -59,8 +67,16 @@ export default function PatientDetail() {
   const [isPatientCardVisible, setIsPatientCardVisible] = useState(true);
   const patientCardRef = useRef<HTMLDivElement>(null);
   
+  // Fetch patient data from API
+  const { data: patient, isLoading, error } = useQuery<Patient>({
+    queryKey: [`/api/patients/${params?.id}`],
+    enabled: !!params?.id,
+  });
+  
   // Check for openPreOp query parameter and auto-open dialog
   useEffect(() => {
+    if (!patient) return;
+    
     const urlParams = new URLSearchParams(window.location.search);
     const openPreOpCaseId = urlParams.get('openPreOp');
     
@@ -68,7 +84,7 @@ export default function PatientDetail() {
       setSelectedCaseId(openPreOpCaseId);
       setAssessmentData(prev => ({
         ...prev,
-        allergies: mockPatient.allergies || [],
+        allergies: patient.allergies || [],
       }));
       setIsPreOpOpen(true);
       
@@ -78,7 +94,7 @@ export default function PatientDetail() {
       const newUrl = url.searchParams.toString() ? `${url.pathname}?${url.searchParams.toString()}` : url.pathname;
       window.history.replaceState({}, '', newUrl);
     }
-  }, []);
+  }, [patient]);
   const [newCase, setNewCase] = useState({
     plannedSurgery: "",
     surgeon: "",
@@ -381,6 +397,56 @@ export default function PatientDetail() {
     };
   }, []);
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-4 pb-20">
+        <Link href="/anesthesia/patients">
+          <Button variant="ghost" className="gap-2 mb-4" data-testid="button-back">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Patients
+          </Button>
+        </Link>
+        <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" data-testid="loader-patient" />
+              <p className="text-muted-foreground">Loading patient data...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !patient) {
+    return (
+      <div className="container mx-auto p-4 pb-20">
+        <Link href="/anesthesia/patients">
+          <Button variant="ghost" className="gap-2 mb-4" data-testid="button-back">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Patients
+          </Button>
+        </Link>
+        <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <div className="flex flex-col items-center gap-3">
+              <AlertCircle className="h-8 w-8 text-destructive" data-testid="icon-error" />
+              <p className="text-foreground font-semibold" data-testid="text-error">Patient not found</p>
+              <p className="text-sm text-muted-foreground">The patient you're looking for doesn't exist or has been removed.</p>
+              <Link href="/anesthesia/patients">
+                <Button className="mt-4" data-testid="button-back-to-patients">
+                  Back to Patients
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-4 pb-20">
       {/* Sticky Patient Header */}
@@ -391,15 +457,15 @@ export default function PatientDetail() {
         >
           <div className="container mx-auto px-4 py-3">
             <div className="flex items-center gap-3">
-              {mockPatient.sex === "M" ? (
-                <UserCircle className="h-5 w-5 text-blue-500" />
+              {patient.sex === "M" ? (
+                <UserCircle className="h-5 w-5 text-blue-500" data-testid="icon-sex-male" />
               ) : (
-                <UserRound className="h-5 w-5 text-pink-500" />
+                <UserRound className="h-5 w-5 text-pink-500" data-testid="icon-sex-female" />
               )}
               <div>
-                <div className="font-semibold">{mockPatient.surname}, {mockPatient.firstName}</div>
-                <p className="text-xs text-muted-foreground">
-                  {formatDate(mockPatient.birthday)} ({calculateAge(mockPatient.birthday)} years) • Patient ID: {mockPatient.patientId}
+                <div className="font-semibold" data-testid="text-patient-name">{patient.surname}, {patient.firstName}</div>
+                <p className="text-xs text-muted-foreground" data-testid="text-patient-info">
+                  {formatDate(patient.birthday)} ({calculateAge(patient.birthday)} years) • Patient ID: {patient.patientNumber}
                 </p>
               </div>
             </div>
@@ -415,19 +481,19 @@ export default function PatientDetail() {
           </Button>
         </Link>
 
-        <Card ref={patientCardRef}>
+        <Card ref={patientCardRef} data-testid="card-patient-details">
           <CardHeader>
             <CardTitle className="flex items-center gap-3">
-              {mockPatient.sex === "M" ? (
-                <UserCircle className="h-6 w-6 text-blue-500" />
+              {patient.sex === "M" ? (
+                <UserCircle className="h-6 w-6 text-blue-500" data-testid="icon-sex-male-card" />
               ) : (
-                <UserRound className="h-6 w-6 text-pink-500" />
+                <UserRound className="h-6 w-6 text-pink-500" data-testid="icon-sex-female-card" />
               )}
               <div>
-                <div>{mockPatient.surname}, {mockPatient.firstName}</div>
+                <div data-testid="text-patient-fullname">{patient.surname}, {patient.firstName}</div>
                 <p className="text-sm font-normal mt-1">
-                  <span className="text-foreground font-medium">{formatDate(mockPatient.birthday)} ({calculateAge(mockPatient.birthday)} years)</span>
-                  <span className="text-muted-foreground"> • Patient ID: {mockPatient.patientId}</span>
+                  <span className="text-foreground font-medium" data-testid="text-patient-birthday">{formatDate(patient.birthday)} ({calculateAge(patient.birthday)} years)</span>
+                  <span className="text-muted-foreground" data-testid="text-patient-number"> • Patient ID: {patient.patientNumber}</span>
                 </p>
               </div>
             </CardTitle>
@@ -435,25 +501,25 @@ export default function PatientDetail() {
           <CardContent className="space-y-6">
 
             {/* Contact Information */}
-            {(mockPatient.email || mockPatient.phone) && (
+            {(patient.email || patient.phone) && (
               <div>
                 <h3 className="text-sm font-semibold text-muted-foreground mb-3">Contact Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {mockPatient.email && (
+                  {patient.email && (
                     <div className="flex items-center gap-3">
                       <Mail className="h-5 w-5 text-muted-foreground" />
                       <div>
                         <p className="text-xs text-muted-foreground">Email</p>
-                        <p className="font-medium">{mockPatient.email}</p>
+                        <p className="font-medium" data-testid="text-patient-email">{patient.email}</p>
                       </div>
                     </div>
                   )}
-                  {mockPatient.phone && (
+                  {patient.phone && (
                     <div className="flex items-center gap-3">
                       <Phone className="h-5 w-5 text-muted-foreground" />
                       <div>
                         <p className="text-xs text-muted-foreground">Phone</p>
-                        <p className="font-medium">{mockPatient.phone}</p>
+                        <p className="font-medium" data-testid="text-patient-phone">{patient.phone}</p>
                       </div>
                     </div>
                   )}
@@ -462,37 +528,37 @@ export default function PatientDetail() {
             )}
 
             {/* Allergies */}
-            {(mockPatient.allergies.length > 0 || mockPatient.allergyNotes) && (
+            {((patient.allergies && patient.allergies.length > 0) || patient.allergyNotes) && (
               <div>
                 <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
                   <AlertCircle className="h-5 w-5 text-red-500" />
                   Allergies
                 </h3>
                 <div className="space-y-2">
-                  {mockPatient.allergies.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {mockPatient.allergies.map((allergy) => (
-                        <Badge key={allergy} variant="destructive" className="text-xs">
+                  {patient.allergies && patient.allergies.length > 0 && (
+                    <div className="flex flex-wrap gap-2" data-testid="container-allergies">
+                      {patient.allergies.map((allergy) => (
+                        <Badge key={allergy} variant="destructive" className="text-xs" data-testid={`badge-allergy-${allergy.toLowerCase()}`}>
                           {allergy}
                         </Badge>
                       ))}
                     </div>
                   )}
-                  {mockPatient.allergyNotes && (
-                    <p className="text-sm text-muted-foreground">{mockPatient.allergyNotes}</p>
+                  {patient.allergyNotes && (
+                    <p className="text-sm text-muted-foreground" data-testid="text-allergy-notes">{patient.allergyNotes}</p>
                   )}
                 </div>
               </div>
             )}
 
             {/* Notes */}
-            {mockPatient.notes && (
+            {patient.medicalNotes && (
               <div>
                 <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
                   <NoteIcon className="h-5 w-5 text-muted-foreground" />
                   Notes
                 </h3>
-                <p className="text-sm text-foreground bg-muted/50 p-3 rounded-md">{mockPatient.notes}</p>
+                <p className="text-sm text-foreground bg-muted/50 p-3 rounded-md" data-testid="text-medical-notes">{patient.medicalNotes}</p>
               </div>
             )}
           </CardContent>
@@ -604,7 +670,7 @@ export default function PatientDetail() {
                     // Auto-fill allergies from patient
                     setAssessmentData(prev => ({
                       ...prev,
-                      allergies: mockPatient.allergies || [],
+                      allergies: patient.allergies || [],
                     }));
                     setIsPreOpOpen(true);
                   }}
@@ -656,15 +722,15 @@ export default function PatientDetail() {
               </Button>
             </div>
             <div className="flex items-center gap-3">
-              {mockPatient.sex === "M" ? (
-                <UserCircle className="h-8 w-8 text-blue-500" />
+              {patient.sex === "M" ? (
+                <UserCircle className="h-8 w-8 text-blue-500" data-testid="icon-preop-sex-male" />
               ) : (
-                <UserRound className="h-8 w-8 text-pink-500" />
+                <UserRound className="h-8 w-8 text-pink-500" data-testid="icon-preop-sex-female" />
               )}
               <div>
-                <p className="font-semibold text-base">{mockPatient.surname}, {mockPatient.firstName}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatDate(mockPatient.birthday)} ({calculateAge(mockPatient.birthday)} y) • ID: {mockPatient.patientId}
+                <p className="font-semibold text-base" data-testid="text-preop-patient-name">{patient.surname}, {patient.firstName}</p>
+                <p className="text-xs text-muted-foreground" data-testid="text-preop-patient-info">
+                  {formatDate(patient.birthday)} ({calculateAge(patient.birthday)} y) • ID: {patient.patientNumber}
                 </p>
               </div>
             </div>
