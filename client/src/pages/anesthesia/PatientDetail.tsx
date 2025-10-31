@@ -2744,6 +2744,11 @@ export default function PatientDetail() {
                         onChange={(e) => setAssessmentData({...assessmentData, assessmentDate: e.target.value})}
                         data-testid="input-assessment-date"
                       />
+                      {assessmentData.assessmentDate && (
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(assessmentData.assessmentDate)}
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label>Doctor Name</Label>
@@ -2755,14 +2760,15 @@ export default function PatientDetail() {
                       />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Doctor Signature</Label>
-                    <div className="border rounded-lg p-4 bg-white dark:bg-gray-900">
-                      <div className="text-center text-sm text-muted-foreground py-8">
-                        Double tap to sign
+
+                  {assessmentData.doctorSignature && (
+                    <div className="space-y-2">
+                      <Label>Doctor Signature</Label>
+                      <div className="border rounded-lg p-4 bg-muted">
+                        <p className="text-sm font-mono">{assessmentData.doctorSignature}</p>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label className="text-base font-semibold">Surgical Approval Status</Label>
@@ -2984,21 +2990,11 @@ export default function PatientDetail() {
                         onChange={(e) => setConsentData({...consentData, date: e.target.value})}
                         data-testid="input-consent-date"
                       />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Patient Signature</Label>
-                        <div className="border-2 border-dashed rounded-lg h-32 flex items-center justify-center bg-muted/50">
-                          <p className="text-sm text-muted-foreground">Double tap to sign</p>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Doctor Signature</Label>
-                        <div className="border-2 border-dashed rounded-lg h-32 flex items-center justify-center bg-muted/50">
-                          <p className="text-sm text-muted-foreground">Double tap to sign</p>
-                        </div>
-                      </div>
+                      {consentData.date && (
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(consentData.date)}
+                        </p>
+                      )}
                     </div>
                   </div>
 
