@@ -1,122 +1,404 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileText, CheckCircle, X } from "lucide-react";
+import { SignatureCanvas } from "@/components/ui/signature-canvas";
+import { Loader2, Save, CheckCircle2, AlertCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import type { PreOpAssessment } from "@shared/schema";
 
 interface PreopTabProps {
-  caseId: string;
+  surgeryId: string;
+  hospitalId: string;
 }
 
-const mockPreopData = {
-  demographics: { age_years: 56, sex: "F" },
-  asaClass: "III",
-  allergies: [
-    { substance: "Latex", reaction: "Rash", severity: "Moderate" },
-  ],
-  medications: [
-    { drug: "Amlodipine", dose: "5 mg", route: "PO", freq: "daily" },
-    { drug: "Metformin", dose: "1000 mg", route: "PO", freq: "BID" },
-  ],
-  comorbidities: ["HTN", "DM2"],
-  airway: {
-    mallampati: "II",
-    mouth_opening: "Normal",
-    dentition: "Good",
-  },
-  fasting: {
-    last_solids: "2025-10-09T06:00:00Z",
-    last_clear: "2025-10-09T08:00:00Z",
-  },
-  plannedAnesthesia: "GA with ETT",
-  notes: "Patient anxious about procedure. PONV prophylaxis recommended.",
-};
+const preOpFormSchema = z.object({
+  height: z.string().optional(),
+  weight: z.string().optional(),
+  allergies: z.array(z.string()).optional(),
+  allergiesOther: z.string().optional(),
+  cave: z.string().optional(),
+  asa: z.string().optional(),
+  specialNotes: z.string().optional(),
+  anticoagulationMeds: z.array(z.string()).optional(),
+  anticoagulationMedsOther: z.string().optional(),
+  generalMeds: z.array(z.string()).optional(),
+  generalMedsOther: z.string().optional(),
+  medicationsNotes: z.string().optional(),
+  heartNotes: z.string().optional(),
+  lungNotes: z.string().optional(),
+  giKidneyMetabolicNotes: z.string().optional(),
+  neuroPsychSkeletalNotes: z.string().optional(),
+  womanNotes: z.string().optional(),
+  noxenNotes: z.string().optional(),
+  childrenNotes: z.string().optional(),
+  mallampati: z.string().optional(),
+  mouthOpening: z.string().optional(),
+  dentition: z.string().optional(),
+  airwayDifficult: z.string().optional(),
+  airwayNotes: z.string().optional(),
+  lastSolids: z.string().optional(),
+  lastClear: z.string().optional(),
+  postOpICU: z.boolean().optional(),
+  anesthesiaOther: z.string().optional(),
+  installationsOther: z.string().optional(),
+  surgicalApproval: z.string().optional(),
+  assessmentDate: z.string().optional(),
+  doctorName: z.string().optional(),
+  doctorSignature: z.string().optional(),
+  consentGiven: z.boolean().optional(),
+  consentText: z.string().optional(),
+  patientSignature: z.string().optional(),
+  consentDate: z.string().optional(),
+});
 
-export default function PreopTab({ caseId }: PreopTabProps) {
-  const [showAiAssist, setShowAiAssist] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [extractedText, setExtractedText] = useState("");
-  const [redactedText, setRedactedText] = useState("");
-  const [proposedData, setProposedData] = useState<any>(null);
+type PreOpFormData = z.infer<typeof preOpFormSchema>;
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setUploadedFile(file);
-      // Mock extraction
-      const mockExtracted = "Patient: John Doe\nMRN: 12345678\nAge: 56\nSex: Female\nAllergies: Latex (rash)\nMedications: Amlodipine 5mg PO daily";
-      const mockRedacted = "Patient: [NAME]\nMRN: [ID]\nAge: 56\nSex: Female\nAllergies: Latex (rash)\nMedications: Amlodipine 5mg PO daily";
-      setExtractedText(mockExtracted);
-      setRedactedText(mockRedacted);
+export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
+  const { toast } = useToast();
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const { data: assessment, isLoading } = useQuery<PreOpAssessment>({
+    queryKey: [`/api/anesthesia/preop/surgery/${surgeryId}`],
+    enabled: !!surgeryId,
+  });
+
+  const form = useForm<PreOpFormData>({
+    resolver: zodResolver(preOpFormSchema),
+    defaultValues: {
+      height: "",
+      weight: "",
+      allergies: [],
+      allergiesOther: "",
+      cave: "",
+      asa: "",
+      specialNotes: "",
+      anticoagulationMeds: [],
+      anticoagulationMedsOther: "",
+      generalMeds: [],
+      generalMedsOther: "",
+      medicationsNotes: "",
+      heartNotes: "",
+      lungNotes: "",
+      giKidneyMetabolicNotes: "",
+      neuroPsychSkeletalNotes: "",
+      womanNotes: "",
+      noxenNotes: "",
+      childrenNotes: "",
+      mallampati: "",
+      mouthOpening: "",
+      dentition: "",
+      airwayDifficult: "",
+      airwayNotes: "",
+      lastSolids: "",
+      lastClear: "",
+      postOpICU: false,
+      anesthesiaOther: "",
+      installationsOther: "",
+      surgicalApproval: "",
+      assessmentDate: "",
+      doctorName: "",
+      doctorSignature: "",
+      consentGiven: false,
+      consentText: "",
+      patientSignature: "",
+      consentDate: "",
+    },
+  });
+
+  useEffect(() => {
+    if (assessment) {
+      form.reset({
+        height: assessment.height || "",
+        weight: assessment.weight || "",
+        allergies: assessment.allergies || [],
+        allergiesOther: assessment.allergiesOther || "",
+        cave: assessment.cave || "",
+        asa: assessment.asa || "",
+        specialNotes: assessment.specialNotes || "",
+        anticoagulationMeds: assessment.anticoagulationMeds || [],
+        anticoagulationMedsOther: assessment.anticoagulationMedsOther || "",
+        generalMeds: assessment.generalMeds || [],
+        generalMedsOther: assessment.generalMedsOther || "",
+        medicationsNotes: assessment.medicationsNotes || "",
+        heartNotes: assessment.heartNotes || "",
+        lungNotes: assessment.lungNotes || "",
+        giKidneyMetabolicNotes: assessment.giKidneyMetabolicNotes || "",
+        neuroPsychSkeletalNotes: assessment.neuroPsychSkeletalNotes || "",
+        womanNotes: assessment.womanNotes || "",
+        noxenNotes: assessment.noxenNotes || "",
+        childrenNotes: assessment.childrenNotes || "",
+        mallampati: assessment.mallampati || "",
+        mouthOpening: assessment.mouthOpening || "",
+        dentition: assessment.dentition || "",
+        airwayDifficult: assessment.airwayDifficult || "",
+        airwayNotes: assessment.airwayNotes || "",
+        lastSolids: assessment.lastSolids || "",
+        lastClear: assessment.lastClear || "",
+        postOpICU: assessment.postOpICU || false,
+        anesthesiaOther: assessment.anesthesiaOther || "",
+        installationsOther: assessment.installationsOther || "",
+        surgicalApproval: assessment.surgicalApproval || "",
+        assessmentDate: assessment.assessmentDate || "",
+        doctorName: assessment.doctorName || "",
+        doctorSignature: assessment.doctorSignature || "",
+        consentGiven: assessment.consentGiven || false,
+        consentText: assessment.consentText || "",
+        patientSignature: assessment.patientSignature || "",
+        consentDate: assessment.consentDate || "",
+      });
+    }
+  }, [assessment, form]);
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: Partial<PreOpFormData>) => {
+      if (!assessment?.id) throw new Error("No assessment ID");
+      
+      const response = await fetch(`/api/anesthesia/preop/${assessment.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          height: data.height,
+          weight: data.weight,
+          allergies: data.allergies,
+          allergiesOther: data.allergiesOther,
+          cave: data.cave,
+          asa: data.asa,
+          specialNotes: data.specialNotes,
+          anticoagulationMeds: data.anticoagulationMeds,
+          anticoagulationMedsOther: data.anticoagulationMedsOther,
+          generalMeds: data.generalMeds,
+          generalMedsOther: data.generalMedsOther,
+          medicationsNotes: data.medicationsNotes,
+          heartNotes: data.heartNotes,
+          lungNotes: data.lungNotes,
+          giKidneyMetabolicNotes: data.giKidneyMetabolicNotes,
+          neuroPsychSkeletalNotes: data.neuroPsychSkeletalNotes,
+          womanNotes: data.womanNotes,
+          noxenNotes: data.noxenNotes,
+          childrenNotes: data.childrenNotes,
+          mallampati: data.mallampati,
+          mouthOpening: data.mouthOpening,
+          dentition: data.dentition,
+          airwayDifficult: data.airwayDifficult,
+          airwayNotes: data.airwayNotes,
+          lastSolids: data.lastSolids,
+          lastClear: data.lastClear,
+          postOpICU: data.postOpICU,
+          anesthesiaOther: data.anesthesiaOther,
+          installationsOther: data.installationsOther,
+          surgicalApproval: data.surgicalApproval,
+          assessmentDate: data.assessmentDate,
+          doctorName: data.doctorName,
+          doctorSignature: data.doctorSignature,
+          consentGiven: data.consentGiven,
+          consentText: data.consentText,
+          patientSignature: data.patientSignature,
+          consentDate: data.consentDate,
+          status: (data.doctorSignature && data.patientSignature) ? "completed" : "draft",
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to update assessment");
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${surgeryId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/anesthesia/preop", { hospitalId }] });
+      setLastSaved(new Date());
+    },
+  });
+
+  const isCompleted = assessment?.status === "completed";
+
+  const autoSave = useCallback(async () => {
+    if (!assessment?.id || form.formState.isSubmitting || isCompleted) return;
+    
+    const formData = form.getValues();
+    setIsSaving(true);
+    
+    try {
+      await updateMutation.mutateAsync(formData);
+    } catch (error) {
+      console.error("Auto-save failed:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [assessment?.id, form, updateMutation, isCompleted]);
+
+  useEffect(() => {
+    if (!assessment?.id || isCompleted) return;
+    
+    const interval = setInterval(() => {
+      autoSave();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [assessment?.id, isCompleted, autoSave]);
+
+  const handleManualSave = async () => {
+    const formData = form.getValues();
+    setIsSaving(true);
+    
+    try {
+      await updateMutation.mutateAsync(formData);
+      toast({ title: "Saved", description: "Pre-op assessment saved successfully" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to save assessment", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleExtract = () => {
-    // Mock AI extraction
-    setProposedData({
-      demographics: { age_years: 56, sex: "F" },
-      asaClass: "III",
-      allergies: [{ substance: "Latex", reaction: "Rash", severity: "Moderate" }],
-      medications: [{ drug: "Amlodipine", dose: "5 mg", route: "PO", freq: "daily" }],
-      proposed_ASA: "III",
-      proposed_anesthesia_plan: "GA with ETT, consider PONV prophylaxis",
-    });
+  const handleComplete = async () => {
+    const formData = form.getValues();
+    
+    if (!formData.doctorSignature || !formData.patientSignature) {
+      toast({ 
+        title: "Signatures Required", 
+        description: "Both doctor and patient signatures are required to complete the assessment",
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    
+    try {
+      await updateMutation.mutateAsync(formData);
+      toast({ 
+        title: "Completed", 
+        description: "Pre-op assessment completed and signed",
+        variant: "default"
+      });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to complete assessment", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleAcceptField = (field: string) => {
-    console.log("Accepting field:", field);
-  };
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!assessment) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <p className="text-muted-foreground">No pre-op assessment found</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Pre-operative Assessment</h2>
-        <Button
-          variant="outline"
-          onClick={() => setShowAiAssist(!showAiAssist)}
-          className="gap-2"
-          data-testid="button-toggle-ai-assist"
-        >
-          <FileText className="h-4 w-4" />
-          {showAiAssist ? "Hide" : "Show"} AI Assist
-        </Button>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Pre-operative Assessment</h2>
+          {lastSaved && (
+            <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-3 w-3 text-green-600" />
+                  Last saved: {lastSaved.toLocaleTimeString()}
+                </>
+              )}
+            </p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          {isCompleted && (
+            <Badge className="bg-green-600">
+              <CheckCircle2 className="h-3 w-3 mr-1" />
+              Completed
+            </Badge>
+          )}
+          {!isCompleted && (
+            <>
+              <Button
+                variant="outline"
+                onClick={handleManualSave}
+                disabled={isSaving}
+                data-testid="button-save-draft"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Save Draft
+              </Button>
+              <Button
+                onClick={handleComplete}
+                disabled={isSaving || !form.watch("doctorSignature") || !form.watch("patientSignature")}
+                data-testid="button-complete-preop"
+              >
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Complete & Sign
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Demographics & ASA</CardTitle>
+              <CardTitle>Vitals & ASA</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="age">Age (years)</Label>
-                  <Input id="age" type="number" defaultValue={mockPreopData.demographics.age_years} data-testid="input-age" />
+                  <Label htmlFor="height">Height (cm)</Label>
+                  <Input 
+                    id="height" 
+                    {...form.register("height")}
+                    disabled={isCompleted}
+                    data-testid="input-height" 
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="sex">Sex</Label>
-                  <Select defaultValue={mockPreopData.demographics.sex}>
-                    <SelectTrigger data-testid="select-sex">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="M">Male</SelectItem>
-                      <SelectItem value="F">Female</SelectItem>
-                      <SelectItem value="Other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="weight">Weight (kg)</Label>
+                  <Input 
+                    id="weight" 
+                    {...form.register("weight")}
+                    disabled={isCompleted}
+                    data-testid="input-weight" 
+                  />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="asa">ASA Classification</Label>
-                <Select defaultValue={mockPreopData.asaClass}>
+                <Select 
+                  value={form.watch("asa") || ""}
+                  onValueChange={(value) => form.setValue("asa", value)}
+                  disabled={isCompleted}
+                >
                   <SelectTrigger data-testid="select-asa">
-                    <SelectValue />
+                    <SelectValue placeholder="Select ASA class" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="I">I - Healthy</SelectItem>
@@ -124,147 +406,180 @@ export default function PreopTab({ caseId }: PreopTabProps) {
                     <SelectItem value="III">III - Severe systemic disease</SelectItem>
                     <SelectItem value="IV">IV - Life-threatening disease</SelectItem>
                     <SelectItem value="V">V - Moribund</SelectItem>
+                    <SelectItem value="VI">VI - Brain-dead organ donor</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Allergies</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {mockPreopData.allergies.map((allergy, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-muted rounded-md">
-                  <div>
-                    <p className="font-medium">{allergy.substance}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {allergy.reaction} - {allergy.severity}
-                    </p>
-                  </div>
-                  <Badge variant="destructive">Allergy</Badge>
-                </div>
-              ))}
-              <Button variant="outline" className="w-full" data-testid="button-add-allergy">
-                Add Allergy
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Current Medications</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {mockPreopData.medications.map((med, idx) => (
-                <div key={idx} className="p-3 bg-muted rounded-md">
-                  <p className="font-medium">{med.drug}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {med.dose} {med.route} {med.freq}
-                  </p>
-                </div>
-              ))}
-              <Button variant="outline" className="w-full" data-testid="button-add-medication">
-                Add Medication
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Comorbidities</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex flex-wrap gap-2">
-                {mockPreopData.comorbidities.map((comorb, idx) => (
-                  <Badge key={idx} variant="secondary">
-                    {comorb}
-                  </Badge>
-                ))}
+              <div className="space-y-2">
+                <Label htmlFor="specialNotes">Special Notes</Label>
+                <Textarea 
+                  id="specialNotes" 
+                  {...form.register("specialNotes")}
+                  disabled={isCompleted}
+                  rows={3}
+                  data-testid="textarea-special-notes" 
+                />
               </div>
-              <Button variant="outline" className="w-full" data-testid="button-add-comorbidity">
-                Add Comorbidity
-              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Allergies & CAVE</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="allergiesOther">Allergies</Label>
+                <Textarea 
+                  id="allergiesOther" 
+                  {...form.register("allergiesOther")}
+                  disabled={isCompleted}
+                  placeholder="List any allergies..."
+                  rows={3}
+                  data-testid="textarea-allergies" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cave">CAVE (Contraindications/Warnings)</Label>
+                <Textarea 
+                  id="cave" 
+                  {...form.register("cave")}
+                  disabled={isCompleted}
+                  placeholder="Any contraindications or warnings..."
+                  rows={3}
+                  data-testid="textarea-cave" 
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Medications</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="anticoagulationMedsOther">Anticoagulation Medications</Label>
+                <Textarea 
+                  id="anticoagulationMedsOther" 
+                  {...form.register("anticoagulationMedsOther")}
+                  disabled={isCompleted}
+                  placeholder="List anticoagulation medications..."
+                  rows={2}
+                  data-testid="textarea-anticoagulation-meds" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="generalMedsOther">General Medications</Label>
+                <Textarea 
+                  id="generalMedsOther" 
+                  {...form.register("generalMedsOther")}
+                  disabled={isCompleted}
+                  placeholder="List other medications..."
+                  rows={3}
+                  data-testid="textarea-general-meds" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="medicationsNotes">Medication Notes</Label>
+                <Textarea 
+                  id="medicationsNotes" 
+                  {...form.register("medicationsNotes")}
+                  disabled={isCompleted}
+                  placeholder="Additional medication notes..."
+                  rows={2}
+                  data-testid="textarea-medications-notes" 
+                />
+              </div>
             </CardContent>
           </Card>
         </div>
 
         <div className="space-y-6">
-          {showAiAssist && (
-            <Card className="border-primary">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  AI-Assisted Extraction
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Upload Pre-op Document</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="file"
-                      accept=".pdf,.png,.jpg,.jpeg"
-                      onChange={handleFileUpload}
-                      data-testid="input-upload-document"
-                    />
-                  </div>
-                  {uploadedFile && (
-                    <p className="text-sm text-muted-foreground">
-                      Uploaded: {uploadedFile.name}
-                    </p>
-                  )}
-                </div>
-
-                {extractedText && (
-                  <>
-                    <div className="space-y-2">
-                      <Label>Redaction Preview</Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="p-3 bg-muted rounded-md">
-                          <p className="text-xs font-medium mb-2">Original</p>
-                          <pre className="text-xs whitespace-pre-wrap">{extractedText}</pre>
-                        </div>
-                        <div className="p-3 bg-muted rounded-md">
-                          <p className="text-xs font-medium mb-2">Redacted</p>
-                          <pre className="text-xs whitespace-pre-wrap">{redactedText}</pre>
-                        </div>
-                      </div>
-                    </div>
-
-                    <Button onClick={handleExtract} className="w-full" data-testid="button-extract">
-                      Extract & Propose
-                    </Button>
-                  </>
-                )}
-
-                {proposedData && (
-                  <div className="space-y-3 pt-3 border-t">
-                    <p className="font-medium">Proposed Fields</p>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between p-2 bg-green-50 dark:bg-green-900/20 rounded">
-                        <span className="text-sm">ASA: {proposedData.proposed_ASA}</span>
-                        <Button size="sm" variant="ghost" onClick={() => handleAcceptField('asa')} data-testid="button-accept-asa">
-                          <CheckCircle className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div className="p-2 bg-green-50 dark:bg-green-900/20 rounded">
-                        <p className="text-sm font-medium">Proposed Plan:</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {proposedData.proposed_anesthesia_plan}
-                        </p>
-                        <Button size="sm" variant="ghost" onClick={() => handleAcceptField('plan')} className="mt-2" data-testid="button-accept-plan">
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Accept
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardHeader>
+              <CardTitle>Medical History</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="heartNotes">Cardiovascular History</Label>
+                <Textarea 
+                  id="heartNotes" 
+                  {...form.register("heartNotes")}
+                  disabled={isCompleted}
+                  placeholder="HTN, CHD, arrhythmia, etc..."
+                  rows={2}
+                  data-testid="textarea-heart-notes" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lungNotes">Respiratory History</Label>
+                <Textarea 
+                  id="lungNotes" 
+                  {...form.register("lungNotes")}
+                  disabled={isCompleted}
+                  placeholder="Asthma, COPD, sleep apnea, etc..."
+                  rows={2}
+                  data-testid="textarea-lung-notes" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="giKidneyMetabolicNotes">GI / Renal / Metabolic History</Label>
+                <Textarea 
+                  id="giKidneyMetabolicNotes" 
+                  {...form.register("giKidneyMetabolicNotes")}
+                  disabled={isCompleted}
+                  placeholder="Diabetes, CKD, liver disease, reflux, etc..."
+                  rows={2}
+                  data-testid="textarea-gi-kidney-metabolic-notes" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="neuroPsychSkeletalNotes">Neuro / Psych / Skeletal History</Label>
+                <Textarea 
+                  id="neuroPsychSkeletalNotes" 
+                  {...form.register("neuroPsychSkeletalNotes")}
+                  disabled={isCompleted}
+                  placeholder="Stroke, epilepsy, arthritis, depression, etc..."
+                  rows={2}
+                  data-testid="textarea-neuro-psych-skeletal-notes" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="womanNotes">Women's Health (if applicable)</Label>
+                <Textarea 
+                  id="womanNotes" 
+                  {...form.register("womanNotes")}
+                  disabled={isCompleted}
+                  placeholder="Pregnancy, breastfeeding, menopause, etc..."
+                  rows={2}
+                  data-testid="textarea-woman-notes" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="noxenNotes">Substance Use</Label>
+                <Textarea 
+                  id="noxenNotes" 
+                  {...form.register("noxenNotes")}
+                  disabled={isCompleted}
+                  placeholder="Nicotine, alcohol, drugs..."
+                  rows={2}
+                  data-testid="textarea-noxen-notes" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="childrenNotes">Pediatric Issues (if applicable)</Label>
+                <Textarea 
+                  id="childrenNotes" 
+                  {...form.register("childrenNotes")}
+                  disabled={isCompleted}
+                  placeholder="Prematurity, developmental delays, vaccinations, etc..."
+                  rows={2}
+                  data-testid="textarea-children-notes" 
+                />
+              </div>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
@@ -273,9 +588,13 @@ export default function PreopTab({ caseId }: PreopTabProps) {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="mallampati">Mallampati Class</Label>
-                <Select defaultValue={mockPreopData.airway.mallampati}>
+                <Select 
+                  value={form.watch("mallampati") || ""}
+                  onValueChange={(value) => form.setValue("mallampati", value)}
+                  disabled={isCompleted}
+                >
                   <SelectTrigger data-testid="select-mallampati">
-                    <SelectValue />
+                    <SelectValue placeholder="Select class" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="I">I</SelectItem>
@@ -286,12 +605,51 @@ export default function PreopTab({ caseId }: PreopTabProps) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="mouth">Mouth Opening</Label>
-                <Input id="mouth" defaultValue={mockPreopData.airway.mouth_opening} data-testid="input-mouth-opening" />
+                <Label htmlFor="mouthOpening">Mouth Opening</Label>
+                <Input 
+                  id="mouthOpening" 
+                  {...form.register("mouthOpening")}
+                  disabled={isCompleted}
+                  placeholder="e.g., Normal, Reduced"
+                  data-testid="input-mouth-opening" 
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="dentition">Dentition</Label>
-                <Input id="dentition" defaultValue={mockPreopData.airway.dentition} data-testid="input-dentition" />
+                <Input 
+                  id="dentition" 
+                  {...form.register("dentition")}
+                  disabled={isCompleted}
+                  placeholder="e.g., Good, Poor, Dentures"
+                  data-testid="input-dentition" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="airwayDifficult">Difficult Airway Predicted</Label>
+                <Select 
+                  value={form.watch("airwayDifficult") || ""}
+                  onValueChange={(value) => form.setValue("airwayDifficult", value)}
+                  disabled={isCompleted}
+                >
+                  <SelectTrigger data-testid="select-airway-difficult">
+                    <SelectValue placeholder="Select" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="No">No</SelectItem>
+                    <SelectItem value="Yes">Yes</SelectItem>
+                    <SelectItem value="Uncertain">Uncertain</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="airwayNotes">Airway Notes</Label>
+                <Textarea 
+                  id="airwayNotes" 
+                  {...form.register("airwayNotes")}
+                  disabled={isCompleted}
+                  rows={2}
+                  data-testid="textarea-airway-notes" 
+                />
               </div>
             </CardContent>
           </Card>
@@ -302,20 +660,22 @@ export default function PreopTab({ caseId }: PreopTabProps) {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="last-solids">Last Solids</Label>
+                <Label htmlFor="lastSolids">Last Solids</Label>
                 <Input
-                  id="last-solids"
+                  id="lastSolids"
                   type="datetime-local"
-                  defaultValue={new Date(mockPreopData.fasting.last_solids).toISOString().slice(0, 16)}
+                  {...form.register("lastSolids")}
+                  disabled={isCompleted}
                   data-testid="input-last-solids"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="last-clear">Last Clear Fluids</Label>
+                <Label htmlFor="lastClear">Last Clear Fluids</Label>
                 <Input
-                  id="last-clear"
+                  id="lastClear"
                   type="datetime-local"
-                  defaultValue={new Date(mockPreopData.fasting.last_clear).toISOString().slice(0, 16)}
+                  {...form.register("lastClear")}
+                  disabled={isCompleted}
                   data-testid="input-last-clear"
                 />
               </div>
@@ -328,21 +688,169 @@ export default function PreopTab({ caseId }: PreopTabProps) {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="planned">Planned Anesthesia</Label>
-                <Input id="planned" defaultValue={mockPreopData.plannedAnesthesia} data-testid="input-planned-anesthesia" />
+                <Label htmlFor="anesthesiaOther">Planned Anesthesia</Label>
+                <Textarea 
+                  id="anesthesiaOther" 
+                  {...form.register("anesthesiaOther")}
+                  disabled={isCompleted}
+                  placeholder="e.g., GA with ETT, Spinal, Regional..."
+                  rows={3}
+                  data-testid="textarea-planned-anesthesia" 
+                />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea id="notes" defaultValue={mockPreopData.notes} rows={4} data-testid="textarea-notes" />
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="postOpICU"
+                  checked={form.watch("postOpICU") || false}
+                  onCheckedChange={(checked) => form.setValue("postOpICU", checked as boolean)}
+                  disabled={isCompleted}
+                  data-testid="checkbox-post-op-icu"
+                />
+                <Label htmlFor="postOpICU">Post-op ICU Planned</Label>
               </div>
             </CardContent>
           </Card>
 
-          <Button className="w-full" size="lg" data-testid="button-save-preop">
-            Save Pre-op Record
-          </Button>
+          <Card>
+            <CardHeader>
+              <CardTitle>Installations</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="installationsOther">Planned Installations</Label>
+                <Textarea 
+                  id="installationsOther" 
+                  {...form.register("installationsOther")}
+                  disabled={isCompleted}
+                  placeholder="e.g., Arterial line, CVC, urinary catheter..."
+                  rows={3}
+                  data-testid="textarea-installations" 
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Surgical Approval</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="surgicalApproval">Surgical Approval / Clearance</Label>
+                <Textarea 
+                  id="surgicalApproval" 
+                  {...form.register("surgicalApproval")}
+                  disabled={isCompleted}
+                  placeholder="Any surgical clearances or approvals..."
+                  rows={2}
+                  data-testid="textarea-surgical-approval" 
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Signatures & Consent</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="assessmentDate">Assessment Date</Label>
+                <Input
+                  id="assessmentDate"
+                  type="date"
+                  {...form.register("assessmentDate")}
+                  disabled={isCompleted}
+                  data-testid="input-assessment-date"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="doctorName">Doctor Name</Label>
+                <Input 
+                  id="doctorName" 
+                  {...form.register("doctorName")}
+                  disabled={isCompleted}
+                  placeholder="Anesthesiologist name"
+                  data-testid="input-doctor-name" 
+                />
+              </div>
+              
+              {!isCompleted && (
+                <SignatureCanvas
+                  label="Doctor Signature"
+                  value={form.watch("doctorSignature") || ""}
+                  onChange={(signature) => form.setValue("doctorSignature", signature)}
+                />
+              )}
+              {isCompleted && form.watch("doctorSignature") && (
+                <div className="space-y-2">
+                  <Label>Doctor Signature</Label>
+                  <div className="border rounded-md p-2 bg-muted">
+                    <img src={form.watch("doctorSignature") || ""} alt="Doctor signature" className="max-h-32" />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="consentGiven"
+                    checked={form.watch("consentGiven") || false}
+                    onCheckedChange={(checked) => form.setValue("consentGiven", checked as boolean)}
+                    disabled={isCompleted}
+                    data-testid="checkbox-consent-given"
+                  />
+                  <Label htmlFor="consentGiven">Patient Consent Given</Label>
+                </div>
+              </div>
+
+              {form.watch("consentGiven") && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="consentText">Consent Details</Label>
+                    <Textarea 
+                      id="consentText" 
+                      {...form.register("consentText")}
+                      disabled={isCompleted}
+                      placeholder="Details of consent discussion..."
+                      rows={3}
+                      data-testid="textarea-consent-text" 
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="consentDate">Consent Date</Label>
+                    <Input
+                      id="consentDate"
+                      type="date"
+                      {...form.register("consentDate")}
+                      disabled={isCompleted}
+                      data-testid="input-consent-date"
+                    />
+                  </div>
+
+                  {!isCompleted && (
+                    <SignatureCanvas
+                      label="Patient Signature"
+                      value={form.watch("patientSignature") || ""}
+                      onChange={(signature) => form.setValue("patientSignature", signature)}
+                    />
+                  )}
+                  {isCompleted && form.watch("patientSignature") && (
+                    <div className="space-y-2">
+                      <Label>Patient Signature</Label>
+                      <div className="border rounded-md p-2 bg-muted">
+                        <img src={form.watch("patientSignature") || ""} alt="Patient signature" className="max-h-32" />
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>
   );
 }
+

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 import { UnifiedTimeline, type UnifiedTimelineData, type TimelineVitals, type TimelineEvent, type VitalPoint } from "@/components/anesthesia/UnifiedTimeline";
 import { PreOpOverview } from "@/components/anesthesia/PreOpOverview";
+import PreopTab from "@/components/anesthesia/PreopTab";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -773,7 +774,7 @@ export default function Op() {
                 </Button>
               </div>
             ) : (
-              <PreOpOverview surgeryId={surgeryId!} />
+              <PreopTab surgeryId={surgeryId!} hospitalId={surgery?.hospitalId || ""} />
             )}
           </TabsContent>
 
