@@ -19,6 +19,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { ChevronDown, ChevronUp } from "lucide-react";
 import type { Surgery } from "@shared/schema";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useAuth } from "@/hooks/useAuth";
 import { formatDate, formatDateTimeForInput } from "@/lib/dateUtils";
 import { COMMON_ALLERGIES } from "@/constants/allergies";
 
@@ -59,6 +60,7 @@ export default function PatientDetail() {
   const [isPatientCardVisible, setIsPatientCardVisible] = useState(true);
   const patientCardRef = useRef<HTMLDivElement>(null);
   const activeHospital = useActiveHospital();
+  const { user } = useAuth();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -473,6 +475,11 @@ export default function PatientDetail() {
 
   // Pre-fill form when assessment is fetched
   useEffect(() => {
+    // Get current user's full name for auto-fill
+    const currentUserName = (user as any)?.firstName && (user as any)?.lastName 
+      ? `${(user as any).firstName} ${(user as any).lastName}` 
+      : (user as any)?.email || "";
+    
     if (existingAssessment && isPreOpOpen) {
       setAssessmentData({
         height: existingAssessment.height || "",
@@ -538,7 +545,7 @@ export default function PatientDetail() {
         installationsOther: existingAssessment.installationsOther || "",
         surgicalApprovalStatus: existingAssessment.surgicalApproval || "",
         assessmentDate: existingAssessment.assessmentDate || new Date().toISOString().split('T')[0],
-        doctorName: existingAssessment.doctorName || "",
+        doctorName: existingAssessment.doctorName || currentUserName,
         doctorSignature: existingAssessment.doctorSignature || "",
       });
 
@@ -550,13 +557,14 @@ export default function PatientDetail() {
         date: existingAssessment.consentDate || new Date().toISOString().split('T')[0],
       });
     } else if (isPreOpOpen && !existingAssessment && patient) {
-      // Reset form with just patient allergies for new assessments
+      // Reset form with patient allergies and current user's name for new assessments
       setAssessmentData(prev => ({
         ...prev,
         allergies: patient.allergies || [],
+        doctorName: currentUserName,
       }));
     }
-  }, [existingAssessment, isPreOpOpen, patient]);
+  }, [existingAssessment, isPreOpOpen, patient, user]);
 
   // Mutation to create pre-op assessment
   const createPreOpMutation = useMutation({
