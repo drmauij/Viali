@@ -1737,15 +1737,31 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(surgeries)
       .leftJoin(preOpAssessments, eq(surgeries.id, preOpAssessments.surgeryId))
+      .leftJoin(patients, eq(surgeries.patientId, patients.id))
       .where(eq(surgeries.hospitalId, hospitalId))
       .orderBy(desc(surgeries.plannedDate));
 
-    return results.map(row => ({
-      surgery: row.surgeries,
-      assessment: row.preop_assessments,
-      // Status: planned (no assessment), draft (has assessment but not completed), completed (has signature)
-      status: !row.preop_assessments ? 'planned' : row.preop_assessments.status || 'draft',
-    }));
+    return results.map(row => {
+      const patient = row.patients;
+      const surgery = row.surgeries;
+      
+      // Create a combined surgery object with patient data for frontend compatibility
+      const surgeryWithPatient = {
+        ...surgery,
+        patientName: patient ? `${patient.firstName} ${patient.surname}` : 'Unknown Patient',
+        patientMRN: patient?.patientNumber || '',
+        patientBirthday: patient?.birthday || null,
+        patientSex: patient?.sex || null,
+        procedureName: surgery.plannedSurgery,
+      };
+
+      return {
+        surgery: surgeryWithPatient,
+        assessment: row.preop_assessments,
+        // Status: planned (no assessment), draft (has assessment but not completed), completed (has signature)
+        status: !row.preop_assessments ? 'planned' : row.preop_assessments.status || 'draft',
+      };
+    });
   }
 
   async getPreOpAssessment(surgeryId: string): Promise<PreOpAssessment | undefined> {
