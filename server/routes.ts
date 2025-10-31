@@ -4688,6 +4688,33 @@ If unable to parse any drugs, return:
 
   // 5. Pre-Op Assessments
 
+  // Get all pre-op assessments for a hospital (planned, draft, completed)
+  app.get('/api/anesthesia/preop', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.query;
+      const userId = req.user.id;
+
+      if (!hospitalId) {
+        return res.status(400).json({ message: "hospitalId is required" });
+      }
+
+      // Verify user has access to this hospital
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+
+      const assessments = await storage.getPreOpAssessments(hospitalId);
+      
+      res.json(assessments);
+    } catch (error) {
+      console.error("Error fetching pre-op assessments:", error);
+      res.status(500).json({ message: "Failed to fetch pre-op assessments" });
+    }
+  });
+
   // Get assessment by surgery ID
   app.get('/api/anesthesia/preop/surgery/:surgeryId', isAuthenticated, async (req: any, res) => {
     try {

@@ -625,6 +625,15 @@ export const preOpAssessments = pgTable("preop_assessments", {
   doctorName: varchar("doctor_name"),
   doctorSignature: text("doctor_signature"),
   
+  // Status tracking: 'draft' (partially filled), 'completed' (signed and finalized)
+  status: varchar("status").default("draft"), // draft | completed
+  
+  // Informed Consent
+  consentGiven: boolean("consent_given").default(false),
+  consentText: text("consent_text"),
+  patientSignature: text("patient_signature"),
+  consentDate: varchar("consent_date"),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [

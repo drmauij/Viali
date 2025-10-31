@@ -274,6 +274,7 @@ export interface IStorage {
   amendAnesthesiaRecord(id: string, updates: Partial<AnesthesiaRecord>, reason: string, userId: string): Promise<AnesthesiaRecord>;
   
   // Pre-Op Assessment operations
+  getPreOpAssessments(hospitalId: string): Promise<Array<any>>;
   getPreOpAssessment(surgeryId: string): Promise<PreOpAssessment | undefined>;
   createPreOpAssessment(assessment: InsertPreOpAssessment): Promise<PreOpAssessment>;
   updatePreOpAssessment(id: string, updates: Partial<PreOpAssessment>): Promise<PreOpAssessment>;
@@ -1731,6 +1732,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Pre-Op Assessment operations
+  async getPreOpAssessments(hospitalId: string): Promise<Array<any>> {
+    const results = await db
+      .select()
+      .from(surgeries)
+      .leftJoin(preOpAssessments, eq(surgeries.id, preOpAssessments.surgeryId))
+      .where(eq(surgeries.hospitalId, hospitalId))
+      .orderBy(desc(surgeries.plannedDate));
+
+    return results.map(row => ({
+      surgery: row.surgeries,
+      assessment: row.preop_assessments,
+      // Status: planned (no assessment), draft (has assessment but not completed), completed (has signature)
+      status: !row.preop_assessments ? 'planned' : row.preop_assessments.status || 'draft',
+    }));
+  }
+
   async getPreOpAssessment(surgeryId: string): Promise<PreOpAssessment | undefined> {
     const [assessment] = await db
       .select()
