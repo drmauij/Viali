@@ -1,6 +1,8 @@
+import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Loader2 } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/dateUtils";
 
 type PreOpAssessmentData = {
@@ -70,7 +72,7 @@ type PreOpAssessmentData = {
 };
 
 interface PreOpOverviewProps {
-  data: PreOpAssessmentData;
+  surgeryId: string;
 }
 
 const illnessLabels: Record<string, string> = {
@@ -142,13 +144,37 @@ const installationLabels: Record<string, string> = {
   drainageTube: "Drainage",
 };
 
-export function PreOpOverview({ data }: PreOpOverviewProps) {
+export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
+  // Fetch pre-op assessment data
+  const { data: assessment, isLoading } = useQuery<PreOpAssessmentData>({
+    queryKey: [`/api/anesthesia/preop/surgery/${surgeryId}`],
+    enabled: !!surgeryId,
+  });
+
   // Helper to get selected items from boolean records
   const getSelectedItems = (record: Record<string, boolean>, labels: Record<string, string>) => {
-    return Object.entries(record)
+    return Object.entries(record || {})
       .filter(([_, value]) => value)
       .map(([key]) => labels[key] || key);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!assessment) {
+    return (
+      <div className="flex items-center justify-center h-full text-muted-foreground">
+        <p>No pre-operative assessment data available</p>
+      </div>
+    );
+  }
+
+  const data = assessment;
 
   // Helper to check if any field in a group has data
   const hasData = (condition: boolean) => condition;

@@ -14,6 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { Minus, Folder, Package, Loader2 } from "lucide-react";
@@ -53,6 +55,7 @@ export default function Op() {
   const [, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(true);
   const activeHospital = useActiveHospital();
+  const { toast } = useToast();
 
   // Get surgeryId from params
   const surgeryId = params.id;
@@ -736,6 +739,38 @@ export default function Op() {
             {isPreOpLoading ? (
               <div className="flex items-center justify-center h-64">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : !preOpAssessment ? (
+              <div className="flex flex-col items-center justify-center h-64 gap-4">
+                <p className="text-muted-foreground">No pre-operative assessment created yet</p>
+                <Button
+                  onClick={async () => {
+                    try {
+                      // Create a new assessment with status "draft"
+                      await apiRequest("POST", "/api/anesthesia/preop", {
+                        surgeryId: surgeryId,
+                        status: "draft",
+                        allergies: [],
+                        height: "",
+                        weight: "",
+                      });
+                      // Invalidate specific assessment query
+                      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${surgeryId}`] });
+                      // Invalidate list query with correct key shape (matches PreOpList.tsx)
+                      if (surgery) {
+                        queryClient.invalidateQueries({ 
+                          queryKey: ["/api/anesthesia/preop", { hospitalId: surgery.hospitalId }] 
+                        });
+                      }
+                      toast({ title: "Pre-op assessment created", description: "You can now add patient information" });
+                    } catch (error) {
+                      toast({ title: "Error", description: "Failed to create assessment", variant: "destructive" });
+                    }
+                  }}
+                  data-testid="button-create-preop"
+                >
+                  Create Pre-Op Assessment
+                </Button>
               </div>
             ) : (
               <PreOpOverview surgeryId={surgeryId!} />
