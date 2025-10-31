@@ -4715,7 +4715,7 @@ If unable to parse any drugs, return:
     }
   });
 
-  // Get assessment by surgery ID
+  // Get assessment by surgery ID (creates a draft if one doesn't exist)
   app.get('/api/anesthesia/preop/surgery/:surgeryId', isAuthenticated, async (req: any, res) => {
     try {
       const { surgeryId } = req.params;
@@ -4735,10 +4735,17 @@ If unable to parse any drugs, return:
         return res.status(403).json({ message: "Access denied" });
       }
 
-      const assessment = await storage.getPreOpAssessment(surgeryId);
+      let assessment = await storage.getPreOpAssessment(surgeryId);
       
+      // Auto-create a draft assessment if one doesn't exist yet
       if (!assessment) {
-        return res.status(404).json({ message: "Pre-op assessment not found" });
+        assessment = await storage.createPreOpAssessment({
+          surgeryId,
+          status: 'planned',
+          allergies: [],
+          anticoagulationMeds: [],
+          generalMeds: [],
+        });
       }
 
       res.json(assessment);
