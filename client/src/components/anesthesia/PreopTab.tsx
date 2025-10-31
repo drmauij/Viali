@@ -161,6 +161,71 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
     }
   }, [assessment, form]);
 
+  const createMutation = useMutation({
+    mutationFn: async (data: Partial<PreOpFormData>) => {
+      const response = await fetch('/api/anesthesia/preop', {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          surgeryId,
+          height: data.height,
+          weight: data.weight,
+          allergies: data.allergies || [],
+          allergiesOther: data.allergiesOther,
+          cave: data.cave,
+          asa: data.asa,
+          specialNotes: data.specialNotes,
+          anticoagulationMeds: data.anticoagulationMeds || [],
+          anticoagulationMedsOther: data.anticoagulationMedsOther,
+          generalMeds: data.generalMeds || [],
+          generalMedsOther: data.generalMedsOther,
+          medicationsNotes: data.medicationsNotes,
+          heartNotes: data.heartNotes,
+          lungNotes: data.lungNotes,
+          giKidneyMetabolicNotes: data.giKidneyMetabolicNotes,
+          neuroPsychSkeletalNotes: data.neuroPsychSkeletalNotes,
+          womanNotes: data.womanNotes,
+          noxenNotes: data.noxenNotes,
+          childrenNotes: data.childrenNotes,
+          mallampati: data.mallampati,
+          mouthOpening: data.mouthOpening,
+          dentition: data.dentition,
+          airwayDifficult: data.airwayDifficult,
+          airwayNotes: data.airwayNotes,
+          lastSolids: data.lastSolids,
+          lastClear: data.lastClear,
+          postOpICU: data.postOpICU,
+          anesthesiaOther: data.anesthesiaOther,
+          installationsOther: data.installationsOther,
+          surgicalApproval: data.surgicalApproval,
+          assessmentDate: data.assessmentDate,
+          doctorName: data.doctorName,
+          doctorSignature: data.doctorSignature,
+          consentGiven: data.consentGiven,
+          consentText: data.consentText,
+          patientSignature: data.patientSignature,
+          consentDate: data.consentDate,
+          status: (data.doctorSignature && data.patientSignature) ? "completed" : "draft",
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to create assessment");
+      }
+      
+      return response.json();
+    },
+    onSuccess: (newAssessment) => {
+      // Immediately update cache with new assessment to prevent duplicate creates
+      queryClient.setQueryData([`/api/anesthesia/preop/surgery/${surgeryId}`], newAssessment);
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${hospitalId}`] });
+      setLastSaved(new Date());
+    },
+  });
+
   const updateMutation = useMutation({
     mutationFn: async (data: Partial<PreOpFormData>) => {
       if (!assessment?.id) throw new Error("No assessment ID");
@@ -221,7 +286,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${surgeryId}`] });
-      queryClient.invalidateQueries({ queryKey: ["/api/anesthesia/preop", { hospitalId }] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${hospitalId}`] });
       setLastSaved(new Date());
     },
   });
@@ -229,36 +294,47 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
   const isCompleted = assessment?.status === "completed";
 
   const autoSave = useCallback(async () => {
-    if (!assessment?.id || form.formState.isSubmitting || isCompleted) return;
+    if (form.formState.isSubmitting || isCompleted) return;
+    
+    // Only auto-save if form has been modified (prevents empty assessments)
+    if (!form.formState.isDirty && !assessment?.id) return;
     
     const formData = form.getValues();
     setIsSaving(true);
     
     try {
-      await updateMutation.mutateAsync(formData);
+      if (!assessment?.id) {
+        await createMutation.mutateAsync(formData);
+      } else {
+        await updateMutation.mutateAsync(formData);
+      }
     } catch (error) {
       console.error("Auto-save failed:", error);
     } finally {
       setIsSaving(false);
     }
-  }, [assessment?.id, form, updateMutation, isCompleted]);
+  }, [assessment?.id, form, createMutation, updateMutation, isCompleted]);
 
   useEffect(() => {
-    if (!assessment?.id || isCompleted) return;
+    if (isCompleted) return;
     
     const interval = setInterval(() => {
       autoSave();
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [assessment?.id, isCompleted, autoSave]);
+  }, [isCompleted, autoSave]);
 
   const handleManualSave = async () => {
     const formData = form.getValues();
     setIsSaving(true);
     
     try {
-      await updateMutation.mutateAsync(formData);
+      if (!assessment?.id) {
+        await createMutation.mutateAsync(formData);
+      } else {
+        await updateMutation.mutateAsync(formData);
+      }
       toast({ title: "Saved", description: "Pre-op assessment saved successfully" });
     } catch (error) {
       toast({ title: "Error", description: "Failed to save assessment", variant: "destructive" });
@@ -282,7 +358,11 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
     setIsSaving(true);
     
     try {
-      await updateMutation.mutateAsync(formData);
+      if (!assessment?.id) {
+        await createMutation.mutateAsync(formData);
+      } else {
+        await updateMutation.mutateAsync(formData);
+      }
       toast({ 
         title: "Completed", 
         description: "Pre-op assessment completed and signed",
@@ -299,14 +379,6 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!assessment) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <p className="text-muted-foreground">No pre-op assessment found</p>
       </div>
     );
   }

@@ -128,6 +128,7 @@ function Router() {
             <Route path="/anesthesia/cases/:id" component={CaseDetail} />
             <Route path="/anesthesia/preop" component={PreOpList} />
             <Route path="/anesthesia/op" component={OpList} />
+            <Route path="/anesthesia/op/:id" component={Op} />
             <Route path="/anesthesia/cases/:id/op" component={Op} />
             <Route path="/anesthesia/pacu" component={Pacu} />
             <Route path="/anesthesia/cases/:id/pacu" component={CasePacu} />
