@@ -212,7 +212,7 @@ export default function Hospital() {
   // Surgery unit mutation
   const updateSurgeryUnitMutation = useMutation({
     mutationFn: async (surgeryUnitId: string | null) => {
-      const response = await apiRequest("PATCH", `/api/admin/${activeHospital?.id}/surgery-unit`, { surgeryUnitId });
+      const response = await apiRequest("PATCH", `/api/admin/${activeHospital?.id}/surgery-location`, { surgeryUnitId });
       return await response.json();
     },
     onSuccess: () => {
