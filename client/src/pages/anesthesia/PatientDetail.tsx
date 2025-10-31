@@ -465,6 +465,146 @@ export default function PatientDetail() {
     },
   });
 
+  // Fetch pre-op assessment for selected surgery
+  const { data: existingAssessment } = useQuery<any>({
+    queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`],
+    enabled: !!selectedCaseId && isPreOpOpen,
+  });
+
+  // Pre-fill form when assessment is fetched
+  useEffect(() => {
+    if (existingAssessment && isPreOpOpen) {
+      setAssessmentData({
+        height: existingAssessment.height || "",
+        weight: existingAssessment.weight || "",
+        allergies: existingAssessment.allergies || patient?.allergies || [],
+        allergiesOther: existingAssessment.allergiesOther || "",
+        cave: existingAssessment.cave || "",
+        asa: existingAssessment.asa || "",
+        specialNotes: existingAssessment.specialNotes || "",
+        anticoagulationMeds: existingAssessment.anticoagulationMeds || [],
+        anticoagulationMedsOther: existingAssessment.anticoagulationMedsOther || "",
+        generalMeds: existingAssessment.generalMeds || [],
+        generalMedsOther: existingAssessment.generalMedsOther || "",
+        medicationsNotes: existingAssessment.medicationsNotes || "",
+        heartIllnesses: existingAssessment.heartIllnesses || {
+          htn: false, chd: false, heartValve: false, arrhythmia: false, heartFailure: false,
+        },
+        heartNotes: existingAssessment.heartNotes || "",
+        lungIllnesses: existingAssessment.lungIllnesses || {
+          asthma: false, copd: false, sleepApnea: false, pneumonia: false,
+        },
+        lungNotes: existingAssessment.lungNotes || "",
+        giIllnesses: existingAssessment.giIllnesses || {
+          reflux: false, ibd: false, liverDisease: false,
+        },
+        kidneyIllnesses: existingAssessment.kidneyIllnesses || {
+          ckd: false, dialysis: false,
+        },
+        metabolicIllnesses: existingAssessment.metabolicIllnesses || {
+          diabetes: false, thyroid: false,
+        },
+        giKidneyMetabolicNotes: existingAssessment.giKidneyMetabolicNotes || "",
+        neuroIllnesses: existingAssessment.neuroIllnesses || {
+          stroke: false, epilepsy: false, parkinsons: false, dementia: false,
+        },
+        psychIllnesses: existingAssessment.psychIllnesses || {
+          depression: false, anxiety: false, psychosis: false,
+        },
+        skeletalIllnesses: existingAssessment.skeletalIllnesses || {
+          arthritis: false, osteoporosis: false, spineDisorders: false,
+        },
+        neuroPsychSkeletalNotes: existingAssessment.neuroPsychSkeletalNotes || "",
+        womanIssues: existingAssessment.womanIssues || {
+          pregnancy: false, breastfeeding: false, menopause: false, gynecologicalSurgery: false,
+        },
+        womanNotes: existingAssessment.womanNotes || "",
+        noxen: existingAssessment.noxen || {
+          nicotine: false, alcohol: false, drugs: false,
+        },
+        noxenNotes: existingAssessment.noxenNotes || "",
+        childrenIssues: existingAssessment.childrenIssues || {
+          prematurity: false, developmentalDelay: false, congenitalAnomalies: false, vaccination: false,
+        },
+        childrenNotes: existingAssessment.childrenNotes || "",
+        anesthesiaTechniques: existingAssessment.anesthesiaTechniques || {
+          general: false, spinal: false, epidural: false, regional: false, sedation: false, combined: false,
+        },
+        postOpICU: existingAssessment.postOpICU || false,
+        anesthesiaOther: existingAssessment.anesthesiaOther || "",
+        installations: existingAssessment.installations || {
+          arterialLine: false, centralLine: false, epiduralCatheter: false, urinaryCatheter: false, nasogastricTube: false, peripheralIV: false,
+        },
+        installationsOther: existingAssessment.installationsOther || "",
+        surgicalApprovalStatus: existingAssessment.surgicalApproval || "",
+        assessmentDate: existingAssessment.assessmentDate || new Date().toISOString().split('T')[0],
+        doctorName: existingAssessment.doctorName || "",
+        doctorSignature: existingAssessment.doctorSignature || "",
+      });
+
+      setConsentData({
+        general: existingAssessment.consentGiven || false,
+        regional: existingAssessment.consentRegional || false,
+        installations: existingAssessment.consentInstallations || false,
+        icuAdmission: existingAssessment.consentICU || false,
+        date: existingAssessment.consentDate || new Date().toISOString().split('T')[0],
+      });
+    } else if (isPreOpOpen && !existingAssessment && patient) {
+      // Reset form with just patient allergies for new assessments
+      setAssessmentData(prev => ({
+        ...prev,
+        allergies: patient.allergies || [],
+      }));
+    }
+  }, [existingAssessment, isPreOpOpen, patient]);
+
+  // Mutation to create pre-op assessment
+  const createPreOpMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest("POST", "/api/anesthesia/preop", {
+        surgeryId: selectedCaseId,
+        ...data,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${activeHospital?.id}`] });
+      toast({
+        title: "Saved",
+        description: "Pre-op assessment saved successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save assessment",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation to update pre-op assessment
+  const updatePreOpMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest("PATCH", `/api/anesthesia/preop/${existingAssessment?.id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${activeHospital?.id}`] });
+      toast({
+        title: "Updated",
+        description: "Pre-op assessment updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update assessment",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCreateCase = () => {
     if (!newCase.plannedSurgery || !newCase.plannedDate) {
       toast({
@@ -525,6 +665,29 @@ export default function PatientDetail() {
   const handleDeleteCase = () => {
     if (!deleteDialogSurgeryId) return;
     deleteSurgeryMutation.mutate(deleteDialogSurgeryId);
+  };
+
+  const handleSavePreOpAssessment = async () => {
+    const data = {
+      ...assessmentData,
+      surgicalApproval: assessmentData.surgicalApprovalStatus,
+      // Format consent data fields
+      consentGiven: consentData.general,
+      consentRegional: consentData.regional,
+      consentInstallations: consentData.installations,
+      consentICU: consentData.icuAdmission,
+      consentDate: consentData.date,
+      // Set status based on whether signatures are present
+      status: (assessmentData.doctorSignature) ? "completed" : "draft",
+    };
+
+    if (existingAssessment) {
+      // Update existing assessment
+      updatePreOpMutation.mutate(data);
+    } else {
+      // Create new assessment
+      createPreOpMutation.mutate(data);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -2586,8 +2749,21 @@ export default function PatientDetail() {
                     </div>
                   </div>
 
-                  <Button className="w-full" size="lg" data-testid="button-save-assessment">
-                    Save Pre-OP Assessment
+                  <Button 
+                    className="w-full" 
+                    size="lg" 
+                    onClick={handleSavePreOpAssessment}
+                    disabled={createPreOpMutation.isPending || updatePreOpMutation.isPending}
+                    data-testid="button-save-assessment"
+                  >
+                    {(createPreOpMutation.isPending || updatePreOpMutation.isPending) ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      existingAssessment ? "Update Pre-OP Assessment" : "Save Pre-OP Assessment"
+                    )}
                   </Button>
                 </CardContent>
               </Card>
@@ -2708,8 +2884,21 @@ export default function PatientDetail() {
                     </div>
                   </div>
 
-                  <Button className="w-full" size="lg" data-testid="button-save-consent">
-                    Save Informed Consent
+                  <Button 
+                    className="w-full" 
+                    size="lg" 
+                    onClick={handleSavePreOpAssessment}
+                    disabled={createPreOpMutation.isPending || updatePreOpMutation.isPending}
+                    data-testid="button-save-consent"
+                  >
+                    {(createPreOpMutation.isPending || updatePreOpMutation.isPending) ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Informed Consent"
+                    )}
                   </Button>
                 </CardContent>
               </Card>
