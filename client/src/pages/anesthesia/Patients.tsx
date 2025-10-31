@@ -15,6 +15,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Patient } from "@shared/schema";
 import { formatDate } from "@/lib/dateUtils";
+import { COMMON_ALLERGIES } from "@/constants/allergies";
 
 export default function Patients() {
   const [, setLocation] = useLocation();
@@ -33,15 +34,6 @@ export default function Patients() {
     allergyNotes: "",
     notes: "",
   });
-
-  const commonAllergies = [
-    "Latex",
-    "Penicillin",
-    "NSAIDs",
-    "Local anesthetics",
-    "Opioids",
-    "Muscle relaxants",
-  ];
 
   // Fetch patients
   const { data: patients = [], isLoading, error } = useQuery<Patient[]>({
@@ -249,7 +241,7 @@ export default function Patients() {
               <div className="space-y-3">
                 <Label>Allergies</Label>
                 <div className="grid grid-cols-2 gap-2">
-                  {commonAllergies.map((allergy) => (
+                  {COMMON_ALLERGIES.map((allergy) => (
                     <div key={allergy} className="flex items-center space-x-2">
                       <Checkbox
                         id={`allergy-${allergy}`}

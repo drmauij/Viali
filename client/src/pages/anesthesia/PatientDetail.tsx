@@ -20,6 +20,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import type { Surgery } from "@shared/schema";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { formatDate, formatDateTimeForInput } from "@/lib/dateUtils";
+import { COMMON_ALLERGIES } from "@/constants/allergies";
 
 type Patient = {
   id: string;
@@ -283,17 +284,6 @@ export default function PatientDetail() {
   });
   
   const [openSections, setOpenSections] = useState<string[]>(["general", "medications", "heart", "lungs", "gi-kidney-metabolic", "neuro-psych-skeletal", "woman", "noxen", "children", "anesthesia"]);
-
-  const commonAllergies = [
-    "Latex",
-    "Penicillin",
-    "Sulfa drugs",
-    "Aspirin",
-    "Iodine",
-    "Shellfish",
-    "Eggs",
-    "Peanuts",
-  ];
   
   const anticoagulationMedications = [
     "Aspirin",
@@ -1416,7 +1406,7 @@ export default function PatientDetail() {
                           <Label>Allergies</Label>
                           <div className="border rounded-lg p-3 space-y-2">
                             <div className="grid grid-cols-2 gap-2">
-                              {commonAllergies.map((allergy) => (
+                              {COMMON_ALLERGIES.map((allergy) => (
                                 <div key={allergy} className="flex items-center space-x-2">
                                   <Checkbox
                                     id={`allergy-${allergy}`}
@@ -2852,7 +2842,7 @@ export default function PatientDetail() {
             <div className="space-y-2">
               <Label>Allergies</Label>
               <div className="flex flex-wrap gap-2 mb-2">
-                {commonAllergies.map((allergy) => (
+                {COMMON_ALLERGIES.map((allergy) => (
                   <Badge
                     key={allergy}
                     variant={editForm.allergies.includes(allergy) ? "default" : "outline"}
