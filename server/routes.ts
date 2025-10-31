@@ -4784,7 +4784,7 @@ If unable to parse any drugs, return:
       const { id } = req.params;
       const userId = req.user.id;
 
-      const assessment = await storage.getPreOpAssessment(id);
+      const assessment = await storage.getPreOpAssessmentById(id);
       
       if (!assessment) {
         return res.status(404).json({ message: "Pre-op assessment not found" });

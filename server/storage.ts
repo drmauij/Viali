@@ -276,6 +276,7 @@ export interface IStorage {
   // Pre-Op Assessment operations
   getPreOpAssessments(hospitalId: string): Promise<Array<any>>;
   getPreOpAssessment(surgeryId: string): Promise<PreOpAssessment | undefined>;
+  getPreOpAssessmentById(id: string): Promise<PreOpAssessment | undefined>;
   createPreOpAssessment(assessment: InsertPreOpAssessment): Promise<PreOpAssessment>;
   updatePreOpAssessment(id: string, updates: Partial<PreOpAssessment>): Promise<PreOpAssessment>;
   
@@ -1769,6 +1770,14 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(preOpAssessments)
       .where(eq(preOpAssessments.surgeryId, surgeryId));
+    return assessment;
+  }
+
+  async getPreOpAssessmentById(id: string): Promise<PreOpAssessment | undefined> {
+    const [assessment] = await db
+      .select()
+      .from(preOpAssessments)
+      .where(eq(preOpAssessments.id, id));
     return assessment;
   }
 
