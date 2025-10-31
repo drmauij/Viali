@@ -667,7 +667,7 @@ export default function PatientDetail() {
     deleteSurgeryMutation.mutate(deleteDialogSurgeryId);
   };
 
-  const handleSavePreOpAssessment = async (markAsCompleted = false, overrideData = {}) => {
+  const handleSavePreOpAssessment = async (markAsCompleted = false, overrideData: any = {}) => {
     const data = {
       ...assessmentData,
       ...overrideData, // Allow overriding specific fields (like signature)
