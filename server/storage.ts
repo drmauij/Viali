@@ -264,6 +264,7 @@ export interface IStorage {
   getSurgery(id: string): Promise<Surgery | undefined>;
   createSurgery(surgery: InsertSurgery): Promise<Surgery>;
   updateSurgery(id: string, updates: Partial<Surgery>): Promise<Surgery>;
+  deleteSurgery(id: string): Promise<void>;
   
   // Anesthesia Record operations
   getAnesthesiaRecord(surgeryId: string): Promise<AnesthesiaRecord | undefined>;
@@ -1652,6 +1653,12 @@ export class DatabaseStorage implements IStorage {
       .where(eq(surgeries.id, id))
       .returning();
     return updated;
+  }
+
+  async deleteSurgery(id: string): Promise<void> {
+    await db
+      .delete(surgeries)
+      .where(eq(surgeries.id, id));
   }
 
   // Anesthesia Record operations

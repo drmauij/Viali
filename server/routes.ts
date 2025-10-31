@@ -4467,6 +4467,35 @@ If unable to parse any drugs, return:
     }
   });
 
+  // Delete surgery
+  app.delete('/api/anesthesia/surgeries/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      const surgery = await storage.getSurgery(id);
+      
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      // Verify user has access to this hospital
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      await storage.deleteSurgery(id);
+      
+      res.json({ message: "Surgery deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting surgery:", error);
+      res.status(500).json({ message: "Failed to delete surgery" });
+    }
+  });
+
   // 4. Anesthesia Records
 
   // Get record by surgery ID
