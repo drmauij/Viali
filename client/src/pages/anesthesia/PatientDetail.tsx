@@ -667,9 +667,10 @@ export default function PatientDetail() {
     deleteSurgeryMutation.mutate(deleteDialogSurgeryId);
   };
 
-  const handleSavePreOpAssessment = async () => {
+  const handleSavePreOpAssessment = async (markAsCompleted = false, overrideData = {}) => {
     const data = {
       ...assessmentData,
+      ...overrideData, // Allow overriding specific fields (like signature)
       surgicalApproval: assessmentData.surgicalApprovalStatus,
       // Format consent data fields
       consentGiven: consentData.general,
@@ -677,8 +678,8 @@ export default function PatientDetail() {
       consentInstallations: consentData.installations,
       consentICU: consentData.icuAdmission,
       consentDate: consentData.date,
-      // Set status based on whether signatures are present
-      status: (assessmentData.doctorSignature) ? "completed" : "draft",
+      // Set status - completed if explicitly marked or if signature present
+      status: markAsCompleted ? "completed" : ((overrideData.doctorSignature || assessmentData.doctorSignature) ? "completed" : "draft"),
     };
 
     if (existingAssessment) {
@@ -688,6 +689,93 @@ export default function PatientDetail() {
       // Create new assessment
       createPreOpMutation.mutate(data);
     }
+  };
+
+  // Auto-save functionality with debounce
+  const [autoSaveTimeout, setAutoSaveTimeout] = useState<NodeJS.Timeout | null>(null);
+  
+  useEffect(() => {
+    // Skip auto-save if assessment is already completed
+    if (existingAssessment?.status === "completed") {
+      return;
+    }
+
+    // Only auto-save if dialog is open and there's data
+    if (isPreOpOpen && selectedCaseId) {
+      // Clear existing timeout
+      if (autoSaveTimeout) {
+        clearTimeout(autoSaveTimeout);
+      }
+
+      // Set new timeout for auto-save (30 seconds after last change)
+      const timeout = setTimeout(() => {
+        // Only auto-save if there's meaningful user-entered data (not just defaults)
+        const hasUserData = assessmentData.height || assessmentData.weight || 
+                           assessmentData.asa || assessmentData.cave || 
+                           assessmentData.specialNotes ||
+                           assessmentData.anticoagulationMeds.length > 0 ||
+                           assessmentData.generalMeds.length > 0;
+        
+        // Don't auto-save if already completed
+        const isCompleted = existingAssessment?.status === "completed";
+        
+        if (hasUserData && !isCompleted && !createPreOpMutation.isPending && !updatePreOpMutation.isPending) {
+          handleSavePreOpAssessment(false); // Save as draft
+        }
+      }, 30000); // 30 seconds
+
+      setAutoSaveTimeout(timeout);
+
+      return () => {
+        if (timeout) clearTimeout(timeout);
+      };
+    }
+  }, [assessmentData, consentData, isPreOpOpen, selectedCaseId, existingAssessment?.status]);
+
+  const handleCompleteAssessment = () => {
+    // Validate required fields
+    if (!assessmentData.asa) {
+      toast({
+        title: "Missing ASA Classification",
+        description: "Please select ASA classification before completing the assessment",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!assessmentData.doctorName) {
+      toast({
+        title: "Missing Doctor Name",
+        description: "Please enter your name before completing the assessment",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Generate signature (simple text signature: name + timestamp)
+    const now = new Date();
+    const timestamp = now.toLocaleString('de-DE', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric', 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+    const signature = `${assessmentData.doctorName} - ${timestamp}`;
+    const today = now.toISOString().split('T')[0];
+
+    // Update local state for UI
+    setAssessmentData(prev => ({
+      ...prev,
+      doctorSignature: signature,
+      assessmentDate: today,
+    }));
+
+    // Save with signature override to avoid stale closure
+    handleSavePreOpAssessment(true, {
+      doctorSignature: signature,
+      assessmentDate: today,
+    });
   };
 
   const getStatusColor = (status: string) => {
@@ -2749,22 +2837,44 @@ export default function PatientDetail() {
                     </div>
                   </div>
 
-                  <Button 
-                    className="w-full" 
-                    size="lg" 
-                    onClick={handleSavePreOpAssessment}
-                    disabled={createPreOpMutation.isPending || updatePreOpMutation.isPending}
-                    data-testid="button-save-assessment"
-                  >
-                    {(createPreOpMutation.isPending || updatePreOpMutation.isPending) ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      existingAssessment ? "Update Pre-OP Assessment" : "Save Pre-OP Assessment"
-                    )}
-                  </Button>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Button 
+                      variant="outline"
+                      size="lg" 
+                      onClick={() => handleSavePreOpAssessment(false)}
+                      disabled={createPreOpMutation.isPending || updatePreOpMutation.isPending}
+                      data-testid="button-save-draft"
+                    >
+                      {(createPreOpMutation.isPending || updatePreOpMutation.isPending) ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save Draft"
+                      )}
+                    </Button>
+                    <Button 
+                      className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800" 
+                      size="lg" 
+                      onClick={handleCompleteAssessment}
+                      disabled={createPreOpMutation.isPending || updatePreOpMutation.isPending || existingAssessment?.status === "completed"}
+                      data-testid="button-complete-assessment"
+                    >
+                      {existingAssessment?.status === "completed" ? (
+                        "✓ Completed"
+                      ) : (
+                        (createPreOpMutation.isPending || updatePreOpMutation.isPending) ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Completing...
+                          </>
+                        ) : (
+                          "Complete & Sign"
+                        )
+                      )}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -2884,22 +2994,44 @@ export default function PatientDetail() {
                     </div>
                   </div>
 
-                  <Button 
-                    className="w-full" 
-                    size="lg" 
-                    onClick={handleSavePreOpAssessment}
-                    disabled={createPreOpMutation.isPending || updatePreOpMutation.isPending}
-                    data-testid="button-save-consent"
-                  >
-                    {(createPreOpMutation.isPending || updatePreOpMutation.isPending) ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      "Save Informed Consent"
-                    )}
-                  </Button>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Button 
+                      variant="outline"
+                      size="lg" 
+                      onClick={() => handleSavePreOpAssessment(false)}
+                      disabled={createPreOpMutation.isPending || updatePreOpMutation.isPending}
+                      data-testid="button-save-consent-draft"
+                    >
+                      {(createPreOpMutation.isPending || updatePreOpMutation.isPending) ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save Draft"
+                      )}
+                    </Button>
+                    <Button 
+                      className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800" 
+                      size="lg" 
+                      onClick={handleCompleteAssessment}
+                      disabled={createPreOpMutation.isPending || updatePreOpMutation.isPending || existingAssessment?.status === "completed"}
+                      data-testid="button-complete-consent"
+                    >
+                      {existingAssessment?.status === "completed" ? (
+                        "✓ Completed"
+                      ) : (
+                        (createPreOpMutation.isPending || updatePreOpMutation.isPending) ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Completing...
+                          </>
+                        ) : (
+                          "Complete & Sign"
+                        )
+                      )}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
