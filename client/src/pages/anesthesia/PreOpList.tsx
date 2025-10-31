@@ -7,19 +7,20 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, UserCircle, UserRound, Calendar, User, ClipboardList, FileCheck, FileEdit, CalendarPlus, Loader2 } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
 
 export default function PreOpList() {
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "planned" | "draft" | "completed">("all");
 
-  // Fetch user data
-  const { data: user } = useQuery<any>({ queryKey: ["/api/auth/user"] });
+  // Get active hospital
+  const activeHospital = useActiveHospital();
 
   // Fetch all pre-op assessments
   const { data: assessments, isLoading } = useQuery<any[]>({
-    queryKey: ["/api/anesthesia/preop", { hospitalId: user?.currentHospital }],
-    enabled: !!user?.currentHospital,
+    queryKey: [`/api/anesthesia/preop?hospitalId=${activeHospital?.id || ''}`],
+    enabled: !!activeHospital?.id,
   });
 
   // Filter and group assessments by status
