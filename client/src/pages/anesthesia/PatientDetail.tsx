@@ -116,6 +116,32 @@ export default function PatientDetail() {
   // Fetch hospital anesthesia settings
   const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings();
   
+  // Helper function to initialize illness state from hospital settings
+  const createEmptyIllnessState = (illnessList?: Array<{ id: string; label: string }>) => {
+    const state: Record<string, boolean> = {};
+    if (illnessList) {
+      illnessList.forEach(illness => {
+        state[illness.id] = false;
+      });
+    }
+    return state;
+  };
+
+  // Helper function to merge existing data with hospital settings structure
+  const mergeIllnessData = (
+    existingData: Record<string, boolean> | undefined,
+    illnessList?: Array<{ id: string; label: string }>
+  ) => {
+    const state: Record<string, boolean> = {};
+    if (illnessList) {
+      illnessList.forEach(illness => {
+        // Use existing value if available, otherwise false
+        state[illness.id] = existingData?.[illness.id] || false;
+      });
+    }
+    return state;
+  };
+  
   // Check for openPreOp query parameter and auto-open dialog
   useEffect(() => {
     if (!patient) return;
@@ -160,7 +186,7 @@ export default function PatientDetail() {
     date: new Date().toISOString().split('T')[0],
   });
   
-  const [assessmentData, setAssessmentData] = useState({
+  const [assessmentData, setAssessmentData] = useState(() => ({
     // General Data
     height: "",
     weight: "",
@@ -177,84 +203,36 @@ export default function PatientDetail() {
     generalMedsOther: "",
     medicationsNotes: "",
     
-    // Heart and Circulation
-    heartIllnesses: {
-      htn: false,
-      chd: false,
-      heartValve: false,
-      arrhythmia: false,
-      heartFailure: false,
-    },
+    // Heart and Circulation - dynamically initialized from settings
+    heartIllnesses: {} as Record<string, boolean>,
     heartNotes: "",
     
-    // Lungs
-    lungIllnesses: {
-      asthma: false,
-      copd: false,
-      sleepApnea: false,
-      pneumonia: false,
-    },
+    // Lungs - dynamically initialized from settings
+    lungIllnesses: {} as Record<string, boolean>,
     lungNotes: "",
     
-    // GI-Tract, Kidney and Metabolic
-    giIllnesses: {
-      reflux: false,
-      ibd: false,
-      liverDisease: false,
-    },
-    kidneyIllnesses: {
-      ckd: false,
-      dialysis: false,
-    },
-    metabolicIllnesses: {
-      diabetes: false,
-      thyroid: false,
-    },
+    // GI-Tract - dynamically initialized from settings
+    giIllnesses: {} as Record<string, boolean>,
+    kidneyIllnesses: {} as Record<string, boolean>,
+    metabolicIllnesses: {} as Record<string, boolean>,
     giKidneyMetabolicNotes: "",
     
-    // Neurological, Psychiatry and Skeletal
-    neuroIllnesses: {
-      stroke: false,
-      epilepsy: false,
-      parkinsons: false,
-      dementia: false,
-    },
-    psychIllnesses: {
-      depression: false,
-      anxiety: false,
-      psychosis: false,
-    },
-    skeletalIllnesses: {
-      arthritis: false,
-      osteoporosis: false,
-      spineDisorders: false,
-    },
+    // Neurological, Psychiatry and Skeletal - dynamically initialized from settings
+    neuroIllnesses: {} as Record<string, boolean>,
+    psychIllnesses: {} as Record<string, boolean>,
+    skeletalIllnesses: {} as Record<string, boolean>,
     neuroPsychSkeletalNotes: "",
     
-    // Woman (Gynecological)
-    womanIssues: {
-      pregnancy: false,
-      breastfeeding: false,
-      menopause: false,
-      gynecologicalSurgery: false,
-    },
+    // Woman (Gynecological) - dynamically initialized from settings
+    womanIssues: {} as Record<string, boolean>,
     womanNotes: "",
     
-    // Noxen (Substances)
-    noxen: {
-      nicotine: false,
-      alcohol: false,
-      drugs: false,
-    },
+    // Noxen (Substances) - dynamically initialized from settings
+    noxen: {} as Record<string, boolean>,
     noxenNotes: "",
     
-    // Children (Pediatric)
-    childrenIssues: {
-      prematurity: false,
-      developmentalDelay: false,
-      congenitalAnomalies: false,
-      vaccination: false,
-    },
+    // Children (Pediatric) - dynamically initialized from settings
+    childrenIssues: {} as Record<string, boolean>,
     childrenNotes: "",
     
     // Planned Anesthesia
@@ -286,7 +264,7 @@ export default function PatientDetail() {
     assessmentDate: new Date().toISOString().split('T')[0],
     doctorName: "",
     doctorSignature: "",
-  });
+  }));
   
   const [openSections, setOpenSections] = useState<string[]>(["general", "medications", "heart", "lungs", "gi-kidney-metabolic", "neuro-psych-skeletal", "woman", "noxen", "children", "anesthesia"]);
   
@@ -481,45 +459,23 @@ export default function PatientDetail() {
         generalMeds: existingAssessment.generalMeds || [],
         generalMedsOther: existingAssessment.generalMedsOther || "",
         medicationsNotes: existingAssessment.medicationsNotes || "",
-        heartIllnesses: existingAssessment.heartIllnesses || {
-          htn: false, chd: false, heartValve: false, arrhythmia: false, heartFailure: false,
-        },
+        heartIllnesses: mergeIllnessData(existingAssessment.heartIllnesses, anesthesiaSettings?.illnessLists?.cardiovascular),
         heartNotes: existingAssessment.heartNotes || "",
-        lungIllnesses: existingAssessment.lungIllnesses || {
-          asthma: false, copd: false, sleepApnea: false, pneumonia: false,
-        },
+        lungIllnesses: mergeIllnessData(existingAssessment.lungIllnesses, anesthesiaSettings?.illnessLists?.pulmonary),
         lungNotes: existingAssessment.lungNotes || "",
-        giIllnesses: existingAssessment.giIllnesses || {
-          reflux: false, ibd: false, liverDisease: false,
-        },
-        kidneyIllnesses: existingAssessment.kidneyIllnesses || {
-          ckd: false, dialysis: false,
-        },
-        metabolicIllnesses: existingAssessment.metabolicIllnesses || {
-          diabetes: false, thyroid: false,
-        },
+        giIllnesses: mergeIllnessData(existingAssessment.giIllnesses, anesthesiaSettings?.illnessLists?.gastrointestinal),
+        kidneyIllnesses: mergeIllnessData(existingAssessment.kidneyIllnesses, anesthesiaSettings?.illnessLists?.kidney),
+        metabolicIllnesses: mergeIllnessData(existingAssessment.metabolicIllnesses, anesthesiaSettings?.illnessLists?.metabolic),
         giKidneyMetabolicNotes: existingAssessment.giKidneyMetabolicNotes || "",
-        neuroIllnesses: existingAssessment.neuroIllnesses || {
-          stroke: false, epilepsy: false, parkinsons: false, dementia: false,
-        },
-        psychIllnesses: existingAssessment.psychIllnesses || {
-          depression: false, anxiety: false, psychosis: false,
-        },
-        skeletalIllnesses: existingAssessment.skeletalIllnesses || {
-          arthritis: false, osteoporosis: false, spineDisorders: false,
-        },
+        neuroIllnesses: mergeIllnessData(existingAssessment.neuroIllnesses, anesthesiaSettings?.illnessLists?.neurological),
+        psychIllnesses: mergeIllnessData(existingAssessment.psychIllnesses, anesthesiaSettings?.illnessLists?.psychiatric),
+        skeletalIllnesses: mergeIllnessData(existingAssessment.skeletalIllnesses, anesthesiaSettings?.illnessLists?.skeletal),
         neuroPsychSkeletalNotes: existingAssessment.neuroPsychSkeletalNotes || "",
-        womanIssues: existingAssessment.womanIssues || {
-          pregnancy: false, breastfeeding: false, menopause: false, gynecologicalSurgery: false,
-        },
+        womanIssues: mergeIllnessData(existingAssessment.womanIssues, anesthesiaSettings?.illnessLists?.woman),
         womanNotes: existingAssessment.womanNotes || "",
-        noxen: existingAssessment.noxen || {
-          nicotine: false, alcohol: false, drugs: false,
-        },
+        noxen: mergeIllnessData(existingAssessment.noxen, anesthesiaSettings?.illnessLists?.noxen),
         noxenNotes: existingAssessment.noxenNotes || "",
-        childrenIssues: existingAssessment.childrenIssues || {
-          prematurity: false, developmentalDelay: false, congenitalAnomalies: false, vaccination: false,
-        },
+        childrenIssues: mergeIllnessData(existingAssessment.childrenIssues, anesthesiaSettings?.illnessLists?.children),
         childrenNotes: existingAssessment.childrenNotes || "",
         anesthesiaTechniques: existingAssessment.anesthesiaTechniques || {
           general: false, spinal: false, epidural: false, regional: false, sedation: false, combined: false,
@@ -551,7 +507,28 @@ export default function PatientDetail() {
         doctorName: currentUserName,
       }));
     }
-  }, [existingAssessment, isPreOpOpen, patient, user]);
+  }, [existingAssessment, isPreOpOpen, patient, user, anesthesiaSettings]);
+
+  // Initialize illness state from hospital settings when opening pre-op for new assessments
+  useEffect(() => {
+    if (!existingAssessment && isPreOpOpen && anesthesiaSettings?.illnessLists) {
+      const lists = anesthesiaSettings.illnessLists;
+      setAssessmentData(prev => ({
+        ...prev,
+        heartIllnesses: createEmptyIllnessState(lists.cardiovascular),
+        lungIllnesses: createEmptyIllnessState(lists.pulmonary),
+        giIllnesses: createEmptyIllnessState(lists.gastrointestinal),
+        kidneyIllnesses: createEmptyIllnessState(lists.kidney),
+        metabolicIllnesses: createEmptyIllnessState(lists.metabolic),
+        neuroIllnesses: createEmptyIllnessState(lists.neurological),
+        psychIllnesses: createEmptyIllnessState(lists.psychiatric),
+        skeletalIllnesses: createEmptyIllnessState(lists.skeletal),
+        womanIssues: createEmptyIllnessState(lists.woman),
+        noxen: createEmptyIllnessState(lists.noxen),
+        childrenIssues: createEmptyIllnessState(lists.children),
+      }));
+    }
+  }, [existingAssessment, isPreOpOpen, anesthesiaSettings]);
 
   // Mutation to create pre-op assessment
   const createPreOpMutation = useMutation({
