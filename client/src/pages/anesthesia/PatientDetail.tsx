@@ -1823,66 +1823,20 @@ export default function PatientDetail() {
                           <div className="space-y-3">
                             <Label className="text-base font-semibold">Conditions</Label>
                             <div className="space-y-2">
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="htn"
-                                  checked={assessmentData.heartIllnesses.htn}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    heartIllnesses: {...assessmentData.heartIllnesses, htn: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-htn"
-                                />
-                                <Label htmlFor="htn" className="cursor-pointer">Hypertension (HTN)</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="chd"
-                                  checked={assessmentData.heartIllnesses.chd}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    heartIllnesses: {...assessmentData.heartIllnesses, chd: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-chd"
-                                />
-                                <Label htmlFor="chd" className="cursor-pointer">Coronary Heart Disease (CHD)</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="heartValve"
-                                  checked={assessmentData.heartIllnesses.heartValve}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    heartIllnesses: {...assessmentData.heartIllnesses, heartValve: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-heart-valve"
-                                />
-                                <Label htmlFor="heartValve" className="cursor-pointer">Heart Valve Disease</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="arrhythmia"
-                                  checked={assessmentData.heartIllnesses.arrhythmia}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    heartIllnesses: {...assessmentData.heartIllnesses, arrhythmia: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-arrhythmia"
-                                />
-                                <Label htmlFor="arrhythmia" className="cursor-pointer">Arrhythmia</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="heartFailure"
-                                  checked={assessmentData.heartIllnesses.heartFailure}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    heartIllnesses: {...assessmentData.heartIllnesses, heartFailure: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-heart-failure"
-                                />
-                                <Label htmlFor="heartFailure" className="cursor-pointer">Heart Failure</Label>
-                              </div>
+                              {(anesthesiaSettings?.illnessLists?.cardiovascular || []).map(({ id, label }) => (
+                                <div key={id} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={id}
+                                    checked={(assessmentData.heartIllnesses as any)[id] || false}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      heartIllnesses: {...assessmentData.heartIllnesses, [id]: checked as boolean}
+                                    })}
+                                    data-testid={`checkbox-${id}`}
+                                  />
+                                  <Label htmlFor={id} className="cursor-pointer">{label}</Label>
+                                </div>
+                              ))}
                             </div>
                           </div>
                           <div className="space-y-2">
@@ -1915,54 +1869,20 @@ export default function PatientDetail() {
                           <div className="space-y-3">
                             <Label className="text-base font-semibold">Conditions</Label>
                             <div className="space-y-2">
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="asthma"
-                                  checked={assessmentData.lungIllnesses.asthma}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    lungIllnesses: {...assessmentData.lungIllnesses, asthma: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-asthma"
-                                />
-                                <Label htmlFor="asthma" className="cursor-pointer">Asthma</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="copd"
-                                  checked={assessmentData.lungIllnesses.copd}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    lungIllnesses: {...assessmentData.lungIllnesses, copd: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-copd"
-                                />
-                                <Label htmlFor="copd" className="cursor-pointer">COPD</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="sleepApnea"
-                                  checked={assessmentData.lungIllnesses.sleepApnea}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    lungIllnesses: {...assessmentData.lungIllnesses, sleepApnea: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-sleep-apnea"
-                                />
-                                <Label htmlFor="sleepApnea" className="cursor-pointer">Sleep Apnea</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="pneumonia"
-                                  checked={assessmentData.lungIllnesses.pneumonia}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    lungIllnesses: {...assessmentData.lungIllnesses, pneumonia: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-pneumonia"
-                                />
-                                <Label htmlFor="pneumonia" className="cursor-pointer">Pneumonia History</Label>
-                              </div>
+                              {(anesthesiaSettings?.illnessLists?.pulmonary || []).map(({ id, label }) => (
+                                <div key={id} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={id}
+                                    checked={(assessmentData.lungIllnesses as any)[id] || false}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      lungIllnesses: {...assessmentData.lungIllnesses, [id]: checked as boolean}
+                                    })}
+                                    data-testid={`checkbox-${id}`}
+                                  />
+                                  <Label htmlFor={id} className="cursor-pointer">{label}</Label>
+                                </div>
+                              ))}
                             </div>
                           </div>
                           <div className="space-y-2">
@@ -1996,100 +1916,58 @@ export default function PatientDetail() {
                             <div className="space-y-2">
                               <Label className="text-base font-semibold">GI-Tract</Label>
                               <div className="border rounded-lg p-3 space-y-2">
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="reflux"
-                                    checked={assessmentData.giIllnesses.reflux}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      giIllnesses: {...assessmentData.giIllnesses, reflux: checked as boolean}
-                                    })}
-                                    data-testid="checkbox-reflux"
-                                  />
-                                  <Label htmlFor="reflux" className="cursor-pointer font-normal text-sm">Reflux</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="ibd"
-                                    checked={assessmentData.giIllnesses.ibd}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      giIllnesses: {...assessmentData.giIllnesses, ibd: checked as boolean}
-                                    })}
-                                    data-testid="checkbox-ibd"
-                                  />
-                                  <Label htmlFor="ibd" className="cursor-pointer font-normal text-sm">IBD</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="liverDisease"
-                                    checked={assessmentData.giIllnesses.liverDisease}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      giIllnesses: {...assessmentData.giIllnesses, liverDisease: checked as boolean}
-                                    })}
-                                    data-testid="checkbox-liver-disease"
-                                  />
-                                  <Label htmlFor="liverDisease" className="cursor-pointer font-normal text-sm">Liver Disease</Label>
-                                </div>
+                                {(anesthesiaSettings?.illnessLists?.gastrointestinal || []).map(({ id, label }) => (
+                                  <div key={id} className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={id}
+                                      checked={(assessmentData.giIllnesses as any)[id] || false}
+                                      onCheckedChange={(checked) => setAssessmentData({
+                                        ...assessmentData,
+                                        giIllnesses: {...assessmentData.giIllnesses, [id]: checked as boolean}
+                                      })}
+                                      data-testid={`checkbox-${id}`}
+                                    />
+                                    <Label htmlFor={id} className="cursor-pointer font-normal text-sm">{label}</Label>
+                                  </div>
+                                ))}
                               </div>
                             </div>
                             <div className="space-y-2">
                               <Label className="text-base font-semibold">Kidney</Label>
                               <div className="border rounded-lg p-3 space-y-2">
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="ckd"
-                                    checked={assessmentData.kidneyIllnesses.ckd}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      kidneyIllnesses: {...assessmentData.kidneyIllnesses, ckd: checked as boolean}
-                                    })}
-                                    data-testid="checkbox-ckd"
-                                  />
-                                  <Label htmlFor="ckd" className="cursor-pointer font-normal text-sm">Chronic Kidney Disease</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="dialysis"
-                                    checked={assessmentData.kidneyIllnesses.dialysis}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      kidneyIllnesses: {...assessmentData.kidneyIllnesses, dialysis: checked as boolean}
-                                    })}
-                                    data-testid="checkbox-dialysis"
-                                  />
-                                  <Label htmlFor="dialysis" className="cursor-pointer font-normal text-sm">Dialysis</Label>
-                                </div>
+                                {(anesthesiaSettings?.illnessLists?.kidney || []).map(({ id, label }) => (
+                                  <div key={id} className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={id}
+                                      checked={(assessmentData.kidneyIllnesses as any)[id] || false}
+                                      onCheckedChange={(checked) => setAssessmentData({
+                                        ...assessmentData,
+                                        kidneyIllnesses: {...assessmentData.kidneyIllnesses, [id]: checked as boolean}
+                                      })}
+                                      data-testid={`checkbox-${id}`}
+                                    />
+                                    <Label htmlFor={id} className="cursor-pointer font-normal text-sm">{label}</Label>
+                                  </div>
+                                ))}
                               </div>
                             </div>
                             <div className="space-y-2">
                               <Label className="text-base font-semibold">Metabolic</Label>
                               <div className="border rounded-lg p-3 space-y-2">
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="diabetes"
-                                    checked={assessmentData.metabolicIllnesses.diabetes}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      metabolicIllnesses: {...assessmentData.metabolicIllnesses, diabetes: checked as boolean}
-                                    })}
-                                    data-testid="checkbox-diabetes"
-                                  />
-                                  <Label htmlFor="diabetes" className="cursor-pointer font-normal text-sm">Diabetes</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="thyroid"
-                                    checked={assessmentData.metabolicIllnesses.thyroid}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      metabolicIllnesses: {...assessmentData.metabolicIllnesses, thyroid: checked as boolean}
-                                    })}
-                                    data-testid="checkbox-thyroid"
-                                  />
-                                  <Label htmlFor="thyroid" className="cursor-pointer font-normal text-sm">Thyroid Disorder</Label>
-                                </div>
+                                {(anesthesiaSettings?.illnessLists?.metabolic || []).map(({ id, label }) => (
+                                  <div key={id} className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={id}
+                                      checked={(assessmentData.metabolicIllnesses as any)[id] || false}
+                                      onCheckedChange={(checked) => setAssessmentData({
+                                        ...assessmentData,
+                                        metabolicIllnesses: {...assessmentData.metabolicIllnesses, [id]: checked as boolean}
+                                      })}
+                                      data-testid={`checkbox-${id}`}
+                                    />
+                                    <Label htmlFor={id} className="cursor-pointer font-normal text-sm">{label}</Label>
+                                  </div>
+                                ))}
                               </div>
                             </div>
                           </div>
@@ -2124,136 +2002,58 @@ export default function PatientDetail() {
                             <div className="space-y-2">
                               <Label className="text-base font-semibold">Neurological</Label>
                               <div className="border rounded-lg p-3 space-y-2">
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="stroke"
-                                    checked={assessmentData.neuroIllnesses.stroke}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      neuroIllnesses: {...assessmentData.neuroIllnesses, stroke: checked as boolean}
-                                    })}
-                                    data-testid="checkbox-stroke"
-                                  />
-                                  <Label htmlFor="stroke" className="cursor-pointer font-normal text-sm">Stroke History</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="epilepsy"
-                                    checked={assessmentData.neuroIllnesses.epilepsy}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      neuroIllnesses: {...assessmentData.neuroIllnesses, epilepsy: checked as boolean}
-                                    })}
-                                    data-testid="checkbox-epilepsy"
-                                  />
-                                  <Label htmlFor="epilepsy" className="cursor-pointer font-normal text-sm">Epilepsy</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="parkinsons"
-                                    checked={assessmentData.neuroIllnesses.parkinsons}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      neuroIllnesses: {...assessmentData.neuroIllnesses, parkinsons: checked as boolean}
-                                    })}
-                                    data-testid="checkbox-parkinsons"
-                                  />
-                                  <Label htmlFor="parkinsons" className="cursor-pointer font-normal text-sm">Parkinson's Disease</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="dementia"
-                                    checked={assessmentData.neuroIllnesses.dementia}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      neuroIllnesses: {...assessmentData.neuroIllnesses, dementia: checked as boolean}
-                                    })}
-                                    data-testid="checkbox-dementia"
-                                  />
-                                  <Label htmlFor="dementia" className="cursor-pointer font-normal text-sm">Dementia</Label>
-                                </div>
+                                {(anesthesiaSettings?.illnessLists?.neurological || []).map(({ id, label }) => (
+                                  <div key={id} className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={id}
+                                      checked={(assessmentData.neuroIllnesses as any)[id] || false}
+                                      onCheckedChange={(checked) => setAssessmentData({
+                                        ...assessmentData,
+                                        neuroIllnesses: {...assessmentData.neuroIllnesses, [id]: checked as boolean}
+                                      })}
+                                      data-testid={`checkbox-${id}`}
+                                    />
+                                    <Label htmlFor={id} className="cursor-pointer font-normal text-sm">{label}</Label>
+                                  </div>
+                                ))}
                               </div>
                             </div>
                             <div className="space-y-2">
                               <Label className="text-base font-semibold">Psychiatry</Label>
                               <div className="border rounded-lg p-3 space-y-2">
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="depression"
-                                    checked={assessmentData.psychIllnesses.depression}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      psychIllnesses: {...assessmentData.psychIllnesses, depression: checked as boolean}
-                                    })}
-                                    data-testid="checkbox-depression"
-                                  />
-                                  <Label htmlFor="depression" className="cursor-pointer font-normal text-sm">Depression</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="anxiety"
-                                    checked={assessmentData.psychIllnesses.anxiety}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      psychIllnesses: {...assessmentData.psychIllnesses, anxiety: checked as boolean}
-                                    })}
-                                    data-testid="checkbox-anxiety"
-                                  />
-                                  <Label htmlFor="anxiety" className="cursor-pointer font-normal text-sm">Anxiety</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="psychosis"
-                                    checked={assessmentData.psychIllnesses.psychosis}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      psychIllnesses: {...assessmentData.psychIllnesses, psychosis: checked as boolean}
-                                    })}
-                                    data-testid="checkbox-psychosis"
-                                  />
-                                  <Label htmlFor="psychosis" className="cursor-pointer font-normal text-sm">Psychosis</Label>
-                                </div>
+                                {(anesthesiaSettings?.illnessLists?.psychiatric || []).map(({ id, label }) => (
+                                  <div key={id} className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={id}
+                                      checked={(assessmentData.psychIllnesses as any)[id] || false}
+                                      onCheckedChange={(checked) => setAssessmentData({
+                                        ...assessmentData,
+                                        psychIllnesses: {...assessmentData.psychIllnesses, [id]: checked as boolean}
+                                      })}
+                                      data-testid={`checkbox-${id}`}
+                                    />
+                                    <Label htmlFor={id} className="cursor-pointer font-normal text-sm">{label}</Label>
+                                  </div>
+                                ))}
                               </div>
                             </div>
                             <div className="space-y-2">
                               <Label className="text-base font-semibold">Skeletal</Label>
                               <div className="border rounded-lg p-3 space-y-2">
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="arthritis"
-                                    checked={assessmentData.skeletalIllnesses.arthritis}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      skeletalIllnesses: {...assessmentData.skeletalIllnesses, arthritis: checked as boolean}
-                                    })}
-                                    data-testid="checkbox-arthritis"
-                                  />
-                                  <Label htmlFor="arthritis" className="cursor-pointer font-normal text-sm">Arthritis</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="osteoporosis"
-                                    checked={assessmentData.skeletalIllnesses.osteoporosis}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      skeletalIllnesses: {...assessmentData.skeletalIllnesses, osteoporosis: checked as boolean}
-                                    })}
-                                    data-testid="checkbox-osteoporosis"
-                                  />
-                                  <Label htmlFor="osteoporosis" className="cursor-pointer font-normal text-sm">Osteoporosis</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="spineDisorders"
-                                    checked={assessmentData.skeletalIllnesses.spineDisorders}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      skeletalIllnesses: {...assessmentData.skeletalIllnesses, spineDisorders: checked as boolean}
-                                    })}
-                                    data-testid="checkbox-spine-disorders"
-                                  />
-                                  <Label htmlFor="spineDisorders" className="cursor-pointer font-normal text-sm">Spine Disorders</Label>
-                                </div>
+                                {(anesthesiaSettings?.illnessLists?.skeletal || []).map(({ id, label }) => (
+                                  <div key={id} className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={id}
+                                      checked={(assessmentData.skeletalIllnesses as any)[id] || false}
+                                      onCheckedChange={(checked) => setAssessmentData({
+                                        ...assessmentData,
+                                        skeletalIllnesses: {...assessmentData.skeletalIllnesses, [id]: checked as boolean}
+                                      })}
+                                      data-testid={`checkbox-${id}`}
+                                    />
+                                    <Label htmlFor={id} className="cursor-pointer font-normal text-sm">{label}</Label>
+                                  </div>
+                                ))}
                               </div>
                             </div>
                           </div>
@@ -2287,54 +2087,20 @@ export default function PatientDetail() {
                           <div className="space-y-3">
                             <Label className="text-base font-semibold">Conditions</Label>
                             <div className="space-y-2">
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="pregnancy"
-                                  checked={assessmentData.womanIssues.pregnancy}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    womanIssues: {...assessmentData.womanIssues, pregnancy: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-pregnancy"
-                                />
-                                <Label htmlFor="pregnancy" className="cursor-pointer">Pregnancy</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="breastfeeding"
-                                  checked={assessmentData.womanIssues.breastfeeding}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    womanIssues: {...assessmentData.womanIssues, breastfeeding: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-breastfeeding"
-                                />
-                                <Label htmlFor="breastfeeding" className="cursor-pointer">Breastfeeding</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="menopause"
-                                  checked={assessmentData.womanIssues.menopause}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    womanIssues: {...assessmentData.womanIssues, menopause: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-menopause"
-                                />
-                                <Label htmlFor="menopause" className="cursor-pointer">Menopause</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="gynecologicalSurgery"
-                                  checked={assessmentData.womanIssues.gynecologicalSurgery}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    womanIssues: {...assessmentData.womanIssues, gynecologicalSurgery: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-gynecological-surgery"
-                                />
-                                <Label htmlFor="gynecologicalSurgery" className="cursor-pointer">Gynecological Surgery</Label>
-                              </div>
+                              {(anesthesiaSettings?.illnessLists?.woman || []).map(({ id, label }) => (
+                                <div key={id} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={id}
+                                    checked={(assessmentData.womanIssues as any)[id] || false}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      womanIssues: {...assessmentData.womanIssues, [id]: checked as boolean}
+                                    })}
+                                    data-testid={`checkbox-${id}`}
+                                  />
+                                  <Label htmlFor={id} className="cursor-pointer">{label}</Label>
+                                </div>
+                              ))}
                             </div>
                           </div>
                           <div className="space-y-2">
@@ -2367,54 +2133,20 @@ export default function PatientDetail() {
                           <div className="space-y-3">
                             <Label className="text-base font-semibold">Conditions</Label>
                             <div className="space-y-2">
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="prematurity"
-                                  checked={assessmentData.childrenIssues.prematurity}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    childrenIssues: {...assessmentData.childrenIssues, prematurity: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-prematurity"
-                                />
-                                <Label htmlFor="prematurity" className="cursor-pointer">Prematurity</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="developmentalDelay"
-                                  checked={assessmentData.childrenIssues.developmentalDelay}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    childrenIssues: {...assessmentData.childrenIssues, developmentalDelay: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-developmental-delay"
-                                />
-                                <Label htmlFor="developmentalDelay" className="cursor-pointer">Developmental Delay</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="congenitalAnomalies"
-                                  checked={assessmentData.childrenIssues.congenitalAnomalies}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    childrenIssues: {...assessmentData.childrenIssues, congenitalAnomalies: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-congenital-anomalies"
-                                />
-                                <Label htmlFor="congenitalAnomalies" className="cursor-pointer">Congenital Anomalies</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="vaccination"
-                                  checked={assessmentData.childrenIssues.vaccination}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    childrenIssues: {...assessmentData.childrenIssues, vaccination: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-vaccination"
-                                />
-                                <Label htmlFor="vaccination" className="cursor-pointer">Vaccination Status</Label>
-                              </div>
+                              {(anesthesiaSettings?.illnessLists?.children || []).map(({ id, label }) => (
+                                <div key={id} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={id}
+                                    checked={(assessmentData.childrenIssues as any)[id] || false}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      childrenIssues: {...assessmentData.childrenIssues, [id]: checked as boolean}
+                                    })}
+                                    data-testid={`checkbox-${id}`}
+                                  />
+                                  <Label htmlFor={id} className="cursor-pointer">{label}</Label>
+                                </div>
+                              ))}
                             </div>
                           </div>
                           <div className="space-y-2">
@@ -2447,42 +2179,20 @@ export default function PatientDetail() {
                           <div className="space-y-3">
                             <Label className="text-base font-semibold">Substances</Label>
                             <div className="space-y-2">
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="nicotine"
-                                  checked={assessmentData.noxen.nicotine}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    noxen: {...assessmentData.noxen, nicotine: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-nicotine"
-                                />
-                                <Label htmlFor="nicotine" className="cursor-pointer">Nicotine</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="alcohol"
-                                  checked={assessmentData.noxen.alcohol}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    noxen: {...assessmentData.noxen, alcohol: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-alcohol"
-                                />
-                                <Label htmlFor="alcohol" className="cursor-pointer">Alcohol</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Checkbox
-                                  id="drugs"
-                                  checked={assessmentData.noxen.drugs}
-                                  onCheckedChange={(checked) => setAssessmentData({
-                                    ...assessmentData,
-                                    noxen: {...assessmentData.noxen, drugs: checked as boolean}
-                                  })}
-                                  data-testid="checkbox-drugs"
-                                />
-                                <Label htmlFor="drugs" className="cursor-pointer">Drugs</Label>
-                              </div>
+                              {(anesthesiaSettings?.illnessLists?.noxen || []).map(({ id, label }) => (
+                                <div key={id} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={id}
+                                    checked={(assessmentData.noxen as any)[id] || false}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      noxen: {...assessmentData.noxen, [id]: checked as boolean}
+                                    })}
+                                    data-testid={`checkbox-${id}`}
+                                  />
+                                  <Label htmlFor={id} className="cursor-pointer">{label}</Label>
+                                </div>
+                              ))}
                             </div>
                           </div>
                           <div className="space-y-2">
