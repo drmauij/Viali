@@ -17,6 +17,7 @@ interface QuickCreateSurgeryDialogProps {
   onOpenChange: (open: boolean) => void;
   hospitalId: string;
   initialDate: Date;
+  initialEndDate?: Date;
   initialRoomId?: string;
   surgeryRooms: any[];
 }
@@ -26,6 +27,7 @@ export default function QuickCreateSurgeryDialog({
   onOpenChange,
   hospitalId,
   initialDate,
+  initialEndDate,
   initialRoomId,
   surgeryRooms,
 }: QuickCreateSurgeryDialogProps) {
@@ -33,10 +35,29 @@ export default function QuickCreateSurgeryDialog({
   const [patientSearchOpen, setPatientSearchOpen] = useState(false);
   const [showNewPatientForm, setShowNewPatientForm] = useState(false);
   
+  // Helper to format date for datetime-local input (preserves local timezone)
+  const formatDateTimeLocal = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
+  // Calculate default end date (3 hours after start if not provided)
+  const getDefaultEndDate = () => {
+    if (initialEndDate) return initialEndDate;
+    const end = new Date(initialDate);
+    end.setHours(end.getHours() + 3);
+    return end;
+  };
+
   // Form state
   const [selectedPatientId, setSelectedPatientId] = useState<string>("");
   const [surgeryRoomId, setSurgeryRoomId] = useState(initialRoomId || "");
-  const [plannedDate, setPlannedDate] = useState(initialDate.toISOString().slice(0, 16));
+  const [plannedDate, setPlannedDate] = useState(formatDateTimeLocal(initialDate));
+  const [plannedEndDate, setPlannedEndDate] = useState(formatDateTimeLocal(getDefaultEndDate()));
   const [plannedSurgery, setPlannedSurgery] = useState("");
   const [surgeon, setSurgeon] = useState("");
   
@@ -103,7 +124,8 @@ export default function QuickCreateSurgeryDialog({
   const resetForm = () => {
     setSelectedPatientId("");
     setSurgeryRoomId(initialRoomId || "");
-    setPlannedDate(initialDate.toISOString().slice(0, 16));
+    setPlannedDate(formatDateTimeLocal(initialDate));
+    setPlannedEndDate(formatDateTimeLocal(getDefaultEndDate()));
     setPlannedSurgery("");
     setSurgeon("");
     setShowNewPatientForm(false);
@@ -142,11 +164,24 @@ export default function QuickCreateSurgeryDialog({
       return;
     }
 
+    // Validate end time is after start time
+    const startDate = new Date(plannedDate);
+    const endDate = new Date(plannedEndDate);
+    if (endDate <= startDate) {
+      toast({
+        title: "Invalid Duration",
+        description: "End time must be after start time.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     createSurgeryMutation.mutate({
       hospitalId,
       patientId: selectedPatientId,
       surgeryRoomId,
-      plannedDate: new Date(plannedDate).toISOString(),
+      plannedDate: startDate.toISOString(),
+      actualEndTime: endDate.toISOString(),
       plannedSurgery: plannedSurgery.trim(),
       surgeon: surgeon.trim() || undefined,
       status: "planned",
@@ -309,15 +344,27 @@ export default function QuickCreateSurgeryDialog({
           </div>
 
           {/* Planned Date & Time */}
-          <div className="space-y-2">
-            <Label htmlFor="planned-date">Planned Date & Time *</Label>
-            <Input
-              id="planned-date"
-              type="datetime-local"
-              value={plannedDate}
-              onChange={(e) => setPlannedDate(e.target.value)}
-              data-testid="input-planned-date"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="planned-date">Start Time *</Label>
+              <Input
+                id="planned-date"
+                type="datetime-local"
+                value={plannedDate}
+                onChange={(e) => setPlannedDate(e.target.value)}
+                data-testid="input-planned-date"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="planned-end-date">End Time *</Label>
+              <Input
+                id="planned-end-date"
+                type="datetime-local"
+                value={plannedEndDate}
+                onChange={(e) => setPlannedEndDate(e.target.value)}
+                data-testid="input-planned-end-date"
+              />
+            </div>
           </div>
 
           {/* Planned Surgery */}
