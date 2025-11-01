@@ -484,3 +484,46 @@
     max-width: 1400px;
   }
 }
+
+/* DayPilot Calendar Event Buttons (Active Areas) */
+.event-button {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  padding: 2px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.event-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.event-button:active {
+  transform: scale(0.95);
+}
+
+.event-button-preop {
+  color: #0066cc;
+  border-color: #0066cc;
+}
+
+.event-button-preop:hover {
+  background: #0066cc;
+  color: white;
+}
+
+.event-button-op {
+  color: #16a34a;
+  border-color: #16a34a;
+}
+
+.event-button-op:hover {
+  background: #16a34a;
+  color: white;
+}

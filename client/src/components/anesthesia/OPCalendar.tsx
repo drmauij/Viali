@@ -189,6 +189,42 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         </div>
       `;
       
+      // Add clickable buttons using Active Areas
+      const areas = [];
+      
+      // Pre-OP button
+      areas.push({
+        top: 5,
+        right: 35,
+        width: 30,
+        height: 18,
+        html: "Pre-OP",
+        cssClass: "event-button event-button-preop",
+        onClick: (areaArgs: any) => {
+          if (onEventClick) {
+            onEventClick(surgery.id);
+            // TODO: Open specifically to Pre-OP tab
+          }
+        },
+        visibility: "Visible" as const,
+      });
+      
+      // OP button
+      areas.push({
+        top: 5,
+        right: 5,
+        width: 25,
+        height: 18,
+        html: "OP",
+        cssClass: "event-button event-button-op",
+        onClick: (areaArgs: any) => {
+          if (onEventClick) {
+            onEventClick(surgery.id);
+          }
+        },
+        visibility: "Visible" as const,
+      });
+      
       return {
         id: surgery.id,
         text: displayHtml,
@@ -196,10 +232,11 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         start: plannedDate.toISOString(),
         end: endTime.toISOString(),
         resource: surgery.surgeryRoomId || (surgeryRooms[0]?.id || "unassigned"),
+        areas: areas,
         ...colorScheme,
       };
     });
-  }, [surgeries, allPatients, surgeryRooms, preopAssessments]);
+  }, [surgeries, allPatients, surgeryRooms, preopAssessments, onEventClick]);
 
   // Convert surgery rooms to resources format
   const resources = useMemo(() => {
@@ -346,42 +383,6 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     }
   };
 
-  const handleEventRightClick = (args: any) => {
-    const surgeryId = args.e.id();
-    const surgery = surgeries.find((s: any) => s.id === surgeryId);
-    
-    if (!surgery) return;
-    
-    const menu = new DayPilot.Menu({
-      items: [
-        {
-          text: "View Details",
-          onClick: () => {
-            if (onEventClick) {
-              onEventClick(surgeryId);
-            }
-          }
-        },
-        {
-          text: "-"
-        },
-        {
-          text: surgery.status === "cancelled" ? "Reactivate Surgery" : "Cancel Surgery",
-          onClick: () => {
-            if (surgery.status === "cancelled") {
-              reactivateSurgeryMutation.mutate(surgeryId);
-            } else {
-              if (confirm("Are you sure you want to cancel this surgery?")) {
-                cancelSurgeryMutation.mutate(surgeryId);
-              }
-            }
-          }
-        }
-      ]
-    });
-    
-    menu.show(args.e);
-  };
 
   const goToToday = () => {
     setSelectedDate(new Date());
@@ -563,12 +564,13 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             events={calendarEvents}
             onEventClick={handleEventClick}
             onEventMove={handleEventMove}
-            onEventRightClick={handleEventRightClick}
             onEventResize={handleEventResize}
             onTimeRangeSelected={handleTimeRangeSelect}
             timeRangeSelectedHandling="Enabled"
             eventMoveHandling="Update"
             eventResizeHandling="Update"
+            eventTapAndHoldHandling="Move"
+            timeRangeTapAndHoldHandling="TimeRangeSelecting"
             theme="calendar_white"
             timeFormat="Clock24Hours"
             locale="en-us"
