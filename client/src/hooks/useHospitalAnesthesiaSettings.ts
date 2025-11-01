@@ -10,17 +10,17 @@ export type HospitalAnesthesiaSettings = {
     general?: string[];
   };
   illnessLists?: {
-    cardiovascular?: string[];
-    pulmonary?: string[];
-    gastrointestinal?: string[];
-    kidney?: string[];
-    metabolic?: string[];
-    neurological?: string[];
-    psychiatric?: string[];
-    skeletal?: string[];
-    woman?: string[];
-    noxen?: string[];
-    children?: string[];
+    cardiovascular?: Array<{ id: string; label: string }>;
+    pulmonary?: Array<{ id: string; label: string }>;
+    gastrointestinal?: Array<{ id: string; label: string }>;
+    kidney?: Array<{ id: string; label: string }>;
+    metabolic?: Array<{ id: string; label: string }>;
+    neurological?: Array<{ id: string; label: string }>;
+    psychiatric?: Array<{ id: string; label: string }>;
+    skeletal?: Array<{ id: string; label: string }>;
+    woman?: Array<{ id: string; label: string }>;
+    noxen?: Array<{ id: string; label: string }>;
+    children?: Array<{ id: string; label: string }>;
   };
   checklistItems?: {
     signIn?: string[];
