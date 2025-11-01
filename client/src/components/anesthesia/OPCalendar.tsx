@@ -3,10 +3,13 @@ import { DayPilot, DayPilotCalendar, DayPilotMonth } from "@daypilot/daypilot-li
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar, CalendarDays, CalendarRange, Building2 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useLocation } from "wouter";
 import { formatDateHeader as formatDateHeaderUtil, formatMonthYear } from "@/lib/dateUtils";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import QuickCreateSurgeryDialog from "./QuickCreateSurgeryDialog";
 
 type ViewType = "day" | "week" | "month";
 
@@ -19,6 +22,14 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const activeHospital = useActiveHospital();
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  
+  // Quick create dialog state
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [quickCreateData, setQuickCreateData] = useState<{
+    date: Date;
+    roomId?: string;
+  } | null>(null);
 
   // Fetch surgery rooms for the active hospital
   const { data: surgeryRooms = [], isLoading } = useQuery<any[]>({
@@ -93,6 +104,13 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       { barColor: "#dc2626", backColor: "#fef2f2", borderColor: "#fca5a5", fontColor: "#b91c1c" }, // Red
     ];
 
+    const cancelledColors = {
+      barColor: "#6b7280",
+      backColor: "#f3f4f6",
+      borderColor: "#d1d5db",
+      fontColor: "#6b7280",
+    };
+
     return surgeries.map((surgery: any, index: number) => {
       const patient = allPatients.find((p: any) => p.id === surgery.patientId);
       const patientName = patient ? `${patient.surname}, ${patient.firstName}` : "Unknown Patient";
@@ -102,11 +120,15 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       const endTime = new Date(plannedDate);
       endTime.setHours(endTime.getHours() + 3);
       
-      const colorScheme = colors[index % colors.length];
+      const isCancelled = surgery.status === "cancelled";
+      const colorScheme = isCancelled ? cancelledColors : colors[index % colors.length];
+      const displayText = isCancelled 
+        ? `[CANCELLED] ${patientName} - ${surgery.plannedSurgery}`
+        : `${patientName} - ${surgery.plannedSurgery}`;
       
       return {
         id: surgery.id,
-        text: `${patientName} - ${surgery.plannedSurgery}`,
+        text: displayText,
         start: plannedDate.toISOString(),
         end: surgery.actualEndTime || endTime.toISOString(),
         resource: surgery.surgeryRoomId || (surgeryRooms[0]?.id || "unassigned"),
@@ -129,6 +151,68 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     }
   };
 
+  // Mutation for rescheduling surgery
+  const rescheduleMutation = useMutation({
+    mutationFn: async ({ id, plannedDate, surgeryRoomId }: { id: string; plannedDate: Date; surgeryRoomId: string }) => {
+      const response = await apiRequest("PATCH", `/api/anesthesia/surgeries/${id}`, {
+        plannedDate: plannedDate.toISOString(),
+        surgeryRoomId,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
+      toast({
+        title: "Surgery Rescheduled",
+        description: "Surgery has been successfully rescheduled.",
+      });
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
+      toast({
+        title: "Reschedule Failed",
+        description: "Failed to reschedule surgery. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation for cancelling surgery
+  const cancelSurgeryMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("PATCH", `/api/anesthesia/surgeries/${id}`, {
+        status: "cancelled",
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
+      toast({
+        title: "Surgery Cancelled",
+        description: "Surgery has been cancelled successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Cancellation Failed",
+        description: "Failed to cancel surgery. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEventMove = (args: any) => {
+    const surgeryId = args.e.id();
+    const newStart = args.newStart.toDate ? args.newStart.toDate() : new Date(args.newStart);
+    const newRoomId = args.newResource || args.e.resource();
+    
+    rescheduleMutation.mutate({
+      id: surgeryId,
+      plannedDate: newStart,
+      surgeryRoomId: newRoomId,
+    });
+  };
+
   const handleDayClick = (args: any) => {
     // Zoom to day view when clicking a day in month or week view
     if (currentView === "month" || currentView === "week") {
@@ -137,6 +221,66 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       setSelectedDate(selectedDay);
       setCurrentView("day");
     }
+  };
+
+  const handleTimeRangeSelect = (args: any) => {
+    if (currentView === "day") {
+      const startDate = args.start.toDate ? args.start.toDate() : new Date(args.start);
+      const roomId = args.resource;
+      setQuickCreateData({ date: startDate, roomId });
+      setQuickCreateOpen(true);
+    }
+  };
+
+  const handleEventRightClick = (args: any) => {
+    const surgeryId = args.e.id();
+    const surgery = surgeries.find((s: any) => s.id === surgeryId);
+    
+    if (!surgery) return;
+    
+    const menu = new DayPilot.Menu({
+      items: [
+        {
+          text: "View Details",
+          onClick: () => {
+            if (onEventClick) {
+              onEventClick(surgeryId);
+            }
+          }
+        },
+        {
+          text: "-"
+        },
+        {
+          text: surgery.status === "cancelled" ? "Reactivate Surgery" : "Cancel Surgery",
+          onClick: () => {
+            if (surgery.status === "cancelled") {
+              // Reactivate
+              rescheduleMutation.mutate({
+                id: surgeryId,
+                plannedDate: new Date(surgery.plannedDate),
+                surgeryRoomId: surgery.surgeryRoomId,
+              });
+              apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
+                status: "planned",
+              }).then(() => {
+                queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
+                toast({
+                  title: "Surgery Reactivated",
+                  description: "Surgery has been reactivated successfully.",
+                });
+              });
+            } else {
+              if (confirm("Are you sure you want to cancel this surgery?")) {
+                cancelSurgeryMutation.mutate(surgeryId);
+              }
+            }
+          }
+        }
+      ]
+    });
+    
+    menu.show(args.e);
   };
 
   const goToToday = () => {
@@ -318,9 +462,14 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             columns={resources}
             events={calendarEvents}
             onEventClick={handleEventClick}
+            onEventMove={handleEventMove}
+            onEventRightClick={handleEventRightClick}
+            onTimeRangeSelected={handleTimeRangeSelect}
+            eventMoveHandling="Update"
             theme="calendar_white"
             timeFormat="Clock24Hours"
             locale="en-us"
+            contextMenu={new DayPilot.Menu({ items: [] })}
           />
         )}
 
@@ -357,6 +506,18 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           />
         )}
         </div>
+      )}
+
+      {/* Quick Create Surgery Dialog */}
+      {quickCreateOpen && quickCreateData && (
+        <QuickCreateSurgeryDialog
+          open={quickCreateOpen}
+          onOpenChange={setQuickCreateOpen}
+          hospitalId={activeHospital?.id || ""}
+          initialDate={quickCreateData.date}
+          initialRoomId={quickCreateData.roomId}
+          surgeryRooms={surgeryRooms}
+        />
       )}
 
       {/* Custom styles to match UI */}
