@@ -15,12 +15,13 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Patient } from "@shared/schema";
 import { formatDate } from "@/lib/dateUtils";
-import { COMMON_ALLERGIES } from "@/constants/allergies";
+import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 
 export default function Patients() {
   const [, setLocation] = useLocation();
   const activeHospital = useActiveHospital();
   const { toast } = useToast();
+  const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings();
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newPatient, setNewPatient] = useState({
@@ -241,7 +242,7 @@ export default function Patients() {
               <div className="space-y-3">
                 <Label>Allergies</Label>
                 <div className="grid grid-cols-2 gap-2">
-                  {COMMON_ALLERGIES.map((allergy) => (
+                  {(anesthesiaSettings?.allergyList || []).map((allergy) => (
                     <div key={allergy} className="flex items-center space-x-2">
                       <Checkbox
                         id={`allergy-${allergy}`}

@@ -21,7 +21,7 @@ import type { Surgery } from "@shared/schema";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDate, formatDateTimeForInput } from "@/lib/dateUtils";
-import { COMMON_ALLERGIES } from "@/constants/allergies";
+import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 
 type Patient = {
   id: string;
@@ -112,6 +112,9 @@ export default function PatientDetail() {
     queryKey: [`/api/surgery-rooms/${activeHospital?.id}`],
     enabled: !!activeHospital?.id,
   });
+
+  // Fetch hospital anesthesia settings
+  const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings();
   
   // Check for openPreOp query parameter and auto-open dialog
   useEffect(() => {
@@ -1665,7 +1668,7 @@ export default function PatientDetail() {
                           <Label>Allergies</Label>
                           <div className="border rounded-lg p-3 space-y-2">
                             <div className="grid grid-cols-2 gap-2">
-                              {COMMON_ALLERGIES.map((allergy) => (
+                              {(anesthesiaSettings?.allergyList || []).map((allergy) => (
                                 <div key={allergy} className="flex items-center space-x-2">
                                   <Checkbox
                                     id={`allergy-${allergy}`}
@@ -3167,7 +3170,7 @@ export default function PatientDetail() {
             <div className="space-y-2">
               <Label>Allergies</Label>
               <div className="flex flex-wrap gap-2 mb-2">
-                {COMMON_ALLERGIES.map((allergy) => (
+                {(anesthesiaSettings?.allergyList || []).map((allergy) => (
                   <Badge
                     key={allergy}
                     variant={editForm.allergies.includes(allergy) ? "default" : "outline"}
