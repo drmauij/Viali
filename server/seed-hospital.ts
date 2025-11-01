@@ -171,6 +171,37 @@ export async function seedHospitalData(
   if (!existingSettings) {
     await storage.upsertHospitalAnesthesiaSettings({
       hospitalId,
+      allergyList: [
+        "Penicillin",
+        "Latex",
+        "Local Anesthetics",
+        "NSAIDs",
+        "Opioids",
+        "Muscle Relaxants",
+        "Contrast Media",
+        "Eggs",
+        "Soy",
+      ],
+      medicationLists: {
+        anticoagulation: [
+          "Aspirin",
+          "Warfarin",
+          "Clopidogrel",
+          "Rivaroxaban",
+          "Apixaban",
+          "Heparin",
+        ],
+        general: [
+          "Metformin",
+          "Insulin",
+          "Levothyroxine",
+          "Metoprolol",
+          "Lisinopril",
+          "Amlodipine",
+          "Atorvastatin",
+          "Omeprazole",
+        ],
+      },
       illnessLists: {
         cardiovascular: [
           "Hypertension",

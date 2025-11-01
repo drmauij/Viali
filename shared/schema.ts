@@ -402,6 +402,15 @@ export const hospitalAnesthesiaSettings = pgTable("hospital_anesthesia_settings"
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id).unique(),
   
+  // Customizable allergy list
+  allergyList: text("allergy_list").array(),
+  
+  // Customizable medication lists (JSONB for flexibility)
+  medicationLists: jsonb("medication_lists").$type<{
+    anticoagulation?: string[];
+    general?: string[];
+  }>(),
+  
   // Customizable illness lists per medical system (JSONB for flexibility)
   illnessLists: jsonb("illness_lists").$type<{
     cardiovascular?: string[];

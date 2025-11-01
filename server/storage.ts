@@ -1485,6 +1485,8 @@ export class DatabaseStorage implements IStorage {
       .onConflictDoUpdate({
         target: hospitalAnesthesiaSettings.hospitalId,
         set: {
+          allergyList: settings.allergyList,
+          medicationLists: settings.medicationLists,
           illnessLists: settings.illnessLists,
           checklistItems: settings.checklistItems,
           updatedAt: new Date(),

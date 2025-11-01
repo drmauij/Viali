@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ItemTransferList } from "@/components/anesthesia/ItemTransferList";
 import { Button } from "@/components/ui/button";
@@ -66,6 +67,7 @@ export default function AnesthesiaSettings() {
   const { user } = useAuth();
   const activeHospital = useActiveHospital();
   const { toast } = useToast();
+  const { data: anesthesiaSettings, isLoading: settingsLoading } = useHospitalAnesthesiaSettings();
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [selectedItemForConfig, setSelectedItemForConfig] = useState<Item | null>(null);
   
@@ -126,6 +128,10 @@ export default function AnesthesiaSettings() {
   const [roomDialogOpen, setRoomDialogOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<any | null>(null);
   const [roomFormName, setRoomFormName] = useState('');
+
+  // State for editing settings
+  const [newItemInput, setNewItemInput] = useState('');
+  const [editingCategory, setEditingCategory] = useState<string | null>(null);
 
   // Split items into available and selected
   const anesthesiaItemIds = new Set(anesthesiaItems.map(item => item.id));
@@ -287,6 +293,124 @@ export default function AnesthesiaSettings() {
       queryClient.invalidateQueries({ queryKey: [`/api/surgery-rooms/${activeHospital?.id}`] });
     },
   });
+
+  // Mutation to update hospital anesthesia settings
+  const updateSettingsMutation = useMutation({
+    mutationFn: async (updates: any) => {
+      return apiRequest('PATCH', `/api/anesthesia/settings/${activeHospital?.id}`, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/settings/${activeHospital?.id}`] });
+      toast({
+        title: "Settings updated",
+        description: "Anesthesia settings have been updated",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to update settings",
+      });
+    },
+  });
+
+  // Helper functions for managing settings lists
+  const addAllergy = () => {
+    if (!newItemInput.trim() || !anesthesiaSettings) return;
+    const currentList = anesthesiaSettings.allergyList || [];
+    if (!currentList.includes(newItemInput.trim())) {
+      updateSettingsMutation.mutate({
+        allergyList: [...currentList, newItemInput.trim()],
+      });
+      setNewItemInput('');
+    }
+  };
+
+  const removeAllergy = (allergy: string) => {
+    if (!anesthesiaSettings) return;
+    updateSettingsMutation.mutate({
+      allergyList: (anesthesiaSettings.allergyList || []).filter(a => a !== allergy),
+    });
+  };
+
+  const addMedication = (category: 'anticoagulation' | 'general') => {
+    if (!newItemInput.trim() || !anesthesiaSettings) return;
+    const currentLists = anesthesiaSettings.medicationLists || {};
+    const currentList = currentLists[category] || [];
+    if (!currentList.includes(newItemInput.trim())) {
+      updateSettingsMutation.mutate({
+        medicationLists: {
+          ...currentLists,
+          [category]: [...currentList, newItemInput.trim()],
+        },
+      });
+      setNewItemInput('');
+    }
+  };
+
+  const removeMedication = (category: 'anticoagulation' | 'general', medication: string) => {
+    if (!anesthesiaSettings) return;
+    const currentLists = anesthesiaSettings.medicationLists || {};
+    updateSettingsMutation.mutate({
+      medicationLists: {
+        ...currentLists,
+        [category]: (currentLists[category] || []).filter(m => m !== medication),
+      },
+    });
+  };
+
+  const addIllness = (category: string) => {
+    if (!newItemInput.trim() || !anesthesiaSettings) return;
+    const currentLists = anesthesiaSettings.illnessLists || {};
+    const currentList = (currentLists as any)[category] || [];
+    if (!currentList.includes(newItemInput.trim())) {
+      updateSettingsMutation.mutate({
+        illnessLists: {
+          ...currentLists,
+          [category]: [...currentList, newItemInput.trim()],
+        },
+      });
+      setNewItemInput('');
+    }
+  };
+
+  const removeIllness = (category: string, illness: string) => {
+    if (!anesthesiaSettings) return;
+    const currentLists = anesthesiaSettings.illnessLists || {};
+    updateSettingsMutation.mutate({
+      illnessLists: {
+        ...currentLists,
+        [category]: ((currentLists as any)[category] || []).filter((i: string) => i !== illness),
+      },
+    });
+  };
+
+  const addChecklistItem = (category: 'signIn' | 'timeOut' | 'signOut') => {
+    if (!newItemInput.trim() || !anesthesiaSettings) return;
+    const currentItems = anesthesiaSettings.checklistItems || {};
+    const currentList = currentItems[category] || [];
+    if (!currentList.includes(newItemInput.trim())) {
+      updateSettingsMutation.mutate({
+        checklistItems: {
+          ...currentItems,
+          [category]: [...currentList, newItemInput.trim()],
+        },
+      });
+      setNewItemInput('');
+    }
+  };
+
+  const removeChecklistItem = (category: 'signIn' | 'timeOut' | 'signOut', item: string) => {
+    if (!anesthesiaSettings) return;
+    const currentItems = anesthesiaSettings.checklistItems || {};
+    updateSettingsMutation.mutate({
+      checklistItems: {
+        ...currentItems,
+        [category]: (currentItems[category] || []).filter(i => i !== item),
+      },
+    });
+  };
 
   // Helper functions for reordering
   const moveGroup = (groupId: string, direction: 'up' | 'down') => {
@@ -457,10 +581,14 @@ export default function AnesthesiaSettings() {
       </div>
 
       <Tabs defaultValue="items" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-6">
-          <TabsTrigger value="items" data-testid="tab-items">Anesthesia Items</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-7 mb-6">
+          <TabsTrigger value="items" data-testid="tab-items">Items</TabsTrigger>
           <TabsTrigger value="groups" data-testid="tab-groups">Groups</TabsTrigger>
-          <TabsTrigger value="rooms" data-testid="tab-rooms">Surgery Rooms</TabsTrigger>
+          <TabsTrigger value="rooms" data-testid="tab-rooms">Rooms</TabsTrigger>
+          <TabsTrigger value="allergies" data-testid="tab-allergies">Allergies</TabsTrigger>
+          <TabsTrigger value="medications" data-testid="tab-medications">Medications</TabsTrigger>
+          <TabsTrigger value="illnesses" data-testid="tab-illnesses">Medical History</TabsTrigger>
+          <TabsTrigger value="checklists" data-testid="tab-checklists">Checklists</TabsTrigger>
         </TabsList>
 
         <TabsContent value="items" className="space-y-4">
@@ -641,6 +769,265 @@ export default function AnesthesiaSettings() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="allergies" className="space-y-4">
+          <div className="mb-4">
+            <h3 className="text-lg font-medium">Common Allergies</h3>
+            <p className="text-sm text-muted-foreground">
+              Manage the list of common allergies available in patient records and pre-op assessments.
+            </p>
+          </div>
+
+          <div className="flex gap-2 mb-4">
+            <Input
+              value={newItemInput}
+              onChange={(e) => setNewItemInput(e.target.value)}
+              placeholder="Add new allergy..."
+              onKeyPress={(e) => e.key === 'Enter' && addAllergy()}
+              data-testid="input-new-allergy"
+            />
+            <Button onClick={addAllergy} data-testid="button-add-allergy">
+              <Plus className="h-4 w-4 mr-2" />
+              Add
+            </Button>
+          </div>
+
+          <div className="border rounded-lg">
+            {(anesthesiaSettings?.allergyList || []).length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No allergies configured. Add one above.
+              </div>
+            ) : (
+              (anesthesiaSettings?.allergyList || []).map((allergy) => (
+                <div
+                  key={allergy}
+                  className="flex items-center justify-between p-3 border-b last:border-b-0 hover:bg-muted/50"
+                  data-testid={`allergy-item-${allergy}`}
+                >
+                  <span>{allergy}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeAllergy(allergy)}
+                    data-testid={`button-remove-allergy-${allergy}`}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="medications" className="space-y-4">
+          <div className="mb-4">
+            <h3 className="text-lg font-medium">Medication Lists</h3>
+            <p className="text-sm text-muted-foreground">
+              Manage medication lists used in pre-operative assessments.
+            </p>
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <h4 className="font-medium mb-3">Anticoagulation Medications</h4>
+              <div className="flex gap-2 mb-3">
+                <Input
+                  value={editingCategory === 'anticoagulation' ? newItemInput : ''}
+                  onChange={(e) => {
+                    setEditingCategory('anticoagulation');
+                    setNewItemInput(e.target.value);
+                  }}
+                  placeholder="Add anticoagulation medication..."
+                  onKeyPress={(e) => e.key === 'Enter' && addMedication('anticoagulation')}
+                  data-testid="input-new-anticoagulation"
+                />
+                <Button onClick={() => addMedication('anticoagulation')} data-testid="button-add-anticoagulation">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add
+                </Button>
+              </div>
+              <div className="border rounded-lg">
+                {(anesthesiaSettings?.medicationLists?.anticoagulation || []).map((med) => (
+                  <div
+                    key={med}
+                    className="flex items-center justify-between p-3 border-b last:border-b-0 hover:bg-muted/50"
+                    data-testid={`anticoag-item-${med}`}
+                  >
+                    <span>{med}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeMedication('anticoagulation', med)}
+                      data-testid={`button-remove-anticoag-${med}`}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h4 className="font-medium mb-3">General Medications</h4>
+              <div className="flex gap-2 mb-3">
+                <Input
+                  value={editingCategory === 'general' ? newItemInput : ''}
+                  onChange={(e) => {
+                    setEditingCategory('general');
+                    setNewItemInput(e.target.value);
+                  }}
+                  placeholder="Add general medication..."
+                  onKeyPress={(e) => e.key === 'Enter' && addMedication('general')}
+                  data-testid="input-new-general-med"
+                />
+                <Button onClick={() => addMedication('general')} data-testid="button-add-general-med">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add
+                </Button>
+              </div>
+              <div className="border rounded-lg">
+                {(anesthesiaSettings?.medicationLists?.general || []).map((med) => (
+                  <div
+                    key={med}
+                    className="flex items-center justify-between p-3 border-b last:border-b-0 hover:bg-muted/50"
+                    data-testid={`general-med-item-${med}`}
+                  >
+                    <span>{med}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeMedication('general', med)}
+                      data-testid={`button-remove-general-med-${med}`}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="illnesses" className="space-y-4">
+          <div className="mb-4">
+            <h3 className="text-lg font-medium">Medical History Lists</h3>
+            <p className="text-sm text-muted-foreground">
+              Manage illness options organized by body system for pre-operative assessments.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[
+              { key: 'cardiovascular', label: 'Cardiovascular' },
+              { key: 'pulmonary', label: 'Pulmonary' },
+              { key: 'gastrointestinal', label: 'Gastrointestinal' },
+              { key: 'kidney', label: 'Kidney' },
+              { key: 'metabolic', label: 'Metabolic' },
+              { key: 'neurological', label: 'Neurological' },
+              { key: 'psychiatric', label: 'Psychiatric' },
+              { key: 'skeletal', label: 'Skeletal' },
+              { key: 'woman', label: 'Gynecology' },
+              { key: 'noxen', label: 'Substance Use' },
+              { key: 'children', label: 'Pediatric' },
+            ].map(({ key, label }) => (
+              <div key={key} className="border rounded-lg p-4">
+                <h4 className="font-medium mb-3">{label}</h4>
+                <div className="flex gap-2 mb-3">
+                  <Input
+                    value={editingCategory === key ? newItemInput : ''}
+                    onChange={(e) => {
+                      setEditingCategory(key);
+                      setNewItemInput(e.target.value);
+                    }}
+                    placeholder={`Add ${label.toLowerCase()} condition...`}
+                    onKeyPress={(e) => e.key === 'Enter' && addIllness(key)}
+                    data-testid={`input-new-illness-${key}`}
+                  />
+                  <Button onClick={() => addIllness(key)} size="sm" data-testid={`button-add-illness-${key}`}>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="space-y-1">
+                  {((anesthesiaSettings?.illnessLists as any)?.[key] || []).map((illness: string) => (
+                    <div
+                      key={illness}
+                      className="flex items-center justify-between p-2 rounded hover:bg-muted/50"
+                      data-testid={`illness-item-${key}-${illness}`}
+                    >
+                      <span className="text-sm">{illness}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => removeIllness(key, illness)}
+                        data-testid={`button-remove-illness-${key}-${illness}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="checklists" className="space-y-4">
+          <div className="mb-4">
+            <h3 className="text-lg font-medium">WHO Surgical Safety Checklists</h3>
+            <p className="text-sm text-muted-foreground">
+              Manage checklist items for the three phases of surgical procedures.
+            </p>
+          </div>
+
+          <div className="space-y-6">
+            {[
+              { key: 'signIn' as const, label: 'Sign In (Before Induction)' },
+              { key: 'timeOut' as const, label: 'Time Out (Before Incision)' },
+              { key: 'signOut' as const, label: 'Sign Out (Before Patient Leaves OR)' },
+            ].map(({ key, label }) => (
+              <div key={key} className="border rounded-lg p-4">
+                <h4 className="font-medium mb-3">{label}</h4>
+                <div className="flex gap-2 mb-3">
+                  <Input
+                    value={editingCategory === key ? newItemInput : ''}
+                    onChange={(e) => {
+                      setEditingCategory(key);
+                      setNewItemInput(e.target.value);
+                    }}
+                    placeholder="Add checklist item..."
+                    onKeyPress={(e) => e.key === 'Enter' && addChecklistItem(key)}
+                    data-testid={`input-new-checklist-${key}`}
+                  />
+                  <Button onClick={() => addChecklistItem(key)} data-testid={`button-add-checklist-${key}`}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add
+                  </Button>
+                </div>
+                <div className="space-y-1">
+                  {(anesthesiaSettings?.checklistItems?.[key] || []).map((item) => (
+                    <div
+                      key={item}
+                      className="flex items-center justify-between p-2 rounded hover:bg-muted/50"
+                      data-testid={`checklist-item-${key}-${item}`}
+                    >
+                      <span className="text-sm">{item}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => removeChecklistItem(key, item)}
+                        data-testid={`button-remove-checklist-${key}-${item}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </TabsContent>
       </Tabs>
 
