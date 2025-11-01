@@ -131,6 +131,7 @@ export default function AnesthesiaSettings() {
 
   // State for editing settings
   const [newItemInput, setNewItemInput] = useState('');
+  const [newItemId, setNewItemId] = useState('');
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
 
   // Split items into available and selected
@@ -361,27 +362,29 @@ export default function AnesthesiaSettings() {
   };
 
   const addIllness = (category: string) => {
-    if (!newItemInput.trim() || !anesthesiaSettings) return;
+    if (!newItemInput.trim() || !newItemId.trim() || !anesthesiaSettings) return;
     const currentLists = anesthesiaSettings.illnessLists || {};
     const currentList = (currentLists as any)[category] || [];
-    if (!currentList.includes(newItemInput.trim())) {
+    const newItem = { id: newItemId.trim(), label: newItemInput.trim() };
+    if (!currentList.find((item: any) => item.id === newItem.id)) {
       updateSettingsMutation.mutate({
         illnessLists: {
           ...currentLists,
-          [category]: [...currentList, newItemInput.trim()],
+          [category]: [...currentList, newItem],
         },
       });
       setNewItemInput('');
+      setNewItemId('');
     }
   };
 
-  const removeIllness = (category: string, illness: string) => {
+  const removeIllness = (category: string, illnessId: string) => {
     if (!anesthesiaSettings) return;
     const currentLists = anesthesiaSettings.illnessLists || {};
     updateSettingsMutation.mutate({
       illnessLists: {
         ...currentLists,
-        [category]: ((currentLists as any)[category] || []).filter((i: string) => i !== illness),
+        [category]: ((currentLists as any)[category] || []).filter((i: any) => i.id !== illnessId),
       },
     });
   };
@@ -935,33 +938,46 @@ export default function AnesthesiaSettings() {
                 <h4 className="font-medium mb-3">{label}</h4>
                 <div className="flex gap-2 mb-3">
                   <Input
+                    value={editingCategory === key ? newItemId : ''}
+                    onChange={(e) => {
+                      setEditingCategory(key);
+                      setNewItemId(e.target.value);
+                    }}
+                    placeholder="ID (e.g., htn, copd)"
+                    className="w-40"
+                    data-testid={`input-new-illness-id-${key}`}
+                  />
+                  <Input
                     value={editingCategory === key ? newItemInput : ''}
                     onChange={(e) => {
                       setEditingCategory(key);
                       setNewItemInput(e.target.value);
                     }}
-                    placeholder={`Add ${label.toLowerCase()} condition...`}
+                    placeholder={`Label (e.g., Hypertension)`}
                     onKeyPress={(e) => e.key === 'Enter' && addIllness(key)}
-                    data-testid={`input-new-illness-${key}`}
+                    data-testid={`input-new-illness-label-${key}`}
                   />
                   <Button onClick={() => addIllness(key)} size="sm" data-testid={`button-add-illness-${key}`}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
                 <div className="space-y-1">
-                  {((anesthesiaSettings?.illnessLists as any)?.[key] || []).map((illness: string) => (
+                  {((anesthesiaSettings?.illnessLists as any)?.[key] || []).map((illness: any) => (
                     <div
-                      key={illness}
+                      key={illness.id}
                       className="flex items-center justify-between p-2 rounded hover:bg-muted/50"
-                      data-testid={`illness-item-${key}-${illness}`}
+                      data-testid={`illness-item-${key}-${illness.id}`}
                     >
-                      <span className="text-sm">{illness}</span>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{illness.label}</span>
+                        <span className="text-xs text-muted-foreground">ID: {illness.id}</span>
+                      </div>
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6"
-                        onClick={() => removeIllness(key, illness)}
-                        data-testid={`button-remove-illness-${key}-${illness}`}
+                        onClick={() => removeIllness(key, illness.id)}
+                        data-testid={`button-remove-illness-${key}-${illness.id}`}
                       >
                         <X className="h-3 w-3" />
                       </Button>
