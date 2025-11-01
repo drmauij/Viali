@@ -290,25 +290,9 @@ export default function PatientDetail() {
   
   const [openSections, setOpenSections] = useState<string[]>(["general", "medications", "heart", "lungs", "gi-kidney-metabolic", "neuro-psych-skeletal", "woman", "noxen", "children", "anesthesia"]);
   
-  const anticoagulationMedications = [
-    "Aspirin",
-    "Warfarin",
-    "Clopidogrel",
-    "Rivaroxaban",
-    "Apixaban",
-    "Heparin",
-  ];
-  
-  const generalMedications = [
-    "Metformin",
-    "Insulin",
-    "Levothyroxine",
-    "Metoprolol",
-    "Lisinopril",
-    "Amlodipine",
-    "Atorvastatin",
-    "Omeprazole",
-  ];
+  // Get medication lists from hospital settings
+  const anticoagulationMedications = anesthesiaSettings?.medicationLists?.anticoagulation || [];
+  const generalMedications = anesthesiaSettings?.medicationLists?.general || [];
 
   const { toast } = useToast();
 
