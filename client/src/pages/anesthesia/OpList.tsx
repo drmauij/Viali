@@ -5,7 +5,9 @@ export default function OpList() {
   const [, setLocation] = useLocation();
 
   const handleEventClick = (caseId: string) => {
-    setLocation(`/anesthesia/cases/${caseId}/op`);
+    // Include returnTo parameter to preserve navigation context
+    const returnTo = encodeURIComponent('/anesthesia/op');
+    setLocation(`/anesthesia/cases/${caseId}/op?returnTo=${returnTo}`);
   };
 
   return (

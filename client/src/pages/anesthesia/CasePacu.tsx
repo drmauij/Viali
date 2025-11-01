@@ -7,12 +7,16 @@ export default function CasePacu() {
   const [, params] = useRoute("/anesthesia/cases/:id/pacu");
   const [, setLocation] = useLocation();
 
+  // Get returnTo parameter from URL for navigation context
+  const urlParams = new URLSearchParams(window.location.search);
+  const returnTo = urlParams.get('returnTo') || `/anesthesia/cases/${params?.id}`;
+
   return (
     <div className="container mx-auto p-4 pb-20">
       <Button 
         variant="ghost" 
         className="gap-2 mb-4" 
-        onClick={() => setLocation(`/anesthesia/cases/${params?.id}`)}
+        onClick={() => setLocation(returnTo)}
         data-testid="button-back"
       >
         <ArrowLeft className="h-4 w-4" />

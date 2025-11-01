@@ -58,6 +58,10 @@ export default function Op() {
   const activeHospital = useActiveHospital();
   const { toast } = useToast();
 
+  // Get returnTo parameter from URL for navigation context
+  const urlParams = new URLSearchParams(window.location.search);
+  const returnTo = urlParams.get('returnTo') || '/anesthesia/patients';
+
   // Get surgeryId from params
   const surgeryId = params.id;
 
@@ -101,9 +105,9 @@ export default function Op() {
   useEffect(() => {
     if (surgeryError || (!isSurgeryLoading && !surgery)) {
       setIsOpen(false);
-      setTimeout(() => setLocation("/anesthesia/patients"), 100);
+      setTimeout(() => setLocation(returnTo), 100);
     }
-  }, [surgery, surgeryError, isSurgeryLoading, setLocation]);
+  }, [surgery, surgeryError, isSurgeryLoading, setLocation, returnTo]);
 
   // Dialog state for editing allergies and CAVE
   const [isAllergiesDialogOpen, setIsAllergiesDialogOpen] = useState(false);
@@ -319,7 +323,7 @@ export default function Op() {
     setIsOpen(open);
     if (!open) {
       setTimeout(() => {
-        setLocation("/anesthesia/patients");
+        setLocation(returnTo);
       }, 100);
     }
   };
