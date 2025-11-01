@@ -43,8 +43,21 @@ async function getUserUnitForHospital(userId: string, hospitalId: string): Promi
 
 async function getUserRole(userId: string, hospitalId: string): Promise<string | null> {
   const hospitals = await storage.getUserHospitals(userId);
-  const hospital = hospitals.find(h => h.id === hospitalId);
-  return hospital?.role || null;
+  const matchingHospitals = hospitals.filter(h => h.id === hospitalId);
+  
+  if (matchingHospitals.length === 0) {
+    return null;
+  }
+  
+  // If user has multiple roles for the same hospital, return the highest privilege role
+  // Priority: admin > doctor > nurse
+  const roles = matchingHospitals.map(h => h.role).filter(Boolean);
+  
+  if (roles.includes('admin')) return 'admin';
+  if (roles.includes('doctor')) return 'doctor';
+  if (roles.includes('nurse')) return 'nurse';
+  
+  return roles[0] || null;
 }
 
 async function verifyUserHospitalUnitAccess(userId: string, hospitalId: string, unitId: string): Promise<{ hasAccess: boolean; role: string | null }> {
