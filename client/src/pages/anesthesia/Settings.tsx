@@ -361,11 +361,25 @@ export default function AnesthesiaSettings() {
     });
   };
 
+  // Auto-generate ID from label (e.g., "Heart Disease" -> "heartDisease")
+  const generateIdFromLabel = (label: string): string => {
+    return label
+      .trim()
+      .replace(/[^\w\s]/g, '') // Remove special characters
+      .split(/\s+/) // Split by whitespace
+      .map((word, index) => {
+        if (index === 0) return word.toLowerCase();
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      })
+      .join('');
+  };
+
   const addIllness = (category: string) => {
-    if (!newItemInput.trim() || !newItemId.trim() || !anesthesiaSettings) return;
+    if (!newItemInput.trim() || !anesthesiaSettings) return;
     const currentLists = anesthesiaSettings.illnessLists || {};
     const currentList = (currentLists as any)[category] || [];
-    const newItem = { id: newItemId.trim(), label: newItemInput.trim() };
+    const autoId = generateIdFromLabel(newItemInput);
+    const newItem = { id: autoId, label: newItemInput.trim() };
     if (!currentList.find((item: any) => item.id === newItem.id)) {
       updateSettingsMutation.mutate({
         illnessLists: {
@@ -940,24 +954,15 @@ export default function AnesthesiaSettings() {
                 <h4 className="font-medium mb-3">{label}</h4>
                 <div className="flex gap-2 mb-3">
                   <Input
-                    value={editingCategory === key ? newItemId : ''}
-                    onChange={(e) => {
-                      setEditingCategory(key);
-                      setNewItemId(e.target.value);
-                    }}
-                    placeholder="ID (e.g., htn, copd)"
-                    className="w-40"
-                    data-testid={`input-new-illness-id-${key}`}
-                  />
-                  <Input
                     value={editingCategory === key ? newItemInput : ''}
                     onChange={(e) => {
                       setEditingCategory(key);
                       setNewItemInput(e.target.value);
                     }}
-                    placeholder={`Label (e.g., Hypertension)`}
+                    placeholder={`Add condition (e.g., Hypertension, COPD)`}
                     onKeyPress={(e) => e.key === 'Enter' && addIllness(key)}
-                    data-testid={`input-new-illness-label-${key}`}
+                    className="flex-1"
+                    data-testid={`input-new-illness-${key}`}
                   />
                   <Button onClick={() => addIllness(key)} size="sm" data-testid={`button-add-illness-${key}`}>
                     <Plus className="h-4 w-4" />
@@ -970,10 +975,7 @@ export default function AnesthesiaSettings() {
                       className="flex items-center justify-between p-2 rounded hover:bg-muted/50"
                       data-testid={`illness-item-${key}-${illness.id}`}
                     >
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">{illness.label}</span>
-                        <span className="text-xs text-muted-foreground">ID: {illness.id}</span>
-                      </div>
+                      <span className="text-sm">{illness.label}</span>
                       <Button
                         variant="ghost"
                         size="icon"
