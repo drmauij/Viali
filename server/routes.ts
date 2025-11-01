@@ -4758,6 +4758,32 @@ If unable to parse any drugs, return:
     }
   });
 
+  // Get assessments in bulk by surgery IDs
+  app.get('/api/anesthesia/preop-assessments/bulk', isAuthenticated, async (req: any, res) => {
+    try {
+      const { surgeryIds } = req.query;
+      const userId = req.user.id;
+
+      if (!surgeryIds) {
+        return res.json([]);
+      }
+
+      // Get user's accessible hospitals
+      const hospitals = await storage.getUserHospitals(userId);
+      const hospitalIds = hospitals.map(h => h.id);
+
+      const surgeryIdArray = surgeryIds.split(',');
+      
+      // Fetch assessments with hospital verification
+      const assessments = await storage.getPreOpAssessmentsBySurgeryIds(surgeryIdArray, hospitalIds);
+      
+      res.json(assessments);
+    } catch (error) {
+      console.error("Error fetching bulk pre-op assessments:", error);
+      res.status(500).json({ message: "Failed to fetch pre-op assessments" });
+    }
+  });
+
   // Create pre-op assessment
   app.post('/api/anesthesia/preop', isAuthenticated, async (req: any, res) => {
     try {

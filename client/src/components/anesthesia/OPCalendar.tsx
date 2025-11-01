@@ -95,6 +95,34 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     enabled: !!activeHospital?.id && patientIds.length > 0,
   });
 
+  // Fetch preop assessments for surgeries
+  const surgeryIds = useMemo(() => surgeries.map((s: any) => s.id), [surgeries]);
+  const { data: preopAssessments = [] } = useQuery<any[]>({
+    queryKey: [`/api/anesthesia/preop-assessments`, activeHospital?.id, surgeryIds],
+    queryFn: async () => {
+      if (surgeryIds.length === 0) return [];
+      const params = new URLSearchParams({
+        surgeryIds: surgeryIds.join(','),
+      });
+      const response = await fetch(`/api/anesthesia/preop-assessments/bulk?${params}`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!activeHospital?.id && surgeryIds.length > 0,
+  });
+
+  // Helper function to escape HTML to prevent injection
+  const escapeHtml = (text: string): string => {
+    const map: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, (m) => map[m]);
+  };
+
   // Transform surgeries into calendar events
   const calendarEvents = useMemo(() => {
     const colors = [
@@ -117,26 +145,61 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       const patientName = patient ? `${patient.surname}, ${patient.firstName}` : "Unknown Patient";
       const plannedDate = new Date(surgery.plannedDate);
       
-      // Default duration: 3 hours
-      const endTime = new Date(plannedDate);
-      endTime.setHours(endTime.getHours() + 3);
+      // Calculate duration in minutes
+      const endTime = surgery.actualEndTime ? new Date(surgery.actualEndTime) : (() => {
+        const defaultEnd = new Date(plannedDate);
+        defaultEnd.setHours(defaultEnd.getHours() + 3);
+        return defaultEnd;
+      })();
+      const durationMinutes = Math.round((endTime.getTime() - plannedDate.getTime()) / (1000 * 60));
+      
+      // Get planned anesthesia from preop assessment
+      const preopAssessment = preopAssessments.find((p: any) => p.surgeryId === surgery.id);
+      let anesthesiaText = "";
+      if (preopAssessment?.anesthesiaTechniques) {
+        const techniques = Object.entries(preopAssessment.anesthesiaTechniques)
+          .filter(([_, value]) => value === true)
+          .map(([key]) => key.charAt(0).toUpperCase() + key.slice(1))
+          .join(", ");
+        anesthesiaText = techniques || "";
+      }
       
       const isCancelled = surgery.status === "cancelled";
       const colorScheme = isCancelled ? cancelledColors : colors[index % colors.length];
-      const displayText = isCancelled 
-        ? `[CANCELLED] ${patientName} - ${surgery.plannedSurgery}`
-        : `${patientName} - ${surgery.plannedSurgery}`;
+      
+      // Format time as HH:MM
+      const startTimeStr = plannedDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+      
+      // Create structured HTML display with escaped user data
+      const displayHtml = `
+        <div style="padding: 4px; font-size: 12px; line-height: 1.3; ${isCancelled ? 'opacity: 0.6;' : ''}">
+          <div style="font-weight: 600; margin-bottom: 2px; ${isCancelled ? 'text-decoration: line-through;' : ''}">
+            ${escapeHtml(startTimeStr)} · ${durationMinutes}min
+          </div>
+          <div style="margin-bottom: 2px; ${isCancelled ? 'text-decoration: line-through;' : ''}">
+            <strong>${escapeHtml(patientName)}</strong>
+          </div>
+          <div style="margin-bottom: 2px; font-size: 11px; ${isCancelled ? 'text-decoration: line-through;' : ''}">
+            ${escapeHtml(surgery.plannedSurgery || 'No surgery specified')}
+          </div>
+          ${anesthesiaText ? `<div style="font-size: 11px; font-style: italic; opacity: 0.85;">
+            ${escapeHtml(anesthesiaText)}
+          </div>` : ''}
+          ${isCancelled ? '<div style="font-size: 10px; font-weight: 600; color: #dc2626; margin-top: 2px;">CANCELLED</div>' : ''}
+        </div>
+      `;
       
       return {
         id: surgery.id,
-        text: displayText,
+        text: displayHtml,
+        html: displayHtml,
         start: plannedDate.toISOString(),
-        end: surgery.actualEndTime || endTime.toISOString(),
+        end: endTime.toISOString(),
         resource: surgery.surgeryRoomId || (surgeryRooms[0]?.id || "unassigned"),
         ...colorScheme,
       };
     });
-  }, [surgeries, allPatients, surgeryRooms]);
+  }, [surgeries, allPatients, surgeryRooms, preopAssessments]);
 
   // Convert surgery rooms to resources format
   const resources = useMemo(() => {

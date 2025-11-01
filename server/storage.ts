@@ -277,6 +277,7 @@ export interface IStorage {
   getPreOpAssessments(hospitalId: string): Promise<Array<any>>;
   getPreOpAssessment(surgeryId: string): Promise<PreOpAssessment | undefined>;
   getPreOpAssessmentById(id: string): Promise<PreOpAssessment | undefined>;
+  getPreOpAssessmentsBySurgeryIds(surgeryIds: string[], authorizedHospitalIds: string[]): Promise<PreOpAssessment[]>;
   createPreOpAssessment(assessment: InsertPreOpAssessment): Promise<PreOpAssessment>;
   updatePreOpAssessment(id: string, updates: Partial<PreOpAssessment>): Promise<PreOpAssessment>;
   
@@ -1781,6 +1782,26 @@ export class DatabaseStorage implements IStorage {
       .from(preOpAssessments)
       .where(eq(preOpAssessments.id, id));
     return assessment;
+  }
+
+  async getPreOpAssessmentsBySurgeryIds(surgeryIds: string[], authorizedHospitalIds: string[]): Promise<PreOpAssessment[]> {
+    if (surgeryIds.length === 0 || authorizedHospitalIds.length === 0) return [];
+    
+    // Join with surgeries to verify hospital access
+    const results = await db
+      .select({
+        assessment: preOpAssessments,
+      })
+      .from(preOpAssessments)
+      .innerJoin(surgeries, eq(preOpAssessments.surgeryId, surgeries.id))
+      .where(
+        and(
+          inArray(preOpAssessments.surgeryId, surgeryIds),
+          inArray(surgeries.hospitalId, authorizedHospitalIds)
+        )
+      );
+    
+    return results.map(r => r.assessment);
   }
 
   async createPreOpAssessment(assessment: InsertPreOpAssessment): Promise<PreOpAssessment> {
