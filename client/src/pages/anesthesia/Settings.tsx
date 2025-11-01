@@ -584,15 +584,17 @@ export default function AnesthesiaSettings() {
       </div>
 
       <Tabs defaultValue="items" className="w-full">
-        <TabsList className="grid w-full grid-cols-7 mb-6">
-          <TabsTrigger value="items" data-testid="tab-items">Items</TabsTrigger>
-          <TabsTrigger value="groups" data-testid="tab-groups">Groups</TabsTrigger>
-          <TabsTrigger value="rooms" data-testid="tab-rooms">Rooms</TabsTrigger>
-          <TabsTrigger value="allergies" data-testid="tab-allergies">Allergies</TabsTrigger>
-          <TabsTrigger value="medications" data-testid="tab-medications">Medications</TabsTrigger>
-          <TabsTrigger value="illnesses" data-testid="tab-illnesses">Medical History</TabsTrigger>
-          <TabsTrigger value="checklists" data-testid="tab-checklists">Checklists</TabsTrigger>
-        </TabsList>
+        <div className="w-full overflow-x-auto mb-6 -mx-4 px-4 md:mx-0 md:px-0">
+          <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:grid-cols-7">
+            <TabsTrigger value="items" data-testid="tab-items" className="flex-shrink-0">Items</TabsTrigger>
+            <TabsTrigger value="groups" data-testid="tab-groups" className="flex-shrink-0">Groups</TabsTrigger>
+            <TabsTrigger value="rooms" data-testid="tab-rooms" className="flex-shrink-0">Rooms</TabsTrigger>
+            <TabsTrigger value="allergies" data-testid="tab-allergies" className="flex-shrink-0">Allergies</TabsTrigger>
+            <TabsTrigger value="medications" data-testid="tab-medications" className="flex-shrink-0">Medications</TabsTrigger>
+            <TabsTrigger value="illnesses" data-testid="tab-illnesses" className="flex-shrink-0">Medical History</TabsTrigger>
+            <TabsTrigger value="checklists" data-testid="tab-checklists" className="flex-shrink-0">Checklists</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="items" className="space-y-4">
           <div className="mb-4">
