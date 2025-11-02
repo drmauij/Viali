@@ -44,14 +44,14 @@ type PreOpAssessmentData = {
   
   // Airway
   mallampati: string;
-  mouth_opening: string;
+  mouthOpening: string;
   dentition: string;
   airwayDifficult: string;
   airwayNotes: string;
   
   // Fasting
-  last_solids: string;
-  last_clear: string;
+  lastSolids: string;
+  lastClear: string;
   
   // Planned Anesthesia
   anesthesiaTechniques: Record<string, boolean>;
@@ -219,12 +219,12 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
     medicalHistory.length > 0 ||
     allNotes.length > 0 ||
     data.mallampati.trim() ||
-    data.mouth_opening.trim() ||
+    data.mouthOpening.trim() ||
     data.dentition.trim() ||
     data.airwayDifficult.trim() ||
     data.airwayNotes.trim() ||
-    data.last_solids.trim() ||
-    data.last_clear.trim() ||
+    data.lastSolids.trim() ||
+    data.lastClear.trim() ||
     selectedAnesthesia.length > 0 ||
     data.postOpICU ||
     data.anesthesiaOther.trim() ||
@@ -318,7 +318,7 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
       {/* Airway Assessment */}
       {hasData(
         !!data.mallampati.trim() || 
-        !!data.mouth_opening.trim() || 
+        !!data.mouthOpening.trim() || 
         !!data.dentition.trim() ||
         !!data.airwayDifficult.trim() ||
         !!data.airwayNotes.trim()
@@ -334,10 +334,10 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
                 <span className="font-medium">{data.mallampati}</span>
               </div>
             )}
-            {data.mouth_opening.trim() && (
+            {data.mouthOpening.trim() && (
               <div>
                 <span className="text-muted-foreground text-xs">Mouth Opening: </span>
-                <span className="font-medium">{data.mouth_opening}</span>
+                <span className="font-medium">{data.mouthOpening}</span>
               </div>
             )}
             {data.dentition.trim() && (
@@ -359,22 +359,22 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
       )}
 
       {/* Fasting Status */}
-      {hasData(!!data.last_solids.trim() || !!data.last_clear.trim()) && (
+      {hasData(!!data.lastSolids.trim() || !!data.lastClear.trim()) && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold">Fasting Status</CardTitle>
           </CardHeader>
           <CardContent className="pb-3 space-y-1.5">
-            {data.last_solids.trim() && (
+            {data.lastSolids.trim() && (
               <div>
                 <span className="text-muted-foreground text-xs">Last Solids: </span>
-                <span className="font-medium">{formatDateTime(data.last_solids)}</span>
+                <span className="font-medium">{formatDateTime(data.lastSolids)}</span>
               </div>
             )}
-            {data.last_clear.trim() && (
+            {data.lastClear.trim() && (
               <div>
                 <span className="text-muted-foreground text-xs">Last Clear Fluids: </span>
-                <span className="font-medium">{formatDateTime(data.last_clear)}</span>
+                <span className="font-medium">{formatDateTime(data.lastClear)}</span>
               </div>
             )}
           </CardContent>

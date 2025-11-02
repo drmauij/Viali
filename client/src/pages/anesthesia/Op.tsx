@@ -83,6 +83,12 @@ export default function Op() {
     enabled: !!surgeryId,
   });
 
+  // Fetch anesthesia settings for WHO checklists
+  const { data: anesthesiaSettings } = useQuery({
+    queryKey: [`/api/anesthesia/settings/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id,
+  });
+
   // Fetch vitals snapshots (requires recordId)
   const { data: vitalsData = [], isLoading: isVitalsLoading } = useQuery({
     queryKey: [`/api/anesthesia/vitals/${anesthesiaRecord?.id}`],
@@ -830,7 +836,10 @@ export default function Op() {
                                     variant="outline"
                                     size="sm"
                                     className="h-8 w-8 p-0"
-                                    onClick={() => handleQuantityChange(item.id, -1)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleQuantityChange(item.id, -1);
+                                    }}
                                     data-testid={`button-decrease-${item.id}`}
                                   >
                                     <Minus className="h-4 w-4" />
@@ -842,7 +851,10 @@ export default function Op() {
                                     variant="outline"
                                     size="sm"
                                     className="h-8 w-8 p-0"
-                                    onClick={() => handleQuantityChange(item.id, 1)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleQuantityChange(item.id, 1);
+                                    }}
                                     data-testid={`button-increase-${item.id}`}
                                   >
                                     <Plus className="h-4 w-4" />
@@ -872,21 +884,29 @@ export default function Op() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {anesthesiaRecord?.signInChecklist && Object.keys(anesthesiaRecord.signInChecklist).map((key) => (
-                    <div key={key} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`signin-${key}`}
-                        checked={anesthesiaRecord.signInChecklist[key] || false}
-                        data-testid={`checkbox-signin-${key}`}
-                      />
-                      <label
-                        htmlFor={`signin-${key}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        {key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
-                      </label>
-                    </div>
-                  ))}
+                  {anesthesiaSettings?.checklistItems?.signIn && anesthesiaSettings.checklistItems.signIn.length > 0 ? (
+                    anesthesiaSettings.checklistItems.signIn.map((item: string, index: number) => {
+                      const itemKey = item.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+                      const isChecked = anesthesiaRecord?.signInChecklist?.[itemKey] || false;
+                      return (
+                        <div key={index} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`signin-${index}`}
+                            defaultChecked={isChecked}
+                            data-testid={`checkbox-signin-${index}`}
+                          />
+                          <label
+                            htmlFor={`signin-${index}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          >
+                            {item}
+                          </label>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No checklist items configured. Please configure WHO checklist items in Anesthesia Settings.</p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -899,21 +919,29 @@ export default function Op() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {anesthesiaRecord?.timeOutChecklist && Object.keys(anesthesiaRecord.timeOutChecklist).map((key) => (
-                    <div key={key} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`timeout-${key}`}
-                        checked={anesthesiaRecord.timeOutChecklist[key] || false}
-                        data-testid={`checkbox-timeout-${key}`}
-                      />
-                      <label
-                        htmlFor={`timeout-${key}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        {key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
-                      </label>
-                    </div>
-                  ))}
+                  {anesthesiaSettings?.checklistItems?.timeOut && anesthesiaSettings.checklistItems.timeOut.length > 0 ? (
+                    anesthesiaSettings.checklistItems.timeOut.map((item: string, index: number) => {
+                      const itemKey = item.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+                      const isChecked = anesthesiaRecord?.timeOutChecklist?.[itemKey] || false;
+                      return (
+                        <div key={index} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`timeout-${index}`}
+                            defaultChecked={isChecked}
+                            data-testid={`checkbox-timeout-${index}`}
+                          />
+                          <label
+                            htmlFor={`timeout-${index}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          >
+                            {item}
+                          </label>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No checklist items configured. Please configure WHO checklist items in Anesthesia Settings.</p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -926,21 +954,29 @@ export default function Op() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {anesthesiaRecord?.signOutChecklist && Object.keys(anesthesiaRecord.signOutChecklist).map((key) => (
-                    <div key={key} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`signout-${key}`}
-                        checked={anesthesiaRecord.signOutChecklist[key] || false}
-                        data-testid={`checkbox-signout-${key}`}
-                      />
-                      <label
-                        htmlFor={`signout-${key}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        {key.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase())}
-                      </label>
-                    </div>
-                  ))}
+                  {anesthesiaSettings?.checklistItems?.signOut && anesthesiaSettings.checklistItems.signOut.length > 0 ? (
+                    anesthesiaSettings.checklistItems.signOut.map((item: string, index: number) => {
+                      const itemKey = item.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+                      const isChecked = anesthesiaRecord?.signOutChecklist?.[itemKey] || false;
+                      return (
+                        <div key={index} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`signout-${index}`}
+                            defaultChecked={isChecked}
+                            data-testid={`checkbox-signout-${index}`}
+                          />
+                          <label
+                            htmlFor={`signout-${index}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          >
+                            {item}
+                          </label>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No checklist items configured. Please configure WHO checklist items in Anesthesia Settings.</p>
+                  )}
                 </CardContent>
               </Card>
             </div>
