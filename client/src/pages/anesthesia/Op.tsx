@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SignatureCanvas } from "@/components/ui/signature-canvas";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -259,6 +260,17 @@ export default function Op() {
   // Inventory tracking state - { itemId: quantity }
   const [inventoryQuantities, setInventoryQuantities] = useState<Record<string, number>>({});
 
+  // WHO Checklist state - controlled with persistence
+  const [signInChecklist, setSignInChecklist] = useState<Record<string, boolean>>({});
+  const [signInNotes, setSignInNotes] = useState("");
+  const [signInSignature, setSignInSignature] = useState("");
+  const [timeOutChecklist, setTimeOutChecklist] = useState<Record<string, boolean>>({});
+  const [timeOutNotes, setTimeOutNotes] = useState("");
+  const [timeOutSignature, setTimeOutSignature] = useState("");
+  const [signOutChecklist, setSignOutChecklist] = useState<Record<string, boolean>>({});
+  const [signOutNotes, setSignOutNotes] = useState("");
+  const [signOutSignature, setSignOutSignature] = useState("");
+
   // Fetch items for inventory tracking - filtered by anesthesia units
   const { data: items = [] } = useQuery<any[]>({
     queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.anesthesiaUnitId}`, activeHospital?.anesthesiaUnitId],
@@ -299,9 +311,9 @@ export default function Op() {
     return folder?.name || 'Unknown Folder';
   };
 
-  // Auto-compute used quantities from anesthesia timeline data
+  // Initialize quantities from medication data only once
   useEffect(() => {
-    if (!medicationsData) return;
+    if (!medicationsData || Object.keys(inventoryQuantities).length > 0) return;
 
     const computedQuantities: Record<string, number> = {};
     
@@ -315,6 +327,39 @@ export default function Op() {
     
     setInventoryQuantities(computedQuantities);
   }, [medicationsData]);
+
+  // Initialize WHO checklist state from anesthesia record
+  useEffect(() => {
+    if (!anesthesiaRecord) return;
+    
+    if (anesthesiaRecord.signInChecklist) {
+      setSignInChecklist(anesthesiaRecord.signInChecklist);
+    }
+    if (anesthesiaRecord.signInNotes) {
+      setSignInNotes(anesthesiaRecord.signInNotes);
+    }
+    if (anesthesiaRecord.signInSignature) {
+      setSignInSignature(anesthesiaRecord.signInSignature);
+    }
+    if (anesthesiaRecord.timeOutChecklist) {
+      setTimeOutChecklist(anesthesiaRecord.timeOutChecklist);
+    }
+    if (anesthesiaRecord.timeOutNotes) {
+      setTimeOutNotes(anesthesiaRecord.timeOutNotes);
+    }
+    if (anesthesiaRecord.timeOutSignature) {
+      setTimeOutSignature(anesthesiaRecord.timeOutSignature);
+    }
+    if (anesthesiaRecord.signOutChecklist) {
+      setSignOutChecklist(anesthesiaRecord.signOutChecklist);
+    }
+    if (anesthesiaRecord.signOutNotes) {
+      setSignOutNotes(anesthesiaRecord.signOutNotes);
+    }
+    if (anesthesiaRecord.signOutSignature) {
+      setSignOutSignature(anesthesiaRecord.signOutSignature);
+    }
+  }, [anesthesiaRecord]);
 
   // Handle quantity change for inventory items
   const handleQuantityChange = (itemId: string, delta: number) => {
@@ -885,25 +930,52 @@ export default function Op() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {anesthesiaSettings?.checklistItems?.signIn && anesthesiaSettings.checklistItems.signIn.length > 0 ? (
-                    anesthesiaSettings.checklistItems.signIn.map((item: string, index: number) => {
-                      const itemKey = item.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-                      const isChecked = anesthesiaRecord?.signInChecklist?.[itemKey] || false;
-                      return (
-                        <div key={index} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`signin-${index}`}
-                            defaultChecked={isChecked}
-                            data-testid={`checkbox-signin-${index}`}
-                          />
-                          <label
-                            htmlFor={`signin-${index}`}
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                          >
-                            {item}
-                          </label>
-                        </div>
-                      );
-                    })
+                    <>
+                      {anesthesiaSettings.checklistItems.signIn.map((item: string, index: number) => {
+                        const itemKey = item.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+                        const isChecked = signInChecklist[itemKey] || false;
+                        return (
+                          <div key={index} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`signin-${index}`}
+                              checked={isChecked}
+                              onCheckedChange={(checked) => {
+                                setSignInChecklist(prev => ({
+                                  ...prev,
+                                  [itemKey]: checked === true
+                                }));
+                              }}
+                              data-testid={`checkbox-signin-${index}`}
+                            />
+                            <label
+                              htmlFor={`signin-${index}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                            >
+                              {item}
+                            </label>
+                          </div>
+                        );
+                      })}
+                      <div className="pt-2 space-y-2">
+                        <Label htmlFor="signin-notes">Additional Notes</Label>
+                        <Textarea
+                          id="signin-notes"
+                          placeholder="Add any additional notes or observations..."
+                          value={signInNotes}
+                          onChange={(e) => setSignInNotes(e.target.value)}
+                          rows={3}
+                          data-testid="textarea-signin-notes"
+                        />
+                      </div>
+                      <div className="pt-2 space-y-2">
+                        <Label htmlFor="signin-signature">Signature</Label>
+                        <SignatureCanvas
+                          value={signInSignature}
+                          onChange={setSignInSignature}
+                          className="border border-input rounded-md"
+                        />
+                      </div>
+                    </>
                   ) : (
                     <p className="text-sm text-muted-foreground">No checklist items configured. Please configure WHO checklist items in Anesthesia Settings.</p>
                   )}
@@ -920,25 +992,52 @@ export default function Op() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {anesthesiaSettings?.checklistItems?.timeOut && anesthesiaSettings.checklistItems.timeOut.length > 0 ? (
-                    anesthesiaSettings.checklistItems.timeOut.map((item: string, index: number) => {
-                      const itemKey = item.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-                      const isChecked = anesthesiaRecord?.timeOutChecklist?.[itemKey] || false;
-                      return (
-                        <div key={index} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`timeout-${index}`}
-                            defaultChecked={isChecked}
-                            data-testid={`checkbox-timeout-${index}`}
-                          />
-                          <label
-                            htmlFor={`timeout-${index}`}
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                          >
-                            {item}
-                          </label>
-                        </div>
-                      );
-                    })
+                    <>
+                      {anesthesiaSettings.checklistItems.timeOut.map((item: string, index: number) => {
+                        const itemKey = item.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+                        const isChecked = timeOutChecklist[itemKey] || false;
+                        return (
+                          <div key={index} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`timeout-${index}`}
+                              checked={isChecked}
+                              onCheckedChange={(checked) => {
+                                setTimeOutChecklist(prev => ({
+                                  ...prev,
+                                  [itemKey]: checked === true
+                                }));
+                              }}
+                              data-testid={`checkbox-timeout-${index}`}
+                            />
+                            <label
+                              htmlFor={`timeout-${index}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                            >
+                              {item}
+                            </label>
+                          </div>
+                        );
+                      })}
+                      <div className="pt-2 space-y-2">
+                        <Label htmlFor="timeout-notes">Additional Notes</Label>
+                        <Textarea
+                          id="timeout-notes"
+                          placeholder="Add any additional notes or observations..."
+                          value={timeOutNotes}
+                          onChange={(e) => setTimeOutNotes(e.target.value)}
+                          rows={3}
+                          data-testid="textarea-timeout-notes"
+                        />
+                      </div>
+                      <div className="pt-2 space-y-2">
+                        <Label htmlFor="timeout-signature">Signature</Label>
+                        <SignatureCanvas
+                          value={timeOutSignature}
+                          onChange={setTimeOutSignature}
+                          className="border border-input rounded-md"
+                        />
+                      </div>
+                    </>
                   ) : (
                     <p className="text-sm text-muted-foreground">No checklist items configured. Please configure WHO checklist items in Anesthesia Settings.</p>
                   )}
@@ -955,25 +1054,52 @@ export default function Op() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {anesthesiaSettings?.checklistItems?.signOut && anesthesiaSettings.checklistItems.signOut.length > 0 ? (
-                    anesthesiaSettings.checklistItems.signOut.map((item: string, index: number) => {
-                      const itemKey = item.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-                      const isChecked = anesthesiaRecord?.signOutChecklist?.[itemKey] || false;
-                      return (
-                        <div key={index} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`signout-${index}`}
-                            defaultChecked={isChecked}
-                            data-testid={`checkbox-signout-${index}`}
-                          />
-                          <label
-                            htmlFor={`signout-${index}`}
-                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                          >
-                            {item}
-                          </label>
-                        </div>
-                      );
-                    })
+                    <>
+                      {anesthesiaSettings.checklistItems.signOut.map((item: string, index: number) => {
+                        const itemKey = item.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+                        const isChecked = signOutChecklist[itemKey] || false;
+                        return (
+                          <div key={index} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`signout-${index}`}
+                              checked={isChecked}
+                              onCheckedChange={(checked) => {
+                                setSignOutChecklist(prev => ({
+                                  ...prev,
+                                  [itemKey]: checked === true
+                                }));
+                              }}
+                              data-testid={`checkbox-signout-${index}`}
+                            />
+                            <label
+                              htmlFor={`signout-${index}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                            >
+                              {item}
+                            </label>
+                          </div>
+                        );
+                      })}
+                      <div className="pt-2 space-y-2">
+                        <Label htmlFor="signout-notes">Additional Notes</Label>
+                        <Textarea
+                          id="signout-notes"
+                          placeholder="Add any additional notes or observations..."
+                          value={signOutNotes}
+                          onChange={(e) => setSignOutNotes(e.target.value)}
+                          rows={3}
+                          data-testid="textarea-signout-notes"
+                        />
+                      </div>
+                      <div className="pt-2 space-y-2">
+                        <Label htmlFor="signout-signature">Signature</Label>
+                        <SignatureCanvas
+                          value={signOutSignature}
+                          onChange={setSignOutSignature}
+                          className="border border-input rounded-md"
+                        />
+                      </div>
+                    </>
                   ) : (
                     <p className="text-sm text-muted-foreground">No checklist items configured. Please configure WHO checklist items in Anesthesia Settings.</p>
                   )}

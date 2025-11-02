@@ -1,9 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Loader2 } from "lucide-react";
-import { formatDate, formatDateTime } from "@/lib/dateUtils";
+import { Loader2, AlertCircle } from "lucide-react";
+import { formatDateTime } from "@/lib/dateUtils";
 
 type PreOpAssessmentData = {
   // General Data
@@ -76,82 +75,33 @@ interface PreOpOverviewProps {
 }
 
 const illnessLabels: Record<string, string> = {
-  // Heart
-  htn: "Hypertension",
-  chd: "CHD",
-  heartValve: "Heart Valve",
-  arrhythmia: "Arrhythmia",
-  heartFailure: "Heart Failure",
-  // Lung
-  asthma: "Asthma",
-  copd: "COPD",
-  sleepApnea: "Sleep Apnea",
-  pneumonia: "Pneumonia",
-  // GI
-  reflux: "Reflux",
-  ibd: "IBD",
-  liverDisease: "Liver Disease",
-  // Kidney
-  ckd: "CKD",
-  dialysis: "Dialysis",
-  // Metabolic
-  diabetes: "Diabetes",
-  thyroid: "Thyroid",
-  // Neuro
-  stroke: "Stroke",
-  epilepsy: "Epilepsy",
-  parkinsons: "Parkinson's",
-  dementia: "Dementia",
-  // Psych
-  depression: "Depression",
-  anxiety: "Anxiety",
-  psychosis: "Psychosis",
-  // Skeletal
-  arthritis: "Arthritis",
-  osteoporosis: "Osteoporosis",
-  spineDisorders: "Spine Disorders",
-  // Woman
-  pregnancy: "Pregnancy",
-  breastfeeding: "Breastfeeding",
-  menopause: "Menopause",
-  gynecologicalSurgery: "Gyn Surgery",
-  // Noxen
-  nicotine: "Nicotine",
-  alcohol: "Alcohol",
-  drugs: "Drugs",
-  // Children
-  prematurity: "Prematurity",
-  developmentalDelay: "Dev. Delay",
-  congenitalAnomalies: "Congenital Anomalies",
-  vaccination: "Vaccination Issues",
+  htn: "HTN", chd: "CHD", heartValve: "Valve Dx", arrhythmia: "Arrhythmia", heartFailure: "HF",
+  asthma: "Asthma", copd: "COPD", sleepApnea: "Sleep Apnea", pneumonia: "Pneumonia",
+  reflux: "GERD", ibd: "IBD", liverDisease: "Liver Dx",
+  ckd: "CKD", dialysis: "Dialysis",
+  diabetes: "DM", thyroid: "Thyroid Dx",
+  stroke: "CVA", epilepsy: "Epilepsy", parkinsons: "Parkinson's", dementia: "Dementia",
+  depression: "Depression", anxiety: "Anxiety", psychosis: "Psychosis",
+  arthritis: "Arthritis", osteoporosis: "Osteoporosis", spineDisorders: "Spine Dx",
+  pregnancy: "Pregnant", breastfeeding: "Breastfeeding", menopause: "Menopause", gynecologicalSurgery: "Gyn Surg Hx",
+  nicotine: "Nicotine", alcohol: "Alcohol", drugs: "Drugs",
+  prematurity: "Prematurity", developmentalDelay: "Dev. Delay", congenitalAnomalies: "Congenital", vaccination: "Vacc. Issues",
 };
 
 const anesthesiaLabels: Record<string, string> = {
-  general: "General",
-  spinal: "Spinal",
-  epidural: "Epidural",
-  regional: "Regional",
-  sedation: "Sedation",
-  combined: "Combined",
+  general: "GA", spinal: "Spinal", epidural: "Epidural", regional: "Regional", sedation: "Sedation", combined: "Combined",
 };
 
 const installationLabels: Record<string, string> = {
-  arterialLine: "Art. Line",
-  cvc: "CVC",
-  picLine: "PICC",
-  urinaryCatheter: "Urinary Cath.",
-  nasogastricTube: "NG Tube",
-  drainageTube: "Drainage",
+  arterialLine: "Art. Line", cvc: "CVC", picLine: "PICC", urinaryCatheter: "Foley", nasogastricTube: "NGT", drainageTube: "Drain",
 };
 
 export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
-  // Fetch pre-op assessment data
   const { data: assessment, isLoading } = useQuery<PreOpAssessmentData>({
     queryKey: [`/api/anesthesia/preop/surgery/${surgeryId}`],
     enabled: !!surgeryId,
   });
 
-  // Helper to get selected items from boolean records
   const getSelectedItems = (record: Record<string, boolean>, labels: Record<string, string>) => {
     return Object.entries(record || {})
       .filter(([_, value]) => value)
@@ -160,26 +110,23 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex items-center justify-center h-32">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   if (!assessment) {
     return (
-      <div className="flex items-center justify-center h-full text-muted-foreground">
-        <p>No pre-operative assessment data available</p>
+      <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
+        <p>No assessment data</p>
       </div>
     );
   }
 
   const data = assessment;
 
-  // Helper to check if any field in a group has data
-  const hasData = (condition: boolean) => condition;
-
-  // Collect all medical history items
+  // Collect all medical history
   const medicalHistory = [
     ...getSelectedItems(data.heartIllnesses, illnessLabels),
     ...getSelectedItems(data.lungIllnesses, illnessLabels),
@@ -195,282 +142,188 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
   ];
 
   const allNotes = [
-    data.heartNotes,
-    data.lungNotes,
-    data.giKidneyMetabolicNotes,
-    data.neuroPsychSkeletalNotes,
-    data.womanNotes,
-    data.noxenNotes,
-    data.childrenNotes,
-  ].filter(note => note.trim());
+    data.heartNotes, data.lungNotes, data.giKidneyMetabolicNotes, 
+    data.neuroPsychSkeletalNotes, data.womanNotes, data.noxenNotes, data.childrenNotes
+  ].filter(note => note?.trim());
+
+  const allMedications = [
+    ...data.anticoagulationMeds.map(m => `${m} (AC)`),
+    data.anticoagulationMedsOther ? `${data.anticoagulationMedsOther} (AC)` : '',
+    ...data.generalMeds,
+    data.generalMedsOther
+  ].filter(Boolean);
 
   const selectedAnesthesia = getSelectedItems(data.anesthesiaTechniques, anesthesiaLabels);
   const selectedInstallations = getSelectedItems(data.installations, installationLabels);
 
-  // If no data at all, show empty state
+  // Check if we have any relevant data (excluding header info: height, weight, allergies, surgery)
   const hasAnyData = 
-    data.asa.trim() ||
-    data.specialNotes.trim() ||
-    data.anticoagulationMeds.length > 0 ||
-    data.anticoagulationMedsOther.trim() ||
-    data.generalMeds.length > 0 ||
-    data.generalMedsOther.trim() ||
-    data.medicationsNotes.trim() ||
+    data.asa?.trim() ||
+    allMedications.length > 0 ||
+    data.medicationsNotes?.trim() ||
     medicalHistory.length > 0 ||
     allNotes.length > 0 ||
-    data.mallampati.trim() ||
-    data.mouthOpening.trim() ||
-    data.dentition.trim() ||
-    data.airwayDifficult.trim() ||
-    data.airwayNotes.trim() ||
-    data.lastSolids.trim() ||
-    data.lastClear.trim() ||
+    data.mallampati?.trim() ||
+    data.mouthOpening?.trim() ||
+    data.dentition?.trim() ||
+    data.airwayDifficult?.trim() ||
+    data.airwayNotes?.trim() ||
+    data.lastSolids?.trim() ||
+    data.lastClear?.trim() ||
     selectedAnesthesia.length > 0 ||
     data.postOpICU ||
-    data.anesthesiaOther.trim() ||
+    data.anesthesiaOther?.trim() ||
     selectedInstallations.length > 0 ||
-    data.installationsOther.trim() ||
-    data.surgicalApproval.trim();
+    data.installationsOther?.trim() ||
+    data.surgicalApproval?.trim() ||
+    data.specialNotes?.trim();
 
   if (!hasAnyData) {
     return (
-      <div className="flex items-center justify-center h-full text-muted-foreground">
-        <p>No pre-operative assessment data available</p>
+      <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
+        <p>No assessment data</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3 text-sm">
-      {/* ASA & Vitals */}
-      {hasData(!!data.asa.trim()) && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">ASA Classification</CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3">
-            <Badge variant="outline" className="font-semibold">{data.asa}</Badge>
-          </CardContent>
-        </Card>
+    <div className="space-y-3 text-xs p-4 bg-muted/30 rounded-lg">
+      {/* Special Notes - Highlighted at top */}
+      {data.specialNotes?.trim() && (
+        <div className="p-2 rounded bg-amber-100 dark:bg-amber-950 border border-amber-300 dark:border-amber-800">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <div className="font-semibold text-amber-900 dark:text-amber-100 text-xs">CAVE</div>
+              <div className="text-amber-800 dark:text-amber-200 mt-0.5">{data.specialNotes}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ASA */}
+      {data.asa?.trim() && (
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-muted-foreground min-w-[60px]">ASA:</span>
+          <Badge variant="outline" className="font-semibold text-xs">{data.asa}</Badge>
+        </div>
       )}
 
       {/* Medications */}
-      {hasData(
-        data.anticoagulationMeds.length > 0 || 
-        !!data.anticoagulationMedsOther.trim() ||
-        data.generalMeds.length > 0 ||
-        !!data.generalMedsOther.trim() ||
-        !!data.medicationsNotes.trim()
-      ) && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Medications</CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3 space-y-1.5">
-            {(data.anticoagulationMeds.length > 0 || data.anticoagulationMedsOther.trim()) && (
-              <div>
-                <span className="text-muted-foreground text-xs">Anticoagulation: </span>
-                <span className="font-medium">
-                  {[...data.anticoagulationMeds, data.anticoagulationMedsOther].filter(Boolean).join(", ")}
-                </span>
-              </div>
+      {allMedications.length > 0 && (
+        <div>
+          <div className="font-semibold text-muted-foreground mb-1">Medications:</div>
+          <div className="pl-2 space-y-0.5">
+            {allMedications.map((med, idx) => (
+              <div key={idx} className="text-xs">• {med}</div>
+            ))}
+            {data.medicationsNotes?.trim() && (
+              <div className="text-xs italic text-muted-foreground mt-1">{data.medicationsNotes}</div>
             )}
-            {(data.generalMeds.length > 0 || data.generalMedsOther.trim()) && (
-              <div>
-                <span className="text-muted-foreground text-xs">General: </span>
-                <span className="font-medium">
-                  {[...data.generalMeds, data.generalMedsOther].filter(Boolean).join(", ")}
-                </span>
-              </div>
-            )}
-            {data.medicationsNotes.trim() && (
-              <div className="text-xs text-muted-foreground mt-1 italic">{data.medicationsNotes}</div>
-            )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Medical History */}
-      {hasData(medicalHistory.length > 0 || allNotes.length > 0) && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Medical History</CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3">
-            {medicalHistory.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {medicalHistory.map((illness, idx) => (
-                  <Badge key={idx} variant="secondary" className="text-xs">{illness}</Badge>
-                ))}
-              </div>
-            )}
-            {allNotes.length > 0 && (
-              <div className="space-y-1">
-                {allNotes.map((note, idx) => (
-                  <div key={idx} className="text-xs text-muted-foreground italic">• {note}</div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {medicalHistory.length > 0 && (
+        <div>
+          <div className="font-semibold text-muted-foreground mb-1">Hx:</div>
+          <div className="flex flex-wrap gap-1 pl-2">
+            {medicalHistory.map((illness, idx) => (
+              <Badge key={idx} variant="secondary" className="text-xs py-0">{illness}</Badge>
+            ))}
+          </div>
+          {allNotes.length > 0 && (
+            <div className="pl-2 mt-1 space-y-0.5">
+              {allNotes.map((note, idx) => (
+                <div key={idx} className="text-xs italic text-muted-foreground">• {note}</div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
-      {/* Airway Assessment */}
-      {hasData(
-        !!data.mallampati.trim() || 
-        !!data.mouthOpening.trim() || 
-        !!data.dentition.trim() ||
-        !!data.airwayDifficult.trim() ||
-        !!data.airwayNotes.trim()
-      ) && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Airway Assessment</CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3 space-y-1.5">
-            {data.mallampati.trim() && (
-              <div>
-                <span className="text-muted-foreground text-xs">Mallampati: </span>
-                <span className="font-medium">{data.mallampati}</span>
-              </div>
+      {/* Airway */}
+      {(data.mallampati?.trim() || data.mouthOpening?.trim() || data.dentition?.trim() || data.airwayDifficult?.trim() || data.airwayNotes?.trim()) && (
+        <div>
+          <div className="font-semibold text-muted-foreground mb-1">Airway:</div>
+          <div className="pl-2 space-y-0.5">
+            {data.mallampati?.trim() && <div>MP: {data.mallampati}</div>}
+            {data.mouthOpening?.trim() && <div>MO: {data.mouthOpening}</div>}
+            {data.dentition?.trim() && <div>Teeth: {data.dentition}</div>}
+            {data.airwayDifficult?.trim() && (
+              <Badge variant="destructive" className="text-xs">Difficult: {data.airwayDifficult}</Badge>
             )}
-            {data.mouthOpening.trim() && (
-              <div>
-                <span className="text-muted-foreground text-xs">Mouth Opening: </span>
-                <span className="font-medium">{data.mouthOpening}</span>
-              </div>
+            {data.airwayNotes?.trim() && (
+              <div className="text-xs italic text-muted-foreground">{data.airwayNotes}</div>
             )}
-            {data.dentition.trim() && (
-              <div>
-                <span className="text-muted-foreground text-xs">Dentition: </span>
-                <span className="font-medium">{data.dentition}</span>
-              </div>
-            )}
-            {data.airwayDifficult.trim() && (
-              <div>
-                <Badge variant="destructive" className="text-xs">Difficult Airway: {data.airwayDifficult}</Badge>
-              </div>
-            )}
-            {data.airwayNotes.trim() && (
-              <div className="text-xs text-muted-foreground italic">{data.airwayNotes}</div>
-            )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
-      {/* Fasting Status */}
-      {hasData(!!data.lastSolids.trim() || !!data.lastClear.trim()) && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Fasting Status</CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3 space-y-1.5">
-            {data.lastSolids.trim() && (
-              <div>
-                <span className="text-muted-foreground text-xs">Last Solids: </span>
-                <span className="font-medium">{formatDateTime(data.lastSolids)}</span>
-              </div>
-            )}
-            {data.lastClear.trim() && (
-              <div>
-                <span className="text-muted-foreground text-xs">Last Clear Fluids: </span>
-                <span className="font-medium">{formatDateTime(data.lastClear)}</span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* Fasting */}
+      {(data.lastSolids?.trim() || data.lastClear?.trim()) && (
+        <div>
+          <div className="font-semibold text-muted-foreground mb-1">Fasting:</div>
+          <div className="pl-2 space-y-0.5">
+            {data.lastSolids?.trim() && <div>Solids: {formatDateTime(data.lastSolids)}</div>}
+            {data.lastClear?.trim() && <div>Clear: {formatDateTime(data.lastClear)}</div>}
+          </div>
+        </div>
       )}
 
       {/* Planned Anesthesia */}
-      {hasData(
-        selectedAnesthesia.length > 0 || 
-        data.postOpICU || 
-        !!data.anesthesiaOther.trim()
-      ) && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Planned Anesthesia</CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3">
+      {(selectedAnesthesia.length > 0 || data.postOpICU || data.anesthesiaOther?.trim()) && (
+        <div>
+          <div className="font-semibold text-muted-foreground mb-1">Planned:</div>
+          <div className="pl-2">
             {selectedAnesthesia.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-2">
+              <div className="flex flex-wrap gap-1">
                 {selectedAnesthesia.map((technique, idx) => (
-                  <Badge key={idx} variant="default" className="text-xs">{technique}</Badge>
+                  <Badge key={idx} variant="default" className="text-xs py-0">{technique}</Badge>
                 ))}
               </div>
             )}
             {data.postOpICU && (
-              <Badge variant="outline" className="text-xs mb-2">Post-Op ICU</Badge>
+              <Badge variant="outline" className="text-xs mt-1">Post-Op ICU</Badge>
             )}
-            {data.anesthesiaOther.trim() && (
-              <div className="text-xs text-muted-foreground italic">{data.anesthesiaOther}</div>
+            {data.anesthesiaOther?.trim() && (
+              <div className="text-xs italic text-muted-foreground mt-1">{data.anesthesiaOther}</div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
-      {/* Planned Installations */}
-      {hasData(selectedInstallations.length > 0 || !!data.installationsOther.trim()) && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Planned Installations</CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3">
+      {/* Installations */}
+      {(selectedInstallations.length > 0 || data.installationsOther?.trim()) && (
+        <div>
+          <div className="font-semibold text-muted-foreground mb-1">Installations:</div>
+          <div className="pl-2">
             {selectedInstallations.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-2">
+              <div className="flex flex-wrap gap-1">
                 {selectedInstallations.map((installation, idx) => (
-                  <Badge key={idx} variant="secondary" className="text-xs">{installation}</Badge>
+                  <Badge key={idx} variant="secondary" className="text-xs py-0">{installation}</Badge>
                 ))}
               </div>
             )}
-            {data.installationsOther.trim() && (
-              <div className="text-xs text-muted-foreground italic">{data.installationsOther}</div>
+            {data.installationsOther?.trim() && (
+              <div className="text-xs italic text-muted-foreground mt-1">{data.installationsOther}</div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Surgical Approval */}
-      {data.surgicalApproval.trim() && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Surgical Approval</CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3">
-            <Badge 
-              variant={data.surgicalApproval === 'approved' ? 'default' : 'destructive'}
-              className="text-xs"
-            >
-              {data.surgicalApproval.replace('-', ' ').toUpperCase()}
-            </Badge>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Assessment Info */}
-      {hasData(!!data.assessmentDate.trim() || !!data.doctorName.trim()) && (
-        <Card>
-          <CardContent className="py-2 text-xs text-muted-foreground">
-            {data.assessmentDate.trim() && (
-              <div>Assessed: {formatDate(data.assessmentDate)}</div>
-            )}
-            {data.doctorName.trim() && (
-              <div>By: {data.doctorName}</div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Special Notes */}
-      {data.specialNotes.trim() && (
-        <Card className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-amber-900 dark:text-amber-100">Special Notes</CardTitle>
-          </CardHeader>
-          <CardContent className="pb-3">
-            <p className="text-xs text-amber-800 dark:text-amber-200">{data.specialNotes}</p>
-          </CardContent>
-        </Card>
+      {data.surgicalApproval?.trim() && (
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-muted-foreground min-w-[60px]">Approval:</span>
+          <Badge 
+            variant={data.surgicalApproval === 'approved' ? 'default' : 'destructive'}
+            className="text-xs"
+          >
+            {data.surgicalApproval.replace('-', ' ').toUpperCase()}
+          </Badge>
+        </div>
       )}
     </div>
   );
