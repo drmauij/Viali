@@ -85,7 +85,7 @@ export default function Op() {
 
   // Fetch patient data
   const { data: patient, isLoading: isPatientLoading, error: patientError } = useQuery({
-    queryKey: [`/api/anesthesia/patients/${surgery?.patientId}`],
+    queryKey: [`/api/patients/${surgery?.patientId}`],
     enabled: !!surgery?.patientId,
   });
 
