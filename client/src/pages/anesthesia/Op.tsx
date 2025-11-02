@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, useLocation } from "wouter";
 import { UnifiedTimeline, type UnifiedTimelineData, type TimelineVitals, type TimelineEvent, type VitalPoint } from "@/components/anesthesia/UnifiedTimeline";
 import { PreOpOverview } from "@/components/anesthesia/PreOpOverview";
-import PreopTab from "@/components/anesthesia/PreopTab";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -83,6 +82,23 @@ export default function Op() {
     queryKey: [`/api/anesthesia/preop/surgery/${surgeryId}`],
     enabled: !!surgeryId,
   });
+
+  // Fetch patient data
+  const { data: patient, isLoading: isPatientLoading, error: patientError } = useQuery({
+    queryKey: [`/api/anesthesia/patients/${surgery?.patientId}`],
+    enabled: !!surgery?.patientId,
+  });
+
+  // Show error toast if patient fetch fails
+  useEffect(() => {
+    if (patientError) {
+      toast({
+        title: "Error loading patient data",
+        description: "Unable to fetch patient information",
+        variant: "destructive",
+      });
+    }
+  }, [patientError, toast]);
 
   // Fetch anesthesia settings for WHO checklists
   const { data: anesthesiaSettings } = useQuery({
@@ -387,8 +403,23 @@ export default function Op() {
   // Get patient weight from preOp assessment
   const patientWeight = preOpAssessment?.weight ? parseFloat(preOpAssessment.weight) : undefined;
 
+  // Calculate age from birthday
+  const calculateAge = (birthday: string | null | undefined): number | null => {
+    if (!birthday) return null;
+    const birthDate = new Date(birthday);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const patientAge = calculateAge(patient?.birthday);
+
   // Show loading state while initial data is loading
-  if (isSurgeryLoading || isPreOpLoading) {
+  if (isSurgeryLoading || isPreOpLoading || isPatientLoading) {
     return (
       <Dialog open={isOpen} onOpenChange={handleDialogChange}>
         <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col items-center justify-center [&>button]:hidden">
@@ -431,11 +462,15 @@ export default function Op() {
               <div className="flex items-center gap-3">
                 <UserCircle className="h-8 w-8 text-blue-500" />
                 <div>
-                  <h2 className="font-bold text-base md:text-lg">Patient {surgery.patientId}</h2>
+                  <h2 className="font-bold text-base md:text-lg">
+                    {patient ? `${patient.name || ''} ${patient.surname || ''}`.trim() || 'Patient' : 'Loading...'}
+                  </h2>
                   <div className="flex items-center gap-3 md:gap-4 flex-wrap">
-                    <p className="text-xs md:text-sm text-muted-foreground">
-                      Surgery ID: {surgery.id}
-                    </p>
+                    {patient?.birthday && (
+                      <p className="text-xs md:text-sm text-muted-foreground">
+                        {formatDate(patient.birthday)}{patientAge !== null && ` • ${patientAge} y/o`}
+                      </p>
+                    )}
                     {preOpAssessment && (
                       <div className="flex items-center gap-3 font-semibold text-sm">
                         {preOpAssessment.height && (
@@ -796,40 +831,8 @@ export default function Op() {
               <div className="flex items-center justify-center h-64">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
-            ) : !preOpAssessment ? (
-              <div className="flex flex-col items-center justify-center h-64 gap-4">
-                <p className="text-muted-foreground">No pre-operative assessment created yet</p>
-                <Button
-                  onClick={async () => {
-                    try {
-                      // Create a new assessment with status "draft"
-                      await apiRequest("POST", "/api/anesthesia/preop", {
-                        surgeryId: surgeryId,
-                        status: "draft",
-                        allergies: [],
-                        height: "",
-                        weight: "",
-                      });
-                      // Invalidate specific assessment query
-                      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${surgeryId}`] });
-                      // Invalidate list query with correct key shape (matches PreOpList.tsx)
-                      if (surgery) {
-                        queryClient.invalidateQueries({ 
-                          queryKey: ["/api/anesthesia/preop", { hospitalId: surgery.hospitalId }] 
-                        });
-                      }
-                      toast({ title: "Pre-op assessment created", description: "You can now add patient information" });
-                    } catch (error) {
-                      toast({ title: "Error", description: "Failed to create assessment", variant: "destructive" });
-                    }
-                  }}
-                  data-testid="button-create-preop"
-                >
-                  Create Pre-Op Assessment
-                </Button>
-              </div>
             ) : (
-              <PreopTab surgeryId={surgeryId!} hospitalId={surgery?.hospitalId || ""} />
+              <PreOpOverview surgeryId={surgeryId!} />
             )}
           </TabsContent>
 
