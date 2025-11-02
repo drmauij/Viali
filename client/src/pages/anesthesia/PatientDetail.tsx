@@ -169,6 +169,7 @@ export default function PatientDetail() {
     surgeon: "",
     plannedDate: "",
     surgeryRoomId: "",
+    duration: 180, // Default 3 hours in minutes
   });
   const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
   const [editCase, setEditCase] = useState({
@@ -176,6 +177,7 @@ export default function PatientDetail() {
     surgeon: "",
     plannedDate: "",
     surgeryRoomId: "",
+    duration: 180,
   });
   const [deleteDialogSurgeryId, setDeleteDialogSurgeryId] = useState<string | null>(null);
   const [consentData, setConsentData] = useState({
@@ -283,6 +285,7 @@ export default function PatientDetail() {
       surgeon: string | null;
       plannedDate: string;
       surgeryRoomId?: string | null;
+      actualEndTime?: string;
     }) => {
       return await apiRequest("POST", "/api/anesthesia/surgeries", surgeryData);
     },
@@ -301,7 +304,7 @@ export default function PatientDetail() {
         description: "The surgery has been successfully created.",
       });
       setIsCreateCaseOpen(false);
-      setNewCase({ plannedSurgery: "", surgeon: "", plannedDate: "", surgeryRoomId: "" });
+      setNewCase({ plannedSurgery: "", surgeon: "", plannedDate: "", surgeryRoomId: "", duration: 180 });
     },
     onError: (error: any) => {
       toast({
@@ -319,6 +322,7 @@ export default function PatientDetail() {
       surgeon: string | null;
       plannedDate: string;
       surgeryRoomId: string | null;
+      actualEndTime: string;
     }> }) => {
       return await apiRequest("PATCH", `/api/anesthesia/surgeries/${id}`, data);
     },
@@ -337,7 +341,7 @@ export default function PatientDetail() {
         description: "The surgery has been successfully updated.",
       });
       setEditingCaseId(null);
-      setEditCase({ plannedSurgery: "", surgeon: "", plannedDate: "", surgeryRoomId: "" });
+      setEditCase({ plannedSurgery: "", surgeon: "", plannedDate: "", surgeryRoomId: "", duration: 180 });
     },
     onError: (error: any) => {
       toast({
@@ -587,7 +591,22 @@ export default function PatientDetail() {
       return;
     }
 
+    // Validate duration
+    if (!newCase.duration || newCase.duration <= 0) {
+      toast({
+        title: "Invalid Duration",
+        description: "Duration must be greater than 0 minutes.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!patient || !activeHospital) return;
+
+    // Calculate end time from start time + duration
+    const startDate = new Date(newCase.plannedDate);
+    const endDate = new Date(startDate);
+    endDate.setMinutes(endDate.getMinutes() + newCase.duration);
 
     const surgeryData = {
       hospitalId: activeHospital.id,
@@ -596,6 +615,7 @@ export default function PatientDetail() {
       surgeon: newCase.surgeon || null,
       plannedDate: newCase.plannedDate,
       surgeryRoomId: newCase.surgeryRoomId || null,
+      actualEndTime: endDate.toISOString(),
     };
     
     console.log("Creating surgery with data:", surgeryData);
@@ -604,11 +624,22 @@ export default function PatientDetail() {
 
   const handleEditCase = (surgery: any) => {
     setEditingCaseId(surgery.id);
+    
+    // Calculate duration from existing start and end times
+    let duration = 180; // Default 3 hours
+    if (surgery.plannedDate && surgery.actualEndTime) {
+      const start = new Date(surgery.plannedDate);
+      const end = new Date(surgery.actualEndTime);
+      const diffMs = end.getTime() - start.getTime();
+      duration = Math.round(diffMs / (1000 * 60)); // Convert ms to minutes
+    }
+    
     setEditCase({
       plannedSurgery: surgery.plannedSurgery,
       surgeon: surgery.surgeon || "",
       plannedDate: formatDateTimeForInput(surgery.plannedDate),
       surgeryRoomId: surgery.surgeryRoomId || "",
+      duration: duration,
     });
   };
 
@@ -622,13 +653,29 @@ export default function PatientDetail() {
       return;
     }
 
+    // Validate duration
+    if (!editCase.duration || editCase.duration <= 0) {
+      toast({
+        title: "Invalid Duration",
+        description: "Duration must be greater than 0 minutes.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!editingCaseId) return;
+
+    // Calculate end time from start time + duration
+    const startDate = new Date(editCase.plannedDate);
+    const endDate = new Date(startDate);
+    endDate.setMinutes(endDate.getMinutes() + editCase.duration);
 
     const updateData = {
       plannedSurgery: editCase.plannedSurgery,
       surgeon: editCase.surgeon || null,
       plannedDate: editCase.plannedDate,
       surgeryRoomId: editCase.surgeryRoomId || null,
+      actualEndTime: endDate.toISOString(),
     };
 
     updateSurgeryMutation.mutate({ id: editingCaseId, data: updateData });
@@ -1163,6 +1210,17 @@ export default function PatientDetail() {
                   data-testid="input-planned-date"
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="duration">Duration (minutes)</Label>
+                <Input
+                  id="duration"
+                  type="number"
+                  min="1"
+                  value={newCase.duration}
+                  onChange={(e) => setNewCase({ ...newCase, duration: parseInt(e.target.value) || 0 })}
+                  data-testid="input-duration"
+                />
+              </div>
               <Button 
                 onClick={handleCreateCase} 
                 className="w-full" 
@@ -1273,6 +1331,17 @@ export default function PatientDetail() {
                 value={editCase.plannedDate}
                 onChange={(e) => setEditCase({ ...editCase, plannedDate: e.target.value })}
                 data-testid="input-edit-planned-date"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-duration">Duration (minutes)</Label>
+              <Input
+                id="edit-duration"
+                type="number"
+                min="1"
+                value={editCase.duration}
+                onChange={(e) => setEditCase({ ...editCase, duration: parseInt(e.target.value) || 0 })}
+                data-testid="input-edit-duration"
               />
             </div>
             <Button 
