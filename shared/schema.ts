@@ -42,7 +42,22 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Units
+// Hospital table (defined first to break circular dependency)
+export const hospitals = pgTable("hospitals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  address: text("address"),
+  timezone: varchar("timezone").default("UTC"),
+  googleAuthEnabled: boolean("google_auth_enabled").default(true),
+  localAuthEnabled: boolean("local_auth_enabled").default(true),
+  licenseType: varchar("license_type", { enum: ["free", "basic"] }).default("free").notNull(),
+  anesthesiaUnitId: varchar("anesthesia_unit_id").references((): any => units.id),
+  surgeryUnitId: varchar("surgery_unit_id").references((): any => units.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Units (references added after hospitals table is defined)
 export const units = pgTable("units", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
@@ -54,21 +69,6 @@ export const units = pgTable("units", {
   index("idx_units_hospital").on(table.hospitalId),
   index("idx_units_parent").on(table.parentId),
 ]);
-
-// Hospital table
-export const hospitals = pgTable("hospitals", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: varchar("name").notNull(),
-  address: text("address"),
-  timezone: varchar("timezone").default("UTC"),
-  googleAuthEnabled: boolean("google_auth_enabled").default(true),
-  localAuthEnabled: boolean("local_auth_enabled").default(true),
-  licenseType: varchar("license_type", { enum: ["free", "basic"] }).default("free").notNull(),
-  anesthesiaUnitId: varchar("anesthesia_unit_id").references(() => units.id), // Designates which unit's inventory is used for anesthesia module
-  surgeryUnitId: varchar("surgery_unit_id").references(() => units.id), // Designates which unit's doctors are available as surgeons
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
 
 // User-Hospital-Role mapping
 export const userHospitalRoles = pgTable("user_hospital_roles", {

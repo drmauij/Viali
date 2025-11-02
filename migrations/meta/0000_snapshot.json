@@ -1,5 +1,5 @@
 {
-  "id": "27c03315-f642-4ffc-aa0b-0ea39f5c7a5b",
+  "id": "0502042a-8cbe-480b-808c-5d8ef7aeb7a1",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -46,8 +46,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "location_id": {
-          "name": "location_id",
+        "unit_id": {
+          "name": "unit_id",
           "type": "varchar",
           "primaryKey": false,
           "notNull": false
@@ -204,12 +204,12 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "activities_location_id_locations_id_fk": {
-          "name": "activities_location_id_locations_id_fk",
+        "activities_unit_id_units_id_fk": {
+          "name": "activities_unit_id_units_id_fk",
           "tableFrom": "activities",
-          "tableTo": "locations",
+          "tableTo": "units",
           "columnsFrom": [
-            "location_id"
+            "unit_id"
           ],
           "columnsTo": [
             "id"
@@ -494,6 +494,833 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.anesthesia_events": {
+      "name": "anesthesia_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "anesthesia_record_id": {
+          "name": "anesthesia_record_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "timestamp": {
+          "name": "timestamp",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_type": {
+          "name": "event_type",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_anesthesia_events_record": {
+          "name": "idx_anesthesia_events_record",
+          "columns": [
+            {
+              "expression": "anesthesia_record_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_anesthesia_events_timestamp": {
+          "name": "idx_anesthesia_events_timestamp",
+          "columns": [
+            {
+              "expression": "timestamp",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_anesthesia_events_type": {
+          "name": "idx_anesthesia_events_type",
+          "columns": [
+            {
+              "expression": "event_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "anesthesia_events_anesthesia_record_id_anesthesia_records_id_fk": {
+          "name": "anesthesia_events_anesthesia_record_id_anesthesia_records_id_fk",
+          "tableFrom": "anesthesia_events",
+          "tableTo": "anesthesia_records",
+          "columnsFrom": [
+            "anesthesia_record_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "anesthesia_events_created_by_users_id_fk": {
+          "name": "anesthesia_events_created_by_users_id_fk",
+          "tableFrom": "anesthesia_events",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.anesthesia_medications": {
+      "name": "anesthesia_medications",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "anesthesia_record_id": {
+          "name": "anesthesia_record_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "item_id": {
+          "name": "item_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "timestamp": {
+          "name": "timestamp",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dose": {
+          "name": "dose",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "unit": {
+          "name": "unit",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "route": {
+          "name": "route",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rate": {
+          "name": "rate",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "end_timestamp": {
+          "name": "end_timestamp",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "administered_by": {
+          "name": "administered_by",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_anesthesia_medications_record": {
+          "name": "idx_anesthesia_medications_record",
+          "columns": [
+            {
+              "expression": "anesthesia_record_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_anesthesia_medications_item": {
+          "name": "idx_anesthesia_medications_item",
+          "columns": [
+            {
+              "expression": "item_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_anesthesia_medications_timestamp": {
+          "name": "idx_anesthesia_medications_timestamp",
+          "columns": [
+            {
+              "expression": "timestamp",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_anesthesia_medications_type": {
+          "name": "idx_anesthesia_medications_type",
+          "columns": [
+            {
+              "expression": "type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "anesthesia_medications_anesthesia_record_id_anesthesia_records_id_fk": {
+          "name": "anesthesia_medications_anesthesia_record_id_anesthesia_records_id_fk",
+          "tableFrom": "anesthesia_medications",
+          "tableTo": "anesthesia_records",
+          "columnsFrom": [
+            "anesthesia_record_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "anesthesia_medications_item_id_items_id_fk": {
+          "name": "anesthesia_medications_item_id_items_id_fk",
+          "tableFrom": "anesthesia_medications",
+          "tableTo": "items",
+          "columnsFrom": [
+            "item_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "anesthesia_medications_administered_by_users_id_fk": {
+          "name": "anesthesia_medications_administered_by_users_id_fk",
+          "tableFrom": "anesthesia_medications",
+          "tableTo": "users",
+          "columnsFrom": [
+            "administered_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.anesthesia_records": {
+      "name": "anesthesia_records",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "surgery_id": {
+          "name": "surgery_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "anesthesia_start_time": {
+          "name": "anesthesia_start_time",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anesthesia_end_time": {
+          "name": "anesthesia_end_time",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provider_id": {
+          "name": "provider_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "physical_status": {
+          "name": "physical_status",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "emergency_case": {
+          "name": "emergency_case",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "procedure_code": {
+          "name": "procedure_code",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "diagnosis_codes": {
+          "name": "diagnosis_codes",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anesthesia_type": {
+          "name": "anesthesia_type",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "case_status": {
+          "name": "case_status",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'open'"
+        },
+        "closed_at": {
+          "name": "closed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "closed_by": {
+          "name": "closed_by",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sign_in_checklist": {
+          "name": "sign_in_checklist",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "time_out_checklist": {
+          "name": "time_out_checklist",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sign_out_checklist": {
+          "name": "sign_out_checklist",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_anesthesia_records_surgery": {
+          "name": "idx_anesthesia_records_surgery",
+          "columns": [
+            {
+              "expression": "surgery_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_anesthesia_records_provider": {
+          "name": "idx_anesthesia_records_provider",
+          "columns": [
+            {
+              "expression": "provider_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_anesthesia_records_status": {
+          "name": "idx_anesthesia_records_status",
+          "columns": [
+            {
+              "expression": "case_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "anesthesia_records_surgery_id_surgeries_id_fk": {
+          "name": "anesthesia_records_surgery_id_surgeries_id_fk",
+          "tableFrom": "anesthesia_records",
+          "tableTo": "surgeries",
+          "columnsFrom": [
+            "surgery_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "anesthesia_records_provider_id_users_id_fk": {
+          "name": "anesthesia_records_provider_id_users_id_fk",
+          "tableFrom": "anesthesia_records",
+          "tableTo": "users",
+          "columnsFrom": [
+            "provider_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "anesthesia_records_closed_by_users_id_fk": {
+          "name": "anesthesia_records_closed_by_users_id_fk",
+          "tableFrom": "anesthesia_records",
+          "tableTo": "users",
+          "columnsFrom": [
+            "closed_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "anesthesia_records_surgery_id_unique": {
+          "name": "anesthesia_records_surgery_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "surgery_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.audit_trail": {
+      "name": "audit_trail",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "record_type": {
+          "name": "record_type",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "record_id": {
+          "name": "record_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "action": {
+          "name": "action",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "timestamp": {
+          "name": "timestamp",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "old_value": {
+          "name": "old_value",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "new_value": {
+          "name": "new_value",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_audit_trail_record": {
+          "name": "idx_audit_trail_record",
+          "columns": [
+            {
+              "expression": "record_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "record_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_audit_trail_user": {
+          "name": "idx_audit_trail_user",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_audit_trail_timestamp": {
+          "name": "idx_audit_trail_timestamp",
+          "columns": [
+            {
+              "expression": "timestamp",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_audit_trail_action": {
+          "name": "idx_audit_trail_action",
+          "columns": [
+            {
+              "expression": "action",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "audit_trail_user_id_users_id_fk": {
+          "name": "audit_trail_user_id_users_id_fk",
+          "tableFrom": "audit_trail",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.cases": {
+      "name": "cases",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "hospital_id": {
+          "name": "hospital_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "admission_date": {
+          "name": "admission_date",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "discharge_date": {
+          "name": "discharge_date",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "type": {
+          "name": "type",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'inpatient'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_cases_hospital": {
+          "name": "idx_cases_hospital",
+          "columns": [
+            {
+              "expression": "hospital_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_cases_patient": {
+          "name": "idx_cases_patient",
+          "columns": [
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_cases_status": {
+          "name": "idx_cases_status",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "cases_hospital_id_hospitals_id_fk": {
+          "name": "cases_hospital_id_hospitals_id_fk",
+          "tableFrom": "cases",
+          "tableTo": "hospitals",
+          "columnsFrom": [
+            "hospital_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.checklist_completions": {
       "name": "checklist_completions",
       "schema": "",
@@ -517,8 +1344,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "location_id": {
-          "name": "location_id",
+        "unit_id": {
+          "name": "unit_id",
           "type": "varchar",
           "primaryKey": false,
           "notNull": true
@@ -592,11 +1419,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_checklist_completions_location": {
-          "name": "idx_checklist_completions_location",
+        "idx_checklist_completions_unit": {
+          "name": "idx_checklist_completions_unit",
           "columns": [
             {
-              "expression": "location_id",
+              "expression": "unit_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -665,12 +1492,12 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "checklist_completions_location_id_locations_id_fk": {
-          "name": "checklist_completions_location_id_locations_id_fk",
+        "checklist_completions_unit_id_units_id_fk": {
+          "name": "checklist_completions_unit_id_units_id_fk",
           "tableFrom": "checklist_completions",
-          "tableTo": "locations",
+          "tableTo": "units",
           "columnsFrom": [
-            "location_id"
+            "unit_id"
           ],
           "columnsTo": [
             "id"
@@ -715,8 +1542,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "location_id": {
-          "name": "location_id",
+        "unit_id": {
+          "name": "unit_id",
           "type": "varchar",
           "primaryKey": false,
           "notNull": true
@@ -801,11 +1628,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_checklist_templates_location": {
-          "name": "idx_checklist_templates_location",
+        "idx_checklist_templates_unit": {
+          "name": "idx_checklist_templates_unit",
           "columns": [
             {
-              "expression": "location_id",
+              "expression": "unit_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -846,12 +1673,12 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "checklist_templates_location_id_locations_id_fk": {
-          "name": "checklist_templates_location_id_locations_id_fk",
+        "checklist_templates_unit_id_units_id_fk": {
+          "name": "checklist_templates_unit_id_units_id_fk",
           "tableFrom": "checklist_templates",
-          "tableTo": "locations",
+          "tableTo": "units",
           "columnsFrom": [
-            "location_id"
+            "unit_id"
           ],
           "columnsTo": [
             "id"
@@ -896,8 +1723,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "location_id": {
-          "name": "location_id",
+        "unit_id": {
+          "name": "unit_id",
           "type": "varchar",
           "primaryKey": false,
           "notNull": true
@@ -956,11 +1783,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_controlled_checks_location": {
-          "name": "idx_controlled_checks_location",
+        "idx_controlled_checks_unit": {
+          "name": "idx_controlled_checks_unit",
           "columns": [
             {
-              "expression": "location_id",
+              "expression": "unit_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1001,12 +1828,12 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "controlled_checks_location_id_locations_id_fk": {
-          "name": "controlled_checks_location_id_locations_id_fk",
+        "controlled_checks_unit_id_units_id_fk": {
+          "name": "controlled_checks_unit_id_units_id_fk",
           "tableFrom": "controlled_checks",
-          "tableTo": "locations",
+          "tableTo": "units",
           "columnsFrom": [
-            "location_id"
+            "unit_id"
           ],
           "columnsTo": [
             "id"
@@ -1051,8 +1878,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "location_id": {
-          "name": "location_id",
+        "unit_id": {
+          "name": "unit_id",
           "type": "varchar",
           "primaryKey": false,
           "notNull": true
@@ -1101,11 +1928,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_folders_location": {
-          "name": "idx_folders_location",
+        "idx_folders_unit": {
+          "name": "idx_folders_unit",
           "columns": [
             {
-              "expression": "location_id",
+              "expression": "unit_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1131,12 +1958,12 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "folders_location_id_locations_id_fk": {
-          "name": "folders_location_id_locations_id_fk",
+        "folders_unit_id_units_id_fk": {
+          "name": "folders_unit_id_units_id_fk",
           "tableFrom": "folders",
-          "tableTo": "locations",
+          "tableTo": "units",
           "columnsFrom": [
-            "location_id"
+            "unit_id"
           ],
           "columnsTo": [
             "id"
@@ -1147,6 +1974,108 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.hospital_anesthesia_settings": {
+      "name": "hospital_anesthesia_settings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "hospital_id": {
+          "name": "hospital_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "allergy_list": {
+          "name": "allergy_list",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "medication_lists": {
+          "name": "medication_lists",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "illness_lists": {
+          "name": "illness_lists",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "checklist_items": {
+          "name": "checklist_items",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_hospital_anesthesia_settings_hospital": {
+          "name": "idx_hospital_anesthesia_settings_hospital",
+          "columns": [
+            {
+              "expression": "hospital_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "hospital_anesthesia_settings_hospital_id_hospitals_id_fk": {
+          "name": "hospital_anesthesia_settings_hospital_id_hospitals_id_fk",
+          "tableFrom": "hospital_anesthesia_settings",
+          "tableTo": "hospitals",
+          "columnsFrom": [
+            "hospital_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "hospital_anesthesia_settings_hospital_id_unique": {
+          "name": "hospital_anesthesia_settings_hospital_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "hospital_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -1202,8 +2131,14 @@
           "notNull": true,
           "default": "'free'"
         },
-        "anesthesia_location_id": {
-          "name": "anesthesia_location_id",
+        "anesthesia_unit_id": {
+          "name": "anesthesia_unit_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "surgery_unit_id": {
+          "name": "surgery_unit_id",
           "type": "varchar",
           "primaryKey": false,
           "notNull": false
@@ -1225,12 +2160,25 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "hospitals_anesthesia_location_id_locations_id_fk": {
-          "name": "hospitals_anesthesia_location_id_locations_id_fk",
+        "hospitals_anesthesia_unit_id_units_id_fk": {
+          "name": "hospitals_anesthesia_unit_id_units_id_fk",
           "tableFrom": "hospitals",
-          "tableTo": "locations",
+          "tableTo": "units",
           "columnsFrom": [
-            "anesthesia_location_id"
+            "anesthesia_unit_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "hospitals_surgery_unit_id_units_id_fk": {
+          "name": "hospitals_surgery_unit_id_units_id_fk",
+          "tableFrom": "hospitals",
+          "tableTo": "units",
+          "columnsFrom": [
+            "surgery_unit_id"
           ],
           "columnsTo": [
             "id"
@@ -1262,8 +2210,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "location_id": {
-          "name": "location_id",
+        "unit_id": {
+          "name": "unit_id",
           "type": "varchar",
           "primaryKey": false,
           "notNull": true
@@ -1289,6 +2237,20 @@
         },
         "processed_images": {
           "name": "processed_images",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "current_image": {
+          "name": "current_image",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "progress_percent": {
+          "name": "progress_percent",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
@@ -1422,12 +2384,12 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "import_jobs_location_id_locations_id_fk": {
-          "name": "import_jobs_location_id_locations_id_fk",
+        "import_jobs_unit_id_units_id_fk": {
+          "name": "import_jobs_unit_id_units_id_fk",
           "tableFrom": "import_jobs",
-          "tableTo": "locations",
+          "tableTo": "units",
           "columnsFrom": [
-            "location_id"
+            "unit_id"
           ],
           "columnsTo": [
             "id"
@@ -1441,6 +2403,130 @@
           "tableTo": "users",
           "columnsFrom": [
             "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.inventory_usage": {
+      "name": "inventory_usage",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "anesthesia_record_id": {
+          "name": "anesthesia_record_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "item_id": {
+          "name": "item_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity_used": {
+          "name": "quantity_used",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "auto_computed": {
+          "name": "auto_computed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "manual_override": {
+          "name": "manual_override",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_inventory_usage_record": {
+          "name": "idx_inventory_usage_record",
+          "columns": [
+            {
+              "expression": "anesthesia_record_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_inventory_usage_item": {
+          "name": "idx_inventory_usage_item",
+          "columns": [
+            {
+              "expression": "item_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "inventory_usage_anesthesia_record_id_anesthesia_records_id_fk": {
+          "name": "inventory_usage_anesthesia_record_id_anesthesia_records_id_fk",
+          "tableFrom": "inventory_usage",
+          "tableTo": "anesthesia_records",
+          "columnsFrom": [
+            "anesthesia_record_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "inventory_usage_item_id_items_id_fk": {
+          "name": "inventory_usage_item_id_items_id_fk",
+          "tableFrom": "inventory_usage",
+          "tableTo": "items",
+          "columnsFrom": [
+            "item_id"
           ],
           "columnsTo": [
             "id"
@@ -1472,8 +2558,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "location_id": {
-          "name": "location_id",
+        "unit_id": {
+          "name": "unit_id",
           "type": "varchar",
           "primaryKey": false,
           "notNull": true
@@ -1581,13 +2667,6 @@
           "notNull": false,
           "default": 0
         },
-        "anesthesia_type": {
-          "name": "anesthesia_type",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'none'"
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -1619,11 +2698,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_items_location": {
-          "name": "idx_items_location",
+        "idx_items_unit": {
+          "name": "idx_items_unit",
           "columns": [
             {
-              "expression": "location_id",
+              "expression": "unit_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1663,21 +2742,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "idx_items_anesthesia_type": {
-          "name": "idx_items_anesthesia_type",
-          "columns": [
-            {
-              "expression": "anesthesia_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -1694,12 +2758,12 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "items_location_id_locations_id_fk": {
-          "name": "items_location_id_locations_id_fk",
+        "items_unit_id_units_id_fk": {
+          "name": "items_unit_id_units_id_fk",
           "tableFrom": "items",
-          "tableTo": "locations",
+          "tableTo": "units",
           "columnsFrom": [
-            "location_id"
+            "unit_id"
           ],
           "columnsTo": [
             "id"
@@ -1726,102 +2790,6 @@
           "tableTo": "vendors",
           "columnsFrom": [
             "vendor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.locations": {
-      "name": "locations",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "varchar",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "hospital_id": {
-          "name": "hospital_id",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "type": {
-          "name": "type",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "parent_id": {
-          "name": "parent_id",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "idx_locations_hospital": {
-          "name": "idx_locations_hospital",
-          "columns": [
-            {
-              "expression": "hospital_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_locations_parent": {
-          "name": "idx_locations_parent",
-          "columns": [
-            {
-              "expression": "parent_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "locations_hospital_id_hospitals_id_fk": {
-          "name": "locations_hospital_id_hospitals_id_fk",
-          "tableFrom": "locations",
-          "tableTo": "hospitals",
-          "columnsFrom": [
-            "hospital_id"
           ],
           "columnsTo": [
             "id"
@@ -1865,8 +2833,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "location_id": {
-          "name": "location_id",
+        "unit_id": {
+          "name": "unit_id",
           "type": "varchar",
           "primaryKey": false,
           "notNull": true
@@ -1932,12 +2900,12 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "lots_location_id_locations_id_fk": {
-          "name": "lots_location_id_locations_id_fk",
+        "lots_unit_id_units_id_fk": {
+          "name": "lots_unit_id_units_id_fk",
           "tableFrom": "lots",
-          "tableTo": "locations",
+          "tableTo": "units",
           "columnsFrom": [
-            "location_id"
+            "unit_id"
           ],
           "columnsTo": [
             "id"
@@ -2004,13 +2972,6 @@
           "type": "varchar",
           "primaryKey": false,
           "notNull": false
-        },
-        "is_rate_controlled": {
-          "name": "is_rate_controlled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false,
-          "default": false
         },
         "rate_unit": {
           "name": "rate_unit",
@@ -2488,6 +3449,608 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.patients": {
+      "name": "patients",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "hospital_id": {
+          "name": "hospital_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "patient_number": {
+          "name": "patient_number",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "surname": {
+          "name": "surname",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "first_name": {
+          "name": "first_name",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "birthday": {
+          "name": "birthday",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sex": {
+          "name": "sex",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "emergency_contact": {
+          "name": "emergency_contact",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "insurance_provider": {
+          "name": "insurance_provider",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "insurance_number": {
+          "name": "insurance_number",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "allergies": {
+          "name": "allergies",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "allergy_notes": {
+          "name": "allergy_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "medical_notes": {
+          "name": "medical_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "idx_patients_hospital": {
+          "name": "idx_patients_hospital",
+          "columns": [
+            {
+              "expression": "hospital_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_patients_surname": {
+          "name": "idx_patients_surname",
+          "columns": [
+            {
+              "expression": "surname",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_patients_number": {
+          "name": "idx_patients_number",
+          "columns": [
+            {
+              "expression": "hospital_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "patient_number",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "patients_hospital_id_hospitals_id_fk": {
+          "name": "patients_hospital_id_hospitals_id_fk",
+          "tableFrom": "patients",
+          "tableTo": "hospitals",
+          "columnsFrom": [
+            "hospital_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "patients_created_by_users_id_fk": {
+          "name": "patients_created_by_users_id_fk",
+          "tableFrom": "patients",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.preop_assessments": {
+      "name": "preop_assessments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "surgery_id": {
+          "name": "surgery_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "height": {
+          "name": "height",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "weight": {
+          "name": "weight",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "allergies": {
+          "name": "allergies",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "allergies_other": {
+          "name": "allergies_other",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cave": {
+          "name": "cave",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "asa": {
+          "name": "asa",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "special_notes": {
+          "name": "special_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anticoagulation_meds": {
+          "name": "anticoagulation_meds",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anticoagulation_meds_other": {
+          "name": "anticoagulation_meds_other",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "general_meds": {
+          "name": "general_meds",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "general_meds_other": {
+          "name": "general_meds_other",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "medications_notes": {
+          "name": "medications_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "heart_illnesses": {
+          "name": "heart_illnesses",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "heart_notes": {
+          "name": "heart_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lung_illnesses": {
+          "name": "lung_illnesses",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lung_notes": {
+          "name": "lung_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gi_illnesses": {
+          "name": "gi_illnesses",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kidney_illnesses": {
+          "name": "kidney_illnesses",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metabolic_illnesses": {
+          "name": "metabolic_illnesses",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gi_kidney_metabolic_notes": {
+          "name": "gi_kidney_metabolic_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "neuro_illnesses": {
+          "name": "neuro_illnesses",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "psych_illnesses": {
+          "name": "psych_illnesses",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "skeletal_illnesses": {
+          "name": "skeletal_illnesses",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "neuro_psych_skeletal_notes": {
+          "name": "neuro_psych_skeletal_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "woman_issues": {
+          "name": "woman_issues",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "woman_notes": {
+          "name": "woman_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "noxen": {
+          "name": "noxen",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "noxen_notes": {
+          "name": "noxen_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "children_issues": {
+          "name": "children_issues",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "children_notes": {
+          "name": "children_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mallampati": {
+          "name": "mallampati",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mouth_opening": {
+          "name": "mouth_opening",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "dentition": {
+          "name": "dentition",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "airway_difficult": {
+          "name": "airway_difficult",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "airway_notes": {
+          "name": "airway_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_solids": {
+          "name": "last_solids",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_clear": {
+          "name": "last_clear",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anesthesia_techniques": {
+          "name": "anesthesia_techniques",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "post_op_icu": {
+          "name": "post_op_icu",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "anesthesia_other": {
+          "name": "anesthesia_other",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "installations": {
+          "name": "installations",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "installations_other": {
+          "name": "installations_other",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "surgical_approval": {
+          "name": "surgical_approval",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "assessment_date": {
+          "name": "assessment_date",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "doctor_name": {
+          "name": "doctor_name",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "doctor_signature": {
+          "name": "doctor_signature",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'draft'"
+        },
+        "consent_given": {
+          "name": "consent_given",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "consent_text": {
+          "name": "consent_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "patient_signature": {
+          "name": "patient_signature",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "consent_date": {
+          "name": "consent_date",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_preop_assessments_surgery": {
+          "name": "idx_preop_assessments_surgery",
+          "columns": [
+            {
+              "expression": "surgery_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "preop_assessments_surgery_id_surgeries_id_fk": {
+          "name": "preop_assessments_surgery_id_surgeries_id_fk",
+          "tableFrom": "preop_assessments",
+          "tableTo": "surgeries",
+          "columnsFrom": [
+            "surgery_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "preop_assessments_surgery_id_unique": {
+          "name": "preop_assessments_surgery_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "surgery_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.sessions": {
       "name": "sessions",
       "schema": "",
@@ -2552,8 +4115,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "location_id": {
-          "name": "location_id",
+        "unit_id": {
+          "name": "unit_id",
           "type": "varchar",
           "primaryKey": false,
           "notNull": true
@@ -2589,11 +4152,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_stock_levels_location": {
-          "name": "idx_stock_levels_location",
+        "idx_stock_levels_unit": {
+          "name": "idx_stock_levels_unit",
           "columns": [
             {
-              "expression": "location_id",
+              "expression": "unit_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2619,12 +4182,12 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "stock_levels_location_id_locations_id_fk": {
-          "name": "stock_levels_location_id_locations_id_fk",
+        "stock_levels_unit_id_units_id_fk": {
+          "name": "stock_levels_unit_id_units_id_fk",
           "tableFrom": "stock_levels",
-          "tableTo": "locations",
+          "tableTo": "units",
           "columnsFrom": [
-            "location_id"
+            "unit_id"
           ],
           "columnsTo": [
             "id"
@@ -2635,15 +4198,241 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "unique_item_location": {
-          "name": "unique_item_location",
+        "unique_item_unit": {
+          "name": "unique_item_unit",
           "nullsNotDistinct": false,
           "columns": [
             "item_id",
-            "location_id"
+            "unit_id"
           ]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.surgeries": {
+      "name": "surgeries",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "case_id": {
+          "name": "case_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hospital_id": {
+          "name": "hospital_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "surgery_room_id": {
+          "name": "surgery_room_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "planned_date": {
+          "name": "planned_date",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "planned_surgery": {
+          "name": "planned_surgery",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "surgeon": {
+          "name": "surgeon",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actual_start_time": {
+          "name": "actual_start_time",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actual_end_time": {
+          "name": "actual_end_time",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'planned'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_surgeries_case": {
+          "name": "idx_surgeries_case",
+          "columns": [
+            {
+              "expression": "case_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_surgeries_hospital": {
+          "name": "idx_surgeries_hospital",
+          "columns": [
+            {
+              "expression": "hospital_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_surgeries_patient": {
+          "name": "idx_surgeries_patient",
+          "columns": [
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_surgeries_room": {
+          "name": "idx_surgeries_room",
+          "columns": [
+            {
+              "expression": "surgery_room_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_surgeries_status": {
+          "name": "idx_surgeries_status",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_surgeries_planned_date": {
+          "name": "idx_surgeries_planned_date",
+          "columns": [
+            {
+              "expression": "planned_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "surgeries_case_id_cases_id_fk": {
+          "name": "surgeries_case_id_cases_id_fk",
+          "tableFrom": "surgeries",
+          "tableTo": "cases",
+          "columnsFrom": [
+            "case_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "surgeries_hospital_id_hospitals_id_fk": {
+          "name": "surgeries_hospital_id_hospitals_id_fk",
+          "tableFrom": "surgeries",
+          "tableTo": "hospitals",
+          "columnsFrom": [
+            "hospital_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "surgeries_surgery_room_id_surgery_rooms_id_fk": {
+          "name": "surgeries_surgery_room_id_surgery_rooms_id_fk",
+          "tableFrom": "surgeries",
+          "tableTo": "surgery_rooms",
+          "columnsFrom": [
+            "surgery_room_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -2724,6 +4513,102 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.units": {
+      "name": "units",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "hospital_id": {
+          "name": "hospital_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "parent_id": {
+          "name": "parent_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_units_hospital": {
+          "name": "idx_units_hospital",
+          "columns": [
+            {
+              "expression": "hospital_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_units_parent": {
+          "name": "idx_units_parent",
+          "columns": [
+            {
+              "expression": "parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "units_hospital_id_hospitals_id_fk": {
+          "name": "units_hospital_id_hospitals_id_fk",
+          "tableFrom": "units",
+          "tableTo": "hospitals",
+          "columnsFrom": [
+            "hospital_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.user_hospital_roles": {
       "name": "user_hospital_roles",
       "schema": "",
@@ -2747,8 +4632,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "location_id": {
-          "name": "location_id",
+        "unit_id": {
+          "name": "unit_id",
           "type": "varchar",
           "primaryKey": false,
           "notNull": true
@@ -2798,11 +4683,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_user_hospital_roles_location": {
-          "name": "idx_user_hospital_roles_location",
+        "idx_user_hospital_roles_unit": {
+          "name": "idx_user_hospital_roles_unit",
           "columns": [
             {
-              "expression": "location_id",
+              "expression": "unit_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2841,12 +4726,12 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "user_hospital_roles_location_id_locations_id_fk": {
-          "name": "user_hospital_roles_location_id_locations_id_fk",
+        "user_hospital_roles_unit_id_units_id_fk": {
+          "name": "user_hospital_roles_unit_id_units_id_fk",
           "tableFrom": "user_hospital_roles",
-          "tableTo": "locations",
+          "tableTo": "units",
           "columnsFrom": [
-            "location_id"
+            "unit_id"
           ],
           "columnsTo": [
             "id"
@@ -3025,6 +4910,96 @@
             "id"
           ],
           "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.vitals_snapshots": {
+      "name": "vitals_snapshots",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "anesthesia_record_id": {
+          "name": "anesthesia_record_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "timestamp": {
+          "name": "timestamp",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "data": {
+          "name": "data",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_vitals_snapshots_record": {
+          "name": "idx_vitals_snapshots_record",
+          "columns": [
+            {
+              "expression": "anesthesia_record_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_vitals_snapshots_timestamp": {
+          "name": "idx_vitals_snapshots_timestamp",
+          "columns": [
+            {
+              "expression": "timestamp",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "vitals_snapshots_anesthesia_record_id_anesthesia_records_id_fk": {
+          "name": "vitals_snapshots_anesthesia_record_id_anesthesia_records_id_fk",
+          "tableFrom": "vitals_snapshots",
+          "tableTo": "anesthesia_records",
+          "columnsFrom": [
+            "anesthesia_record_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },

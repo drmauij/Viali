@@ -53,9 +53,18 @@ app.use((req, res, next) => {
 (async () => {
   try {
     // Run database migrations automatically on startup
-    log("Running database migrations...");
-    await migrate(db, { migrationsFolder: "./migrations" });
-    log("✓ Database migrations completed successfully");
+    try {
+      log("Running database migrations...");
+      await migrate(db, { migrationsFolder: "./migrations" });
+      log("✓ Database migrations completed successfully");
+    } catch (error: any) {
+      // If migration fails because tables already exist, check if schema is in sync
+      if (error.code === '42P07') {
+        log("⚠ Tables already exist - schema managed via db:push. Run `npm run db:push --force` to sync changes.");
+      } else {
+        throw error;
+      }
+    }
 
     const server = await registerRoutes(app);
 
