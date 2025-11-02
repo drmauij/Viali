@@ -45,19 +45,20 @@ export default function QuickCreateSurgeryDialog({
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
-  // Calculate default end date (3 hours after start if not provided)
-  const getDefaultEndDate = () => {
-    if (initialEndDate) return initialEndDate;
-    const end = new Date(initialDate);
-    end.setHours(end.getHours() + 3);
-    return end;
+  // Calculate default duration in minutes (3 hours = 180 minutes)
+  const getDefaultDuration = () => {
+    if (initialEndDate) {
+      const diffMs = initialEndDate.getTime() - initialDate.getTime();
+      return Math.round(diffMs / (1000 * 60)); // Convert ms to minutes
+    }
+    return 180; // Default 3 hours
   };
 
   // Form state
   const [selectedPatientId, setSelectedPatientId] = useState<string>("");
   const [surgeryRoomId, setSurgeryRoomId] = useState(initialRoomId || "");
   const [plannedDate, setPlannedDate] = useState(formatDateTimeLocal(initialDate));
-  const [plannedEndDate, setPlannedEndDate] = useState(formatDateTimeLocal(getDefaultEndDate()));
+  const [duration, setDuration] = useState<number>(getDefaultDuration());
   const [plannedSurgery, setPlannedSurgery] = useState("");
   const [surgeon, setSurgeon] = useState("");
   
@@ -70,6 +71,15 @@ export default function QuickCreateSurgeryDialog({
   // Fetch patients
   const { data: patients = [] } = useQuery<any[]>({
     queryKey: [`/api/patients?hospitalId=${hospitalId}`],
+    enabled: !!hospitalId && open,
+  });
+
+  // Fetch surgeons for the hospital
+  const {
+    data: surgeons = [],
+    isLoading: isLoadingSurgeons
+  } = useQuery<Array<{id: string; name: string; email: string | null}>>({
+    queryKey: [`/api/surgeons?hospitalId=${hospitalId}`],
     enabled: !!hospitalId && open,
   });
 
@@ -125,7 +135,7 @@ export default function QuickCreateSurgeryDialog({
     setSelectedPatientId("");
     setSurgeryRoomId(initialRoomId || "");
     setPlannedDate(formatDateTimeLocal(initialDate));
-    setPlannedEndDate(formatDateTimeLocal(getDefaultEndDate()));
+    setDuration(getDefaultDuration());
     setPlannedSurgery("");
     setSurgeon("");
     setShowNewPatientForm(false);
@@ -164,17 +174,20 @@ export default function QuickCreateSurgeryDialog({
       return;
     }
 
-    // Validate end time is after start time
-    const startDate = new Date(plannedDate);
-    const endDate = new Date(plannedEndDate);
-    if (endDate <= startDate) {
+    // Validate duration
+    if (!duration || duration <= 0) {
       toast({
         title: "Invalid Duration",
-        description: "End time must be after start time.",
+        description: "Duration must be greater than 0 minutes.",
         variant: "destructive",
       });
       return;
     }
+
+    // Calculate end time from start time + duration
+    const startDate = new Date(plannedDate);
+    const endDate = new Date(startDate);
+    endDate.setMinutes(endDate.getMinutes() + duration);
 
     createSurgeryMutation.mutate({
       hospitalId,
@@ -356,13 +369,14 @@ export default function QuickCreateSurgeryDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="planned-end-date">End Time *</Label>
+              <Label htmlFor="duration">Duration (minutes) *</Label>
               <Input
-                id="planned-end-date"
-                type="datetime-local"
-                value={plannedEndDate}
-                onChange={(e) => setPlannedEndDate(e.target.value)}
-                data-testid="input-planned-end-date"
+                id="duration"
+                type="number"
+                min="1"
+                value={duration}
+                onChange={(e) => setDuration(parseInt(e.target.value) || 0)}
+                data-testid="input-duration"
               />
             </div>
           </div>
@@ -381,14 +395,36 @@ export default function QuickCreateSurgeryDialog({
 
           {/* Surgeon */}
           <div className="space-y-2">
-            <Label htmlFor="surgeon">Surgeon</Label>
-            <Input
-              id="surgeon"
-              placeholder="Surgeon name"
-              value={surgeon}
-              onChange={(e) => setSurgeon(e.target.value)}
-              data-testid="input-surgeon"
-            />
+            <Label htmlFor="surgeon">Surgeon <span className="text-xs text-muted-foreground">(optional)</span></Label>
+            <Select 
+              value={surgeon || "none"} 
+              onValueChange={(value) => setSurgeon(value === "none" ? "" : value)}
+              disabled={isLoadingSurgeons}
+            >
+              <SelectTrigger id="surgeon" data-testid="select-surgeon">
+                <SelectValue placeholder={isLoadingSurgeons ? "Loading surgeons..." : "Select surgeon (optional)"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">
+                  <span className="text-muted-foreground italic">No surgeon selected</span>
+                </SelectItem>
+                {isLoadingSurgeons ? (
+                  <SelectItem value="loading" disabled>
+                    Loading surgeons...
+                  </SelectItem>
+                ) : surgeons.length === 0 ? (
+                  <SelectItem value="no-surgeons" disabled>
+                    No surgeons available
+                  </SelectItem>
+                ) : (
+                  surgeons.map((surgeon) => (
+                    <SelectItem key={surgeon.id} value={surgeon.name}>
+                      {surgeon.name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
