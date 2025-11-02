@@ -500,27 +500,33 @@ export default function Op() {
               </div>
 
               {/* Allergies & CAVE - Clickable Display */}
-              <div 
-                onClick={handleOpenAllergiesDialog}
-                className="flex items-start gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 rounded-lg cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors"
-                data-testid="allergies-cave-warning"
-              >
-                <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
-                <div className="flex gap-4 flex-wrap flex-1">
-                  <div className="flex-1 min-w-[120px]">
-                    <p className="text-xs font-medium text-amber-700 dark:text-amber-300">ALLERGIES</p>
-                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                      {isPreOpLoading ? <Skeleton className="h-4 w-20" /> : (allergies || "None")}
-                    </p>
-                  </div>
-                  <div className="flex-1 min-w-[120px]">
-                    <p className="text-xs font-medium text-amber-700 dark:text-amber-300">CAVE</p>
-                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                      {isPreOpLoading ? <Skeleton className="h-4 w-20" /> : (cave || "None")}
-                    </p>
+              {(allergies || cave) && (
+                <div 
+                  onClick={handleOpenAllergiesDialog}
+                  className="flex items-start gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 rounded-lg cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors"
+                  data-testid="allergies-cave-warning"
+                >
+                  <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
+                  <div className="flex gap-4 flex-wrap flex-1">
+                    {allergies && (
+                      <div className="flex-1 min-w-[120px]">
+                        <p className="text-xs font-medium text-amber-700 dark:text-amber-300">ALLERGIES</p>
+                        <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                          {isPreOpLoading ? <Skeleton className="h-4 w-20" /> : allergies}
+                        </p>
+                      </div>
+                    )}
+                    {cave && (
+                      <div className="flex-1 min-w-[120px]">
+                        <p className="text-xs font-medium text-amber-700 dark:text-amber-300">CAVE</p>
+                        <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                          {isPreOpLoading ? <Skeleton className="h-4 w-20" /> : cave}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -803,7 +809,21 @@ export default function Op() {
                       <CardContent className="space-y-4 pt-0">
                         <div className="space-y-2">
                           <Label>Primary Anesthesia Type</Label>
-                          <Select value={anesthesiaRecord?.anesthesiaType || ""}>
+                          <Select 
+                            value={anesthesiaRecord?.anesthesiaType || ""}
+                            onValueChange={async (value) => {
+                              if (!anesthesiaRecord?.id) return;
+                              try {
+                                await apiRequest("PATCH", `/api/anesthesia/records/${anesthesiaRecord.id}`, {
+                                  anesthesiaType: value,
+                                });
+                                queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+                                toast({ title: "Anesthesia type updated" });
+                              } catch (error) {
+                                toast({ title: "Error", description: "Failed to update anesthesia type", variant: "destructive" });
+                              }
+                            }}
+                          >
                             <SelectTrigger data-testid="select-anesthesia-type">
                               <SelectValue placeholder="Select anesthesia type" />
                             </SelectTrigger>

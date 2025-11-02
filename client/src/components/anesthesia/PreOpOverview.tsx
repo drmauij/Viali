@@ -190,12 +190,12 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
     <div className="space-y-3 text-xs p-4 bg-muted/30 rounded-lg">
       {/* Special Notes - Highlighted at top */}
       {data.specialNotes?.trim() && (
-        <div className="p-2 rounded bg-amber-100 dark:bg-amber-950 border border-amber-300 dark:border-amber-800">
+        <div className="p-2 rounded bg-blue-100 dark:bg-blue-950 border border-blue-300 dark:border-blue-800">
           <div className="flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
             <div>
-              <div className="font-semibold text-amber-900 dark:text-amber-100 text-xs">CAVE</div>
-              <div className="text-amber-800 dark:text-amber-200 mt-0.5">{data.specialNotes}</div>
+              <div className="font-semibold text-blue-900 dark:text-blue-100 text-xs">Special Notes</div>
+              <div className="text-blue-800 dark:text-blue-200 mt-0.5">{data.specialNotes}</div>
             </div>
           </div>
         </div>
