@@ -1,0 +1,23 @@
+[TAILING] Tailing last 20 lines for [viali-worker] process (change the value with --lines option)
+/home/ubuntu/viali/logs/worker-out.log last 20 lines:
+/home/ubuntu/viali/logs/worker-error.log last 20 lines:
+1|viali-wo | TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".ts" for /home/ubuntu/viali/server/worker.ts
+1|viali-wo |     at Object.getFileProtocolModuleFormat [as file:] (node:internal/modules/esm/get_format:189:9)
+1|viali-wo |     at defaultGetFormat (node:internal/modules/esm/get_format:232:36)
+1|viali-wo |     at defaultLoad (node:internal/modules/esm/load:145:22)
+1|viali-wo |     at async ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:543:45)
+1|viali-wo |     at async ModuleJob._link (node:internal/modules/esm/module_job:148:19)
+1|viali-wo | You have triggered an unhandledRejection, you may have forgotten to catch a Promise rejection:
+1|viali-wo | TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".ts" for /home/ubuntu/viali/server/worker.ts
+1|viali-wo |     at Object.getFileProtocolModuleFormat [as file:] (node:internal/modules/esm/get_format:189:9)
+1|viali-wo |     at defaultGetFormat (node:internal/modules/esm/get_format:232:36)
+1|viali-wo |     at defaultLoad (node:internal/modules/esm/load:145:22)
+1|viali-wo |     at async ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:543:45)
+1|viali-wo |     at async ModuleJob._link (node:internal/modules/esm/module_job:148:19)
+1|viali-wo | You have triggered an unhandledRejection, you may have forgotten to catch a Promise rejection:
+1|viali-wo | TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".ts" for /home/ubuntu/viali/server/worker.ts
+1|viali-wo |     at Object.getFileProtocolModuleFormat [as file:] (node:internal/modules/esm/get_format:189:9)
+1|viali-wo |     at defaultGetFormat (node:internal/modules/esm/get_format:232:36)
+1|viali-wo |     at defaultLoad (node:internal/modules/esm/load:145:22)
+1|viali-wo |     at async ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:543:45)
+1|viali-wo |     at async ModuleJob._link (node:internal/modules/esm/module_job:148:19)
