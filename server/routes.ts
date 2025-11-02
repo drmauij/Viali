@@ -4583,7 +4583,7 @@ If unable to parse any drugs, return:
       const { id } = req.params;
       const userId = req.user.id;
 
-      const record = await storage.getAnesthesiaRecord(id);
+      const record = await storage.getAnesthesiaRecordById(id);
       
       if (!record) {
         return res.status(404).json({ message: "Anesthesia record not found" });
@@ -4622,7 +4622,7 @@ If unable to parse any drugs, return:
       const { id } = req.params;
       const userId = req.user.id;
 
-      const record = await storage.getAnesthesiaRecord(id);
+      const record = await storage.getAnesthesiaRecordById(id);
       
       if (!record) {
         return res.status(404).json({ message: "Anesthesia record not found" });
@@ -4666,7 +4666,7 @@ If unable to parse any drugs, return:
         return res.status(400).json({ message: "Reason and updates are required" });
       }
 
-      const record = await storage.getAnesthesiaRecord(id);
+      const record = await storage.getAnesthesiaRecordById(id);
       
       if (!record) {
         return res.status(404).json({ message: "Anesthesia record not found" });

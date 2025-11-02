@@ -268,6 +268,7 @@ export interface IStorage {
   
   // Anesthesia Record operations
   getAnesthesiaRecord(surgeryId: string): Promise<AnesthesiaRecord | undefined>;
+  getAnesthesiaRecordById(id: string): Promise<AnesthesiaRecord | undefined>;
   createAnesthesiaRecord(record: InsertAnesthesiaRecord): Promise<AnesthesiaRecord>;
   updateAnesthesiaRecord(id: string, updates: Partial<AnesthesiaRecord>): Promise<AnesthesiaRecord>;
   closeAnesthesiaRecord(id: string, closedBy: string): Promise<AnesthesiaRecord>;
@@ -1672,6 +1673,14 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(anesthesiaRecords)
       .where(eq(anesthesiaRecords.surgeryId, surgeryId));
+    return record;
+  }
+
+  async getAnesthesiaRecordById(id: string): Promise<AnesthesiaRecord | undefined> {
+    const [record] = await db
+      .select()
+      .from(anesthesiaRecords)
+      .where(eq(anesthesiaRecords.id, id));
     return record;
   }
 

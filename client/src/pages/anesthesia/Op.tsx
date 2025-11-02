@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { UnifiedTimeline, type UnifiedTimelineData, type TimelineVitals, type TimelineEvent, type VitalPoint } from "@/components/anesthesia/UnifiedTimeline";
 import { PreOpOverview } from "@/components/anesthesia/PreOpOverview";
@@ -57,6 +57,7 @@ export default function Op() {
   const [isOpen, setIsOpen] = useState(true);
   const activeHospital = useActiveHospital();
   const { toast } = useToast();
+  const hasAttemptedCreate = useRef(false);
 
   // Get returnTo parameter from URL for navigation context
   const urlParams = new URLSearchParams(window.location.search);
@@ -76,6 +77,52 @@ export default function Op() {
     queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
     enabled: !!surgeryId,
   });
+
+  // Auto-create anesthesia record if it doesn't exist (404 only)
+  useEffect(() => {
+    const checkAndCreateRecord = async () => {
+      // Only proceed if surgery exists, record not loading, haven't attempted, and have surgeryId
+      if (!surgery || isRecordLoading || hasAttemptedCreate.current || !surgeryId || anesthesiaRecord) {
+        return;
+      }
+
+      // Set flag immediately to prevent duplicate attempts in StrictMode
+      hasAttemptedCreate.current = true;
+
+      // Do our own fetch to check the exact status code
+      try {
+        const response = await fetch(`/api/anesthesia/records/surgery/${surgeryId}`, {
+          credentials: "include",
+        });
+
+        // If 404, create the record
+        if (response.status === 404) {
+          await apiRequest("POST", "/api/anesthesia/records", {
+            surgeryId: surgeryId,
+          });
+          
+          // Invalidate to refetch the newly created record
+          queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+        } else if (!response.ok) {
+          // Other errors (401, 403, 500, etc.) - reset flag and log
+          hasAttemptedCreate.current = false;
+          console.error(`Failed to fetch anesthesia record: ${response.status}`);
+        }
+        // If 200, the record exists - keep flag to prevent re-checking
+      } catch (error: any) {
+        // Network error or creation failed - reset flag to allow retry
+        hasAttemptedCreate.current = false;
+        console.error("Error checking/creating anesthesia record:", error);
+        toast({
+          title: "Error",
+          description: error.message || "Failed to create anesthesia record. Please refresh the page.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    checkAndCreateRecord();
+  }, [surgery, anesthesiaRecord, surgeryId, isRecordLoading, toast]);
 
   // Fetch pre-op assessment
   const { data: preOpAssessment, isLoading: isPreOpLoading } = useQuery({
