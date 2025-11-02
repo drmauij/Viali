@@ -126,25 +126,26 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
 
   const data = assessment;
 
-  // Collect all medical history
-  const medicalHistory = [
-    ...getSelectedItems(data.heartIllnesses, illnessLabels),
-    ...getSelectedItems(data.lungIllnesses, illnessLabels),
-    ...getSelectedItems(data.giIllnesses, illnessLabels),
-    ...getSelectedItems(data.kidneyIllnesses, illnessLabels),
-    ...getSelectedItems(data.metabolicIllnesses, illnessLabels),
-    ...getSelectedItems(data.neuroIllnesses, illnessLabels),
-    ...getSelectedItems(data.psychIllnesses, illnessLabels),
-    ...getSelectedItems(data.skeletalIllnesses, illnessLabels),
-    ...getSelectedItems(data.womanIssues, illnessLabels),
-    ...getSelectedItems(data.noxen, illnessLabels),
-    ...getSelectedItems(data.childrenIssues, illnessLabels),
-  ];
+  // Group medical history by system
+  const medicalSystems = [
+    { name: "Cardiovascular", illnesses: data.heartIllnesses, notes: data.heartNotes },
+    { name: "Respiratory", illnesses: data.lungIllnesses, notes: data.lungNotes },
+    { name: "GI", illnesses: data.giIllnesses, notes: data.giKidneyMetabolicNotes },
+    { name: "Renal", illnesses: data.kidneyIllnesses, notes: null }, // Uses combined notes
+    { name: "Metabolic", illnesses: data.metabolicIllnesses, notes: null }, // Uses combined notes
+    { name: "Neurological", illnesses: data.neuroIllnesses, notes: data.neuroPsychSkeletalNotes },
+    { name: "Psychiatric", illnesses: data.psychIllnesses, notes: null }, // Uses combined notes
+    { name: "Musculoskeletal", illnesses: data.skeletalIllnesses, notes: null }, // Uses combined notes
+    { name: "Women's Health", illnesses: data.womanIssues, notes: data.womanNotes },
+    { name: "Substance Use", illnesses: data.noxen, notes: data.noxenNotes },
+    { name: "Pediatric", illnesses: data.childrenIssues, notes: data.childrenNotes },
+  ].map(system => ({
+    ...system,
+    items: getSelectedItems(system.illnesses, illnessLabels),
+  })).filter(system => system.items.length > 0 || system.notes?.trim());
 
-  const allNotes = [
-    data.heartNotes, data.lungNotes, data.giKidneyMetabolicNotes, 
-    data.neuroPsychSkeletalNotes, data.womanNotes, data.noxenNotes, data.childrenNotes
-  ].filter(note => note?.trim());
+  // Collect all medical history for hasAnyData check
+  const allMedicalHistory = medicalSystems.flatMap(s => s.items);
 
   const allMedications = [
     ...data.anticoagulationMeds.map(m => `${m} (AC)`),
@@ -161,8 +162,8 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
     data.asa?.trim() ||
     allMedications.length > 0 ||
     data.medicationsNotes?.trim() ||
-    medicalHistory.length > 0 ||
-    allNotes.length > 0 ||
+    allMedicalHistory.length > 0 ||
+    medicalSystems.length > 0 ||
     data.mallampati?.trim() ||
     data.mouthOpening?.trim() ||
     data.dentition?.trim() ||
@@ -187,15 +188,15 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
   }
 
   return (
-    <div className="space-y-3 text-xs p-4 bg-muted/30 rounded-lg">
+    <div className="space-y-4 text-xs p-4 bg-muted/30 rounded-lg">
       {/* Special Notes - Highlighted at top */}
       {data.specialNotes?.trim() && (
-        <div className="p-2 rounded bg-blue-100 dark:bg-blue-950 border border-blue-300 dark:border-blue-800">
+        <div className="p-3 rounded bg-blue-100 dark:bg-blue-950 border border-blue-300 dark:border-blue-800">
           <div className="flex items-start gap-2">
             <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
             <div>
               <div className="font-semibold text-blue-900 dark:text-blue-100 text-xs">Special Notes</div>
-              <div className="text-blue-800 dark:text-blue-200 mt-0.5">{data.specialNotes}</div>
+              <div className="text-blue-800 dark:text-blue-200 mt-1">{data.specialNotes}</div>
             </div>
           </div>
         </div>
@@ -204,58 +205,63 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
       {/* ASA */}
       {data.asa?.trim() && (
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-muted-foreground min-w-[60px]">ASA:</span>
-          <Badge variant="outline" className="font-semibold text-xs">{data.asa}</Badge>
+          <span className="font-semibold text-muted-foreground min-w-[80px]">ASA:</span>
+          <Badge variant="outline" className="font-semibold text-sm">{data.asa}</Badge>
         </div>
       )}
 
       {/* Medications */}
       {allMedications.length > 0 && (
         <div>
-          <div className="font-semibold text-muted-foreground mb-1">Medications:</div>
-          <div className="pl-2 space-y-0.5">
+          <div className="font-semibold text-muted-foreground mb-2">Medications:</div>
+          <div className="pl-3 space-y-1">
             {allMedications.map((med, idx) => (
               <div key={idx} className="text-xs">• {med}</div>
             ))}
             {data.medicationsNotes?.trim() && (
-              <div className="text-xs italic text-muted-foreground mt-1">{data.medicationsNotes}</div>
+              <div className="text-xs italic text-muted-foreground mt-2">{data.medicationsNotes}</div>
             )}
           </div>
         </div>
       )}
 
-      {/* Medical History */}
-      {medicalHistory.length > 0 && (
+      {/* Medical History - Grouped by System */}
+      {medicalSystems.length > 0 && (
         <div>
-          <div className="font-semibold text-muted-foreground mb-1">Hx:</div>
-          <div className="flex flex-wrap gap-1 pl-2">
-            {medicalHistory.map((illness, idx) => (
-              <Badge key={idx} variant="secondary" className="text-xs py-0">{illness}</Badge>
+          <div className="font-semibold text-muted-foreground mb-2">Medical History:</div>
+          <div className="space-y-3 pl-3">
+            {medicalSystems.map((system, idx) => (
+              <div key={idx}>
+                <div className="font-medium text-foreground text-xs mb-1">{system.name}</div>
+                {system.items.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-1">
+                    {system.items.map((illness, iIdx) => (
+                      <Badge key={iIdx} variant="secondary" className="text-xs py-0.5 px-2">{illness}</Badge>
+                    ))}
+                  </div>
+                )}
+                {system.notes?.trim() && (
+                  <div className="text-xs italic text-muted-foreground pl-2">→ {system.notes}</div>
+                )}
+              </div>
             ))}
           </div>
-          {allNotes.length > 0 && (
-            <div className="pl-2 mt-1 space-y-0.5">
-              {allNotes.map((note, idx) => (
-                <div key={idx} className="text-xs italic text-muted-foreground">• {note}</div>
-              ))}
-            </div>
-          )}
         </div>
       )}
 
       {/* Airway */}
       {(data.mallampati?.trim() || data.mouthOpening?.trim() || data.dentition?.trim() || data.airwayDifficult?.trim() || data.airwayNotes?.trim()) && (
         <div>
-          <div className="font-semibold text-muted-foreground mb-1">Airway:</div>
-          <div className="pl-2 space-y-0.5">
-            {data.mallampati?.trim() && <div>MP: {data.mallampati}</div>}
-            {data.mouthOpening?.trim() && <div>MO: {data.mouthOpening}</div>}
-            {data.dentition?.trim() && <div>Teeth: {data.dentition}</div>}
+          <div className="font-semibold text-muted-foreground mb-2">Airway:</div>
+          <div className="pl-3 space-y-1">
+            {data.mallampati?.trim() && <div>Mallampati: {data.mallampati}</div>}
+            {data.mouthOpening?.trim() && <div>Mouth Opening: {data.mouthOpening}</div>}
+            {data.dentition?.trim() && <div>Dentition: {data.dentition}</div>}
             {data.airwayDifficult?.trim() && (
-              <Badge variant="destructive" className="text-xs">Difficult: {data.airwayDifficult}</Badge>
+              <Badge variant="destructive" className="text-xs">Difficult Airway: {data.airwayDifficult}</Badge>
             )}
             {data.airwayNotes?.trim() && (
-              <div className="text-xs italic text-muted-foreground">{data.airwayNotes}</div>
+              <div className="text-xs italic text-muted-foreground mt-1">{data.airwayNotes}</div>
             )}
           </div>
         </div>
@@ -264,10 +270,10 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
       {/* Fasting */}
       {(data.lastSolids?.trim() || data.lastClear?.trim()) && (
         <div>
-          <div className="font-semibold text-muted-foreground mb-1">Fasting:</div>
-          <div className="pl-2 space-y-0.5">
-            {data.lastSolids?.trim() && <div>Solids: {formatDateTime(data.lastSolids)}</div>}
-            {data.lastClear?.trim() && <div>Clear: {formatDateTime(data.lastClear)}</div>}
+          <div className="font-semibold text-muted-foreground mb-2">Fasting:</div>
+          <div className="pl-3 space-y-1">
+            {data.lastSolids?.trim() && <div>Last Solids: {formatDateTime(data.lastSolids)}</div>}
+            {data.lastClear?.trim() && <div>Last Clear: {formatDateTime(data.lastClear)}</div>}
           </div>
         </div>
       )}
@@ -275,20 +281,20 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
       {/* Planned Anesthesia */}
       {(selectedAnesthesia.length > 0 || data.postOpICU || data.anesthesiaOther?.trim()) && (
         <div>
-          <div className="font-semibold text-muted-foreground mb-1">Planned:</div>
-          <div className="pl-2">
+          <div className="font-semibold text-muted-foreground mb-2">Planned Anesthesia:</div>
+          <div className="pl-3 space-y-2">
             {selectedAnesthesia.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {selectedAnesthesia.map((technique, idx) => (
-                  <Badge key={idx} variant="default" className="text-xs py-0">{technique}</Badge>
+                  <Badge key={idx} variant="default" className="text-xs py-0.5 px-2">{technique}</Badge>
                 ))}
               </div>
             )}
             {data.postOpICU && (
-              <Badge variant="outline" className="text-xs mt-1">Post-Op ICU</Badge>
+              <Badge variant="outline" className="text-xs">Post-Op ICU</Badge>
             )}
             {data.anesthesiaOther?.trim() && (
-              <div className="text-xs italic text-muted-foreground mt-1">{data.anesthesiaOther}</div>
+              <div className="text-xs italic text-muted-foreground">{data.anesthesiaOther}</div>
             )}
           </div>
         </div>
@@ -297,17 +303,17 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
       {/* Installations */}
       {(selectedInstallations.length > 0 || data.installationsOther?.trim()) && (
         <div>
-          <div className="font-semibold text-muted-foreground mb-1">Installations:</div>
-          <div className="pl-2">
+          <div className="font-semibold text-muted-foreground mb-2">Planned Installations:</div>
+          <div className="pl-3 space-y-2">
             {selectedInstallations.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {selectedInstallations.map((installation, idx) => (
-                  <Badge key={idx} variant="secondary" className="text-xs py-0">{installation}</Badge>
+                  <Badge key={idx} variant="secondary" className="text-xs py-0.5 px-2">{installation}</Badge>
                 ))}
               </div>
             )}
             {data.installationsOther?.trim() && (
-              <div className="text-xs italic text-muted-foreground mt-1">{data.installationsOther}</div>
+              <div className="text-xs italic text-muted-foreground">{data.installationsOther}</div>
             )}
           </div>
         </div>
@@ -316,10 +322,10 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
       {/* Surgical Approval */}
       {data.surgicalApproval?.trim() && (
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-muted-foreground min-w-[60px]">Approval:</span>
+          <span className="font-semibold text-muted-foreground min-w-[80px]">Approval:</span>
           <Badge 
             variant={data.surgicalApproval === 'approved' ? 'default' : 'destructive'}
-            className="text-xs"
+            className="text-sm"
           >
             {data.surgicalApproval.replace('-', ' ').toUpperCase()}
           </Badge>
