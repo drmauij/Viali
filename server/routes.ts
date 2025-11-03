@@ -18,6 +18,7 @@ import {
   insertAnesthesiaMedicationSchema,
   insertAnesthesiaEventSchema,
   insertInventoryUsageSchema,
+  insertNoteSchema,
   orderLines, 
   items, 
   stockLevels, 
@@ -28,7 +29,8 @@ import {
   units, 
   hospitals, 
   medicationConfigs, 
-  medicationGroups 
+  medicationGroups,
+  notes
 } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, inArray, sql } from "drizzle-orm";
@@ -5436,6 +5438,137 @@ If unable to parse any drugs, return:
     } catch (error) {
       console.error("Error generating billing report:", error);
       res.status(500).json({ message: "Failed to generate billing report" });
+    }
+  });
+
+  // Notes routes
+  // Get notes for user's current unit
+  app.get('/api/notes/:hospitalId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { hospitalId } = req.params;
+      
+      // Get user's unit for this hospital
+      const unitId = await getUserUnitForHospital(userId, hospitalId);
+      if (!unitId) {
+        return res.status(403).json({ message: "No access to this hospital" });
+      }
+
+      // Get all notes - both personal and shared notes for this unit
+      const allNotes = await db
+        .select()
+        .from(notes)
+        .where(
+          and(
+            eq(notes.hospitalId, hospitalId),
+            eq(notes.unitId, unitId)
+          )
+        )
+        .orderBy(sql`${notes.createdAt} DESC`);
+
+      res.json(allNotes);
+    } catch (error) {
+      console.error("Error fetching notes:", error);
+      res.status(500).json({ message: "Failed to fetch notes" });
+    }
+  });
+
+  // Create a new note
+  app.post('/api/notes', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const noteData = insertNoteSchema.parse(req.body);
+      
+      // Verify user has access to this hospital/unit
+      const { hasAccess } = await verifyUserHospitalUnitAccess(userId, noteData.hospitalId, noteData.unitId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: "No access to this hospital/unit" });
+      }
+
+      // Create the note
+      const [note] = await db
+        .insert(notes)
+        .values({
+          ...noteData,
+          userId,
+        })
+        .returning();
+
+      res.status(201).json(note);
+    } catch (error) {
+      console.error("Error creating note:", error);
+      res.status(500).json({ message: "Failed to create note" });
+    }
+  });
+
+  // Update a note
+  app.patch('/api/notes/:noteId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { noteId } = req.params;
+      const { content, isShared } = req.body;
+
+      // Get the note
+      const [note] = await db
+        .select()
+        .from(notes)
+        .where(eq(notes.id, noteId));
+
+      if (!note) {
+        return res.status(404).json({ message: "Note not found" });
+      }
+
+      // Only the note creator can update it
+      if (note.userId !== userId) {
+        return res.status(403).json({ message: "You can only edit your own notes" });
+      }
+
+      // Update the note
+      const [updatedNote] = await db
+        .update(notes)
+        .set({
+          content,
+          isShared,
+          updatedAt: new Date(),
+        })
+        .where(eq(notes.id, noteId))
+        .returning();
+
+      res.json(updatedNote);
+    } catch (error) {
+      console.error("Error updating note:", error);
+      res.status(500).json({ message: "Failed to update note" });
+    }
+  });
+
+  // Delete a note
+  app.delete('/api/notes/:noteId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { noteId } = req.params;
+
+      // Get the note
+      const [note] = await db
+        .select()
+        .from(notes)
+        .where(eq(notes.id, noteId));
+
+      if (!note) {
+        return res.status(404).json({ message: "Note not found" });
+      }
+
+      // Only the note creator can delete it
+      if (note.userId !== userId) {
+        return res.status(403).json({ message: "You can only delete your own notes" });
+      }
+
+      // Delete the note
+      await db.delete(notes).where(eq(notes.id, noteId));
+
+      res.json({ message: "Note deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting note:", error);
+      res.status(500).json({ message: "Failed to delete note" });
     }
   });
 
