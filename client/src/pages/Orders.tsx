@@ -39,7 +39,8 @@ interface ItemWithStock extends Item {
 type OrderStatus = "draft" | "sent" | "received";
 type UnitType = "pack" | "ampulle";
 
-const normalizeUnit = (unit: string): UnitType => {
+const normalizeUnit = (unit: string | undefined | null): UnitType => {
+  if (!unit) return "ampulle";
   const normalized = unit.toLowerCase();
   if (normalized === "pack" || normalized === "box") {
     return "pack";
@@ -820,10 +821,10 @@ export default function Orders() {
                   {selectedOrder.orderLines.map(line => {
                     const stockStatus = getStockStatus(line.item);
                     const currentQty = line.item.stockLevel?.qtyOnHand ?? 0;
-                    const normalizedUnit = normalizeUnit(line.item.unit);
+                    const normalizedUnit = normalizeUnit(line.item.unit?.name);
                     
                     const displayQty = line.qty;
-                    const displayUnit = line.item.unit;
+                    const displayUnit = line.item.unit?.name;
                     
                     return (
                     <div key={line.id} className="flex items-center gap-3 p-3 border border-border rounded-lg" data-testid={`order-line-${line.id}`}>
