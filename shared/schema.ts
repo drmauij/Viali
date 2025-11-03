@@ -766,6 +766,23 @@ export const auditTrail = pgTable("audit_trail", {
   index("idx_audit_trail_action").on(table.action),
 ]);
 
+// Notes (Quick notes for users - personal or shared with unit)
+export const notes = pgTable("notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  content: text("content").notNull(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  unitId: varchar("unit_id").notNull().references(() => units.id),
+  isShared: boolean("is_shared").default(false).notNull(), // false = personal, true = shared with unit
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_notes_user").on(table.userId),
+  index("idx_notes_unit").on(table.unitId),
+  index("idx_notes_hospital").on(table.hospitalId),
+  index("idx_notes_shared").on(table.isShared),
+]);
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   userHospitalRoles: many(userHospitalRoles),
@@ -1045,6 +1062,12 @@ export const insertAuditTrailSchema = createInsertSchema(auditTrail).omit({
   timestamp: true,
 });
 
+export const insertNoteSchema = createInsertSchema(notes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -1106,6 +1129,8 @@ export type InventoryUsage = typeof inventoryUsage.$inferSelect;
 export type InsertInventoryUsage = z.infer<typeof insertInventoryUsageSchema>;
 export type AuditTrail = typeof auditTrail.$inferSelect;
 export type InsertAuditTrail = z.infer<typeof insertAuditTrailSchema>;
+export type Note = typeof notes.$inferSelect;
+export type InsertNote = z.infer<typeof insertNoteSchema>;
 
 // Bulk operations schemas
 export const bulkImportItemSchema = z.object({
