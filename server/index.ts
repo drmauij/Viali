@@ -58,9 +58,11 @@ app.use((req, res, next) => {
       await migrate(db, { migrationsFolder: "./migrations" });
       log("✓ Database migrations completed successfully");
     } catch (error: any) {
-      // If migration fails because tables already exist, check if schema is in sync
-      if (error.code === '42P07') {
-        log("⚠ Tables already exist - schema managed via db:push. Run `npm run db:push --force` to sync changes.");
+      // Check if this is a partial migration issue
+      if (error.message && error.message.includes('already exists')) {
+        log("⚠ Migration failed - some tables already exist.");
+        log("   To fix: Either drop schema and restart, or run `npm run db:push --force`");
+        throw new Error('Inconsistent database state - migration failed due to existing tables');
       } else {
         throw error;
       }
