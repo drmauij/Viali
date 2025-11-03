@@ -490,9 +490,10 @@ export default function Items() {
     },
   });
 
-  const normalizeUnit = (unit: string): UnitType => {
+  const normalizeUnit = (unit: string | undefined | null): UnitType => {
+    if (!unit) return "Single unit";
     const normalized = unit.toLowerCase();
-    if (normalized === "pack" || normalized === "box") {
+    if (normalized === "pack" || normalized === "box" || normalized.includes("pack")) {
       return "pack";
     }
     return "Single unit";

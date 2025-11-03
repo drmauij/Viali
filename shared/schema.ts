@@ -150,7 +150,7 @@ export const items = pgTable("items", {
   folderId: varchar("folder_id").references(() => folders.id),
   name: varchar("name").notNull(),
   description: text("description"),
-  unit: varchar("unit").notNull(), // vial, amp, ml, etc.
+  unit: varchar("unit").notNull(), // "pack" or "Single unit"
   packSize: integer("pack_size").default(1),
   minThreshold: integer("min_threshold"),
   maxThreshold: integer("max_threshold"),

@@ -29,7 +29,7 @@ export interface SeedAdministrationGroup {
 export interface SeedMedication {
   // Item details
   name: string;
-  unit: string; // Required: vial, amp, bag, ml, etc.
+  unit: string; // Required: "pack" or "Single unit"
   trackExactQuantity: boolean;
   
   // Medication configuration
@@ -100,7 +100,7 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
   // INFUSIONS (Free-running infusions)
   {
     name: "Ringer's Lactate",
-    unit: "bag",
+    unit: "pack",
     trackExactQuantity: true,
     administrationGroup: "Infusions",
     ampuleTotalContent: "1000 ml",
@@ -111,7 +111,7 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
   },
   {
     name: "Glucose 5%",
-    unit: "bag",
+    unit: "pack",
     trackExactQuantity: true,
     administrationGroup: "Infusions",
     ampuleTotalContent: "500 ml",
@@ -124,7 +124,7 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
   // PUMPS (Rate-controlled infusions/Perfusors)
   {
     name: "Propofol 1%",
-    unit: "vial",
+    unit: "Single unit",
     trackExactQuantity: true,
     medicationGroup: "Hypnotika",
     administrationGroup: "Pumps",
@@ -136,7 +136,7 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
   },
   {
     name: "Norepinephrine",
-    unit: "amp",
+    unit: "Single unit",
     trackExactQuantity: true,
     medicationGroup: "Catecholamines",
     administrationGroup: "Pumps",
@@ -148,7 +148,7 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
   },
   {
     name: "Remifentanil",
-    unit: "vial",
+    unit: "Single unit",
     trackExactQuantity: true,
     medicationGroup: "Opioide",
     administrationGroup: "Pumps",
@@ -162,7 +162,7 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
   // BOLUS (Single injection medications - no rateUnit)
   {
     name: "Fentanyl",
-    unit: "amp",
+    unit: "Single unit",
     trackExactQuantity: true,
     medicationGroup: "Opioide",
     administrationGroup: "Bolus",
@@ -173,7 +173,7 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
   },
   {
     name: "Rocuronium",
-    unit: "vial",
+    unit: "Single unit",
     trackExactQuantity: true,
     medicationGroup: "Muskelrelaxantien",
     administrationGroup: "Bolus",
@@ -184,7 +184,7 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
   },
   {
     name: "Atropine",
-    unit: "amp",
+    unit: "Single unit",
     trackExactQuantity: true,
     medicationGroup: "Anticholinergika",
     administrationGroup: "Bolus",
@@ -197,7 +197,7 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
   // SHORT IVs (Short infusions - no rateUnit)
   {
     name: "Paracetamol",
-    unit: "bag",
+    unit: "pack",
     trackExactQuantity: true,
     medicationGroup: "Analgetika",
     administrationGroup: "Short IVs",
@@ -208,7 +208,7 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
   },
   {
     name: "Metamizole",
-    unit: "amp",
+    unit: "Single unit",
     trackExactQuantity: true,
     medicationGroup: "Analgetika",
     administrationGroup: "Short IVs",
@@ -221,7 +221,7 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
   // ANTIBIOTICS (no rateUnit)
   {
     name: "Cefazolin",
-    unit: "vial",
+    unit: "Single unit",
     trackExactQuantity: true,
     medicationGroup: "Antibiotika",
     administrationGroup: "Antibiotics",
@@ -232,7 +232,7 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
   },
   {
     name: "Cefuroxime",
-    unit: "vial",
+    unit: "Single unit",
     trackExactQuantity: true,
     medicationGroup: "Antibiotika",
     administrationGroup: "Antibiotics",
@@ -243,7 +243,7 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
   },
   {
     name: "Amoxicillin/Clavulanic acid",
-    unit: "vial",
+    unit: "Single unit",
     trackExactQuantity: true,
     medicationGroup: "Antibiotika",
     administrationGroup: "Antibiotics",

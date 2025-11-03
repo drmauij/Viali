@@ -31,13 +31,13 @@ export async function analyzeItemImage(base64Image: string): Promise<ExtractedIt
   "concentration": "concentration/strength (e.g., '10mg/ml', '500mg', '0.9%')",
   "size": "size/volume of the product (e.g., '100 ml', '500ml', '10mg')",
   "barcode": "barcode number if visible (EAN, UPC, etc.)",
-  "unit": "packaging unit type - must be one of: 'pack', 'ampulle'",
+  "unit": "packaging unit type - must be one of: 'pack', 'Single unit'",
   "confidence": "confidence score 0-1 for the extraction"
 }
 
 Important:
 - Extract the product size/volume separately from concentration (e.g., for "NaCl 0.9% 100ml", concentration is "0.9%" and size is "100 ml")
-- For unit: MOST pharmaceutical items should be "pack" (boxes/packages/blister packs). Use "ampulle" ONLY for clearly individual vials/ampoules of drugs (especially controlled substances)
+- For unit: MOST pharmaceutical items should be "pack" (boxes/packages/blister packs). Use "Single unit" ONLY for clearly individual vials/ampoules of drugs (especially controlled substances)
 - Extract any visible barcodes (EAN-13, UPC, Code128, etc.)
 - Include drug concentration/strength if visible
 - The description should NOT include size/volume information
@@ -133,7 +133,7 @@ Return a JSON object with an "items" array containing one entry per unique produ
     {
       "name": "Product Name",
       "description": "Brief description (include concentration/strength if visible)",
-      "unit": "pack|ampulle",
+      "unit": "pack|Single unit",
       "packSize": 1,
       "minThreshold": 5,
       "maxThreshold": 20,
@@ -147,7 +147,7 @@ Return a JSON object with an "items" array containing one entry per unique produ
 Important instructions:
 - Identify ALL distinct products across all images
 - If the same product appears in multiple images, only list it once
-- For "unit": MOST pharmaceutical/medical items should be "pack" (boxes, packages, blister packs, etc.). Use "ampulle" ONLY for clearly individual vials/ampoules of drugs (especially controlled substances like opioids, anesthetics)
+- For "unit": MOST pharmaceutical/medical items should be "pack" (boxes, packages, blister packs, etc.). Use "Single unit" ONLY for clearly individual vials/ampoules of drugs (especially controlled substances like opioids, anesthetics)
 - For "packSize": if it's a pack/box, estimate how many units it contains (e.g., box of 10 vials = 10), otherwise use 1
 - Set "critical": true for emergency/life-saving drugs (e.g., epinephrine, atropine, emergency medications)
 - Set "controlled": true for controlled substances (opioids, benzodiazepines, anesthetics like propofol, ketamine, fentanyl)

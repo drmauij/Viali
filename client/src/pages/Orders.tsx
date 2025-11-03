@@ -37,15 +37,15 @@ interface ItemWithStock extends Item {
 }
 
 type OrderStatus = "draft" | "sent" | "received";
-type UnitType = "pack" | "ampulle";
+type UnitType = "pack" | "Single unit";
 
 const normalizeUnit = (unit: string | undefined | null): UnitType => {
-  if (!unit) return "ampulle";
+  if (!unit) return "Single unit";
   const normalized = unit.toLowerCase();
   if (normalized === "pack" || normalized === "box") {
     return "pack";
   }
-  return "ampulle";
+  return "Single unit";
 };
 
 const getStockStatus = (item: Item & { stockLevel?: StockLevel }) => {
