@@ -130,7 +130,7 @@ export interface IStorage {
   createLot(lot: Omit<Lot, 'id' | 'createdAt'>): Promise<Lot>;
   
   // Order operations
-  getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { unit: Unit } })[] })[]>;
+  getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { hospitalUnit?: Unit; stockLevel?: StockLevel } })[] })[]>;
   createOrder(order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order>;
   findOrCreateDraftOrder(hospitalId: string, vendorId: string | null, createdBy: string): Promise<Order>;
@@ -523,7 +523,7 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { unit: Unit } })[] })[]> {
+  async getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { hospitalUnit?: Unit; stockLevel?: StockLevel } })[] })[]> {
     let query = db
       .select()
       .from(orders)
@@ -550,8 +550,13 @@ export class DatabaseStorage implements IStorage {
             packSize: orderLines.packSize,
             unitPrice: orderLines.unitPrice,
             totalPrice: orderLines.totalPrice,
+            received: orderLines.received,
+            receivedAt: orderLines.receivedAt,
+            receivedBy: orderLines.receivedBy,
+            receiveNotes: orderLines.receiveNotes,
+            receiveSignature: orderLines.receiveSignature,
             item: items,
-            unit: units,
+            hospitalUnit: units,
             stockLevel: stockLevels,
           })
           .from(orderLines)
@@ -571,9 +576,14 @@ export class DatabaseStorage implements IStorage {
             packSize: line.packSize,
             unitPrice: line.unitPrice,
             totalPrice: line.totalPrice,
+            received: line.received,
+            receivedAt: line.receivedAt,
+            receivedBy: line.receivedBy,
+            receiveNotes: line.receiveNotes,
+            receiveSignature: line.receiveSignature,
             item: {
               ...line.item,
-              unit: line.unit,
+              hospitalUnit: line.hospitalUnit,
               stockLevel: line.stockLevel,
             },
           })),

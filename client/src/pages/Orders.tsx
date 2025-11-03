@@ -29,7 +29,7 @@ import { Check } from "lucide-react";
 
 interface OrderWithDetails extends Order {
   vendor: Vendor | null;
-  orderLines: (OrderLine & { item: Item & { unit?: Unit; stockLevel?: StockLevel } })[];
+  orderLines: (OrderLine & { item: Item & { hospitalUnit?: Unit; stockLevel?: StockLevel } })[];
 }
 
 interface ItemWithStock extends Item {
@@ -73,7 +73,7 @@ export default function Orders() {
   const [lineToRemove, setLineToRemove] = useState<string | null>(null);
   
   const [showReceiveDialog, setShowReceiveDialog] = useState(false);
-  const [selectedLineToReceive, setSelectedLineToReceive] = useState<(OrderLine & { item: Item & { unit?: Unit; stockLevel?: StockLevel } }) | null>(null);
+  const [selectedLineToReceive, setSelectedLineToReceive] = useState<(OrderLine & { item: Item & { hospitalUnit?: Unit; stockLevel?: StockLevel } }) | null>(null);
   const [receiveNotes, setReceiveNotes] = useState("");
   const [receiveSignature, setReceiveSignature] = useState("");
   const [showReceiveSignaturePad, setShowReceiveSignaturePad] = useState(false);
@@ -470,7 +470,7 @@ export default function Orders() {
   };
 
   const getOrderLocation = (order: OrderWithDetails) => {
-    const locations = new Set(order.orderLines.map(line => line.item.unit?.name));
+    const locations = new Set(order.orderLines.map(line => line.item.hospitalUnit?.name));
     return Array.from(locations).join(", ");
   };
 
@@ -481,7 +481,7 @@ export default function Orders() {
     setShowReceiveSignaturePad(false);
   };
 
-  const handleReceiveLine = (line: OrderLine & { item: Item & { unit?: Unit; stockLevel?: StockLevel } }) => {
+  const handleReceiveLine = (line: OrderLine & { item: Item & { hospitalUnit?: Unit; stockLevel?: StockLevel } }) => {
     setSelectedLineToReceive(line);
     setShowReceiveDialog(true);
   };
@@ -821,10 +821,10 @@ export default function Orders() {
                   {selectedOrder.orderLines.map(line => {
                     const stockStatus = getStockStatus(line.item);
                     const currentQty = line.item.stockLevel?.qtyOnHand ?? 0;
-                    const normalizedUnit = normalizeUnit(line.item.unit?.name);
+                    const normalizedUnit = normalizeUnit(line.item.unit);
                     
                     const displayQty = line.qty;
-                    const displayUnit = line.item.unit?.name;
+                    const displayUnit = line.item.unit;
                     
                     return (
                     <div key={line.id} className="flex items-center gap-3 p-3 border border-border rounded-lg" data-testid={`order-line-${line.id}`}>
