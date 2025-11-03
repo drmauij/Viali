@@ -29,7 +29,7 @@ export interface SeedAdministrationGroup {
 export interface SeedMedication {
   // Item details
   name: string;
-  unit: string; // Required: "pack" or "Single unit"
+  unit: string; // Required: "Pack" or "Single unit"
   trackExactQuantity: boolean;
   
   // Medication configuration
@@ -100,7 +100,7 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
   // INFUSIONS (Free-running infusions)
   {
     name: "Ringer's Lactate",
-    unit: "pack",
+    unit: "Pack",
     trackExactQuantity: true,
     administrationGroup: "Infusions",
     ampuleTotalContent: "1000 ml",
@@ -111,7 +111,7 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
   },
   {
     name: "Glucose 5%",
-    unit: "pack",
+    unit: "Pack",
     trackExactQuantity: true,
     administrationGroup: "Infusions",
     ampuleTotalContent: "500 ml",
@@ -197,7 +197,7 @@ export const DEFAULT_MEDICATIONS: SeedMedication[] = [
   // SHORT IVs (Short infusions - no rateUnit)
   {
     name: "Paracetamol",
-    unit: "pack",
+    unit: "Pack",
     trackExactQuantity: true,
     medicationGroup: "Analgetika",
     administrationGroup: "Short IVs",

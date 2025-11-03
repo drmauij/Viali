@@ -150,7 +150,7 @@ export const items = pgTable("items", {
   folderId: varchar("folder_id").references(() => folders.id),
   name: varchar("name").notNull(),
   description: text("description"),
-  unit: varchar("unit").notNull(), // "pack" or "Single unit"
+  unit: varchar("unit").notNull(), // "Pack" or "Single unit"
   packSize: integer("pack_size").default(1),
   minThreshold: integer("min_threshold"),
   maxThreshold: integer("max_threshold"),
@@ -1111,7 +1111,7 @@ export type InsertAuditTrail = z.infer<typeof insertAuditTrailSchema>;
 export const bulkImportItemSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
-  unit: z.string().default("pack"),
+  unit: z.string().default("Pack"),
   packSize: z.number().int().positive().default(1),
   minThreshold: z.number().int().min(0).optional(),
   maxThreshold: z.number().int().min(0).optional(),

@@ -37,13 +37,13 @@ interface ItemWithStock extends Item {
 }
 
 type OrderStatus = "draft" | "sent" | "received";
-type UnitType = "pack" | "Single unit";
+type UnitType = "Pack" | "Single unit";
 
 const normalizeUnit = (unit: string | undefined | null): UnitType => {
   if (!unit) return "Single unit";
   const normalized = unit.toLowerCase();
-  if (normalized === "pack" || normalized === "box") {
-    return "pack";
+  if (normalized === "pack" || normalized === "box" || normalized.includes("pack")) {
+    return "Pack";
   }
   return "Single unit";
 };
@@ -834,7 +834,7 @@ export default function Orders() {
                           <span className={`text-base font-semibold ${stockStatus.color}`}>
                             {currentQty}
                           </span>
-                          <i className={`fas ${normalizedUnit === "pack" ? "fa-box" : "fa-vial"} text-sm ${stockStatus.color}`}></i>
+                          <i className={`fas ${normalizedUnit === "Pack" ? "fa-box" : "fa-vial"} text-sm ${stockStatus.color}`}></i>
                           <span className="text-xs text-muted-foreground">
                             / {t('orders.min')}: {line.item.minThreshold ?? 0} / {t('orders.max')}: {line.item.maxThreshold ?? 0}
                           </span>

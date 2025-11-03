@@ -26,7 +26,7 @@ interface ItemWithStock extends Item {
   soonestExpiry?: Date;
 }
 
-type UnitType = "pack" | "Single unit";
+type UnitType = "Pack" | "Single unit";
 
 // Draggable item wrapper
 function DraggableItem({ id, children, disabled }: { id: string; children: React.ReactNode; disabled?: boolean }) {
@@ -105,7 +105,7 @@ export default function Items() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ItemWithStock | null>(null);
-  const [selectedUnit, setSelectedUnit] = useState<UnitType>("pack");
+  const [selectedUnit, setSelectedUnit] = useState<UnitType>("Pack");
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [editFormData, setEditFormData] = useState({
@@ -494,14 +494,14 @@ export default function Items() {
     if (!unit) return "Single unit";
     const normalized = unit.toLowerCase();
     if (normalized === "pack" || normalized === "box" || normalized.includes("pack")) {
-      return "pack";
+      return "Pack";
     }
     return "Single unit";
   };
 
   // Auto-focus pack size field in Add Item dialog when it becomes visible
   useEffect(() => {
-    if (selectedUnit === "pack" && formData.trackExactQuantity && addDialogOpen) {
+    if (selectedUnit === "Pack" && formData.trackExactQuantity && addDialogOpen) {
       setTimeout(() => {
         packSizeInputRef.current?.focus();
       }, 100);
@@ -510,7 +510,7 @@ export default function Items() {
 
   // Auto-focus pack size field in Edit Item dialog when it becomes visible
   useEffect(() => {
-    if (selectedUnit === "pack" && editFormData.trackExactQuantity && editDialogOpen) {
+    if (selectedUnit === "Pack" && editFormData.trackExactQuantity && editDialogOpen) {
       setTimeout(() => {
         editPackSizeInputRef.current?.focus();
       }, 100);
@@ -539,14 +539,14 @@ export default function Items() {
 
   // Auto-enable trackExactQuantity for controlled packed items in Add Item form
   useEffect(() => {
-    if (formData.controlled && selectedUnit === "pack" && !formData.trackExactQuantity) {
+    if (formData.controlled && selectedUnit === "Pack" && !formData.trackExactQuantity) {
       setFormData(prev => ({ ...prev, trackExactQuantity: true }));
     }
   }, [formData.controlled, selectedUnit]);
 
   // Auto-enable trackExactQuantity for controlled packed items in Edit Item form
   useEffect(() => {
-    if (editFormData.controlled && selectedUnit === "pack" && !editFormData.trackExactQuantity) {
+    if (editFormData.controlled && selectedUnit === "Pack" && !editFormData.trackExactQuantity) {
       setEditFormData(prev => ({ ...prev, trackExactQuantity: true }));
     }
   }, [editFormData.controlled, selectedUnit]);
@@ -1068,8 +1068,8 @@ export default function Items() {
       minThreshold: parseInt(editFormData.minThreshold) || 0,
       maxThreshold: parseInt(editFormData.maxThreshold) || 0,
       defaultOrderQty: parseInt(editFormData.defaultOrderQty) || 0,
-      packSize: (selectedUnit === "pack" && editFormData.trackExactQuantity) ? parseInt(editFormData.packSize) || 1 : 1,
-      currentUnits: (selectedUnit === "pack" && editFormData.trackExactQuantity) ? parseInt(editFormData.currentUnits) || 0 : 0,
+      packSize: (selectedUnit === "Pack" && editFormData.trackExactQuantity) ? parseInt(editFormData.packSize) || 1 : 1,
+      currentUnits: (selectedUnit === "Pack" && editFormData.trackExactQuantity) ? parseInt(editFormData.currentUnits) || 0 : 0,
       trackExactQuantity: editFormData.trackExactQuantity,
       critical: editFormData.critical,
       controlled: editFormData.controlled,
@@ -1209,8 +1209,8 @@ export default function Items() {
       minThreshold: parseInt(formData.minThreshold) || 0,
       maxThreshold: parseInt(formData.maxThreshold) || 0,
       defaultOrderQty: parseInt(formData.defaultOrderQty) || 0,
-      packSize: (selectedUnit === "pack" && formData.trackExactQuantity) ? parseInt(formData.packSize) || 1 : 1,
-      currentUnits: (selectedUnit === "pack" && formData.trackExactQuantity) ? parseInt(formData.currentUnits) || 0 : 0,
+      packSize: (selectedUnit === "Pack" && formData.trackExactQuantity) ? parseInt(formData.packSize) || 1 : 1,
+      currentUnits: (selectedUnit === "Pack" && formData.trackExactQuantity) ? parseInt(formData.currentUnits) || 0 : 0,
       trackExactQuantity: formData.trackExactQuantity,
       critical: formData.critical,
       controlled: formData.controlled,
@@ -1237,7 +1237,7 @@ export default function Items() {
       trackExactQuantity: false,
       imageUrl: "",
     });
-    setSelectedUnit("pack");
+    setSelectedUnit("Pack");
     setUploadedImages([]);
   };
 
@@ -2257,7 +2257,7 @@ export default function Items() {
                               <span className="text-base text-muted-foreground font-normal ml-1">[{item.currentUnits} units]</span>
                             )}
                           </span>
-                          <i className={`fas ${normalizeUnit(item.unit) === "pack" ? "fa-box" : "fa-vial"} text-lg ${stockStatus.color}`}></i>
+                          <i className={`fas ${normalizeUnit(item.unit) === "Pack" ? "fa-box" : "fa-vial"} text-lg ${stockStatus.color}`}></i>
                         </div>
                         <span className="text-sm text-muted-foreground">
                           / Min: {item.minThreshold || 0} / Max: {item.maxThreshold || 0}
@@ -2454,9 +2454,9 @@ export default function Items() {
               <div className="flex gap-2 mt-2">
                 <button
                   type="button"
-                  onClick={() => setSelectedUnit("pack")}
+                  onClick={() => setSelectedUnit("Pack")}
                   className={`flex-1 py-3 px-2 rounded-lg border-2 transition-all ${
-                    selectedUnit === "pack" 
+                    selectedUnit === "Pack" 
                       ? "border-primary bg-primary/10" 
                       : "border-border bg-background"
                   }`}
@@ -2482,7 +2482,7 @@ export default function Items() {
             </div>
 
             {/* Track Exact Quantity - Only for Pack orders */}
-            {selectedUnit === "pack" && (
+            {selectedUnit === "Pack" && (
               <div className="space-y-2">
                 <div className="flex items-center space-x-2">
                   <Checkbox 
@@ -2505,7 +2505,7 @@ export default function Items() {
             )}
 
             {/* Pack Size and Current Units - Only shown when Track Exact Quantity is checked */}
-            {selectedUnit === "pack" && formData.trackExactQuantity && (
+            {selectedUnit === "Pack" && formData.trackExactQuantity && (
               <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border-2 border-blue-200 dark:border-blue-900/50 space-y-4">
                 <div>
                   <Label htmlFor="packSize">{t('items.packSize')} *</Label>
@@ -2678,9 +2678,9 @@ export default function Items() {
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <button
                   type="button"
-                  onClick={() => setSelectedUnit("pack")}
+                  onClick={() => setSelectedUnit("Pack")}
                   className={`flex flex-col items-center py-3 px-2 rounded-lg border-2 transition-all ${
-                    selectedUnit === "pack" 
+                    selectedUnit === "Pack" 
                       ? "border-primary bg-primary/10" 
                       : "border-border bg-background"
                   }`}
@@ -2706,7 +2706,7 @@ export default function Items() {
             </div>
 
             {/* Track Exact Quantity - Only for Pack orders */}
-            {selectedUnit === "pack" && (
+            {selectedUnit === "Pack" && (
               <div className="space-y-2">
                 <div className="flex items-center space-x-2">
                   <Checkbox 
@@ -2729,7 +2729,7 @@ export default function Items() {
             )}
 
             {/* Pack Size and Current Units - Only shown when Track Exact Quantity is checked */}
-            {selectedUnit === "pack" && editFormData.trackExactQuantity && (
+            {selectedUnit === "Pack" && editFormData.trackExactQuantity && (
               <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border-2 border-blue-200 dark:border-blue-900/50 space-y-4">
                 <div>
                   <Label htmlFor="edit-packSize">{t('items.packSize')} *</Label>
