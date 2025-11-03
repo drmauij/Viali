@@ -1,0 +1,329 @@
+import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { X, Trash2, Edit2, Save } from "lucide-react";
+import { format } from "date-fns";
+import type { Note } from "@shared/schema";
+
+interface NotesPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+  activeHospital?: {
+    id: string;
+    name: string;
+    unitId: string;
+    unitName: string;
+  };
+}
+
+export default function NotesPanel({ isOpen, onClose, activeHospital }: NotesPanelProps) {
+  const { user } = useAuth();
+  const [newNoteContent, setNewNoteContent] = useState("");
+  const [newNoteIsShared, setNewNoteIsShared] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [activeTab, setActiveTab] = useState<"personal" | "shared">("personal");
+
+  // Fetch notes
+  const { data: notes = [], isLoading } = useQuery<Note[]>({
+    queryKey: [`/api/notes/${activeHospital?.id}`, activeHospital?.id],
+    enabled: !!activeHospital?.id && isOpen,
+  });
+
+  // Create note mutation
+  const createNoteMutation = useMutation({
+    mutationFn: async (noteData: { content: string; isShared: boolean }) => {
+      const response = await apiRequest("POST", `/api/notes`, {
+        content: noteData.content,
+        isShared: noteData.isShared,
+        hospitalId: activeHospital?.id,
+        unitId: activeHospital?.unitId,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/notes/${activeHospital?.id}`] });
+      setNewNoteContent("");
+    },
+  });
+
+  // Update note mutation
+  const updateNoteMutation = useMutation({
+    mutationFn: async ({ noteId, content, isShared }: { noteId: string; content: string; isShared: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/notes/${noteId}`, { content, isShared });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/notes/${activeHospital?.id}`] });
+      setEditingNoteId(null);
+      setEditContent("");
+    },
+  });
+
+  // Delete note mutation
+  const deleteNoteMutation = useMutation({
+    mutationFn: async (noteId: string) => {
+      const response = await apiRequest("DELETE", `/api/notes/${noteId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/notes/${activeHospital?.id}`] });
+    },
+  });
+
+  const handleCreateNote = () => {
+    if (!newNoteContent.trim()) return;
+    
+    const isShared = activeTab === "shared";
+    createNoteMutation.mutate({ content: newNoteContent, isShared });
+  };
+
+  const handleEditNote = (note: Note) => {
+    setEditingNoteId(note.id);
+    setEditContent(note.content);
+  };
+
+  const handleSaveEdit = (note: Note) => {
+    if (!editContent.trim()) return;
+    updateNoteMutation.mutate({
+      noteId: note.id,
+      content: editContent,
+      isShared: note.isShared,
+    });
+  };
+
+  const handleDeleteNote = (noteId: string) => {
+    if (confirm("Are you sure you want to delete this note?")) {
+      deleteNoteMutation.mutate(noteId);
+    }
+  };
+
+  // Filter notes based on active tab and user
+  const personalNotes = notes.filter((note) => !note.isShared && note.userId === (user as any)?.id);
+  const sharedNotes = notes.filter((note) => note.isShared);
+
+  return (
+    <>
+      {/* Overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40"
+          onClick={onClose}
+          data-testid="notes-overlay"
+        />
+      )}
+
+      {/* Slide Panel */}
+      <div
+        className={`fixed top-0 right-0 h-full w-full sm:w-96 bg-card border-l border-border shadow-xl z-50 transform transition-transform duration-300 ease-in-out ${
+          isOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+        data-testid="notes-panel"
+      >
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-border relative z-10">
+            <h2 className="text-lg font-semibold text-foreground">Notes</h2>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg hover:bg-accent flex items-center justify-center transition-colors relative z-10"
+              data-testid="button-close-notes"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Tabs */}
+          <div className="p-4 border-b border-border">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "personal" | "shared")}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="personal" data-testid="tab-personal-notes">
+                  My Notes
+                </TabsTrigger>
+                <TabsTrigger value="shared" data-testid="tab-shared-notes">
+                  Unit Notes
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+
+          {/* Quick Add Form */}
+          <div className="p-4 border-b border-border">
+            <Textarea
+              placeholder={activeTab === "personal" ? "Add a personal note..." : "Add a shared note for your unit..."}
+              value={newNoteContent}
+              onChange={(e) => setNewNoteContent(e.target.value)}
+              className="mb-2 min-h-[80px]"
+              data-testid="input-new-note"
+            />
+            <Button
+              onClick={handleCreateNote}
+              disabled={!newNoteContent.trim() || createNoteMutation.isPending}
+              className="w-full"
+              data-testid="button-add-note"
+            >
+              {createNoteMutation.isPending ? "Adding..." : "Add Note"}
+            </Button>
+          </div>
+
+          {/* Notes List */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {isLoading ? (
+              <div className="text-center text-muted-foreground">Loading notes...</div>
+            ) : (
+              <>
+                {activeTab === "personal" ? (
+                  personalNotes.length === 0 ? (
+                    <div className="text-center text-muted-foreground" data-testid="empty-personal-notes">
+                      No personal notes yet
+                    </div>
+                  ) : (
+                    personalNotes.map((note) => (
+                      <div
+                        key={note.id}
+                        className="bg-accent/50 rounded-lg p-3 border border-border"
+                        data-testid={`note-${note.id}`}
+                      >
+                        {editingNoteId === note.id ? (
+                          <>
+                            <Textarea
+                              value={editContent}
+                              onChange={(e) => setEditContent(e.target.value)}
+                              className="mb-2 min-h-[80px]"
+                              data-testid={`input-edit-note-${note.id}`}
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleSaveEdit(note)}
+                                disabled={updateNoteMutation.isPending}
+                                data-testid={`button-save-note-${note.id}`}
+                              >
+                                <Save className="w-4 h-4 mr-1" />
+                                Save
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingNoteId(null);
+                                  setEditContent("");
+                                }}
+                                data-testid={`button-cancel-edit-${note.id}`}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-foreground whitespace-pre-wrap mb-2">{note.content}</p>
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                              <span>{note.createdAt && format(new Date(note.createdAt), "MMM d, yyyy h:mm a")}</span>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleEditNote(note)}
+                                  className="hover:text-foreground transition-colors"
+                                  data-testid={`button-edit-note-${note.id}`}
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteNote(note.id)}
+                                  className="hover:text-destructive transition-colors"
+                                  data-testid={`button-delete-note-${note.id}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))
+                  )
+                ) : (
+                  sharedNotes.length === 0 ? (
+                    <div className="text-center text-muted-foreground" data-testid="empty-shared-notes">
+                      No shared notes yet
+                    </div>
+                  ) : (
+                    sharedNotes.map((note) => (
+                      <div
+                        key={note.id}
+                        className="bg-accent/50 rounded-lg p-3 border border-border"
+                        data-testid={`note-${note.id}`}
+                      >
+                        {editingNoteId === note.id ? (
+                          <>
+                            <Textarea
+                              value={editContent}
+                              onChange={(e) => setEditContent(e.target.value)}
+                              className="mb-2 min-h-[80px]"
+                              data-testid={`input-edit-note-${note.id}`}
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleSaveEdit(note)}
+                                disabled={updateNoteMutation.isPending}
+                                data-testid={`button-save-note-${note.id}`}
+                              >
+                                <Save className="w-4 h-4 mr-1" />
+                                Save
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingNoteId(null);
+                                  setEditContent("");
+                                }}
+                                data-testid={`button-cancel-edit-${note.id}`}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-foreground whitespace-pre-wrap mb-2">{note.content}</p>
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                              <span>{note.createdAt && format(new Date(note.createdAt), "MMM d, yyyy h:mm a")}</span>
+                              {note.userId === (user as any)?.id && (
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleEditNote(note)}
+                                    className="hover:text-foreground transition-colors"
+                                    data-testid={`button-edit-note-${note.id}`}
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteNote(note.id)}
+                                    className="hover:text-destructive transition-colors"
+                                    data-testid={`button-delete-note-${note.id}`}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))
+                  )
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}

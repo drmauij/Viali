@@ -5,6 +5,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import ChangePasswordDialog from "./ChangePasswordDialog";
 import { useModule } from "@/contexts/ModuleContext";
+import { StickyNote } from "lucide-react";
+import NotesPanel from "./NotesPanel";
 
 interface Hospital {
   id: string;
@@ -29,6 +31,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
   const [showHospitalDropdown, setShowHospitalDropdown] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showNotesPanel, setShowNotesPanel] = useState(false);
 
   const getInitials = (firstName?: string | null, lastName?: string | null) => {
     if (!firstName && !lastName) return "U";
@@ -95,15 +98,25 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
           </div>
         </div>
         
-        <div className="relative">
-          {/* User Menu Button */}
+        <div className="flex items-center gap-3">
+          {/* Notes Panel Toggle */}
           <button
-            className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-semibold text-sm hover:opacity-90 transition-opacity"
-            onClick={() => setShowUserMenu(!showUserMenu)}
-            data-testid="profile-avatar"
+            onClick={() => setShowNotesPanel(!showNotesPanel)}
+            className="w-9 h-9 rounded-lg hover:bg-accent flex items-center justify-center transition-colors"
+            data-testid="button-notes"
           >
-            {getInitials(userFirstName, userLastName)}
+            <StickyNote className="w-5 h-5 text-foreground" />
           </button>
+
+          <div className="relative">
+            {/* User Menu Button */}
+            <button
+              className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-semibold text-sm hover:opacity-90 transition-opacity"
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              data-testid="profile-avatar"
+            >
+              {getInitials(userFirstName, userLastName)}
+            </button>
           
           {/* User Dropdown Menu */}
           {showUserMenu && (
@@ -168,12 +181,19 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
               </button>
             </div>
           )}
+          </div>
         </div>
       </div>
       
       <ChangePasswordDialog 
         open={showChangePassword} 
         onOpenChange={setShowChangePassword}
+      />
+
+      <NotesPanel 
+        isOpen={showNotesPanel}
+        onClose={() => setShowNotesPanel(false)}
+        activeHospital={activeHospital}
       />
     </div>
   );

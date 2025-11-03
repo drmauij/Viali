@@ -1064,6 +1064,7 @@ export const insertAuditTrailSchema = createInsertSchema(auditTrail).omit({
 
 export const insertNoteSchema = createInsertSchema(notes).omit({
   id: true,
+  userId: true,
   createdAt: true,
   updatedAt: true,
 });
