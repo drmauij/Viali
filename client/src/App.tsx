@@ -72,9 +72,8 @@ function HomeRedirect() {
         if (saved) activeHospital = saved;
       }
 
-      // If user is assigned to the anesthesia unit, default to anesthesia module
-      if (activeHospital.anesthesiaUnitId && 
-          activeHospital.unitId === activeHospital.anesthesiaUnitId) {
+      // If user's unit has anesthesia module enabled, default to anesthesia module
+      if (activeHospital.isAnesthesiaModule) {
         navigate("/anesthesia/patients", { replace: true });
         return;
       }

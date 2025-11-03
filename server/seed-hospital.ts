@@ -59,6 +59,8 @@ export async function seedHospitalData(
         name: unitData.name,
         type: unitData.type,
         parentId: unitData.parentId,
+        isAnesthesiaModule: unitData.name === "Anesthesy",
+        isSurgeryModule: unitData.name === "Operating Room (OR)",
       });
       result.unitsCreated++;
 
@@ -86,12 +88,6 @@ export async function seedHospitalData(
       hospitalId,
       unitId: anesthesyUnit.id,
       role: "admin",
-    });
-
-    // Configure modules to use appropriate units
-    await storage.updateHospital(hospitalId, {
-      anesthesiaUnitId: anesthesyUnit.id,
-      surgeryUnitId: orUnit.id, // Doctors in OR unit are available as surgeons
     });
   }
 

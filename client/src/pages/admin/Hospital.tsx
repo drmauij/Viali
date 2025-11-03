@@ -29,14 +29,6 @@ export default function Hospital() {
   const [hospitalDialogOpen, setHospitalDialogOpen] = useState(false);
   const [hospitalName, setHospitalName] = useState(activeHospital?.name || "");
 
-  // Anesthesia unit states
-  const [anesthesiaUnitDialogOpen, setAnesthesiaUnitDialogOpen] = useState(false);
-  const [selectedAnesthesiaUnitId, setSelectedAnesthesiaUnitId] = useState(activeHospital?.anesthesiaUnitId || "none");
-
-  // Surgery unit states
-  const [surgeryUnitDialogOpen, setSurgeryUnitDialogOpen] = useState(false);
-  const [selectedSurgeryUnitId, setSelectedSurgeryUnitId] = useState(activeHospital?.surgeryUnitId || "none");
-
   // Seed data states
   const [seedDialogOpen, setSeedDialogOpen] = useState(false);
 
@@ -190,38 +182,6 @@ export default function Hospital() {
     },
     onError: (error: any) => {
       toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateHospitalName"), variant: "destructive" });
-    },
-  });
-
-  // Anesthesia unit mutation
-  const updateAnesthesiaUnitMutation = useMutation({
-    mutationFn: async (anesthesiaUnitId: string | null) => {
-      const response = await apiRequest("PATCH", `/api/admin/${activeHospital?.id}/anesthesia-unit`, { anesthesiaUnitId });
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      setAnesthesiaUnitDialogOpen(false);
-      toast({ title: t("common.success"), description: "Anesthesia unit updated successfully" });
-    },
-    onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || "Failed to update anesthesia unit", variant: "destructive" });
-    },
-  });
-
-  // Surgery unit mutation
-  const updateSurgeryUnitMutation = useMutation({
-    mutationFn: async (surgeryUnitId: string | null) => {
-      const response = await apiRequest("PATCH", `/api/admin/${activeHospital?.id}/surgery-location`, { surgeryUnitId });
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      setSurgeryUnitDialogOpen(false);
-      toast({ title: t("common.success"), description: "Surgery unit updated successfully" });
-    },
-    onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || "Failed to update surgery unit", variant: "destructive" });
     },
   });
 
@@ -391,28 +351,6 @@ export default function Hospital() {
     updateHospitalMutation.mutate(hospitalName);
   };
 
-  const handleEditAnesthesiaUnit = () => {
-    setSelectedAnesthesiaUnitId(activeHospital?.anesthesiaUnitId || "none");
-    setAnesthesiaUnitDialogOpen(true);
-  };
-
-  const handleSaveAnesthesiaUnit = () => {
-    updateAnesthesiaUnitMutation.mutate(
-      selectedAnesthesiaUnitId === 'none' ? null : selectedAnesthesiaUnitId
-    );
-  };
-
-  const handleEditSurgeryUnit = () => {
-    setSelectedSurgeryUnitId(activeHospital?.surgeryUnitId || "none");
-    setSurgeryUnitDialogOpen(true);
-  };
-
-  const handleSaveSurgeryUnit = () => {
-    updateSurgeryUnitMutation.mutate(
-      selectedSurgeryUnitId === 'none' ? null : selectedSurgeryUnitId
-    );
-  };
-
   if (!activeHospital) {
     return (
       <div className="p-4">
@@ -462,71 +400,21 @@ export default function Hospital() {
         </div>
       </div>
 
-      {/* Anesthesia Unit Configuration Card */}
+      {/* Module Configuration Info Card */}
       <div className="bg-card border border-border rounded-lg p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-start gap-3">
-            <Syringe 
-              className={`w-5 h-5 mt-0.5 ${
-                activeHospital?.anesthesiaUnitId 
-                  ? 'text-green-500' 
-                  : 'text-gray-400'
-              }`} 
-            />
-            <div>
-              <h3 className="font-semibold text-foreground text-lg">
-                Anesthesia Module Unit
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {activeHospital?.anesthesiaUnitId 
-                  ? units.find(l => l.id === activeHospital.anesthesiaUnitId)?.name || "Unit not found"
-                  : "Not configured - anesthesia module disabled"}
-              </p>
-            </div>
+        <div className="flex items-start gap-3">
+          <i className="fas fa-info-circle text-xl text-primary mt-0.5"></i>
+          <div>
+            <h3 className="font-semibold text-foreground text-lg mb-2">
+              Module Configuration
+            </h3>
+            <p className="text-sm text-muted-foreground mb-2">
+              Anesthesia and Surgery modules are now configured per-unit in the Units tab.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Edit a unit and enable the "Anesthesia Module" or "Surgery Module" checkbox to configure which units support these features.
+            </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleEditAnesthesiaUnit}
-            data-testid="button-edit-anesthesia-unit"
-          >
-            <i className="fas fa-edit mr-2"></i>
-            Configure
-          </Button>
-        </div>
-      </div>
-
-      {/* Surgery Unit Configuration Card */}
-      <div className="bg-card border border-border rounded-lg p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-start gap-3">
-            <Stethoscope 
-              className={`w-5 h-5 mt-0.5 ${
-                activeHospital?.surgeryUnitId 
-                  ? 'text-green-500' 
-                  : 'text-gray-400'
-              }`} 
-            />
-            <div>
-              <h3 className="font-semibold text-foreground text-lg">
-                Surgery Module Unit
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {activeHospital?.surgeryUnitId 
-                  ? units.find(l => l.id === activeHospital.surgeryUnitId)?.name || "Unit not found"
-                  : "Not configured - surgery module disabled"}
-              </p>
-            </div>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleEditSurgeryUnit}
-            data-testid="button-edit-surgery-unit"
-          >
-            <i className="fas fa-edit mr-2"></i>
-            Configure
-          </Button>
         </div>
       </div>
 
@@ -968,101 +856,6 @@ export default function Hospital() {
                 data-testid="button-save-hospital"
               >
                 {t("common.edit")}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Anesthesia Unit Dialog */}
-      <Dialog open={anesthesiaUnitDialogOpen} onOpenChange={setAnesthesiaUnitDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Configure Anesthesia Module Unit</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="anesthesia-unit">Select Unit</Label>
-              <p className="text-sm text-muted-foreground mb-2">
-                Choose which unit's inventory will be used for anesthesia medications and infusions.
-                Only users assigned to this unit can access the anesthesia module.
-              </p>
-              <Select
-                value={selectedAnesthesiaUnitId}
-                onValueChange={setSelectedAnesthesiaUnitId}
-              >
-                <SelectTrigger id="anesthesia-unit" data-testid="select-anesthesia-unit">
-                  <SelectValue placeholder="Select a unit" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none" data-testid="option-none">
-                    None (Disable anesthesia module)
-                  </SelectItem>
-                  {units.map((unit) => (
-                    <SelectItem key={unit.id} value={unit.id} data-testid={`option-unit-${unit.id}`}>
-                      {unit.name} {unit.type ? `(${unit.type})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setAnesthesiaUnitDialogOpen(false)}>
-                {t("common.cancel")}
-              </Button>
-              <Button
-                onClick={handleSaveAnesthesiaUnit}
-                disabled={updateAnesthesiaUnitMutation.isPending}
-                data-testid="button-save-anesthesia-unit"
-              >
-                {t("common.save")}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Surgery Unit Dialog */}
-      <Dialog open={surgeryUnitDialogOpen} onOpenChange={setSurgeryUnitDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Configure Surgery Module Unit</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="surgery-unit">Select Unit</Label>
-              <p className="text-sm text-muted-foreground mb-2">
-                Doctors assigned to this unit will be available as surgeons
-              </p>
-              <Select
-                value={selectedSurgeryUnitId}
-                onValueChange={setSelectedSurgeryUnitId}
-              >
-                <SelectTrigger id="surgery-unit" data-testid="select-surgery-unit">
-                  <SelectValue placeholder="Select a unit" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none" data-testid="option-none-surgery">
-                    None (Disable surgery module)
-                  </SelectItem>
-                  {units.map((unit) => (
-                    <SelectItem key={unit.id} value={unit.id} data-testid={`option-surgery-unit-${unit.id}`}>
-                      {unit.name} {unit.type ? `(${unit.type})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setSurgeryUnitDialogOpen(false)}>
-                {t("common.cancel")}
-              </Button>
-              <Button
-                onClick={handleSaveSurgeryUnit}
-                disabled={updateSurgeryUnitMutation.isPending}
-                data-testid="button-save-surgery-unit"
-              >
-                {t("common.save")}
               </Button>
             </div>
           </div>

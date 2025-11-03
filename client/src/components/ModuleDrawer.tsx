@@ -67,8 +67,7 @@ export default function ModuleDrawer() {
 
   // Check if user has access to anesthesia module
   const hasAnesthesiaAccess = useMemo(() => {
-    if (!activeHospital?.anesthesiaUnitId) return false;
-    return activeHospital.unitId === activeHospital.anesthesiaUnitId;
+    return !!(activeHospital as any)?.isAnesthesiaModule;
   }, [activeHospital]);
 
   const modules = allModules.filter(module => {

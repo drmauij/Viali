@@ -470,6 +470,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: "Anesthesy",
         type: "anesthesy",
         parentId: null,
+        isAnesthesiaModule: true,
+        isSurgeryModule: false,
       });
       
       await storage.createUnit({
@@ -477,6 +479,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: "Operating Room (OR)",
         type: "or",
         parentId: null,
+        isAnesthesiaModule: false,
+        isSurgeryModule: true,
       });
       
       await storage.createUnit({
@@ -484,6 +488,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: "Emergency Room (ER)",
         type: "er",
         parentId: null,
+        isAnesthesiaModule: false,
+        isSurgeryModule: false,
       });
       
       await storage.createUnit({
@@ -491,6 +497,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: "Intensive Care Unit (ICU)",
         type: "icu",
         parentId: null,
+        isAnesthesiaModule: false,
+        isSurgeryModule: false,
       });
 
       // Assign user as admin to the first unit (Anesthesy)
@@ -499,11 +507,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hospitalId: hospital.id,
         unitId: anesthesyUnit.id,
         role: "admin",
-      });
-
-      // Configure Anesthesia Module Location to use Anesthesy unit
-      await storage.updateHospital(hospital.id, {
-        anesthesiaUnitId: anesthesyUnit.id
       });
 
       res.status(201).json({ 
@@ -1122,18 +1125,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
 
-      // Get the hospital's anesthesia location configuration
-      const hospital = await db
+      // Get the hospital's anesthesia unit (unit with is_anesthesia_module = true)
+      const anesthesiaUnits = await db
         .select()
-        .from(hospitals)
-        .where(eq(hospitals.id, hospitalId))
+        .from(units)
+        .where(
+          and(
+            eq(units.hospitalId, hospitalId),
+            eq(units.isAnesthesiaModule, true)
+          )
+        )
         .limit(1);
 
-      if (!hospital.length || !hospital[0].anesthesiaUnitId) {
-        return res.json([]); // Return empty array if anesthesia location not configured
+      if (!anesthesiaUnits.length) {
+        return res.json([]); // Return empty array if anesthesia unit not configured
       }
 
-      const anesthesiaUnitId = hospital[0].anesthesiaUnitId;
+      const anesthesiaUnitId = anesthesiaUnits[0].id;
 
       // Get all items from the hospital's anesthesia location that have medication configs
       // INNER JOIN ensures we only get items with medication configurations
@@ -3175,16 +3183,26 @@ If unable to parse any drugs, return:
       const { hospitalId } = req.params;
       const { anesthesiaUnitId } = req.body;
 
-      // Verify the unit belongs to this hospital if provided
-      if (anesthesiaUnitId) {
-        const units = await storage.getUnits(hospitalId);
-        const unitExists = units.some(l => l.id === anesthesiaUnitId);
-        if (!unitExists) {
-          return res.status(400).json({ message: "Selected unit does not belong to this hospital" });
-        }
+      if (!anesthesiaUnitId) {
+        return res.status(400).json({ message: "Unit ID is required" });
       }
 
-      const updated = await storage.updateHospital(hospitalId, { anesthesiaUnitId });
+      // Verify the unit belongs to this hospital
+      const allUnits = await storage.getUnits(hospitalId);
+      const targetUnit = allUnits.find(l => l.id === anesthesiaUnitId);
+      if (!targetUnit) {
+        return res.status(400).json({ message: "Selected unit does not belong to this hospital" });
+      }
+
+      // Clear is_anesthesia_module flag from all units in this hospital
+      await Promise.all(
+        allUnits
+          .filter(u => u.isAnesthesiaModule)
+          .map(u => storage.updateUnit(u.id, { isAnesthesiaModule: false }))
+      );
+
+      // Set is_anesthesia_module flag on the selected unit
+      const updated = await storage.updateUnit(anesthesiaUnitId, { isAnesthesiaModule: true });
       res.json(updated);
     } catch (error) {
       console.error("Error updating anesthesia location:", error);
@@ -3198,16 +3216,26 @@ If unable to parse any drugs, return:
       const { hospitalId } = req.params;
       const { surgeryUnitId } = req.body;
 
-      // Verify the unit belongs to this hospital if provided
-      if (surgeryUnitId) {
-        const units = await storage.getUnits(hospitalId);
-        const unitExists = units.some(l => l.id === surgeryUnitId);
-        if (!unitExists) {
-          return res.status(400).json({ message: "Selected unit does not belong to this hospital" });
-        }
+      if (!surgeryUnitId) {
+        return res.status(400).json({ message: "Unit ID is required" });
       }
 
-      const updated = await storage.updateHospital(hospitalId, { surgeryUnitId });
+      // Verify the unit belongs to this hospital
+      const allUnits = await storage.getUnits(hospitalId);
+      const targetUnit = allUnits.find(l => l.id === surgeryUnitId);
+      if (!targetUnit) {
+        return res.status(400).json({ message: "Selected unit does not belong to this hospital" });
+      }
+
+      // Clear is_surgery_module flag from all units in this hospital
+      await Promise.all(
+        allUnits
+          .filter(u => u.isSurgeryModule)
+          .map(u => storage.updateUnit(u.id, { isSurgeryModule: false }))
+      );
+
+      // Set is_surgery_module flag on the selected unit
+      const updated = await storage.updateUnit(surgeryUnitId, { isSurgeryModule: true });
       res.json(updated);
     } catch (error) {
       console.error("Error updating surgery location:", error);
@@ -3232,18 +3260,20 @@ If unable to parse any drugs, return:
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
 
-      // Get hospital's surgery location
-      const hospital = await storage.getHospital(hospitalId);
-      if (!hospital?.surgeryUnitId) {
-        return res.json([]); // No surgery location configured, return empty list
+      // Get hospital's surgery unit (unit with is_surgery_module = true)
+      const allUnits = await storage.getUnits(hospitalId);
+      const surgeryUnit = allUnits.find(u => u.isSurgeryModule);
+      
+      if (!surgeryUnit) {
+        return res.json([]); // No surgery unit configured, return empty list
       }
 
       // Get all users for this hospital
       const hospitalUsers = await storage.getHospitalUsers(hospitalId);
       
-      // Filter for doctors in the surgery location
+      // Filter for doctors in the surgery unit
       const surgeons = hospitalUsers
-        .filter(hu => hu.unitId === hospital.surgeryUnitId && hu.role === "doctor")
+        .filter(hu => hu.unitId === surgeryUnit.id && hu.role === "doctor")
         .map(hu => ({
           id: hu.user.id,
           name: `${hu.user.firstName || ''} ${hu.user.lastName || ''}`.trim() || hu.user.email || 'Unknown',
@@ -3283,6 +3313,8 @@ If unable to parse any drugs, return:
         name,
         type: type || null,
         parentId: parentId || null,
+        isAnesthesiaModule: false,
+        isSurgeryModule: false,
       });
       res.status(201).json(unit);
     } catch (error) {

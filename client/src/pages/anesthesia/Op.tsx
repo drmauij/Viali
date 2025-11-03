@@ -334,16 +334,16 @@ export default function Op() {
   const [signOutNotes, setSignOutNotes] = useState("");
   const [signOutSignature, setSignOutSignature] = useState("");
 
-  // Fetch items for inventory tracking - filtered by anesthesia units
+  // Fetch items for inventory tracking - filtered by current unit
   const { data: items = [] } = useQuery<any[]>({
-    queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.anesthesiaUnitId}`, activeHospital?.anesthesiaUnitId],
-    enabled: !!activeHospital?.id && !!activeHospital?.anesthesiaUnitId,
+    queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId],
+    enabled: !!activeHospital?.id && !!activeHospital?.unitId && !!activeHospital?.isAnesthesiaModule,
   });
 
-  // Fetch folders - filtered by anesthesia units
+  // Fetch folders - filtered by current unit
   const { data: folders = [] } = useQuery<any[]>({
-    queryKey: [`/api/folders/${activeHospital?.id}?unitId=${activeHospital?.anesthesiaUnitId}`, activeHospital?.anesthesiaUnitId],
-    enabled: !!activeHospital?.id && !!activeHospital?.anesthesiaUnitId,
+    queryKey: [`/api/folders/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId],
+    enabled: !!activeHospital?.id && !!activeHospital?.unitId && !!activeHospital?.isAnesthesiaModule,
   });
 
   // Group items by folder and sort alphabetically

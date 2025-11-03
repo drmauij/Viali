@@ -183,8 +183,6 @@ CREATE TABLE "hospitals" (
 	"google_auth_enabled" boolean DEFAULT true,
 	"local_auth_enabled" boolean DEFAULT true,
 	"license_type" varchar DEFAULT 'free' NOT NULL,
-	"anesthesia_unit_id" varchar,
-	"surgery_unit_id" varchar,
 	"created_at" timestamp DEFAULT now(),
 	"updated_at" timestamp DEFAULT now()
 );
@@ -429,6 +427,8 @@ CREATE TABLE "units" (
 	"name" varchar NOT NULL,
 	"type" varchar,
 	"parent_id" varchar,
+	"is_anesthesia_module" boolean DEFAULT false,
+	"is_surgery_module" boolean DEFAULT false,
 	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
@@ -505,8 +505,6 @@ ALTER TABLE "controlled_checks" ADD CONSTRAINT "controlled_checks_user_id_users_
 ALTER TABLE "folders" ADD CONSTRAINT "folders_hospital_id_hospitals_id_fk" FOREIGN KEY ("hospital_id") REFERENCES "public"."hospitals"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "folders" ADD CONSTRAINT "folders_unit_id_units_id_fk" FOREIGN KEY ("unit_id") REFERENCES "public"."units"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "hospital_anesthesia_settings" ADD CONSTRAINT "hospital_anesthesia_settings_hospital_id_hospitals_id_fk" FOREIGN KEY ("hospital_id") REFERENCES "public"."hospitals"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "hospitals" ADD CONSTRAINT "hospitals_anesthesia_unit_id_units_id_fk" FOREIGN KEY ("anesthesia_unit_id") REFERENCES "public"."units"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "hospitals" ADD CONSTRAINT "hospitals_surgery_unit_id_units_id_fk" FOREIGN KEY ("surgery_unit_id") REFERENCES "public"."units"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "import_jobs" ADD CONSTRAINT "import_jobs_hospital_id_hospitals_id_fk" FOREIGN KEY ("hospital_id") REFERENCES "public"."hospitals"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "import_jobs" ADD CONSTRAINT "import_jobs_unit_id_units_id_fk" FOREIGN KEY ("unit_id") REFERENCES "public"."units"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "import_jobs" ADD CONSTRAINT "import_jobs_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint

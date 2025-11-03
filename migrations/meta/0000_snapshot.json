@@ -1,5 +1,5 @@
 {
-  "id": "0502042a-8cbe-480b-808c-5d8ef7aeb7a1",
+  "id": "e82b1e78-dd7d-4f55-b236-a0313219d14c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -2131,18 +2131,6 @@
           "notNull": true,
           "default": "'free'"
         },
-        "anesthesia_unit_id": {
-          "name": "anesthesia_unit_id",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "surgery_unit_id": {
-          "name": "surgery_unit_id",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -2159,34 +2147,7 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "hospitals_anesthesia_unit_id_units_id_fk": {
-          "name": "hospitals_anesthesia_unit_id_units_id_fk",
-          "tableFrom": "hospitals",
-          "tableTo": "units",
-          "columnsFrom": [
-            "anesthesia_unit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "hospitals_surgery_unit_id_units_id_fk": {
-          "name": "hospitals_surgery_unit_id_units_id_fk",
-          "tableFrom": "hospitals",
-          "tableTo": "units",
-          "columnsFrom": [
-            "surgery_unit_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -4547,6 +4508,20 @@
           "type": "varchar",
           "primaryKey": false,
           "notNull": false
+        },
+        "is_anesthesia_module": {
+          "name": "is_anesthesia_module",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "is_surgery_module": {
+          "name": "is_surgery_module",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
         },
         "created_at": {
           "name": "created_at",

@@ -42,7 +42,7 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Hospital table (defined first to break circular dependency)
+// Hospital table
 export const hospitals = pgTable("hospitals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name").notNull(),
@@ -51,19 +51,19 @@ export const hospitals = pgTable("hospitals", {
   googleAuthEnabled: boolean("google_auth_enabled").default(true),
   localAuthEnabled: boolean("local_auth_enabled").default(true),
   licenseType: varchar("license_type", { enum: ["free", "basic"] }).default("free").notNull(),
-  anesthesiaUnitId: varchar("anesthesia_unit_id").references((): any => units.id),
-  surgeryUnitId: varchar("surgery_unit_id").references((): any => units.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// Units (references added after hospitals table is defined)
+// Units
 export const units = pgTable("units", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
   name: varchar("name").notNull(),
   type: varchar("type"), // OR, ICU, Storage, etc.
   parentId: varchar("parent_id"),
+  isAnesthesiaModule: boolean("is_anesthesia_module").default(false),
+  isSurgeryModule: boolean("is_surgery_module").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_units_hospital").on(table.hospitalId),

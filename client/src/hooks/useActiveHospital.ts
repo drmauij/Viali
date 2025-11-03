@@ -7,8 +7,8 @@ interface Hospital {
   role: string;
   unitId: string;
   unitName: string;
-  anesthesiaUnitId?: string;
-  surgeryUnitId?: string;
+  isAnesthesiaModule?: boolean;
+  isSurgeryModule?: boolean;
 }
 
 function subscribe(callback: () => void) {

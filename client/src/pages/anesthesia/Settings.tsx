@@ -85,8 +85,8 @@ export default function AnesthesiaSettings() {
 
   // Fetch all items for the hospital's anesthesia units
   const { data: allItems = [], isLoading } = useQuery<Item[]>({
-    queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.anesthesiaUnitId}`],
-    enabled: !!activeHospital?.id && !!activeHospital?.anesthesiaUnitId,
+    queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`],
+    enabled: !!activeHospital?.id && !!activeHospital?.unitId && !!activeHospital?.isAnesthesiaModule,
   });
 
   // Fetch anesthesia-configured items
@@ -146,7 +146,7 @@ export default function AnesthesiaSettings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/items/${activeHospital?.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.anesthesiaUnitId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`] });
       toast({
         title: "Configuration updated",
         description: "Anesthesia item configuration has been saved",
@@ -573,15 +573,15 @@ export default function AnesthesiaSettings() {
     );
   }
 
-  if (!activeHospital?.anesthesiaUnitId) {
+  if (!activeHospital?.isAnesthesiaModule) {
     return (
       <div className="p-6">
         <div className="bg-card border border-border rounded-lg p-8 text-center">
           <i className="fas fa-syringe text-4xl text-muted-foreground mb-4"></i>
           <h3 className="text-lg font-semibold text-foreground mb-2">Anesthesia Module Not Configured</h3>
           <p className="text-muted-foreground mb-4">
-            An administrator needs to configure which inventory units should be used for anesthesia items.
-            Please contact your hospital admin to set this up in Hospital Settings.
+            Your unit is not configured for the anesthesia module.
+            Please contact your hospital admin to enable this module for your unit.
           </p>
         </div>
       </div>
