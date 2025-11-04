@@ -225,12 +225,23 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         visibility: "Visible" as const,
       });
       
+      // Format dates for DayPilot (local timezone, not UTC)
+      const formatForDayPilot = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+      };
+      
       return {
         id: surgery.id,
         text: displayHtml,
         html: displayHtml,
-        start: plannedDate.toISOString(),
-        end: endTime.toISOString(),
+        start: formatForDayPilot(plannedDate),
+        end: formatForDayPilot(endTime),
         resource: surgery.surgeryRoomId || (surgeryRooms[0]?.id || "unassigned"),
         areas: areas,
         ...colorScheme,
