@@ -40,8 +40,14 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
 
   // Fetch surgeons
   const { data: surgeons = [] } = useQuery<any[]>({
-    queryKey: [`/api/surgeons`],
-    enabled: !!surgeryId,
+    queryKey: [`/api/surgeons`, surgery?.hospitalId],
+    queryFn: async () => {
+      if (!surgery?.hospitalId) return [];
+      const response = await fetch(`/api/surgeons?hospitalId=${surgery.hospitalId}`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!surgery?.hospitalId,
   });
 
   // Initialize form when surgery data loads

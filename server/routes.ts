@@ -4500,10 +4500,16 @@ If unable to parse any drugs, return:
         return res.status(403).json({ message: "Access denied" });
       }
 
-      // Convert plannedDate string to Date object if present
+      // Convert date strings to Date objects if present
       const updateData = { ...req.body };
       if (updateData.plannedDate && typeof updateData.plannedDate === 'string') {
         updateData.plannedDate = new Date(updateData.plannedDate);
+      }
+      if (updateData.actualEndTime && typeof updateData.actualEndTime === 'string') {
+        updateData.actualEndTime = new Date(updateData.actualEndTime);
+      }
+      if (updateData.actualStartTime && typeof updateData.actualStartTime === 'string') {
+        updateData.actualStartTime = new Date(updateData.actualStartTime);
       }
 
       const updatedSurgery = await storage.updateSurgery(id, updateData);
@@ -4533,6 +4539,16 @@ If unable to parse any drugs, return:
       
       if (!hasAccess) {
         return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Delete related anesthesia records first (cascade delete)
+      try {
+        const anesthesiaRecord = await storage.getAnesthesiaRecord(id);
+        if (anesthesiaRecord) {
+          await storage.deleteAnesthesiaRecord(anesthesiaRecord.id);
+        }
+      } catch (error) {
+        // Anesthesia record might not exist, continue with surgery deletion
       }
 
       await storage.deleteSurgery(id);
