@@ -2387,6 +2387,7 @@ If unable to parse any drugs, return:
 
       const order = await storage.createOrder({
         hospitalId,
+        unitId,
         vendorId: vendorId || null,
         status: 'draft',
         createdBy: userId,
@@ -2421,7 +2422,7 @@ If unable to parse any drugs, return:
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
 
-      const order = await storage.findOrCreateDraftOrder(hospitalId, vendorId || null, userId);
+      const order = await storage.findOrCreateDraftOrder(hospitalId, unitId, vendorId || null, userId);
       const orderLine = await storage.addItemToOrder(order.id, itemId, qty || 1, packSize || 1);
 
       res.json({ order, orderLine });
@@ -2447,10 +2448,15 @@ If unable to parse any drugs, return:
         return res.status(404).json({ message: "Order not found" });
       }
       
-      // Verify user has access to this hospital
+      // Verify user has access to this hospital and unit
       const unitId = await getUserUnitForHospital(userId, order.hospitalId);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Verify user belongs to the same unit as the order
+      if (unitId !== order.unitId) {
+        return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
       }
       
       const updatedOrder = await storage.updateOrderStatus(orderId, status);
@@ -2483,10 +2489,15 @@ If unable to parse any drugs, return:
         return res.status(404).json({ message: "Order not found" });
       }
       
-      // Verify user has access to this hospital
+      // Verify user has access to this hospital and unit
       const unitId = await getUserUnitForHospital(userId, order.hospitalId);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Verify user belongs to the same unit as the order
+      if (unitId !== order.unitId) {
+        return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
       }
       
       const orderLine = await storage.updateOrderLine(lineId, qty);
@@ -2642,10 +2653,15 @@ If unable to parse any drugs, return:
         return res.status(404).json({ message: "Order not found" });
       }
       
-      // Verify user has access to this hospital
+      // Verify user has access to this hospital and unit
       const unitId = await getUserUnitForHospital(userId, order.hospitalId);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Verify user belongs to the same unit as the order
+      if (unitId !== order.unitId) {
+        return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
       }
       
       await storage.removeOrderLine(lineId);
@@ -2667,10 +2683,15 @@ If unable to parse any drugs, return:
         return res.status(404).json({ message: "Order not found" });
       }
       
-      // Verify user has access to this hospital
+      // Verify user has access to this hospital and unit
       const unitId = await getUserUnitForHospital(userId, order.hospitalId);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Verify user belongs to the same unit as the order
+      if (unitId !== order.unitId) {
+        return res.status(403).json({ message: "Access denied: you can only delete orders from your unit" });
       }
       
       await storage.deleteOrder(orderId);

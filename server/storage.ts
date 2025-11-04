@@ -133,7 +133,7 @@ export interface IStorage {
   getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { hospitalUnit?: Unit; stockLevel?: StockLevel } })[] })[]>;
   createOrder(order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order>;
-  findOrCreateDraftOrder(hospitalId: string, vendorId: string | null, createdBy: string): Promise<Order>;
+  findOrCreateDraftOrder(hospitalId: string, unitId: string, vendorId: string | null, createdBy: string): Promise<Order>;
   addItemToOrder(orderId: string, itemId: string, qty: number, packSize: number): Promise<OrderLine>;
   updateOrderLine(lineId: string, qty: number): Promise<OrderLine>;
   removeOrderLine(lineId: string): Promise<void>;
