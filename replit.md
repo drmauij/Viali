@@ -8,39 +8,74 @@ Preferred communication style: Simple, everyday language.
 
 ## Production Deployment
 
+### Database Migration Workflow
+
+**Important**: The application uses a migration-based deployment strategy that ensures database schema changes are tracked and applied consistently across development and production environments.
+
+#### How Migrations Work
+
+**Development (Replit):**
+- Schema changes are made in `shared/schema.ts`
+- Run `npm run db:migrate` to generate migration files AND apply to dev database
+- The dev server gracefully handles migrations already applied via db:push
+- Migration files are committed to Git and deployed to production
+
+**Production (Exoscale):**
+- On app startup, migrations run automatically from the `migrations/` folder
+- New deployments with schema changes are applied seamlessly
+- No manual database commands needed on Exoscale
+
+#### Making Schema Changes - Step by Step
+
+1. **Update Schema**: Edit `shared/schema.ts` with your changes
+2. **Generate & Apply Migration**: Run `npm run db:migrate`
+   - This generates a new migration file in `migrations/`
+   - Applies the changes to your development database
+3. **Verify**: Check the migration file in `migrations/` to ensure it's safe
+4. **Commit & Deploy**: Push to Git and deploy to Exoscale
+   - The migration runs automatically on production startup
+
+#### Available Scripts
+
+- `npm run db:generate` - Generate migration file from schema changes
+- `npm run db:push` - Apply schema directly to dev database (fast iteration)
+- `npm run db:migrate` - Generate migration AND apply to dev (recommended workflow)
+
+#### Migration Safety
+
+**Safe Changes (Additive):**
+- Adding new columns with nullable or default values
+- Creating new tables
+- Adding indexes
+- Adding foreign keys
+
+**Potentially Unsafe Changes:**
+- Removing columns (data loss)
+- Changing column types (compatibility issues)
+- Renaming tables/columns (breaks existing queries)
+- Removing tables (data loss)
+
+Always review generated migration files before deploying to production!
+
 ### Exoscale Deployment Instructions
 
-**Important**: Due to the database schema refactoring that eliminated the circular dependency between `hospitals` and `units` tables, existing production databases need to be reset before deploying the new version.
+**Initial Setup**: When deploying to a fresh Exoscale instance:
+1. Configure DATABASE_URL environment variable
+2. Deploy the application
+3. Migrations run automatically on first startup
+4. All 34 tables are created from migration files
 
-#### Migration Eliminated Circular Dependency
-The refactoring removed `anesthesia_unit_id` and `surgery_unit_id` foreign keys from the `hospitals` table and replaced them with `is_anesthesia_module` and `is_surgery_module` boolean flags in the `units` table. This allows migrations to run cleanly without circular reference issues.
-
-#### Deployment Options
-
-**Option 1: Clean Schema Reset (Recommended for fresh deployments)**
-```sql
-DROP SCHEMA public CASCADE;
-CREATE SCHEMA public;
-```
-After running this SQL, restart the application. Drizzle will automatically run the fresh migrations and create all 33 tables with the correct structure.
-
-**Option 2: Force Push Schema (Alternative)**
-```bash
-npm run db:push -- --force
-```
-This will forcefully sync the Drizzle schema to match the database structure.
-
-#### Post-Deployment Verification
-After deployment, verify:
-1. All 33 tables are created successfully
-2. The `hospitals` table has **no** `anesthesia_unit_id` or `surgery_unit_id` columns
-3. The `units` table has `is_anesthesia_module` and `is_surgery_module` boolean columns
-4. Seed new hospitals using the manual seed endpoint to populate default data
+**Updating Production**: When deploying schema changes:
+1. Ensure migrations are generated and committed to Git
+2. Deploy updated code to Exoscale
+3. On restart, new migrations run automatically
+4. Verify deployment success via logs
 
 #### Technical Details
-- Migration file: `migrations/0000_dapper_kulan_gath.sql`
-- Tables created: 33 (including hospitals, units, patients, surgeries, anesthesia_records, etc.)
-- Circular dependency: **Eliminated** (hospitals now has 0 foreign keys to units)
+- Migration files: `migrations/*.sql`
+- Tables: 34 (including hospitals, units, patients, surgeries, anesthesia_records, activities, notes, etc.)
+- Migration runner: Drizzle ORM (runs on app startup)
+- Tracking table: `__drizzle_migrations` (auto-created)
 
 ## System Architecture
 

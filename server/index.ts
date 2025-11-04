@@ -60,9 +60,15 @@ app.use((req, res, next) => {
     } catch (error: any) {
       // Check if this is a partial migration issue
       if (error.message && error.message.includes('already exists')) {
-        log("⚠ Migration failed - some tables already exist.");
-        log("   To fix: Either drop schema and restart, or run `npm run db:push --force`");
-        throw new Error('Inconsistent database state - migration failed due to existing tables');
+        // In development, allow graceful continuation if schema was applied via db:push
+        if (process.env.NODE_ENV === 'development') {
+          log("⚠ Some migrations already applied (likely via db:push) - continuing...");
+          log("   Production will run migrations cleanly from migration files");
+        } else {
+          // In production, this is a critical error
+          log("⚠ Migration failed - some tables already exist.");
+          throw new Error('Inconsistent database state - migration failed due to existing tables');
+        }
       } else {
         throw error;
       }
