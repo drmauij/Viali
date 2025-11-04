@@ -10,7 +10,8 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit generate && drizzle-kit push"
+    "db:migrate": "drizzle-kit generate && drizzle-kit push",
+    "prepare": "husky"
   },
   "dependencies": {
     "@daypilot/daypilot-lite-react": "^4.8.0",
@@ -67,6 +68,7 @@
     "express-session": "^1.18.2",
     "framer-motion": "^11.13.1",
     "html5-qrcode": "^2.3.8",
+    "husky": "^9.1.7",
     "i18next": "^25.5.3",
     "input-otp": "^1.4.2",
     "jspdf": "^3.0.3",
