@@ -30,7 +30,11 @@ import {
   hospitals, 
   medicationConfigs, 
   medicationGroups,
-  notes
+  notes,
+  anesthesiaRecords,
+  vitalsSnapshots,
+  anesthesiaMedications,
+  anesthesiaEvents
 } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, inArray, sql } from "drizzle-orm";
@@ -4542,19 +4546,14 @@ If unable to parse any drugs, return:
       }
 
       // Delete related records first (cascade delete)
-      // Import db and schema at the top of the file if not already imported
-      const { db } = await import('./db');
-      const { anesthesiaRecords, anesthesiaVitals, anesthesiaMedications, anesthesiaEvents } = await import('../shared/schema');
-      const { eq } = await import('drizzle-orm');
-      
       // Get anesthesia record if exists
       const anesthesiaRecord = await storage.getAnesthesiaRecord(id).catch(() => null);
       
       if (anesthesiaRecord) {
-        // Delete related anesthesia data first
-        await db.delete(anesthesiaEvents).where(eq(anesthesiaEvents.recordId, anesthesiaRecord.id));
-        await db.delete(anesthesiaMedications).where(eq(anesthesiaMedications.recordId, anesthesiaRecord.id));
-        await db.delete(anesthesiaVitals).where(eq(anesthesiaVitals.recordId, anesthesiaRecord.id));
+        // Delete related anesthesia data first (in correct order)
+        await db.delete(anesthesiaEvents).where(eq(anesthesiaEvents.anesthesiaRecordId, anesthesiaRecord.id));
+        await db.delete(anesthesiaMedications).where(eq(anesthesiaMedications.anesthesiaRecordId, anesthesiaRecord.id));
+        await db.delete(vitalsSnapshots).where(eq(vitalsSnapshots.anesthesiaRecordId, anesthesiaRecord.id));
         await db.delete(anesthesiaRecords).where(eq(anesthesiaRecords.id, anesthesiaRecord.id));
       }
 

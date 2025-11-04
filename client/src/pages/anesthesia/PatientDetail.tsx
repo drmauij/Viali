@@ -1542,9 +1542,9 @@ export default function PatientDetail() {
               ) : (
                 <UserRound className="h-8 w-8 text-pink-500" data-testid="icon-preop-sex-female" />
               )}
-              <div>
-                <p className="font-semibold text-base" data-testid="text-preop-patient-name">{patient.surname}, {patient.firstName}</p>
-                <p className="text-xs text-muted-foreground" data-testid="text-preop-patient-info">
+              <div className="text-left">
+                <p className="font-semibold text-base text-left" data-testid="text-preop-patient-name">{patient.surname}, {patient.firstName}</p>
+                <p className="text-xs text-muted-foreground text-left" data-testid="text-preop-patient-info">
                   {formatDate(patient.birthday)} ({calculateAge(patient.birthday)} y) • ID: {patient.patientNumber}
                 </p>
               </div>

@@ -173,33 +173,32 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         </div>
       `;
       
-      // Add clickable buttons using Active Areas - positioned at bottom center
+      // Add clickable buttons using Active Areas - positioned at bottom
       const areas = [];
       
-      // Pre-OP button (left)
+      // Pre-OP button (using Font Awesome clipboard-list icon, centered with horizontal alignment)
       areas.push({
         bottom: 4,
-        left: 4,
+        right: 42, // Position from right edge for better centering
         width: 28,
         height: 22,
-        html: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+        html: '<i class="fas fa-clipboard-list" style="font-size: 16px;"></i>',
         cssClass: "event-button-icon",
         onClick: (areaArgs: any) => {
           areaArgs.preventDefault();
-          if (onEventClick) {
-            onEventClick(surgery.id);
-          }
+          // Navigate to patient detail page and auto-open Pre-OP dialog for this surgery
+          setLocation(`/anesthesia/patients/${surgery.patientId}?openPreOp=${surgery.id}`);
         },
         visibility: "Visible" as const,
       });
       
-      // OP button (center)
+      // OP button (using Font Awesome heartbeat icon, centered with horizontal alignment)
       areas.push({
         bottom: 4,
-        left: 36,
+        right: 10, // Position from right edge
         width: 28,
         height: 22,
-        html: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 12h6m-3-3v6"/></svg>',
+        html: '<i class="fas fa-heartbeat" style="font-size: 16px;"></i>',
         cssClass: "event-button-icon",
         onClick: (areaArgs: any) => {
           areaArgs.preventDefault();
@@ -229,6 +228,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         end: formatForDayPilot(endTime),
         resource: surgery.surgeryRoomId || (surgeryRooms[0]?.id || "unassigned"),
         areas: areas,
+        barHidden: true, // Hide the left bar to make the entire event single-colored
         ...colorScheme,
       };
     });

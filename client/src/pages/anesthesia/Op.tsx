@@ -510,7 +510,7 @@ export default function Op() {
                 <UserCircle className="h-8 w-8 text-blue-500" />
                 <div>
                   <h2 className="font-bold text-base md:text-lg">
-                    {patient ? `${patient.name || ''} ${patient.surname || ''}`.trim() || 'Patient' : 'Loading...'}
+                    {patient ? `${patient.firstName || ''} ${patient.surname || ''}`.trim() || 'Patient' : 'Loading...'}
                   </h2>
                   <div className="flex items-center gap-3 md:gap-4 flex-wrap">
                     {patient?.birthday && (
