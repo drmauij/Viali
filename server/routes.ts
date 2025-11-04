@@ -4541,14 +4541,21 @@ If unable to parse any drugs, return:
         return res.status(403).json({ message: "Access denied" });
       }
 
-      // Delete related anesthesia records first (cascade delete)
-      try {
-        const anesthesiaRecord = await storage.getAnesthesiaRecord(id);
-        if (anesthesiaRecord) {
-          await storage.deleteAnesthesiaRecord(anesthesiaRecord.id);
-        }
-      } catch (error) {
-        // Anesthesia record might not exist, continue with surgery deletion
+      // Delete related records first (cascade delete)
+      // Import db and schema at the top of the file if not already imported
+      const { db } = await import('./db');
+      const { anesthesiaRecords, anesthesiaVitals, anesthesiaMedications, anesthesiaEvents } = await import('../shared/schema');
+      const { eq } = await import('drizzle-orm');
+      
+      // Get anesthesia record if exists
+      const anesthesiaRecord = await storage.getAnesthesiaRecord(id).catch(() => null);
+      
+      if (anesthesiaRecord) {
+        // Delete related anesthesia data first
+        await db.delete(anesthesiaEvents).where(eq(anesthesiaEvents.recordId, anesthesiaRecord.id));
+        await db.delete(anesthesiaMedications).where(eq(anesthesiaMedications.recordId, anesthesiaRecord.id));
+        await db.delete(anesthesiaVitals).where(eq(anesthesiaVitals.recordId, anesthesiaRecord.id));
+        await db.delete(anesthesiaRecords).where(eq(anesthesiaRecords.id, anesthesiaRecord.id));
       }
 
       await storage.deleteSurgery(id);
