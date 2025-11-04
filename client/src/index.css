@@ -485,6 +485,41 @@
   }
 }
 
+/* DayPilot Calendar Event Styling - Remove double-color effect */
+/* Target calendar_white theme for Day/Week views */
+.calendar_white_event {
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+.calendar_white_event_inner {
+  padding: 0 !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Target month_white theme for Month view */
+.month_white_event {
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+.month_white_event_inner {
+  padding: 0 !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
 /* DayPilot Calendar Event Icon Buttons (Active Areas) */
 .event-button-icon {
   background: rgba(255, 255, 255, 0.95);
