@@ -5565,6 +5565,7 @@ If unable to parse any drugs, return:
     try {
       const userId = req.user.id;
       const { hospitalId } = req.params;
+      const { scope } = req.query; // 'personal', 'unit', or 'hospital'
       
       // Get user's unit for this hospital
       const unitId = await getUserUnitForHospital(userId, hospitalId);
@@ -5572,17 +5573,60 @@ If unable to parse any drugs, return:
         return res.status(403).json({ message: "No access to this hospital" });
       }
 
-      // Get all notes - both personal and shared notes for this unit
-      const allNotes = await db
-        .select()
-        .from(notes)
-        .where(
-          and(
-            eq(notes.hospitalId, hospitalId),
-            eq(notes.unitId, unitId)
+      let allNotes;
+      
+      if (scope === 'personal') {
+        // Personal notes: only notes created by this user with scope='personal'
+        allNotes = await db
+          .select()
+          .from(notes)
+          .where(
+            and(
+              eq(notes.hospitalId, hospitalId),
+              eq(notes.unitId, unitId),
+              eq(notes.userId, userId),
+              eq(notes.scope, 'personal')
+            )
           )
-        )
-        .orderBy(sql`${notes.createdAt} DESC`);
+          .orderBy(sql`${notes.createdAt} DESC`);
+      } else if (scope === 'unit') {
+        // Unit notes: shared notes for this specific unit
+        allNotes = await db
+          .select()
+          .from(notes)
+          .where(
+            and(
+              eq(notes.hospitalId, hospitalId),
+              eq(notes.unitId, unitId),
+              eq(notes.scope, 'unit')
+            )
+          )
+          .orderBy(sql`${notes.createdAt} DESC`);
+      } else if (scope === 'hospital') {
+        // Hospital notes: notes visible to all units in this hospital
+        allNotes = await db
+          .select()
+          .from(notes)
+          .where(
+            and(
+              eq(notes.hospitalId, hospitalId),
+              eq(notes.scope, 'hospital')
+            )
+          )
+          .orderBy(sql`${notes.createdAt} DESC`);
+      } else {
+        // Default: return all notes (backward compatibility)
+        allNotes = await db
+          .select()
+          .from(notes)
+          .where(
+            and(
+              eq(notes.hospitalId, hospitalId),
+              eq(notes.unitId, unitId)
+            )
+          )
+          .orderBy(sql`${notes.createdAt} DESC`);
+      }
 
       // Decrypt note content before sending to client
       const decryptedNotes = allNotes.map(note => {

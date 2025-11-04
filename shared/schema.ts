@@ -769,14 +769,15 @@ export const auditTrail = pgTable("audit_trail", {
   index("idx_audit_trail_action").on(table.action),
 ]);
 
-// Notes (Quick notes for users - personal or shared with unit)
+// Notes (Quick notes for users - personal, unit-wide, or hospital-wide)
 export const notes = pgTable("notes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   content: text("content").notNull(),
   userId: varchar("user_id").notNull().references(() => users.id),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
   unitId: varchar("unit_id").notNull().references(() => units.id),
-  isShared: boolean("is_shared").default(false).notNull(), // false = personal, true = shared with unit
+  isShared: boolean("is_shared").default(false).notNull(), // Deprecated: Use scope instead
+  scope: varchar("scope", { length: 20 }).default("personal").notNull(), // 'personal', 'unit', 'hospital'
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -784,6 +785,7 @@ export const notes = pgTable("notes", {
   index("idx_notes_unit").on(table.unitId),
   index("idx_notes_hospital").on(table.hospitalId),
   index("idx_notes_shared").on(table.isShared),
+  index("idx_notes_scope").on(table.scope),
 ]);
 
 // Relations
