@@ -2133,7 +2133,7 @@ export default function Items() {
                       </div>
                       <div className="flex-1 pointer-events-none">
                         <h3 className="font-semibold text-foreground">{item.name}</h3>
-                        <p className="text-sm text-muted-foreground">{item.description || `${item.unit} unit`}</p>
+                        <p className="text-sm text-muted-foreground">{item.description || item.unit}</p>
                       </div>
                     </div>
                   ) : isBulkEditMode ? (
@@ -2157,7 +2157,7 @@ export default function Items() {
                       <div className="flex items-start gap-2">
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-foreground">{item.name}</h3>
-                          <p className="text-sm text-muted-foreground">{item.description || `${item.unit} unit`}</p>
+                          <p className="text-sm text-muted-foreground">{item.description || item.unit}</p>
                         </div>
                         <div className="flex gap-1 items-center flex-shrink-0">
                           {item.critical && (
