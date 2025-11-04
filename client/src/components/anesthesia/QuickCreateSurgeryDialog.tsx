@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,6 +68,15 @@ export default function QuickCreateSurgeryDialog({
   const [newPatientDOB, setNewPatientDOB] = useState("");
   const [newPatientGender, setNewPatientGender] = useState("m");
   const [newPatientPhone, setNewPatientPhone] = useState("");
+
+  // Update form when props change (e.g., when user drags to select time range)
+  useEffect(() => {
+    if (open) {
+      setPlannedDate(formatDateTimeLocal(initialDate));
+      setSurgeryRoomId(initialRoomId || "");
+      setDuration(getDefaultDuration());
+    }
+  }, [open, initialDate, initialEndDate, initialRoomId]);
 
   // Fetch patients
   const { data: patients = [] } = useQuery<any[]>({
