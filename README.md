@@ -67,71 +67,93 @@ Viali is a professional healthcare management platform that streamlines hospital
 - **Google OAuth 2.0** (optional)
 - **PM2** for process management (recommended)
 
-## 🚀 Self-Hosting Guide
+## 🚀 Production Deployment Guide
 
-Viali can be deployed on any server with Node.js and PostgreSQL. This guide covers deployment on EU-based servers like Exoscale, but works for any hosting provider.
+Viali uses a **background worker architecture** for reliable bulk image processing and can be deployed on any server with Node.js and PostgreSQL. This guide covers production deployment on EU-based servers (Exoscale, Aiven), but works for any hosting provider.
+
+### System Architecture
+
+Viali runs **two processes** managed by PM2:
+- **Main Application**: Web server handling HTTP requests (port 5000)
+- **Background Worker**: Processes bulk image imports asynchronously with progress tracking
 
 ### Prerequisites
 - **Node.js** 20 or higher
-- **PostgreSQL** database with SSL support (Exoscale, Aiven, or any provider)
+- **PostgreSQL** database with SSL support
 - **SSH access** to your server
+- **PM2** process manager
+- **Nginx** web server (recommended)
 - **OpenAI API key** (required for AI features)
 
-### Quick Start
+---
 
-#### 1. Clone the Repository
+### Step 1: Clone and Install
+
 ```bash
+# Clone repository
+cd /home/ubuntu  # or your preferred directory
 git clone https://github.com/drmauij/viali.git
 cd viali
+
+# Install dependencies
+npm ci
 ```
 
-#### 2. Install Dependencies
+---
+
+### Step 2: Configure PM2 Ecosystem (Important!)
+
+On production servers, environment variables must be configured in `ecosystem.config.cjs` because they are not automatically injected during the build process.
+
+#### Create Production Config
+
 ```bash
-npm install
+# Copy the template
+cp ecosystem.config.template.cjs ecosystem.config.cjs
+
+# Edit with your actual secrets
+nano ecosystem.config.cjs
 ```
 
-#### 3. Set Up Environment Variables
+#### Required Environment Variables
 
-Create a `.env` file in the project root with the following variables:
+Both processes need these variables in `ecosystem.config.cjs`:
 
-```bash
-# ========================================
-# REQUIRED VARIABLES
-# ========================================
-
-# PostgreSQL Database Connection (with SSL)
-DATABASE_URL="postgresql://user:password@host:port/database?sslmode=require"
-
-# Session Security (generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
-SESSION_SECRET="your-random-secret-minimum-32-characters"
-
-# Data Encryption for Patient Data
-ENCRYPTION_SECRET="another-random-secret-minimum-32-characters"
-
-# OpenAI API Key (for AI-powered features)
-OPENAI_API_KEY="sk-proj-xxxxxxxxxxxxx"
-
-# ========================================
-# OPTIONAL VARIABLES
-# ========================================
-
-# Google OAuth (optional - if not set, only email/password auth works)
-GOOGLE_CLIENT_ID="your-client-id.apps.googleusercontent.com"
-GOOGLE_CLIENT_SECRET="your-client-secret"
-
-# Email Service (optional - if not set, email features are disabled)
-RESEND_API_KEY="re_xxxxxxxxxxxxx"
-RESEND_FROM_EMAIL="noreply@yourdomain.com"
-
-# Production URL (for OAuth callbacks and email links)
-PRODUCTION_URL="https://yourdomain.com"
-
-# Server Port (defaults to 5000)
-PORT="5000"
-
-# Database SSL Certificate Validation (defaults to true for security)
-# Set to 'false' ONLY if using self-signed certificates in development
-DB_SSL_REJECT_UNAUTHORIZED="false"
+```javascript
+module.exports = {
+  apps: [
+    {
+      name: 'viali-app',
+      script: 'npm',
+      args: 'start',
+      env: {
+        NODE_ENV: 'production',
+        PORT: '5000',
+        DATABASE_URL: 'postgresql://user:password@host:port/database?sslmode=require',
+        SESSION_SECRET: 'your-random-secret-minimum-32-characters',
+        ENCRYPTION_SECRET: 'another-random-secret-minimum-32-characters',
+        OPENAI_API_KEY: 'sk-proj-xxxxxxxxxxxxx',
+        GOOGLE_CLIENT_ID: 'your-client-id.apps.googleusercontent.com',
+        GOOGLE_CLIENT_SECRET: 'your-client-secret',
+        RESEND_API_KEY: 're_xxxxxxxxxxxxx',
+        RESEND_FROM_EMAIL: 'noreply@yourdomain.com',
+        PRODUCTION_URL: 'https://yourdomain.com',
+        DB_SSL_REJECT_UNAUTHORIZED: 'false',  // Set to 'false' for Aiven/Exoscale SSL
+      },
+    },
+    {
+      name: 'viali-worker',
+      script: './node_modules/.bin/tsx',
+      args: 'server/worker.ts',
+      env: {
+        NODE_ENV: 'production',
+        DATABASE_URL: 'postgresql://user:password@host:port/database?sslmode=require',
+        OPENAI_API_KEY: 'sk-proj-xxxxxxxxxxxxx',
+        DB_SSL_REJECT_UNAUTHORIZED: 'false',
+      },
+    },
+  ],
+};
 ```
 
 **Generate Random Secrets:**
@@ -139,80 +161,92 @@ DB_SSL_REJECT_UNAUTHORIZED="false"
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-#### 4. Build the Application
+#### 🔒 Critical Security Notes
+
+⚠️ **IMPORTANT**: The `ecosystem.config.cjs` file contains ALL your production secrets!
+
+1. ✅ **Already in `.gitignore`** - Never commit this file to git
+2. 🔐 **Set restrictive permissions:**
+   ```bash
+   chmod 600 ecosystem.config.cjs
+   ```
+3. 💾 **Backup securely** - If lost, you'll need to regenerate all secrets
+4. 🔄 **If secrets are exposed:**
+   - Rotate ALL secrets immediately
+   - Revoke exposed credentials
+   - Generate new ones and update the config
+
+---
+
+### Step 3: Build and Deploy
+
 ```bash
+# Build the application
 npm run build
-```
 
-#### 5. Database Setup
+# Start both app and worker with PM2
+pm2 start ecosystem.config.cjs
 
-The application automatically runs database migrations on startup - no manual migration steps needed!
-
-#### 6. Start the Application
-
-**Option A: Using PM2 (Recommended for Production)**
-```bash
-# Install PM2 globally
-npm install -g pm2
-
-# Start the application
-pm2 start npm --name "viali" -- start
-
-# Save the process list
+# Save PM2 process list
 pm2 save
 
-# Enable auto-start on server reboot
+# Setup auto-start on server reboot
 pm2 startup
+# Follow the instructions to run the generated command, then:
+pm2 save
 ```
 
-**Option B: Direct Node.js (Development)**
+#### Verify Deployment
+
 ```bash
-npm run dev
+# Check process status
+pm2 status
+
+# View logs
+pm2 logs
+
+# View specific process logs
+pm2 logs viali-app
+pm2 logs viali-worker
 ```
 
 The application will be available at `http://localhost:5000`
 
-### 🔐 Authentication Setup
+**Database migrations run automatically on startup** - no manual migration steps needed!
 
-Viali supports two authentication methods that can work independently or together:
+---
 
-#### Google OAuth (Optional)
+### Step 4: Configure Nginx (Production)
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select an existing one
-3. Enable the **Google+ API**
-4. Navigate to **Credentials** → **Create Credentials** → **OAuth 2.0 Client ID**
-5. Configure:
-   - **Application type**: Web application
-   - **Authorized redirect URIs**: `https://yourdomain.com/api/auth/google/callback`
-6. Copy the **Client ID** and **Client Secret** to your `.env` file
+For production deployments, use Nginx as a reverse proxy with proper timeout configuration for bulk uploads.
 
-If Google OAuth is not configured, the login page will only show email/password authentication.
-
-#### Local Email/Password (Always Available)
-
-Email/password authentication works out of the box. Users can sign up and log in using email credentials without any additional setup.
-
-### 📧 Email Service Setup (Optional)
-
-To enable email features (password reset, notifications):
-
-1. Sign up at [resend.com](https://resend.com)
-2. Verify your domain or use their test domain for development
-3. Create an API key in your Resend dashboard
-4. Add `RESEND_API_KEY` and `RESEND_FROM_EMAIL` to your `.env` file
-
-If email is not configured, the app works normally but email features will be disabled.
-
-### 🌐 Nginx Reverse Proxy (Optional)
-
-For production deployments, use Nginx as a reverse proxy:
+**File: `/etc/nginx/sites-available/viali`**
 
 ```nginx
 server {
     listen 80;
     server_name yourdomain.com;
     
+    # Redirect HTTP to HTTPS
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name yourdomain.com;
+
+    # SSL Configuration (use certbot to generate)
+    ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
+
+    # IMPORTANT: Allow large uploads for bulk image imports
+    client_max_body_size 100M;
+
+    # IMPORTANT: Increase timeouts for upload processing
+    proxy_connect_timeout 60s;
+    proxy_send_timeout 60s;
+    proxy_read_timeout 60s;
+
     location / {
         proxy_pass http://localhost:5000;
         proxy_http_version 1.1;
@@ -227,44 +261,125 @@ server {
 }
 ```
 
-### 🔒 SSL/TLS Certificate
+**Enable and test:**
+```bash
+# Enable site
+sudo ln -s /etc/nginx/sites-available/viali /etc/nginx/sites-enabled/
 
-Use [Certbot](https://certbot.eff.org/) to get a free SSL certificate:
+# Test configuration
+sudo nginx -t
+
+# Reload nginx
+sudo systemctl reload nginx
+```
+
+---
+
+### Step 5: SSL Certificate
+
+Use [Certbot](https://certbot.eff.org/) for free SSL certificates:
 
 ```bash
 sudo apt-get install certbot python3-certbot-nginx
 sudo certbot --nginx -d yourdomain.com
 ```
 
-### 📊 Database Providers
+Certbot will automatically update your nginx configuration with SSL settings.
 
-Viali works with any PostgreSQL provider. Popular options:
+---
+
+### 🔄 Deploying Updates
+
+Create a deployment script for easy updates:
+
+**File: `deploy.sh`**
+```bash
+#!/bin/bash
+cd /home/ubuntu/viali
+git pull origin main
+npm ci
+npm run build
+pm2 reload ecosystem.config.cjs --update-env
+```
+
+**Usage:**
+```bash
+chmod +x deploy.sh
+./deploy.sh
+```
+
+This will:
+1. Pull latest code from GitHub
+2. Install dependencies
+3. Rebuild the application
+4. Reload PM2 processes with zero-downtime
+5. Run database migrations automatically
+
+---
+
+### 📊 PM2 Management Commands
+
+```bash
+# View status
+pm2 status
+
+# View live logs
+pm2 logs
+
+# Restart all processes
+pm2 restart all
+
+# Restart specific process
+pm2 restart viali-app
+pm2 restart viali-worker
+
+# Monitor resource usage
+pm2 monit
+
+# Stop all processes
+pm2 stop all
+
+# Delete all processes
+pm2 delete all
+```
+
+---
+
+### Development Setup (Local)
+
+For local development, use environment variables instead of PM2:
+
+**Create `.env` file:**
+```bash
+NODE_ENV=development
+DATABASE_URL=postgresql://user:password@localhost:5432/viali
+SESSION_SECRET=your-dev-secret
+ENCRYPTION_SECRET=your-dev-secret
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxx
+```
+
+**Start development server:**
+```bash
+npm run dev
+```
+
+The application will be available at `http://localhost:5000`
+
+---
+
+### 📊 Supported Database Providers
+
+Viali works with any PostgreSQL provider:
 
 - **[Exoscale](https://www.exoscale.com/)** - EU-based, GDPR compliant
-- **[Aiven](https://aiven.io/)** - Multi-cloud PostgreSQL
+- **[Aiven](https://aiven.io/)** - Multi-cloud PostgreSQL with global regions
 - **[DigitalOcean](https://www.digitalocean.com/products/managed-databases-postgresql)** - Managed PostgreSQL
-- **[Neon](https://neon.tech/)** - Serverless PostgreSQL
+- **[Neon](https://neon.tech/)** - Serverless PostgreSQL (great for development)
 - **Self-hosted** PostgreSQL on your own server
 
 Make sure your database connection string includes `?sslmode=require` for secure connections.
 
-### 🔄 Updating the Application
-
-```bash
-# Pull latest changes
-git pull origin main
-
-# Install any new dependencies
-npm install
-
-# Rebuild the application
-npm run build
-
-# Restart with PM2
-pm2 restart viali
-```
-
-Database migrations run automatically on startup.
+---
 
 ## 📱 Usage
 
