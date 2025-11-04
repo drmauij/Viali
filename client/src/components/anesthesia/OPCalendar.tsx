@@ -375,8 +375,16 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
 
   const handleTimeRangeSelect = (args: any) => {
     if (currentView === "day") {
-      const startDate = args.start.toDate ? args.start.toDate() : new Date(args.start);
-      const endDate = args.end.toDate ? args.end.toDate() : new Date(args.end);
+      // DayPilot passes dates in local timezone as "YYYY-MM-DDTHH:mm:ss"
+      // We need to parse this as local time, not UTC
+      const startDateStr = args.start.value || args.start.toString();
+      const endDateStr = args.end.value || args.end.toString();
+      
+      // Parse as local time by replacing 'T' with space to avoid UTC interpretation
+      // Then create Date object which will use local timezone
+      const startDate = new Date(startDateStr.replace('T', ' '));
+      const endDate = new Date(endDateStr.replace('T', ' '));
+      
       const roomId = args.resource;
       setQuickCreateData({ date: startDate, endDate, roomId });
       setQuickCreateOpen(true);
