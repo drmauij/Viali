@@ -382,7 +382,7 @@ export default function Orders() {
       return [
         line.item.name,
         `${line.qty}`,
-        line.item.unit,
+        normalizeUnit(line.item.unit),
         line.item.controlled ? "Yes" : "No",
       ];
     });

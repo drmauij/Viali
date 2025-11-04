@@ -1374,7 +1374,7 @@ export default function Items() {
       const item: any = {
         name: '',
         description: '',
-        unit: 'pack',
+        unit: 'Pack',
         packSize: 1,
         minThreshold: 5,
         maxThreshold: 20,
@@ -1399,7 +1399,7 @@ export default function Items() {
             item[targetField] = String(value || '');
             break;
           case 'unit':
-            item[targetField] = value === 'Single unit' ? 'Single unit' : 'pack';
+            item[targetField] = value === 'Single unit' ? 'Single unit' : 'Pack';
             break;
           case 'initialStock':
           case 'minThreshold':
@@ -2039,13 +2039,13 @@ export default function Items() {
                                 ) : (
                                   <>
                                     <div className="flex items-center gap-3 flex-wrap text-xs">
-                                      <span className="text-muted-foreground">{item.unit}</span>
+                                      <span className="text-muted-foreground">{normalizeUnit(item.unit)}</span>
                                       {item.stockLevel && (
                                         <div className={`inline-flex items-center gap-1 ${stockStatus.color}`}>
                                           <i className={`fas ${currentQty > 0 ? 'fa-check-circle' : 'fa-times-circle'}`}></i>
                                           <span className="font-semibold" data-testid={`item-${item.id}-stock`}>
                                             {currentQty}
-                                            {item.trackExactQuantity && item.unit === 'pack' && (
+                                            {item.trackExactQuantity && normalizeUnit(item.unit) === 'Pack' && (
                                               <span className="text-muted-foreground font-normal"> [{item.currentUnits} units]</span>
                                             )}
                                           </span>
@@ -2253,7 +2253,7 @@ export default function Items() {
                         <div className="flex items-center gap-1.5">
                           <span className={`text-2xl font-bold ${stockStatus.color}`}>
                             {currentQty}
-                            {item.trackExactQuantity && item.unit === 'pack' && (
+                            {item.trackExactQuantity && normalizeUnit(item.unit) === 'Pack' && (
                               <span className="text-base text-muted-foreground font-normal ml-1">[{item.currentUnits} units]</span>
                             )}
                           </span>
