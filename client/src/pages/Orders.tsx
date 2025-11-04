@@ -474,6 +474,11 @@ export default function Orders() {
     return Array.from(locations).join(", ");
   };
 
+  // Check if the user can edit/modify this order (must be from same unit)
+  const canEditOrder = (order: OrderWithDetails) => {
+    return activeHospital?.unitId === order.unitId;
+  };
+
   const resetReceiveForm = () => {
     setSelectedLineToReceive(null);
     setReceiveNotes("");
@@ -562,7 +567,7 @@ export default function Orders() {
                 ordersByStatus.draft.map((order) => (
                   <div 
                     key={order.id} 
-                    className="kanban-card cursor-pointer" 
+                    className={`kanban-card cursor-pointer ${!canEditOrder(order) ? 'opacity-60 border-muted' : ''}`}
                     onClick={() => handleEditOrder(order)}
                     data-testid={`draft-order-${order.id}`}
                   >
@@ -572,6 +577,7 @@ export default function Orders() {
                         <p className="text-xs text-muted-foreground">
                           <i className="fas fa-map-marker-alt mr-1"></i>
                           {getOrderLocation(order)}
+                          {!canEditOrder(order) && <span className="ml-2 text-warning">(Other Unit)</span>}
                         </p>
                       </div>
                       <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
@@ -593,18 +599,20 @@ export default function Orders() {
                       >
                         <i className="fas fa-file-pdf"></i>
                       </Button>
-                      <Button
-                        size="sm"
-                        className="flex-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStatusUpdate(order.id, "sent");
-                        }}
-                        disabled={updateOrderStatusMutation.isPending}
-                        data-testid={`submit-order-${order.id}`}
-                      >
-                        {t('orders.submit')}
-                      </Button>
+                      {canEditOrder(order) && (
+                        <Button
+                          size="sm"
+                          className="flex-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStatusUpdate(order.id, "sent");
+                          }}
+                          disabled={updateOrderStatusMutation.isPending}
+                          data-testid={`submit-order-${order.id}`}
+                        >
+                          {t('orders.submit')}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))
@@ -890,7 +898,7 @@ export default function Orders() {
                               <p className="text-lg font-semibold text-foreground">{displayQty}</p>
                               <p className="text-xs text-muted-foreground">{displayUnit}</p>
                             </div>
-                            {selectedOrder.status === 'sent' && (
+                            {selectedOrder.status === 'sent' && canEditOrder(selectedOrder) && (
                               <Button
                                 size="sm"
                                 variant="default"
@@ -901,7 +909,7 @@ export default function Orders() {
                                 Receive
                               </Button>
                             )}
-                            {selectedOrder.status === 'draft' && (
+                            {selectedOrder.status === 'draft' && canEditOrder(selectedOrder) && (
                               <>
                                 <Button
                                   size="sm"
@@ -935,14 +943,16 @@ export default function Orders() {
               </div>
 
               <div className="flex justify-between gap-2 pt-4 border-t border-border">
-                <Button
-                  variant="destructive"
-                  onClick={handleDeleteOrder}
-                  disabled={deleteOrderMutation.isPending}
-                  data-testid="delete-order-button"
-                >
-                  {deleteOrderMutation.isPending ? t('orders.deleting') : t('common.delete')}
-                </Button>
+                {canEditOrder(selectedOrder) && (
+                  <Button
+                    variant="destructive"
+                    onClick={handleDeleteOrder}
+                    disabled={deleteOrderMutation.isPending}
+                    data-testid="delete-order-button"
+                  >
+                    {deleteOrderMutation.isPending ? t('orders.deleting') : t('common.delete')}
+                  </Button>
+                )}
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
@@ -951,7 +961,7 @@ export default function Orders() {
                   >
                     {t('common.close')}
                   </Button>
-                  {selectedOrder.status === 'draft' && (
+                  {selectedOrder.status === 'draft' && canEditOrder(selectedOrder) && (
                     <Button
                       onClick={() => {
                         handleStatusUpdate(selectedOrder.id, "sent");
@@ -962,6 +972,12 @@ export default function Orders() {
                       <i className="fas fa-paper-plane mr-2"></i>
                       {t('orders.submitOrder')}
                     </Button>
+                  )}
+                  {!canEditOrder(selectedOrder) && (
+                    <p className="text-xs text-warning">
+                      <i className="fas fa-info-circle mr-1"></i>
+                      This order is from another unit and cannot be edited
+                    </p>
                   )}
                 </div>
               </div>
