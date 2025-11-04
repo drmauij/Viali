@@ -177,6 +177,75 @@ function decryptPatientData(text: string): string {
   }
 }
 
+// Authenticated encryption for notes (AES-256-GCM provides both confidentiality and integrity)
+const GCM_IV_LENGTH = 12; // 96 bits recommended for GCM
+const GCM_TAG_LENGTH = 16; // 128 bits auth tag
+
+function encryptNote(text: string): string {
+  const iv = crypto.randomBytes(GCM_IV_LENGTH);
+  const cipher = crypto.createCipheriv("aes-256-gcm", ENCRYPTION_KEY, iv);
+  
+  let encrypted = cipher.update(text, "utf8", "hex");
+  encrypted += cipher.final("hex");
+  
+  const authTag = cipher.getAuthTag();
+  
+  // Format: iv:ciphertext:authTag
+  return iv.toString("hex") + ":" + encrypted + ":" + authTag.toString("hex");
+}
+
+function decryptNote(text: string): string {
+  // Check if data is encrypted
+  if (!text.includes(":")) {
+    // Data is not encrypted, return as-is (backward compatibility)
+    return text;
+  }
+  
+  const parts = text.split(":");
+  
+  // Check if this is the new GCM format (3 parts) or old CBC format (2 parts)
+  if (parts.length === 3) {
+    // New AES-GCM format: iv:ciphertext:authTag
+    if (!parts[0] || !parts[1] || !parts[2]) {
+      throw new Error("Invalid encrypted data format");
+    }
+    
+    // Validate IV length (should be 24 hex chars = 12 bytes for GCM)
+    if (parts[0].length !== 24) {
+      throw new Error("Invalid IV length for GCM");
+    }
+    
+    // Validate authTag length (should be 32 hex chars = 16 bytes)
+    if (parts[2].length !== 32) {
+      throw new Error("Invalid authentication tag length");
+    }
+    
+    try {
+      const iv = Buffer.from(parts[0], "hex");
+      const encrypted = parts[1];
+      const authTag = Buffer.from(parts[2], "hex");
+      
+      const decipher = crypto.createDecipheriv("aes-256-gcm", ENCRYPTION_KEY, iv);
+      decipher.setAuthTag(authTag);
+      
+      let decrypted = decipher.update(encrypted, "hex", "utf8");
+      decrypted += decipher.final("utf8");
+      
+      return decrypted;
+    } catch (error) {
+      console.error("Failed to decrypt note with GCM - authentication failed or data corrupted:", error);
+      throw new Error("Failed to decrypt note: authentication verification failed");
+    }
+  } else if (parts.length === 2) {
+    // Old AES-CBC format: iv:ciphertext (backward compatibility)
+    // Decrypt using old method, then re-encrypt with GCM on next update
+    console.warn("Note uses old CBC encryption - will be upgraded to GCM on next update");
+    return decryptPatientData(text);
+  } else {
+    throw new Error("Invalid encrypted note format");
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
@@ -5515,7 +5584,24 @@ If unable to parse any drugs, return:
         )
         .orderBy(sql`${notes.createdAt} DESC`);
 
-      res.json(allNotes);
+      // Decrypt note content before sending to client
+      const decryptedNotes = allNotes.map(note => {
+        try {
+          return {
+            ...note,
+            content: decryptNote(note.content)
+          };
+        } catch (error) {
+          console.error(`Failed to decrypt note ${note.id}:`, error);
+          // Return note with error indicator if decryption fails
+          return {
+            ...note,
+            content: "[Error: Unable to decrypt note - data may be corrupted]"
+          };
+        }
+      });
+
+      res.json(decryptedNotes);
     } catch (error) {
       console.error("Error fetching notes:", error);
       res.status(500).json({ message: "Failed to fetch notes" });
@@ -5534,16 +5620,26 @@ If unable to parse any drugs, return:
         return res.status(403).json({ message: "No access to this hospital/unit" });
       }
 
-      // Create the note
+      // Encrypt note content before storing (using AES-GCM for authenticated encryption)
+      const encryptedContent = encryptNote(noteData.content);
+
+      // Create the note with encrypted content
       const [note] = await db
         .insert(notes)
         .values({
           ...noteData,
+          content: encryptedContent,
           userId,
         })
         .returning();
 
-      res.status(201).json(note);
+      // Decrypt content before sending to client
+      const decryptedNote = {
+        ...note,
+        content: decryptNote(note.content)
+      };
+
+      res.status(201).json(decryptedNote);
     } catch (error) {
       console.error("Error creating note:", error);
       res.status(500).json({ message: "Failed to create note" });
@@ -5572,18 +5668,27 @@ If unable to parse any drugs, return:
         return res.status(403).json({ message: "You can only edit your own notes" });
       }
 
-      // Update the note
+      // Encrypt content before storing (using AES-GCM for authenticated encryption)
+      const encryptedContent = content ? encryptNote(content) : note.content;
+
+      // Update the note with encrypted content
       const [updatedNote] = await db
         .update(notes)
         .set({
-          content,
+          content: encryptedContent,
           isShared,
           updatedAt: new Date(),
         })
         .where(eq(notes.id, noteId))
         .returning();
 
-      res.json(updatedNote);
+      // Decrypt content before sending to client
+      const decryptedNote = {
+        ...updatedNote,
+        content: decryptNote(updatedNote.content)
+      };
+
+      res.json(decryptedNote);
     } catch (error) {
       console.error("Error updating note:", error);
       res.status(500).json({ message: "Failed to update note" });
