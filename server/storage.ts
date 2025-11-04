@@ -608,15 +608,17 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async findOrCreateDraftOrder(hospitalId: string, vendorId: string | null, createdBy: string): Promise<Order> {
+  async findOrCreateDraftOrder(hospitalId: string, unitId: string, vendorId: string | null, createdBy: string): Promise<Order> {
     const whereConditions = vendorId 
       ? and(
           eq(orders.hospitalId, hospitalId),
+          eq(orders.unitId, unitId),
           eq(orders.vendorId, vendorId),
           eq(orders.status, 'draft')
         )
       : and(
           eq(orders.hospitalId, hospitalId),
+          eq(orders.unitId, unitId),
           sql`${orders.vendorId} IS NULL`,
           eq(orders.status, 'draft')
         );
@@ -635,6 +637,7 @@ export class DatabaseStorage implements IStorage {
       .insert(orders)
       .values({
         hospitalId,
+        unitId,
         vendorId,
         status: 'draft',
         createdBy,
