@@ -387,7 +387,7 @@ export default function QuickCreateSurgeryDialog({
           </div>
 
           {/* Planned Date & Time */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3" style={{ gridTemplateColumns: '2fr 1fr' }}>
             <div className="space-y-2">
               <Label htmlFor="planned-date">Start Time *</Label>
               <Input
