@@ -404,6 +404,7 @@ export default function Items() {
           qty: newStock,
           delta: delta,
           notes: "Stock updated via item edit",
+          activeUnitId: activeHospital?.unitId,
         });
       }
       

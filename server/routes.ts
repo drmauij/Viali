@@ -548,7 +548,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userHospitals = await storage.getUserHospitals(userId);
       const hasAccess = userHospitals.some(h => h.id === hospitalId && h.unitId === unitId);
       if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied to this hospital or location" });
+        return res.status(403).json({ message: "Access denied to this hospital or unit" });
       }
       
       const folders = await storage.getFolders(hospitalId, unitId);
@@ -566,7 +566,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const unitId = await getUserUnitForHospital(userId, folderData.hospitalId);
       if (!unitId || unitId !== folderData.unitId) {
-        return res.status(403).json({ message: "Access denied to this hospital/location" });
+        return res.status(403).json({ message: "Access denied to this hospital/unit" });
       }
       
       const folder = await storage.createFolder(folderData);
@@ -672,7 +672,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userHospitals = await storage.getUserHospitals(userId);
       const hasAccess = userHospitals.some(h => h.id === hospitalId && h.unitId === unitId);
       if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied to this hospital or location" });
+        return res.status(403).json({ message: "Access denied to this hospital or unit" });
       }
       
       const filters = {
@@ -2269,28 +2269,28 @@ If unable to parse any drugs, return:
   // Stock operations
   app.post('/api/stock/update', isAuthenticated, async (req: any, res) => {
     try {
-      const { itemId, qty, delta, notes } = req.body;
+      const { itemId, qty, delta, notes, activeUnitId } = req.body;
       const userId = req.user.id;
       
       if (!itemId || qty === undefined) {
         return res.status(400).json({ message: "Missing required fields" });
       }
       
-      // Get the item to find its hospital and location
+      // Get the item to find its hospital and unit
       const item = await storage.getItem(itemId);
       if (!item) {
         return res.status(404).json({ message: "Item not found" });
       }
       
-      // Get user's unitId for this hospital
-      const unitId = await getUserUnitForHospital(userId, item.hospitalId);
+      // Get user's unitId for this hospital (use activeUnitId from request if provided)
+      const unitId = activeUnitId || await getUserUnitForHospital(userId, item.hospitalId);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
       // Verify item belongs to user's unit
       if (item.unitId !== unitId) {
-        return res.status(403).json({ message: "Access denied to this item's location" });
+        return res.status(403).json({ message: "Access denied to this unit" });
       }
       
       // Update stock level
@@ -2810,7 +2810,7 @@ If unable to parse any drugs, return:
           
           // Verify item belongs to user's unit
           if (itemData.unitId !== unitId) {
-            throw new Error(`Access denied to item ${item.itemId}'s location`);
+            throw new Error(`Access denied to item ${item.itemId}'s unit`);
           }
           
           // Check if this item has exact quantity tracking enabled
@@ -3013,7 +3013,7 @@ If unable to parse any drugs, return:
       
       const userUnitId = await getUserUnitForHospital(userId, hospitalId);
       if (!userUnitId || userUnitId !== unitId) {
-        return res.status(403).json({ message: "Access denied to this location" });
+        return res.status(403).json({ message: "Access denied to this unit" });
       }
       
       const allMatch = checkItems.every((item: any) => item.match);
@@ -3105,7 +3105,7 @@ If unable to parse any drugs, return:
       const userHospitals = await storage.getUserHospitals(userId);
       const hasAccess = userHospitals.some(h => h.id === hospitalId && h.unitId === unitId);
       if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied to this hospital or location" });
+        return res.status(403).json({ message: "Access denied to this hospital or unit" });
       }
       
       const acknowledgedBool = acknowledged === 'true' ? true : acknowledged === 'false' ? false : undefined;
@@ -3964,7 +3964,7 @@ If unable to parse any drugs, return:
       // Verify user has access to this specific hospital/location
       const access = await verifyUserHospitalUnitAccess(userId, template.hospitalId, template.unitId);
       if (!access.hasAccess) {
-        return res.status(403).json({ message: "Access denied to this location" });
+        return res.status(403).json({ message: "Access denied to this unit" });
       }
       
       // Validate with schema (extend to coerce dueDate from ISO string)
@@ -4042,7 +4042,7 @@ If unable to parse any drugs, return:
       // Verify user has access to this specific hospital/location
       const access = await verifyUserHospitalUnitAccess(userId, completion.hospitalId, completion.unitId);
       if (!access.hasAccess) {
-        return res.status(403).json({ message: "Access denied to this location" });
+        return res.status(403).json({ message: "Access denied to this unit" });
       }
       
       res.json(completion);
