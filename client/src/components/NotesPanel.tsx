@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { X, Trash2, Edit2, Save } from "lucide-react";
 import { format } from "date-fns";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { Note } from "@shared/schema";
 
 interface NotesPanelProps {
@@ -247,7 +249,11 @@ export default function NotesPanel({ isOpen, onClose, activeHospital }: NotesPan
                       </>
                     ) : (
                       <>
-                        <p className="text-foreground whitespace-pre-wrap mb-2">{note.content}</p>
+                        <div className="prose prose-sm dark:prose-invert max-w-none mb-2">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {note.content}
+                          </ReactMarkdown>
+                        </div>
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <span>{note.createdAt && format(new Date(note.createdAt), "MMM d, yyyy h:mm a")}</span>
                           {note.userId === (user as any)?.id && (
