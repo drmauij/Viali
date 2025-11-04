@@ -38,6 +38,12 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     enabled: !!surgery?.hospitalId,
   });
 
+  // Fetch patient details
+  const { data: patient } = useQuery<any>({
+    queryKey: [`/api/patients/${surgery?.patientId}`],
+    enabled: !!surgery?.patientId,
+  });
+
   // Fetch surgeons
   const { data: surgeons = [] } = useQuery<any[]>({
     queryKey: [`/api/surgeons`, surgery?.hospitalId],
@@ -171,6 +177,27 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Patient Information (Read-only) */}
+              {patient && (
+                <div className="space-y-2">
+                  <Label>Patient</Label>
+                  <div className="rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                    <div className="font-medium">
+                      {patient.surname}, {patient.firstName}
+                    </div>
+                    {patient.birthday && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Born: {new Date(patient.birthday).toLocaleDateString('de-DE', { 
+                          day: '2-digit', 
+                          month: '2-digit', 
+                          year: 'numeric' 
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Surgery Room */}
               <div className="space-y-2">
                 <Label htmlFor="edit-surgery-room">Surgery Room *</Label>
