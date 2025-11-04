@@ -2841,7 +2841,7 @@ If unable to parse any drugs, return:
   app.post('/api/controlled/adjust', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
-      const { itemId, newCurrentUnits, notes, signature } = req.body;
+      const { itemId, newCurrentUnits, notes, signature, attachmentPhoto } = req.body;
       
       if (!itemId) {
         return res.status(400).json({ message: "Item ID is required" });
@@ -2909,6 +2909,7 @@ If unable to parse any drugs, return:
         delta,
         movementType,
         notes: notes || `Manual adjustment: ${currentUnits} → ${newCurrentUnits} units`,
+        attachmentPhoto: attachmentPhoto || null,
         signatures: [signature],
         controlledVerified: true, // Manual adjustments are verified by signature
       });

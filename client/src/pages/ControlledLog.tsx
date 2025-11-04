@@ -98,6 +98,7 @@ export default function ControlledLog() {
   const [adjustmentNewUnits, setAdjustmentNewUnits] = useState("");
   const [adjustmentNotes, setAdjustmentNotes] = useState("");
   const [adjustmentSignature, setAdjustmentSignature] = useState("");
+  const [adjustmentAttachmentPhoto, setAdjustmentAttachmentPhoto] = useState("");
   const [showAdjustmentSignaturePad, setShowAdjustmentSignaturePad] = useState(false);
 
   const { data: controlledItems = [] } = useQuery<ItemWithStock[]>({
@@ -247,6 +248,7 @@ export default function ControlledLog() {
       newCurrentUnits: number;
       notes: string;
       signature: string;
+      attachmentPhoto?: string;
     }) => {
       const response = await apiRequest("POST", "/api/controlled/adjust", data);
       return response.json();
@@ -330,6 +332,7 @@ export default function ControlledLog() {
     setAdjustmentNewUnits("");
     setAdjustmentNotes("");
     setAdjustmentSignature("");
+    setAdjustmentAttachmentPhoto("");
   };
 
   const handleOpenAdministrationModal = () => {
@@ -539,6 +542,7 @@ export default function ControlledLog() {
       newCurrentUnits: newUnitsValue,
       notes: adjustmentNotes,
       signature: adjustmentSignature,
+      attachmentPhoto: adjustmentAttachmentPhoto || undefined,
     });
   };
 
@@ -1529,6 +1533,84 @@ export default function ControlledLog() {
               </div>
 
               <div>
+                <Label className="block text-sm font-medium mb-2">Attachment (Receipt/Photo)</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Optional: Attach a photo of the receipt or documentation
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = 'image/*';
+                      input.capture = 'environment';
+                      input.onchange = (e: any) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (e) => {
+                            setAdjustmentAttachmentPhoto(e.target?.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      };
+                      input.click();
+                    }}
+                    data-testid="adjustment-camera-button"
+                  >
+                    <i className="fas fa-camera mr-2"></i>
+                    Take Photo
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = 'image/*';
+                      input.onchange = (e: any) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (e) => {
+                            setAdjustmentAttachmentPhoto(e.target?.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      };
+                      input.click();
+                    }}
+                    data-testid="adjustment-gallery-button"
+                  >
+                    <i className="fas fa-image mr-2"></i>
+                    From Gallery
+                  </Button>
+                </div>
+                {adjustmentAttachmentPhoto && (
+                  <div className="mt-2 relative">
+                    <img 
+                      src={adjustmentAttachmentPhoto} 
+                      alt="Attachment" 
+                      className="w-full h-40 object-cover rounded border border-border"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={() => setAdjustmentAttachmentPhoto("")}
+                    >
+                      <i className="fas fa-times"></i>
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div>
                 <Label className="block text-sm font-medium mb-2">Your E-Signature</Label>
                 <div
                   className="signature-pad cursor-pointer"
@@ -1710,6 +1792,21 @@ export default function ControlledLog() {
                     <div className="flex-1">
                       <p className="text-xs text-muted-foreground mb-1">Notes</p>
                       <p className="text-sm text-foreground">{selectedActivity.notes}</p>
+                    </div>
+                  </div>
+                )}
+
+                {isAdjustment && selectedActivity.attachmentPhoto && (
+                  <div className="flex items-start gap-3 p-3 bg-card border border-border rounded-lg">
+                    <i className="fas fa-paperclip text-primary mt-1"></i>
+                    <div className="flex-1">
+                      <p className="text-xs text-muted-foreground mb-2">Attachment (Receipt/Photo)</p>
+                      <img 
+                        src={selectedActivity.attachmentPhoto} 
+                        alt="Attachment" 
+                        className="w-full rounded border border-border cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => selectedActivity.attachmentPhoto && window.open(selectedActivity.attachmentPhoto, '_blank')}
+                      />
                     </div>
                   </div>
                 )}
