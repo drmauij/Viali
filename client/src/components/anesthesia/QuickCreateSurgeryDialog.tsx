@@ -161,8 +161,8 @@ export default function QuickCreateSurgeryDialog({
       hospitalId,
       firstName: newPatientFirstName.trim(),
       surname: newPatientSurname.trim(),
-      dateOfBirth: newPatientDOB,
-      gender: newPatientGender,
+      birthday: newPatientDOB,
+      sex: newPatientGender.toUpperCase(),
       phone: newPatientPhone.trim() || undefined,
     });
   };
