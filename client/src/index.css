@@ -522,32 +522,30 @@
 
 /* DayPilot Calendar Event Icon Buttons (Active Areas) */
 .event-button-icon {
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: transparent;
+  border: none;
   border-radius: 4px;
   padding: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: all 0.15s ease;
   color: white;
+  opacity: 0.85;
 }
 
 .event-button-icon i {
   color: white;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
 }
 
 .event-button-icon:hover {
-  background: rgba(0, 0, 0, 0.4);
-  border-color: rgba(255, 255, 255, 0.5);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  opacity: 1;
+  transform: scale(1.1);
 }
 
 .event-button-icon:active {
-  transform: translateY(0);
-  background: rgba(0, 0, 0, 0.3);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transform: scale(0.95);
+  opacity: 0.9;
 }
