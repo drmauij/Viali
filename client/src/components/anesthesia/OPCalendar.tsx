@@ -431,6 +431,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   useEffect(() => {
     const formatTimeLabels = () => {
       const rowHeaders = document.querySelectorAll('.calendar_white_rowheader_inner');
+      let formatted = 0;
       rowHeaders.forEach((header: Element) => {
         const text = (header as HTMLElement).innerText.trim();
         // Check if it's a time label like "600", "700", etc.
@@ -441,16 +442,26 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           const minute = timeNum % 100;
           // Format as "H:mm" (e.g., "6:00", "13:00")
           (header as HTMLElement).innerText = `${hour}:${minute.toString().padStart(2, '0')}`;
+          formatted++;
         }
       });
+      return formatted;
     };
 
-    // Run immediately and also after a short delay to catch any dynamic updates
-    formatTimeLabels();
-    const timer = setTimeout(formatTimeLabels, 100);
+    // Try multiple times with increasing delays to catch DayPilot rendering
+    const timers: NodeJS.Timeout[] = [];
     
-    return () => clearTimeout(timer);
-  }, [currentView, selectedDate, resources]);
+    // Immediate attempt
+    formatTimeLabels();
+    
+    // Retry after short delays to catch async rendering
+    timers.push(setTimeout(formatTimeLabels, 50));
+    timers.push(setTimeout(formatTimeLabels, 150));
+    timers.push(setTimeout(formatTimeLabels, 300));
+    timers.push(setTimeout(formatTimeLabels, 500));
+    
+    return () => timers.forEach(t => clearTimeout(t));
+  }, [currentView, selectedDate, resources, surgeryRooms]);
 
   return (
     <div className="flex flex-col h-full">
@@ -723,6 +734,16 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         .month_white_cell_other {
           background: var(--muted);
           opacity: 0.6;
+        }
+
+        /* Fix time format - ensure hours display with colon */
+        .calendar_white_rowheader_inner {
+          font-variant-numeric: normal !important;
+        }
+        
+        /* Format time labels to show colon separator */
+        .calendar_white_rowheader {
+          font-feature-settings: normal !important;
         }
       `}</style>
     </div>
