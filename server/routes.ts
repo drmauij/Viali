@@ -2413,17 +2413,18 @@ If unable to parse any drugs, return:
 
   app.post('/api/orders/quick-add', isAuthenticated, async (req: any, res) => {
     try {
-      const { hospitalId, itemId, vendorId, qty, packSize } = req.body;
+      const { hospitalId, unitId, itemId, vendorId, qty, packSize } = req.body;
       const userId = req.user.id;
       
-      if (!hospitalId || !itemId) {
-        return res.status(400).json({ message: "Hospital ID and Item ID are required" });
+      if (!hospitalId || !itemId || !unitId) {
+        return res.status(400).json({ message: "Hospital ID, Unit ID, and Item ID are required" });
       }
       
-      // Verify user has access to this hospital
-      const unitId = await getUserUnitForHospital(userId, hospitalId);
-      if (!unitId) {
-        return res.status(403).json({ message: "Access denied to this hospital" });
+      // Verify user has access to this hospital and unit
+      const userHospitals = await storage.getUserHospitals(userId);
+      const hasAccess = userHospitals.some(h => h.id === hospitalId && h.unitId === unitId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied to this hospital or unit" });
       }
 
       const order = await storage.findOrCreateDraftOrder(hospitalId, unitId, vendorId || null, userId);

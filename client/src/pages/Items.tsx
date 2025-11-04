@@ -581,6 +581,7 @@ export default function Items() {
     mutationFn: async (data: { itemId: string; qty: number; packSize: number; vendorId?: string }) => {
       const response = await apiRequest("POST", "/api/orders/quick-add", {
         hospitalId: activeHospital?.id,
+        unitId: activeHospital?.unitId,
         itemId: data.itemId,
         qty: data.qty,
         packSize: data.packSize,
