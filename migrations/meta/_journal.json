@@ -15,6 +15,13 @@
       "when": 1762245045900,
       "tag": "0001_amazing_talisman",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1762250057155,
+      "tag": "0002_sturdy_satana",
+      "breakpoints": true
     }
   ]
 }

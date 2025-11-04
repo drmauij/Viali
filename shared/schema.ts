@@ -203,6 +203,7 @@ export const lots = pgTable("lots", {
 export const orders = pgTable("orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  unitId: varchar("unit_id").notNull().references(() => units.id),
   vendorId: varchar("vendor_id").references(() => vendors.id),
   status: varchar("status").notNull().default("draft"), // draft, sent, received
   createdBy: varchar("created_by").notNull().references(() => users.id),
@@ -211,6 +212,7 @@ export const orders = pgTable("orders", {
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_orders_hospital").on(table.hospitalId),
+  index("idx_orders_unit").on(table.unitId),
   index("idx_orders_vendor").on(table.vendorId),
   index("idx_orders_status").on(table.status),
 ]);
