@@ -798,9 +798,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           continue;
         }
         
-        // Verify user has access to this item's hospital (not unit-specific for items)
+        // Verify user has access to this item's unit
         const unitId = await getUserUnitForHospital(userId, item.hospitalId);
-        if (!unitId) {
+        if (!unitId || unitId !== item.unitId) {
           continue;
         }
 
@@ -876,7 +876,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!item) continue;
 
         const unitId = await getUserUnitForHospital(userId, item.hospitalId);
-        if (!unitId) {
+        if (!unitId || unitId !== item.unitId) {
           continue;
         }
 
@@ -901,9 +901,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Item not found" });
       }
       
-      // Verify user has access to this item's hospital (not unit-specific for items)
+      // Verify user has access to this item's unit
       const unitId = await getUserUnitForHospital(userId, item.hospitalId);
-      if (!unitId) {
+      if (!unitId || unitId !== item.unitId) {
         return res.status(403).json({ message: "Access denied to this item" });
       }
       
@@ -1212,9 +1212,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Item not found" });
       }
       
-      // Verify user has access to this item's hospital (not unit-specific for items)
+      // Verify user has access to this item's unit
       const unitId = await getUserUnitForHospital(userId, item.hospitalId);
-      if (!unitId) {
+      if (!unitId || unitId !== item.unitId) {
         return res.status(403).json({ message: "Access denied to this item" });
       }
 
