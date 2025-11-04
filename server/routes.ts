@@ -894,6 +894,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { itemId } = req.params;
       const userId = req.user.id;
+      const { activeUnitId } = req.body;
       
       // Get the item to verify access
       const item = await storage.getItem(itemId);
@@ -902,10 +903,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verify user has access to this item's unit
-      const unitId = await getUserUnitForHospital(userId, item.hospitalId);
-      console.log(`[ITEM ACCESS CHECK] Item: ${item.name}, ItemUnitId: ${item.unitId}, UserUnitId: ${unitId}`);
+      // Use the activeUnitId from request body (user's currently active unit on frontend)
+      const unitId = activeUnitId || await getUserUnitForHospital(userId, item.hospitalId);
+      console.log(`[ITEM ACCESS CHECK] Item: ${item.name}, ItemUnitId: ${item.unitId}, UserActiveUnitId: ${unitId}`);
       if (!unitId || unitId !== item.unitId) {
-        console.log(`[ACCESS DENIED] User unit ${unitId} does not match item unit ${item.unitId}`);
+        console.log(`[ACCESS DENIED] User active unit ${unitId} does not match item unit ${item.unitId}`);
         return res.status(403).json({ message: "Access denied to this item" });
       }
       

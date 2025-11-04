@@ -386,8 +386,11 @@ export default function Items() {
 
   const updateItemMutation = useMutation({
     mutationFn: async (data: any) => {
-      // Update item details
-      const response = await apiRequest("PATCH", `/api/items/${selectedItem?.id}`, data.itemData);
+      // Update item details - include active unitId for access control
+      const response = await apiRequest("PATCH", `/api/items/${selectedItem?.id}`, {
+        ...data.itemData,
+        activeUnitId: activeHospital?.unitId
+      });
       const updatedItem = await response.json();
       
       // Update stock level if provided
