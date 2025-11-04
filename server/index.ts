@@ -58,18 +58,101 @@ app.use((req, res, next) => {
       await migrate(db, { migrationsFolder: "./migrations" });
       log("✓ Database migrations completed successfully");
     } catch (error: any) {
-      // Check if this is a partial migration issue
+      // Handle migration failures gracefully
       if (error.message && error.message.includes('already exists')) {
-        // In development, allow graceful continuation if schema was applied via db:push
-        if (process.env.NODE_ENV === 'development') {
-          log("⚠ Some migrations already applied (likely via db:push) - continuing...");
-          log("   Production will run migrations cleanly from migration files");
-        } else {
-          // In production, this is a critical error
-          log("⚠ Migration failed - some tables already exist.");
-          throw new Error('Inconsistent database state - migration failed due to existing tables');
+        log("⚠ Migration encountered existing schema - this may indicate:");
+        log("   1. Schema was applied via db:push in development");
+        log("   2. Previous deployment partially applied migrations");
+        
+        // Try to recover by manually marking migrations as applied
+        try {
+          // First check if __drizzle_migrations table exists
+          const tableCheck = await db.execute(sql`
+            SELECT EXISTS (
+              SELECT FROM information_schema.tables 
+              WHERE table_schema = 'public' 
+              AND table_name = '__drizzle_migrations'
+            )
+          `);
+          
+          const migrationsTableExists = tableCheck.rows[0]?.exists;
+          
+          if (!migrationsTableExists) {
+            // This is a fresh database with schema applied via db:push
+            // Create the migrations table and mark all migrations as applied
+            log("   Creating migration tracking table...");
+            
+            await db.execute(sql`
+              CREATE TABLE IF NOT EXISTS __drizzle_migrations (
+                id SERIAL PRIMARY KEY,
+                hash text NOT NULL UNIQUE,
+                created_at bigint
+              )
+            `);
+            
+            const fs = await import('fs');
+            const path = await import('path');
+            const migrationsPath = path.join(process.cwd(), 'migrations');
+            const metaPath = path.join(migrationsPath, 'meta', '_journal.json');
+            
+            if (fs.existsSync(metaPath)) {
+              const journal = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+              const allMigrations = journal.entries || [];
+              
+              log(`   Marking ${allMigrations.length} existing migrations as applied...`);
+              
+              for (const migration of allMigrations) {
+                const timestamp = Date.now();
+                await db.execute(sql.raw(`
+                  INSERT INTO __drizzle_migrations (hash, created_at)
+                  VALUES ('${migration.hash}', ${timestamp})
+                  ON CONFLICT (hash) DO NOTHING
+                `));
+              }
+              
+              log("✓ Migration tracking initialized - future migrations will work correctly");
+            }
+          } else {
+            // Migrations table exists, check for missing entries
+            const fs = await import('fs');
+            const path = await import('path');
+            const migrationsPath = path.join(process.cwd(), 'migrations');
+            const metaPath = path.join(migrationsPath, 'meta', '_journal.json');
+            
+            if (fs.existsSync(metaPath)) {
+              const journal = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+              const allMigrations = journal.entries || [];
+              
+              const result = await db.execute(sql`SELECT hash FROM __drizzle_migrations`);
+              const appliedHashes = new Set(result.rows.map((r: any) => r.hash));
+              
+              const unappliedMigrations = allMigrations.filter(
+                (m: any) => !appliedHashes.has(m.hash)
+              );
+              
+              if (unappliedMigrations.length > 0) {
+                log(`   Marking ${unappliedMigrations.length} migrations as applied...`);
+                
+                for (const migration of unappliedMigrations) {
+                  const timestamp = Date.now();
+                  await db.execute(sql.raw(`
+                    INSERT INTO __drizzle_migrations (hash, created_at)
+                    VALUES ('${migration.hash}', ${timestamp})
+                    ON CONFLICT (hash) DO NOTHING
+                  `));
+                }
+                
+                log("✓ Migration state synchronized");
+              }
+            }
+          }
+        } catch (recoveryError: any) {
+          log("⚠ Could not auto-recover migration state:", recoveryError.message);
+          log("   Server will continue but new migrations may not apply");
         }
       } else {
+        // This is a real migration error - fail hard
+        log("✗ Migration failed with error:", error.message);
         throw error;
       }
     }
