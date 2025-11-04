@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -27,6 +28,17 @@ export default function NotesPanel({ isOpen, onClose, activeHospital }: NotesPan
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [activeTab, setActiveTab] = useState<"personal" | "shared">("personal");
+
+  // Scroll lock when panel is open
+  useEffect(() => {
+    if (isOpen) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [isOpen]);
 
   // Fetch notes
   const { data: notes = [], isLoading } = useQuery<Note[]>({
@@ -106,7 +118,7 @@ export default function NotesPanel({ isOpen, onClose, activeHospital }: NotesPan
   const personalNotes = notes.filter((note) => !note.isShared && note.userId === (user as any)?.id);
   const sharedNotes = notes.filter((note) => note.isShared);
 
-  return (
+  const panelContent = (
     <>
       {/* Overlay */}
       {isOpen && (
@@ -114,6 +126,7 @@ export default function NotesPanel({ isOpen, onClose, activeHospital }: NotesPan
           className="fixed inset-0 bg-black/50 z-[998]"
           onClick={onClose}
           data-testid="notes-overlay"
+          style={{ touchAction: 'none' }}
         />
       )}
 
@@ -123,6 +136,7 @@ export default function NotesPanel({ isOpen, onClose, activeHospital }: NotesPan
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
         data-testid="notes-panel"
+        style={{ touchAction: 'pan-y', pointerEvents: 'auto' }}
       >
         <div className="flex flex-col h-full">
           {/* Header */}
@@ -326,4 +340,6 @@ export default function NotesPanel({ isOpen, onClose, activeHospital }: NotesPan
       </div>
     </>
   );
+
+  return typeof window !== 'undefined' ? createPortal(panelContent, document.body) : null;
 }
