@@ -67,6 +67,7 @@ export default function QuickCreateSurgeryDialog({
   const [newPatientSurname, setNewPatientSurname] = useState("");
   const [newPatientDOB, setNewPatientDOB] = useState("");
   const [newPatientGender, setNewPatientGender] = useState("m");
+  const [newPatientPhone, setNewPatientPhone] = useState("");
 
   // Fetch patients
   const { data: patients = [] } = useQuery<any[]>({
@@ -143,6 +144,7 @@ export default function QuickCreateSurgeryDialog({
     setNewPatientSurname("");
     setNewPatientDOB("");
     setNewPatientGender("m");
+    setNewPatientPhone("");
   };
 
   const handleCreatePatient = () => {
@@ -161,6 +163,7 @@ export default function QuickCreateSurgeryDialog({
       surname: newPatientSurname.trim(),
       dateOfBirth: newPatientDOB,
       gender: newPatientGender,
+      phone: newPatientPhone.trim() || undefined,
     });
   };
 
@@ -324,6 +327,17 @@ export default function QuickCreateSurgeryDialog({
                         <SelectItem value="o">Other</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="space-y-1 col-span-2">
+                    <Label htmlFor="new-patient-phone">Phone</Label>
+                    <Input
+                      id="new-patient-phone"
+                      type="tel"
+                      placeholder="+1 234 567 8900"
+                      value={newPatientPhone}
+                      onChange={(e) => setNewPatientPhone(e.target.value)}
+                      data-testid="input-new-patient-phone"
+                    />
                   </div>
                 </div>
                 <Button
