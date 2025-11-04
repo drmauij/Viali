@@ -10,6 +10,7 @@ import { formatDateHeader as formatDateHeaderUtil, formatMonthYear } from "@/lib
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import QuickCreateSurgeryDialog from "./QuickCreateSurgeryDialog";
+import { EditSurgeryDialog } from "./EditSurgeryDialog";
 
 type ViewType = "day" | "week" | "month";
 
@@ -123,26 +124,30 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     return text.replace(/[&<>"']/g, (m) => map[m]);
   };
 
+  // State for edit dialog
+  const [editingSurgeryId, setEditingSurgeryId] = useState<string | null>(null);
+
   // Transform surgeries into calendar events
   const calendarEvents = useMemo(() => {
-    const colors = [
-      { barColor: "#2563eb", backColor: "#eff6ff", borderColor: "#93c5fd", fontColor: "#1e40af" }, // Blue
-      { barColor: "#ea580c", backColor: "#fff7ed", borderColor: "#fdba74", fontColor: "#9a3412" }, // Orange
-      { barColor: "#16a34a", backColor: "#f0fdf4", borderColor: "#86efac", fontColor: "#15803d" }, // Green
-      { barColor: "#9333ea", backColor: "#faf5ff", borderColor: "#d8b4fe", fontColor: "#7e22ce" }, // Purple
-      { barColor: "#dc2626", backColor: "#fef2f2", borderColor: "#fca5a5", fontColor: "#b91c1c" }, // Red
-    ];
-
-    const cancelledColors = {
-      barColor: "#6b7280",
-      backColor: "#f3f4f6",
-      borderColor: "#d1d5db",
-      fontColor: "#6b7280",
+    // Single unified color scheme
+    const defaultColors = {
+      barColor: "#3b82f6",
+      backColor: "#3b82f6",
+      borderColor: "#2563eb",
+      fontColor: "#ffffff",
     };
 
-    return surgeries.map((surgery: any, index: number) => {
+    const cancelledColors = {
+      barColor: "#9ca3af",
+      backColor: "#9ca3af",
+      borderColor: "#6b7280",
+      fontColor: "#ffffff",
+    };
+
+    return surgeries.map((surgery: any) => {
       const patient = allPatients.find((p: any) => p.id === surgery.patientId);
       const patientName = patient ? `${patient.surname}, ${patient.firstName}` : "Unknown Patient";
+      const patientBirthday = patient?.birthday ? new Date(patient.birthday).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : "";
       const plannedDate = new Date(surgery.plannedDate);
       
       // Calculate duration in minutes
@@ -151,76 +156,71 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         defaultEnd.setHours(defaultEnd.getHours() + 3);
         return defaultEnd;
       })();
-      const durationMinutes = Math.round((endTime.getTime() - plannedDate.getTime()) / (1000 * 60));
-      
-      // Get planned anesthesia from preop assessment
-      const preopAssessment = preopAssessments.find((p: any) => p.surgeryId === surgery.id);
-      let anesthesiaText = "";
-      if (preopAssessment?.anesthesiaTechniques) {
-        const techniques = Object.entries(preopAssessment.anesthesiaTechniques)
-          .filter(([_, value]) => value === true)
-          .map(([key]) => key.charAt(0).toUpperCase() + key.slice(1))
-          .join(", ");
-        anesthesiaText = techniques || "";
-      }
       
       const isCancelled = surgery.status === "cancelled";
-      const colorScheme = isCancelled ? cancelledColors : colors[index % colors.length];
+      const colorScheme = isCancelled ? cancelledColors : defaultColors;
       
-      // Format time as HH:MM
-      const startTimeStr = plannedDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-      
-      // Create structured HTML display with escaped user data
+      // Clean, simple display: Surgery name (bold) + Patient name & birthday
       const displayHtml = `
-        <div style="padding: 4px; font-size: 12px; line-height: 1.3; ${isCancelled ? 'opacity: 0.6;' : ''}">
-          <div style="font-weight: 600; margin-bottom: 2px; ${isCancelled ? 'text-decoration: line-through;' : ''}">
-            ${escapeHtml(startTimeStr)} · ${durationMinutes}min
-          </div>
-          <div style="margin-bottom: 2px; ${isCancelled ? 'text-decoration: line-through;' : ''}">
-            <strong>${escapeHtml(patientName)}</strong>
-          </div>
-          <div style="margin-bottom: 2px; font-size: 11px; ${isCancelled ? 'text-decoration: line-through;' : ''}">
+        <div style="padding: 8px 4px 30px 4px; font-size: 13px; line-height: 1.4; ${isCancelled ? 'opacity: 0.7;' : ''}">
+          <div style="font-weight: 700; margin-bottom: 3px; ${isCancelled ? 'text-decoration: line-through;' : ''}">
             ${escapeHtml(surgery.plannedSurgery || 'No surgery specified')}
           </div>
-          ${anesthesiaText ? `<div style="font-size: 11px; font-style: italic; opacity: 0.85;">
-            ${escapeHtml(anesthesiaText)}
-          </div>` : ''}
-          ${isCancelled ? '<div style="font-size: 10px; font-weight: 600; color: #dc2626; margin-top: 2px;">CANCELLED</div>' : ''}
+          <div style="font-size: 12px; ${isCancelled ? 'text-decoration: line-through;' : ''}">
+            ${escapeHtml(patientName)}${patientBirthday ? `, ${escapeHtml(patientBirthday)}` : ''}
+          </div>
+          ${isCancelled ? '<div style="font-size: 11px; font-weight: 600; margin-top: 4px;">CANCELLED</div>' : ''}
         </div>
       `;
       
-      // Add clickable buttons using Active Areas
+      // Add clickable buttons using Active Areas - positioned at bottom center
       const areas = [];
       
-      // Pre-OP button
+      // Pre-OP button (left)
       areas.push({
-        top: 5,
-        right: 35,
-        width: 30,
-        height: 18,
-        html: "Pre-OP",
-        cssClass: "event-button event-button-preop",
+        bottom: 4,
+        left: 4,
+        width: 28,
+        height: 22,
+        html: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+        cssClass: "event-button-icon",
         onClick: (areaArgs: any) => {
+          areaArgs.preventDefault();
           if (onEventClick) {
             onEventClick(surgery.id);
-            // TODO: Open specifically to Pre-OP tab
           }
         },
         visibility: "Visible" as const,
       });
       
-      // OP button
+      // OP button (center)
       areas.push({
-        top: 5,
-        right: 5,
-        width: 25,
-        height: 18,
-        html: "OP",
-        cssClass: "event-button event-button-op",
+        bottom: 4,
+        left: 36,
+        width: 28,
+        height: 22,
+        html: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 12h6m-3-3v6"/></svg>',
+        cssClass: "event-button-icon",
         onClick: (areaArgs: any) => {
+          areaArgs.preventDefault();
           if (onEventClick) {
             onEventClick(surgery.id);
           }
+        },
+        visibility: "Visible" as const,
+      });
+      
+      // Edit button (right)
+      areas.push({
+        bottom: 4,
+        left: 68,
+        width: 28,
+        height: 22,
+        html: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+        cssClass: "event-button-icon",
+        onClick: (areaArgs: any) => {
+          areaArgs.preventDefault();
+          setEditingSurgeryId(surgery.id);
         },
         visibility: "Visible" as const,
       });
@@ -247,7 +247,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         ...colorScheme,
       };
     });
-  }, [surgeries, allPatients, surgeryRooms, preopAssessments, onEventClick]);
+  }, [surgeries, allPatients, surgeryRooms]);
 
   // Convert surgery rooms to resources format
   const resources = useMemo(() => {
@@ -258,9 +258,8 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   }, [surgeryRooms]);
 
   const handleEventClick = (args: any) => {
-    if (onEventClick) {
-      onEventClick(args.e.id());
-    }
+    // Open edit dialog when clicking on event
+    setEditingSurgeryId(args.e.id());
   };
 
   // Mutation for rescheduling surgery
@@ -654,6 +653,12 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           surgeryRooms={surgeryRooms}
         />
       )}
+
+      {/* Edit Surgery Dialog */}
+      <EditSurgeryDialog
+        surgeryId={editingSurgeryId}
+        onClose={() => setEditingSurgeryId(null)}
+      />
 
       {/* Floating Action Button for mobile quick create */}
       {currentView === "day" && surgeryRooms.length > 0 && (
