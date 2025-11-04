@@ -197,7 +197,14 @@ export default function QuickCreateSurgeryDialog({
     }
 
     // Calculate end time from start time + duration
-    const startDate = new Date(plannedDate);
+    // Parse datetime-local input as local time, not UTC
+    // Input format: "2025-11-04T12:00"
+    const [datePart, timePart] = plannedDate.split('T');
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hour, minute] = timePart.split(':').map(Number);
+    
+    // Create Date in local timezone
+    const startDate = new Date(year, month - 1, day, hour, minute);
     const endDate = new Date(startDate);
     endDate.setMinutes(endDate.getMinutes() + duration);
 
