@@ -27,6 +27,13 @@ Preferred communication style: Simple, everyday language.
 
 #### Making Schema Changes - Step by Step
 
+**Automated Workflow (Recommended):**
+1. **One-Time Setup**: Run `./scripts/install-git-hooks.sh` to install the automated migration generator
+2. **Update Schema**: Edit `shared/schema.ts` with your changes
+3. **Commit**: When you commit the schema changes, migration files are automatically generated and added to your commit
+4. **Deploy**: Push to Git and deploy to Exoscale - migrations run automatically on production startup
+
+**Manual Workflow:**
 1. **Update Schema**: Edit `shared/schema.ts` with your changes
 2. **Generate & Apply Migration**: Run `npm run db:migrate`
    - This generates a new migration file in `migrations/`
@@ -34,6 +41,25 @@ Preferred communication style: Simple, everyday language.
 3. **Verify**: Check the migration file in `migrations/` to ensure it's safe
 4. **Commit & Deploy**: Push to Git and deploy to Exoscale
    - The migration runs automatically on production startup
+
+#### Git Hook Automation
+
+A pre-commit hook is available that automatically generates migration files whenever `shared/schema.ts` changes. This prevents the common mistake of forgetting to create migration files, which causes production deployments to fail.
+
+**Installation:**
+```bash
+./scripts/install-git-hooks.sh
+```
+
+**What it does:**
+- Detects when you commit changes to `shared/schema.ts`
+- Automatically runs `npm run db:generate`
+- Adds the generated migration file to your commit
+- Shows you exactly what migration was created
+
+**Files:**
+- `scripts/pre-commit-hook.sh` - The git hook script
+- `scripts/install-git-hooks.sh` - One-time installation script
 
 #### Available Scripts
 
