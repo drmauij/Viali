@@ -210,21 +210,6 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         visibility: "Visible" as const,
       });
       
-      // Edit button (right)
-      areas.push({
-        bottom: 4,
-        left: 68,
-        width: 28,
-        height: 22,
-        html: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
-        cssClass: "event-button-icon",
-        onClick: (areaArgs: any) => {
-          areaArgs.preventDefault();
-          setEditingSurgeryId(surgery.id);
-        },
-        visibility: "Visible" as const,
-      });
-      
       // Format dates for DayPilot (local timezone, not UTC)
       const formatForDayPilot = (date: Date) => {
         const year = date.getFullYear();
