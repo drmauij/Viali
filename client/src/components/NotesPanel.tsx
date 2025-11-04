@@ -111,7 +111,7 @@ export default function NotesPanel({ isOpen, onClose, activeHospital }: NotesPan
       {/* Overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-[60]"
+          className="fixed inset-0 bg-black/50 z-[998]"
           onClick={onClose}
           data-testid="notes-overlay"
         />
@@ -119,7 +119,7 @@ export default function NotesPanel({ isOpen, onClose, activeHospital }: NotesPan
 
       {/* Slide Panel */}
       <div
-        className={`fixed top-0 right-0 h-full w-full sm:w-96 bg-card border-l border-border shadow-xl z-[70] transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 right-0 h-full w-full sm:w-96 bg-card border-l border-border shadow-xl z-[999] transform transition-transform duration-300 ease-in-out ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
         data-testid="notes-panel"
