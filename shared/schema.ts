@@ -1018,6 +1018,8 @@ export const insertCaseSchema = createInsertSchema(cases).omit({
 
 export const insertSurgerySchema = createInsertSchema(surgeries, {
   plannedDate: z.coerce.date(), // Coerce string to Date
+  actualEndTime: z.coerce.date().optional(), // Coerce string to Date
+  actualStartTime: z.coerce.date().optional(), // Coerce string to Date
 }).omit({
   id: true,
   createdAt: true,

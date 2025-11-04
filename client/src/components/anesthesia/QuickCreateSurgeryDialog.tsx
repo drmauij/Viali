@@ -265,7 +265,7 @@ export default function QuickCreateSurgeryDialog({
                                   selectedPatientId === patient.id ? "opacity-100" : "opacity-0"
                                 )}
                               />
-                              {patient.surname}, {patient.firstName} ({new Date(patient.dateOfBirth).toLocaleDateString()})
+                              {patient.surname}, {patient.firstName} ({patient.birthday ? new Date(patient.birthday).toLocaleDateString() : 'N/A'})
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -397,8 +397,8 @@ export default function QuickCreateSurgeryDialog({
                 id="duration"
                 type="number"
                 min="1"
-                value={duration}
-                onChange={(e) => setDuration(parseInt(e.target.value) || 0)}
+                value={duration.toString()}
+                onChange={(e) => setDuration(Number(e.target.value) || 0)}
                 data-testid="input-duration"
               />
             </div>
