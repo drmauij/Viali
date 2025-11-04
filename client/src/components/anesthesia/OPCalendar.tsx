@@ -550,31 +550,31 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       {surgeryRooms.length > 0 && (
         <div className="flex-1 px-4 pb-4">
           {currentView === "day" && (
-          <DayPilotCalendar
-            viewType="Resources"
-            startDate={selectedDate.toISOString().split('T')[0]}
-            days={1}
-            businessBeginsHour={6}
-            businessEndsHour={20}
-            heightSpec="BusinessHoursNoScroll"
-            headerHeight={30}
-            hourWidth={60}
-            cellHeight={40}
-            columns={resources}
-            events={calendarEvents}
-            onEventClick={handleEventClick}
-            onEventMove={handleEventMove}
-            onEventResize={handleEventResize}
-            onTimeRangeSelected={handleTimeRangeSelect}
-            timeRangeSelectedHandling="Enabled"
-            eventMoveHandling="Update"
-            eventResizeHandling="Update"
-            eventTapAndHoldHandling="Move"
-            timeRangeTapAndHoldHandling="TimeRangeSelecting"
-            theme="calendar_white"
-            timeFormat="Clock24Hours"
-            locale="en-us"
-          />
+          <div style={{ touchAction: 'pan-y' }}>
+            <DayPilotCalendar
+              viewType="Resources"
+              startDate={selectedDate.toISOString().split('T')[0]}
+              days={1}
+              businessBeginsHour={6}
+              businessEndsHour={20}
+              heightSpec="BusinessHoursNoScroll"
+              headerHeight={30}
+              hourWidth={60}
+              cellHeight={40}
+              columns={resources}
+              events={calendarEvents}
+              onEventClick={handleEventClick}
+              onEventMove={handleEventMove}
+              onEventResize={handleEventResize}
+              onTimeRangeSelected={handleTimeRangeSelect}
+              timeRangeSelectedHandling="Enabled"
+              eventMoveHandling="Update"
+              eventResizeHandling="Update"
+              theme="calendar_white"
+              timeFormat="Clock24Hours"
+              locale="en-us"
+            />
+          </div>
         )}
 
         {currentView === "week" && (
@@ -623,6 +623,27 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           initialRoomId={quickCreateData.roomId}
           surgeryRooms={surgeryRooms}
         />
+      )}
+
+      {/* Floating Action Button for mobile quick create */}
+      {currentView === "day" && surgeryRooms.length > 0 && (
+        <Button
+          onClick={() => {
+            const now = new Date();
+            // Round to nearest 30 minutes
+            const minutes = Math.round(now.getMinutes() / 30) * 30;
+            now.setMinutes(minutes);
+            now.setSeconds(0);
+            now.setMilliseconds(0);
+            setQuickCreateData({ date: now });
+            setQuickCreateOpen(true);
+          }}
+          className="fixed bottom-20 right-4 rounded-full h-14 w-14 shadow-lg z-10"
+          size="icon"
+          data-testid="button-quick-create-surgery-fab"
+        >
+          <i className="fas fa-plus text-xl"></i>
+        </Button>
       )}
 
       {/* Custom styles to match UI */}
