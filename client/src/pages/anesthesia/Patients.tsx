@@ -35,6 +35,67 @@ export default function Patients() {
     allergyNotes: "",
     notes: "",
   });
+  const [birthdayInput, setBirthdayInput] = useState("");
+
+  // Parse birthday from various formats (dd.mm.yy, dd.mm.yyyy) to ISO format (yyyy-mm-dd)
+  const parseBirthday = (input: string): string | null => {
+    const trimmed = input.trim();
+    
+    // Match dd.mm.yy or dd.mm.yyyy
+    const match = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$/);
+    if (!match) return null;
+    
+    let [, day, month, year] = match;
+    
+    // Convert 2-digit year to 4-digit (yy -> 19yy or 20yy)
+    if (year.length === 2) {
+      const twoDigitYear = parseInt(year);
+      // If year is > 30, assume 19xx, otherwise 20xx
+      year = twoDigitYear > 30 ? `19${year}` : `20${year}`;
+    }
+    
+    const dayNum = parseInt(day);
+    const monthNum = parseInt(month);
+    const yearNum = parseInt(year);
+    
+    // Basic range validation
+    if (dayNum < 1 || dayNum > 31) return null;
+    if (monthNum < 1 || monthNum > 12) return null;
+    if (yearNum < 1900 || yearNum > 2100) return null;
+    
+    // Validate that the date actually exists (e.g., reject 31.02.1995, 29.02.2001)
+    const testDate = new Date(yearNum, monthNum - 1, dayNum);
+    if (
+      testDate.getFullYear() !== yearNum ||
+      testDate.getMonth() !== monthNum - 1 ||
+      testDate.getDate() !== dayNum
+    ) {
+      return null; // Invalid date (e.g., Feb 31, non-leap-year Feb 29)
+    }
+    
+    // Pad day and month with leading zeros for ISO format
+    day = day.padStart(2, '0');
+    month = month.padStart(2, '0');
+    
+    // Return ISO format yyyy-mm-dd
+    return `${year}-${month}-${day}`;
+  };
+
+  const handleBirthdayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target.value;
+    setBirthdayInput(input);
+    
+    // Try to parse the input
+    const parsed = parseBirthday(input);
+    if (parsed) {
+      setNewPatient({ ...newPatient, birthday: parsed });
+    } else if (input.trim() === "") {
+      // Clear if empty
+      setNewPatient({ ...newPatient, birthday: "" });
+    }
+    // If input exists but can't be parsed, keep the old value in newPatient.birthday
+    // This allows partial typing without clearing the valid date
+  };
 
   // Fetch patients
   const { data: patients = [], isLoading, error } = useQuery<Patient[]>({
@@ -65,6 +126,7 @@ export default function Patients() {
         allergyNotes: "",
         notes: ""
       });
+      setBirthdayInput("");
     },
     onError: (error: any) => {
       toast({
@@ -195,11 +257,18 @@ export default function Patients() {
                   <Label htmlFor="birthday">Birthday *</Label>
                   <Input
                     id="birthday"
-                    type="date"
-                    value={newPatient.birthday}
-                    onChange={(e) => setNewPatient({ ...newPatient, birthday: e.target.value })}
+                    type="text"
+                    placeholder="15.03.95 or 15.03.1995"
+                    value={birthdayInput}
+                    onChange={handleBirthdayChange}
                     data-testid="input-birthday"
+                    className={birthdayInput && !newPatient.birthday ? "border-destructive" : ""}
                   />
+                  {birthdayInput && newPatient.birthday && (
+                    <div className="text-xs text-muted-foreground">
+                      {formatDate(newPatient.birthday)}
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="sex">Sex *</Label>
