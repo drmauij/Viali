@@ -6,7 +6,7 @@ import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
-import { formatDate, formatDateTime } from "@/lib/dateUtils";
+import { formatDate, formatDateTime, formatTime } from "@/lib/dateUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
