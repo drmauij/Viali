@@ -2739,6 +2739,23 @@ If unable to parse any drugs, return:
       }
       
       await storage.removeOrderLine(lineId);
+      
+      // Check if all remaining lines in the order are received
+      const remainingLines = await db
+        .select()
+        .from(orderLines)
+        .where(eq(orderLines.orderId, order.id));
+      
+      // If all remaining lines are received, update order status to 'received'
+      if (remainingLines.length > 0 && remainingLines.every(l => l.received) && order.status !== 'received') {
+        await storage.updateOrderStatus(order.id, 'received');
+      }
+      
+      // If no lines remain, update order status to 'draft'
+      if (remainingLines.length === 0 && order.status !== 'draft') {
+        await storage.updateOrderStatus(order.id, 'draft');
+      }
+      
       res.json({ success: true });
     } catch (error) {
       console.error("Error removing order line:", error);
