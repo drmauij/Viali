@@ -8,6 +8,7 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { formatDate, formatDateTime } from "@/lib/dateUtils";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -376,6 +377,23 @@ export default function Orders() {
       toast({
         title: t('common.error'),
         description: 'Failed to move item to secondary order',
+        variant: "destructive",
+      });
+    },
+  });
+
+  const toggleOfflineWorkedMutation = useMutation({
+    mutationFn: async ({ lineId, offlineWorked }: { lineId: string; offlineWorked: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/order-lines/${lineId}/offline-worked`, { offlineWorked });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+    },
+    onError: () => {
+      toast({
+        title: t('common.error'),
+        description: 'Failed to update offline worked status',
         variant: "destructive",
       });
     },
@@ -1005,6 +1023,20 @@ export default function Orders() {
                     return (
                     <div key={line.id} className="flex flex-col gap-2 p-3 border border-border rounded-lg" data-testid={`order-line-${line.id}`}>
                       <div className="flex items-center gap-3">
+                        {(selectedOrder.status === 'draft' || selectedOrder.status === 'sent') && canEditOrder(selectedOrder) && !line.received && (
+                          <Checkbox
+                            checked={line.offlineWorked || false}
+                            onCheckedChange={(checked) => {
+                              toggleOfflineWorkedMutation.mutate({
+                                lineId: line.id,
+                                offlineWorked: checked === true,
+                              });
+                            }}
+                            data-testid={`offline-worked-${line.id}`}
+                            className="mt-1"
+                            title="Mark as offline worked"
+                          />
+                        )}
                         <div className="flex-1">
                           <p className="font-medium text-foreground">{line.item.name}</p>
                           <div className="flex items-center gap-1.5 mt-1">
