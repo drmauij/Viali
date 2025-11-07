@@ -208,6 +208,7 @@ export const orders = pgTable("orders", {
   status: varchar("status").notNull().default("draft"), // draft, sent, received
   createdBy: varchar("created_by").notNull().references(() => users.id),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }),
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -226,6 +227,7 @@ export const orderLines = pgTable("order_lines", {
   packSize: integer("pack_size").default(1),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }),
+  notes: text("notes"),
   received: boolean("received").default(false),
   receivedAt: timestamp("received_at"),
   receivedBy: varchar("received_by").references(() => users.id),
