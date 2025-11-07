@@ -665,7 +665,19 @@
 .timeline-week-view {
   flex: 1;
   width: 100%;
-  overflow: hidden;
+  position: relative;
+}
+
+.timeline-week-view .react-calendar-timeline {
+  width: 100%;
+  height: 100%;
+}
+
+/* Ensure the sidebar stays fixed during horizontal scroll */
+.timeline-week-view .rct-sidebar {
+  position: sticky;
+  left: 0;
+  z-index: 10;
 }
 
 .timeline-item-active {
