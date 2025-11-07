@@ -265,7 +265,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       // Delay invalidation to allow DayPilot to complete its internal cleanup
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
-      }, 150);
+      }, 500);
       toast({
         title: "Surgery Rescheduled",
         description: "Surgery has been successfully rescheduled.",
@@ -274,7 +274,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     onError: () => {
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
-      }, 150);
+      }, 500);
       toast({
         title: "Reschedule Failed",
         description: "Failed to reschedule surgery. Please try again.",
@@ -362,7 +362,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       // Delay invalidation to allow DayPilot to complete its internal cleanup
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
-      }, 150);
+      }, 500);
       toast({
         title: "Surgery Duration Updated",
         description: "Surgery duration has been updated successfully.",
@@ -370,7 +370,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     }).catch(() => {
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
-      }, 150);
+      }, 500);
       toast({
         title: "Update Failed",
         description: "Failed to update surgery duration. Please try again.",
