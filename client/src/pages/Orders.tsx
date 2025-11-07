@@ -175,6 +175,7 @@ export default function Orders() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/open-items/${activeHospital?.id}`, activeHospital?.unitId] });
       setEditingLineId(null);
       toast({
         title: t('orders.orderUpdated'),
@@ -197,6 +198,7 @@ export default function Orders() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/open-items/${activeHospital?.id}`, activeHospital?.unitId] });
       toast({
         title: t('orders.itemRemoved'),
         description: t('orders.itemRemovedSuccess'),
@@ -218,6 +220,7 @@ export default function Orders() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/open-items/${activeHospital?.id}`, activeHospital?.unitId] });
       setEditOrderDialogOpen(false);
       setSelectedOrder(null);
       toast({
@@ -358,6 +361,7 @@ export default function Orders() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/open-items/${activeHospital?.id}`, activeHospital?.unitId] });
       
       // If main order was deleted, close the dialog to avoid showing stale data
       if (data.mainOrderDeleted) {
