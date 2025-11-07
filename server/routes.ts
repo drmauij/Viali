@@ -2569,13 +2569,17 @@ If unable to parse any drugs, return:
       
       // Verify user has access to this hospital and unit
       const activeUnitId = getActiveUnitIdFromRequest(req);
+      console.log('[Order Notes Update] Active Unit ID from header:', activeUnitId);
+      console.log('[Order Notes Update] Order Unit ID:', order.unitId);
       const unitId = await getUserUnitForHospital(userId, order.hospitalId, activeUnitId);
+      console.log('[Order Notes Update] Resolved Unit ID:', unitId);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
       // Verify user belongs to the same unit as the order
       if (unitId !== order.unitId) {
+        console.log('[Order Notes Update] Unit mismatch! Resolved:', unitId, 'vs Order:', order.unitId);
         return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
       }
       
@@ -2611,13 +2615,17 @@ If unable to parse any drugs, return:
       
       // Verify user has access to this hospital and unit
       const activeUnitId = getActiveUnitIdFromRequest(req);
+      console.log('[Order Line Update] Active Unit ID from header:', activeUnitId);
+      console.log('[Order Line Update] Order Unit ID:', order.unitId);
       const unitId = await getUserUnitForHospital(userId, order.hospitalId, activeUnitId);
+      console.log('[Order Line Update] Resolved Unit ID:', unitId);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
       // Verify user belongs to the same unit as the order
       if (unitId !== order.unitId) {
+        console.log('[Order Line Update] Unit mismatch! Resolved:', unitId, 'vs Order:', order.unitId);
         return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
       }
       
@@ -2672,13 +2680,17 @@ If unable to parse any drugs, return:
       
       // Verify user has access to this hospital and unit
       const activeUnitId = getActiveUnitIdFromRequest(req);
+      console.log('[Move to Secondary] Active Unit ID from header:', activeUnitId);
+      console.log('[Move to Secondary] Order Unit ID:', order.unitId);
       const unitId = await getUserUnitForHospital(userId, order.hospitalId, activeUnitId);
+      console.log('[Move to Secondary] Resolved Unit ID:', unitId);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
       // Verify user belongs to the same unit as the order
       if (unitId !== order.unitId) {
+        console.log('[Move to Secondary] Unit mismatch! Resolved:', unitId, 'vs Order:', order.unitId);
         return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
       }
       
