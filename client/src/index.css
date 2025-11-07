@@ -591,6 +591,135 @@
   min-height: 32px;
 }
 
+/* React Calendar Timeline Styling */
+.react-calendar-timeline {
+  border: none !important;
+}
+
+.react-calendar-timeline .rct-header-root {
+  background-color: var(--background);
+  border-color: hsl(215, 25%, 90%);
+}
+
+.react-calendar-timeline .rct-sidebar {
+  background-color: var(--background);
+  border-color: hsl(215, 25%, 90%);
+}
+
+.react-calendar-timeline .rct-sidebar-row {
+  background-color: var(--background);
+  border-color: hsl(215, 25%, 90%);
+  color: var(--foreground);
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.react-calendar-timeline .rct-dateHeader {
+  background-color: var(--background);
+  border-color: hsl(215, 25%, 90%);
+  color: var(--foreground);
+  font-weight: 600;
+  text-align: center;
+}
+
+.react-calendar-timeline .rct-calendar-header {
+  border-color: hsl(215, 25%, 90%);
+}
+
+.react-calendar-timeline .rct-horizontal-lines {
+  border-color: hsl(215, 25%, 90%);
+}
+
+.react-calendar-timeline .rct-vl {
+  border-left-color: hsl(215, 25%, 90%);
+}
+
+.timeline-sidebar-header {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-weight: 600;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 90px;
+  border-bottom: 1px solid hsl(215, 25%, 90%);
+}
+
+.timeline-week-view {
+  height: 100%;
+  width: 100%;
+}
+
+.timeline-item-active {
+  background-color: hsl(250, 80%, 60%);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.timeline-item-active:hover {
+  background-color: hsl(250, 80%, 55%);
+  transform: scale(1.02);
+}
+
+.timeline-item-cancelled {
+  background-color: hsl(0, 0%, 60%);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  opacity: 0.6;
+  text-decoration: line-through;
+  cursor: pointer;
+}
+
+/* Dark mode for timeline */
+[data-theme="dark"] .react-calendar-timeline .rct-header-root {
+  background-color: hsl(215, 28%, 12%);
+  border-color: hsl(215, 25%, 18%);
+}
+
+[data-theme="dark"] .react-calendar-timeline .rct-sidebar {
+  background-color: hsl(215, 28%, 12%);
+  border-color: hsl(215, 25%, 18%);
+}
+
+[data-theme="dark"] .react-calendar-timeline .rct-sidebar-row {
+  background-color: hsl(215, 28%, 12%);
+  border-color: hsl(215, 25%, 18%);
+  color: hsl(210, 20%, 92%);
+}
+
+[data-theme="dark"] .react-calendar-timeline .rct-dateHeader {
+  background-color: hsl(215, 28%, 12%);
+  border-color: hsl(215, 25%, 18%);
+  color: hsl(210, 20%, 92%);
+}
+
+[data-theme="dark"] .react-calendar-timeline .rct-calendar-header {
+  border-color: hsl(215, 25%, 18%);
+}
+
+[data-theme="dark"] .react-calendar-timeline .rct-horizontal-lines {
+  border-color: hsl(215, 25%, 18%);
+}
+
+[data-theme="dark"] .react-calendar-timeline .rct-vl {
+  border-left-color: hsl(215, 25%, 18%);
+}
+
+[data-theme="dark"] .timeline-sidebar-header {
+  background-color: hsl(215, 28%, 12%);
+  color: hsl(210, 20%, 92%);
+  border-bottom-color: hsl(215, 25%, 18%);
+}
+
 /* React Big Calendar Dark Theme */
 [data-theme="dark"] .rbc-calendar {
   background-color: hsl(215, 28%, 12%);

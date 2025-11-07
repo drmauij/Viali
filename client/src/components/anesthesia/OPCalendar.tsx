@@ -12,6 +12,7 @@ import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import QuickCreateSurgeryDialog from "./QuickCreateSurgeryDialog";
+import TimelineWeekView from "./TimelineWeekView";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 
@@ -479,39 +480,75 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       {/* Calendar */}
       {surgeryRooms.length > 0 && (
         <div className="flex-1 min-h-0 px-4 pb-4 calendar-container">
-          <DragAndDropCalendar
-            localizer={localizer}
-            events={calendarEvents}
-            resources={currentView === "day" || currentView === "week" ? resources : undefined}
-            resourceIdAccessor="id"
-            resourceTitleAccessor="title"
-            startAccessor="start"
-            endAccessor="end"
-            resourceAccessor="resource"
-            view={currentView}
-            date={selectedDate}
-            onNavigate={setSelectedDate}
-            onView={(view: View) => setCurrentView(view as ViewType)}
-            onSelectSlot={handleSelectSlot}
-            onSelectEvent={handleSelectEvent}
-            onEventDrop={handleEventDrop}
-            onEventResize={handleEventResize}
-            eventPropGetter={eventStyleGetter}
-            formats={formats}
-            components={{
-              event: EventComponent,
-              toolbar: () => null,
-            }}
-            selectable
-            resizable
-            step={10}
-            timeslots={6}
-            min={new Date(0, 0, 0, 6, 0, 0)}
-            max={new Date(0, 0, 0, 20, 0, 0)}
-            style={{ height: '100%' }}
-            popup
-            data-testid="calendar-main"
-          />
+          {currentView === "week" ? (
+            <TimelineWeekView
+              surgeryRooms={surgeryRooms}
+              surgeries={surgeries}
+              selectedDate={selectedDate}
+              onEventClick={(surgeryId) => {
+                const surgery = surgeries.find(s => s.id === surgeryId);
+                if (surgery && onEventClick) {
+                  onEventClick(surgery.id);
+                }
+              }}
+              onEventDrop={async (surgeryId, newStart, newEnd, newRoomId) => {
+                try {
+                  await apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
+                    plannedDate: newStart.toISOString(),
+                    actualEndTime: newEnd.toISOString(),
+                    surgeryRoomId: newRoomId,
+                  });
+                  queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
+                  toast({
+                    title: "Surgery Rescheduled",
+                    description: "Surgery has been successfully rescheduled.",
+                  });
+                } catch (error) {
+                  console.error('Failed to update surgery:', error);
+                  queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
+                  toast({
+                    title: "Error",
+                    description: "Failed to reschedule surgery. Please try again.",
+                    variant: "destructive",
+                  });
+                }
+              }}
+            />
+          ) : (
+            <DragAndDropCalendar
+              localizer={localizer}
+              events={calendarEvents}
+              resources={currentView === "day" ? resources : undefined}
+              resourceIdAccessor="id"
+              resourceTitleAccessor="title"
+              startAccessor="start"
+              endAccessor="end"
+              resourceAccessor="resource"
+              view={currentView}
+              date={selectedDate}
+              onNavigate={setSelectedDate}
+              onView={(view: View) => setCurrentView(view as ViewType)}
+              onSelectSlot={handleSelectSlot}
+              onSelectEvent={handleSelectEvent}
+              onEventDrop={handleEventDrop}
+              onEventResize={handleEventResize}
+              eventPropGetter={eventStyleGetter}
+              formats={formats}
+              components={{
+                event: EventComponent,
+                toolbar: () => null,
+              }}
+              selectable
+              resizable
+              step={10}
+              timeslots={6}
+              min={new Date(0, 0, 0, 6, 0, 0)}
+              max={new Date(0, 0, 0, 20, 0, 0)}
+              style={{ height: '100%' }}
+              popup
+              data-testid="calendar-main"
+            />
+          )}
         </div>
       )}
 
