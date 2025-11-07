@@ -83,6 +83,15 @@ export default function Orders() {
   const [receiveSignature, setReceiveSignature] = useState("");
   const [showReceiveSignaturePad, setShowReceiveSignaturePad] = useState(false);
 
+  // Auto-select handler for number inputs (with workaround for browser compatibility)
+  const handleNumberInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    // Use setTimeout to ensure selection happens after focus is complete
+    // This is necessary for type="number" inputs in some browsers
+    setTimeout(() => {
+      e.target.select();
+    }, 0);
+  };
+
   const { data: orders = [], isLoading } = useQuery<OrderWithDetails[]>({
     queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId],
     enabled: !!activeHospital?.id,
@@ -1122,6 +1131,8 @@ export default function Orders() {
                                 min="1"
                                 value={editQty}
                                 onChange={(e) => setEditQty(Number(e.target.value))}
+                                onFocus={handleNumberInputFocus}
+                                autoFocus
                                 className="w-20 px-2 py-1 border border-border rounded text-center bg-background text-foreground"
                                 data-testid={`qty-input-${line.id}`}
                               />
