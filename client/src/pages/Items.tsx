@@ -2074,7 +2074,7 @@ export default function Items() {
                                           -1
                                         </button>
                                       )}
-                                      {currentQty <= (item.minThreshold || 0) && (
+                                      {currentQty <= (item.minThreshold || 0) && currentQty < (item.maxThreshold || Infinity) && (
                                         openOrderItems[item.id] ? (
                                           <button
                                             disabled
@@ -2283,16 +2283,18 @@ export default function Items() {
                             -1
                           </Button>
                         )}
-                        {openOrderItems[item.id] ? (
-                          <Button variant="outline" size="sm" disabled data-testid={`quick-ordered-${item.id}`}>
-                            <i className="fas fa-check mr-1"></i>
-                            {t('items.quickOrdered', { count: openOrderItems[item.id].totalQty })}
-                          </Button>
-                        ) : (
-                          <Button variant="outline" size="sm" onClick={(e) => handleQuickOrder(e, item)} data-testid={`quick-order-${item.id}`}>
-                            <i className="fas fa-bolt mr-1"></i>
-                            {t('items.quickOrder')}
-                          </Button>
+                        {currentQty <= (item.minThreshold || 0) && currentQty < (item.maxThreshold || Infinity) && (
+                          openOrderItems[item.id] ? (
+                            <Button variant="outline" size="sm" disabled data-testid={`quick-ordered-${item.id}`}>
+                              <i className="fas fa-check mr-1"></i>
+                              {t('items.quickOrdered', { count: openOrderItems[item.id].totalQty })}
+                            </Button>
+                          ) : (
+                            <Button variant="outline" size="sm" onClick={(e) => handleQuickOrder(e, item)} data-testid={`quick-order-${item.id}`}>
+                              <i className="fas fa-bolt mr-1"></i>
+                              {t('items.quickOrder')}
+                            </Button>
+                          )
                         )}
                       </div>
                     </>
