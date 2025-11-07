@@ -228,6 +228,7 @@ export const orderLines = pgTable("order_lines", {
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }),
   totalPrice: decimal("total_price", { precision: 10, scale: 2 }),
   notes: text("notes"),
+  offlineWorked: boolean("offline_worked").default(false),
   received: boolean("received").default(false),
   receivedAt: timestamp("received_at"),
   receivedBy: varchar("received_by").references(() => users.id),
