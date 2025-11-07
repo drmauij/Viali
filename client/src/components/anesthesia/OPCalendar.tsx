@@ -17,7 +17,7 @@ import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 const localizer = momentLocalizer(moment);
 const DragAndDropCalendar = withDragAndDrop(Calendar);
 
-type ViewType = "day" | "week" | "month";
+type ViewType = "day" | "week" | "month" | "agenda";
 
 interface OPCalendarProps {
   onEventClick?: (caseId: string) => void;
@@ -383,6 +383,15 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             <CalendarRange className="h-4 w-4 mr-1" />
             Month
           </Button>
+          <Button
+            variant={currentView === "agenda" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setCurrentView("agenda")}
+            data-testid="button-view-agenda"
+          >
+            <i className="fas fa-list mr-1"></i>
+            Agenda
+          </Button>
         </div>
       </div>
 
@@ -446,6 +455,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             eventPropGetter={eventStyleGetter}
             components={{
               event: EventComponent,
+              toolbar: () => null,
             }}
             selectable
             resizable
