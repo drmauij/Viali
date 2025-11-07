@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { DayPilot, DayPilotCalendar, DayPilotMonth } from "@daypilot/daypilot-lite-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,6 +24,11 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   const activeHospital = useActiveHospital();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  
+  // Refs for DayPilot calendar instances to prevent remounting during updates
+  const dayCalendarRef = useRef<DayPilot.Calendar | null>(null);
+  const weekCalendarRef = useRef<DayPilot.Calendar | null>(null);
+  const monthCalendarRef = useRef<DayPilot.Month | null>(null);
   
   // Quick create dialog state
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
@@ -242,10 +247,10 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     }));
   }, [surgeryRooms]);
 
-  const handleEventClick = (args: any) => {
+  const handleEventClick = useCallback((args: any) => {
     // Open edit dialog when clicking on event
     setEditingSurgeryId(args.e.id());
-  };
+  }, []);
 
   // Mutation for rescheduling surgery
   const rescheduleMutation = useMutation({
@@ -321,7 +326,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     },
   });
 
-  const handleEventMove = (args: any) => {
+  const handleEventMove = useCallback((args: any) => {
     const surgeryId = args.e.id();
     const newStart = args.newStart.toDate ? args.newStart.toDate() : new Date(args.newStart);
     const newRoomId = args.newResource || args.e.resource();
@@ -331,9 +336,9 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       plannedDate: newStart,
       surgeryRoomId: newRoomId,
     });
-  };
+  }, [rescheduleMutation]);
 
-  const handleEventResize = (args: any) => {
+  const handleEventResize = useCallback((args: any) => {
     const surgeryId = args.e.id();
     const newStart = args.newStart.toDate ? args.newStart.toDate() : new Date(args.newStart);
     const newEnd = args.newEnd.toDate ? args.newEnd.toDate() : new Date(args.newEnd);
@@ -356,9 +361,9 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         variant: "destructive",
       });
     });
-  };
+  }, [toast]);
 
-  const handleDayClick = (args: any) => {
+  const handleDayClick = useCallback((args: any) => {
     // Zoom to day view when clicking a day in month or week view
     if (currentView === "month" || currentView === "week") {
       // DayPilot passes the date in args.start - need to convert DayPilot.Date to JS Date
@@ -366,9 +371,9 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       setSelectedDate(selectedDay);
       setCurrentView("day");
     }
-  };
+  }, [currentView]);
 
-  const handleTimeRangeSelect = (args: any) => {
+  const handleTimeRangeSelect = useCallback((args: any) => {
     if (currentView === "day") {
       // DayPilot passes dates in local timezone as "YYYY-MM-DDTHH:mm:ss"
       // We need to parse this as local time, not UTC
@@ -384,7 +389,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       setQuickCreateData({ date: startDate, endDate, roomId });
       setQuickCreateOpen(true);
     }
-  };
+  }, [currentView]);
 
 
   const goToToday = () => {
@@ -566,6 +571,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           {currentView === "day" && (
           <div style={{ touchAction: 'pan-y' }}>
             <DayPilotCalendar
+              controlRef={dayCalendarRef}
               viewType="Resources"
               startDate={selectedDate.toISOString().split('T')[0]}
               days={1}
@@ -593,6 +599,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
 
         {currentView === "week" && (
           <DayPilotCalendar
+            controlRef={weekCalendarRef}
             viewType="Week"
             startDate={selectedDate.toISOString().split('T')[0]}
             days={7}
@@ -614,6 +621,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
 
         {currentView === "month" && (
           <DayPilotMonth
+            controlRef={monthCalendarRef}
             startDate={selectedDate.toISOString().split('T')[0]}
             events={calendarEvents}
             onEventClick={handleEventClick}
