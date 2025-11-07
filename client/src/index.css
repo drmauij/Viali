@@ -646,15 +646,26 @@
   border-bottom: 1px solid hsl(215, 25%, 90%);
 }
 
-.timeline-week-view {
+.timeline-week-view-container {
   height: 100%;
   width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-.timeline-week-view .react-calendar-timeline {
-  min-width: 1400px;
+.timeline-zoom-controls {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  background-color: var(--background);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.timeline-week-view {
+  flex: 1;
+  width: 100%;
+  overflow: hidden;
 }
 
 .timeline-item-active {

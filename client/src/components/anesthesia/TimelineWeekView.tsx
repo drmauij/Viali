@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect } from "react";
+import { useMemo, useRef, useEffect, useState } from "react";
 import Timeline, {
   TimelineHeaders,
   SidebarHeader,
@@ -9,6 +9,8 @@ import Timeline, {
 import "react-calendar-timeline/style.css";
 import moment from "moment";
 import "moment/locale/en-gb";
+import { Button } from "@/components/ui/button";
+import { ZoomIn, ZoomOut } from "lucide-react";
 
 moment.locale('en-gb');
 
@@ -39,12 +41,48 @@ export default function TimelineWeekView({
   // Track current state (room, times) to avoid race conditions
   const currentStateRef = useRef<Map<string, { roomId: string; start: Date; end: Date }>>(new Map());
 
+  // Zoom state - start with 2 days visible
+  const [visibleTimeStart, setVisibleTimeStart] = useState<number>(0);
+  const [visibleTimeEnd, setVisibleTimeEnd] = useState<number>(0);
+
   // Calculate week start (Monday) and end (Sunday)
   const weekRange = useMemo(() => {
     const start = moment(selectedDate).startOf('isoWeek'); // Monday
     const end = moment(selectedDate).endOf('isoWeek'); // Sunday
     return { start, end };
   }, [selectedDate]);
+
+  // Initialize visible time to show 2 days centered on today
+  useEffect(() => {
+    const start = weekRange.start.clone();
+    const end = start.clone().add(2, 'days');
+    setVisibleTimeStart(start.valueOf());
+    setVisibleTimeEnd(end.valueOf());
+  }, [weekRange]);
+
+  // Zoom handlers
+  const handleZoomIn = () => {
+    const center = (visibleTimeStart + visibleTimeEnd) / 2;
+    const currentRange = visibleTimeEnd - visibleTimeStart;
+    const newRange = currentRange * 0.7; // Zoom in by 30%
+    setVisibleTimeStart(center - newRange / 2);
+    setVisibleTimeEnd(center + newRange / 2);
+  };
+
+  const handleZoomOut = () => {
+    const center = (visibleTimeStart + visibleTimeEnd) / 2;
+    const currentRange = visibleTimeEnd - visibleTimeStart;
+    const newRange = Math.min(currentRange * 1.3, weekRange.end.valueOf() - weekRange.start.valueOf());
+    const newStart = Math.max(center - newRange / 2, weekRange.start.valueOf());
+    const newEnd = Math.min(center + newRange / 2, weekRange.end.valueOf());
+    setVisibleTimeStart(newStart);
+    setVisibleTimeEnd(newEnd);
+  };
+
+  const handleTimeChange = (visibleStart: number, visibleEnd: number) => {
+    setVisibleTimeStart(visibleStart);
+    setVisibleTimeEnd(visibleEnd);
+  };
 
   // Initialize state from surgeries
   useEffect(() => {
@@ -161,26 +199,56 @@ export default function TimelineWeekView({
     onEventDrop(id, finalStart, finalEnd, roomId);
   };
 
+  if (!visibleTimeStart || !visibleTimeEnd) {
+    return <div className="timeline-week-view">Loading...</div>;
+  }
+
   return (
-    <div className="timeline-week-view" data-testid="timeline-week-view">
-      <Timeline
-        groups={groups}
-        items={items}
-        defaultTimeStart={weekRange.start.valueOf()}
-        defaultTimeEnd={weekRange.end.valueOf()}
-        canMove={true}
-        canResize="both"
-        canChangeGroup={true}
-        onItemMove={handleItemMove}
-        onItemResize={handleItemResize}
-        lineHeight={60}
-        itemHeightRatio={0.8}
-        minZoom={2 * 60 * 60 * 1000}
-        maxZoom={24 * 60 * 60 * 1000}
-        sidebarWidth={180}
-        stackItems={true}
-        buffer={1}
-      >
+    <div className="timeline-week-view-container">
+      <div className="timeline-zoom-controls" data-testid="timeline-zoom-controls">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleZoomIn}
+          data-testid="button-zoom-in"
+          className="gap-2"
+        >
+          <ZoomIn className="h-4 w-4" />
+          Zoom In
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleZoomOut}
+          data-testid="button-zoom-out"
+          className="gap-2"
+        >
+          <ZoomOut className="h-4 w-4" />
+          Zoom Out
+        </Button>
+      </div>
+      <div className="timeline-week-view" data-testid="timeline-week-view">
+        <Timeline
+          groups={groups}
+          items={items}
+          defaultTimeStart={weekRange.start.valueOf()}
+          defaultTimeEnd={weekRange.end.valueOf()}
+          visibleTimeStart={visibleTimeStart}
+          visibleTimeEnd={visibleTimeEnd}
+          onTimeChange={handleTimeChange}
+          canMove={true}
+          canResize="both"
+          canChangeGroup={true}
+          onItemMove={handleItemMove}
+          onItemResize={handleItemResize}
+          lineHeight={60}
+          itemHeightRatio={0.8}
+          minZoom={30 * 60 * 1000}
+          maxZoom={7 * 24 * 60 * 60 * 1000}
+          sidebarWidth={180}
+          stackItems={true}
+          buffer={1}
+        >
         <TimelineHeaders>
           <SidebarHeader>
             {({ getRootProps }) => (
@@ -207,6 +275,7 @@ export default function TimelineWeekView({
           />
         </TimelineHeaders>
       </Timeline>
+      </div>
     </div>
   );
 }
