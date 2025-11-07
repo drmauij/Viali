@@ -387,15 +387,49 @@ export default function Orders() {
       const response = await apiRequest("PATCH", `/api/order-lines/${lineId}/offline-worked`, { offlineWorked });
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+    onMutate: async ({ lineId, offlineWorked }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+      
+      // Snapshot the previous value
+      const previousOrders = queryClient.getQueryData<OrderWithDetails[]>([`/api/orders/${activeHospital?.id}`, activeHospital?.unitId]);
+      
+      // Optimistically update to the new value
+      queryClient.setQueryData<OrderWithDetails[]>(
+        [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId],
+        (old) => {
+          if (!old) return old;
+          return old.map(order => ({
+            ...order,
+            orderLines: order.orderLines.map(line => 
+              line.id === lineId 
+                ? { ...line, offlineWorked } 
+                : line
+            ),
+          }));
+        }
+      );
+      
+      // Return context with snapshot
+      return { previousOrders };
     },
-    onError: () => {
+    onError: (_error, _variables, context) => {
+      // Rollback to previous value on error
+      if (context?.previousOrders) {
+        queryClient.setQueryData(
+          [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId],
+          context.previousOrders
+        );
+      }
       toast({
         title: t('common.error'),
         description: 'Failed to update offline worked status',
         variant: "destructive",
       });
+    },
+    onSettled: () => {
+      // Sync with server after mutation
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
     },
   });
 
