@@ -1,5 +1,17 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+function getActiveUnitId(): string | null {
+  const activeHospitalKey = localStorage.getItem('activeHospital');
+  if (!activeHospitalKey) return null;
+  
+  // activeHospitalKey format: "hospitalId-unitId-role"
+  const parts = activeHospitalKey.split('-');
+  if (parts.length >= 2) {
+    return parts[1]; // Return unitId
+  }
+  return null;
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -29,9 +41,17 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  const headers: Record<string, string> = data ? { "Content-Type": "application/json" } : {};
+  
+  // Add active unit ID header if available
+  const activeUnitId = getActiveUnitId();
+  if (activeUnitId) {
+    headers["X-Active-Unit-Id"] = activeUnitId;
+  }
+  
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -46,7 +66,16 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
+    const headers: Record<string, string> = {};
+    
+    // Add active unit ID header if available
+    const activeUnitId = getActiveUnitId();
+    if (activeUnitId) {
+      headers["X-Active-Unit-Id"] = activeUnitId;
+    }
+    
     const res = await fetch(queryKey[0] as string, {
+      headers,
       credentials: "include",
     });
 
