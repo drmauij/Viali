@@ -331,24 +331,17 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     },
   });
 
-  const handleEventMove = useCallback(async (args: any) => {
-    // Enable async mode to prevent immediate re-render
-    args.async = true;
-    
+  const handleEventMove = useCallback((args: any) => {
     const surgeryId = args.e.id();
     const newStart = args.newStart.toDate ? args.newStart.toDate() : new Date(args.newStart);
     const newRoomId = args.newResource || args.e.resource();
     
-    try {
-      await apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
-        plannedDate: newStart.toISOString(),
-        surgeryRoomId: newRoomId,
-      });
-      
-      // Tell DayPilot the operation succeeded
-      args.loaded();
-      
-      // Delay query invalidation to prevent re-render during DayPilot cleanup
+    // Make the API call without triggering React re-renders
+    apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
+      plannedDate: newStart.toISOString(),
+      surgeryRoomId: newRoomId,
+    }).then(() => {
+      // Delay query invalidation to prevent re-render during drag operation
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
       }, 500);
@@ -357,10 +350,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         title: "Surgery Rescheduled",
         description: "Surgery has been successfully rescheduled.",
       });
-    } catch (error) {
-      // Tell DayPilot the operation failed (it will revert the event position)
-      args.failed();
-      
+    }).catch(() => {
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
       }, 500);
@@ -370,27 +360,20 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         description: "Failed to reschedule surgery. Please try again.",
         variant: "destructive",
       });
-    }
+    });
   }, [toast]);
 
-  const handleEventResize = useCallback(async (args: any) => {
-    // Enable async mode to prevent immediate re-render
-    args.async = true;
-    
+  const handleEventResize = useCallback((args: any) => {
     const surgeryId = args.e.id();
     const newStart = args.newStart.toDate ? args.newStart.toDate() : new Date(args.newStart);
     const newEnd = args.newEnd.toDate ? args.newEnd.toDate() : new Date(args.newEnd);
     
-    try {
-      await apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
-        plannedDate: newStart.toISOString(),
-        actualEndTime: newEnd.toISOString(),
-      });
-      
-      // Tell DayPilot the operation succeeded
-      args.loaded();
-      
-      // Delay query invalidation to prevent re-render during DayPilot cleanup
+    // Make the API call without triggering React re-renders
+    apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
+      plannedDate: newStart.toISOString(),
+      actualEndTime: newEnd.toISOString(),
+    }).then(() => {
+      // Delay query invalidation to prevent re-render during drag operation
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
       }, 500);
@@ -399,10 +382,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         title: "Surgery Duration Updated",
         description: "Surgery duration has been updated successfully.",
       });
-    } catch (error) {
-      // Tell DayPilot the operation failed (it will revert the event size)
-      args.failed();
-      
+    }).catch(() => {
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
       }, 500);
@@ -412,7 +392,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         description: "Failed to update surgery duration. Please try again.",
         variant: "destructive",
       });
-    }
+    });
   }, [toast]);
 
   const handleDayClick = useCallback((args: any) => {
