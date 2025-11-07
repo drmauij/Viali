@@ -555,6 +555,7 @@ export class DatabaseStorage implements IStorage {
             receivedBy: orderLines.receivedBy,
             receiveNotes: orderLines.receiveNotes,
             receiveSignature: orderLines.receiveSignature,
+            notes: orderLines.notes,
             item: items,
             hospitalUnit: units,
             stockLevel: stockLevels,
@@ -581,6 +582,7 @@ export class DatabaseStorage implements IStorage {
             receivedBy: line.receivedBy,
             receiveNotes: line.receiveNotes,
             receiveSignature: line.receiveSignature,
+            notes: line.notes,
             item: {
               ...line.item,
               hospitalUnit: line.hospitalUnit,
