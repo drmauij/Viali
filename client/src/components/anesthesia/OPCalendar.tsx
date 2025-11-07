@@ -336,25 +336,16 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     const newStart = args.newStart.toDate ? args.newStart.toDate() : new Date(args.newStart);
     const newRoomId = args.newResource || args.e.resource();
     
-    // Make the API call without triggering React re-renders
+    // Make the API call silently - DO NOT invalidate queries to prevent re-renders
     apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
       plannedDate: newStart.toISOString(),
       surgeryRoomId: newRoomId,
     }).then(() => {
-      // Delay query invalidation to prevent re-render during drag operation
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
-      }, 500);
-      
-      toast({
-        title: "Surgery Rescheduled",
-        description: "Surgery has been successfully rescheduled.",
-      });
+      // Success - event is already visually moved by DayPilot
+      // Data will refresh when user navigates away or on next data fetch
     }).catch(() => {
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
-      }, 500);
-      
+      // On error, force refresh to revert the visual change
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
       toast({
         title: "Reschedule Failed",
         description: "Failed to reschedule surgery. Please try again.",
@@ -368,25 +359,16 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     const newStart = args.newStart.toDate ? args.newStart.toDate() : new Date(args.newStart);
     const newEnd = args.newEnd.toDate ? args.newEnd.toDate() : new Date(args.newEnd);
     
-    // Make the API call without triggering React re-renders
+    // Make the API call silently - DO NOT invalidate queries to prevent re-renders
     apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
       plannedDate: newStart.toISOString(),
       actualEndTime: newEnd.toISOString(),
     }).then(() => {
-      // Delay query invalidation to prevent re-render during drag operation
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
-      }, 500);
-      
-      toast({
-        title: "Surgery Duration Updated",
-        description: "Surgery duration has been updated successfully.",
-      });
+      // Success - event is already visually resized by DayPilot
+      // Data will refresh when user navigates away or on next data fetch
     }).catch(() => {
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
-      }, 500);
-      
+      // On error, force refresh to revert the visual change
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
       toast({
         title: "Update Failed",
         description: "Failed to update surgery duration. Please try again.",
