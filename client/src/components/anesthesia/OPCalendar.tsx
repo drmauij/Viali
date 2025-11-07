@@ -632,7 +632,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           {currentView === "day" && (
           <div style={{ touchAction: 'pan-y' }}>
             <DayPilotCalendar
-              controlRef={(ref) => {
+              controlRef={(ref: DayPilot.Calendar) => {
                 dayCalendarRef.current = ref;
                 // Hydrate calendar immediately on mount (uncontrolled component pattern)
                 if (ref) {
@@ -667,7 +667,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
 
         {currentView === "week" && (
           <DayPilotCalendar
-            controlRef={(ref) => {
+            controlRef={(ref: DayPilot.Calendar) => {
               weekCalendarRef.current = ref;
               // Hydrate calendar immediately on mount (uncontrolled component pattern)
               if (ref) {
@@ -701,7 +701,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
 
         {currentView === "month" && (
           <DayPilotMonth
-            controlRef={(ref) => {
+            controlRef={(ref: DayPilot.Month) => {
               monthCalendarRef.current = ref;
               // Hydrate calendar immediately on mount (uncontrolled component pattern)
               if (ref) {
