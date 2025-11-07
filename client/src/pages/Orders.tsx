@@ -899,15 +899,48 @@ export default function Orders() {
                               <p className="text-xs text-muted-foreground">{displayUnit}</p>
                             </div>
                             {selectedOrder.status === 'sent' && canEditOrder(selectedOrder) && (
-                              <Button
-                                size="sm"
-                                variant="default"
-                                onClick={() => handleReceiveLine(line)}
-                                data-testid={`receive-line-${line.id}`}
-                              >
-                                <i className="fas fa-check mr-1"></i>
-                                Receive
-                              </Button>
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setEditingLineId(line.id);
+                                    setEditQty(line.qty);
+                                  }}
+                                  data-testid={`edit-qty-${line.id}`}
+                                  title="Edit quantity"
+                                >
+                                  <i className="fas fa-edit"></i>
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => {
+                                    if (line.item.controlled) {
+                                      handleReceiveLine(line);
+                                    } else {
+                                      receiveLineMutation.mutate({
+                                        lineId: line.id,
+                                      });
+                                    }
+                                  }}
+                                  disabled={receiveLineMutation.isPending}
+                                  data-testid={`receive-line-${line.id}`}
+                                  title={line.item.controlled ? "Receive (requires signature)" : "Receive item"}
+                                >
+                                  <i className="fas fa-check"></i>
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => handleRemoveItem(line.id)}
+                                  disabled={removeOrderLineMutation.isPending}
+                                  data-testid={`remove-item-${line.id}`}
+                                  title="Remove item"
+                                >
+                                  <i className="fas fa-trash"></i>
+                                </Button>
+                              </>
                             )}
                             {selectedOrder.status === 'draft' && canEditOrder(selectedOrder) && (
                               <>
