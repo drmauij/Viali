@@ -2541,15 +2541,46 @@ If unable to parse any drugs, return:
     }
   });
 
+  app.patch('/api/orders/:orderId/notes', isAuthenticated, async (req: any, res) => {
+    try {
+      const { orderId } = req.params;
+      const { notes } = req.body;
+      const userId = req.user.id;
+      
+      // Get order to verify access
+      const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      // Verify user has access to this hospital and unit
+      const unitId = await getUserUnitForHospital(userId, order.hospitalId);
+      if (!unitId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Verify user belongs to the same unit as the order
+      if (unitId !== order.unitId) {
+        return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
+      }
+      
+      // Update order notes
+      await db.update(orders).set({ notes }).where(eq(orders.id, orderId));
+      
+      // Return updated order
+      const [updatedOrder] = await db.select().from(orders).where(eq(orders.id, orderId));
+      res.json(updatedOrder);
+    } catch (error) {
+      console.error("Error updating order notes:", error);
+      res.status(500).json({ message: "Failed to update order notes" });
+    }
+  });
+
   app.patch('/api/order-lines/:lineId', isAuthenticated, async (req: any, res) => {
     try {
       const { lineId } = req.params;
-      const { qty } = req.body;
+      const { qty, notes } = req.body;
       const userId = req.user.id;
-      
-      if (!qty || qty < 1) {
-        return res.status(400).json({ message: "Valid quantity is required" });
-      }
       
       // Get order line to find associated order
       const [line] = await db.select().from(orderLines).where(eq(orderLines.id, lineId));
@@ -2574,8 +2605,27 @@ If unable to parse any drugs, return:
         return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
       }
       
-      const orderLine = await storage.updateOrderLine(lineId, qty);
-      res.json(orderLine);
+      // Update the order line with qty and/or notes
+      const updates: any = {};
+      if (qty !== undefined) {
+        if (qty < 1) {
+          return res.status(400).json({ message: "Valid quantity is required" });
+        }
+        updates.qty = qty;
+      }
+      if (notes !== undefined) {
+        updates.notes = notes;
+      }
+      
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "No updates provided" });
+      }
+      
+      await db.update(orderLines).set(updates).where(eq(orderLines.id, lineId));
+      
+      // Return updated line
+      const [updatedLine] = await db.select().from(orderLines).where(eq(orderLines.id, lineId));
+      res.json(updatedLine);
     } catch (error) {
       console.error("Error updating order line:", error);
       res.status(500).json({ message: "Failed to update order line" });
