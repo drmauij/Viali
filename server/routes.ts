@@ -2568,7 +2568,8 @@ If unable to parse any drugs, return:
       }
       
       // Verify user has access to this hospital and unit
-      const unitId = await getUserUnitForHospital(userId, order.hospitalId);
+      const activeUnitId = getActiveUnitIdFromRequest(req);
+      const unitId = await getUserUnitForHospital(userId, order.hospitalId, activeUnitId);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -2609,7 +2610,8 @@ If unable to parse any drugs, return:
       }
       
       // Verify user has access to this hospital and unit
-      const unitId = await getUserUnitForHospital(userId, order.hospitalId);
+      const activeUnitId = getActiveUnitIdFromRequest(req);
+      const unitId = await getUserUnitForHospital(userId, order.hospitalId, activeUnitId);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -2669,7 +2671,8 @@ If unable to parse any drugs, return:
       }
       
       // Verify user has access to this hospital and unit
-      const unitId = await getUserUnitForHospital(userId, order.hospitalId);
+      const activeUnitId = getActiveUnitIdFromRequest(req);
+      const unitId = await getUserUnitForHospital(userId, order.hospitalId, activeUnitId);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -2777,7 +2780,8 @@ If unable to parse any drugs, return:
       }
       
       // Verify user has access to this hospital and unit
-      const unitId = await getUserUnitForHospital(userId, order.hospitalId);
+      const activeUnitId = getActiveUnitIdFromRequest(req);
+      const unitId = await getUserUnitForHospital(userId, order.hospitalId, activeUnitId);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
