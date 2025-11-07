@@ -431,6 +431,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             resourceTitleAccessor="title"
             startAccessor="start"
             endAccessor="end"
+            resourceAccessor="resource"
             view={currentView}
             date={selectedDate}
             onNavigate={setSelectedDate}
@@ -457,16 +458,18 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       )}
 
       {/* Quick Create Surgery Dialog */}
-      {quickCreateOpen && quickCreateData && (
+      {quickCreateOpen && quickCreateData && activeHospital && (
         <QuickCreateSurgeryDialog
           open={quickCreateOpen}
-          onClose={() => {
-            setQuickCreateOpen(false);
-            setQuickCreateData(null);
+          onOpenChange={(open) => {
+            setQuickCreateOpen(open);
+            if (!open) setQuickCreateData(null);
           }}
-          defaultDate={quickCreateData.date}
-          defaultEndDate={quickCreateData.endDate}
-          defaultRoomId={quickCreateData.roomId}
+          hospitalId={activeHospital.id}
+          initialDate={quickCreateData.date}
+          initialEndDate={quickCreateData.endDate}
+          initialRoomId={quickCreateData.roomId}
+          surgeryRooms={surgeryRooms}
         />
       )}
     </div>
