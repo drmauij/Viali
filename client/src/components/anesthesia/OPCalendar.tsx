@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { Calendar, momentLocalizer, View, SlotInfo } from "react-big-calendar";
+import { Calendar, momentLocalizer, View, SlotInfo, CalendarProps, EventProps, EventPropGetter } from "react-big-calendar";
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 import moment from "moment";
 import "moment/locale/en-gb";
@@ -15,17 +15,7 @@ import QuickCreateSurgeryDialog from "./QuickCreateSurgeryDialog";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 
-// Configure moment for European format (British English locale for DD/MM/YYYY, 24-hour time, English labels)
-moment.locale('en-gb');
-const localizer = momentLocalizer(moment);
-const DragAndDropCalendar = withDragAndDrop(Calendar);
-
-type ViewType = "day" | "week" | "month" | "agenda";
-
-interface OPCalendarProps {
-  onEventClick?: (caseId: string) => void;
-}
-
+// Define CalendarEvent and CalendarResource types
 interface CalendarEvent {
   id: string;
   title: string;
@@ -38,6 +28,41 @@ interface CalendarEvent {
   patientName: string;
   patientBirthday: string;
   isCancelled: boolean;
+}
+
+type CalendarResource = {
+  id: string;
+  title: string;
+};
+
+// Configure moment for European format (British English locale for DD/MM/YYYY, 24-hour time, English labels)
+moment.locale('en-gb');
+const localizer = momentLocalizer(moment);
+
+// Explicitly type DragAndDropCalendar with CalendarEvent and CalendarResource
+const DragAndDropCalendar = withDragAndDrop<CalendarEvent, CalendarResource>(
+  Calendar as React.ComponentType<CalendarProps<CalendarEvent, CalendarResource>>
+);
+
+// Custom formats for European date/time display
+const formats = {
+  timeGutterFormat: 'HH:mm',
+  eventTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) => 
+    `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`,
+  agendaTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
+    `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`,
+  dayHeaderFormat: 'dddd DD/MM/YYYY',
+  dayRangeHeaderFormat: ({ start, end }: { start: Date; end: Date }) =>
+    `${moment(start).format('DD/MM/YYYY')} - ${moment(end).format('DD/MM/YYYY')}`,
+  agendaDateFormat: 'DD/MM/YYYY',
+  agendaHeaderFormat: ({ start, end }: { start: Date; end: Date }) =>
+    `${moment(start).format('DD/MM/YYYY')} - ${moment(end).format('DD/MM/YYYY')}`,
+};
+
+type ViewType = "day" | "week" | "month" | "agenda";
+
+interface OPCalendarProps {
+  onEventClick?: (caseId: string) => void;
 }
 
 export default function OPCalendar({ onEventClick }: OPCalendarProps) {
@@ -225,14 +250,14 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   }, [currentView]);
 
   // Handle event click
-  const handleSelectEvent = useCallback((event: CalendarEvent) => {
+  const handleSelectEvent = useCallback((event: CalendarEvent, _e: React.SyntheticEvent) => {
     if (onEventClick) {
       onEventClick(event.surgeryId);
     }
   }, [onEventClick]);
 
   // Custom event style getter
-  const eventStyleGetter = useCallback((event: CalendarEvent) => {
+  const eventStyleGetter: EventPropGetter<CalendarEvent> = useCallback((event: CalendarEvent) => {
     const style: any = {
       backgroundColor: event.isCancelled ? '#9ca3af' : '#3b82f6',
       borderColor: event.isCancelled ? '#6b7280' : '#2563eb',
@@ -248,7 +273,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   }, []);
 
   // Custom event component with action buttons
-  const EventComponent = useCallback(({ event }: { event: CalendarEvent }) => {
+  const EventComponent: React.FC<EventProps<CalendarEvent>> = useCallback(({ event }: EventProps<CalendarEvent>) => {
     return (
       <div className="flex flex-col h-full p-1 relative" data-testid={`event-${event.surgeryId}`}>
         <div className={`font-bold text-xs ${event.isCancelled ? 'line-through' : ''}`}>
@@ -321,7 +346,12 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     if (currentView === "month") {
       return moment(selectedDate).format('MMMM YYYY');
     }
-    return moment(selectedDate).format('dddd, D. MMMM YYYY');
+    if (currentView === "week") {
+      const start = moment(selectedDate).startOf('week');
+      const end = moment(selectedDate).endOf('week');
+      return `${start.format('DD/MM/YYYY')} - ${end.format('DD/MM/YYYY')}`;
+    }
+    return moment(selectedDate).format('DD/MM/YYYY');
   };
 
   return (
@@ -456,6 +486,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             onEventDrop={handleEventDrop}
             onEventResize={handleEventResize}
             eventPropGetter={eventStyleGetter}
+            formats={formats}
             components={{
               event: EventComponent,
               toolbar: () => null,

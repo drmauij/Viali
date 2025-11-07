@@ -552,13 +552,14 @@
 
 /* React Big Calendar Dark Theme */
 [data-theme="dark"] .rbc-calendar {
-  background-color: hsl(215, 25%, 16%);
+  background-color: hsl(215, 28%, 12%);
   color: hsl(210, 20%, 92%);
+  border: none;
 }
 
 [data-theme="dark"] .rbc-header {
-  background-color: hsl(215, 25%, 20%);
-  border-color: hsl(215, 25%, 24%);
+  background-color: hsl(215, 28%, 12%);
+  border-color: hsl(215, 25%, 18%);
   color: hsl(210, 20%, 92%);
   font-weight: 600;
 }
@@ -572,23 +573,23 @@
 }
 
 [data-theme="dark"] .rbc-time-content {
-  border-color: hsl(215, 25%, 24%);
+  border-color: hsl(215, 25%, 18%);
 }
 
 [data-theme="dark"] .rbc-time-slot {
-  border-color: hsl(215, 25%, 22%);
+  border-color: hsl(215, 25%, 18%);
 }
 
 [data-theme="dark"] .rbc-timeslot-group {
-  border-color: hsl(215, 25%, 22%);
+  border-color: hsl(215, 25%, 18%);
 }
 
 [data-theme="dark"] .rbc-day-slot {
-  border-color: hsl(215, 25%, 24%);
+  border-color: hsl(215, 25%, 18%);
 }
 
 [data-theme="dark"] .rbc-time-header-content {
-  border-color: hsl(215, 25%, 24%);
+  border-color: hsl(215, 25%, 18%);
 }
 
 [data-theme="dark"] .rbc-day-bg {
@@ -596,20 +597,21 @@
 }
 
 [data-theme="dark"] .rbc-time-header-gutter {
-  background-color: hsl(215, 25%, 18%);
-  border-color: hsl(215, 25%, 24%);
+  background-color: hsl(215, 28%, 12%);
+  border-color: hsl(215, 25%, 18%);
 }
 
 [data-theme="dark"] .rbc-month-view {
-  border-color: hsl(215, 25%, 24%);
+  border-color: hsl(215, 25%, 18%);
+  border: none;
 }
 
 [data-theme="dark"] .rbc-month-row {
-  border-color: hsl(215, 25%, 24%);
+  border-color: hsl(215, 25%, 18%);
 }
 
 [data-theme="dark"] .rbc-day-bg + .rbc-day-bg {
-  border-color: hsl(215, 25%, 24%);
+  border-color: hsl(215, 25%, 18%);
 }
 
 [data-theme="dark"] .rbc-date-cell {
@@ -630,29 +632,29 @@
 
 [data-theme="dark"] .rbc-agenda-view {
   background-color: hsl(215, 25%, 16%);
-  border-color: hsl(215, 25%, 24%);
+  border-color: hsl(215, 25%, 18%);
 }
 
 [data-theme="dark"] .rbc-agenda-view table {
-  border-color: hsl(215, 25%, 24%);
+  border-color: hsl(215, 25%, 18%);
 }
 
 [data-theme="dark"] .rbc-agenda-table {
-  border-color: hsl(215, 25%, 24%);
+  border-color: hsl(215, 25%, 18%);
 }
 
 [data-theme="dark"] .rbc-agenda-date-cell,
 [data-theme="dark"] .rbc-agenda-time-cell {
-  border-color: hsl(215, 25%, 24%);
-  background-color: hsl(215, 25%, 18%);
+  border-color: hsl(215, 25%, 18%);
+  background-color: hsl(215, 25%, 16%);
 }
 
 [data-theme="dark"] .rbc-agenda-event-cell {
-  border-color: hsl(215, 25%, 24%);
+  border-color: hsl(215, 25%, 18%);
 }
 
 [data-theme="dark"] .rbc-time-content > * + * > * {
-  border-color: hsl(215, 25%, 24%);
+  border-color: hsl(215, 25%, 18%);
 }
 
 [data-theme="dark"] .rbc-selected-cell {
@@ -670,7 +672,7 @@
 }
 
 [data-theme="dark"] .rbc-time-header {
-  background-color: hsl(215, 25%, 18%);
+  background-color: hsl(215, 28%, 12%);
 }
 
 [data-theme="dark"] .rbc-label {
