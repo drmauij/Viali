@@ -71,6 +71,10 @@ export default function Orders() {
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState<number>(1);
   const [lineToRemove, setLineToRemove] = useState<string | null>(null);
+  const [editingOrderNotes, setEditingOrderNotes] = useState(false);
+  const [orderNotes, setOrderNotes] = useState("");
+  const [editingLineNotes, setEditingLineNotes] = useState<string | null>(null);
+  const [lineNotes, setLineNotes] = useState("");
   
   const [showReceiveDialog, setShowReceiveDialog] = useState(false);
   const [selectedLineToReceive, setSelectedLineToReceive] = useState<(OrderLine & { item: Item & { hospitalUnit?: Unit; stockLevel?: StockLevel } }) | null>(null);
@@ -297,6 +301,50 @@ export default function Orders() {
       toast({
         title: "Receive Failed",
         description: "Failed to receive item.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateOrderNotesMutation = useMutation({
+    mutationFn: async ({ orderId, notes }: { orderId: string; notes: string }) => {
+      const response = await apiRequest("PATCH", `/api/orders/${orderId}/notes`, { notes });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+      setEditingOrderNotes(false);
+      toast({
+        title: t('common.success'),
+        description: 'Order notes updated successfully',
+      });
+    },
+    onError: () => {
+      toast({
+        title: t('common.error'),
+        description: 'Failed to update order notes',
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateLineNotesMutation = useMutation({
+    mutationFn: async ({ lineId, notes }: { lineId: string; notes: string }) => {
+      const response = await apiRequest("PATCH", `/api/order-lines/${lineId}`, { notes });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+      setEditingLineNotes(null);
+      toast({
+        title: t('common.success'),
+        description: 'Item notes updated successfully',
+      });
+    },
+    onError: () => {
+      toast({
+        title: t('common.error'),
+        description: 'Failed to update item notes',
         variant: "destructive",
       });
     },
@@ -823,6 +871,75 @@ export default function Orders() {
                 </div>
               </div>
 
+              {/* Order Notes */}
+              {(selectedOrder.status === 'draft' || selectedOrder.status === 'sent') && canEditOrder(selectedOrder) && (
+                <div className="p-3 bg-muted/20 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-foreground">
+                      <i className="fas fa-sticky-note mr-1"></i>
+                      Order Notes
+                    </label>
+                    {!editingOrderNotes && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setEditingOrderNotes(true);
+                          setOrderNotes(selectedOrder.notes || "");
+                        }}
+                        data-testid="edit-order-notes"
+                      >
+                        <i className="fas fa-edit"></i>
+                      </Button>
+                    )}
+                  </div>
+                  {editingOrderNotes ? (
+                    <div className="space-y-2">
+                      <textarea
+                        value={orderNotes}
+                        onChange={(e) => setOrderNotes(e.target.value)}
+                        className="w-full px-3 py-2 border border-border rounded bg-background text-foreground"
+                        rows={3}
+                        placeholder="Add notes for this order..."
+                        data-testid="order-notes-input"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            updateOrderNotesMutation.mutate({
+                              orderId: selectedOrder.id,
+                              notes: orderNotes,
+                            });
+                          }}
+                          disabled={updateOrderNotesMutation.isPending}
+                          data-testid="save-order-notes"
+                        >
+                          <i className="fas fa-check mr-1"></i>
+                          Save
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setEditingOrderNotes(false);
+                            setOrderNotes("");
+                          }}
+                          data-testid="cancel-order-notes"
+                        >
+                          <i className="fas fa-times mr-1"></i>
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                      {selectedOrder.notes || "No notes"}
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div>
                 <h3 className="font-semibold mb-2">{t('orders.orderItems', { count: selectedOrder.orderLines.length })}</h3>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
@@ -835,19 +952,20 @@ export default function Orders() {
                     const displayUnit = line.item.unit;
                     
                     return (
-                    <div key={line.id} className="flex items-center gap-3 p-3 border border-border rounded-lg" data-testid={`order-line-${line.id}`}>
-                      <div className="flex-1">
-                        <p className="font-medium text-foreground">{line.item.name}</p>
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <span className={`text-base font-semibold ${stockStatus.color}`}>
-                            {currentQty}
-                          </span>
-                          <i className={`fas ${normalizedUnit === "Pack" ? "fa-box" : "fa-vial"} text-sm ${stockStatus.color}`}></i>
-                          <span className="text-xs text-muted-foreground">
-                            / {t('orders.min')}: {line.item.minThreshold ?? 0} / {t('orders.max')}: {line.item.maxThreshold ?? 0}
-                          </span>
+                    <div key={line.id} className="flex flex-col gap-2 p-3 border border-border rounded-lg" data-testid={`order-line-${line.id}`}>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1">
+                          <p className="font-medium text-foreground">{line.item.name}</p>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className={`text-base font-semibold ${stockStatus.color}`}>
+                              {currentQty}
+                            </span>
+                            <i className={`fas ${normalizedUnit === "Pack" ? "fa-box" : "fa-vial"} text-sm ${stockStatus.color}`}></i>
+                            <span className="text-xs text-muted-foreground">
+                              / {t('orders.min')}: {line.item.minThreshold ?? 0} / {t('orders.max')}: {line.item.maxThreshold ?? 0}
+                            </span>
+                          </div>
                         </div>
-                      </div>
                       <div className="flex items-center gap-2">
                         {line.received ? (
                           <div className="flex items-center gap-2 text-success">
@@ -969,6 +1087,74 @@ export default function Orders() {
                           </>
                         )}
                       </div>
+                      </div>
+
+                      {/* Line Item Notes */}
+                      {(selectedOrder.status === 'draft' || selectedOrder.status === 'sent') && canEditOrder(selectedOrder) && !line.received && (
+                        <div className="pt-2 border-t border-border/50">
+                          {editingLineNotes === line.id ? (
+                            <div className="space-y-2">
+                              <textarea
+                                value={lineNotes}
+                                onChange={(e) => setLineNotes(e.target.value)}
+                                className="w-full px-2 py-1.5 text-sm border border-border rounded bg-background text-foreground"
+                                rows={2}
+                                placeholder="Add notes for this item..."
+                                data-testid={`line-notes-input-${line.id}`}
+                              />
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    updateLineNotesMutation.mutate({
+                                      lineId: line.id,
+                                      notes: lineNotes,
+                                    });
+                                  }}
+                                  disabled={updateLineNotesMutation.isPending}
+                                  data-testid={`save-line-notes-${line.id}`}
+                                >
+                                  <i className="fas fa-check mr-1"></i>
+                                  Save
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setEditingLineNotes(null);
+                                    setLineNotes("");
+                                  }}
+                                  data-testid={`cancel-line-notes-${line.id}`}
+                                >
+                                  <i className="fas fa-times mr-1"></i>
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <p className="text-xs text-muted-foreground">
+                                  <i className="fas fa-sticky-note mr-1"></i>
+                                  {line.notes ? <span className="text-foreground">{line.notes}</span> : "No notes"}
+                                </p>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 px-2"
+                                onClick={() => {
+                                  setEditingLineNotes(line.id);
+                                  setLineNotes(line.notes || "");
+                                }}
+                                data-testid={`edit-line-notes-${line.id}`}
+                              >
+                                <i className="fas fa-edit text-xs"></i>
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     );
                   })}
