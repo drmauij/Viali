@@ -550,6 +550,33 @@
   opacity: 0.9;
 }
 
+/* React Big Calendar - Remove all borders and match app background */
+.rbc-calendar,
+.rbc-time-view,
+.rbc-month-view {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.rbc-time-content {
+  border: none !important;
+  overflow-y: visible !important;
+  overflow-x: visible !important;
+}
+
+.rbc-header {
+  background-color: var(--background);
+  border-color: hsl(215, 25%, 90%);
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.rbc-time-header,
+.rbc-time-header-gutter {
+  background-color: var(--background);
+  border-color: hsl(215, 25%, 90%);
+}
+
 /* React Big Calendar Dark Theme */
 [data-theme="dark"] .rbc-calendar {
   background-color: hsl(215, 28%, 12%);
@@ -671,7 +698,8 @@
   background-color: hsl(215, 25%, 16%);
 }
 
-[data-theme="dark"] .rbc-time-header {
+[data-theme="dark"] .rbc-time-header,
+[data-theme="dark"] .rbc-time-header-gutter {
   background-color: hsl(215, 28%, 12%);
 }
 

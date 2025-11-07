@@ -355,15 +355,17 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-screen">
       {/* Header with view switcher and navigation */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 p-4 bg-background border-b">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-3 p-3 sm:p-4 bg-background border-b">
+        {/* Navigation buttons */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={navigatePrevious}
             data-testid="button-calendar-prev"
+            className="h-8 w-8 sm:h-9 sm:w-auto sm:px-3 p-0"
           >
             ←
           </Button>
@@ -372,6 +374,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             size="sm"
             onClick={goToToday}
             data-testid="button-calendar-today"
+            className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
           >
             Today
           </Button>
@@ -380,50 +383,58 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             size="sm"
             onClick={navigateNext}
             data-testid="button-calendar-next"
+            className="h-8 w-8 sm:h-9 sm:w-auto sm:px-3 p-0"
           >
             →
           </Button>
-          <span className="ml-4 font-semibold text-lg" data-testid="text-calendar-date">
-            {formatDateHeader()}
-          </span>
         </div>
 
-        <div className="flex gap-2">
+        {/* Date label */}
+        <span className="font-semibold text-sm sm:text-base flex-shrink-0" data-testid="text-calendar-date">
+          {formatDateHeader()}
+        </span>
+
+        {/* View buttons - wrapped on small screens */}
+        <div className="flex gap-1.5 sm:gap-2 ml-auto flex-wrap">
           <Button
             variant={currentView === "day" ? "default" : "outline"}
             size="sm"
             onClick={() => setCurrentView("day")}
             data-testid="button-view-day"
+            className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
           >
-            <CalendarIcon className="h-4 w-4 mr-1" />
-            Day
+            <CalendarIcon className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Day</span>
           </Button>
           <Button
             variant={currentView === "week" ? "default" : "outline"}
             size="sm"
             onClick={() => setCurrentView("week")}
             data-testid="button-view-week"
+            className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
           >
-            <CalendarDays className="h-4 w-4 mr-1" />
-            Week
+            <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Week</span>
           </Button>
           <Button
             variant={currentView === "month" ? "default" : "outline"}
             size="sm"
             onClick={() => setCurrentView("month")}
             data-testid="button-view-month"
+            className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
           >
-            <CalendarRange className="h-4 w-4 mr-1" />
-            Month
+            <CalendarRange className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Month</span>
           </Button>
           <Button
             variant={currentView === "agenda" ? "default" : "outline"}
             size="sm"
             onClick={() => setCurrentView("agenda")}
             data-testid="button-view-agenda"
+            className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
           >
-            <i className="fas fa-list mr-1"></i>
-            Agenda
+            <i className="fas fa-list text-xs sm:text-sm sm:mr-1"></i>
+            <span className="hidden sm:inline">Agenda</span>
           </Button>
         </div>
       </div>
@@ -467,7 +478,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
 
       {/* Calendar */}
       {surgeryRooms.length > 0 && (
-        <div className="flex-1 px-4 pb-4 calendar-container">
+        <div className="flex-1 min-h-0 px-4 pb-4 calendar-container">
           <DragAndDropCalendar
             localizer={localizer}
             events={calendarEvents}
@@ -497,7 +508,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             timeslots={4}
             min={new Date(0, 0, 0, 6, 0, 0)}
             max={new Date(0, 0, 0, 20, 0, 0)}
-            style={{ height: 'calc(100vh - 200px)' }}
+            style={{ height: 'auto' }}
             popup
             data-testid="calendar-main"
           />
