@@ -2632,6 +2632,113 @@ If unable to parse any drugs, return:
     }
   });
 
+  app.post('/api/order-lines/:lineId/move-to-secondary', isAuthenticated, async (req: any, res) => {
+    try {
+      const { lineId } = req.params;
+      const userId = req.user.id;
+      
+      // Get order line to find associated order
+      const [line] = await db.select().from(orderLines).where(eq(orderLines.id, lineId));
+      if (!line) {
+        return res.status(404).json({ message: "Order line not found" });
+      }
+      
+      // Get order to verify access
+      const [order] = await db.select().from(orders).where(eq(orders.id, line.orderId));
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      // Verify order is in draft status
+      if (order.status !== 'draft') {
+        return res.status(400).json({ message: "Can only move items from draft orders" });
+      }
+      
+      // Verify user has access to this hospital and unit
+      const unitId = await getUserUnitForHospital(userId, order.hospitalId);
+      if (!unitId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Verify user belongs to the same unit as the order
+      if (unitId !== order.unitId) {
+        return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
+      }
+      
+      // Find all draft orders for this unit, sorted by createdAt (oldest first)
+      const draftOrders = await db
+        .select()
+        .from(orders)
+        .where(
+          and(
+            eq(orders.hospitalId, order.hospitalId),
+            eq(orders.unitId, order.unitId),
+            eq(orders.status, 'draft')
+          )
+        )
+        .orderBy(asc(orders.createdAt));
+      
+      if (draftOrders.length === 0) {
+        return res.status(400).json({ message: "No draft orders found" });
+      }
+      
+      // Main order is the oldest draft
+      const mainOrder = draftOrders[0];
+      
+      // Verify the line item is in the main order
+      if (line.orderId !== mainOrder.id) {
+        return res.status(400).json({ message: "This item is not in the main draft order" });
+      }
+      
+      // Find or create secondary order
+      // Secondary is the second-oldest draft (index 1), not the newest
+      let secondaryOrder;
+      if (draftOrders.length > 1) {
+        // Use the second-oldest draft as secondary
+        secondaryOrder = draftOrders[1];
+      } else {
+        // Create new secondary order (will become the second-oldest)
+        const [newOrder] = await db
+          .insert(orders)
+          .values({
+            hospitalId: order.hospitalId,
+            unitId: order.unitId,
+            vendorId: order.vendorId,
+            status: 'draft',
+            createdBy: userId,
+          })
+          .returning();
+        secondaryOrder = newOrder;
+      }
+      
+      // Move the line item to secondary order
+      await db
+        .update(orderLines)
+        .set({ orderId: secondaryOrder.id })
+        .where(eq(orderLines.id, lineId));
+      
+      // Check if main order is now empty
+      const remainingLines = await db
+        .select()
+        .from(orderLines)
+        .where(eq(orderLines.orderId, mainOrder.id));
+      
+      // If main order is empty, delete it
+      if (remainingLines.length === 0) {
+        await db.delete(orders).where(eq(orders.id, mainOrder.id));
+      }
+      
+      res.json({ 
+        success: true, 
+        message: "Item moved to secondary order",
+        mainOrderDeleted: remainingLines.length === 0
+      });
+    } catch (error) {
+      console.error("Error moving order line to secondary:", error);
+      res.status(500).json({ message: "Failed to move order line" });
+    }
+  });
+
   app.post('/api/order-lines/:lineId/receive', isAuthenticated, async (req: any, res) => {
     try {
       const { lineId } = req.params;

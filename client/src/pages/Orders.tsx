@@ -350,6 +350,37 @@ export default function Orders() {
     },
   });
 
+  const moveToSecondaryMutation = useMutation({
+    mutationFn: async (lineId: string) => {
+      const response = await apiRequest("POST", `/api/order-lines/${lineId}/move-to-secondary`, {});
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+      
+      // If main order was deleted, close the dialog to avoid showing stale data
+      if (data.mainOrderDeleted) {
+        setEditOrderDialogOpen(false);
+        toast({
+          title: t('common.success'),
+          description: 'Item moved to secondary order. Main order was empty and has been removed.',
+        });
+      } else {
+        toast({
+          title: t('common.success'),
+          description: 'Item moved to secondary order',
+        });
+      }
+    },
+    onError: () => {
+      toast({
+        title: t('common.error'),
+        description: 'Failed to move item to secondary order',
+        variant: "destructive",
+      });
+    },
+  });
+
   const ordersByStatus = useMemo(() => {
     const grouped: Record<OrderStatus, OrderWithDetails[]> = {
       draft: [],
@@ -458,6 +489,26 @@ export default function Orders() {
     
     // Download
     doc.save(`PO-${order.id.slice(-4)}_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const isMainDraftOrder = (order: OrderWithDetails): boolean => {
+    if (order.status !== 'draft') return false;
+    
+    // Find all draft orders for the same unit
+    const draftOrdersForUnit = orders.filter(o => 
+      o.status === 'draft' && 
+      o.unitId === order.unitId
+    );
+    
+    if (draftOrdersForUnit.length === 0) return false;
+    
+    // Sort by createdAt to find the oldest (main) draft
+    const sortedDrafts = [...draftOrdersForUnit].sort((a, b) => 
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+    
+    // Main order is the oldest draft
+    return sortedDrafts[0].id === order.id;
   };
 
   const handleStatusUpdate = (orderId: string, newStatus: string) => {
@@ -1070,15 +1121,30 @@ export default function Orders() {
                                     setEditQty(line.qty);
                                   }}
                                   data-testid={`edit-qty-${line.id}`}
+                                  title="Edit quantity"
                                 >
                                   <i className="fas fa-edit"></i>
                                 </Button>
+                                {isMainDraftOrder(selectedOrder) && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => moveToSecondaryMutation.mutate(line.id)}
+                                    disabled={moveToSecondaryMutation.isPending}
+                                    data-testid={`move-to-secondary-${line.id}`}
+                                    title="Move to secondary order"
+                                    className="bg-blue-50 dark:bg-blue-950 hover:bg-blue-100 dark:hover:bg-blue-900 border-blue-300 dark:border-blue-700"
+                                  >
+                                    <i className="fas fa-arrow-right text-blue-600 dark:text-blue-400"></i>
+                                  </Button>
+                                )}
                                 <Button
                                   size="sm"
                                   variant="destructive"
                                   onClick={() => handleRemoveItem(line.id)}
                                   disabled={removeOrderLineMutation.isPending}
                                   data-testid={`remove-item-${line.id}`}
+                                  title="Remove item"
                                 >
                                   <i className="fas fa-trash"></i>
                                 </Button>
