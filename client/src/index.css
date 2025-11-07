@@ -772,6 +772,24 @@
   background-color: hsl(215, 25%, 96%) !important;
 }
 
+/* Restore scrolling for react-big-calendar */
+.rbc-time-content {
+  height: 100% !important;
+  overflow-y: auto !important;
+}
+
+/* Ensure month view has proper height */
+.rbc-month-view {
+  height: 100%;
+  overflow: visible;
+}
+
+/* Ensure agenda view has proper height */
+.rbc-agenda-view {
+  height: 100%;
+  overflow-y: auto;
+}
+
 [data-theme="dark"] .rbc-off-range-bg {
   background-color: hsl(215, 25%, 14%);
 }
