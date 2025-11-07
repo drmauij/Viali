@@ -1020,33 +1020,47 @@ export default function Orders() {
                     const displayQty = line.qty;
                     const displayUnit = line.item.unit;
                     
+                    const canToggleOffline = (selectedOrder.status === 'draft' || selectedOrder.status === 'sent') && canEditOrder(selectedOrder) && !line.received;
+                    
                     return (
-                    <div key={line.id} className="flex flex-col gap-2 p-3 border border-border rounded-lg" data-testid={`order-line-${line.id}`}>
+                    <div key={line.id} className={`flex flex-col gap-2 p-3 border border-border rounded-lg transition-colors ${canToggleOffline ? (line.offlineWorked ? 'bg-green-50 dark:bg-green-950/20' : '') : ''}`} data-testid={`order-line-${line.id}`}>
                       <div className="flex items-center gap-3">
-                        {(selectedOrder.status === 'draft' || selectedOrder.status === 'sent') && canEditOrder(selectedOrder) && !line.received && (
-                          <Checkbox
-                            checked={line.offlineWorked || false}
-                            onCheckedChange={(checked) => {
+                        <div 
+                          className={`flex-1 flex items-center gap-3 ${canToggleOffline ? 'cursor-pointer' : ''}`}
+                          onClick={() => {
+                            if (canToggleOffline) {
                               toggleOfflineWorkedMutation.mutate({
                                 lineId: line.id,
-                                offlineWorked: checked === true,
+                                offlineWorked: !line.offlineWorked,
                               });
-                            }}
-                            data-testid={`offline-worked-${line.id}`}
-                            className="mt-1"
-                            title="Mark as offline worked"
-                          />
-                        )}
-                        <div className="flex-1">
-                          <p className="font-medium text-foreground">{line.item.name}</p>
-                          <div className="flex items-center gap-1.5 mt-1">
-                            <span className={`text-base font-semibold ${stockStatus.color}`}>
-                              {currentQty}
-                            </span>
-                            <i className={`fas ${normalizedUnit === "Pack" ? "fa-box" : "fa-vial"} text-sm ${stockStatus.color}`}></i>
-                            <span className="text-xs text-muted-foreground">
-                              / {t('orders.min')}: {line.item.minThreshold ?? 0} / {t('orders.max')}: {line.item.maxThreshold ?? 0}
-                            </span>
+                            }
+                          }}
+                        >
+                          {canToggleOffline && (
+                            <Checkbox
+                              checked={line.offlineWorked || false}
+                              onCheckedChange={(checked) => {
+                                toggleOfflineWorkedMutation.mutate({
+                                  lineId: line.id,
+                                  offlineWorked: checked === true,
+                                });
+                              }}
+                              data-testid={`offline-worked-${line.id}`}
+                              className="mt-1"
+                              title="Mark as offline worked"
+                            />
+                          )}
+                          <div className="flex-1">
+                            <p className="font-medium text-foreground">{line.item.name}</p>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span className={`text-base font-semibold ${stockStatus.color}`}>
+                                {currentQty}
+                              </span>
+                              <i className={`fas ${normalizedUnit === "Pack" ? "fa-box" : "fa-vial"} text-sm ${stockStatus.color}`}></i>
+                              <span className="text-xs text-muted-foreground">
+                                / {t('orders.min')}: {line.item.minThreshold ?? 0} / {t('orders.max')}: {line.item.maxThreshold ?? 0}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       <div className="flex items-center gap-2">
