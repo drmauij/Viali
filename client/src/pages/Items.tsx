@@ -143,11 +143,22 @@ export default function Items() {
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const editGalleryInputRef = useRef<HTMLInputElement>(null);
   const packSizeInputRef = useRef<HTMLInputElement>(null);
+  const currentUnitsInputRef = useRef<HTMLInputElement>(null);
+  const initialStockInputRef = useRef<HTMLInputElement>(null);
   const editPackSizeInputRef = useRef<HTMLInputElement>(null);
   const editCurrentUnitsInputRef = useRef<HTMLInputElement>(null);
   const editActualStockInputRef = useRef<HTMLInputElement>(null);
   const bulkFileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  
+  // Auto-select handler for number inputs (with workaround for browser compatibility)
+  const handleNumberInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    // Use setTimeout to ensure selection happens after focus is complete
+    // This is necessary for type="number" inputs in some browsers
+    setTimeout(() => {
+      e.target.select();
+    }, 0);
+  };
   
   // Bulk import state
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
@@ -505,11 +516,15 @@ export default function Items() {
     return "Single unit";
   };
 
-  // Auto-focus pack size field in Add Item dialog when it becomes visible
+  // Auto-focus appropriate field in Add Item dialog for quick editing
   useEffect(() => {
-    if (selectedUnit === "Pack" && formData.trackExactQuantity && addDialogOpen) {
+    if (addDialogOpen) {
       setTimeout(() => {
-        packSizeInputRef.current?.focus();
+        if (selectedUnit === "Pack" && formData.trackExactQuantity) {
+          currentUnitsInputRef.current?.focus();
+        } else if (!formData.trackExactQuantity) {
+          initialStockInputRef.current?.focus();
+        }
       }, 100);
     }
   }, [selectedUnit, formData.trackExactQuantity, addDialogOpen]);
@@ -2532,6 +2547,7 @@ export default function Items() {
                     min="1"
                     value={formData.packSize}
                     onChange={(e) => setFormData(prev => ({ ...prev, packSize: e.target.value }))}
+                    onFocus={handleNumberInputFocus}
                     data-testid="input-item-pack-size" 
                     required
                   />
@@ -2540,12 +2556,14 @@ export default function Items() {
                 <div>
                   <Label htmlFor="currentUnits">{t('items.currentUnits')} *</Label>
                   <Input 
+                    ref={currentUnitsInputRef}
                     id="currentUnits" 
                     name="currentUnits" 
                     type="number" 
                     min="0"
                     value={formData.currentUnits}
                     onChange={(e) => setFormData(prev => ({ ...prev, currentUnits: e.target.value }))}
+                    onFocus={handleNumberInputFocus}
                     data-testid="input-item-current-units" 
                     required
                   />
@@ -2573,12 +2591,14 @@ export default function Items() {
                 )}
               </Label>
               <Input 
+                ref={initialStockInputRef}
                 id="initialStock" 
                 name="initialStock" 
                 type="number" 
                 min="0"
                 value={formData.initialStock}
                 onChange={(e) => setFormData(prev => ({ ...prev, initialStock: e.target.value }))}
+                onFocus={handleNumberInputFocus}
                 data-testid="input-initial-stock"
                 className="mt-2 text-lg font-medium"
                 disabled={formData.trackExactQuantity}
@@ -2596,6 +2616,7 @@ export default function Items() {
                   min="0"
                   value={formData.minThreshold}
                   onChange={(e) => setFormData(prev => ({ ...prev, minThreshold: e.target.value }))}
+                  onFocus={handleNumberInputFocus}
                   data-testid="input-item-min" 
                 />
               </div>
@@ -2608,6 +2629,7 @@ export default function Items() {
                   min="0"
                   value={formData.maxThreshold}
                   onChange={(e) => setFormData(prev => ({ ...prev, maxThreshold: e.target.value }))}
+                  onFocus={handleNumberInputFocus}
                   data-testid="input-item-max" 
                 />
               </div>
@@ -2756,7 +2778,7 @@ export default function Items() {
                     min="1"
                     value={editFormData.packSize}
                     onChange={(e) => setEditFormData(prev => ({ ...prev, packSize: e.target.value }))}
-                    onFocus={(e) => e.target.select()}
+                    onFocus={handleNumberInputFocus}
                     data-testid="input-edit-pack-size" 
                     required
                   />
@@ -2777,7 +2799,7 @@ export default function Items() {
                     min="0"
                     value={editFormData.currentUnits}
                     onChange={(e) => setEditFormData(prev => ({ ...prev, currentUnits: e.target.value }))}
-                    onFocus={(e) => e.target.select()}
+                    onFocus={handleNumberInputFocus}
                     data-testid="input-edit-current-units" 
                     required
                     disabled={editFormData.controlled}
@@ -2822,7 +2844,7 @@ export default function Items() {
                 min="0"
                 value={editFormData.actualStock}
                 onChange={(e) => setEditFormData(prev => ({ ...prev, actualStock: e.target.value }))}
-                onFocus={(e) => e.target.select()}
+                onFocus={handleNumberInputFocus}
                 data-testid="input-edit-actual-stock"
                 className="mt-2 text-lg font-medium"
                 disabled={editFormData.trackExactQuantity}
@@ -2840,7 +2862,7 @@ export default function Items() {
                   min="0"
                   value={editFormData.minThreshold}
                   onChange={(e) => setEditFormData(prev => ({ ...prev, minThreshold: e.target.value }))}
-                  onFocus={(e) => e.target.select()}
+                  onFocus={handleNumberInputFocus}
                   data-testid="input-edit-min" 
                 />
               </div>
@@ -2853,7 +2875,7 @@ export default function Items() {
                   min="0"
                   value={editFormData.maxThreshold}
                   onChange={(e) => setEditFormData(prev => ({ ...prev, maxThreshold: e.target.value }))}
-                  onFocus={(e) => e.target.select()}
+                  onFocus={handleNumberInputFocus}
                   data-testid="input-edit-max" 
                 />
               </div>
