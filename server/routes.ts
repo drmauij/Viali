@@ -3014,13 +3014,18 @@ If unable to parse any drugs, return:
       }
       
       // Verify user has access to this hospital and unit
-      const unitId = await getUserUnitForHospital(userId, order.hospitalId);
+      const activeUnitId = getActiveUnitIdFromRequest(req);
+      console.log('[Order Delete] Active Unit ID from header:', activeUnitId);
+      console.log('[Order Delete] Order Unit ID:', order.unitId);
+      const unitId = await getUserUnitForHospital(userId, order.hospitalId, activeUnitId);
+      console.log('[Order Delete] Resolved Unit ID:', unitId);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
       // Verify user belongs to the same unit as the order
       if (unitId !== order.unitId) {
+        console.log('[Order Delete] Unit mismatch! Resolved:', unitId, 'vs Order:', order.unitId);
         return res.status(403).json({ message: "Access denied: you can only delete orders from your unit" });
       }
       
