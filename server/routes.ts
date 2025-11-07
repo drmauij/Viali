@@ -37,7 +37,7 @@ import {
   anesthesiaEvents
 } from "@shared/schema";
 import { z } from "zod";
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, inArray, sql, asc, desc } from "drizzle-orm";
 import OpenAI from "openai";
 import crypto from "crypto";
 
