@@ -343,6 +343,12 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     const newStart = args.newStart.toDate ? args.newStart.toDate() : new Date(args.newStart);
     const newEnd = args.newEnd.toDate ? args.newEnd.toDate() : new Date(args.newEnd);
     
+    // Debug logging
+    console.log('[Resize] Surgery ID:', surgeryId);
+    console.log('[Resize] New Start:', newStart.toISOString());
+    console.log('[Resize] New End:', newEnd.toISOString());
+    console.log('[Resize] Duration (minutes):', (newEnd.getTime() - newStart.getTime()) / 60000);
+    
     // Update both start time and end time
     apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
       plannedDate: newStart.toISOString(),
@@ -611,7 +617,11 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             cellHeight={30}
             events={calendarEvents}
             onEventClick={handleEventClick}
+            onEventMove={handleEventMove}
+            onEventResize={handleEventResize}
             onTimeRangeSelected={handleDayClick}
+            eventMoveHandling="Update"
+            eventResizeHandling="Update"
             theme="calendar_white"
             timeFormat="Clock24Hours"
             locale="en-us"
