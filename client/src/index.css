@@ -560,8 +560,6 @@
 
 .rbc-time-content {
   border: none !important;
-  overflow-y: visible !important;
-  overflow-x: visible !important;
 }
 
 .rbc-header {
@@ -572,9 +570,25 @@
 }
 
 .rbc-time-header,
-.rbc-time-header-gutter {
+.rbc-time-header-gutter,
+.rbc-time-gutter {
   background-color: var(--background);
   border-color: hsl(215, 25%, 90%);
+}
+
+.rbc-label {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+/* Fix z-index so time gutter slides under page header */
+.rbc-time-gutter {
+  z-index: 0;
+}
+
+/* Add more zoom to day view for 60-minute surgeries */
+.rbc-time-slot {
+  min-height: 32px;
 }
 
 /* React Big Calendar Dark Theme */
@@ -592,7 +606,12 @@
 }
 
 [data-theme="dark"] .rbc-today {
-  background-color: hsl(215, 30%, 22%);
+  background-color: hsl(215, 30%, 16%) !important;
+}
+
+/* Fix light mode today background */
+.rbc-today {
+  background-color: hsl(215, 25%, 96%) !important;
 }
 
 [data-theme="dark"] .rbc-off-range-bg {
@@ -699,7 +718,8 @@
 }
 
 [data-theme="dark"] .rbc-time-header,
-[data-theme="dark"] .rbc-time-header-gutter {
+[data-theme="dark"] .rbc-time-header-gutter,
+[data-theme="dark"] .rbc-time-gutter {
   background-color: hsl(215, 28%, 12%);
 }
 
@@ -707,7 +727,12 @@
   color: hsl(215, 15%, 65%);
 }
 
-/* Ensure event colors remain visible in dark mode */
+/* Fix event icon clipping and ensure colors remain visible */
+.rbc-event {
+  overflow: visible !important;
+  min-height: 72px;
+}
+
 [data-theme="dark"] .rbc-event {
   border: none;
 }

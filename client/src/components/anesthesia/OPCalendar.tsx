@@ -504,11 +504,11 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             }}
             selectable
             resizable
-            step={15}
-            timeslots={4}
+            step={10}
+            timeslots={6}
             min={new Date(0, 0, 0, 6, 0, 0)}
             max={new Date(0, 0, 0, 20, 0, 0)}
-            style={{ height: 'auto' }}
+            style={{ height: '100%' }}
             popup
             data-testid="calendar-main"
           />
