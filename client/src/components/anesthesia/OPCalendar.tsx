@@ -331,52 +331,88 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     },
   });
 
-  const handleEventMove = useCallback((args: any) => {
+  const handleEventMove = useCallback(async (args: any) => {
+    // Enable async mode to prevent immediate re-render
+    args.async = true;
+    
     const surgeryId = args.e.id();
     const newStart = args.newStart.toDate ? args.newStart.toDate() : new Date(args.newStart);
     const newRoomId = args.newResource || args.e.resource();
     
-    rescheduleMutation.mutate({
-      id: surgeryId,
-      plannedDate: newStart,
-      surgeryRoomId: newRoomId,
-    });
-  }, [rescheduleMutation]);
+    try {
+      await apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
+        plannedDate: newStart.toISOString(),
+        surgeryRoomId: newRoomId,
+      });
+      
+      // Tell DayPilot the operation succeeded
+      args.loaded();
+      
+      // Delay query invalidation to prevent re-render during DayPilot cleanup
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
+      }, 500);
+      
+      toast({
+        title: "Surgery Rescheduled",
+        description: "Surgery has been successfully rescheduled.",
+      });
+    } catch (error) {
+      // Tell DayPilot the operation failed (it will revert the event position)
+      args.failed();
+      
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
+      }, 500);
+      
+      toast({
+        title: "Reschedule Failed",
+        description: "Failed to reschedule surgery. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
 
-  const handleEventResize = useCallback((args: any) => {
+  const handleEventResize = useCallback(async (args: any) => {
+    // Enable async mode to prevent immediate re-render
+    args.async = true;
+    
     const surgeryId = args.e.id();
     const newStart = args.newStart.toDate ? args.newStart.toDate() : new Date(args.newStart);
     const newEnd = args.newEnd.toDate ? args.newEnd.toDate() : new Date(args.newEnd);
     
-    // Debug logging
-    console.log('[Resize] Surgery ID:', surgeryId);
-    console.log('[Resize] New Start:', newStart.toISOString());
-    console.log('[Resize] New End:', newEnd.toISOString());
-    console.log('[Resize] Duration (minutes):', (newEnd.getTime() - newStart.getTime()) / 60000);
-    
-    // Update both start time and end time
-    apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
-      plannedDate: newStart.toISOString(),
-      actualEndTime: newEnd.toISOString(),
-    }).then(() => {
-      // Delay invalidation to allow DayPilot to complete its internal cleanup
+    try {
+      await apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
+        plannedDate: newStart.toISOString(),
+        actualEndTime: newEnd.toISOString(),
+      });
+      
+      // Tell DayPilot the operation succeeded
+      args.loaded();
+      
+      // Delay query invalidation to prevent re-render during DayPilot cleanup
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
       }, 500);
+      
       toast({
         title: "Surgery Duration Updated",
         description: "Surgery duration has been updated successfully.",
       });
-    }).catch(() => {
+    } catch (error) {
+      // Tell DayPilot the operation failed (it will revert the event size)
+      args.failed();
+      
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
       }, 500);
+      
       toast({
         title: "Update Failed",
         description: "Failed to update surgery duration. Please try again.",
         variant: "destructive",
       });
-    });
+    }
   }, [toast]);
 
   const handleDayClick = useCallback((args: any) => {
