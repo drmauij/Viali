@@ -5,11 +5,16 @@ function getActiveUnitId(): string | null {
   if (!activeHospitalKey) return null;
   
   // activeHospitalKey format: "hospitalId-unitId-role"
-  const parts = activeHospitalKey.split('-');
-  if (parts.length >= 2) {
-    return parts[1]; // Return unitId
-  }
-  return null;
+  // Since UUIDs contain hyphens, we need to parse carefully
+  // UUIDs are 36 chars (including hyphens), role is at the end
+  // Format: <36 chars>-<36 chars>-<role>
+  
+  if (activeHospitalKey.length < 73) return null; // At least 36 + 1 + 36 = 73 chars
+  
+  const hospitalId = activeHospitalKey.substring(0, 36);
+  const unitId = activeHospitalKey.substring(37, 73);
+  
+  return unitId;
 }
 
 async function throwIfResNotOk(res: Response) {
