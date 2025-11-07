@@ -29,6 +29,13 @@
       "when": 1762267809767,
       "tag": "0003_polite_green_goblin",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1762488044916,
+      "tag": "0004_magical_mole_man",
+      "breakpoints": true
     }
   ]
 }
