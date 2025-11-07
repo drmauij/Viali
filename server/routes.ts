@@ -2739,6 +2739,53 @@ If unable to parse any drugs, return:
     }
   });
 
+  app.patch('/api/order-lines/:lineId/offline-worked', isAuthenticated, async (req: any, res) => {
+    try {
+      const { lineId } = req.params;
+      const { offlineWorked } = req.body;
+      const userId = req.user.id;
+      
+      // Get order line to find associated order
+      const [line] = await db.select().from(orderLines).where(eq(orderLines.id, lineId));
+      if (!line) {
+        return res.status(404).json({ message: "Order line not found" });
+      }
+      
+      // Get order to verify access and status
+      const [order] = await db.select().from(orders).where(eq(orders.id, line.orderId));
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      // Only allow toggling in draft or sent orders
+      if (order.status !== 'draft' && order.status !== 'sent') {
+        return res.status(400).json({ message: "Can only toggle offline worked for draft or sent orders" });
+      }
+      
+      // Verify user has access to this hospital and unit
+      const unitId = await getUserUnitForHospital(userId, order.hospitalId);
+      if (!unitId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Verify user belongs to the same unit as the order
+      if (unitId !== order.unitId) {
+        return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
+      }
+      
+      // Update offline worked status
+      await db
+        .update(orderLines)
+        .set({ offlineWorked })
+        .where(eq(orderLines.id, lineId));
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating offline worked status:", error);
+      res.status(500).json({ message: "Failed to update offline worked status" });
+    }
+  });
+
   app.post('/api/order-lines/:lineId/receive', isAuthenticated, async (req: any, res) => {
     try {
       const { lineId } = req.params;
