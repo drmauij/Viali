@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from "react";
 import { Calendar, momentLocalizer, View, SlotInfo } from "react-big-calendar";
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 import moment from "moment";
+import "moment/locale/de";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2 } from "lucide-react";
@@ -14,6 +15,8 @@ import QuickCreateSurgeryDialog from "./QuickCreateSurgeryDialog";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 
+// Configure moment for European format (German locale for DD.MM.YYYY and 24-hour time)
+moment.locale('de');
 const localizer = momentLocalizer(moment);
 const DragAndDropCalendar = withDragAndDrop(Calendar);
 
@@ -318,7 +321,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     if (currentView === "month") {
       return moment(selectedDate).format('MMMM YYYY');
     }
-    return moment(selectedDate).format('dddd, MMMM D, YYYY');
+    return moment(selectedDate).format('dddd, D. MMMM YYYY');
   };
 
   return (

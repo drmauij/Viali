@@ -549,3 +549,143 @@
   transform: scale(0.95);
   opacity: 0.9;
 }
+
+/* React Big Calendar Dark Theme */
+[data-theme="dark"] .rbc-calendar {
+  background-color: hsl(215, 25%, 16%);
+  color: hsl(210, 20%, 92%);
+}
+
+[data-theme="dark"] .rbc-header {
+  background-color: hsl(215, 25%, 20%);
+  border-color: hsl(215, 25%, 24%);
+  color: hsl(210, 20%, 92%);
+  font-weight: 600;
+}
+
+[data-theme="dark"] .rbc-today {
+  background-color: hsl(215, 30%, 22%);
+}
+
+[data-theme="dark"] .rbc-off-range-bg {
+  background-color: hsl(215, 25%, 14%);
+}
+
+[data-theme="dark"] .rbc-time-content {
+  border-color: hsl(215, 25%, 24%);
+}
+
+[data-theme="dark"] .rbc-time-slot {
+  border-color: hsl(215, 25%, 22%);
+}
+
+[data-theme="dark"] .rbc-timeslot-group {
+  border-color: hsl(215, 25%, 22%);
+}
+
+[data-theme="dark"] .rbc-day-slot {
+  border-color: hsl(215, 25%, 24%);
+}
+
+[data-theme="dark"] .rbc-time-header-content {
+  border-color: hsl(215, 25%, 24%);
+}
+
+[data-theme="dark"] .rbc-day-bg {
+  background-color: hsl(215, 25%, 16%);
+}
+
+[data-theme="dark"] .rbc-time-header-gutter {
+  background-color: hsl(215, 25%, 18%);
+  border-color: hsl(215, 25%, 24%);
+}
+
+[data-theme="dark"] .rbc-month-view {
+  border-color: hsl(215, 25%, 24%);
+}
+
+[data-theme="dark"] .rbc-month-row {
+  border-color: hsl(215, 25%, 24%);
+}
+
+[data-theme="dark"] .rbc-day-bg + .rbc-day-bg {
+  border-color: hsl(215, 25%, 24%);
+}
+
+[data-theme="dark"] .rbc-date-cell {
+  color: hsl(210, 20%, 92%);
+}
+
+[data-theme="dark"] .rbc-off-range {
+  color: hsl(215, 15%, 45%);
+}
+
+[data-theme="dark"] .rbc-current-time-indicator {
+  background-color: hsl(0, 84%, 60%);
+}
+
+[data-theme="dark"] .rbc-time-slot.rbc-now {
+  color: hsl(0, 84%, 60%);
+}
+
+[data-theme="dark"] .rbc-agenda-view {
+  background-color: hsl(215, 25%, 16%);
+  border-color: hsl(215, 25%, 24%);
+}
+
+[data-theme="dark"] .rbc-agenda-view table {
+  border-color: hsl(215, 25%, 24%);
+}
+
+[data-theme="dark"] .rbc-agenda-table {
+  border-color: hsl(215, 25%, 24%);
+}
+
+[data-theme="dark"] .rbc-agenda-date-cell,
+[data-theme="dark"] .rbc-agenda-time-cell {
+  border-color: hsl(215, 25%, 24%);
+  background-color: hsl(215, 25%, 18%);
+}
+
+[data-theme="dark"] .rbc-agenda-event-cell {
+  border-color: hsl(215, 25%, 24%);
+}
+
+[data-theme="dark"] .rbc-time-content > * + * > * {
+  border-color: hsl(215, 25%, 24%);
+}
+
+[data-theme="dark"] .rbc-selected-cell {
+  background-color: hsl(215, 40%, 25%);
+}
+
+/* Dark theme for drag-and-drop */
+[data-theme="dark"] .rbc-addons-dnd-drag-preview {
+  background-color: hsl(215, 65%, 55%);
+  opacity: 0.7;
+}
+
+[data-theme="dark"] .rbc-addons-dnd-resizable {
+  background-color: hsl(215, 25%, 16%);
+}
+
+[data-theme="dark"] .rbc-time-header {
+  background-color: hsl(215, 25%, 18%);
+}
+
+[data-theme="dark"] .rbc-label {
+  color: hsl(215, 15%, 65%);
+}
+
+/* Ensure event colors remain visible in dark mode */
+[data-theme="dark"] .rbc-event {
+  border: none;
+}
+
+[data-theme="dark"] .rbc-event-label {
+  color: white;
+}
+
+[data-theme="dark"] .rbc-event-content {
+  color: white;
+}
