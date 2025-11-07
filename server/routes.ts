@@ -41,10 +41,24 @@ import { eq, and, inArray, sql, asc, desc } from "drizzle-orm";
 import OpenAI from "openai";
 import crypto from "crypto";
 
-async function getUserUnitForHospital(userId: string, hospitalId: string): Promise<string | null> {
+async function getUserUnitForHospital(userId: string, hospitalId: string, activeUnitId?: string): Promise<string | null> {
   const hospitals = await storage.getUserHospitals(userId);
+  
+  // If activeUnitId is provided (from X-Active-Unit-Id header), use it if user has access
+  if (activeUnitId) {
+    const hasAccess = hospitals.some(h => h.id === hospitalId && h.unitId === activeUnitId);
+    if (hasAccess) {
+      return activeUnitId;
+    }
+  }
+  
+  // Fallback to first unit for this hospital
   const hospital = hospitals.find(h => h.id === hospitalId);
   return hospital?.unitId || null;
+}
+
+function getActiveUnitIdFromRequest(req: Request): string | null {
+  return (req.headers as any)['x-active-unit-id'] || null;
 }
 
 async function getUserRole(userId: string, hospitalId: string): Promise<string | null> {
