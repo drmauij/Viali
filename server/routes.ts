@@ -2850,10 +2850,20 @@ If unable to parse any drugs, return:
         return res.status(400).json({ message: "Item already received" });
       }
       
-      // Verify user has access to this hospital
-      const unitId = await getUserUnitForHospital(userId, order.hospitalId);
+      // Verify user has access to this hospital and unit
+      const activeUnitId = getActiveUnitIdFromRequest(req);
+      console.log('[Order Line Receive] Active Unit ID from header:', activeUnitId);
+      console.log('[Order Line Receive] Order Unit ID:', order.unitId);
+      const unitId = await getUserUnitForHospital(userId, order.hospitalId, activeUnitId);
+      console.log('[Order Line Receive] Resolved Unit ID:', unitId);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Verify user belongs to the same unit as the order
+      if (unitId !== order.unitId) {
+        console.log('[Order Line Receive] Unit mismatch! Resolved:', unitId, 'vs Order:', order.unitId);
+        return res.status(403).json({ message: "Access denied: you can only receive items for orders from your unit" });
       }
       
       // For controlled items, require signature and notes
@@ -2967,13 +2977,18 @@ If unable to parse any drugs, return:
       }
       
       // Verify user has access to this hospital and unit
-      const unitId = await getUserUnitForHospital(userId, order.hospitalId);
+      const activeUnitId = getActiveUnitIdFromRequest(req);
+      console.log('[Order Line Delete] Active Unit ID from header:', activeUnitId);
+      console.log('[Order Line Delete] Order Unit ID:', order.unitId);
+      const unitId = await getUserUnitForHospital(userId, order.hospitalId, activeUnitId);
+      console.log('[Order Line Delete] Resolved Unit ID:', unitId);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
       // Verify user belongs to the same unit as the order
       if (unitId !== order.unitId) {
+        console.log('[Order Line Delete] Unit mismatch! Resolved:', unitId, 'vs Order:', order.unitId);
         return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
       }
       
