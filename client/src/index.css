@@ -649,6 +649,12 @@
 .timeline-week-view {
   height: 100%;
   width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.timeline-week-view .react-calendar-timeline {
+  min-width: 1400px;
 }
 
 .timeline-item-active {

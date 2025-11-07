@@ -168,8 +168,6 @@ export default function TimelineWeekView({
         items={items}
         defaultTimeStart={weekRange.start.valueOf()}
         defaultTimeEnd={weekRange.end.valueOf()}
-        visibleTimeStart={weekRange.start.valueOf()}
-        visibleTimeEnd={weekRange.end.valueOf()}
         canMove={true}
         canResize="both"
         canChangeGroup={true}
@@ -177,8 +175,8 @@ export default function TimelineWeekView({
         onItemResize={handleItemResize}
         lineHeight={60}
         itemHeightRatio={0.8}
-        minZoom={60 * 60 * 1000} // 1 hour
-        maxZoom={7 * 24 * 60 * 60 * 1000} // 1 week
+        minZoom={2 * 60 * 60 * 1000}
+        maxZoom={24 * 60 * 60 * 1000}
         sidebarWidth={180}
         stackItems={true}
         buffer={1}
