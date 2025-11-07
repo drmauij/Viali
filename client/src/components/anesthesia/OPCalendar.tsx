@@ -208,7 +208,10 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
 
   // Handle time slot selection (for quick create)
   const handleSelectSlot = useCallback((slotInfo: SlotInfo) => {
-    if (currentView === "day" || currentView === "week") {
+    // Only open quick create for actual time range selections, not when clicking/dragging events
+    // SlotInfo.action can be 'select', 'click', or 'doubleClick'
+    // We only want to open quick create on 'select' (drag selection) in day/week views
+    if ((currentView === "day" || currentView === "week") && slotInfo.action === 'select') {
       setQuickCreateData({
         date: slotInfo.start,
         endDate: slotInfo.end,
