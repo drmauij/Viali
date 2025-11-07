@@ -144,6 +144,8 @@ export default function Items() {
   const editGalleryInputRef = useRef<HTMLInputElement>(null);
   const packSizeInputRef = useRef<HTMLInputElement>(null);
   const editPackSizeInputRef = useRef<HTMLInputElement>(null);
+  const editCurrentUnitsInputRef = useRef<HTMLInputElement>(null);
+  const editActualStockInputRef = useRef<HTMLInputElement>(null);
   const bulkFileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   
@@ -512,14 +514,18 @@ export default function Items() {
     }
   }, [selectedUnit, formData.trackExactQuantity, addDialogOpen]);
 
-  // Auto-focus pack size field in Edit Item dialog when it becomes visible
+  // Auto-focus appropriate field in Edit Item dialog for quick editing
   useEffect(() => {
-    if (selectedUnit === "Pack" && editFormData.trackExactQuantity && editDialogOpen) {
+    if (editDialogOpen) {
       setTimeout(() => {
-        editPackSizeInputRef.current?.focus();
+        if (selectedUnit === "Pack" && editFormData.trackExactQuantity && !editFormData.controlled) {
+          editCurrentUnitsInputRef.current?.focus();
+        } else if (!editFormData.trackExactQuantity) {
+          editActualStockInputRef.current?.focus();
+        }
       }, 100);
     }
-  }, [selectedUnit, editFormData.trackExactQuantity, editDialogOpen]);
+  }, [selectedUnit, editFormData.trackExactQuantity, editFormData.controlled, editDialogOpen]);
 
   // Auto-calculate initial stock for Add Item when trackExactQuantity is enabled
   useEffect(() => {
@@ -2750,6 +2756,7 @@ export default function Items() {
                     min="1"
                     value={editFormData.packSize}
                     onChange={(e) => setEditFormData(prev => ({ ...prev, packSize: e.target.value }))}
+                    onFocus={(e) => e.target.select()}
                     data-testid="input-edit-pack-size" 
                     required
                   />
@@ -2763,12 +2770,14 @@ export default function Items() {
                     )}
                   </Label>
                   <Input 
+                    ref={editCurrentUnitsInputRef}
                     id="edit-currentUnits" 
                     name="currentUnits" 
                     type="number" 
                     min="0"
                     value={editFormData.currentUnits}
                     onChange={(e) => setEditFormData(prev => ({ ...prev, currentUnits: e.target.value }))}
+                    onFocus={(e) => e.target.select()}
                     data-testid="input-edit-current-units" 
                     required
                     disabled={editFormData.controlled}
@@ -2806,15 +2815,16 @@ export default function Items() {
                 )}
               </Label>
               <Input 
+                ref={editActualStockInputRef}
                 id="edit-actualStock" 
                 name="actualStock" 
                 type="number" 
                 min="0"
                 value={editFormData.actualStock}
                 onChange={(e) => setEditFormData(prev => ({ ...prev, actualStock: e.target.value }))}
+                onFocus={(e) => e.target.select()}
                 data-testid="input-edit-actual-stock"
                 className="mt-2 text-lg font-medium"
-                autoFocus={!editFormData.trackExactQuantity}
                 disabled={editFormData.trackExactQuantity}
                 readOnly={editFormData.trackExactQuantity}
               />
@@ -2830,6 +2840,7 @@ export default function Items() {
                   min="0"
                   value={editFormData.minThreshold}
                   onChange={(e) => setEditFormData(prev => ({ ...prev, minThreshold: e.target.value }))}
+                  onFocus={(e) => e.target.select()}
                   data-testid="input-edit-min" 
                 />
               </div>
@@ -2842,6 +2853,7 @@ export default function Items() {
                   min="0"
                   value={editFormData.maxThreshold}
                   onChange={(e) => setEditFormData(prev => ({ ...prev, maxThreshold: e.target.value }))}
+                  onFocus={(e) => e.target.select()}
                   data-testid="input-edit-max" 
                 />
               </div>
