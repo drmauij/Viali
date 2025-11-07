@@ -30,6 +30,12 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   const weekCalendarRef = useRef<DayPilot.Calendar | null>(null);
   const monthCalendarRef = useRef<DayPilot.Month | null>(null);
   
+  // Refs for caching latest events and resources (uncontrolled component pattern)
+  const latestEventsRef = useRef<any[]>([]);
+  const latestResourcesRef = useRef<any[]>([]);
+  const previousEventsSnapshotRef = useRef<string>("");
+  const previousResourcesSnapshotRef = useRef<string>("");
+  
   // Quick create dialog state
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickCreateData, setQuickCreateData] = useState<{
@@ -246,6 +252,47 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       name: room.name,
     }));
   }, [surgeryRooms]);
+  
+  // Update refs when data changes
+  useEffect(() => {
+    latestEventsRef.current = calendarEvents;
+    latestResourcesRef.current = resources;
+  }, [calendarEvents, resources]);
+  
+  // Sync calendar data when events or resources change (uncontrolled component pattern)
+  useEffect(() => {
+    const eventsSnapshot = JSON.stringify(calendarEvents);
+    const resourcesSnapshot = JSON.stringify(resources);
+    
+    // Only update if data actually changed
+    const eventsChanged = eventsSnapshot !== previousEventsSnapshotRef.current;
+    const resourcesChanged = resourcesSnapshot !== previousResourcesSnapshotRef.current;
+    
+    if (eventsChanged || resourcesChanged) {
+      // Update all calendar instances via ref
+      if (dayCalendarRef.current && eventsChanged) {
+        dayCalendarRef.current.update({ events: calendarEvents });
+      }
+      if (dayCalendarRef.current && resourcesChanged) {
+        dayCalendarRef.current.update({ columns: resources });
+      }
+      
+      if (weekCalendarRef.current && eventsChanged) {
+        weekCalendarRef.current.update({ events: calendarEvents });
+      }
+      if (weekCalendarRef.current && resourcesChanged) {
+        weekCalendarRef.current.update({ columns: resources });
+      }
+      
+      if (monthCalendarRef.current && eventsChanged) {
+        monthCalendarRef.current.update({ events: calendarEvents });
+      }
+      
+      // Save snapshots for next comparison
+      previousEventsSnapshotRef.current = eventsSnapshot;
+      previousResourcesSnapshotRef.current = resourcesSnapshot;
+    }
+  }, [calendarEvents, resources]);
 
   const handleEventClick = useCallback((args: any) => {
     // Open edit dialog when clicking on event
@@ -585,7 +632,16 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           {currentView === "day" && (
           <div style={{ touchAction: 'pan-y' }}>
             <DayPilotCalendar
-              controlRef={dayCalendarRef}
+              controlRef={(ref) => {
+                dayCalendarRef.current = ref;
+                // Hydrate calendar immediately on mount (uncontrolled component pattern)
+                if (ref) {
+                  ref.update({ 
+                    events: latestEventsRef.current,
+                    columns: latestResourcesRef.current
+                  });
+                }
+              }}
               viewType="Resources"
               startDate={selectedDate.toISOString().split('T')[0]}
               days={1}
@@ -595,8 +651,6 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
               headerHeight={30}
               hourWidth={60}
               cellHeight={40}
-              columns={resources}
-              events={calendarEvents}
               onEventClick={handleEventClick}
               onEventMove={handleEventMove}
               onEventResize={handleEventResize}
@@ -613,7 +667,16 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
 
         {currentView === "week" && (
           <DayPilotCalendar
-            controlRef={weekCalendarRef}
+            controlRef={(ref) => {
+              weekCalendarRef.current = ref;
+              // Hydrate calendar immediately on mount (uncontrolled component pattern)
+              if (ref) {
+                ref.update({ 
+                  events: latestEventsRef.current,
+                  columns: latestResourcesRef.current
+                });
+              }
+            }}
             viewType="Week"
             startDate={selectedDate.toISOString().split('T')[0]}
             days={7}
@@ -623,7 +686,6 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             headerHeight={30}
             hourWidth={60}
             cellHeight={30}
-            events={calendarEvents}
             onEventClick={handleEventClick}
             onEventMove={handleEventMove}
             onEventResize={handleEventResize}
@@ -639,9 +701,14 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
 
         {currentView === "month" && (
           <DayPilotMonth
-            controlRef={monthCalendarRef}
+            controlRef={(ref) => {
+              monthCalendarRef.current = ref;
+              // Hydrate calendar immediately on mount (uncontrolled component pattern)
+              if (ref) {
+                ref.update({ events: latestEventsRef.current });
+              }
+            }}
             startDate={selectedDate.toISOString().split('T')[0]}
-            events={calendarEvents}
             onEventClick={handleEventClick}
             onTimeRangeSelected={handleDayClick}
             eventBarVisible={false}
