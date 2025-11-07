@@ -515,41 +515,39 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
               }}
             />
           ) : (
-            <div className="h-full w-full overflow-auto">
-              <DragAndDropCalendar
-                localizer={localizer}
-                events={calendarEvents}
-                resources={currentView === "day" ? resources : undefined}
-                resourceIdAccessor="id"
-                resourceTitleAccessor="title"
-                startAccessor="start"
-                endAccessor="end"
-                resourceAccessor="resource"
-                view={currentView}
-                date={selectedDate}
-                onNavigate={setSelectedDate}
-                onView={(view: View) => setCurrentView(view as ViewType)}
-                onSelectSlot={handleSelectSlot}
-                onSelectEvent={handleSelectEvent}
-                onEventDrop={handleEventDrop}
-                onEventResize={handleEventResize}
-                eventPropGetter={eventStyleGetter}
-                formats={formats}
-                components={{
-                  event: EventComponent,
-                  toolbar: () => null,
-                }}
-                selectable
-                resizable
-                step={10}
-                timeslots={6}
-                min={new Date(0, 0, 0, 6, 0, 0)}
-                max={new Date(0, 0, 0, 20, 0, 0)}
-                style={{ height: '100%' }}
-                popup
-                data-testid="calendar-main"
-              />
-            </div>
+            <DragAndDropCalendar
+              localizer={localizer}
+              events={calendarEvents}
+              resources={currentView === "day" ? resources : undefined}
+              resourceIdAccessor="id"
+              resourceTitleAccessor="title"
+              startAccessor="start"
+              endAccessor="end"
+              resourceAccessor="resource"
+              view={currentView}
+              date={selectedDate}
+              onNavigate={setSelectedDate}
+              onView={(view: View) => setCurrentView(view as ViewType)}
+              onSelectSlot={handleSelectSlot}
+              onSelectEvent={handleSelectEvent}
+              onEventDrop={handleEventDrop}
+              onEventResize={handleEventResize}
+              eventPropGetter={eventStyleGetter}
+              formats={formats}
+              components={{
+                event: EventComponent,
+                toolbar: () => null,
+              }}
+              selectable
+              resizable
+              step={10}
+              timeslots={6}
+              min={new Date(0, 0, 0, 6, 0, 0)}
+              max={new Date(0, 0, 0, 20, 0, 0)}
+              style={{ minHeight: '600px' }}
+              popup
+              data-testid="calendar-main"
+            />
           )}
         </div>
       )}
