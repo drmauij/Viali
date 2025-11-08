@@ -22,6 +22,7 @@ import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDate, formatDateTimeForInput } from "@/lib/dateUtils";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
+import SignaturePad from "@/components/SignaturePad";
 
 type Patient = {
   id: string;
@@ -186,7 +187,14 @@ export default function PatientDetail() {
     installations: false,
     icuAdmission: false,
     date: new Date().toISOString().split('T')[0],
+    doctorSignature: "",
+    patientSignature: "",
   });
+  
+  // Signature pad states
+  const [showAssessmentSignaturePad, setShowAssessmentSignaturePad] = useState(false);
+  const [showConsentDoctorSignaturePad, setShowConsentDoctorSignaturePad] = useState(false);
+  const [showConsentPatientSignaturePad, setShowConsentPatientSignaturePad] = useState(false);
   
   const [assessmentData, setAssessmentData] = useState(() => ({
     // General Data
@@ -534,6 +542,8 @@ export default function PatientDetail() {
         installations: existingAssessment.consentInstallations || false,
         icuAdmission: existingAssessment.consentICU || false,
         date: existingAssessment.consentDate || new Date().toISOString().split('T')[0],
+        doctorSignature: existingAssessment.consentDoctorSignature || "",
+        patientSignature: existingAssessment.patientSignature || "",
       });
     } else if (isPreOpOpen && !existingAssessment && patient) {
       // Reset form with patient allergies and current user's name for new assessments
@@ -729,6 +739,8 @@ export default function PatientDetail() {
       consentInstallations: consentData.installations,
       consentICU: consentData.icuAdmission,
       consentDate: consentData.date,
+      consentDoctorSignature: consentData.doctorSignature,
+      patientSignature: consentData.patientSignature,
       // Set status - completed if explicitly marked or if signature present
       status: markAsCompleted ? "completed" : ((overrideData.doctorSignature || assessmentData.doctorSignature) ? "completed" : "draft"),
     };
@@ -2652,14 +2664,26 @@ export default function PatientDetail() {
                     </div>
                   </div>
 
-                  {assessmentData.doctorSignature && (
-                    <div className="space-y-2">
-                      <Label>Doctor Signature</Label>
-                      <div className="border rounded-lg p-4 bg-muted">
-                        <p className="text-sm font-mono">{assessmentData.doctorSignature}</p>
-                      </div>
+                  <div className="space-y-2">
+                    <Label>Doctor Signature</Label>
+                    <div
+                      className="border-2 border-dashed rounded-lg p-6 cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => setShowAssessmentSignaturePad(true)}
+                      data-testid="assessment-signature-trigger"
+                    >
+                      {assessmentData.doctorSignature ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <img src={assessmentData.doctorSignature} alt="Doctor signature" className="h-16 max-w-full" />
+                          <p className="text-xs text-muted-foreground">Click to change signature</p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                          <i className="fas fa-signature text-2xl"></i>
+                          <p className="text-sm">Click to add signature</p>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
 
                   <div className="space-y-2">
                     <Label className="text-base font-semibold">Surgical Approval Status</Label>
@@ -2886,6 +2910,50 @@ export default function PatientDetail() {
                           {formatDate(consentData.date)}
                         </p>
                       )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Doctor Signature</Label>
+                        <div
+                          className="border-2 border-dashed rounded-lg p-6 cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => setShowConsentDoctorSignaturePad(true)}
+                          data-testid="consent-doctor-signature-trigger"
+                        >
+                          {consentData.doctorSignature ? (
+                            <div className="flex flex-col items-center gap-2">
+                              <img src={consentData.doctorSignature} alt="Doctor signature" className="h-16 max-w-full" />
+                              <p className="text-xs text-muted-foreground">Click to change signature</p>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                              <i className="fas fa-signature text-2xl"></i>
+                              <p className="text-sm">Click to add signature</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>Patient Signature</Label>
+                        <div
+                          className="border-2 border-dashed rounded-lg p-6 cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => setShowConsentPatientSignaturePad(true)}
+                          data-testid="consent-patient-signature-trigger"
+                        >
+                          {consentData.patientSignature ? (
+                            <div className="flex flex-col items-center gap-2">
+                              <img src={consentData.patientSignature} alt="Patient signature" className="h-16 max-w-full" />
+                              <p className="text-xs text-muted-foreground">Click to change signature</p>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                              <i className="fas fa-signature text-2xl"></i>
+                              <p className="text-sm">Click to add signature</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -3192,6 +3260,37 @@ export default function PatientDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {/* Signature Pads */}
+      <SignaturePad
+        isOpen={showAssessmentSignaturePad}
+        onClose={() => setShowAssessmentSignaturePad(false)}
+        onSave={(signature) => {
+          setAssessmentData({...assessmentData, doctorSignature: signature});
+          setShowAssessmentSignaturePad(false);
+        }}
+        title="Doctor Signature (Assessment)"
+      />
+      
+      <SignaturePad
+        isOpen={showConsentDoctorSignaturePad}
+        onClose={() => setShowConsentDoctorSignaturePad(false)}
+        onSave={(signature) => {
+          setConsentData({...consentData, doctorSignature: signature});
+          setShowConsentDoctorSignaturePad(false);
+        }}
+        title="Doctor Signature (Consent)"
+      />
+      
+      <SignaturePad
+        isOpen={showConsentPatientSignaturePad}
+        onClose={() => setShowConsentPatientSignaturePad(false)}
+        onSave={(signature) => {
+          setConsentData({...consentData, patientSignature: signature});
+          setShowConsentPatientSignaturePad(false);
+        }}
+        title="Patient Signature"
+      />
     </div>
   );
 }
