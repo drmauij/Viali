@@ -205,28 +205,6 @@ export default function TimelineWeekView({
 
   return (
     <div className="timeline-week-view-container">
-      <div className="timeline-zoom-controls" data-testid="timeline-zoom-controls">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleZoomIn}
-          data-testid="button-zoom-in"
-          className="gap-2"
-        >
-          <ZoomIn className="h-4 w-4" />
-          Zoom In
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleZoomOut}
-          data-testid="button-zoom-out"
-          className="gap-2"
-        >
-          <ZoomOut className="h-4 w-4" />
-          Zoom Out
-        </Button>
-      </div>
       <div className="timeline-week-view" data-testid="timeline-week-view">
         <Timeline
           groups={groups}
@@ -252,8 +230,30 @@ export default function TimelineWeekView({
         <TimelineHeaders>
           <SidebarHeader>
             {({ getRootProps }) => (
-              <div {...getRootProps()} className="timeline-sidebar-header">
-                Surgery Rooms
+              <div {...getRootProps()} className="timeline-sidebar-header-with-controls">
+                <div className="text-sm font-semibold mb-2">Surgery Rooms</div>
+                <div className="flex gap-1" data-testid="timeline-zoom-controls">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleZoomIn}
+                    data-testid="button-zoom-in"
+                    className="gap-1 h-7 px-2 text-xs"
+                  >
+                    <ZoomIn className="h-3 w-3" />
+                    Zoom In
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleZoomOut}
+                    data-testid="button-zoom-out"
+                    className="gap-1 h-7 px-2 text-xs"
+                  >
+                    <ZoomOut className="h-3 w-3" />
+                    Zoom Out
+                  </Button>
+                </div>
               </div>
             )}
           </SidebarHeader>
