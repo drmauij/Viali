@@ -661,6 +661,17 @@
   border-bottom: 1px solid hsl(215, 25%, 90%);
 }
 
+.timeline-sidebar-header-with-controls button {
+  border: 2px solid var(--border);
+  background-color: var(--card);
+  color: var(--foreground);
+}
+
+.timeline-sidebar-header-with-controls button:hover {
+  background-color: var(--accent);
+  border-color: var(--accent-foreground);
+}
+
 .timeline-week-view-container {
   height: 100%;
   width: 100%;
