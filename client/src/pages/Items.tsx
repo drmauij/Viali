@@ -18,6 +18,8 @@ import type { Item, StockLevel, InsertItem, Vendor, Folder } from "@shared/schem
 import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
 import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Trash2, GripVertical, X } from "lucide-react";
 import Papa from "papaparse";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 type FilterType = "all" | "critical" | "controlled" | "expiring" | "belowMin";
 
@@ -1268,11 +1270,11 @@ export default function Items() {
   };
 
   const handleDownloadInventory = () => {
+    const doc = new jsPDF({ orientation: "landscape" });
+    
     const folderMap = new Map<string, Folder>();
     folders.forEach(folder => folderMap.set(folder.id, folder));
 
-    const csvData: any[] = [];
-    
     const sortedItems = [...items].sort((a, b) => {
       const aFolder = a.folderId ? folderMap.get(a.folderId) : null;
       const bFolder = b.folderId ? folderMap.get(b.folderId) : null;
@@ -1286,39 +1288,115 @@ export default function Items() {
       return (a.sortOrder || 0) - (b.sortOrder || 0);
     });
 
+    // Header
+    doc.setFontSize(18);
+    doc.text("INVENTORY LIST", 148, 15, { align: "center" });
+    
+    doc.setFontSize(10);
+    const hospitalName = activeHospital?.name || "Hospital";
+    const exportDate = new Date().toLocaleDateString('en-GB');
+    doc.text(`Hospital: ${hospitalName}`, 20, 25);
+    doc.text(`Date: ${exportDate}`, 240, 25);
+
+    // Build table data with folder grouping
+    const tableData: any[] = [];
+    let currentFolder = "";
+
     sortedItems.forEach(item => {
       const folder = item.folderId ? folderMap.get(item.folderId) : null;
+      const folderName = folder?.name || "Uncategorized";
       const stockQty = item.stockLevel?.qtyOnHand || 0;
       
-      csvData.push({
-        "Folder": folder?.name || "Uncategorized",
-        "Item Name": item.name,
-        "Description": item.description || "",
-        "Unit Type": item.unit,
-        "Current Stock": item.unit === "Pack" ? `${stockQty} packs` : `${stockQty} units`,
-        "Current Items (Units)": item.trackExactQuantity ? item.currentUnits || 0 : "N/A",
-        "Pack Size": item.unit === "Pack" ? item.packSize || 1 : "N/A",
-        "Min Threshold": item.minThreshold || 0,
-        "Max Threshold": item.maxThreshold || 0,
-        "Critical": item.critical ? "Yes" : "No",
-        "Controlled": item.controlled ? "Yes" : "No",
-      });
+      // Add folder header row when folder changes
+      if (folderName !== currentFolder) {
+        currentFolder = folderName;
+        tableData.push([
+          { content: `📁 ${folderName}`, colSpan: 10, styles: { fillColor: [240, 240, 240], fontStyle: 'bold', textColor: [0, 0, 0] } }
+        ]);
+      }
+      
+      // Build row data
+      const row = [
+        item.name,
+        item.description || "-",
+        item.unit,
+        item.unit === "Pack" ? `${stockQty} packs` : `${stockQty} units`,
+      ];
+
+      // Add Pack Size before Current Items if trackExactQuantity is enabled
+      if (item.trackExactQuantity) {
+        row.push(item.unit === "Pack" ? String(item.packSize || 1) : "-");
+        row.push(String(item.currentUnits || 0));
+      } else {
+        row.push("-", "-");
+      }
+
+      row.push(
+        String(item.minThreshold || 0),
+        String(item.maxThreshold || 0),
+        item.critical ? "Yes" : "No",
+        item.controlled ? "Yes" : "No"
+      );
+
+      tableData.push(row);
     });
 
-    const csv = Papa.unparse(csvData);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `inventory-${activeHospital?.name || "export"}-${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Create table
+    autoTable(doc, {
+      startY: 30,
+      head: [[
+        "Item Name",
+        "Description",
+        "Unit",
+        "Current Stock",
+        "Pack Size",
+        "Current Items",
+        "Min",
+        "Max",
+        "Critical",
+        "Controlled"
+      ]],
+      body: tableData,
+      theme: "grid",
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [59, 130, 246], textColor: 255, fontSize: 8, fontStyle: 'bold' },
+      columnStyles: {
+        0: { cellWidth: 45 },  // Item Name
+        1: { cellWidth: 50 },  // Description
+        2: { cellWidth: 20 },  // Unit
+        3: { cellWidth: 28 },  // Current Stock
+        4: { cellWidth: 20, halign: "center" },  // Pack Size
+        5: { cellWidth: 24, halign: "center" },  // Current Items
+        6: { cellWidth: 15, halign: "center" },  // Min
+        7: { cellWidth: 15, halign: "center" },  // Max
+        8: { cellWidth: 18, halign: "center" },  // Critical
+        9: { cellWidth: 22, halign: "center" },  // Controlled
+      },
+      margin: { left: 10, right: 10 },
+    });
+
+    // Footer
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        148,
+        200,
+        { align: "center" }
+      );
+    }
+
+    // Sanitize hospital name for filename
+    const sanitizedHospitalName = hospitalName.replace(/[^a-zA-Z0-9]/g, '-');
+    const filename = `inventory-${sanitizedHospitalName}-${new Date().toISOString().split('T')[0]}.pdf`;
+    
+    doc.save(filename);
 
     toast({
       title: "Inventory Exported",
-      description: `Downloaded ${items.length} items organized by folder.`,
+      description: `Downloaded ${items.length} items organized by folder as PDF.`,
     });
   };
 
