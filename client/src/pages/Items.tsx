@@ -1267,6 +1267,61 @@ export default function Items() {
     setUploadedImages([]);
   };
 
+  const handleDownloadInventory = () => {
+    const folderMap = new Map<string, Folder>();
+    folders.forEach(folder => folderMap.set(folder.id, folder));
+
+    const csvData: any[] = [];
+    
+    const sortedItems = [...items].sort((a, b) => {
+      const aFolder = a.folderId ? folderMap.get(a.folderId) : null;
+      const bFolder = b.folderId ? folderMap.get(b.folderId) : null;
+      const aFolderName = aFolder?.name || "Uncategorized";
+      const bFolderName = bFolder?.name || "Uncategorized";
+      
+      if (aFolderName !== bFolderName) {
+        return aFolderName.localeCompare(bFolderName);
+      }
+      
+      return (a.sortOrder || 0) - (b.sortOrder || 0);
+    });
+
+    sortedItems.forEach(item => {
+      const folder = item.folderId ? folderMap.get(item.folderId) : null;
+      const stockQty = item.stockLevel?.qtyOnHand || 0;
+      
+      csvData.push({
+        "Folder": folder?.name || "Uncategorized",
+        "Item Name": item.name,
+        "Description": item.description || "",
+        "Unit Type": item.unit,
+        "Current Stock": item.unit === "Pack" ? `${stockQty} packs` : `${stockQty} units`,
+        "Current Items (Units)": item.trackExactQuantity ? item.currentUnits || 0 : "N/A",
+        "Pack Size": item.unit === "Pack" ? item.packSize || 1 : "N/A",
+        "Min Threshold": item.minThreshold || 0,
+        "Max Threshold": item.maxThreshold || 0,
+        "Critical": item.critical ? "Yes" : "No",
+        "Controlled": item.controlled ? "Yes" : "No",
+      });
+    });
+
+    const csv = Papa.unparse(csvData);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `inventory-${activeHospital?.name || "export"}-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "Inventory Exported",
+      description: `Downloaded ${items.length} items organized by folder.`,
+    });
+  };
+
   const handleBulkImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -1780,6 +1835,17 @@ export default function Items() {
                 >
                   <i className="fas fa-upload mr-2"></i>
                   {t('items.bulkImport')}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleDownloadInventory}
+                  disabled={items.length === 0}
+                  data-testid="download-inventory-button" 
+                  className="flex-1 sm:flex-initial"
+                >
+                  <i className="fas fa-download mr-2"></i>
+                  Download List
                 </Button>
                 <Button size="sm" onClick={() => setAddDialogOpen(true)} data-testid="add-item-button" className="flex-1 sm:flex-initial">
                   <i className="fas fa-plus mr-2"></i>
