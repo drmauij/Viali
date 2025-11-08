@@ -103,7 +103,9 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries/${surgeryId}`] });
-      queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/preop'] });
+      if (surgery?.hospitalId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${surgery.hospitalId}`] });
+      }
       toast({
         title: "Surgery Updated",
         description: "Surgery details have been successfully updated.",
@@ -127,7 +129,9 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
-      queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/preop'] });
+      if (surgery?.hospitalId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${surgery.hospitalId}`] });
+      }
       toast({
         title: "Surgery Deleted",
         description: "Surgery has been successfully deleted.",
