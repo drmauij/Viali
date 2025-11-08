@@ -194,7 +194,7 @@ export default function QuickCreateSurgeryDialog({
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const key = query.queryKey[0];
-          return typeof key === 'string' && key.startsWith('/api/anesthesia/preop');
+          return typeof key === 'string' && key.includes(`/api/anesthesia/preop?hospitalId=${hospitalId}`);
         }
       });
       toast({
