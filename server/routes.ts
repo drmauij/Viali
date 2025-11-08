@@ -4930,9 +4930,13 @@ If unable to parse any drugs, return:
       }
 
       // Delete pre-op assessment if exists
-      await db.delete(preOpAssessments).where(eq(preOpAssessments.surgeryId, id));
+      console.log(`[Delete Surgery] Deleting pre-op assessment for surgery ${id}`);
+      const preOpResult = await db.delete(preOpAssessments).where(eq(preOpAssessments.surgeryId, id));
+      console.log(`[Delete Surgery] Pre-op assessment deleted:`, preOpResult);
 
+      console.log(`[Delete Surgery] Now deleting surgery ${id}`);
       await storage.deleteSurgery(id);
+      console.log(`[Delete Surgery] Surgery deleted successfully`);
       
       res.json({ message: "Surgery deleted successfully" });
     } catch (error) {
