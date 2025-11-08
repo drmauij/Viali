@@ -583,8 +583,10 @@
 }
 
 /* Fix z-index so time gutter slides under page header */
-.rbc-time-gutter {
-  z-index: 0;
+.rbc-time-gutter,
+.rbc-time-header-gutter {
+  z-index: 1 !important;
+  position: relative;
 }
 
 /* Add more zoom to day view for 60-minute surgeries */
