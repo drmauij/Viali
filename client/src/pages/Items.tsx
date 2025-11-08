@@ -1311,7 +1311,7 @@ export default function Items() {
       if (folderName !== currentFolder) {
         currentFolder = folderName;
         tableData.push([
-          { content: `📁 ${folderName}`, colSpan: 6, styles: { fillColor: [240, 240, 240], fontStyle: 'bold', textColor: [0, 0, 0] } }
+          { content: folderName.toUpperCase(), colSpan: 6, styles: { fillColor: [240, 240, 240], fontStyle: 'bold', textColor: [0, 0, 0] } }
         ]);
       }
       
