@@ -223,7 +223,7 @@ export default function TimelineWeekView({
           itemHeightRatio={0.8}
           minZoom={30 * 60 * 1000}
           maxZoom={7 * 24 * 60 * 60 * 1000}
-          sidebarWidth={180}
+          sidebarWidth={100}
           stackItems={true}
           buffer={1}
         >
@@ -231,27 +231,24 @@ export default function TimelineWeekView({
           <SidebarHeader>
             {({ getRootProps }) => (
               <div {...getRootProps()} className="timeline-sidebar-header-with-controls">
-                <div className="text-sm font-semibold mb-2">Surgery Rooms</div>
-                <div className="flex gap-1" data-testid="timeline-zoom-controls">
+                <div className="flex gap-2" data-testid="timeline-zoom-controls">
                   <Button
-                    size="sm"
+                    size="icon"
                     variant="outline"
                     onClick={handleZoomIn}
                     data-testid="button-zoom-in"
-                    className="gap-1 h-7 px-2 text-xs"
+                    className="h-9 w-9"
                   >
-                    <ZoomIn className="h-3 w-3" />
-                    Zoom In
+                    <ZoomIn className="h-5 w-5" />
                   </Button>
                   <Button
-                    size="sm"
+                    size="icon"
                     variant="outline"
                     onClick={handleZoomOut}
                     data-testid="button-zoom-out"
-                    className="gap-1 h-7 px-2 text-xs"
+                    className="h-9 w-9"
                   >
-                    <ZoomOut className="h-3 w-3" />
-                    Zoom Out
+                    <ZoomOut className="h-5 w-5" />
                   </Button>
                 </div>
               </div>
