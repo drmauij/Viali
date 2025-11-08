@@ -123,6 +123,45 @@ The backend uses Express.js and TypeScript with a PostgreSQL database managed by
 ### Authentication & Authorization
 Viali employs a hybrid authentication strategy (Google OAuth and local email/password) with robust role-based and multi-hospital authorization. A comprehensive user management system handles creation, password changes, and hospital assignments, secured with bcrypt.
 
+#### Multi-Hospital Data Isolation
+
+**Security Audit (November 2025):**
+
+The system enforces strict data isolation between hospitals through a multi-layered authorization approach:
+
+1. **API Layer Authorization (Primary Defense)**:
+   - Every API endpoint that accesses hospital-specific data verifies user access before returning data
+   - Pattern: `storage.getUserHospitals(userId)` → verify `hospitalId` exists in user's hospitals → return 403 if denied
+   - Applied to ALL data access endpoints: patients, surgeries, anesthesia records, inventory items, preop assessments, vitals, medications, events
+
+2. **Query Parameter Filtering**:
+   - List endpoints require `hospitalId` as a query parameter
+   - Backend validates user has access to that hospital before executing queries
+   - Examples: `/api/patients?hospitalId=...`, `/api/anesthesia/surgeries?hospitalId=...`
+
+3. **Resource-Based Authorization**:
+   - When accessing by resource ID (e.g., `/api/patients/:id`), backend:
+     - Fetches the resource
+     - Checks resource's `hospitalId` against user's authorized hospitals
+     - Returns 403 if user doesn't have access to that hospital
+
+4. **Cache Invalidation**:
+   - Frontend cache invalidation is hospital-specific using predicate functions
+   - Prevents unnecessary cross-hospital cache refreshes
+   - Maintains data isolation in the client-side cache
+
+**Security Issue Fixed:**
+- `/api/admin/users/search` endpoint previously allowed cross-hospital user enumeration
+- Now requires `hospitalId` parameter and verifies:
+  1. Admin has access to the specified hospital
+  2. Found user actually belongs to that hospital
+  3. Returns identical "User not found" message for both non-existent users and users in other hospitals (prevents information leakage)
+
+**Architectural Recommendations for Future:**
+- Consider adding hospital filtering at the storage/database layer as an additional defense layer
+- Current pattern relies on API routes correctly implementing authorization checks
+- Adding database-level filtering would provide defense-in-depth if a developer forgets to add authorization to a new endpoint
+
 ### Database Schema
 The database schema includes entities for `Users`, `Hospitals`, `UserHospitalRoles`, `Items` (with barcode support, min/max thresholds, controlled flags, and anesthesia configuration), `StockLevels`, `Lots`, `Orders`, `Activities` (audit trails), and `Alerts`. It uses UUID primary keys, timestamp tracking, separate lot tracking, and JSONB fields with Zod validation. The anesthesia configuration was simplified to use `rateUnit` for defining medication administration types.
 

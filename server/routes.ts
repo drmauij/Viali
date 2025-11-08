@@ -3787,22 +3787,36 @@ If unable to parse any drugs, return:
 
   app.get('/api/admin/users/search', isAuthenticated, async (req: any, res) => {
     try {
-      const { email } = req.query;
+      const { email, hospitalId } = req.query;
       
       if (!email || typeof email !== 'string') {
         return res.status(400).json({ message: "Email parameter is required" });
       }
       
-      // Check if user is admin of at least one hospital
+      if (!hospitalId || typeof hospitalId !== 'string') {
+        return res.status(400).json({ message: "hospitalId parameter is required" });
+      }
+      
+      // Verify user has admin access to the specified hospital
       const userId = req.user.id;
       const hospitals = await storage.getUserHospitals(userId);
-      const isAdmin = hospitals.some(h => h.role === 'admin');
-      if (!isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
+      const hasAdminAccess = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+      
+      if (!hasAdminAccess) {
+        return res.status(403).json({ message: "Admin access required for this hospital" });
       }
       
       const user = await storage.searchUserByEmail(email);
       if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Verify the found user belongs to the requested hospital
+      const userHospitals = await storage.getUserHospitals(user.id);
+      const belongsToHospital = userHospitals.some(h => h.id === hospitalId);
+      
+      if (!belongsToHospital) {
+        // Use the same message to prevent enumeration
         return res.status(404).json({ message: "User not found" });
       }
       
