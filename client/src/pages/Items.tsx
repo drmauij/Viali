@@ -1311,14 +1311,13 @@ export default function Items() {
       if (folderName !== currentFolder) {
         currentFolder = folderName;
         tableData.push([
-          { content: `📁 ${folderName}`, colSpan: 7, styles: { fillColor: [240, 240, 240], fontStyle: 'bold', textColor: [0, 0, 0] } }
+          { content: `📁 ${folderName}`, colSpan: 6, styles: { fillColor: [240, 240, 240], fontStyle: 'bold', textColor: [0, 0, 0] } }
         ]);
       }
       
       // Build row data
       const row = [
         item.name,
-        item.unit,
         item.unit === "Pack" ? `${stockQty} packs` : `${stockQty} units`,
       ];
 
@@ -1343,7 +1342,6 @@ export default function Items() {
       startY: 30,
       head: [[
         "Item Name",
-        "Unit",
         "Current Stock",
         "Pack Size",
         "Current Items",
@@ -1355,13 +1353,12 @@ export default function Items() {
       styles: { fontSize: 9, cellPadding: 3 },
       headStyles: { fillColor: [59, 130, 246], textColor: 255, fontSize: 9, fontStyle: 'bold' },
       columnStyles: {
-        0: { cellWidth: 70 },  // Item Name
-        1: { cellWidth: 22 },  // Unit
-        2: { cellWidth: 32 },  // Current Stock
-        3: { cellWidth: 20, halign: "center" },  // Pack Size
-        4: { cellWidth: 26, halign: "center" },  // Current Items
-        5: { cellWidth: 15, halign: "center" },  // Min
-        6: { cellWidth: 15, halign: "center" },  // Max
+        0: { cellWidth: 74 },  // Item Name
+        1: { cellWidth: 34 },  // Current Stock
+        2: { cellWidth: 20, halign: "center" },  // Pack Size
+        3: { cellWidth: 26, halign: "center" },  // Current Items
+        4: { cellWidth: 18, halign: "center" },  // Min
+        5: { cellWidth: 18, halign: "center" },  // Max
       },
       margin: { left: 10, right: 10 },
     });
