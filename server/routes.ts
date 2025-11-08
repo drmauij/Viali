@@ -34,7 +34,8 @@ import {
   anesthesiaRecords,
   vitalsSnapshots,
   anesthesiaMedications,
-  anesthesiaEvents
+  anesthesiaEvents,
+  preOpAssessments
 } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, inArray, sql, asc, desc } from "drizzle-orm";
@@ -4927,6 +4928,9 @@ If unable to parse any drugs, return:
         await db.delete(vitalsSnapshots).where(eq(vitalsSnapshots.anesthesiaRecordId, anesthesiaRecord.id));
         await db.delete(anesthesiaRecords).where(eq(anesthesiaRecords.id, anesthesiaRecord.id));
       }
+
+      // Delete pre-op assessment if exists
+      await db.delete(preOpAssessments).where(eq(preOpAssessments.surgeryId, id));
 
       await storage.deleteSurgery(id);
       
