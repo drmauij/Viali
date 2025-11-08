@@ -588,7 +588,7 @@
 
 /* Add more zoom to day view for 60-minute surgeries */
 .rbc-time-slot {
-  min-height: 32px;
+  min-height: 16px;
 }
 
 /* React Calendar Timeline Styling */
