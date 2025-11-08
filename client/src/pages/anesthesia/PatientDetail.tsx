@@ -299,6 +299,13 @@ export default function PatientDetail() {
         queryKey: ['/api/anesthesia/surgeries'],
         exact: false
       });
+      // Invalidate pre-op assessment list (hospital-specific)
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes(`/api/anesthesia/preop?hospitalId=${activeHospital?.id}`);
+        }
+      });
       toast({
         title: "Surgery created",
         description: "The surgery has been successfully created.",
@@ -336,6 +343,13 @@ export default function PatientDetail() {
         queryKey: ['/api/anesthesia/surgeries'],
         exact: false
       });
+      // Invalidate pre-op assessment list (hospital-specific)
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes(`/api/anesthesia/preop?hospitalId=${activeHospital?.id}`);
+        }
+      });
       toast({
         title: "Surgery updated",
         description: "The surgery has been successfully updated.",
@@ -366,6 +380,13 @@ export default function PatientDetail() {
       queryClient.invalidateQueries({ 
         queryKey: ['/api/anesthesia/surgeries'],
         exact: false
+      });
+      // Invalidate pre-op assessment list (hospital-specific)
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes(`/api/anesthesia/preop?hospitalId=${activeHospital?.id}`);
+        }
       });
       toast({
         title: "Surgery deleted",
