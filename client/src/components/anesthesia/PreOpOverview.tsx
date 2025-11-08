@@ -183,6 +183,7 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
           'doppellumentubus': 'Doppellumentubus',
           'nasal-intubation': 'Nasal Intub.',
           'awake-intubation': 'Awake Intub.',
+          'ponv-prophylaxis': 'PONV Proph.',
         };
         return labels[key] || key;
       });
@@ -210,6 +211,7 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
           'tap-block': 'TAP',
           'pecs-block': 'PECS',
           'serratus-block': 'Serratus',
+          'with-catheter': 'with Catheter',
         };
         return labels[key] || key;
       });

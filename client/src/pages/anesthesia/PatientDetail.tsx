@@ -2329,6 +2329,7 @@ export default function PatientDetail() {
                                         { id: 'doppellumentubus', label: 'Doppellumentubus' },
                                         { id: 'nasal-intubation', label: 'Nasal Intubation' },
                                         { id: 'awake-intubation', label: 'Awake Intubation' },
+                                        { id: 'ponv-prophylaxis', label: 'PONV Prophylaxis' },
                                       ].map(({ id, label }) => (
                                         <div key={id} className="flex items-center space-x-2">
                                           <Checkbox
@@ -2437,6 +2438,7 @@ export default function PatientDetail() {
                                         { id: 'tap-block', label: 'TAP Block' },
                                         { id: 'pecs-block', label: 'PECS Block' },
                                         { id: 'serratus-block', label: 'Serratus Block' },
+                                        { id: 'with-catheter', label: 'with Catheter' },
                                       ].map(({ id, label }) => (
                                         <div key={id} className="flex items-center space-x-2">
                                           <Checkbox
