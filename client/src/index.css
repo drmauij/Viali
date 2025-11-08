@@ -571,13 +571,14 @@
 
 .rbc-time-header,
 .rbc-time-header-gutter,
-.rbc-time-gutter {
-  background-color: var(--background);
+.rbc-time-gutter,
+.rbc-time-header-content {
+  background-color: var(--background) !important;
   border-color: hsl(215, 25%, 90%);
 }
 
 .rbc-label {
-  background-color: var(--background);
+  background-color: var(--background) !important;
   color: var(--foreground);
 }
 
@@ -882,11 +883,13 @@
 
 [data-theme="dark"] .rbc-time-header,
 [data-theme="dark"] .rbc-time-header-gutter,
-[data-theme="dark"] .rbc-time-gutter {
-  background-color: hsl(215, 28%, 12%);
+[data-theme="dark"] .rbc-time-gutter,
+[data-theme="dark"] .rbc-time-header-content {
+  background-color: hsl(215, 28%, 12%) !important;
 }
 
 [data-theme="dark"] .rbc-label {
+  background-color: hsl(215, 28%, 12%) !important;
   color: hsl(215, 15%, 65%);
 }
 
