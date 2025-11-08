@@ -43,6 +43,13 @@
       "when": 1762500537792,
       "tag": "0005_outgoing_firebrand",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1762605501961,
+      "tag": "0006_jittery_misty_knight",
+      "breakpoints": true
     }
   ]
 }
