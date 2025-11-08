@@ -268,7 +268,7 @@ export default function PatientDetail() {
     doctorSignature: "",
   }));
   
-  const [openSections, setOpenSections] = useState<string[]>(["general", "medications", "heart", "lungs", "gi-kidney-metabolic", "neuro-psych-skeletal", "woman", "noxen", "children", "anesthesia"]);
+  const [openSections, setOpenSections] = useState<string[]>(["general", "anesthesia"]);
   
   // Get medication lists from hospital settings
   const anticoagulationMedications = anesthesiaSettings?.medicationLists?.anticoagulation || [];
