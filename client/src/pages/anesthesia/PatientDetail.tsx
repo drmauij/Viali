@@ -240,9 +240,12 @@ export default function PatientDetail() {
     // Planned Anesthesia
     anesthesiaTechniques: {
       general: false,
+      generalOptions: {} as Record<string, boolean>,
       spinal: false,
       epidural: false,
+      epiduralOptions: {} as Record<string, boolean>,
       regional: false,
+      regionalOptions: {} as Record<string, boolean>,
       sedation: false,
       combined: false,
     },
@@ -502,8 +505,16 @@ export default function PatientDetail() {
         noxenNotes: existingAssessment.noxenNotes || "",
         childrenIssues: mergeIllnessData(existingAssessment.childrenIssues, anesthesiaSettings?.illnessLists?.children),
         childrenNotes: existingAssessment.childrenNotes || "",
-        anesthesiaTechniques: existingAssessment.anesthesiaTechniques || {
-          general: false, spinal: false, epidural: false, regional: false, sedation: false, combined: false,
+        anesthesiaTechniques: {
+          general: existingAssessment.anesthesiaTechniques?.general || false,
+          generalOptions: existingAssessment.anesthesiaTechniques?.generalOptions || {} as Record<string, boolean>,
+          spinal: existingAssessment.anesthesiaTechniques?.spinal || false,
+          epidural: existingAssessment.anesthesiaTechniques?.epidural || false,
+          epiduralOptions: existingAssessment.anesthesiaTechniques?.epiduralOptions || {} as Record<string, boolean>,
+          regional: existingAssessment.anesthesiaTechniques?.regional || false,
+          regionalOptions: existingAssessment.anesthesiaTechniques?.regionalOptions || {} as Record<string, boolean>,
+          sedation: existingAssessment.anesthesiaTechniques?.sedation || false,
+          combined: existingAssessment.anesthesiaTechniques?.combined || false,
         },
         postOpICU: existingAssessment.postOpICU || false,
         anesthesiaOther: existingAssessment.anesthesiaOther || "",
@@ -2291,18 +2302,58 @@ export default function PatientDetail() {
                             <div className="space-y-2">
                               <Label className="text-base font-semibold">Anesthesia Technique</Label>
                               <div className="border rounded-lg p-3 space-y-2">
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="general"
-                                    checked={assessmentData.anesthesiaTechniques.general}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      anesthesiaTechniques: {...assessmentData.anesthesiaTechniques, general: checked as boolean}
-                                    })}
-                                    data-testid="checkbox-general"
-                                  />
-                                  <Label htmlFor="general" className="cursor-pointer font-normal text-sm">General Anesthesia</Label>
+                                {/* General Anesthesia */}
+                                <div className="space-y-2">
+                                  <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id="general"
+                                      checked={assessmentData.anesthesiaTechniques.general}
+                                      onCheckedChange={(checked) => setAssessmentData({
+                                        ...assessmentData,
+                                        anesthesiaTechniques: {...assessmentData.anesthesiaTechniques, general: checked as boolean}
+                                      })}
+                                      data-testid="checkbox-general"
+                                    />
+                                    <Label htmlFor="general" className="cursor-pointer font-normal text-sm font-semibold">General Anesthesia</Label>
+                                  </div>
+                                  {assessmentData.anesthesiaTechniques.general && (
+                                    <div className="ml-6 space-y-1.5 p-2 bg-muted/30 rounded">
+                                      {[
+                                        { id: 'tiva-tci', label: 'TIVA/TCI' },
+                                        { id: 'tubus', label: 'Tubus' },
+                                        { id: 'rsi', label: 'RSI' },
+                                        { id: 'larynxmask', label: 'Larynxmask' },
+                                        { id: 'larynxmask-auragain', label: 'Larynxmask AuraGain' },
+                                        { id: 'rae-tubus', label: 'RAE Tubus' },
+                                        { id: 'spiralfedertubus', label: 'Spiralfedertubus' },
+                                        { id: 'doppellumentubus', label: 'Doppellumentubus' },
+                                        { id: 'nasal-intubation', label: 'Nasal Intubation' },
+                                        { id: 'awake-intubation', label: 'Awake Intubation' },
+                                      ].map(({ id, label }) => (
+                                        <div key={id} className="flex items-center space-x-2">
+                                          <Checkbox
+                                            id={id}
+                                            checked={assessmentData.anesthesiaTechniques.generalOptions?.[id] || false}
+                                            onCheckedChange={(checked) => setAssessmentData({
+                                              ...assessmentData,
+                                              anesthesiaTechniques: {
+                                                ...assessmentData.anesthesiaTechniques,
+                                                generalOptions: {
+                                                  ...assessmentData.anesthesiaTechniques.generalOptions,
+                                                  [id]: checked as boolean
+                                                }
+                                              }
+                                            })}
+                                            data-testid={`checkbox-${id}`}
+                                          />
+                                          <Label htmlFor={id} className="cursor-pointer font-normal text-xs">{label}</Label>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
+
+                                {/* Spinal Anesthesia */}
                                 <div className="flex items-center space-x-2">
                                   <Checkbox
                                     id="spinal"
@@ -2315,30 +2366,102 @@ export default function PatientDetail() {
                                   />
                                   <Label htmlFor="spinal" className="cursor-pointer font-normal text-sm">Spinal Anesthesia</Label>
                                 </div>
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="epidural"
-                                    checked={assessmentData.anesthesiaTechniques.epidural}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      anesthesiaTechniques: {...assessmentData.anesthesiaTechniques, epidural: checked as boolean}
-                                    })}
-                                    data-testid="checkbox-epidural"
-                                  />
-                                  <Label htmlFor="epidural" className="cursor-pointer font-normal text-sm">Epidural Anesthesia</Label>
+
+                                {/* Epidural Anesthesia */}
+                                <div className="space-y-2">
+                                  <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id="epidural"
+                                      checked={assessmentData.anesthesiaTechniques.epidural}
+                                      onCheckedChange={(checked) => setAssessmentData({
+                                        ...assessmentData,
+                                        anesthesiaTechniques: {...assessmentData.anesthesiaTechniques, epidural: checked as boolean}
+                                      })}
+                                      data-testid="checkbox-epidural"
+                                    />
+                                    <Label htmlFor="epidural" className="cursor-pointer font-normal text-sm font-semibold">Epidural Anesthesia</Label>
+                                  </div>
+                                  {assessmentData.anesthesiaTechniques.epidural && (
+                                    <div className="ml-6 space-y-1.5 p-2 bg-muted/30 rounded">
+                                      {[
+                                        { id: 'thoracic', label: 'Thoracic' },
+                                        { id: 'lumbar', label: 'Lumbar' },
+                                      ].map(({ id, label }) => (
+                                        <div key={id} className="flex items-center space-x-2">
+                                          <Checkbox
+                                            id={`epidural-${id}`}
+                                            checked={assessmentData.anesthesiaTechniques.epiduralOptions?.[id] || false}
+                                            onCheckedChange={(checked) => setAssessmentData({
+                                              ...assessmentData,
+                                              anesthesiaTechniques: {
+                                                ...assessmentData.anesthesiaTechniques,
+                                                epiduralOptions: {
+                                                  ...assessmentData.anesthesiaTechniques.epiduralOptions,
+                                                  [id]: checked as boolean
+                                                }
+                                              }
+                                            })}
+                                            data-testid={`checkbox-epidural-${id}`}
+                                          />
+                                          <Label htmlFor={`epidural-${id}`} className="cursor-pointer font-normal text-xs">{label}</Label>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
-                                <div className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id="regional"
-                                    checked={assessmentData.anesthesiaTechniques.regional}
-                                    onCheckedChange={(checked) => setAssessmentData({
-                                      ...assessmentData,
-                                      anesthesiaTechniques: {...assessmentData.anesthesiaTechniques, regional: checked as boolean}
-                                    })}
-                                    data-testid="checkbox-regional"
-                                  />
-                                  <Label htmlFor="regional" className="cursor-pointer font-normal text-sm">Regional Anesthesia</Label>
+
+                                {/* Regional Anesthesia */}
+                                <div className="space-y-2">
+                                  <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id="regional"
+                                      checked={assessmentData.anesthesiaTechniques.regional}
+                                      onCheckedChange={(checked) => setAssessmentData({
+                                        ...assessmentData,
+                                        anesthesiaTechniques: {...assessmentData.anesthesiaTechniques, regional: checked as boolean}
+                                      })}
+                                      data-testid="checkbox-regional"
+                                    />
+                                    <Label htmlFor="regional" className="cursor-pointer font-normal text-sm font-semibold">Regional Anesthesia</Label>
+                                  </div>
+                                  {assessmentData.anesthesiaTechniques.regional && (
+                                    <div className="ml-6 space-y-1.5 p-2 bg-muted/30 rounded">
+                                      {[
+                                        { id: 'interscalene-block', label: 'Interscalene Block' },
+                                        { id: 'supraclavicular-block', label: 'Supraclavicular Block' },
+                                        { id: 'infraclavicular-block', label: 'Infraclavicular Block' },
+                                        { id: 'axillary-block', label: 'Axillary Block' },
+                                        { id: 'femoral-block', label: 'Femoral Block' },
+                                        { id: 'sciatic-block', label: 'Sciatic Block' },
+                                        { id: 'popliteal-block', label: 'Popliteal Block' },
+                                        { id: 'tap-block', label: 'TAP Block' },
+                                        { id: 'pecs-block', label: 'PECS Block' },
+                                        { id: 'serratus-block', label: 'Serratus Block' },
+                                      ].map(({ id, label }) => (
+                                        <div key={id} className="flex items-center space-x-2">
+                                          <Checkbox
+                                            id={`regional-${id}`}
+                                            checked={assessmentData.anesthesiaTechniques.regionalOptions?.[id] || false}
+                                            onCheckedChange={(checked) => setAssessmentData({
+                                              ...assessmentData,
+                                              anesthesiaTechniques: {
+                                                ...assessmentData.anesthesiaTechniques,
+                                                regionalOptions: {
+                                                  ...assessmentData.anesthesiaTechniques.regionalOptions,
+                                                  [id]: checked as boolean
+                                                }
+                                              }
+                                            })}
+                                            data-testid={`checkbox-regional-${id}`}
+                                          />
+                                          <Label htmlFor={`regional-${id}`} className="cursor-pointer font-normal text-xs">{label}</Label>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
                                 </div>
+
+                                {/* Sedation */}
                                 <div className="flex items-center space-x-2">
                                   <Checkbox
                                     id="sedation"
@@ -2351,6 +2474,8 @@ export default function PatientDetail() {
                                   />
                                   <Label htmlFor="sedation" className="cursor-pointer font-normal text-sm">Sedation</Label>
                                 </div>
+
+                                {/* Combined Technique */}
                                 <div className="flex items-center space-x-2">
                                   <Checkbox
                                     id="combined"

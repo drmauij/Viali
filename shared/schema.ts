@@ -624,7 +624,17 @@ export const preOpAssessments = pgTable("preop_assessments", {
   lastClear: varchar("last_clear"),
   
   // Planned Anesthesia
-  anesthesiaTechniques: jsonb("anesthesia_techniques").$type<Record<string, boolean>>(),
+  anesthesiaTechniques: jsonb("anesthesia_techniques").$type<{
+    general?: boolean;
+    generalOptions?: Record<string, boolean>;
+    spinal?: boolean;
+    epidural?: boolean;
+    epiduralOptions?: Record<string, boolean>;
+    regional?: boolean;
+    regionalOptions?: Record<string, boolean>;
+    sedation?: boolean;
+    combined?: boolean;
+  }>(),
   postOpICU: boolean("post_op_icu").default(false),
   anesthesiaOther: text("anesthesia_other"),
   

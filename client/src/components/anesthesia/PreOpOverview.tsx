@@ -53,7 +53,17 @@ type PreOpAssessmentData = {
   lastClear: string;
   
   // Planned Anesthesia
-  anesthesiaTechniques: Record<string, boolean>;
+  anesthesiaTechniques: {
+    general?: boolean;
+    generalOptions?: Record<string, boolean>;
+    spinal?: boolean;
+    epidural?: boolean;
+    epiduralOptions?: Record<string, boolean>;
+    regional?: boolean;
+    regionalOptions?: Record<string, boolean>;
+    sedation?: boolean;
+    combined?: boolean;
+  };
   postOpICU: boolean;
   anesthesiaOther: string;
   
@@ -154,7 +164,61 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
     data.generalMedsOther
   ].filter(Boolean);
 
-  const selectedAnesthesia = getSelectedItems(data.anesthesiaTechniques, anesthesiaLabels);
+  // Build anesthesia techniques with sub-options
+  const anesthesiaWithDetails: string[] = [];
+  const techniques = data.anesthesiaTechniques || {};
+  
+  if (techniques.general) {
+    const subOptions = Object.entries(techniques.generalOptions || {})
+      .filter(([_, value]) => value)
+      .map(([key]) => {
+        const labels: Record<string, string> = {
+          'tiva-tci': 'TIVA/TCI',
+          'tubus': 'Tubus',
+          'rsi': 'RSI',
+          'larynxmask': 'Larynxmask',
+          'larynxmask-auragain': 'LM AuraGain',
+          'rae-tubus': 'RAE Tubus',
+          'spiralfedertubus': 'Spiralfedertubus',
+          'doppellumentubus': 'Doppellumentubus',
+          'nasal-intubation': 'Nasal Intub.',
+          'awake-intubation': 'Awake Intub.',
+        };
+        return labels[key] || key;
+      });
+    anesthesiaWithDetails.push(subOptions.length > 0 ? `GA (${subOptions.join(', ')})` : 'GA');
+  }
+  if (techniques.spinal) anesthesiaWithDetails.push('Spinal');
+  if (techniques.epidural) {
+    const subOptions = Object.entries(techniques.epiduralOptions || {})
+      .filter(([_, value]) => value)
+      .map(([key]) => key === 'thoracic' ? 'Thoracic' : 'Lumbar');
+    anesthesiaWithDetails.push(subOptions.length > 0 ? `Epidural (${subOptions.join(', ')})` : 'Epidural');
+  }
+  if (techniques.regional) {
+    const subOptions = Object.entries(techniques.regionalOptions || {})
+      .filter(([_, value]) => value)
+      .map(([key]) => {
+        const labels: Record<string, string> = {
+          'interscalene-block': 'Interscalene',
+          'supraclavicular-block': 'Supraclavicular',
+          'infraclavicular-block': 'Infraclavicular',
+          'axillary-block': 'Axillary',
+          'femoral-block': 'Femoral',
+          'sciatic-block': 'Sciatic',
+          'popliteal-block': 'Popliteal',
+          'tap-block': 'TAP',
+          'pecs-block': 'PECS',
+          'serratus-block': 'Serratus',
+        };
+        return labels[key] || key;
+      });
+    anesthesiaWithDetails.push(subOptions.length > 0 ? `Regional (${subOptions.join(', ')})` : 'Regional');
+  }
+  if (techniques.sedation) anesthesiaWithDetails.push('Sedation');
+  if (techniques.combined) anesthesiaWithDetails.push('Combined');
+
+  const selectedAnesthesia = anesthesiaWithDetails;
   const selectedInstallations = getSelectedItems(data.installations, installationLabels);
 
   // Check if we have any relevant data (excluding header info: height, weight, allergies, surgery)
