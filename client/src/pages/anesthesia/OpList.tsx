@@ -11,7 +11,7 @@ export default function OpList() {
   };
 
   return (
-    <div className="container mx-auto px-0 py-6 pb-24 h-[calc(100vh-200px)]">
+    <div className="container mx-auto px-0 py-6 pb-24">
       {/* Header */}
       <div className="mb-6 px-4">
         <h1 className="text-2xl font-bold mb-2">OP Schedule</h1>
@@ -21,7 +21,7 @@ export default function OpList() {
       </div>
 
       {/* Calendar View */}
-      <div className="h-full">
+      <div className="min-h-[600px]">
         <OPCalendar onEventClick={handleEventClick} />
       </div>
     </div>
