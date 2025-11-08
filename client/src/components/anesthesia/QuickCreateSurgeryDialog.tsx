@@ -191,7 +191,12 @@ export default function QuickCreateSurgeryDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${hospitalId}`] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.startsWith('/api/anesthesia/preop');
+        }
+      });
       toast({
         title: "Surgery Scheduled",
         description: "Surgery has been successfully scheduled.",
