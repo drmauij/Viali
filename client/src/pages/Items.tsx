@@ -1270,7 +1270,7 @@ export default function Items() {
   };
 
   const handleDownloadInventory = () => {
-    const doc = new jsPDF({ orientation: "landscape" });
+    const doc = new jsPDF({ orientation: "portrait", format: "a4" });
     
     const folderMap = new Map<string, Folder>();
     folders.forEach(folder => folderMap.set(folder.id, folder));
@@ -1290,13 +1290,13 @@ export default function Items() {
 
     // Header
     doc.setFontSize(18);
-    doc.text("INVENTORY LIST", 148, 15, { align: "center" });
+    doc.text("INVENTORY LIST", 105, 15, { align: "center" });
     
     doc.setFontSize(10);
     const hospitalName = activeHospital?.name || "Hospital";
     const exportDate = new Date().toLocaleDateString('en-GB');
     doc.text(`Hospital: ${hospitalName}`, 20, 25);
-    doc.text(`Date: ${exportDate}`, 240, 25);
+    doc.text(`Date: ${exportDate}`, 150, 25);
 
     // Build table data with folder grouping
     const tableData: any[] = [];
@@ -1311,14 +1311,13 @@ export default function Items() {
       if (folderName !== currentFolder) {
         currentFolder = folderName;
         tableData.push([
-          { content: `📁 ${folderName}`, colSpan: 10, styles: { fillColor: [240, 240, 240], fontStyle: 'bold', textColor: [0, 0, 0] } }
+          { content: `📁 ${folderName}`, colSpan: 7, styles: { fillColor: [240, 240, 240], fontStyle: 'bold', textColor: [0, 0, 0] } }
         ]);
       }
       
       // Build row data
       const row = [
         item.name,
-        item.description || "-",
         item.unit,
         item.unit === "Pack" ? `${stockQty} packs` : `${stockQty} units`,
       ];
@@ -1333,9 +1332,7 @@ export default function Items() {
 
       row.push(
         String(item.minThreshold || 0),
-        String(item.maxThreshold || 0),
-        item.critical ? "Yes" : "No",
-        item.controlled ? "Yes" : "No"
+        String(item.maxThreshold || 0)
       );
 
       tableData.push(row);
@@ -1346,31 +1343,25 @@ export default function Items() {
       startY: 30,
       head: [[
         "Item Name",
-        "Description",
         "Unit",
         "Current Stock",
         "Pack Size",
         "Current Items",
         "Min",
-        "Max",
-        "Critical",
-        "Controlled"
+        "Max"
       ]],
       body: tableData,
       theme: "grid",
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [59, 130, 246], textColor: 255, fontSize: 8, fontStyle: 'bold' },
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [59, 130, 246], textColor: 255, fontSize: 9, fontStyle: 'bold' },
       columnStyles: {
-        0: { cellWidth: 45 },  // Item Name
-        1: { cellWidth: 50 },  // Description
-        2: { cellWidth: 20 },  // Unit
-        3: { cellWidth: 28 },  // Current Stock
-        4: { cellWidth: 20, halign: "center" },  // Pack Size
-        5: { cellWidth: 24, halign: "center" },  // Current Items
-        6: { cellWidth: 15, halign: "center" },  // Min
-        7: { cellWidth: 15, halign: "center" },  // Max
-        8: { cellWidth: 18, halign: "center" },  // Critical
-        9: { cellWidth: 22, halign: "center" },  // Controlled
+        0: { cellWidth: 70 },  // Item Name
+        1: { cellWidth: 22 },  // Unit
+        2: { cellWidth: 32 },  // Current Stock
+        3: { cellWidth: 20, halign: "center" },  // Pack Size
+        4: { cellWidth: 26, halign: "center" },  // Current Items
+        5: { cellWidth: 15, halign: "center" },  // Min
+        6: { cellWidth: 15, halign: "center" },  // Max
       },
       margin: { left: 10, right: 10 },
     });
@@ -1382,8 +1373,8 @@ export default function Items() {
       doc.setFontSize(8);
       doc.text(
         `Page ${i} of ${pageCount}`,
-        148,
-        200,
+        105,
+        285,
         { align: "center" }
       );
     }
