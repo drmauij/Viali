@@ -48,7 +48,7 @@ export default function SurgerySummaryDialog({
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('de-DE', { 
+    return date.toLocaleDateString('en-GB', { 
       day: '2-digit', 
       month: '2-digit', 
       year: 'numeric' 
@@ -57,9 +57,10 @@ export default function SurgerySummaryDialog({
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('de-DE', { 
+    return date.toLocaleTimeString('en-GB', { 
       hour: '2-digit', 
-      minute: '2-digit' 
+      minute: '2-digit',
+      hour12: false
     });
   };
 
