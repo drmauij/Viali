@@ -1735,11 +1735,13 @@ export function UnifiedTimeline({
         });
         
         // Update with all elements preserved
+        // Note: Don't use replaceMerge - it causes ECharts to destroy/recreate the graphic layer causing flicker
+        // With stable IDs, ECharts will merge the changes in place
         chart.setOption({
           graphic: {
             elements: updatedGraphic,
           },
-        }, { replaceMerge: ['graphic'] });
+        });
       } catch (e) {
         console.error('Error updating zones:', e);
         console.error('Error details:', {
