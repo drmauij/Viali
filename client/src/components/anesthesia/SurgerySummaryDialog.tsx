@@ -43,10 +43,18 @@ export default function SurgerySummaryDialog({
   const room = rooms.find(r => r.id === surgery?.surgeryRoomId);
 
   // Fetch pre-op assessment data
-  const { data: preOpAssessment, isLoading: isLoadingPreOp, isError: isPreOpError } = useQuery<any>({
+  const { data: preOpAssessment, isLoading: isLoadingPreOp, isError: isPreOpError, error: preOpError } = useQuery<any>({
     queryKey: [`/api/anesthesia/preop-assessments/surgery/${surgeryId}`],
     enabled: !!surgeryId && open,
+    retry: (failureCount, error: any) => {
+      // Don't retry on 404 (not found) - it just means no data exists yet
+      if (error?.status === 404) return false;
+      return failureCount < 3;
+    },
   });
+  
+  // Treat 404 as "no data" rather than an error
+  const isRealError = isPreOpError && (preOpError as any)?.status !== 404;
   
   // Check if pre-op assessment has any meaningful data (check for presence, not truthiness)
   const hasPreOpData = preOpAssessment && (
@@ -182,7 +190,7 @@ export default function SurgerySummaryDialog({
                         <div className="text-sm text-muted-foreground">
                           Loading...
                         </div>
-                      ) : isPreOpError ? (
+                      ) : isRealError ? (
                         <div className="text-sm text-destructive">
                           Error loading assessment data
                         </div>
