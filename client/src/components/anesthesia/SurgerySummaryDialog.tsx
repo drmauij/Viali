@@ -318,12 +318,43 @@ export default function SurgerySummaryDialog({
                                       {(() => {
                                         const techniques = [];
                                         const at = preOpAssessment.anesthesiaTechniques;
-                                        if (at.general) techniques.push('General');
+                                        
+                                        // General with sub-options
+                                        if (at.general) {
+                                          const generalSubs = at.generalOptions ? Object.entries(at.generalOptions)
+                                            .filter(([_, value]) => value)
+                                            .map(([key]) => key.toUpperCase())
+                                            : [];
+                                          techniques.push(generalSubs.length > 0 ? `General (${generalSubs.join(', ')})` : 'General');
+                                        }
+                                        
+                                        // Spinal
                                         if (at.spinal) techniques.push('Spinal');
-                                        if (at.epidural) techniques.push('Epidural');
-                                        if (at.regional) techniques.push('Regional');
+                                        
+                                        // Epidural with sub-options
+                                        if (at.epidural) {
+                                          const epiduralSubs = at.epiduralOptions ? Object.entries(at.epiduralOptions)
+                                            .filter(([_, value]) => value)
+                                            .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
+                                            : [];
+                                          techniques.push(epiduralSubs.length > 0 ? `Epidural (${epiduralSubs.join(', ')})` : 'Epidural');
+                                        }
+                                        
+                                        // Regional with sub-options
+                                        if (at.regional) {
+                                          const regionalSubs = at.regionalOptions ? Object.entries(at.regionalOptions)
+                                            .filter(([_, value]) => value)
+                                            .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
+                                            : [];
+                                          techniques.push(regionalSubs.length > 0 ? `Regional (${regionalSubs.join(', ')})` : 'Regional');
+                                        }
+                                        
+                                        // Sedation
                                         if (at.sedation) techniques.push('Sedation');
+                                        
+                                        // Combined
                                         if (at.combined) techniques.push('Combined');
+                                        
                                         return techniques.length > 0 ? techniques.join(', ') : 'Not specified';
                                       })()}
                                     </span>
