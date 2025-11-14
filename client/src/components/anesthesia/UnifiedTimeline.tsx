@@ -923,7 +923,6 @@ export function UnifiedTimeline({
         e.preventDefault();
       }
       
-      console.log('[Edit Mode] Document mousemove - tracking drag for:', currentSelected.type);
       
       // Get bounding rect of the vitals interactive area
       const rect = vitalsOverlay.getBoundingClientRect();
@@ -969,14 +968,12 @@ export function UnifiedTimeline({
         });
       }
       
-      console.log('[Edit Mode] Document mousemove - dragging to:', { time, value });
     };
     
     const handleMouseUp = () => {
       const currentSelected = selectedPointRef.current;
       const currentDrag = dragPreviewRef.current; // Use preview ref instead of state
       
-      console.log('[Edit Mode] Mouse up - selected:', currentSelected, 'drag:', currentDrag);
       
       // Cancel any pending RAF updates
       if (rafIdRef.current !== null) {
@@ -998,7 +995,6 @@ export function UnifiedTimeline({
       
       // Update the data point with the new snapped position
       const newPoint: VitalPoint = [currentDrag.time, currentDrag.value];
-      console.log('[Edit Mode] Updating point from', [currentSelected.originalTime, currentSelected.originalValue], 'to', newPoint);
       
       if (currentSelected.type === 'hr') {
         const updated = [...hrDataPointsRef.current];
@@ -1977,41 +1973,21 @@ export function UnifiedTimeline({
     const series: any[] = [];
     
     // Sort vitals data chronologically to prevent zigzag lines when backfilling
-    // Also filter out the point being dragged so it doesn't show in both old and new positions
-    // ONLY filter during active drag (when dragPosition exists)
-    const sortedHrData = [...hrDataPoints]
-      .filter((point, idx) => {
-        // Only filter out the selected point if we're actively dragging it
-        const isSelected = dragPosition && selectedPoint?.type === 'hr' && idx === selectedPoint?.index;
-        if (selectedPoint?.type === 'hr') {
-          console.log('[Filter] HR point at index', idx, '- isSelected:', isSelected, 'dragPosition:', dragPosition ? 'exists' : 'null', 'selectedIndex:', selectedPoint?.index);
-        }
-        return !isSelected;
-      })
-      .sort((a, b) => a[0] - b[0]);
-    const sortedSysData = [...bpDataPoints.sys]
-      .filter((_, idx) => !(dragPosition && selectedPoint?.type === 'bp-sys' && idx === selectedPoint?.index))
-      .sort((a, b) => a[0] - b[0]);
-    const sortedDiaData = [...bpDataPoints.dia]
-      .filter((_, idx) => !(dragPosition && selectedPoint?.type === 'bp-dia' && idx === selectedPoint?.index))
-      .sort((a, b) => a[0] - b[0]);
-    const sortedSpo2Data = [...spo2DataPoints]
-      .filter((_, idx) => !(dragPosition && selectedPoint?.type === 'spo2' && idx === selectedPoint?.index))
-      .sort((a, b) => a[0] - b[0]);
+    // Drag preview is handled imperatively via updateDragPreviewImperatively()
+    const sortedHrData = [...hrDataPoints].sort((a, b) => a[0] - b[0]);
+    const sortedSysData = [...bpDataPoints.sys].sort((a, b) => a[0] - b[0]);
+    const sortedDiaData = [...bpDataPoints.dia].sort((a, b) => a[0] - b[0]);
+    const sortedSpo2Data = [...spo2DataPoints].sort((a, b) => a[0] - b[0]);
     
-    // Add HR series if there are data points or being dragged
-    const hrLineData = dragPosition && selectedPoint?.type === 'hr' 
-      ? [...sortedHrData, [dragPosition.time, dragPosition.value] as VitalPoint].sort((a, b) => a[0] - b[0])
-      : sortedHrData;
-      
-    if (hrLineData.length > 0) {
+    // Add HR series if there are data points
+    if (sortedHrData.length > 0) {
       // Add line connecting HR points (chronologically sorted) - HIGH z-index to stay in front of BP
       series.push({
         type: 'line',
         name: 'Heart Rate Line',
         xAxisIndex: 0,
         yAxisIndex: 0,
-        data: hrLineData,
+        data: sortedHrData,
         lineStyle: {
           color: '#ef4444',
           width: 2,
@@ -2021,36 +1997,22 @@ export function UnifiedTimeline({
       });
       
       // Add heart symbols with Lucide Heart icon (stroke rendering)
-      // ONLY use sortedHrData (filtered), NOT hrLineData
-      // The dragged point is rendered separately as a preview below
-      if (sortedHrData.length > 0) {
-        console.log('[HR Icons] Adding main HR icons. Count:', sortedHrData.length, 'Data:', sortedHrData.map((p, i) => `[${i}]: ${p[0]},${p[1]}`));
-        const hrIconSeries: any = createLucideIconSeries(
-            'Heart Rate',
-            sortedHrData,
-            VITAL_ICON_PATHS.heart.path,
-            '#ef4444', // Red
-            0, // yAxisIndex
-            16, // size
-            100 // z-level - VERY high value to ensure icons are always clickable above connection lines
-          );
-        hrIconSeries.id = 'hr-icons-main'; // Add unique ID for proper diffing
-        series.push(hrIconSeries);
-      }
+      const hrIconSeries: any = createLucideIconSeries(
+          'Heart Rate',
+          sortedHrData,
+          VITAL_ICON_PATHS.heart.path,
+          '#ef4444', // Red
+          0, // yAxisIndex
+          16, // size
+          100 // z-level - VERY high value to ensure icons are always clickable above connection lines
+        );
+      hrIconSeries.id = 'hr-icons-main'; // Add unique ID for proper diffing
+      series.push(hrIconSeries);
     }
     
-    // Pending systolic BP bookmark removed - both BP values now placed immediately on click
-    
     // Add BP line connections with filled area BETWEEN systolic and diastolic
-    // Include dragged BP points in line calculations
-    const sysLineData = dragPosition && selectedPoint?.type === 'bp-sys'
-      ? [...sortedSysData, [dragPosition.time, dragPosition.value] as VitalPoint].sort((a, b) => a[0] - b[0])
-      : sortedSysData;
-    const diaLineData = dragPosition && selectedPoint?.type === 'bp-dia'
-      ? [...sortedDiaData, [dragPosition.time, dragPosition.value] as VitalPoint].sort((a, b) => a[0] - b[0])
-      : sortedDiaData;
       
-    if (sysLineData.length > 0 && diaLineData.length > 0) {
+    if (sortedSysData.length > 0 && sortedDiaData.length > 0) {
       // Create area between systolic and diastolic using stacked approach
       // First, add the diastolic as base (stack: 'bp')
       series.push({
@@ -2058,7 +2020,7 @@ export function UnifiedTimeline({
         name: 'Diastolic BP Base',
         xAxisIndex: 0,
         yAxisIndex: 0,
-        data: diaLineData,
+        data: sortedDiaData,
         symbol: 'none',
         lineStyle: {
           color: isDark ? '#ffffff' : '#000000',
@@ -2070,8 +2032,8 @@ export function UnifiedTimeline({
       });
       
       // Then add the DIFFERENCE (systolic - diastolic) on top with area fill
-      const diffData = sysLineData.map((sysPoint, idx) => {
-        const diaPoint = diaLineData[idx];
+      const diffData = sortedSysData.map((sysPoint, idx) => {
+        const diaPoint = sortedDiaData[idx];
         if (diaPoint && sysPoint[0] === diaPoint[0]) {
           // Same timestamp - calculate difference
           return [sysPoint[0], sysPoint[1] - diaPoint[1]];
@@ -2140,19 +2102,14 @@ export function UnifiedTimeline({
     }
     
     // Add SpO2 series with Lucide CircleDot icon (stroke rendering)
-    // Include dragged SpO2 point in line calculation
-    const spo2LineData = dragPosition && selectedPoint?.type === 'spo2'
-      ? [...sortedSpo2Data, [dragPosition.time, dragPosition.value] as VitalPoint].sort((a, b) => a[0] - b[0])
-      : sortedSpo2Data;
-      
-    if (spo2LineData.length > 0) {
+    if (sortedSpo2Data.length > 0) {
       // SpO2 line connection
       series.push({
         type: 'line',
         name: 'SpO2 Line',
         xAxisIndex: 0,
         yAxisIndex: 1, // Use second y-axis (45-105 range)
-        data: spo2LineData,
+        data: sortedSpo2Data,
         symbol: 'none',
         lineStyle: {
           color: '#8b5cf6', // Purple line
@@ -2162,21 +2119,18 @@ export function UnifiedTimeline({
       });
       
       // SpO2 symbols with Lucide CircleDot (outer circle + inner dot)
-      // Don't include the dragged point here - it's added separately below
-      if (sortedSpo2Data.length > 0) {
-        series.push(
-          createLucideIconSeries(
-            'SpO2',
-            sortedSpo2Data,
-            '', // Not used for CircleDot
-            '#8b5cf6', // Purple
-            1, // yAxisIndex (second y-axis for 45-105 range)
-            16, // size
-            30, // z-level - high value to ensure icons are always clickable above lines
-            true // isCircleDot flag
-          )
-        );
-      }
+      series.push(
+        createLucideIconSeries(
+          'SpO2',
+          sortedSpo2Data,
+          '', // Not used for CircleDot
+          '#8b5cf6', // Purple
+          1, // yAxisIndex (second y-axis for 45-105 range)
+          16, // size
+          30, // z-level - high value to ensure icons are always clickable above lines
+          true // isCircleDot flag
+        )
+      );
     }
 
     // Add ventilation parameter text labels
@@ -2508,7 +2462,7 @@ export function UnifiedTimeline({
         },
       },
     } as echarts.EChartsOption;
-  }, [data, isDark, activeSwimlanes, now, hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, medicationDoseData, zoomPercent, pendingSysValue, bpEntryMode, currentTime, collapsedSwimlanes, dragPosition, selectedPoint]);
+  }, [data, isDark, activeSwimlanes, hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, medicationDoseData, zoomPercent, collapsedSwimlanes]);
 
   // Calculate component height
   const VITALS_HEIGHT = 380;
@@ -3032,7 +2986,6 @@ export function UnifiedTimeline({
                              param.standardName === 'FiO2' ? 'fiO2' : null;
             
             if (paramKey && typeof param.value === 'number') {
-              console.log(`[Ventilation] Storing ${param.standardName} (${paramKey}): ${param.value} at ${new Date(timestamp).toLocaleTimeString()}`);
               setVentilationData(prev => ({
                 ...prev,
                 [paramKey]: [...prev[paramKey as keyof typeof prev], [timestamp, param.value as number]]
@@ -3048,7 +3001,6 @@ export function UnifiedTimeline({
       // Process TOF parameters
       const tofParams = parameters.filter((p: any) => p.category === 'tof');
       if (tofParams.length > 0) {
-        console.log('TOF data captured at', new Date(timestamp).toLocaleTimeString(), tofParams);
         addedItems.push('TOF (logged)');
       }
     } else {
@@ -3095,19 +3047,16 @@ export function UnifiedTimeline({
 
       // Log ventilation parameters (old format)
       if (ventilation && Object.values(ventilation).some((v: any) => v !== null && v !== undefined)) {
-        console.log('Ventilation data captured at', new Date(timestamp).toLocaleTimeString(), ventilation);
         addedItems.push('Ventilation (logged)');
       }
 
       // Log TOF monitoring data
       if (tof && ((tof.ratio !== null && tof.ratio !== undefined) || (tof.count !== null && tof.count !== undefined))) {
-        console.log('TOF data captured at', new Date(timestamp).toLocaleTimeString(), tof);
         addedItems.push('TOF (logged)');
       }
 
       // Log pump/perfusion data
       if (pumps && pumps.length > 0) {
-        console.log('Pump data captured at', new Date(timestamp).toLocaleTimeString(), pumps);
         addedItems.push('Pumps (logged)');
       }
     }
@@ -3158,7 +3107,6 @@ export function UnifiedTimeline({
       }
       
       const { transcription } = await transcribeResponse.json();
-      console.log('[Voice] Transcription:', transcription);
       
       // Step 2: Parse drug command(s) - may contain multiple drugs
       const parseResponse = await fetch('/api/parse-drug-command', {
@@ -3172,7 +3120,6 @@ export function UnifiedTimeline({
       }
       
       const response = await parseResponse.json();
-      console.log('[Voice] Parsed command:', response);
       
       if (!response.drugs || response.drugs.length === 0) {
         toast({
@@ -3197,7 +3144,6 @@ export function UnifiedTimeline({
           // Found a matching medication from configured items
           const targetSwimlaneId = match.swimlaneId;
           const matchInfo = ` (${Math.round(match.score * 100)}%)`;
-          console.log(`[Voice] Matched "${drugCommand.drug}" to "${match.fullName}" (score: ${match.score})`);
           
           // Prepare dose data point
           if (!doseUpdates[targetSwimlaneId]) {
@@ -3208,7 +3154,6 @@ export function UnifiedTimeline({
           addedDrugs.push(`${drugCommand.drug} ${drugCommand.dose}${matchInfo}`);
         } else {
           // No match found - skip this drug
-          console.log(`[Voice] No match found for "${drugCommand.drug}", skipping (item must be configured with administration group in settings)`);
         }
       }
       
@@ -3947,7 +3892,6 @@ export function UnifiedTimeline({
     const dose = sheetDoseInput.trim() || freeFlowSheetSession.dose;
     const newStartTime = currentTime;
     
-    console.log('[Resume] Creating session:', { swimlaneId, newStartTime, dose, label });
     
     // Create a new session at current time
     const newSession: FreeFlowSession = {
@@ -3960,7 +3904,6 @@ export function UnifiedTimeline({
     setFreeFlowSessions(prev => {
       const sessions = prev[swimlaneId] || [];
       const updated = [...sessions, newSession].sort((a, b) => a.startTime - b.startTime);
-      console.log('[Resume] Updated sessions:', updated);
       return {
         ...prev,
         [swimlaneId]: updated,
@@ -3971,7 +3914,6 @@ export function UnifiedTimeline({
     setInfusionData(prev => {
       const existingData = prev[swimlaneId] || [];
       const updated = [...existingData, [newStartTime, dose] as [number, string]].sort((a, b) => a[0] - b[0]);
-      console.log('[Resume] Updated infusionData:', updated);
       return {
         ...prev,
         [swimlaneId]: updated,
@@ -5369,7 +5311,6 @@ export function UnifiedTimeline({
             let time = visibleStart + (xPercent * visibleRange);
             
             // Snap to nearest vertical grid line - use zoom-dependent interval for vitals
-            console.log('Current vitals snap interval (ms):', currentVitalsSnapInterval, 'minutes:', currentVitalsSnapInterval / 60000);
             time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
             
             // Check if time is within editable boundaries (only show hover if editable)
@@ -5419,12 +5360,10 @@ export function UnifiedTimeline({
           }}
           onMouseLeave={() => setHoverInfo(null)}
           onMouseDown={(e) => {
-            console.log('[Edit Mode] onMouseDown called, activeToolMode:', activeToolMode, 'isProcessingClick:', isProcessingClick);
             
             // Prevent duplicate processing if touch event was just handled (touch devices fire both touch and mouse events)
             const timeSinceLastTouch = Date.now() - lastTouchTime;
             if (timeSinceLastTouch < 1000) {
-              console.log('[Edit Mode] Ignoring mouse event - touch was just processed', timeSinceLastTouch, 'ms ago');
               return;
             }
             
@@ -5434,12 +5373,10 @@ export function UnifiedTimeline({
             e.preventDefault();
             
             setIsProcessingClick(true);
-            console.log('[Edit Mode] Processing click in edit mode');
             
             const rect = e.currentTarget.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
-            console.log('[Edit Mode] Click position:', { x, y, rectWidth: rect.width, rectHeight: rect.height });
             
             const visibleStart = currentZoomStart ?? data.startTime;
             const visibleEnd = currentZoomEnd ?? data.endTime;
@@ -5510,11 +5447,8 @@ export function UnifiedTimeline({
               }
             });
             
-            console.log('[Edit Mode] Nearest point found:', nearestPoint, 'distance:', nearestDistance);
-            console.log('[Edit Mode] Available points - HR:', hrDataPoints.length, 'BP sys:', bpDataPoints.sys.length, 'BP dia:', bpDataPoints.dia.length, 'SpO2:', spo2DataPoints.length);
             
             if (nearestPoint) {
-              console.log('[Edit Mode] Selecting point:', nearestPoint);
               setSelectedPoint(nearestPoint);
               // Immediately update the ref so document-level mousemove handler can track this selection
               selectedPointRef.current = nearestPoint;
@@ -5525,13 +5459,11 @@ export function UnifiedTimeline({
               // Initialize drag preview imperatively
               dragPreviewRef.current = { time: originalTime, value: originalValue };
             } else {
-              console.log('[Edit Mode] No point found within threshold');
             }
             
             setTimeout(() => setIsProcessingClick(false), 100);
           }}
           onTouchStart={(e) => {
-            console.log('[Edit Mode] onTouchStart called, activeToolMode:', activeToolMode, 'isProcessingClick:', isProcessingClick);
             if (activeToolMode !== 'edit' || isProcessingClick) return;
             
             // Note: Cannot call e.preventDefault() here because React's synthetic events are passive
@@ -5541,13 +5473,11 @@ export function UnifiedTimeline({
             setLastTouchTime(Date.now());
             
             setIsProcessingClick(true);
-            console.log('[Edit Mode] Processing touch in edit mode');
             
             const rect = e.currentTarget.getBoundingClientRect();
             const touch = e.touches[0];
             const x = touch.clientX - rect.left;
             const y = touch.clientY - rect.top;
-            console.log('[Edit Mode] Touch position:', { x, y, rectWidth: rect.width, rectHeight: rect.height });
             
             const visibleStart = currentZoomStart ?? data.startTime;
             const visibleEnd = currentZoomEnd ?? data.endTime;
@@ -5618,11 +5548,8 @@ export function UnifiedTimeline({
               }
             });
             
-            console.log('[Edit Mode] Nearest point found:', nearestPoint, 'distance:', nearestDistance);
-            console.log('[Edit Mode] Available points - HR:', hrDataPoints.length, 'BP sys:', bpDataPoints.sys.length, 'BP dia:', bpDataPoints.dia.length, 'SpO2:', spo2DataPoints.length);
             
             if (nearestPoint) {
-              console.log('[Edit Mode] Selecting point:', nearestPoint);
               setSelectedPoint(nearestPoint);
               // Immediately update the ref so document-level touchmove handler can track this selection
               selectedPointRef.current = nearestPoint;
@@ -5633,7 +5560,6 @@ export function UnifiedTimeline({
               // Initialize drag preview imperatively
               dragPreviewRef.current = { time: originalTime, value: originalValue };
             } else {
-              console.log('[Edit Mode] No point found within threshold');
             }
             
             setTimeout(() => setIsProcessingClick(false), 100);
@@ -7607,7 +7533,6 @@ export function UnifiedTimeline({
         // Find the corresponding child lane in swimlanePositions
         const childLane = swimlanePositions.find(lane => lane.id === `ventilation-${paramIndex}`);
         if (!childLane) {
-          console.log(`[Vent Overlay] Could not find lane ventilation-${paramIndex} for ${paramKey}. Available lanes:`, swimlanePositions.map(l => l.id));
           return [];
         }
         
