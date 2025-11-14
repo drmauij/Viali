@@ -59,9 +59,6 @@ export default function Op() {
   const { toast } = useToast();
   const hasAttemptedCreate = useRef(false);
 
-  // Get returnTo parameter from URL for navigation context
-  const urlParams = new URLSearchParams(window.location.search);
-  const returnTo = urlParams.get('returnTo') || '/anesthesia/patients';
 
   // Get surgeryId from params
   const surgeryId = params.id;
@@ -175,9 +172,15 @@ export default function Op() {
   useEffect(() => {
     if (surgeryError || (!isSurgeryLoading && !surgery)) {
       setIsOpen(false);
-      setTimeout(() => setLocation(returnTo), 100);
+      setTimeout(() => {
+        if (window.history.length > 1) {
+          window.history.back();
+        } else {
+          setLocation('/anesthesia/op');
+        }
+      }, 100);
     }
-  }, [surgery, surgeryError, isSurgeryLoading, setLocation, returnTo]);
+  }, [surgery, surgeryError, isSurgeryLoading, setLocation]);
 
   // Dialog state for editing allergies and CAVE
   const [isAllergiesDialogOpen, setIsAllergiesDialogOpen] = useState(false);
@@ -437,7 +440,11 @@ export default function Op() {
     setIsOpen(open);
     if (!open) {
       setTimeout(() => {
-        setLocation(returnTo);
+        if (window.history.length > 1) {
+          window.history.back();
+        } else {
+          setLocation('/anesthesia/op');
+        }
       }, 100);
     }
   };
