@@ -1761,7 +1761,7 @@ export function UnifiedTimeline({
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [chartRef, data, isDark, activeSwimlanes, now, currentZoomStart, currentZoomEnd, currentTime, chartInitTime, hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData]);
+  }, [chartRef, data.startTime, data.endTime, isDark, activeSwimlanes, currentZoomStart, currentZoomEnd, currentTime, chartInitTime]);
 
   // Add click handler for editing data points
   useEffect(() => {
