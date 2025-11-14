@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileText, ClipboardList, Activity, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
 
 interface SurgerySummaryDialogProps {
   open: boolean;
@@ -21,6 +22,8 @@ export default function SurgerySummaryDialog({
   onOpenPreOp,
   onOpenAnesthesia,
 }: SurgerySummaryDialogProps) {
+  const activeHospital = useActiveHospital();
+
   const { data: surgery } = useQuery<any>({
     queryKey: [`/api/anesthesia/surgeries/${surgeryId}`],
     enabled: !!surgeryId && open,
@@ -31,10 +34,13 @@ export default function SurgerySummaryDialog({
     enabled: !!surgery?.patientId && open,
   });
 
-  const { data: room } = useQuery<any>({
-    queryKey: [`/api/surgery-rooms/${surgery?.surgeryRoomId}`],
-    enabled: !!surgery?.surgeryRoomId && open,
+  const { data: rooms = [] } = useQuery<any[]>({
+    queryKey: [`/api/surgery-rooms/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id && open,
   });
+
+  // Find the specific room for this surgery
+  const room = rooms.find(r => r.id === surgery?.surgeryRoomId);
 
   if (!surgery || !patient) {
     return null;
