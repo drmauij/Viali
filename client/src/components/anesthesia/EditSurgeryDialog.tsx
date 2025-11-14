@@ -60,11 +60,12 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   useEffect(() => {
     if (surgery) {
       const plannedDateObj = new Date(surgery.plannedDate);
-      const year = plannedDateObj.getFullYear();
-      const month = String(plannedDateObj.getMonth() + 1).padStart(2, '0');
-      const day = String(plannedDateObj.getDate()).padStart(2, '0');
-      const hours = String(plannedDateObj.getHours()).padStart(2, '0');
-      const minutes = String(plannedDateObj.getMinutes()).padStart(2, '0');
+      // Use UTC methods to avoid timezone conversion issues
+      const year = plannedDateObj.getUTCFullYear();
+      const month = String(plannedDateObj.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(plannedDateObj.getUTCDate()).padStart(2, '0');
+      const hours = String(plannedDateObj.getUTCHours()).padStart(2, '0');
+      const minutes = String(plannedDateObj.getUTCMinutes()).padStart(2, '0');
       setPlannedDate(`${year}-${month}-${day}T${hours}:${minutes}`);
 
       if (surgery.actualEndTime) {
@@ -82,14 +83,14 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: async () => {
-      // Parse datetime-local string manually to preserve local timezone
+      // Parse datetime-local string and treat as UTC to avoid timezone issues
       const [datePart, timePart] = plannedDate.split('T');
       const [year, month, day] = datePart.split('-').map(Number);
       const [hour, minute] = timePart.split(':').map(Number);
-      const startDate = new Date(year, month - 1, day, hour, minute);
+      const startDate = new Date(Date.UTC(year, month - 1, day, hour, minute));
 
       const endDate = new Date(startDate);
-      endDate.setMinutes(endDate.getMinutes() + duration);
+      endDate.setUTCMinutes(endDate.getUTCMinutes() + duration);
 
       const response = await apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
         plannedDate: startDate.toISOString(),
