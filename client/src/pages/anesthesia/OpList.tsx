@@ -3,17 +3,13 @@ import { useLocation } from "wouter";
 import OPCalendar from "@/components/anesthesia/OPCalendar";
 import SurgerySummaryDialog from "@/components/anesthesia/SurgerySummaryDialog";
 import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
-import PreOpAssessmentDialog from "@/components/anesthesia/PreOpAssessmentDialog";
-import { useActiveHospital } from "@/hooks/useActiveHospital";
 
 export default function OpList() {
   const [, setLocation] = useLocation();
-  const activeHospital = useActiveHospital();
   const [selectedSurgeryId, setSelectedSurgeryId] = useState<string | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [editSurgeryOpen, setEditSurgeryOpen] = useState(false);
-  const [preOpOpen, setPreOpOpen] = useState(false);
 
   const handleEventClick = (surgeryId: string, patientId: string) => {
     setSelectedSurgeryId(surgeryId);
@@ -27,8 +23,10 @@ export default function OpList() {
   };
 
   const handleOpenPreOp = () => {
-    setSummaryOpen(false);
-    setPreOpOpen(true);
+    if (selectedPatientId && selectedSurgeryId) {
+      setSummaryOpen(false);
+      setLocation(`/anesthesia/patients/${selectedPatientId}?openPreOp=${selectedSurgeryId}`);
+    }
   };
 
   const handleOpenAnesthesia = () => {
@@ -73,21 +71,6 @@ export default function OpList() {
             setEditSurgeryOpen(false);
             setSummaryOpen(true); // Return to summary when closing edit
           }}
-        />
-      )}
-
-      {/* Pre-OP Assessment Dialog */}
-      {preOpOpen && selectedSurgeryId && activeHospital && (
-        <PreOpAssessmentDialog
-          open={preOpOpen}
-          onOpenChange={(open) => {
-            setPreOpOpen(open);
-            if (!open) {
-              setSummaryOpen(true); // Return to summary when closing preop
-            }
-          }}
-          surgeryId={selectedSurgeryId}
-          hospitalId={activeHospital.id}
         />
       )}
     </div>
