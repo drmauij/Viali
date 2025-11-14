@@ -62,6 +62,7 @@ export default function PatientDetail() {
   const patientCardRef = useRef<HTMLDivElement>(null);
   const activeHospital = useActiveHospital();
   const { user } = useAuth();
+  const [returnTo, setReturnTo] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -143,12 +144,18 @@ export default function PatientDetail() {
     return state;
   };
   
-  // Check for openPreOp query parameter and auto-open dialog
+  // Check for openPreOp and returnTo query parameters and auto-open dialog
   useEffect(() => {
     if (!patient) return;
     
     const urlParams = new URLSearchParams(window.location.search);
     const openPreOpCaseId = urlParams.get('openPreOp');
+    const returnToParam = urlParams.get('returnTo');
+    
+    // Store returnTo parameter if present
+    if (returnToParam) {
+      setReturnTo(returnToParam);
+    }
     
     if (openPreOpCaseId) {
       setSelectedCaseId(openPreOpCaseId);
@@ -158,7 +165,7 @@ export default function PatientDetail() {
       }));
       setIsPreOpOpen(true);
       
-      // Clean up URL by removing only the openPreOp parameter
+      // Clean up URL by removing openPreOp parameter (keep returnTo if present)
       const url = new URL(window.location.href);
       url.searchParams.delete('openPreOp');
       const newUrl = url.searchParams.toString() ? `${url.pathname}?${url.searchParams.toString()}` : url.pathname;
@@ -1530,7 +1537,7 @@ export default function PatientDetail() {
                   <Button
                     variant="outline"
                     className="h-auto py-4 flex-col gap-2"
-                    onClick={() => setLocation(`/anesthesia/cases/${surgery.id}/op`)}
+                    onClick={() => setLocation(`/anesthesia/cases/${surgery.id}/op?returnTo=/anesthesia/patients/${params?.id}`)}
                     data-testid={`button-op-${surgery.id}`}
                   >
                     <Activity className="h-10 w-10 text-primary" />
@@ -1564,7 +1571,14 @@ export default function PatientDetail() {
       )}
 
       {/* Pre-OP Full Screen Dialog */}
-      <Dialog open={isPreOpOpen} onOpenChange={setIsPreOpOpen}>
+      <Dialog open={isPreOpOpen} onOpenChange={(open) => {
+        if (!open && returnTo) {
+          // Navigate back to the context that opened this dialog
+          setLocation(returnTo);
+        } else {
+          setIsPreOpOpen(open);
+        }
+      }}>
         <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col [&>button]:hidden">
           <DialogHeader className="p-4 md:p-6 pb-4 shrink-0 relative">
             <DialogDescription className="sr-only">Pre-operative assessment and informed consent forms</DialogDescription>
@@ -1573,7 +1587,13 @@ export default function PatientDetail() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setIsPreOpOpen(false)}
+                onClick={() => {
+                  if (returnTo) {
+                    setLocation(returnTo);
+                  } else {
+                    setIsPreOpOpen(false);
+                  }
+                }}
                 className="absolute right-2 top-2 md:right-4 md:top-4 z-10"
                 data-testid="button-close-preop-dialog"
               >
