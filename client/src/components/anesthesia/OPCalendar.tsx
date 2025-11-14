@@ -48,8 +48,7 @@ const DragAndDropCalendar = withDragAndDrop<CalendarEvent, CalendarResource>(
 // Custom formats for European date/time display
 const formats = {
   timeGutterFormat: 'HH:mm',
-  eventTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) => 
-    `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`,
+  eventTimeRangeFormat: () => '', // Hide time from events
   agendaTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
     `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`,
   dayHeaderFormat: 'dddd DD/MM/YYYY',
