@@ -25,14 +25,14 @@ export default function OpList() {
   const handleOpenPreOp = () => {
     if (selectedPatientId && selectedSurgeryId) {
       setSummaryOpen(false);
-      setLocation(`/anesthesia/patients/${selectedPatientId}?openPreOp=${selectedSurgeryId}&returnTo=/anesthesia/op`);
+      setLocation(`/anesthesia/patients/${selectedPatientId}?openPreOp=${selectedSurgeryId}`);
     }
   };
 
   const handleOpenAnesthesia = () => {
     if (selectedSurgeryId) {
       setSummaryOpen(false);
-      setLocation(`/anesthesia/op/${selectedSurgeryId}?returnTo=/anesthesia/op`);
+      setLocation(`/anesthesia/op/${selectedSurgeryId}`);
     }
   };
 
