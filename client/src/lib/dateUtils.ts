@@ -119,11 +119,27 @@ export const formatDateTimeForInput = (date: string | Date | null | undefined): 
   
   try {
     const dateObj = typeof date === "string" ? new Date(date) : date;
-    return dateObj.toISOString().slice(0, 16);
+    // Format as local datetime for input[type="datetime-local"]
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const hours = String(dateObj.getHours()).padStart(2, '0');
+    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   } catch (error) {
     console.error("Error formatting datetime for input:", error);
     return "";
   }
+};
+
+// Convert datetime-local input string to ISO (UTC) for API
+export const dateTimeLocalToISO = (localDateTimeString: string): string => {
+  // Input format: "2025-11-08T14:00"
+  const [datePart, timePart] = localDateTimeString.split('T');
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hour, minute] = timePart.split(':').map(Number);
+  const date = new Date(year, month - 1, day, hour, minute);
+  return date.toISOString();
 };
 
 export const formatDateHeader = (date: Date): string => {
