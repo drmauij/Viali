@@ -542,6 +542,48 @@ export default function Op() {
                 </div>
               </div>
 
+              {/* Patient Allergies & Notes from Patient Record */}
+              {((patient?.allergies && patient.allergies.length > 0) || patient?.otherAllergies || patient?.internalNotes) && (
+                <div className="flex items-start gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 rounded-lg" data-testid="patient-allergies-notes-display">
+                  <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
+                  <div className="flex-1">
+                    {patient?.allergies && patient.allergies.length > 0 && (
+                      <div className="mb-2">
+                        <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">ALLERGIES</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {patient.allergies.map((allergy) => (
+                            <Badge 
+                              key={allergy} 
+                              variant="destructive" 
+                              className="text-xs"
+                              data-testid={`badge-header-allergy-${allergy.toLowerCase()}`}
+                            >
+                              {allergy}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {patient?.otherAllergies && (
+                      <div className="mb-2">
+                        <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">OTHER ALLERGIES</p>
+                        <p className="text-sm text-amber-900 dark:text-amber-100" data-testid="text-header-other-allergies">
+                          {patient.otherAllergies}
+                        </p>
+                      </div>
+                    )}
+                    {patient?.internalNotes && (
+                      <div>
+                        <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1">INTERNAL NOTES</p>
+                        <p className="text-sm text-amber-900 dark:text-amber-100" data-testid="text-header-internal-notes">
+                          {patient.internalNotes}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Surgery Info */}
               <div className="px-3 py-2 bg-primary/10 border border-primary/30 rounded-lg">
                 <p className="text-xs font-medium text-primary/70">PROCEDURE</p>
