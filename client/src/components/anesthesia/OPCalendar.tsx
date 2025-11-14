@@ -273,47 +273,23 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     return { style };
   }, []);
 
-  // Custom event component with action buttons
+  // Simplified event component - just surgery and patient info
   const EventComponent: React.FC<EventProps<CalendarEvent>> = useCallback(({ event }: EventProps<CalendarEvent>) => {
     return (
-      <div className="flex flex-col h-full p-1 relative" data-testid={`event-${event.surgeryId}`}>
+      <div className="flex flex-col h-full p-1" data-testid={`event-${event.surgeryId}`}>
         <div className={`font-bold text-xs ${event.isCancelled ? 'line-through' : ''}`}>
           {event.plannedSurgery}
         </div>
         <div className={`text-xs ${event.isCancelled ? 'line-through' : ''}`}>
           {event.patientName}
-          {event.patientBirthday && `, ${event.patientBirthday}`}
+          {event.patientBirthday && ` ${event.patientBirthday}`}
         </div>
         {event.isCancelled && (
           <div className="text-xs font-semibold mt-0.5">CANCELLED</div>
         )}
-        <div className="absolute bottom-1 right-1 flex gap-1">
-          <button
-            className="bg-white/20 hover:bg-white/30 rounded p-1 text-xs"
-            onClick={(e) => {
-              e.stopPropagation();
-              setLocation(`/anesthesia/patients/${event.patientId}?openPreOp=${event.surgeryId}`);
-            }}
-            data-testid={`button-preop-${event.surgeryId}`}
-          >
-            <i className="fas fa-clipboard-list"></i>
-          </button>
-          <button
-            className="bg-white/20 hover:bg-white/30 rounded p-1 text-xs"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onEventClick) {
-                onEventClick(event.surgeryId);
-              }
-            }}
-            data-testid={`button-op-${event.surgeryId}`}
-          >
-            <i className="fas fa-heartbeat"></i>
-          </button>
-        </div>
       </div>
     );
-  }, [onEventClick, setLocation]);
+  }, []);
 
   const goToToday = () => {
     setSelectedDate(new Date());
