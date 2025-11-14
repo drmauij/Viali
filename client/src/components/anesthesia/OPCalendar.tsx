@@ -305,10 +305,8 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           type="button"
           className="rbc-button-link"
           onClick={() => {
-            if (hasEvents) {
-              setSelectedDate(date);
-              setCurrentView("day");
-            }
+            setSelectedDate(date);
+            setCurrentView("day");
           }}
         >
           {date.getDate()}
@@ -321,6 +319,24 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       </div>
     );
   }, [calendarEvents]);
+
+  // Custom date cell wrapper to make entire month cell clickable
+  const DateCellWrapper = useCallback(({ value, children }: { value: Date; children: React.ReactNode }) => {
+    return (
+      <div 
+        className="rbc-day-bg cursor-pointer hover:bg-accent/50 transition-colors"
+        onClick={() => {
+          if (currentView === "month") {
+            setSelectedDate(value);
+            setCurrentView("day");
+          }
+        }}
+        data-testid={`day-cell-${value.toISOString()}`}
+      >
+        {children}
+      </div>
+    );
+  }, [currentView]);
 
   const goToToday = () => {
     setSelectedDate(new Date());
@@ -547,6 +563,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
                 month: {
                   dateHeader: MonthDateHeader,
                 },
+                dateCellWrapper: DateCellWrapper,
               }}
               selectable
               resizable
