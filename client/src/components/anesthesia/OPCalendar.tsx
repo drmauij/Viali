@@ -300,19 +300,18 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     const hasEvents = dayEvents.length > 0;
 
     return (
-      <div className="rbc-date-cell">
-        <button
-          type="button"
-          className="rbc-button-link"
-          onClick={() => {
-            if (hasEvents) {
-              setSelectedDate(date);
-              setCurrentView("day");
-            }
-          }}
-        >
+      <div 
+        className={`rbc-date-cell w-full h-full ${hasEvents ? 'cursor-pointer hover:bg-accent' : ''}`}
+        onClick={() => {
+          if (hasEvents) {
+            setSelectedDate(date);
+            setCurrentView("day");
+          }
+        }}
+      >
+        <span className="rbc-button-link">
           {date.getDate()}
-        </button>
+        </span>
         {hasEvents && (
           <div className="flex justify-center mt-1">
             <div className="w-2 h-2 rounded-full bg-blue-500" data-testid={`indicator-${date.toISOString()}`}></div>
