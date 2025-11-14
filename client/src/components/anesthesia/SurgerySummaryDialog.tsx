@@ -106,10 +106,27 @@ export default function SurgerySummaryDialog({
         <div className="space-y-4">
           {/* Patient Info with Allergies */}
           <div className="bg-muted/50 p-4 rounded-lg space-y-3">
-            <div>
-              <span className="text-sm font-medium">Patient:</span>
-              <span className="ml-2">{patientName}</span>
-              <span className="ml-2 text-muted-foreground text-sm">({patientBirthday})</span>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <div className="text-xs font-medium text-muted-foreground mb-1">Name</div>
+                <div className="font-medium">{patientName}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium text-muted-foreground mb-1">Birthday</div>
+                <div className="font-medium">{patientBirthday}</div>
+              </div>
+              {patient.patientNumber && (
+                <div>
+                  <div className="text-xs font-medium text-muted-foreground mb-1">Patient ID</div>
+                  <div className="font-medium">{patient.patientNumber}</div>
+                </div>
+              )}
+              {patient.sex && (
+                <div>
+                  <div className="text-xs font-medium text-muted-foreground mb-1">Sex</div>
+                  <div className="font-medium">{patient.sex}</div>
+                </div>
+              )}
             </div>
             
             {/* Patient Allergies from Patient Record */}
