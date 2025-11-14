@@ -1,13 +1,38 @@
+import { useState } from "react";
 import { useLocation } from "wouter";
 import OPCalendar from "@/components/anesthesia/OPCalendar";
+import SurgerySummaryDialog from "@/components/anesthesia/SurgerySummaryDialog";
+import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
 
 export default function OpList() {
   const [, setLocation] = useLocation();
+  const [selectedSurgeryId, setSelectedSurgeryId] = useState<string | null>(null);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [editSurgeryOpen, setEditSurgeryOpen] = useState(false);
 
-  const handleEventClick = (caseId: string) => {
-    // Include returnTo parameter to preserve navigation context
-    const returnTo = encodeURIComponent('/anesthesia/op');
-    setLocation(`/anesthesia/cases/${caseId}/op?returnTo=${returnTo}`);
+  const handleEventClick = (surgeryId: string) => {
+    setSelectedSurgeryId(surgeryId);
+    setSummaryOpen(true);
+  };
+
+  const handleEditSurgery = () => {
+    setSummaryOpen(false);
+    setEditSurgeryOpen(true);
+  };
+
+  const handleOpenPreOp = () => {
+    if (selectedSurgeryId) {
+      setSummaryOpen(false);
+      // Navigate but preserve context - dialog will be shown by patient page
+      setLocation(`/anesthesia/patients/${selectedSurgeryId}/preop?returnTo=/anesthesia/op`);
+    }
+  };
+
+  const handleOpenAnesthesia = () => {
+    if (selectedSurgeryId) {
+      setSummaryOpen(false);
+      setLocation(`/anesthesia/cases/${selectedSurgeryId}/op?returnTo=/anesthesia/op`);
+    }
   };
 
   return (
@@ -24,6 +49,29 @@ export default function OpList() {
       <div className="min-h-[600px]">
         <OPCalendar onEventClick={handleEventClick} />
       </div>
+
+      {/* Surgery Summary Dialog */}
+      {selectedSurgeryId && (
+        <SurgerySummaryDialog
+          open={summaryOpen}
+          onOpenChange={setSummaryOpen}
+          surgeryId={selectedSurgeryId}
+          onEditSurgery={handleEditSurgery}
+          onOpenPreOp={handleOpenPreOp}
+          onOpenAnesthesia={handleOpenAnesthesia}
+        />
+      )}
+
+      {/* Edit Surgery Dialog */}
+      {editSurgeryOpen && selectedSurgeryId && (
+        <EditSurgeryDialog
+          surgeryId={selectedSurgeryId}
+          onClose={() => {
+            setEditSurgeryOpen(false);
+            setSummaryOpen(true); // Return to summary when closing edit
+          }}
+        />
+      )}
     </div>
   );
 }
