@@ -58,12 +58,17 @@ export default function SurgerySummaryDialog({
   
   // Check if pre-op assessment has any meaningful data (check for presence, not truthiness)
   const hasPreOpData = preOpAssessment && (
-    preOpAssessment.asaClassification != null ||
-    (preOpAssessment.allergies && preOpAssessment.allergies.length > 0) ||
-    preOpAssessment.bodyWeight != null ||
+    preOpAssessment.asa != null ||
+    preOpAssessment.height != null ||
+    preOpAssessment.weight != null ||
+    preOpAssessment.cave != null ||
+    preOpAssessment.specialNotes != null ||
     preOpAssessment.heartRate != null ||
     preOpAssessment.bloodPressureSystolic != null ||
-    preOpAssessment.plannedAnesthesiaTechnique != null ||
+    preOpAssessment.anesthesiaTechniques != null ||
+    preOpAssessment.postOpICU != null ||
+    preOpAssessment.installations != null ||
+    preOpAssessment.anesthesiaOther != null ||
     preOpAssessment.informedConsentSignature != null
   );
 
@@ -242,30 +247,32 @@ export default function SurgerySummaryDialog({
                       ) : hasPreOpData ? (
                         <div className="space-y-2 text-sm">
                           {/* General Data */}
-                          {(preOpAssessment.asaClassification != null || 
-                            (preOpAssessment.allergies && preOpAssessment.allergies.length > 0) || 
-                            preOpAssessment.bodyWeight != null || 
+                          {(preOpAssessment.asa != null || 
+                            preOpAssessment.height != null ||
+                            preOpAssessment.weight != null || 
+                            preOpAssessment.cave != null ||
+                            preOpAssessment.specialNotes != null ||
                             preOpAssessment.heartRate != null || 
                             preOpAssessment.bloodPressureSystolic != null) && (
                             <div>
                               <div className="font-medium text-xs text-muted-foreground mb-1">General Data</div>
-                              <div className="space-y-0.5">
-                                {preOpAssessment.asaClassification != null && (
+                              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                                {preOpAssessment.asa != null && (
                                   <div>
                                     <span className="text-muted-foreground">ASA:</span>
-                                    <span className="ml-2">{preOpAssessment.asaClassification}</span>
+                                    <span className="ml-2">{preOpAssessment.asa}</span>
                                   </div>
                                 )}
-                                {preOpAssessment.allergies && preOpAssessment.allergies.length > 0 && (
+                                {preOpAssessment.height != null && (
                                   <div>
-                                    <span className="text-muted-foreground">Allergies:</span>
-                                    <span className="ml-2">{preOpAssessment.allergies.join(', ')}</span>
+                                    <span className="text-muted-foreground">Height:</span>
+                                    <span className="ml-2">{preOpAssessment.height} cm</span>
                                   </div>
                                 )}
-                                {preOpAssessment.bodyWeight != null && (
+                                {preOpAssessment.weight != null && (
                                   <div>
                                     <span className="text-muted-foreground">Weight:</span>
-                                    <span className="ml-2">{preOpAssessment.bodyWeight} kg</span>
+                                    <span className="ml-2">{preOpAssessment.weight} kg</span>
                                   </div>
                                 )}
                                 {preOpAssessment.heartRate != null && (
@@ -280,15 +287,69 @@ export default function SurgerySummaryDialog({
                                     <span className="ml-2">{preOpAssessment.bloodPressureSystolic}/{preOpAssessment.bloodPressureDiastolic} mmHg</span>
                                   </div>
                                 )}
+                                {preOpAssessment.cave != null && (
+                                  <div className="col-span-2">
+                                    <span className="text-muted-foreground">CAVE:</span>
+                                    <span className="ml-2">{preOpAssessment.cave}</span>
+                                  </div>
+                                )}
+                                {preOpAssessment.specialNotes != null && (
+                                  <div className="col-span-2">
+                                    <span className="text-muted-foreground">Notes:</span>
+                                    <span className="ml-2">{preOpAssessment.specialNotes}</span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           )}
                           
-                          {/* Anesthesia Technique */}
-                          {preOpAssessment.plannedAnesthesiaTechnique != null && (
+                          {/* Planned Anesthesia and Installations */}
+                          {(preOpAssessment.anesthesiaTechniques != null ||
+                            preOpAssessment.postOpICU != null ||
+                            preOpAssessment.installations != null ||
+                            preOpAssessment.anesthesiaOther != null) && (
                             <div>
-                              <div className="font-medium text-xs text-muted-foreground mb-1">Anesthesia Technique</div>
-                              <div>{preOpAssessment.plannedAnesthesiaTechnique}</div>
+                              <div className="font-medium text-xs text-muted-foreground mb-1">Planned Anesthesia & Installations</div>
+                              <div className="space-y-0.5">
+                                {preOpAssessment.anesthesiaTechniques && (
+                                  <div>
+                                    <span className="text-muted-foreground">Technique:</span>
+                                    <span className="ml-2">
+                                      {(() => {
+                                        const techniques = [];
+                                        const at = preOpAssessment.anesthesiaTechniques;
+                                        if (at.general) techniques.push('General');
+                                        if (at.spinal) techniques.push('Spinal');
+                                        if (at.epidural) techniques.push('Epidural');
+                                        if (at.regional) techniques.push('Regional');
+                                        if (at.sedation) techniques.push('Sedation');
+                                        if (at.combined) techniques.push('Combined');
+                                        return techniques.length > 0 ? techniques.join(', ') : 'Not specified';
+                                      })()}
+                                    </span>
+                                  </div>
+                                )}
+                                {preOpAssessment.postOpICU && (
+                                  <div className="text-amber-600 dark:text-amber-400">Post-OP ICU planned</div>
+                                )}
+                                {preOpAssessment.installations && Object.keys(preOpAssessment.installations).length > 0 && (
+                                  <div>
+                                    <span className="text-muted-foreground">Installations:</span>
+                                    <span className="ml-2">
+                                      {Object.entries(preOpAssessment.installations)
+                                        .filter(([_, value]) => value)
+                                        .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
+                                        .join(', ')}
+                                    </span>
+                                  </div>
+                                )}
+                                {preOpAssessment.anesthesiaOther != null && (
+                                  <div>
+                                    <span className="text-muted-foreground">Other:</span>
+                                    <span className="ml-2">{preOpAssessment.anesthesiaOther}</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
                           
