@@ -42,6 +42,23 @@ export default function SurgerySummaryDialog({
   // Find the specific room for this surgery
   const room = rooms.find(r => r.id === surgery?.surgeryRoomId);
 
+  // Fetch pre-op assessment data
+  const { data: preOpAssessment, isLoading: isLoadingPreOp, isError: isPreOpError } = useQuery<any>({
+    queryKey: [`/api/anesthesia/preop-assessments/surgery/${surgeryId}`],
+    enabled: !!surgeryId && open,
+  });
+  
+  // Check if pre-op assessment has any meaningful data (check for presence, not truthiness)
+  const hasPreOpData = preOpAssessment && (
+    preOpAssessment.asaClassification != null ||
+    (preOpAssessment.allergies && preOpAssessment.allergies.length > 0) ||
+    preOpAssessment.bodyWeight != null ||
+    preOpAssessment.heartRate != null ||
+    preOpAssessment.bloodPressureSystolic != null ||
+    preOpAssessment.plannedAnesthesiaTechnique != null ||
+    preOpAssessment.informedConsentSignature != null
+  );
+
   if (!surgery || !patient) {
     return null;
   }
@@ -65,6 +82,11 @@ export default function SurgerySummaryDialog({
   const patientBirthday = formatDate(patient.birthday);
   const surgeryDate = formatDate(surgery.plannedDate);
   const surgeryTime = formatTime(surgery.plannedDate);
+  
+  // Calculate duration
+  const duration = surgery.endDate ? 
+    Math.round((new Date(surgery.endDate).getTime() - new Date(surgery.plannedDate).getTime()) / 60000) : 
+    null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -74,32 +96,13 @@ export default function SurgerySummaryDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Patient & Surgery Info */}
-          <div className="bg-muted/50 p-4 rounded-lg space-y-2">
+          {/* Patient Info Only */}
+          <div className="bg-muted/50 p-4 rounded-lg">
             <div>
               <span className="text-sm font-medium">Patient:</span>
               <span className="ml-2">{patientName}</span>
               <span className="ml-2 text-muted-foreground text-sm">({patientBirthday})</span>
             </div>
-            <div>
-              <span className="text-sm font-medium">Surgery:</span>
-              <span className="ml-2">{surgery.plannedSurgery || 'Not specified'}</span>
-            </div>
-            <div>
-              <span className="text-sm font-medium">Date & Time:</span>
-              <span className="ml-2">{surgeryDate} at {surgeryTime}</span>
-            </div>
-            {room && (
-              <div>
-                <span className="text-sm font-medium">Room:</span>
-                <span className="ml-2">{room.name}</span>
-              </div>
-            )}
-            {surgery.status === 'cancelled' && (
-              <div className="text-destructive font-semibold">
-                Status: CANCELLED
-              </div>
-            )}
           </div>
 
           {/* Action Cards */}
@@ -111,19 +114,52 @@ export default function SurgerySummaryDialog({
               data-testid="card-edit-surgery"
             >
               <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3 flex-1">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg shrink-0">
                       <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     </div>
-                    <div>
-                      <div className="font-semibold">Surgery Data</div>
-                      <div className="text-sm text-muted-foreground">
-                        Edit patient, room, date, time, and duration
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold mb-2">Surgery Data</div>
+                      <div className="space-y-1 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Surgery:</span>
+                          <span className="ml-2">{surgery.plannedSurgery || 'Not specified'}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Date & Time:</span>
+                          <span className="ml-2">{surgeryDate} at {surgeryTime}</span>
+                          {surgery.endDate && (
+                            <span className="ml-2">- {formatTime(surgery.endDate)}</span>
+                          )}
+                        </div>
+                        {duration != null && (
+                          <div>
+                            <span className="text-muted-foreground">Duration:</span>
+                            <span className="ml-2">{duration} min</span>
+                          </div>
+                        )}
+                        {room && (
+                          <div>
+                            <span className="text-muted-foreground">Room:</span>
+                            <span className="ml-2">{room.name}</span>
+                          </div>
+                        )}
+                        {surgery.surgeon && (
+                          <div>
+                            <span className="text-muted-foreground">Surgeon:</span>
+                            <span className="ml-2">{surgery.surgeon}</span>
+                          </div>
+                        )}
+                        {surgery.status === 'cancelled' && (
+                          <div className="text-destructive font-semibold">
+                            Status: CANCELLED
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 mt-1" />
                 </div>
               </CardContent>
             </Card>
@@ -135,19 +171,94 @@ export default function SurgerySummaryDialog({
               data-testid="card-open-preop"
             >
               <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3 flex-1">
+                    <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg shrink-0">
                       <ClipboardList className="h-5 w-5 text-green-600 dark:text-green-400" />
                     </div>
-                    <div>
-                      <div className="font-semibold">Pre-OP Assessment</div>
-                      <div className="text-sm text-muted-foreground">
-                        View type of anesthesia, installations, and assessment
-                      </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold mb-2">Pre-OP Assessment</div>
+                      {isLoadingPreOp ? (
+                        <div className="text-sm text-muted-foreground">
+                          Loading...
+                        </div>
+                      ) : isPreOpError ? (
+                        <div className="text-sm text-destructive">
+                          Error loading assessment data
+                        </div>
+                      ) : hasPreOpData ? (
+                        <div className="space-y-2 text-sm">
+                          {/* General Data */}
+                          {(preOpAssessment.asaClassification != null || 
+                            (preOpAssessment.allergies && preOpAssessment.allergies.length > 0) || 
+                            preOpAssessment.bodyWeight != null || 
+                            preOpAssessment.heartRate != null || 
+                            preOpAssessment.bloodPressureSystolic != null) && (
+                            <div>
+                              <div className="font-medium text-xs text-muted-foreground mb-1">General Data</div>
+                              <div className="space-y-0.5">
+                                {preOpAssessment.asaClassification != null && (
+                                  <div>
+                                    <span className="text-muted-foreground">ASA:</span>
+                                    <span className="ml-2">{preOpAssessment.asaClassification}</span>
+                                  </div>
+                                )}
+                                {preOpAssessment.allergies && preOpAssessment.allergies.length > 0 && (
+                                  <div>
+                                    <span className="text-muted-foreground">Allergies:</span>
+                                    <span className="ml-2">{preOpAssessment.allergies.join(', ')}</span>
+                                  </div>
+                                )}
+                                {preOpAssessment.bodyWeight != null && (
+                                  <div>
+                                    <span className="text-muted-foreground">Weight:</span>
+                                    <span className="ml-2">{preOpAssessment.bodyWeight} kg</span>
+                                  </div>
+                                )}
+                                {preOpAssessment.heartRate != null && (
+                                  <div>
+                                    <span className="text-muted-foreground">HR:</span>
+                                    <span className="ml-2">{preOpAssessment.heartRate} bpm</span>
+                                  </div>
+                                )}
+                                {preOpAssessment.bloodPressureSystolic != null && preOpAssessment.bloodPressureDiastolic != null && (
+                                  <div>
+                                    <span className="text-muted-foreground">BP:</span>
+                                    <span className="ml-2">{preOpAssessment.bloodPressureSystolic}/{preOpAssessment.bloodPressureDiastolic} mmHg</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Anesthesia Technique */}
+                          {preOpAssessment.plannedAnesthesiaTechnique != null && (
+                            <div>
+                              <div className="font-medium text-xs text-muted-foreground mb-1">Anesthesia Technique</div>
+                              <div>{preOpAssessment.plannedAnesthesiaTechnique}</div>
+                            </div>
+                          )}
+                          
+                          {/* Surgical Approval Status */}
+                          {preOpAssessment.informedConsentSignature != null && (
+                            <div>
+                              <div className="font-medium text-xs text-muted-foreground mb-1">Surgical Approval</div>
+                              {preOpAssessment.informedConsentSignature ? (
+                                <div className="text-green-600 dark:text-green-400">✓ Informed consent signed</div>
+                              ) : (
+                                <div className="text-muted-foreground">Informed consent not signed</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-muted-foreground">
+                          Not yet completed
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 mt-1" />
                 </div>
               </CardContent>
             </Card>
