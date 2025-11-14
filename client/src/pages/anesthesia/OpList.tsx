@@ -25,7 +25,7 @@ export default function OpList() {
   const handleOpenPreOp = () => {
     if (selectedPatientId && selectedSurgeryId) {
       setSummaryOpen(false);
-      setLocation(`/anesthesia/patients/${selectedPatientId}?openPreOp=${selectedSurgeryId}`);
+      setLocation(`/anesthesia/patients/${selectedPatientId}?openPreOp=${selectedSurgeryId}&returnTo=/anesthesia/op`);
     }
   };
 
