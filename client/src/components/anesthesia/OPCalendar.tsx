@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Calendar, momentLocalizer, View, SlotInfo, CalendarProps, EventProps, EventPropGetter } from "react-big-calendar";
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 import moment from "moment";
@@ -15,6 +15,9 @@ import QuickCreateSurgeryDialog from "./QuickCreateSurgeryDialog";
 import TimelineWeekView from "./TimelineWeekView";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
+
+const CALENDAR_VIEW_KEY = "oplist_calendar_view";
+const CALENDAR_DATE_KEY = "oplist_calendar_date";
 
 // Define CalendarEvent and CalendarResource types
 interface CalendarEvent {
@@ -66,11 +69,27 @@ interface OPCalendarProps {
 }
 
 export default function OPCalendar({ onEventClick }: OPCalendarProps) {
-  const [currentView, setCurrentView] = useState<ViewType>("day");
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  // Restore calendar view and date from sessionStorage
+  const [currentView, setCurrentView] = useState<ViewType>(() => {
+    const saved = sessionStorage.getItem(CALENDAR_VIEW_KEY);
+    return (saved as ViewType) || "day";
+  });
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    const saved = sessionStorage.getItem(CALENDAR_DATE_KEY);
+    return saved ? new Date(saved) : new Date();
+  });
   const activeHospital = useActiveHospital();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+
+  // Save calendar view and date to sessionStorage whenever they change
+  useEffect(() => {
+    sessionStorage.setItem(CALENDAR_VIEW_KEY, currentView);
+  }, [currentView]);
+
+  useEffect(() => {
+    sessionStorage.setItem(CALENDAR_DATE_KEY, selectedDate.toISOString());
+  }, [selectedDate]);
   
   // Quick create dialog state
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);

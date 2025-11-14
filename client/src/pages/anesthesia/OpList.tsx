@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import OPCalendar from "@/components/anesthesia/OPCalendar";
 import SurgerySummaryDialog from "@/components/anesthesia/SurgerySummaryDialog";
 import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
+
+const SURGERY_CONTEXT_KEY = "oplist_surgery_context";
 
 export default function OpList() {
   const [, setLocation] = useLocation();
@@ -10,6 +12,22 @@ export default function OpList() {
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [editSurgeryOpen, setEditSurgeryOpen] = useState(false);
+
+  // Restore Surgery Summary dialog state when returning from Pre-OP/Anesthesia Record
+  useEffect(() => {
+    const savedContext = sessionStorage.getItem(SURGERY_CONTEXT_KEY);
+    if (savedContext) {
+      try {
+        const { surgeryId, patientId } = JSON.parse(savedContext);
+        setSelectedSurgeryId(surgeryId);
+        setSelectedPatientId(patientId);
+        setSummaryOpen(true);
+        sessionStorage.removeItem(SURGERY_CONTEXT_KEY);
+      } catch (e) {
+        console.error("Failed to restore surgery context:", e);
+      }
+    }
+  }, []);
 
   const handleEventClick = (surgeryId: string, patientId: string) => {
     setSelectedSurgeryId(surgeryId);
@@ -24,13 +42,23 @@ export default function OpList() {
 
   const handleOpenPreOp = () => {
     if (selectedPatientId && selectedSurgeryId) {
+      // Save context before navigating away
+      sessionStorage.setItem(SURGERY_CONTEXT_KEY, JSON.stringify({
+        surgeryId: selectedSurgeryId,
+        patientId: selectedPatientId
+      }));
       setSummaryOpen(false);
       setLocation(`/anesthesia/patients/${selectedPatientId}?openPreOp=${selectedSurgeryId}`);
     }
   };
 
   const handleOpenAnesthesia = () => {
-    if (selectedSurgeryId) {
+    if (selectedSurgeryId && selectedPatientId) {
+      // Save context before navigating away
+      sessionStorage.setItem(SURGERY_CONTEXT_KEY, JSON.stringify({
+        surgeryId: selectedSurgeryId,
+        patientId: selectedPatientId
+      }));
       setSummaryOpen(false);
       setLocation(`/anesthesia/op/${selectedSurgeryId}`);
     }
