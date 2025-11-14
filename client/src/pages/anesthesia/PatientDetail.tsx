@@ -62,7 +62,6 @@ export default function PatientDetail() {
   const patientCardRef = useRef<HTMLDivElement>(null);
   const activeHospital = useActiveHospital();
   const { user } = useAuth();
-  const [returnTo, setReturnTo] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -144,18 +143,12 @@ export default function PatientDetail() {
     return state;
   };
   
-  // Check for openPreOp and returnTo query parameters and auto-open dialog
+  // Check for openPreOp query parameter and auto-open dialog
   useEffect(() => {
     if (!patient) return;
     
     const urlParams = new URLSearchParams(window.location.search);
     const openPreOpCaseId = urlParams.get('openPreOp');
-    const returnToParam = urlParams.get('returnTo');
-    
-    // Store returnTo parameter if present
-    if (returnToParam) {
-      setReturnTo(returnToParam);
-    }
     
     if (openPreOpCaseId) {
       setSelectedCaseId(openPreOpCaseId);
@@ -165,7 +158,7 @@ export default function PatientDetail() {
       }));
       setIsPreOpOpen(true);
       
-      // Clean up URL by removing openPreOp parameter (keep returnTo if present)
+      // Clean up URL by removing openPreOp parameter
       const url = new URL(window.location.href);
       url.searchParams.delete('openPreOp');
       const newUrl = url.searchParams.toString() ? `${url.pathname}?${url.searchParams.toString()}` : url.pathname;
@@ -1537,7 +1530,7 @@ export default function PatientDetail() {
                   <Button
                     variant="outline"
                     className="h-auto py-4 flex-col gap-2"
-                    onClick={() => setLocation(`/anesthesia/cases/${surgery.id}/op?returnTo=/anesthesia/patients/${params?.id}`)}
+                    onClick={() => setLocation(`/anesthesia/cases/${surgery.id}/op`)}
                     data-testid={`button-op-${surgery.id}`}
                   >
                     <Activity className="h-10 w-10 text-primary" />
@@ -1572,9 +1565,14 @@ export default function PatientDetail() {
 
       {/* Pre-OP Full Screen Dialog */}
       <Dialog open={isPreOpOpen} onOpenChange={(open) => {
-        if (!open && returnTo) {
-          // Navigate back to the context that opened this dialog
-          setLocation(returnTo);
+        if (!open) {
+          // Go back to previous context using browser history
+          if (window.history.length > 1) {
+            window.history.back();
+          } else {
+            // No history, close dialog normally
+            setIsPreOpOpen(false);
+          }
         } else {
           setIsPreOpOpen(open);
         }
@@ -1588,9 +1586,11 @@ export default function PatientDetail() {
                 variant="ghost"
                 size="icon"
                 onClick={() => {
-                  if (returnTo) {
-                    setLocation(returnTo);
+                  // Go back to previous context using browser history
+                  if (window.history.length > 1) {
+                    window.history.back();
                   } else {
+                    // No history, close dialog normally
                     setIsPreOpOpen(false);
                   }
                 }}
