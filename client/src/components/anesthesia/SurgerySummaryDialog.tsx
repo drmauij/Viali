@@ -108,43 +108,43 @@ export default function SurgerySummaryDialog({
           <DialogTitle>Surgery Summary</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {/* Patient Info with Allergies */}
-          <div className="bg-muted/50 p-4 rounded-lg space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+          <div className="bg-muted/50 p-3 rounded-lg space-y-2">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
               <div>
-                <div className="text-xs font-medium text-muted-foreground mb-1">Name</div>
-                <div className="font-medium">{patientName}</div>
+                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Name</div>
+                <div className="text-sm font-medium">{patientName}</div>
               </div>
               <div>
-                <div className="text-xs font-medium text-muted-foreground mb-1">Birthday</div>
-                <div className="font-medium">{patientBirthday}</div>
+                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Birthday</div>
+                <div className="text-sm font-medium">{patientBirthday}</div>
               </div>
               {patient.patientNumber && (
                 <div>
-                  <div className="text-xs font-medium text-muted-foreground mb-1">Patient ID</div>
-                  <div className="font-medium">{patient.patientNumber}</div>
+                  <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Patient ID</div>
+                  <div className="text-sm font-medium">{patient.patientNumber}</div>
                 </div>
               )}
               {patient.sex && (
                 <div>
-                  <div className="text-xs font-medium text-muted-foreground mb-1">Sex</div>
-                  <div className="font-medium">{patient.sex}</div>
+                  <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Sex</div>
+                  <div className="text-sm font-medium">{patient.sex}</div>
                 </div>
               )}
             </div>
             
             {/* Patient Allergies from Patient Record */}
             {((patient.allergies && patient.allergies.length > 0) || patient.otherAllergies) && (
-              <div className="pt-2 border-t border-border/50">
+              <div className="pt-2 border-t border-border/50 space-y-1.5">
                 {patient.allergies && patient.allergies.length > 0 && (
-                  <div className="mb-2">
-                    <span className="text-xs font-medium text-muted-foreground">Allergies:</span>
-                    <div className="mt-1 flex flex-wrap gap-1">
+                  <div>
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Allergies:</span>
+                    <div className="mt-0.5 flex flex-wrap gap-1">
                       {patient.allergies.map((allergy: string) => (
                         <span 
                           key={allergy}
-                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                          className="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
                           data-testid={`badge-summary-allergy-${allergy.toLowerCase()}`}
                         >
                           {allergy}
@@ -155,8 +155,8 @@ export default function SurgerySummaryDialog({
                 )}
                 {patient.otherAllergies && (
                   <div>
-                    <span className="text-xs font-medium text-muted-foreground">Other Allergies:</span>
-                    <p className="text-sm mt-0.5" data-testid="text-summary-other-allergies">{patient.otherAllergies}</p>
+                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Other Allergies:</span>
+                    <p className="text-xs mt-0.5" data-testid="text-summary-other-allergies">{patient.otherAllergies}</p>
                   </div>
                 )}
               </div>
@@ -164,22 +164,22 @@ export default function SurgerySummaryDialog({
           </div>
 
           {/* Action Cards */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             {/* Surgery Data */}
             <Card 
               className="cursor-pointer hover:bg-accent transition-colors"
               onClick={onEditSurgery}
               data-testid="card-edit-surgery"
             >
-              <CardContent className="p-4">
+              <CardContent className="p-3">
                 <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg shrink-0">
-                      <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  <div className="flex items-start gap-2.5 flex-1">
+                    <div className="p-1.5 bg-blue-100 dark:bg-blue-900 rounded-lg shrink-0">
+                      <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold mb-2">Surgery Data</div>
-                      <div className="space-y-1 text-sm">
+                      <div className="font-semibold text-sm mb-1.5">Surgery Data</div>
+                      <div className="space-y-0.5 text-xs">
                         <div>
                           <span className="text-muted-foreground">Surgery:</span>
                           <span className="ml-2">{surgery.plannedSurgery || 'Not specified'}</span>
@@ -228,24 +228,24 @@ export default function SurgerySummaryDialog({
               onClick={onOpenPreOp}
               data-testid="card-open-preop"
             >
-              <CardContent className="p-4">
+              <CardContent className="p-3">
                 <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg shrink-0">
-                      <ClipboardList className="h-5 w-5 text-green-600 dark:text-green-400" />
+                  <div className="flex items-start gap-2.5 flex-1">
+                    <div className="p-1.5 bg-green-100 dark:bg-green-900 rounded-lg shrink-0">
+                      <ClipboardList className="h-4 w-4 text-green-600 dark:text-green-400" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold mb-2">Pre-OP Assessment</div>
+                      <div className="font-semibold text-sm mb-1.5">Pre-OP Assessment</div>
                       {isLoadingPreOp ? (
-                        <div className="text-sm text-muted-foreground">
+                        <div className="text-xs text-muted-foreground">
                           Loading...
                         </div>
                       ) : isRealError ? (
-                        <div className="text-sm text-destructive">
+                        <div className="text-xs text-destructive">
                           Error loading assessment data
                         </div>
                       ) : hasPreOpData ? (
-                        <div className="space-y-2 text-sm">
+                        <div className="space-y-1.5 text-xs">
                           {/* General Data */}
                           {(preOpAssessment.asa != null || 
                             preOpAssessment.height != null ||
@@ -255,8 +255,8 @@ export default function SurgerySummaryDialog({
                             preOpAssessment.heartRate != null || 
                             preOpAssessment.bloodPressureSystolic != null) && (
                             <div>
-                              <div className="font-medium text-xs text-muted-foreground mb-1">General Data</div>
-                              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                              <div className="font-medium text-[10px] text-muted-foreground mb-0.5 uppercase tracking-wide">General Data</div>
+                              <div className="grid grid-cols-2 gap-x-3 gap-y-0">
                                 {preOpAssessment.asa != null && (
                                   <div>
                                     <span className="text-muted-foreground">ASA:</span>
@@ -309,8 +309,8 @@ export default function SurgerySummaryDialog({
                             preOpAssessment.installations != null ||
                             preOpAssessment.anesthesiaOther != null) && (
                             <div>
-                              <div className="font-medium text-xs text-muted-foreground mb-1">Planned Anesthesia & Installations</div>
-                              <div className="space-y-0.5">
+                              <div className="font-medium text-[10px] text-muted-foreground mb-0.5 uppercase tracking-wide">Planned Anesthesia & Installations</div>
+                              <div className="space-y-0">
                                 {preOpAssessment.anesthesiaTechniques && (
                                   <div>
                                     <span className="text-muted-foreground">Technique:</span>
@@ -356,7 +356,7 @@ export default function SurgerySummaryDialog({
                           {/* Surgical Approval Status */}
                           {preOpAssessment.informedConsentSignature != null && (
                             <div>
-                              <div className="font-medium text-xs text-muted-foreground mb-1">Surgical Approval</div>
+                              <div className="font-medium text-[10px] text-muted-foreground mb-0.5 uppercase tracking-wide">Surgical Approval</div>
                               {preOpAssessment.informedConsentSignature ? (
                                 <div className="text-green-600 dark:text-green-400">✓ Informed consent signed</div>
                               ) : (
@@ -366,13 +366,13 @@ export default function SurgerySummaryDialog({
                           )}
                         </div>
                       ) : (
-                        <div className="text-sm text-muted-foreground">
+                        <div className="text-xs text-muted-foreground">
                           Not yet completed
                         </div>
                       )}
                     </div>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 mt-1" />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                 </div>
               </CardContent>
             </Card>
@@ -383,20 +383,20 @@ export default function SurgerySummaryDialog({
               onClick={onOpenAnesthesia}
               data-testid="card-open-anesthesia"
             >
-              <CardContent className="p-4">
+              <CardContent className="p-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-red-100 dark:bg-red-900 rounded-lg">
-                      <Activity className="h-5 w-5 text-red-600 dark:text-red-400" />
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 bg-red-100 dark:bg-red-900 rounded-lg">
+                      <Activity className="h-4 w-4 text-red-600 dark:text-red-400" />
                     </div>
                     <div>
-                      <div className="font-semibold">Anesthesia Record</div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="font-semibold text-sm">Anesthesia Record</div>
+                      <div className="text-xs text-muted-foreground">
                         View and manage operative anesthesia monitoring
                       </div>
                     </div>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
               </CardContent>
             </Card>
