@@ -27,7 +27,7 @@ interface TimelineWeekViewProps {
   surgeryRooms: any[];
   surgeries: any[];
   selectedDate: Date;
-  onEventClick?: (surgeryId: string) => void;
+  onEventClick?: (surgeryId: string, patientId: string) => void;
   onEventDrop?: (surgeryId: string, newStart: Date, newEnd: Date, newRoomId: string) => void;
 }
 
@@ -125,7 +125,7 @@ export default function TimelineWeekView({
         end_time: moment(endTime).valueOf(),
         itemProps: {
           className: surgery.status === "cancelled" ? 'timeline-item-cancelled' : 'timeline-item-active',
-          onDoubleClick: () => onEventClick?.(surgery.id),
+          onDoubleClick: () => onEventClick?.(surgery.id, surgery.patientId),
           'data-testid': `timeline-event-${surgery.id}`,
         },
       };

@@ -7,11 +7,13 @@ import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
 export default function OpList() {
   const [, setLocation] = useLocation();
   const [selectedSurgeryId, setSelectedSurgeryId] = useState<string | null>(null);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [editSurgeryOpen, setEditSurgeryOpen] = useState(false);
 
-  const handleEventClick = (surgeryId: string) => {
+  const handleEventClick = (surgeryId: string, patientId: string) => {
     setSelectedSurgeryId(surgeryId);
+    setSelectedPatientId(patientId);
     setSummaryOpen(true);
   };
 
@@ -21,10 +23,9 @@ export default function OpList() {
   };
 
   const handleOpenPreOp = () => {
-    if (selectedSurgeryId) {
+    if (selectedPatientId) {
       setSummaryOpen(false);
-      // Navigate but preserve context - dialog will be shown by patient page
-      setLocation(`/anesthesia/patients/${selectedSurgeryId}/preop?returnTo=/anesthesia/op`);
+      setLocation(`/anesthesia/patients/${selectedPatientId}/preop?returnTo=/anesthesia/op`);
     }
   };
 

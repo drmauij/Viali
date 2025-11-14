@@ -63,7 +63,7 @@ const formats = {
 type ViewType = "day" | "week" | "month" | "agenda";
 
 interface OPCalendarProps {
-  onEventClick?: (caseId: string) => void;
+  onEventClick?: (surgeryId: string, patientId: string) => void;
 }
 
 export default function OPCalendar({ onEventClick }: OPCalendarProps) {
@@ -253,7 +253,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   // Handle event click
   const handleSelectEvent = useCallback((event: CalendarEvent, _e: React.SyntheticEvent) => {
     if (onEventClick) {
-      onEventClick(event.surgeryId);
+      onEventClick(event.surgeryId, event.patientId);
     }
   }, [onEventClick]);
 
@@ -496,7 +496,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
               onEventClick={(surgeryId) => {
                 const surgery = surgeries.find(s => s.id === surgeryId);
                 if (surgery && onEventClick) {
-                  onEventClick(surgery.id);
+                  onEventClick(surgery.id, surgery.patientId);
                 }
               }}
               onEventDrop={async (surgeryId, newStart, newEnd, newRoomId) => {
