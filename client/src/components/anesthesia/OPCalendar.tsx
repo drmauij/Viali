@@ -291,6 +291,38 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     );
   }, []);
 
+  // Custom month date cell component - show indicator dots instead of event details
+  const MonthDateHeader = useCallback(({ date, drilldownView }: { date: Date; drilldownView?: string }) => {
+    const dayEvents = calendarEvents.filter(event => {
+      const eventDate = new Date(event.start);
+      return eventDate.toDateString() === date.toDateString();
+    });
+
+    const hasEvents = dayEvents.length > 0;
+
+    return (
+      <div className="rbc-date-cell">
+        <button
+          type="button"
+          className="rbc-button-link"
+          onClick={() => {
+            if (hasEvents) {
+              setSelectedDate(date);
+              setCurrentView("day");
+            }
+          }}
+        >
+          {date.getDate()}
+        </button>
+        {hasEvents && (
+          <div className="flex justify-center mt-1">
+            <div className="w-2 h-2 rounded-full bg-blue-500" data-testid={`indicator-${date.toISOString()}`}></div>
+          </div>
+        )}
+      </div>
+    );
+  }, [calendarEvents]);
+
   const goToToday = () => {
     setSelectedDate(new Date());
   };
@@ -493,7 +525,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           ) : (
             <DragAndDropCalendar
               localizer={localizer}
-              events={calendarEvents}
+              events={currentView === "month" ? [] : calendarEvents}
               resources={currentView === "day" ? resources : undefined}
               resourceIdAccessor="id"
               resourceTitleAccessor="title"
@@ -513,6 +545,9 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
               components={{
                 event: EventComponent,
                 toolbar: () => null,
+                month: {
+                  dateHeader: MonthDateHeader,
+                },
               }}
               selectable
               resizable
