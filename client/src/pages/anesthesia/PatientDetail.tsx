@@ -39,8 +39,8 @@ type Patient = {
   insuranceProvider?: string | null;
   insuranceNumber?: string | null;
   allergies?: string[] | null;
-  allergyNotes?: string | null;
-  medicalNotes?: string | null;
+  otherAllergies?: string | null;
+  internalNotes?: string | null;
   createdBy?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
@@ -78,8 +78,8 @@ export default function PatientDetail() {
     insuranceProvider: "",
     insuranceNumber: "",
     allergies: [] as string[],
-    allergyNotes: "",
-    medicalNotes: "",
+    otherAllergies: "",
+    internalNotes: "",
   });
   
   // Fetch patient data from API
@@ -1072,8 +1072,8 @@ export default function PatientDetail() {
                       insuranceProvider: patient.insuranceProvider || "",
                       insuranceNumber: patient.insuranceNumber || "",
                       allergies: patient.allergies || [],
-                      allergyNotes: patient.allergyNotes || "",
-                      medicalNotes: patient.medicalNotes || "",
+                      otherAllergies: patient.otherAllergies || "",
+                      internalNotes: patient.internalNotes || "",
                     });
                     setIsEditDialogOpen(true);
                   }}
@@ -1122,7 +1122,7 @@ export default function PatientDetail() {
             )}
 
             {/* Allergies */}
-            {((patient.allergies && patient.allergies.length > 0) || patient.allergyNotes) && (
+            {((patient.allergies && patient.allergies.length > 0) || patient.otherAllergies) && (
               <div>
                 <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
                   <AlertCircle className="h-5 w-5 text-red-500" />
@@ -1138,21 +1138,21 @@ export default function PatientDetail() {
                       ))}
                     </div>
                   )}
-                  {patient.allergyNotes && (
-                    <p className="text-sm text-muted-foreground" data-testid="text-allergy-notes">{patient.allergyNotes}</p>
+                  {patient.otherAllergies && (
+                    <p className="text-sm text-muted-foreground" data-testid="text-other-allergies">{patient.otherAllergies}</p>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Notes */}
-            {patient.medicalNotes && (
+            {/* Internal Notes */}
+            {patient.internalNotes && (
               <div>
                 <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
                   <NoteIcon className="h-5 w-5 text-muted-foreground" />
-                  Notes
+                  Internal Notes
                 </h3>
-                <p className="text-sm text-foreground bg-muted/50 p-3 rounded-md" data-testid="text-medical-notes">{patient.medicalNotes}</p>
+                <p className="text-sm text-foreground bg-muted/50 p-3 rounded-md" data-testid="text-internal-notes">{patient.internalNotes}</p>
               </div>
             )}
           </CardContent>
@@ -3179,22 +3179,22 @@ export default function PatientDetail() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-allergyNotes">Allergy Notes</Label>
+              <Label htmlFor="edit-otherAllergies">Other Allergies (free text)</Label>
               <Textarea
-                id="edit-allergyNotes"
-                value={editForm.allergyNotes}
-                onChange={(e) => setEditForm({ ...editForm, allergyNotes: e.target.value })}
-                data-testid="textarea-edit-allergyNotes"
+                id="edit-otherAllergies"
+                value={editForm.otherAllergies}
+                onChange={(e) => setEditForm({ ...editForm, otherAllergies: e.target.value })}
+                data-testid="textarea-edit-otherAllergies"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-medicalNotes">Medical Notes</Label>
+              <Label htmlFor="edit-internalNotes">Internal Notes</Label>
               <Textarea
-                id="edit-medicalNotes"
-                value={editForm.medicalNotes}
-                onChange={(e) => setEditForm({ ...editForm, medicalNotes: e.target.value })}
-                data-testid="textarea-edit-medicalNotes"
+                id="edit-internalNotes"
+                value={editForm.internalNotes}
+                onChange={(e) => setEditForm({ ...editForm, internalNotes: e.target.value })}
+                data-testid="textarea-edit-internalNotes"
               />
             </div>
 
@@ -3230,8 +3230,8 @@ export default function PatientDetail() {
                     insuranceProvider: editForm.insuranceProvider || null,
                     insuranceNumber: editForm.insuranceNumber || null,
                     allergies: editForm.allergies.length > 0 ? editForm.allergies : null,
-                    allergyNotes: editForm.allergyNotes || null,
-                    medicalNotes: editForm.medicalNotes || null,
+                    otherAllergies: editForm.otherAllergies || null,
+                    internalNotes: editForm.internalNotes || null,
                   });
                 }}
                 disabled={updatePatientMutation.isPending}

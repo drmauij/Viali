@@ -469,8 +469,8 @@ export const patients = pgTable("patients", {
   
   // Medical Information
   allergies: text("allergies").array(),
-  allergyNotes: text("allergy_notes"),
-  medicalNotes: text("medical_notes"),
+  otherAllergies: text("other_allergies"),
+  internalNotes: text("internal_notes"),
   
   // Audit
   createdBy: varchar("created_by").references(() => users.id),

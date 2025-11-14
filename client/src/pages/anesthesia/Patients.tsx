@@ -32,8 +32,8 @@ export default function Patients() {
     email: "",
     phone: "",
     allergies: [] as string[],
-    allergyNotes: "",
-    notes: "",
+    otherAllergies: "",
+    internalNotes: "",
   });
   const [birthdayInput, setBirthdayInput] = useState("");
 
@@ -123,8 +123,8 @@ export default function Patients() {
         email: "",
         phone: "",
         allergies: [],
-        allergyNotes: "",
-        notes: ""
+        otherAllergies: "",
+        internalNotes: ""
       });
       setBirthdayInput("");
     },
@@ -200,8 +200,8 @@ export default function Patients() {
       email: newPatient.email || null,
       phone: newPatient.phone || null,
       allergies: newPatient.allergies.length > 0 ? newPatient.allergies : null,
-      allergyNotes: newPatient.allergyNotes || null,
-      medicalNotes: newPatient.notes || null,
+      otherAllergies: newPatient.otherAllergies || null,
+      internalNotes: newPatient.internalNotes || null,
     };
 
     createPatientMutation.mutate(patientData);
@@ -326,27 +326,27 @@ export default function Patients() {
                   ))}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="allergyNotes">Other Allergies (free text)</Label>
+                  <Label htmlFor="otherAllergies">Other Allergies (free text)</Label>
                   <Textarea
-                    id="allergyNotes"
+                    id="otherAllergies"
                     placeholder="Other allergies..."
-                    value={newPatient.allergyNotes}
-                    onChange={(e) => setNewPatient({ ...newPatient, allergyNotes: e.target.value })}
+                    value={newPatient.otherAllergies}
+                    onChange={(e) => setNewPatient({ ...newPatient, otherAllergies: e.target.value })}
                     rows={2}
-                    data-testid="textarea-allergy-notes"
+                    data-testid="textarea-other-allergies"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
+                <Label htmlFor="internalNotes">Internal Notes</Label>
                 <Textarea
-                  id="notes"
+                  id="internalNotes"
                   placeholder="Additional notes..."
-                  value={newPatient.notes}
-                  onChange={(e) => setNewPatient({ ...newPatient, notes: e.target.value })}
+                  value={newPatient.internalNotes}
+                  onChange={(e) => setNewPatient({ ...newPatient, internalNotes: e.target.value })}
                   rows={3}
-                  data-testid="textarea-notes"
+                  data-testid="textarea-internal-notes"
                 />
               </div>
 
