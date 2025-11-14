@@ -1865,7 +1865,6 @@ export function UnifiedTimeline({
                 vitalsSnapInterval = 10 * 60 * 1000;
               }
               
-              console.log(`[Snap Interval] ECharts tick: ${intervalMinutes.toFixed(1)} min → snap: ${vitalsSnapInterval / 60000} min`);
             } else {
               throw new Error('Tick values not numeric');
             }
@@ -1892,13 +1891,9 @@ export function UnifiedTimeline({
           vitalsSnapInterval = 10 * 60 * 1000;
         }
         
-        console.log(`[Snap Interval] Fallback estimated tick: ${intervalMinutes.toFixed(1)} min → snap: ${vitalsSnapInterval / 60000} min`);
       }
       
       setCurrentVitalsSnapInterval(vitalsSnapInterval);
-      
-      // Trigger graphics regeneration on every zoom/pan
-      setGraphicsRevision(prev => prev + 1);
     };
 
     // Update immediately
@@ -2311,11 +2306,9 @@ export function UnifiedTimeline({
       const textColor = isDark ? '#ffffff' : '#000000';
       const modernMonoFont = '"SF Mono", "JetBrains Mono", "Roboto Mono", "Fira Code", Monaco, Consolas, monospace';
       
-      console.log('[Ventilation Chart] Building series. Data:', ventilationData);
       
       // Add etCO2 text labels (index 0)
       if (ventilationData.etCO2.length > 0) {
-        console.log(`[Ventilation Chart] Adding etCO2 series with ${ventilationData.etCO2.length} points`);
         const paramIndex = ventilationParentIndex + 1; // First child after parent
         const gridIdx = paramIndex + 1; // +1 because vitals is grid 0
         // Map to store original values for the formatter
