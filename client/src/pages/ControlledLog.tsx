@@ -1134,7 +1134,7 @@ export default function ControlledLog() {
               <div>
                 <Label className="block text-sm font-medium mb-2">{t('controlled.selectDrugs')}</Label>
                 <div className="space-y-2">
-                  {selectedDrugs.map((drug) => (
+                  {selectedDrugs.filter(drug => drug.onHand > 0).map((drug) => (
                     <div key={drug.itemId} className="bg-muted rounded-lg p-3 flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Checkbox
