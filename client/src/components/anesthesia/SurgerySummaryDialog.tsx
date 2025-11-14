@@ -44,7 +44,7 @@ export default function SurgerySummaryDialog({
 
   // Fetch pre-op assessment data
   const { data: preOpAssessment, isLoading: isLoadingPreOp, isError: isPreOpError, error: preOpError } = useQuery<any>({
-    queryKey: [`/api/anesthesia/preop-assessments/surgery/${surgeryId}`],
+    queryKey: [`/api/anesthesia/preop/surgery/${surgeryId}`],
     enabled: !!surgeryId && open,
     retry: (failureCount, error: any) => {
       // Don't retry on 404 (not found) - it just means no data exists yet
@@ -104,13 +104,41 @@ export default function SurgerySummaryDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Patient Info Only */}
-          <div className="bg-muted/50 p-4 rounded-lg">
+          {/* Patient Info with Allergies */}
+          <div className="bg-muted/50 p-4 rounded-lg space-y-3">
             <div>
               <span className="text-sm font-medium">Patient:</span>
               <span className="ml-2">{patientName}</span>
               <span className="ml-2 text-muted-foreground text-sm">({patientBirthday})</span>
             </div>
+            
+            {/* Patient Allergies from Patient Record */}
+            {((patient.allergies && patient.allergies.length > 0) || patient.otherAllergies) && (
+              <div className="pt-2 border-t border-border/50">
+                {patient.allergies && patient.allergies.length > 0 && (
+                  <div className="mb-2">
+                    <span className="text-xs font-medium text-muted-foreground">Allergies:</span>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {patient.allergies.map((allergy: string) => (
+                        <span 
+                          key={allergy}
+                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                          data-testid={`badge-summary-allergy-${allergy.toLowerCase()}`}
+                        >
+                          {allergy}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {patient.otherAllergies && (
+                  <div>
+                    <span className="text-xs font-medium text-muted-foreground">Other Allergies:</span>
+                    <p className="text-sm mt-0.5" data-testid="text-summary-other-allergies">{patient.otherAllergies}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Action Cards */}
