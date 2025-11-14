@@ -301,7 +301,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
 
     return (
       <div 
-        className={`rbc-date-cell w-full h-full ${hasEvents ? 'cursor-pointer hover:bg-accent' : ''}`}
+        className={`absolute inset-0 flex flex-col ${hasEvents ? 'cursor-pointer hover:bg-accent/50' : ''}`}
         onClick={() => {
           if (hasEvents) {
             setSelectedDate(date);
@@ -309,11 +309,11 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           }
         }}
       >
-        <span className="rbc-button-link">
+        <span className="rbc-button-link p-1">
           {date.getDate()}
         </span>
         {hasEvents && (
-          <div className="flex justify-center mt-1">
+          <div className="flex justify-center mt-2">
             <div className="w-2 h-2 rounded-full bg-blue-500" data-testid={`indicator-${date.toISOString()}`}></div>
           </div>
         )}
