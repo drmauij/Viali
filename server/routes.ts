@@ -3161,12 +3161,18 @@ If unable to parse any drugs, return:
           }
           
           // Check if this item has exact quantity tracking enabled
+          let beforeQty: number;
+          let afterQty: number;
+          
           if (itemData.trackExactQuantity) {
             // For items with exact quantity tracking: update current units and recalculate stock
             const currentCurrentUnits = itemData.currentUnits || 0;
             const newCurrentUnits = Math.max(0, currentCurrentUnits - item.qty);
             const packSize = itemData.packSize || 1;
             const newQty = Math.ceil(newCurrentUnits / packSize);
+            
+            beforeQty = currentCurrentUnits;
+            afterQty = newCurrentUnits;
             
             // Update both current units and stock
             await db
@@ -3180,6 +3186,9 @@ If unable to parse any drugs, return:
             const currentStock = await storage.getStockLevel(item.itemId, unitId);
             const currentQty = currentStock?.qtyOnHand || 0;
             const newQty = Math.max(0, currentQty - item.qty);
+            
+            beforeQty = currentQty;
+            afterQty = newQty;
             
             await storage.updateStockLevel(item.itemId, unitId, newQty);
           }
@@ -3196,6 +3205,7 @@ If unable to parse any drugs, return:
             patientPhoto: encryptedPatientPhoto,
             signatures,
             controlledVerified: signatures && signatures.length >= 2,
+            metadata: { beforeQty, afterQty },
           });
         })
       );
@@ -3265,6 +3275,10 @@ If unable to parse any drugs, return:
       // Determine movement type based on delta
       const movementType = delta >= 0 ? 'IN' : 'OUT';
       
+      // Store before/after quantities for the report
+      const beforeQty = currentUnits;
+      const afterQty = newCurrentUnits;
+      
       // Update current units
       await db
         .update(items)
@@ -3288,6 +3302,7 @@ If unable to parse any drugs, return:
         attachmentPhoto: attachmentPhoto || null,
         signatures: [signature],
         controlledVerified: true, // Manual adjustments are verified by signature
+        metadata: { beforeQty, afterQty },
       });
       
       res.status(201).json(activity);

@@ -629,10 +629,18 @@ export default function ControlledLog() {
         yPosition = 20;
       }
 
-      // Drug header
+      // Find current amount for this drug
+      const currentItem = controlledItems.find(item => item.name === drugName);
+      const normalizedUnit = currentItem?.unit ? currentItem.unit.toLowerCase() : undefined;
+      const isControlledPack = currentItem?.controlled && normalizedUnit === 'pack';
+      const currentAmount = isControlledPack 
+        ? (currentItem?.currentUnits || 0) 
+        : (currentItem?.stockLevel?.qtyOnHand || 0);
+
+      // Drug header with current amount
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.text(`${drugName}`, 20, yPosition);
+      doc.text(`${drugName} (${currentAmount})`, 20, yPosition);
       yPosition += 8;
 
       // Create table for all administrations and adjustments for this drug
@@ -641,10 +649,25 @@ export default function ControlledLog() {
         const delta = activity.delta || 0;
         const qty = activity.movementType === 'IN' ? `+${Math.abs(delta)}` : `-${Math.abs(delta)}`;
         
+        // Try to get beforeQty and afterQty from metadata
+        // Handle both object and string metadata (if serialized)
+        let metadata: any = activity.metadata;
+        if (typeof metadata === 'string') {
+          try {
+            metadata = JSON.parse(metadata);
+          } catch (e) {
+            metadata = null;
+          }
+        }
+        const beforeQty = metadata?.beforeQty !== null && metadata?.beforeQty !== undefined ? metadata.beforeQty : "-";
+        const afterQty = metadata?.afterQty !== null && metadata?.afterQty !== undefined ? metadata.afterQty : "-";
+        
         return [
           activity.timestamp ? formatDate(activity.timestamp) : "N/A",
           activity.timestamp ? formatTime(activity.timestamp) : "N/A",
+          beforeQty,
           qty,
+          afterQty,
           activity.patientId || (activity.action === 'adjust' ? 'MANUAL ADJ' : "N/A"),
           `${activity.user.firstName} ${activity.user.lastName}`,
           activity.controlledVerified ? "Yes" : "No",
@@ -656,26 +679,28 @@ export default function ControlledLog() {
 
       autoTable(doc, {
         startY: yPosition,
-        head: [["Date", "Time", "Qty", "Patient", "User", "Ver", "Notes", "Signatures", "Photo"]],
+        head: [["Date", "Time", "Before", "Qty", "After", "Patient", "User", "Ver", "Notes", "Signatures", "Photo"]],
         body: tableData,
         theme: "grid",
         styles: { fontSize: 8, cellPadding: 1, minCellHeight: 20 },
         headStyles: { fillColor: [59, 130, 246], textColor: 255, fontSize: 8 },
         columnStyles: {
-          0: { cellWidth: 16 },
-          1: { cellWidth: 16 },
-          2: { cellWidth: 10, halign: "center" },
-          3: { cellWidth: 22 },
-          4: { cellWidth: 24 },
-          5: { cellWidth: 10, halign: "center" },
-          6: { cellWidth: 32 },
-          7: { cellWidth: 28 },
-          8: { cellWidth: 18 },
+          0: { cellWidth: 15 },
+          1: { cellWidth: 14 },
+          2: { cellWidth: 12, halign: "center" },
+          3: { cellWidth: 10, halign: "center" },
+          4: { cellWidth: 12, halign: "center" },
+          5: { cellWidth: 20 },
+          6: { cellWidth: 22 },
+          7: { cellWidth: 10, halign: "center" },
+          8: { cellWidth: 28 },
+          9: { cellWidth: 26 },
+          10: { cellWidth: 17 },
         },
         margin: { left: 15 },
         didDrawCell: (data: any) => {
-          // Draw signatures in the signatures column (index 7)
-          if (data.column.index === 7 && data.section === 'body') {
+          // Draw signatures in the signatures column (index 9)
+          if (data.column.index === 9 && data.section === 'body') {
             const activity = drugActivities[data.row.index];
             if (!activity) return; // Safety check for undefined activity
             const signatures = activity.signatures as string[] | null;
@@ -704,8 +729,8 @@ export default function ControlledLog() {
             }
           }
           
-          // Draw patient photo in the photo column (index 8)
-          if (data.column.index === 8 && data.section === 'body') {
+          // Draw patient photo in the photo column (index 10)
+          if (data.column.index === 10 && data.section === 'body') {
             const activity = drugActivities[data.row.index];
             if (!activity) return; // Safety check for undefined activity
             
