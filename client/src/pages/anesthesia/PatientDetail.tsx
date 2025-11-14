@@ -63,6 +63,8 @@ export default function PatientDetail() {
   const activeHospital = useActiveHospital();
   const { user } = useAuth();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  // Track if Pre-OP dialog was opened via URL navigation (should use history.back()) or button click (just close)
+  const preOpOpenedViaUrl = useRef(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState({
     surname: "",
@@ -156,6 +158,8 @@ export default function PatientDetail() {
         ...prev,
         allergies: patient.allergies || [],
       }));
+      // Mark that this was opened via URL navigation
+      preOpOpenedViaUrl.current = true;
       setIsPreOpOpen(true);
       
       // Clean up URL by removing openPreOp parameter
@@ -1519,6 +1523,8 @@ export default function PatientDetail() {
                         ...prev,
                         allergies: patient.allergies || [],
                       }));
+                      // Mark that this was opened via button click, not URL
+                      preOpOpenedViaUrl.current = false;
                       setIsPreOpOpen(true);
                     }}
                     data-testid={`button-preop-${surgery.id}`}
@@ -1566,11 +1572,11 @@ export default function PatientDetail() {
       {/* Pre-OP Full Screen Dialog */}
       <Dialog open={isPreOpOpen} onOpenChange={(open) => {
         if (!open) {
-          // Go back to previous context using browser history
-          if (window.history.length > 1) {
+          // If opened via URL navigation, use history.back() to return to previous page
+          // If opened via button click, just close the dialog
+          if (preOpOpenedViaUrl.current && window.history.length > 1) {
             window.history.back();
           } else {
-            // No history, close dialog normally
             setIsPreOpOpen(false);
           }
         } else {
@@ -1586,11 +1592,11 @@ export default function PatientDetail() {
                 variant="ghost"
                 size="icon"
                 onClick={() => {
-                  // Go back to previous context using browser history
-                  if (window.history.length > 1) {
+                  // If opened via URL navigation, use history.back() to return to previous page
+                  // If opened via button click, just close the dialog
+                  if (preOpOpenedViaUrl.current && window.history.length > 1) {
                     window.history.back();
                   } else {
-                    // No history, close dialog normally
                     setIsPreOpOpen(false);
                   }
                 }}
