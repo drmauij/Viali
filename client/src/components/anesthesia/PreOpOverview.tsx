@@ -361,9 +361,9 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
 
       {/* General Data Section */}
       {data.asa?.trim() && (
-        <Card className="border-purple-500 dark:border-purple-700">
+        <Card className="border-gray-300 dark:border-gray-600">
           <CardHeader className="pb-3">
-            <CardTitle className="text-purple-600 dark:text-purple-400 text-base">General Data</CardTitle>
+            <CardTitle className="text-gray-700 dark:text-gray-300 text-base">General Data</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="text-sm">
@@ -375,9 +375,9 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
 
       {/* Medications Section */}
       {(allMedications.length > 0 || data.medicationsNotes?.trim()) && (
-        <Card className="border-purple-500 dark:border-purple-700">
+        <Card className="border-gray-300 dark:border-gray-600">
           <CardHeader className="pb-3">
-            <CardTitle className="text-purple-600 dark:text-purple-400 text-base">Medications</CardTitle>
+            <CardTitle className="text-gray-700 dark:text-gray-300 text-base">Medications</CardTitle>
           </CardHeader>
           <CardContent>
             {allMedications.length > 0 && (
@@ -416,9 +416,9 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
 
       {/* Airway Section */}
       {(data.mallampati?.trim() || data.mouthOpening?.trim() || data.dentition?.trim() || data.airwayDifficult?.trim() || data.airwayNotes?.trim()) && (
-        <Card className="border-purple-500 dark:border-purple-700">
+        <Card className="border-gray-300 dark:border-gray-600">
           <CardHeader className="pb-3">
-            <CardTitle className="text-purple-600 dark:text-purple-400 text-base">Airway</CardTitle>
+            <CardTitle className="text-gray-700 dark:text-gray-300 text-base">Airway</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             {data.mallampati?.trim() && <div><span className="font-semibold">Mallampati:</span> {data.mallampati}</div>}
@@ -438,9 +438,9 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
 
       {/* Fasting Section */}
       {(data.lastSolids?.trim() || data.lastClear?.trim()) && (
-        <Card className="border-purple-500 dark:border-purple-700">
+        <Card className="border-gray-300 dark:border-gray-600">
           <CardHeader className="pb-3">
-            <CardTitle className="text-purple-600 dark:text-purple-400 text-base">Fasting</CardTitle>
+            <CardTitle className="text-gray-700 dark:text-gray-300 text-base">Fasting</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
             {data.lastSolids?.trim() && <div><span className="font-semibold">Last Solids:</span> {formatDateTime(data.lastSolids)}</div>}
@@ -451,9 +451,9 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
 
       {/* Planned Anesthesia Section */}
       {(selectedAnesthesia.length > 0 || data.postOpICU || data.anesthesiaOther?.trim()) && (
-        <Card className="border-purple-500 dark:border-purple-700">
+        <Card className="border-gray-300 dark:border-gray-600">
           <CardHeader className="pb-3">
-            <CardTitle className="text-purple-600 dark:text-purple-400 text-base">Planned Anesthesia</CardTitle>
+            <CardTitle className="text-gray-700 dark:text-gray-300 text-base">Planned Anesthesia</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {selectedAnesthesia.length > 0 && (
@@ -473,9 +473,9 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
 
       {/* Installations Section */}
       {(selectedInstallations.length > 0 || data.installationsOther?.trim()) && (
-        <Card className="border-purple-500 dark:border-purple-700">
+        <Card className="border-gray-300 dark:border-gray-600">
           <CardHeader className="pb-3">
-            <CardTitle className="text-purple-600 dark:text-purple-400 text-base">Planned Installations</CardTitle>
+            <CardTitle className="text-gray-700 dark:text-gray-300 text-base">Planned Installations</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {selectedInstallations.length > 0 && (
@@ -492,9 +492,9 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
 
       {/* Surgical Approval Section */}
       {data.surgicalApproval?.trim() && (
-        <Card className="border-purple-500 dark:border-purple-700">
+        <Card className="border-gray-300 dark:border-gray-600">
           <CardHeader className="pb-3">
-            <CardTitle className="text-purple-600 dark:text-purple-400 text-base">Surgical Approval</CardTitle>
+            <CardTitle className="text-gray-700 dark:text-gray-300 text-base">Surgical Approval</CardTitle>
           </CardHeader>
           <CardContent>
             <div className={`text-sm font-semibold ${
