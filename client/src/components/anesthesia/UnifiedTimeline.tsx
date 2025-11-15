@@ -7299,14 +7299,14 @@ export function UnifiedTimeline({
 
       {/* Interactive layer for medication item labels (for editing medications) */}
       {!activeToolMode && activeSwimlanes.map((lane) => {
-        // Skip group headers, only show for individual medication items
-        if (lane.hierarchyLevel === 'group') return null;
+        // Only show for individual medication items (hierarchyLevel === 'item')
+        if (lane.hierarchyLevel !== 'item' || !lane.itemId) return null;
         
         const lanePosition = swimlanePositions.find(l => l.id === lane.id);
         if (!lanePosition) return null;
         
-        // Find the medication item by lane ID
-        const medicationItem = anesthesiaItems.find(item => item.id === lane.id);
+        // Find the medication item using the itemId property from the lane
+        const medicationItem = anesthesiaItems.find(item => item.id === lane.itemId);
         if (!medicationItem || !medicationItem.administrationGroup) return null;
         
         // Find the admin group
