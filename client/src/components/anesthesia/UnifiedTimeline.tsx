@@ -6361,7 +6361,7 @@ export function UnifiedTimeline({
         if (medicationParentIndex === -1 || collapsedSwimlanes.has("medikamente")) return null;
         
         return activeSwimlanes.map((lane, index) => {
-          const isMedicationChild = !lane.rateUnit;
+          const isMedicationChild = !lane.rateUnit && lane.hierarchyLevel !== 'group';
           if (!isMedicationChild) return null;
           
           const lanePosition = swimlanePositions.find(l => l.id === lane.id);
