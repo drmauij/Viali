@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { StickyTimelineHeader } from "./StickyTimelineHeader";
+import { MedicationConfigDialog } from "./MedicationConfigDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -476,46 +477,6 @@ export function UnifiedTimeline({
     return allAnesthesiaItems.filter(item => item.administrationGroup);
   }, [allAnesthesiaItems]);
   
-  // Fetch all inventory items for item selection in config dialog
-  const { data: allInventoryItems = [] } = useQuery<AnesthesiaItem[]>({
-    queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId],
-    enabled: !!activeHospital?.id && !!activeHospital?.unitId,
-  });
-
-  // Mutation to update item anesthesia config
-  const updateConfigMutation = useMutation({
-    mutationFn: async ({ itemId, config }: { itemId: string; config: any }) => {
-      return apiRequest('PATCH', `/api/items/${itemId}/anesthesia-config`, config);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/items/${activeHospital?.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`] });
-      toast({
-        title: "Configuration updated",
-        description: "Medication has been configured and added to the group",
-      });
-      // Close dialog and reset form
-      setShowMedicationConfigDialog(false);
-      setSelectedAdminGroupForConfig(null);
-      setSelectedItemId("");
-      setConfigItemName("");
-      setConfigDefaultDose("");
-      setConfigAdministrationRoute("i.v.");
-      setConfigAdministrationUnit("mg");
-      setConfigAmpuleContent("");
-      setConfigIsRateControlled(false);
-      setConfigRateUnit("ml/h");
-      setConfigMedicationGroup("");
-    },
-    onError: (error: any) => {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to update configuration",
-      });
-    },
-  });
-  
   // State for collapsible parent swimlanes
   const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<Set<string>>(new Set());
   
@@ -889,16 +850,7 @@ export function UnifiedTimeline({
   // State for administration group medication configuration dialog
   const [showMedicationConfigDialog, setShowMedicationConfigDialog] = useState(false);
   const [selectedAdminGroupForConfig, setSelectedAdminGroupForConfig] = useState<AdministrationGroup | null>(null);
-  const [selectedItemId, setSelectedItemId] = useState<string>("");
-  const [configItemName, setConfigItemName] = useState("");
-  const [configAnesthesiaType, setConfigAnesthesiaType] = useState<'medication' | 'infusion'>('medication');
-  const [configDefaultDose, setConfigDefaultDose] = useState("");
-  const [configAdministrationRoute, setConfigAdministrationRoute] = useState("i.v.");
-  const [configAdministrationUnit, setConfigAdministrationUnit] = useState("mg");
-  const [configAmpuleContent, setConfigAmpuleContent] = useState("");
-  const [configIsRateControlled, setConfigIsRateControlled] = useState(false);
-  const [configRateUnit, setConfigRateUnit] = useState("ml/h");
-  const [configMedicationGroup, setConfigMedicationGroup] = useState("");
+  const [editingItemForConfig, setEditingItemForConfig] = useState<AnesthesiaItem | null>(null);
   const [adminGroupHoverInfo, setAdminGroupHoverInfo] = useState<{ x: number; y: number; groupName: string } | null>(null);
 
   // State for ventilation parameter entry
@@ -7337,19 +7289,48 @@ export function UnifiedTimeline({
             onClick={() => {
               // Open medication config dialog with this group pre-selected
               setSelectedAdminGroupForConfig(adminGroup);
-              setSelectedItemId("");
-              setConfigItemName("");
-              setConfigAnesthesiaType('medication');
-              setConfigDefaultDose("");
-              setConfigAdministrationRoute("i.v.");
-              setConfigAdministrationUnit("mg");
-              setConfigAmpuleContent("");
-              setConfigIsRateControlled(false);
-              setConfigRateUnit("ml/h");
-              setConfigMedicationGroup("");
+              setEditingItemForConfig(null); // Clear editing state for adding new
               setShowMedicationConfigDialog(true);
             }}
             data-testid={`interactive-admin-group-${lane.id}`}
+          />
+        );
+      })}
+
+      {/* Interactive layer for medication item labels (for editing medications) */}
+      {!activeToolMode && activeSwimlanes.map((lane) => {
+        // Skip group headers, only show for individual medication items
+        if (lane.hierarchyLevel === 'group') return null;
+        
+        const lanePosition = swimlanePositions.find(l => l.id === lane.id);
+        if (!lanePosition) return null;
+        
+        // Find the medication item by lane ID
+        const medicationItem = anesthesiaItems.find(item => item.id === lane.id);
+        if (!medicationItem || !medicationItem.administrationGroup) return null;
+        
+        // Find the admin group
+        const adminGroup = administrationGroups.find(g => g.name === medicationItem.administrationGroup);
+        if (!adminGroup) return null;
+        
+        return (
+          <div
+            key={`medication-label-${lane.id}`}
+            className="absolute cursor-pointer hover:bg-yellow-500/10 transition-colors"
+            style={{
+              left: '0px',
+              width: '200px',
+              top: `${lanePosition.top}px`,
+              height: `${lanePosition.height}px`,
+              zIndex: 30,
+            }}
+            onClick={() => {
+              // Open medication config dialog for editing this item
+              setSelectedAdminGroupForConfig(adminGroup);
+              setEditingItemForConfig(medicationItem);
+              setShowMedicationConfigDialog(true);
+            }}
+            data-testid={`interactive-medication-label-${lane.id}`}
           />
         );
       })}
@@ -8010,230 +7991,17 @@ export function UnifiedTimeline({
       </Dialog>
 
       {/* Medication Configuration Dialog (from timeline admin groups) */}
-      <Dialog open={showMedicationConfigDialog} onOpenChange={setShowMedicationConfigDialog}>
-        <DialogContent className="sm:max-w-[600px]" data-testid="dialog-medication-config">
-          <DialogHeader>
-            <DialogTitle>Configure Medication for {selectedAdminGroupForConfig?.name}</DialogTitle>
-            <DialogDescription>
-              Select an item and configure its medication/infusion settings to add it to this group
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-            {/* Item Selection */}
-            <div className="grid gap-2">
-              <Label htmlFor="item-select">Select Item</Label>
-              <Select 
-                value={selectedItemId} 
-                onValueChange={(value) => {
-                  setSelectedItemId(value);
-                  const item = allInventoryItems.find(i => i.id === value);
-                  if (item) {
-                    setConfigItemName(item.name);
-                    // Pre-fill existing config if available
-                    if (item.rateUnit === null || item.rateUnit === undefined) {
-                      setConfigAnesthesiaType('medication');
-                      setConfigIsRateControlled(false);
-                    } else if (item.rateUnit === 'free') {
-                      setConfigAnesthesiaType('infusion');
-                      setConfigIsRateControlled(false);
-                    } else {
-                      setConfigAnesthesiaType('infusion');
-                      setConfigIsRateControlled(true);
-                      setConfigRateUnit(item.rateUnit);
-                    }
-                    setConfigDefaultDose(item.defaultDose || '');
-                    setConfigAdministrationRoute(item.administrationRoute || 'i.v.');
-                    setConfigAdministrationUnit(item.administrationUnit || 'mg');
-                    setConfigAmpuleContent(item.ampuleTotalContent || '');
-                    setConfigMedicationGroup(item.medicationGroup || '');
-                  }
-                }}
-              >
-                <SelectTrigger id="item-select" data-testid="select-item">
-                  <SelectValue placeholder="Select an item..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {allInventoryItems.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {selectedItemId && (
-              <>
-                {/* Item Name */}
-                <div className="grid gap-2">
-                  <Label htmlFor="config-item-name">Item Name</Label>
-                  <Input
-                    id="config-item-name"
-                    value={configItemName}
-                    onChange={(e) => setConfigItemName(e.target.value)}
-                    data-testid="input-config-item-name"
-                  />
-                </div>
-
-                {/* Type Selection */}
-                <div className="grid gap-2">
-                  <Label htmlFor="config-type">Item Type</Label>
-                  <Select
-                    value={configAnesthesiaType}
-                    onValueChange={(value) => setConfigAnesthesiaType(value as 'medication' | 'infusion')}
-                  >
-                    <SelectTrigger id="config-type" data-testid="select-config-type">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="medication">Medication</SelectItem>
-                      <SelectItem value="infusion">Infusion</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Ampule/Bag Content */}
-                <div className="grid gap-2">
-                  <Label htmlFor="config-ampule">Ampule/Bag Content</Label>
-                  <Input
-                    id="config-ampule"
-                    value={configAmpuleContent}
-                    onChange={(e) => setConfigAmpuleContent(e.target.value)}
-                    placeholder="e.g., 50 mg, 1000 ml"
-                    data-testid="input-config-ampule"
-                  />
-                </div>
-
-                {/* Default Dose */}
-                <div className="grid gap-2">
-                  <Label htmlFor="config-dose">Default Dose</Label>
-                  <Input
-                    id="config-dose"
-                    value={configDefaultDose}
-                    onChange={(e) => setConfigDefaultDose(e.target.value)}
-                    placeholder="e.g., 2, 0.1, or range like 25-35-50"
-                    data-testid="input-config-dose"
-                  />
-                </div>
-
-                {/* Administration Route */}
-                <div className="grid gap-2">
-                  <Label htmlFor="config-route">Administration Route</Label>
-                  <Input
-                    id="config-route"
-                    value={configAdministrationRoute}
-                    onChange={(e) => setConfigAdministrationRoute(e.target.value)}
-                    placeholder="e.g., i.v., i.m., s.c."
-                    data-testid="input-config-route"
-                  />
-                </div>
-
-                {/* Type-specific fields */}
-                {configAnesthesiaType === 'medication' && (
-                  <div className="grid gap-2">
-                    <Label htmlFor="config-unit">Administration Unit</Label>
-                    <Select value={configAdministrationUnit} onValueChange={setConfigAdministrationUnit}>
-                      <SelectTrigger id="config-unit" data-testid="select-config-unit">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="μg">μg (micrograms)</SelectItem>
-                        <SelectItem value="mg">mg (milligrams)</SelectItem>
-                        <SelectItem value="g">g (grams)</SelectItem>
-                        <SelectItem value="ml">ml (milliliters)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {configAnesthesiaType === 'infusion' && (
-                  <>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="config-rate-controlled"
-                        checked={configIsRateControlled}
-                        onCheckedChange={(checked) => setConfigIsRateControlled(checked as boolean)}
-                        data-testid="checkbox-config-rate-controlled"
-                      />
-                      <Label htmlFor="config-rate-controlled" className="cursor-pointer">
-                        Rate-controlled infusion
-                      </Label>
-                    </div>
-
-                    {configIsRateControlled && (
-                      <div className="grid gap-2">
-                        <Label htmlFor="config-rate-unit">Rate Unit</Label>
-                        <Select value={configRateUnit} onValueChange={setConfigRateUnit}>
-                          <SelectTrigger id="config-rate-unit" data-testid="select-config-rate-unit">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ml/h">ml/h</SelectItem>
-                            <SelectItem value="μg/kg/min">μg/kg/min</SelectItem>
-                            <SelectItem value="mg/kg/h">mg/kg/h</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                  </>
-                )}
-              </>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowMedicationConfigDialog(false);
-                setSelectedAdminGroupForConfig(null);
-                setSelectedItemId("");
-              }}
-              data-testid="button-cancel-config"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                if (!selectedItemId || !selectedAdminGroupForConfig) return;
-
-                // Derive rateUnit from UI state
-                let derivedRateUnit: string | null | undefined = undefined;
-                if (configAnesthesiaType === 'medication') {
-                  derivedRateUnit = null;
-                } else if (configAnesthesiaType === 'infusion') {
-                  derivedRateUnit = configIsRateControlled ? configRateUnit : 'free';
-                }
-
-                const config = {
-                  name: configItemName,
-                  medicationGroup: configMedicationGroup || undefined,
-                  administrationGroup: selectedAdminGroupForConfig.name,
-                  defaultDose: configDefaultDose || undefined,
-                  ampuleTotalContent: configAmpuleContent.trim() || undefined,
-                  administrationRoute: configAdministrationRoute,
-                  administrationUnit: configAdministrationUnit || undefined,
-                  rateUnit: derivedRateUnit,
-                };
-
-                updateConfigMutation.mutate({ itemId: selectedItemId, config });
-              }}
-              disabled={!selectedItemId || updateConfigMutation.isPending}
-              data-testid="button-save-config"
-            >
-              {updateConfigMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                "Save Configuration"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <MedicationConfigDialog
+        open={showMedicationConfigDialog}
+        onOpenChange={setShowMedicationConfigDialog}
+        administrationGroup={selectedAdminGroupForConfig}
+        activeHospitalId={activeHospital?.id}
+        editingItem={editingItemForConfig}
+        onSaveSuccess={() => {
+          setEditingItemForConfig(null);
+          setSelectedAdminGroupForConfig(null);
+        }}
+      />
 
       {/* Infusion Value Entry Dialog */}
       <Dialog open={showInfusionDialog} onOpenChange={(open) => {
