@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, AlertCircle } from "lucide-react";
 import { formatDateTime } from "@/lib/dateUtils";
@@ -85,21 +84,52 @@ interface PreOpOverviewProps {
 }
 
 const illnessLabels: Record<string, string> = {
-  htn: "HTN", chd: "CHD", heartValve: "Valve Dx", arrhythmia: "Arrhythmia", heartFailure: "HF",
-  asthma: "Asthma", copd: "COPD", sleepApnea: "Sleep Apnea", pneumonia: "Pneumonia",
-  reflux: "GERD", ibd: "IBD", liverDisease: "Liver Dx",
-  ckd: "CKD", dialysis: "Dialysis",
-  diabetes: "DM", thyroid: "Thyroid Dx",
-  stroke: "CVA", epilepsy: "Epilepsy", parkinsons: "Parkinson's", dementia: "Dementia",
-  depression: "Depression", anxiety: "Anxiety", psychosis: "Psychosis",
-  arthritis: "Arthritis", osteoporosis: "Osteoporosis", spineDisorders: "Spine Dx",
-  pregnancy: "Pregnant", breastfeeding: "Breastfeeding", menopause: "Menopause", gynecologicalSurgery: "Gyn Surg Hx",
-  nicotine: "Nicotine", alcohol: "Alcohol", drugs: "Drugs",
-  prematurity: "Prematurity", developmentalDelay: "Dev. Delay", congenitalAnomalies: "Congenital", vaccination: "Vacc. Issues",
+  htn: "Hypertension", 
+  chd: "Coronary Heart Disease", 
+  heartValve: "Heart Valve Disease", 
+  arrhythmia: "Arrhythmia", 
+  heartFailure: "Heart Failure",
+  asthma: "Asthma", 
+  copd: "Chronic Obstructive Pulmonary Disease", 
+  sleepApnea: "Sleep Apnea", 
+  pneumonia: "Pneumonia",
+  reflux: "Gastroesophageal Reflux Disease", 
+  ibd: "Inflammatory Bowel Disease", 
+  liverDisease: "Liver Disease",
+  ckd: "Chronic Kidney Disease", 
+  dialysis: "Dialysis",
+  diabetes: "Diabetes Mellitus", 
+  thyroid: "Thyroid Disease",
+  stroke: "Cerebrovascular Accident", 
+  epilepsy: "Epilepsy", 
+  parkinsons: "Parkinson's Disease", 
+  dementia: "Dementia",
+  depression: "Depression", 
+  anxiety: "Anxiety", 
+  psychosis: "Psychosis",
+  arthritis: "Arthritis", 
+  osteoporosis: "Osteoporosis", 
+  spineDisorders: "Spine Disorders",
+  pregnancy: "Pregnancy", 
+  breastfeeding: "Breastfeeding", 
+  menopause: "Menopause", 
+  gynecologicalSurgery: "Gynecological Surgery History",
+  nicotine: "Nicotine Use", 
+  alcohol: "Alcohol Use", 
+  drugs: "Drug Use",
+  prematurity: "Prematurity", 
+  developmentalDelay: "Developmental Delay", 
+  congenitalAnomalies: "Congenital Anomalies", 
+  vaccination: "Vaccination Issues",
 };
 
 const installationLabels: Record<string, string> = {
-  arterialLine: "Art. Line", cvc: "CVC", picLine: "PICC", urinaryCatheter: "Foley", nasogastricTube: "NGT", drainageTube: "Drain",
+  arterialLine: "Arterial Line", 
+  cvc: "Central Venous Catheter", 
+  picLine: "Peripherally Inserted Central Catheter", 
+  urinaryCatheter: "Urinary Catheter", 
+  nasogastricTube: "Nasogastric Tube", 
+  drainageTube: "Drainage Tube",
 };
 
 export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
@@ -336,9 +366,8 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
             <CardTitle className="text-purple-600 dark:text-purple-400 text-base">General Data</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-muted-foreground text-sm">ASA:</span>
-              <Badge variant="outline" className="font-semibold">{data.asa}</Badge>
+            <div className="text-sm">
+              <span className="font-semibold">ASA:</span> {data.asa}
             </div>
           </CardContent>
         </Card>
@@ -352,10 +381,8 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
           </CardHeader>
           <CardContent>
             {allMedications.length > 0 && (
-              <div className="flex flex-wrap gap-1 mb-2">
-                {allMedications.map((med, idx) => (
-                  <Badge key={idx} variant="secondary" className="text-xs">{med}</Badge>
-                ))}
+              <div className="text-sm mb-2">
+                {allMedications.join(', ')}
               </div>
             )}
             {data.medicationsNotes?.trim() && (
@@ -375,10 +402,8 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
             </CardHeader>
             <CardContent>
               {section.items.length > 0 && (
-                <div className="flex flex-wrap gap-1 mb-2">
-                  {section.items.map((illness, iIdx) => (
-                    <Badge key={iIdx} variant="secondary" className="text-xs">{illness}</Badge>
-                  ))}
+                <div className="text-sm mb-2">
+                  {section.items.join(', ')}
                 </div>
               )}
               {section.notes?.trim() && (
@@ -400,8 +425,8 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
             {data.mouthOpening?.trim() && <div><span className="font-semibold">Mouth Opening:</span> {data.mouthOpening}</div>}
             {data.dentition?.trim() && <div><span className="font-semibold">Dentition:</span> {data.dentition}</div>}
             {data.airwayDifficult?.trim() && (
-              <div>
-                <Badge variant="destructive" className="text-xs">Difficult Airway: {data.airwayDifficult}</Badge>
+              <div className="font-semibold text-red-600 dark:text-red-400">
+                Difficult Airway: {data.airwayDifficult}
               </div>
             )}
             {data.airwayNotes?.trim() && (
@@ -432,14 +457,12 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
           </CardHeader>
           <CardContent className="space-y-2">
             {selectedAnesthesia.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {selectedAnesthesia.map((technique, idx) => (
-                  <Badge key={idx} variant="default" className="text-xs">{technique}</Badge>
-                ))}
+              <div className="text-sm">
+                {selectedAnesthesia.join(', ')}
               </div>
             )}
             {data.postOpICU && (
-              <Badge variant="outline" className="text-xs">Post-Op ICU</Badge>
+              <div className="text-sm">Post-Op ICU</div>
             )}
             {data.anesthesiaOther?.trim() && (
               <div className="text-sm italic text-muted-foreground">{data.anesthesiaOther}</div>
@@ -456,10 +479,8 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
           </CardHeader>
           <CardContent className="space-y-2">
             {selectedInstallations.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {selectedInstallations.map((installation, idx) => (
-                  <Badge key={idx} variant="secondary" className="text-xs">{installation}</Badge>
-                ))}
+              <div className="text-sm">
+                {selectedInstallations.join(', ')}
               </div>
             )}
             {data.installationsOther?.trim() && (
@@ -476,12 +497,13 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
             <CardTitle className="text-purple-600 dark:text-purple-400 text-base">Surgical Approval</CardTitle>
           </CardHeader>
           <CardContent>
-            <Badge 
-              variant={data.surgicalApproval === 'approved' ? 'default' : 'destructive'}
-              className="text-sm"
-            >
+            <div className={`text-sm font-semibold ${
+              data.surgicalApproval === 'approved' 
+                ? 'text-green-600 dark:text-green-400' 
+                : 'text-red-600 dark:text-red-400'
+            }`}>
               {data.surgicalApproval.replace('-', ' ').toUpperCase()}
-            </Badge>
+            </div>
           </CardContent>
         </Card>
       )}
