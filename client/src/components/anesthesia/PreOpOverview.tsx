@@ -248,9 +248,9 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
       .filter(([_, value]) => value)
       .map(([key]) => {
         const labels: Record<string, string> = {
-          'tiva-tci': 'Total Intravenous Anesthesia / Target Controlled Infusion',
+          'tiva-tci': 'TIVA/TCI',
           'tubus': 'Endotracheal Tube',
-          'rsi': 'Rapid Sequence Induction',
+          'rsi': 'RSI',
           'larynxmask': 'Laryngeal Mask',
           'larynxmask-auragain': 'Laryngeal Mask AuraGain',
           'rae-tubus': 'Ring-Adair-Elwyn Tube',
@@ -258,7 +258,7 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
           'doppellumentubus': 'Double Lumen Tube',
           'nasal-intubation': 'Nasal Intubation',
           'awake-intubation': 'Awake Intubation',
-          'ponv-prophylaxis': 'Postoperative Nausea and Vomiting Prophylaxis',
+          'ponv-prophylaxis': 'PONV Prophylaxis',
         };
         return labels[key] || key;
       });
