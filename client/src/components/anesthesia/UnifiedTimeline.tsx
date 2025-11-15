@@ -7996,6 +7996,7 @@ export function UnifiedTimeline({
         onOpenChange={setShowMedicationConfigDialog}
         administrationGroup={selectedAdminGroupForConfig}
         activeHospitalId={activeHospital?.id}
+        activeUnitId={activeHospital?.unitId}
         editingItem={editingItemForConfig}
         onSaveSuccess={() => {
           setEditingItemForConfig(null);

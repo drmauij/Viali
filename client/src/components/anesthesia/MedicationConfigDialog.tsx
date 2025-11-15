@@ -41,6 +41,7 @@ interface MedicationConfigDialogProps {
   onOpenChange: (open: boolean) => void;
   administrationGroup: AdministrationGroup | null;
   activeHospitalId: string | undefined;
+  activeUnitId: string | undefined;
   editingItem?: Item | null; // If provided, we're in edit mode
   onSaveSuccess?: () => void;
 }
@@ -50,6 +51,7 @@ export function MedicationConfigDialog({
   onOpenChange,
   administrationGroup,
   activeHospitalId,
+  activeUnitId,
   editingItem,
   onSaveSuccess,
 }: MedicationConfigDialogProps) {
@@ -75,8 +77,8 @@ export function MedicationConfigDialog({
 
   // Fetch all inventory items
   const { data: allInventoryItems = [] } = useQuery<Item[]>({
-    queryKey: [`/api/items/${activeHospitalId}?unitId=${activeHospitalId}`],
-    enabled: !!activeHospitalId && open,
+    queryKey: [`/api/items/${activeHospitalId}?unitId=${activeUnitId}`, activeUnitId],
+    enabled: !!activeHospitalId && !!activeUnitId && open,
   });
 
   // Filter items based on search query
@@ -132,10 +134,10 @@ export function MedicationConfigDialog({
   // Mutation to create a new item
   const createItemMutation = useMutation({
     mutationFn: async (newItem: { name: string }) => {
-      return apiRequest('POST', `/api/items`, { ...newItem, hospitalId: activeHospitalId });
+      return apiRequest('POST', `/api/items`, { ...newItem, hospitalId: activeHospitalId }) as Promise<Item>;
     },
-    onSuccess: (data: Item) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospitalId}?unitId=${activeHospitalId}`] });
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospitalId}?unitId=${activeUnitId}`] });
       toast({
         title: "Item created",
         description: `${data.name} has been added to inventory`,
@@ -162,7 +164,7 @@ export function MedicationConfigDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/items/${activeHospitalId}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospitalId}?unitId=${activeHospitalId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospitalId}?unitId=${activeUnitId}`] });
       toast({
         title: editingItem ? "Configuration updated" : "Configuration saved",
         description: editingItem 
@@ -190,7 +192,7 @@ export function MedicationConfigDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/items/${activeHospitalId}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospitalId}?unitId=${activeHospitalId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospitalId}?unitId=${activeUnitId}`] });
       toast({
         title: "Medication removed",
         description: "Medication has been removed from the administration group",
