@@ -359,18 +359,45 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
         </Card>
       )}
 
-      {/* General Data Section */}
-      {data.asa?.trim() && (
-        <Card className="border-gray-300 dark:border-gray-600">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-gray-700 dark:text-gray-300 text-base">General Data</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="text-sm">
-              <span className="font-semibold">ASA:</span> {data.asa}
+      {/* General Data and Surgical Approval - 70/30 Split */}
+      {(data.asa?.trim() || data.surgicalApproval?.trim()) && (
+        <div className="grid grid-cols-1 md:grid-cols-10 gap-4">
+          {/* General Data Section - 70% */}
+          {data.asa?.trim() && (
+            <div className="md:col-span-7">
+              <Card className="border-gray-300 dark:border-gray-600">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-gray-700 dark:text-gray-300 text-base">General Data</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="text-sm">
+                    <span className="font-semibold">ASA:</span> {data.asa}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
+          )}
+
+          {/* Surgical Approval Section - 30% */}
+          {data.surgicalApproval?.trim() && (
+            <div className="md:col-span-3">
+              <Card className="border-gray-300 dark:border-gray-600">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-gray-700 dark:text-gray-300 text-base">Surgical Approval</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-sm font-semibold ${
+                    data.surgicalApproval === 'approved' 
+                      ? 'text-green-600 dark:text-green-400' 
+                      : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {data.surgicalApproval.replace('-', ' ').toUpperCase()}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Medications Section */}
@@ -494,24 +521,6 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
             </Card>
           )}
         </div>
-      )}
-
-      {/* Surgical Approval Section */}
-      {data.surgicalApproval?.trim() && (
-        <Card className="border-gray-300 dark:border-gray-600">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-gray-700 dark:text-gray-300 text-base">Surgical Approval</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-sm font-semibold ${
-              data.surgicalApproval === 'approved' 
-                ? 'text-green-600 dark:text-green-400' 
-                : 'text-red-600 dark:text-red-400'
-            }`}>
-              {data.surgicalApproval.replace('-', ' ').toUpperCase()}
-            </div>
-          </CardContent>
-        </Card>
       )}
     </div>
   );
