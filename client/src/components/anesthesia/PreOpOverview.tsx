@@ -449,45 +449,51 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
         </Card>
       )}
 
-      {/* Planned Anesthesia Section */}
-      {(selectedAnesthesia.length > 0 || data.postOpICU || data.anesthesiaOther?.trim()) && (
-        <Card className="border-gray-300 dark:border-gray-600">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-gray-700 dark:text-gray-300 text-base">Planned Anesthesia</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {selectedAnesthesia.length > 0 && (
-              <div className="text-sm">
-                {selectedAnesthesia.join(', ')}
-              </div>
-            )}
-            {data.postOpICU && (
-              <div className="text-sm">Post-Op ICU</div>
-            )}
-            {data.anesthesiaOther?.trim() && (
-              <div className="text-sm italic text-muted-foreground">{data.anesthesiaOther}</div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+      {/* Planned Anesthesia and Installations - 2 Column Layout */}
+      {((selectedAnesthesia.length > 0 || data.postOpICU || data.anesthesiaOther?.trim()) || 
+        (selectedInstallations.length > 0 || data.installationsOther?.trim())) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Planned Anesthesia Section */}
+          {(selectedAnesthesia.length > 0 || data.postOpICU || data.anesthesiaOther?.trim()) && (
+            <Card className="border-gray-300 dark:border-gray-600">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-gray-700 dark:text-gray-300 text-base">Planned Anesthesia</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {selectedAnesthesia.length > 0 && (
+                  <div className="text-sm">
+                    {selectedAnesthesia.join(', ')}
+                  </div>
+                )}
+                {data.postOpICU && (
+                  <div className="text-sm">Post-Op ICU</div>
+                )}
+                {data.anesthesiaOther?.trim() && (
+                  <div className="text-sm italic text-muted-foreground">{data.anesthesiaOther}</div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
-      {/* Installations Section */}
-      {(selectedInstallations.length > 0 || data.installationsOther?.trim()) && (
-        <Card className="border-gray-300 dark:border-gray-600">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-gray-700 dark:text-gray-300 text-base">Planned Installations</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {selectedInstallations.length > 0 && (
-              <div className="text-sm">
-                {selectedInstallations.join(', ')}
-              </div>
-            )}
-            {data.installationsOther?.trim() && (
-              <div className="text-sm italic text-muted-foreground">{data.installationsOther}</div>
-            )}
-          </CardContent>
-        </Card>
+          {/* Installations Section */}
+          {(selectedInstallations.length > 0 || data.installationsOther?.trim()) && (
+            <Card className="border-gray-300 dark:border-gray-600">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-gray-700 dark:text-gray-300 text-base">Planned Installations</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {selectedInstallations.length > 0 && (
+                  <div className="text-sm">
+                    {selectedInstallations.join(', ')}
+                  </div>
+                )}
+                {data.installationsOther?.trim() && (
+                  <div className="text-sm italic text-muted-foreground">{data.installationsOther}</div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
 
       {/* Surgical Approval Section */}
