@@ -233,8 +233,8 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
   ].filter(section => section.items.length > 0 || section.notes?.trim());
 
   const allMedications = [
-    ...data.anticoagulationMeds.map(m => `${m} (AC)`),
-    data.anticoagulationMedsOther ? `${data.anticoagulationMedsOther} (AC)` : '',
+    ...data.anticoagulationMeds.map(m => `${m} (Anticoagulation)`),
+    data.anticoagulationMedsOther ? `${data.anticoagulationMedsOther} (Anticoagulation)` : '',
     ...data.generalMeds,
     data.generalMedsOther
   ].filter(Boolean);
@@ -248,21 +248,21 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
       .filter(([_, value]) => value)
       .map(([key]) => {
         const labels: Record<string, string> = {
-          'tiva-tci': 'TIVA/TCI',
-          'tubus': 'Tubus',
-          'rsi': 'RSI',
-          'larynxmask': 'Larynxmask',
-          'larynxmask-auragain': 'LM AuraGain',
-          'rae-tubus': 'RAE Tubus',
-          'spiralfedertubus': 'Spiralfedertubus',
-          'doppellumentubus': 'Doppellumentubus',
-          'nasal-intubation': 'Nasal Intub.',
-          'awake-intubation': 'Awake Intub.',
-          'ponv-prophylaxis': 'PONV Proph.',
+          'tiva-tci': 'Total Intravenous Anesthesia / Target Controlled Infusion',
+          'tubus': 'Endotracheal Tube',
+          'rsi': 'Rapid Sequence Induction',
+          'larynxmask': 'Laryngeal Mask',
+          'larynxmask-auragain': 'Laryngeal Mask AuraGain',
+          'rae-tubus': 'Ring-Adair-Elwyn Tube',
+          'spiralfedertubus': 'Spiral Reinforced Tube',
+          'doppellumentubus': 'Double Lumen Tube',
+          'nasal-intubation': 'Nasal Intubation',
+          'awake-intubation': 'Awake Intubation',
+          'ponv-prophylaxis': 'Postoperative Nausea and Vomiting Prophylaxis',
         };
         return labels[key] || key;
       });
-    anesthesiaWithDetails.push(subOptions.length > 0 ? `GA (${subOptions.join(', ')})` : 'GA');
+    anesthesiaWithDetails.push(subOptions.length > 0 ? `General Anesthesia (${subOptions.join(', ')})` : 'General Anesthesia');
   }
   if (techniques.spinal) anesthesiaWithDetails.push('Spinal');
   if (techniques.epidural) {
@@ -276,21 +276,21 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
       .filter(([_, value]) => value)
       .map(([key]) => {
         const labels: Record<string, string> = {
-          'interscalene-block': 'Interscalene',
-          'supraclavicular-block': 'Supraclavicular',
-          'infraclavicular-block': 'Infraclavicular',
-          'axillary-block': 'Axillary',
-          'femoral-block': 'Femoral',
-          'sciatic-block': 'Sciatic',
-          'popliteal-block': 'Popliteal',
-          'tap-block': 'TAP',
-          'pecs-block': 'PECS',
-          'serratus-block': 'Serratus',
+          'interscalene-block': 'Interscalene Block',
+          'supraclavicular-block': 'Supraclavicular Block',
+          'infraclavicular-block': 'Infraclavicular Block',
+          'axillary-block': 'Axillary Block',
+          'femoral-block': 'Femoral Block',
+          'sciatic-block': 'Sciatic Block',
+          'popliteal-block': 'Popliteal Block',
+          'tap-block': 'Transversus Abdominis Plane Block',
+          'pecs-block': 'Pectoral Nerve Block',
+          'serratus-block': 'Serratus Plane Block',
           'with-catheter': 'with Catheter',
         };
         return labels[key] || key;
       });
-    anesthesiaWithDetails.push(subOptions.length > 0 ? `Regional (${subOptions.join(', ')})` : 'Regional');
+    anesthesiaWithDetails.push(subOptions.length > 0 ? `Regional Anesthesia (${subOptions.join(', ')})` : 'Regional Anesthesia');
   }
   if (techniques.sedation) anesthesiaWithDetails.push('Sedation');
   if (techniques.combined) anesthesiaWithDetails.push('Combined');
