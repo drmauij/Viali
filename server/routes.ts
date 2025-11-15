@@ -1349,6 +1349,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Insert new config
           await db.insert(medicationConfigs).values(configData);
         }
+      } else {
+        // No config data provided - delete any existing config
+        await db
+          .delete(medicationConfigs)
+          .where(eq(medicationConfigs.itemId, itemId));
       }
 
       // Fetch the updated item with medication config
