@@ -27,20 +27,31 @@ Preferred communication style: Simple, everyday language.
 
 #### Making Schema Changes - Step by Step
 
-**Automated Workflow (Recommended):**
-1. **One-Time Setup**: Run `./scripts/install-git-hooks.sh` to install the automated migration generator
-2. **Update Schema**: Edit `shared/schema.ts` with your changes
-3. **Commit**: When you commit the schema changes, migration files are automatically generated and added to your commit
-4. **Deploy**: Push to Git and deploy to Exoscale - migrations run automatically on production startup
+⚠️ **CRITICAL**: Never manually create or edit migration files! Always use `npm run db:generate` or `npm run db:migrate` to generate migrations. Manual migration files won't be tracked properly and will cause production deployment failures.
 
-**Manual Workflow:**
+**Recommended Workflow (Simple & Reliable):**
 1. **Update Schema**: Edit `shared/schema.ts` with your changes
-2. **Generate & Apply Migration**: Run `npm run db:migrate`
-   - This generates a new migration file in `migrations/`
-   - Applies the changes to your development database
-3. **Verify**: Check the migration file in `migrations/` to ensure it's safe
-4. **Commit & Deploy**: Push to Git and deploy to Exoscale
-   - The migration runs automatically on production startup
+2. **Generate Migration**: Run `npm run db:generate`
+   - This creates a new migration file in `migrations/`
+   - The migration is properly tracked in `migrations/meta/_journal.json`
+   - Answer any prompts carefully (e.g., rename vs create for ambiguous changes)
+3. **Check Migration**: Verify the generated SQL file matches your intent
+4. **Helper Script** (Optional): Run `./scripts/check-migrations.sh` to verify readiness
+5. **Commit & Deploy**: 
+   - Commit ALL files (schema.ts + migration files + meta/_journal.json)
+   - Push to Git
+   - On Exoscale: `git pull && pm2 restart all`
+   - Migrations run automatically on production startup
+
+**Alternative: Combined Generate & Apply:**
+- Run `npm run db:migrate` to generate AND apply to dev database in one command
+- Still commit the generated migration files to Git
+
+**❌ Common Mistakes to Avoid:**
+- Don't manually create .sql files in migrations/ folder
+- Don't edit migration files after they're generated
+- Don't forget to commit migration files along with schema changes
+- Don't push schema changes without corresponding migration files
 
 #### Git Hook Automation
 
@@ -66,6 +77,30 @@ A pre-commit hook is available that automatically generates migration files when
 - `npm run db:generate` - Generate migration file from schema changes
 - `npm run db:push` - Apply schema directly to dev database (fast iteration)
 - `npm run db:migrate` - Generate migration AND apply to dev (recommended workflow)
+- `./scripts/check-migrations.sh` - Helper script to check if migrations are needed and provide deployment instructions
+
+#### Troubleshooting Migration Issues
+
+**Problem**: "Failed to load patients" or other data after deploying to Exoscale
+
+**Likely Cause**: Migration files are missing or not properly tracked
+
+**Solution**:
+1. Check if migration files exist in `migrations/` folder
+2. Verify all migrations are listed in `migrations/meta/_journal.json`
+3. If a migration is missing from the journal:
+   - Delete the orphaned .sql file
+   - Run `npm run db:generate` to regenerate it properly
+   - Commit and redeploy
+
+**Problem**: Drizzle asks interactive questions during `npm run db:generate`
+
+**Cause**: Schema changes involve renames or ambiguous modifications
+
+**Solution**: Answer the prompts carefully:
+- For column renames: Select "rename column" option
+- For new columns: Select "create column" option
+- Review the generated SQL to ensure it matches your intent
 
 #### Migration Safety
 
