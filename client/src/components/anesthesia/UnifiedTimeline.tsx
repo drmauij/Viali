@@ -7310,8 +7310,8 @@ export function UnifiedTimeline({
         const lanePosition = swimlanePositions.find(l => l.id === lane.id);
         if (!lanePosition) return null;
         
-        // Find the corresponding admin group
-        const adminGroup = administrationGroups.find(g => `group-${g.name}` === lane.id);
+        // Find the corresponding admin group by matching lane ID format: admingroup-${group.id}
+        const adminGroup = administrationGroups.find(g => `admingroup-${g.id}` === lane.id);
         if (!adminGroup) return null;
         
         return (
