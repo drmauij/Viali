@@ -1857,7 +1857,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createVitalsSnapshot(snapshot: InsertVitalsSnapshot): Promise<VitalsSnapshot> {
-    const [created] = await db.insert(vitalsSnapshots).values(snapshot).returning();
+    // Use INSERT ON CONFLICT to implement upsert with JSONB merge
+    // If a snapshot exists at the same (anesthesia_record_id, timestamp), merge the data
+    const [created] = await db
+      .insert(vitalsSnapshots)
+      .values(snapshot)
+      .onConflictDoUpdate({
+        target: [vitalsSnapshots.anesthesiaRecordId, vitalsSnapshots.timestamp],
+        set: {
+          // Merge existing data with new data (new values override old)
+          // Use COALESCE to handle NULL values, and EXCLUDED to reference the new row
+          data: sql`coalesce(${vitalsSnapshots.data}, '{}'::jsonb) || coalesce(excluded.data, '{}'::jsonb)`,
+        },
+      })
+      .returning();
     return created;
   }
 
