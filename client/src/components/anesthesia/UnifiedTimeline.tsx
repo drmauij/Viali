@@ -5289,6 +5289,7 @@ export function UnifiedTimeline({
           opts={{ renderer: "canvas" }}
           onChartReady={handleChartReady}
           lazyUpdate
+          notMerge={false}
         />
       </div>
 
