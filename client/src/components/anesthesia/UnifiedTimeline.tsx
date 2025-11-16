@@ -23,6 +23,7 @@ import { useVitalsState } from "@/hooks/useVitalsState";
 import { useMedicationState } from "@/hooks/useMedicationState";
 import { useVentilationState } from "@/hooks/useVentilationState";
 import { useEventState } from "@/hooks/useEventState";
+import { useOutputState } from "@/hooks/useOutputState";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
 import { TimeAdjustInput } from "./TimeAdjustInput";
@@ -523,24 +524,12 @@ export function UnifiedTimeline({
     modes: [],
   });
   
-  // State for output parameters
-  const [outputData, setOutputData] = useState<{
-    gastricTube: VitalPoint[];
-    drainage: VitalPoint[];
-    vomit: VitalPoint[];
-    urine: VitalPoint[];
-    urine677: VitalPoint[];
-    blood: VitalPoint[];
-    bloodIrrigation: VitalPoint[];
-  }>({
-    gastricTube: [],
-    drainage: [],
-    vomit: [],
-    urine: [],
-    urine677: [],
-    blood: [],
-    bloodIrrigation: [],
-  });
+  // Use custom hook for output parameter state management
+  const {
+    outputData,
+    setOutputData,
+    resetOutputData,
+  } = useOutputState();
   
   // Refs for edit mode to avoid recreating event listeners
   const selectedPointRef = useRef(selectedPoint);
