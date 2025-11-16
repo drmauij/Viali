@@ -1069,12 +1069,12 @@ export default function Op() {
                           <div className="space-y-2">
                             <Label>Anesthesia Provider</Label>
                             <Select 
-                              value={anesthesiaRecord?.providerId || ""}
+                              value={anesthesiaRecord?.providerId || "__none__"}
                               onValueChange={async (value) => {
                                 if (!anesthesiaRecord?.id) return;
                                 try {
                                   await apiRequest("PATCH", `/api/anesthesia/records/${anesthesiaRecord.id}`, {
-                                    providerId: value || null,
+                                    providerId: value === "__none__" ? null : value,
                                   });
                                   queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
                                   toast({ title: "Provider updated" });
@@ -1087,7 +1087,7 @@ export default function Op() {
                                 <SelectValue placeholder="Select provider" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="">None</SelectItem>
+                                <SelectItem value="__none__">None</SelectItem>
                                 {hospitalUsers.map((hu: any) => (
                                   <SelectItem key={hu.user.id} value={hu.user.id}>
                                     {hu.user.name || hu.user.email}
