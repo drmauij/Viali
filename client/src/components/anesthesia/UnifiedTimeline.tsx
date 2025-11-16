@@ -704,13 +704,31 @@ export function UnifiedTimeline({
         sysBP?: number;
         diaBP?: number;
         spo2?: number;
+        etco2?: number;
+        pip?: number;
+        peep?: number;
+        tidalVolume?: number;
+        respiratoryRate?: number;
+        minuteVolume?: number;
+        fio2?: number;
+        gastricTube?: number;
+        drainage?: number;
+        vomit?: number;
+        urine?: number;
+        urine677?: number;
+        blood?: number;
+        bloodIrrigation?: number;
       };
     }) => {
-      return await apiRequest('/api/anesthesia/vitals', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const response = await apiRequest('POST', '/api/anesthesia/vitals', payload);
+      return response.json();
+    },
+    onSuccess: () => {
+      if (anesthesiaRecordId) {
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/anesthesia/vitals/${anesthesiaRecordId}`] 
+        });
+      }
     },
     onError: (error) => {
       toast({
