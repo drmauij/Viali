@@ -3672,7 +3672,7 @@ export function UnifiedTimeline({
   };
 
   // Handle medication dose entry
-  const handleMedicationDoseEntry = () => {
+  const handleMedicationDoseEntry = async () => {
     if (!pendingMedicationDose || !medicationDoseInput.trim() || !anesthesiaRecordId) return;
     
     const { swimlaneId, time, label } = pendingMedicationDose;
@@ -3690,23 +3690,24 @@ export function UnifiedTimeline({
     
     const itemId = itemIdMatch[1];
     
-    // Optimistically update local state
-    setMedicationDoseData(prev => {
-      const existingData = prev[swimlaneId] || [];
-      return {
-        ...prev,
-        [swimlaneId]: [...existingData, [time, medicationDoseInput.trim()] as [number, string]]
-      };
-    });
-    
-    // Save to database
-    saveMedicationMutation.mutate({
-      anesthesiaRecordId,
-      itemId,
-      timestamp: new Date(time),
-      type: "bolus",
-      dose: medicationDoseInput.trim(),
-    });
+    // Save to database (will auto-update via query invalidation)
+    try {
+      await saveMedicationMutation.mutateAsync({
+        anesthesiaRecordId,
+        itemId,
+        timestamp: new Date(time),
+        type: "bolus",
+        dose: medicationDoseInput.trim(),
+      });
+      
+      toast({
+        title: "Dose saved",
+        description: `${label}: ${medicationDoseInput.trim()}`,
+      });
+    } catch (error) {
+      // Error toast is already shown by mutation's onError
+      return;
+    }
     
     // Reset dialog state
     setShowMedicationDoseDialog(false);
