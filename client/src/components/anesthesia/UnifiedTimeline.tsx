@@ -21,6 +21,7 @@ import { saveVitals, saveMedication } from "@/services/timelinePersistence";
 import { apiVitalsToState } from "@/services/timelineState";
 import { useVitalsState } from "@/hooks/useVitalsState";
 import { useMedicationState } from "@/hooks/useMedicationState";
+import { useVentilationState } from "@/hooks/useVentilationState";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
 import { TimeAdjustInput } from "./TimeAdjustInput";
@@ -522,23 +523,16 @@ export function UnifiedTimeline({
     spo2: data.vitals.spo2 || [],
   });
   
-  // State for ventilation parameters
-  const [ventilationData, setVentilationData] = useState<{
-    etCO2: VitalPoint[];
-    pip: VitalPoint[];
-    peep: VitalPoint[];
-    tidalVolume: VitalPoint[];
-    respiratoryRate: VitalPoint[];
-    minuteVolume: VitalPoint[];
-    fiO2: VitalPoint[];
-  }>({
-    etCO2: [],
-    pip: [],
-    peep: [],
-    tidalVolume: [],
-    respiratoryRate: [],
-    minuteVolume: [],
-    fiO2: [],
+  // Use custom hook for ventilation state management
+  const {
+    ventilationData,
+    ventilationModeData,
+    setVentilationData,
+    setVentilationModeData,
+    resetVentilationData,
+  } = useVentilationState({
+    ventilation: {},
+    modes: [],
   });
   
   // State for output parameters
@@ -831,8 +825,6 @@ export function UnifiedTimeline({
     // No need to process data.apiEvents separately for now
   }, [data.medications, anesthesiaItems, administrationGroups, resetMedicationData]);
 
-  // State for ventilation mode entries on parent swimlane
-  const [ventilationModeData, setVentilationModeData] = useState<Array<[number, string]>>([]);
 
   // State for heart rhythm entries
   const [heartRhythmData, setHeartRhythmData] = useState<Array<[number, string]>>([]);
