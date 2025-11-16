@@ -22,6 +22,7 @@ import { apiVitalsToState } from "@/services/timelineState";
 import { useVitalsState } from "@/hooks/useVitalsState";
 import { useMedicationState } from "@/hooks/useMedicationState";
 import { useVentilationState } from "@/hooks/useVentilationState";
+import { useEventState } from "@/hooks/useEventState";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
 import { TimeAdjustInput } from "./TimeAdjustInput";
@@ -86,11 +87,8 @@ export type TimelineEvent = {
   row?: number; // for multiple medication rows
 };
 
-export type EventComment = {
-  id: string;
-  time: number; // ms
-  text: string;
-};
+// EventComment and AnesthesiaTimeMarker types imported from useEventState hook
+import type { EventComment, AnesthesiaTimeMarker } from "@/hooks/useEventState";
 
 // Infusion segment - represents a single rate period
 export type InfusionSegment = {
@@ -125,17 +123,7 @@ export type UnifiedTimelineData = {
   apiEvents?: any[]; // Raw event records from API (renamed to avoid conflict with timeline events)
 };
 
-// Anesthesia time markers configuration
-export type AnesthesiaTimeMarker = {
-  id: string;
-  code: string; // A1, X1, F, etc.
-  label: string;
-  color: string;
-  bgColor: string;
-  time: number | null; // null if not yet placed
-};
-
-// Predefined anesthesia time markers in sequence
+// Predefined anesthesia time markers in sequence (type imported from useEventState hook)
 export const ANESTHESIA_TIME_MARKERS: Omit<AnesthesiaTimeMarker, 'time'>[] = [
   { id: 'A1', code: 'A1', label: 'Anesthesia Presence Start', color: '#FFFFFF', bgColor: '#EF4444' }, // Red
   { id: 'E', code: 'E', label: 'OR Entrance', color: '#FFFFFF', bgColor: '#10B981' }, // Green
@@ -825,9 +813,28 @@ export function UnifiedTimeline({
     // No need to process data.apiEvents separately for now
   }, [data.medications, anesthesiaItems, administrationGroups, resetMedicationData]);
 
+  // Event state management hook (heart rhythm, staff, position, events, time markers)
+  const {
+    heartRhythmData,
+    staffData,
+    positionData,
+    eventComments,
+    timeMarkers,
+    setHeartRhythmData,
+    setStaffData,
+    setPositionData,
+    setEventComments,
+    setTimeMarkers,
+    addHeartRhythm,
+    addStaffEntry,
+    addPosition,
+    addEvent,
+    resetEventData,
+  } = useEventState({
+    timeMarkers: ANESTHESIA_TIME_MARKERS.map(marker => ({ ...marker, time: null }))
+  });
 
-  // State for heart rhythm entries
-  const [heartRhythmData, setHeartRhythmData] = useState<Array<[number, string]>>([]);
+  // UI state for heart rhythm dialogs and interactions
   const [showHeartRhythmDialog, setShowHeartRhythmDialog] = useState(false);
   const [pendingHeartRhythm, setPendingHeartRhythm] = useState<{ time: number } | null>(null);
   const [editingHeartRhythm, setEditingHeartRhythm] = useState<{ time: number; rhythm: string; index: number } | null>(null);
@@ -835,16 +842,7 @@ export function UnifiedTimeline({
   const [heartRhythmEditTime, setHeartRhythmEditTime] = useState<number>(0);
   const [heartRhythmHoverInfo, setHeartRhythmHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
 
-  // State for staff entries (doctor, nurse, assistant)
-  const [staffData, setStaffData] = useState<{
-    doctor: Array<[number, string]>;
-    nurse: Array<[number, string]>;
-    assistant: Array<[number, string]>;
-  }>({
-    doctor: [],
-    nurse: [],
-    assistant: [],
-  });
+  // UI state for staff dialogs and interactions
   const [showStaffDialog, setShowStaffDialog] = useState(false);
   const [pendingStaff, setPendingStaff] = useState<{ time: number; role: 'doctor' | 'nurse' | 'assistant' } | null>(null);
   const [editingStaff, setEditingStaff] = useState<{ time: number; name: string; role: 'doctor' | 'nurse' | 'assistant'; index: number } | null>(null);
@@ -852,8 +850,7 @@ export function UnifiedTimeline({
   const [staffEditTime, setStaffEditTime] = useState<number>(Date.now());
   const [staffHoverInfo, setStaffHoverInfo] = useState<{ x: number; y: number; time: number; role: string } | null>(null);
 
-  // State for patient position entries
-  const [positionData, setPositionData] = useState<Array<[number, string]>>([]);
+  // UI state for position dialogs and interactions
   const [showPositionDialog, setShowPositionDialog] = useState(false);
   const [pendingPosition, setPendingPosition] = useState<{ time: number } | null>(null);
   const [editingPosition, setEditingPosition] = useState<{ time: number; position: string; index: number } | null>(null);
@@ -861,8 +858,7 @@ export function UnifiedTimeline({
   const [positionEditTime, setPositionEditTime] = useState<number>(Date.now());
   const [positionHoverInfo, setPositionHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
 
-  // State for event comments
-  const [eventComments, setEventComments] = useState<EventComment[]>([]);
+  // UI state for event comment dialogs and interactions
   const [showEventDialog, setShowEventDialog] = useState(false);
   const [pendingEvent, setPendingEvent] = useState<{ time: number } | null>(null);
   const [editingEvent, setEditingEvent] = useState<EventComment | null>(null);
@@ -1080,10 +1076,7 @@ export function UnifiedTimeline({
   } | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
-  // State for anesthesia time markers
-  const [timeMarkers, setTimeMarkers] = useState<AnesthesiaTimeMarker[]>(
-    ANESTHESIA_TIME_MARKERS.map(marker => ({ ...marker, time: null }))
-  );
+  // UI state for time markers (data managed by useEventState hook)
   const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
   const [editingTimeMarker, setEditingTimeMarker] = useState<{
     index: number;
