@@ -636,6 +636,7 @@ export default function Op() {
                   data={timelineData} 
                   now={new Date().getTime()} 
                   patientWeight={patientWeight}
+                  anesthesiaRecordId={anesthesiaRecord?.id}
                 />
               )}
             </div>

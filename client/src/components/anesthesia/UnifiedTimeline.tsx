@@ -447,12 +447,14 @@ export function UnifiedTimeline({
   swimlanes, // Optional: allow custom swimlane configuration
   now, // Current time for determining editable zones and initial zoom
   patientWeight, // Patient weight in kg for default ventilation calculations
+  anesthesiaRecordId, // Anesthesia record ID for auto-saving vitals
 }: {
   data: UnifiedTimelineData;
   height?: number;
   swimlanes?: SwimlaneConfig[];
   now?: number;
   patientWeight?: number;
+  anesthesiaRecordId?: string;
 }) {
   const chartRef = useRef<any>(null);
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
@@ -476,6 +478,33 @@ export function UnifiedTimeline({
   const anesthesiaItems = useMemo(() => {
     return allAnesthesiaItems.filter(item => item.administrationGroup);
   }, [allAnesthesiaItems]);
+  
+  // Mutation for auto-saving vitals
+  const saveVitalsMutation = useMutation({
+    mutationFn: async (payload: {
+      anesthesiaRecordId: string;
+      timestamp: Date;
+      data: {
+        hr?: number;
+        sysBP?: number;
+        diaBP?: number;
+        spo2?: number;
+      };
+    }) => {
+      return await apiRequest('/api/anesthesia/vitals', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json' },
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error saving vitals",
+        description: error instanceof Error ? error.message : "Failed to save vitals data",
+        variant: "destructive",
+      });
+    },
+  });
   
   // State for collapsible parent swimlanes
   const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<Set<string>>(new Set());
@@ -540,6 +569,10 @@ export function UnifiedTimeline({
   const dragPreviewRef = useRef<{ time: number; value: number } | null>(null);
   const rafIdRef = useRef<number | null>(null);
   
+  // Ref to track pending save timeout and prevent duplicate saves
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSavedDataRef = useRef<string>(''); // Store stringified version of last saved data
+  
   // Imperative function to update only the preview series without re-rendering React
   const updateDragPreviewImperatively = useCallback((previewPoint: VitalPoint | null, pointType: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2') => {
     const chartInstance = chartRef.current?.getEchartsInstance();
@@ -582,6 +615,86 @@ export function UnifiedTimeline({
   useEffect(() => { hrDataPointsRef.current = hrDataPoints; }, [hrDataPoints]);
   useEffect(() => { bpDataPointsRef.current = bpDataPoints; }, [bpDataPoints]);
   useEffect(() => { spo2DataPointsRef.current = spo2DataPoints; }, [spo2DataPoints]);
+  
+  // Auto-save vitals with debouncing
+  useEffect(() => {
+    // Only auto-save if anesthesiaRecordId is provided
+    if (!anesthesiaRecordId) {
+      return;
+    }
+
+    // Clear any pending save timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Debounce: wait 2 seconds before saving
+    saveTimeoutRef.current = setTimeout(() => {
+      // Collect all unique timestamps from vitals arrays
+      const timestampSet = new Set<number>();
+      
+      hrDataPoints.forEach(([timestamp]) => timestampSet.add(timestamp));
+      bpDataPoints.sys.forEach(([timestamp]) => timestampSet.add(timestamp));
+      bpDataPoints.dia.forEach(([timestamp]) => timestampSet.add(timestamp));
+      spo2DataPoints.forEach(([timestamp]) => timestampSet.add(timestamp));
+      
+      // Convert to array and sort chronologically
+      const timestamps = Array.from(timestampSet).sort((a, b) => a - b);
+      
+      // Create snapshot for each timestamp
+      const snapshots = timestamps.map(timestamp => {
+        const snapshot: {
+          hr?: number;
+          sysBP?: number;
+          diaBP?: number;
+          spo2?: number;
+        } = {};
+        
+        // Find vitals at this timestamp
+        const hrPoint = hrDataPoints.find(([t]) => t === timestamp);
+        if (hrPoint) snapshot.hr = hrPoint[1];
+        
+        const sysPoint = bpDataPoints.sys.find(([t]) => t === timestamp);
+        if (sysPoint) snapshot.sysBP = sysPoint[1];
+        
+        const diaPoint = bpDataPoints.dia.find(([t]) => t === timestamp);
+        if (diaPoint) snapshot.diaBP = diaPoint[1];
+        
+        const spo2Point = spo2DataPoints.find(([t]) => t === timestamp);
+        if (spo2Point) snapshot.spo2 = spo2Point[1];
+        
+        return {
+          timestamp: new Date(timestamp),
+          data: snapshot,
+        };
+      });
+      
+      // Check if data has changed since last save to prevent duplicate saves
+      const currentDataString = JSON.stringify(snapshots);
+      if (currentDataString === lastSavedDataRef.current) {
+        return;
+      }
+      
+      // Update last saved data reference
+      lastSavedDataRef.current = currentDataString;
+      
+      // Save each snapshot
+      snapshots.forEach(snapshot => {
+        saveVitalsMutation.mutate({
+          anesthesiaRecordId,
+          timestamp: snapshot.timestamp,
+          data: snapshot.data,
+        });
+      });
+    }, 2000); // 2 second debounce
+    
+    // Cleanup timeout on unmount or when dependencies change
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [hrDataPoints, bpDataPoints, spo2DataPoints, anesthesiaRecordId, saveVitalsMutation]);
   
   // State for ventilation parameters
   const [ventilationData, setVentilationData] = useState<{
