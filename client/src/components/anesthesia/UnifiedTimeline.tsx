@@ -1869,12 +1869,12 @@ export function UnifiedTimeline({
   const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [collapsedSwimlanes, swimlanes, administrationGroups, itemsByAdminGroup]);
 
   // Handle editing vital values
-  const handleSaveEdit = (newValue: number) => {
-    if (!editingValue) return;
+  const handleSaveEdit = async (newValue: number) => {
+    if (!editingValue || !anesthesiaRecordId) return;
 
-    const { type, index, time } = editingValue;
+    const { type, index, time, originalTime } = editingValue;
 
-    // Keep the original time, only update the value
+    // Update local state first
     if (type === 'hr') {
       const updated = [...hrDataPoints];
       updated[index] = [time, newValue];
@@ -1893,12 +1893,78 @@ export function UnifiedTimeline({
       setSpo2DataPoints(updated);
     }
 
-    // Toast notification disabled (can be re-enabled later)
-    // toast({
-    //   title: "Value updated",
-    //   description: "Vital sign value has been saved",
-    //   duration: 2000,
-    // });
+    // Persist update to database
+    // Collect ALL vitals at this timestamp with the updated value
+    const timestamp = new Date(originalTime);
+    const updatedVitals: any = {};
+
+    // Get current values at this timestamp
+    if (type === 'hr') {
+      updatedVitals.hr = newValue;
+    } else {
+      const hrPoint = hrDataPoints.find(p => p[0] === originalTime);
+      if (hrPoint) updatedVitals.hr = hrPoint[1];
+    }
+
+    if (type === 'sys') {
+      updatedVitals.sysBP = newValue;
+      const diaPoint = bpDataPoints.dia.find(p => p[0] === originalTime);
+      if (diaPoint) updatedVitals.diaBP = diaPoint[1];
+    } else if (type === 'dia') {
+      updatedVitals.diaBP = newValue;
+      const sysPoint = bpDataPoints.sys.find(p => p[0] === originalTime);
+      if (sysPoint) updatedVitals.sysBP = sysPoint[1];
+    } else {
+      const sysPoint = bpDataPoints.sys.find(p => p[0] === originalTime);
+      const diaPoint = bpDataPoints.dia.find(p => p[0] === originalTime);
+      if (sysPoint) updatedVitals.sysBP = sysPoint[1];
+      if (diaPoint) updatedVitals.diaBP = diaPoint[1];
+    }
+
+    if (type === 'spo2') {
+      updatedVitals.spo2 = newValue;
+    } else {
+      const spo2Point = spo2DataPoints.find(p => p[0] === originalTime);
+      if (spo2Point) updatedVitals.spo2 = spo2Point[1];
+    }
+
+    // Persist via PATCH to replace the snapshot data
+    try {
+      const response = await fetch(`/api/anesthesia/vitals/${anesthesiaRecordId}`);
+      if (response.ok) {
+        const allSnapshots = await response.json();
+        const timestampMs = new Date(originalTime).getTime();
+        const snapshot = allSnapshots.find((s: any) => 
+          new Date(s.timestamp).getTime() === timestampMs
+        );
+        
+        if (snapshot) {
+          const patchResponse = await fetch(`/api/anesthesia/vitals/${snapshot.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              anesthesiaRecordId,
+              timestamp,
+              data: updatedVitals,
+            }),
+          });
+          
+          if (!patchResponse.ok) {
+            throw new Error('Failed to update snapshot');
+          }
+          
+          // Invalidate query to refresh data
+          queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/vitals', anesthesiaRecordId] });
+        }
+      }
+    } catch (error) {
+      console.error('[EDIT] Failed to persist edit:', error);
+      toast({
+        title: "Error updating vital",
+        description: "Failed to save update to database",
+        variant: "destructive",
+      });
+    }
 
     setEditDialogOpen(false);
     setEditingValue(null);
