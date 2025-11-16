@@ -5325,7 +5325,7 @@ If unable to parse any drugs, return:
       const { recordId } = req.params;
       const userId = req.user.id;
 
-      const record = await storage.getAnesthesiaRecord(recordId);
+      const record = await storage.getAnesthesiaRecordById(recordId);
       
       if (!record) {
         return res.status(404).json({ message: "Anesthesia record not found" });
@@ -5441,7 +5441,7 @@ If unable to parse any drugs, return:
       const { recordId } = req.params;
       const userId = req.user.id;
 
-      const record = await storage.getAnesthesiaRecord(recordId);
+      const record = await storage.getAnesthesiaRecordById(recordId);
       
       if (!record) {
         return res.status(404).json({ message: "Anesthesia record not found" });
@@ -5597,7 +5597,7 @@ If unable to parse any drugs, return:
       const { recordId } = req.params;
       const userId = req.user.id;
 
-      const record = await storage.getAnesthesiaRecord(recordId);
+      const record = await storage.getAnesthesiaRecordById(recordId);
       
       if (!record) {
         return res.status(404).json({ message: "Anesthesia record not found" });
@@ -5671,7 +5671,7 @@ If unable to parse any drugs, return:
       const { recordId } = req.params;
       const userId = req.user.id;
 
-      const record = await storage.getAnesthesiaRecord(recordId);
+      const record = await storage.getAnesthesiaRecordById(recordId);
       
       if (!record) {
         return res.status(404).json({ message: "Anesthesia record not found" });
@@ -5705,7 +5705,7 @@ If unable to parse any drugs, return:
       const { recordId } = req.params;
       const userId = req.user.id;
 
-      const record = await storage.getAnesthesiaRecord(recordId);
+      const record = await storage.getAnesthesiaRecordById(recordId);
       
       if (!record) {
         return res.status(404).json({ message: "Anesthesia record not found" });
@@ -5809,7 +5809,7 @@ If unable to parse any drugs, return:
       const { recordId } = req.params;
       const userId = req.user.id;
 
-      const record = await storage.getAnesthesiaRecord(recordId);
+      const record = await storage.getAnesthesiaRecordById(recordId);
       
       if (!record) {
         return res.status(404).json({ message: "Anesthesia record not found" });
