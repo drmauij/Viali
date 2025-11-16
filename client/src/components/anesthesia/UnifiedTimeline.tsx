@@ -6016,7 +6016,7 @@ export function UnifiedTimeline({
             } else {
             }
             
-            setTimeout(() => setIsProcessingClick(false), 100);
+            setIsProcessingClick(false);
           }}
           onTouchStart={(e) => {
             if (activeToolMode !== 'edit' || isProcessingClick) return;
@@ -6117,10 +6117,14 @@ export function UnifiedTimeline({
             } else {
             }
             
-            setTimeout(() => setIsProcessingClick(false), 100);
+            setIsProcessingClick(false);
           }}
           onClick={(e) => {
-            if (isProcessingClick || activeToolMode === 'edit') return;
+            console.log('[VITALS-CLICK] onClick triggered', { isProcessingClick, activeToolMode });
+            if (isProcessingClick || activeToolMode === 'edit') {
+              console.log('[VITALS-CLICK] Blocked by guard');
+              return;
+            }
             
             setIsProcessingClick(true);
             
@@ -6201,7 +6205,7 @@ export function UnifiedTimeline({
               //   ),
               // });
               
-              setTimeout(() => setIsProcessingClick(false), 100);
+              setIsProcessingClick(false);
             } else if (activeToolMode === 'bp') {
               // Simplified BP entry: each click adds its value immediately (no pending gray bookmark)
               if (bpEntryMode === 'sys') {
@@ -6216,7 +6220,7 @@ export function UnifiedTimeline({
                 setPendingSysValue({ time: clickInfo.time, value: clickInfo.value });
                 setBpEntryMode('dia');
                 setHoverInfo(null);
-                setTimeout(() => setIsProcessingClick(false), 100);
+                setIsProcessingClick(false);
               } else {
                 // Add diastolic value immediately to the chart
                 // CRITICAL: Use systolic's timestamp to ensure BP values are synchronized
@@ -6230,7 +6234,7 @@ export function UnifiedTimeline({
                 setPendingSysValue(null);
                 setBpEntryMode('sys');
                 setHoverInfo(null);
-                setTimeout(() => setIsProcessingClick(false), 100);
+                setIsProcessingClick(false);
               }
             } else if (activeToolMode === 'spo2') {
               const newPoint: VitalPoint = [clickInfo.time, clickInfo.value];
@@ -6256,7 +6260,7 @@ export function UnifiedTimeline({
               //   ),
               // });
               
-              setTimeout(() => setIsProcessingClick(false), 100);
+              setIsProcessingClick(false);
             } else if (activeToolMode === 'blend') {
               // Sequential vitals entry mode - automatically progress through sys -> dia -> hr -> spo2 -> loop
               if (blendSequenceStep === 'sys') {
@@ -6268,7 +6272,7 @@ export function UnifiedTimeline({
                 setPendingSysValue({ time: clickInfo.time, value: clickInfo.value });
                 setBlendSequenceStep('dia');
                 setHoverInfo(null);
-                setTimeout(() => setIsProcessingClick(false), 100);
+                setIsProcessingClick(false);
               } else if (blendSequenceStep === 'dia') {
                 const diaPoint: VitalPoint = [pendingSysValue?.time ?? clickInfo.time, clickInfo.value];
                 setBpDataPoints(prev => ({
@@ -6277,20 +6281,20 @@ export function UnifiedTimeline({
                 }));
                 setBlendSequenceStep('hr');
                 setHoverInfo(null);
-                setTimeout(() => setIsProcessingClick(false), 100);
+                setIsProcessingClick(false);
               } else if (blendSequenceStep === 'hr') {
                 const hrPoint: VitalPoint = [clickInfo.time, clickInfo.value];
                 setHrDataPoints(prev => [...prev, hrPoint]);
                 setBlendSequenceStep('spo2');
                 setHoverInfo(null);
-                setTimeout(() => setIsProcessingClick(false), 100);
+                setIsProcessingClick(false);
               } else if (blendSequenceStep === 'spo2') {
                 const spo2Point: VitalPoint = [clickInfo.time, clickInfo.value];
                 setSpo2DataPoints(prev => [...prev, spo2Point]);
                 setBlendSequenceStep('sys'); // Loop back to start
                 setPendingSysValue(null); // Clear pending systolic value
                 setHoverInfo(null);
-                setTimeout(() => setIsProcessingClick(false), 100);
+                setIsProcessingClick(false);
               }
             }
           }}
