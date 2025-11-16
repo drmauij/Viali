@@ -37,6 +37,16 @@ import {
   calculatePanPercentages,
   calculateNowLinePosition,
 } from "@/utils/timelineUtils";
+import {
+  createLucideIconSeries,
+  CHART_LAYOUT,
+  getChartColors,
+} from "@/utils/chartUtils";
+import {
+  calculateSimilarity,
+  extractDrugName,
+  isFreeFlowInfusion,
+} from "@/utils/stringUtils";
 
 /**
  * UnifiedTimeline - Refactored for robustness and flexibility
@@ -310,116 +320,6 @@ const BolusPill = ({
     </div>
   );
 };
-
-// Helper: Create custom series for Lucide icon symbols (supports stroke rendering)
-function createLucideIconSeries(
-  name: string,
-  data: VitalPoint[],
-  iconPath: string,
-  color: string,
-  yAxisIndex: number,
-  size: number = 16,
-  zLevel: number = 20,
-  isCircleDot: boolean = false
-) {
-  return {
-    type: 'custom',
-    name,
-    xAxisIndex: 0,
-    yAxisIndex,
-    data,
-    zlevel: zLevel, // FIXED: Use zlevel (not z) to ensure icons are on a higher layer than lines
-    z: 10, // Within the same zlevel, render on top
-    emphasis: {
-      disabled: false, // Enable hover effects
-      focus: 'self', // Focus on the hovered item
-    },
-    renderItem: (params: any, api: any) => {
-      const point = api.coord([api.value(0), api.value(1)]);
-      const scale = size / 24; // Scale from 24x24 viewBox to desired size
-      
-      // Special handling for CircleDot (two circles)
-      if (isCircleDot) {
-        return {
-          type: 'group',
-          cursor: 'pointer',
-          x: point[0],
-          y: point[1],
-          children: [
-            // Outer circle (r=10)
-            {
-              type: 'circle',
-              x: 0,
-              y: 0,
-              shape: { r: 10 * scale },
-              style: {
-                fill: 'none',
-                stroke: color,
-                lineWidth: 2,
-              },
-              emphasis: {
-                style: {
-                  lineWidth: 3.5,
-                  stroke: color,
-                },
-              },
-            },
-            // Inner dot (r=1)
-            {
-              type: 'circle',
-              x: 0,
-              y: 0,
-              shape: { r: 1 * scale },
-              style: {
-                fill: 'none',
-                stroke: color,
-                lineWidth: 2,
-              },
-              emphasis: {
-                style: {
-                  lineWidth: 3.5,
-                  stroke: color,
-                },
-              },
-            },
-          ],
-          emphasis: {
-            scaleX: 1.8,
-            scaleY: 1.8,
-          },
-        };
-      }
-      
-      // Regular path-based icons (heart, chevrons)
-      return {
-        type: 'path',
-        x: point[0] - size / 2,
-        y: point[1] - size / 2,
-        shape: {
-          pathData: iconPath,
-          width: 24,
-          height: 24,
-        },
-        style: {
-          fill: 'none',
-          stroke: color,
-          lineWidth: 2,
-        },
-        scaleX: scale,
-        scaleY: scale,
-        cursor: 'pointer',
-        emphasis: {
-          scaleX: scale * 1.8,
-          scaleY: scale * 1.8,
-          style: {
-            lineWidth: 3.5,
-            stroke: color,
-          },
-        },
-      };
-    },
-  };
-}
 
 // Centralized swimlane configuration - easy to add/remove swimlanes
 type SwimlaneConfig = {
@@ -1678,42 +1578,6 @@ export function UnifiedTimeline({
     return parts.join(' ');
   };
 
-  // Helper: Detect if an infusion is free-flow based on the drug name
-  const isFreeFlowInfusion = (drugName: string): boolean => {
-    return drugName.toLowerCase().includes('free-flow');
-  };
-
-  // Extract drug name from full medication string (e.g., "Rocuronium (Esmeron) (mg, i.v.)" -> "Rocuronium")
-  const extractDrugName = (fullName: string): string => {
-    // Extract first word/compound before parentheses or special chars
-    const match = fullName.match(/^([A-Za-z]+)/);
-    return match ? match[1].toLowerCase() : fullName.toLowerCase();
-  };
-
-  // Calculate string similarity (0-1 score, 1 = exact match)
-  const calculateSimilarity = (str1: string, str2: string): number => {
-    const s1 = str1.toLowerCase();
-    const s2 = str2.toLowerCase();
-    
-    // Exact match
-    if (s1 === s2) return 1.0;
-    
-    // Check if one contains the other
-    if (s1.includes(s2) || s2.includes(s1)) return 0.85;
-    
-    // Simple Levenshtein-like distance calculation
-    const longer = s1.length > s2.length ? s1 : s2;
-    const shorter = s1.length > s2.length ? s2 : s1;
-    
-    if (longer.length === 0) return 1.0;
-    
-    let matches = 0;
-    for (let i = 0; i < shorter.length; i++) {
-      if (longer.includes(shorter[i])) matches++;
-    }
-    
-    return matches / longer.length;
-  };
 
   // Find best matching medication from configured items across all administration groups
   const findMatchingMedication = (voiceDrugName: string): { 
@@ -2479,12 +2343,8 @@ export function UnifiedTimeline({
   // rendered as DOM overlays for reliable click handling and scrolling. No ECharts graphics needed.
 
   const option = useMemo(() => {
-    // Layout constants
-    const VITALS_TOP = 32; // Space for sticky header (32px)
-    const VITALS_HEIGHT = 380;
-    const SWIMLANE_START = VITALS_TOP + VITALS_HEIGHT; // 412px
-    const GRID_LEFT = 200; // Increased width to accommodate longer header text
-    const GRID_RIGHT = 10;
+    // Use centralized chart layout constants
+    const { VITALS_TOP, VITALS_HEIGHT, SWIMLANE_START, GRID_LEFT, GRID_RIGHT } = CHART_LAYOUT;
 
     // Calculate initial zoom and editable zones based on "now"
     const currentTime = now || data.endTime; // Use provided "now" or fall back to endTime
