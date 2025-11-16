@@ -1072,7 +1072,34 @@ export const insertPreOpAssessmentSchema = createInsertSchema(preOpAssessments).
   updatedAt: true,
 });
 
-export const insertClinicalSnapshotSchema = createInsertSchema(clinicalSnapshots).omit({
+export const insertClinicalSnapshotSchema = createInsertSchema(clinicalSnapshots, {
+  // Explicitly define data field validation for JSONB
+  data: z.object({
+    // Vitals
+    hr: z.number().optional(),
+    sysBP: z.number().optional(),
+    diaBP: z.number().optional(),
+    meanBP: z.number().optional(),
+    spo2: z.number().optional(),
+    temp: z.number().optional(),
+    // Ventilation
+    etco2: z.number().optional(),
+    pip: z.number().optional(),
+    peep: z.number().optional(),
+    tidalVolume: z.number().optional(),
+    respiratoryRate: z.number().optional(),
+    minuteVolume: z.number().optional(),
+    fio2: z.number().optional(),
+    // Output parameters
+    gastricTube: z.number().optional(),
+    drainage: z.number().optional(),
+    vomit: z.number().optional(),
+    urine: z.number().optional(),
+    urine677: z.number().optional(),
+    blood: z.number().optional(),
+    bloodIrrigation: z.number().optional(),
+  }),
+}).omit({
   id: true,
   createdAt: true,
 });

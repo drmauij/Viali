@@ -5357,8 +5357,10 @@ If unable to parse any drugs, return:
   app.post('/api/anesthesia/vitals', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
-
+      
+      console.log('[VITALS] Received payload:', JSON.stringify(req.body, null, 2));
       const validatedData = insertVitalsSnapshotSchema.parse(req.body);
+      console.log('[VITALS] Validation successful:', JSON.stringify(validatedData, null, 2));
 
       // Verify record exists and user has access
       const record = await storage.getAnesthesiaRecord(validatedData.anesthesiaRecordId);
@@ -5384,6 +5386,7 @@ If unable to parse any drugs, return:
       res.status(201).json(newVital);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error('[VITALS] Zod validation error:', JSON.stringify(error.errors, null, 2));
         return res.status(400).json({ message: "Invalid data", errors: error.errors });
       }
       console.error("Error creating vitals snapshot:", error);

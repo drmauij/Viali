@@ -3748,9 +3748,10 @@ export function UnifiedTimeline({
       // Manually update local state so the dose appears immediately
       setMedicationDoseData(prev => {
         const existing = prev[swimlaneId] || [];
+        const newEntry: [number, string] = [time, doseValue];
         return {
           ...prev,
-          [swimlaneId]: [...existing, [time, doseValue]].sort((a, b) => a[0] - b[0])
+          [swimlaneId]: [...existing, newEntry].sort((a, b) => a[0] - b[0])
         };
       });
       
