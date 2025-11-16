@@ -739,6 +739,36 @@ export function UnifiedTimeline({
     },
   });
   
+  // Mutation for saving medication doses
+  const saveMedicationMutation = useMutation({
+    mutationFn: async (payload: {
+      anesthesiaRecordId: string;
+      itemId: string;
+      timestamp: Date;
+      type: string;
+      dose?: string;
+      unit?: string;
+      route?: string;
+    }) => {
+      const response = await apiRequest('POST', '/api/anesthesia/medications', payload);
+      return response.json();
+    },
+    onSuccess: () => {
+      if (anesthesiaRecordId) {
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/anesthesia/medications/${anesthesiaRecordId}`] 
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Error saving medication",
+        description: error instanceof Error ? error.message : "Failed to save medication",
+        variant: "destructive",
+      });
+    },
+  });
+  
   // State for collapsible parent swimlanes
   const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<Set<string>>(new Set());
   
@@ -3643,10 +3673,24 @@ export function UnifiedTimeline({
 
   // Handle medication dose entry
   const handleMedicationDoseEntry = () => {
-    if (!pendingMedicationDose || !medicationDoseInput.trim()) return;
+    if (!pendingMedicationDose || !medicationDoseInput.trim() || !anesthesiaRecordId) return;
     
     const { swimlaneId, time, label } = pendingMedicationDose;
     
+    // Extract itemId from swimlaneId (format: "group_{groupId}_item_{itemId}")
+    const itemIdMatch = swimlaneId.match(/item_([^_]+)$/);
+    if (!itemIdMatch) {
+      toast({
+        title: "Error",
+        description: "Could not identify medication",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const itemId = itemIdMatch[1];
+    
+    // Optimistically update local state
     setMedicationDoseData(prev => {
       const existingData = prev[swimlaneId] || [];
       return {
@@ -3655,11 +3699,14 @@ export function UnifiedTimeline({
       };
     });
     
-    // Toast notification disabled (can be re-enabled later)
-    // toast({
-    //   title: "Dose Added",
-    //   description: `${label}: ${medicationDoseInput.trim()} at ${new Date(time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`,
-    // });
+    // Save to database
+    saveMedicationMutation.mutate({
+      anesthesiaRecordId,
+      itemId,
+      timestamp: new Date(time),
+      type: "bolus",
+      dose: medicationDoseInput.trim(),
+    });
     
     // Reset dialog state
     setShowMedicationDoseDialog(false);
