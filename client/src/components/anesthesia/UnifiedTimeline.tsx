@@ -1353,6 +1353,7 @@ export function UnifiedTimeline({
     time: number;
     value: number;
     index: number;
+    originalTime: number;  // Track original timestamp for database lookups
   } | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
@@ -1894,29 +1895,45 @@ export function UnifiedTimeline({
     }
 
     // Persist update to database
+    // Use originalTime to locate the snapshot, fallback to time if not set
+    const lookupTime = originalTime || time;
+    const timestamp = new Date(lookupTime);
+    
+    // Validate timestamp
+    if (isNaN(timestamp.getTime())) {
+      console.error('[EDIT] Invalid timestamp:', { originalTime, time, lookupTime });
+      toast({
+        title: "Error updating vital",
+        description: "Invalid timestamp for update",
+        variant: "destructive",
+      });
+      setEditDialogOpen(false);
+      setEditingValue(null);
+      return;
+    }
+    
     // Collect ALL vitals at this timestamp with the updated value
-    const timestamp = new Date(originalTime);
     const updatedVitals: any = {};
 
     // Get current values at this timestamp
     if (type === 'hr') {
       updatedVitals.hr = newValue;
     } else {
-      const hrPoint = hrDataPoints.find(p => p[0] === originalTime);
+      const hrPoint = hrDataPoints.find(p => p[0] === lookupTime);
       if (hrPoint) updatedVitals.hr = hrPoint[1];
     }
 
     if (type === 'sys') {
       updatedVitals.sysBP = newValue;
-      const diaPoint = bpDataPoints.dia.find(p => p[0] === originalTime);
+      const diaPoint = bpDataPoints.dia.find(p => p[0] === lookupTime);
       if (diaPoint) updatedVitals.diaBP = diaPoint[1];
     } else if (type === 'dia') {
       updatedVitals.diaBP = newValue;
-      const sysPoint = bpDataPoints.sys.find(p => p[0] === originalTime);
+      const sysPoint = bpDataPoints.sys.find(p => p[0] === lookupTime);
       if (sysPoint) updatedVitals.sysBP = sysPoint[1];
     } else {
-      const sysPoint = bpDataPoints.sys.find(p => p[0] === originalTime);
-      const diaPoint = bpDataPoints.dia.find(p => p[0] === originalTime);
+      const sysPoint = bpDataPoints.sys.find(p => p[0] === lookupTime);
+      const diaPoint = bpDataPoints.dia.find(p => p[0] === lookupTime);
       if (sysPoint) updatedVitals.sysBP = sysPoint[1];
       if (diaPoint) updatedVitals.diaBP = diaPoint[1];
     }
@@ -1924,7 +1941,7 @@ export function UnifiedTimeline({
     if (type === 'spo2') {
       updatedVitals.spo2 = newValue;
     } else {
-      const spo2Point = spo2DataPoints.find(p => p[0] === originalTime);
+      const spo2Point = spo2DataPoints.find(p => p[0] === lookupTime);
       if (spo2Point) updatedVitals.spo2 = spo2Point[1];
     }
 
@@ -1933,12 +1950,13 @@ export function UnifiedTimeline({
       const response = await fetch(`/api/anesthesia/vitals/${anesthesiaRecordId}`);
       if (response.ok) {
         const allSnapshots = await response.json();
-        const timestampMs = new Date(originalTime).getTime();
+        const timestampMs = timestamp.getTime();
         const snapshot = allSnapshots.find((s: any) => 
           new Date(s.timestamp).getTime() === timestampMs
         );
         
         if (snapshot) {
+          console.log('[EDIT] Found snapshot to update:', snapshot.id);
           const patchResponse = await fetch(`/api/anesthesia/vitals/${snapshot.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -1953,8 +1971,11 @@ export function UnifiedTimeline({
             throw new Error('Failed to update snapshot');
           }
           
+          console.log('[EDIT] Successfully patched snapshot');
           // Invalidate query to refresh data
           queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/vitals', anesthesiaRecordId] });
+        } else {
+          console.warn('[EDIT] No snapshot found at timestamp:', timestampMs);
         }
       }
     } catch (error) {
@@ -1989,27 +2010,43 @@ export function UnifiedTimeline({
     }
 
     // Persist deletion to database
+    // Use originalTime to locate the snapshot, fallback to time if not set
+    const lookupTime = originalTime || time;
+    const timestamp = new Date(lookupTime);
+    
+    // Validate timestamp
+    if (isNaN(timestamp.getTime())) {
+      console.error('[DELETE] Invalid timestamp:', { originalTime, time, lookupTime });
+      toast({
+        title: "Error deleting vital",
+        description: "Invalid timestamp for deletion",
+        variant: "destructive",
+      });
+      setEditDialogOpen(false);
+      setEditingValue(null);
+      return;
+    }
+    
     // Collect all remaining vitals at this timestamp (excluding the deleted one)
-    const timestamp = new Date(originalTime);
     const remainingVitals: any = {};
 
     // Check HR at this timestamp (excluding if we deleted it)
     if (type !== 'hr') {
-      const hrPoint = hrDataPoints.find(p => p[0] === originalTime);
+      const hrPoint = hrDataPoints.find(p => p[0] === lookupTime);
       if (hrPoint) remainingVitals.hr = hrPoint[1];
     }
 
     // Check BP at this timestamp (excluding if we deleted it)
     if (type !== 'sys' && type !== 'dia') {
-      const sysPoint = bpDataPoints.sys.find(p => p[0] === originalTime);
-      const diaPoint = bpDataPoints.dia.find(p => p[0] === originalTime);
+      const sysPoint = bpDataPoints.sys.find(p => p[0] === lookupTime);
+      const diaPoint = bpDataPoints.dia.find(p => p[0] === lookupTime);
       if (sysPoint) remainingVitals.sysBP = sysPoint[1];
       if (diaPoint) remainingVitals.diaBP = diaPoint[1];
     }
 
     // Check SPO2 at this timestamp (excluding if we deleted it)
     if (type !== 'spo2') {
-      const spo2Point = spo2DataPoints.find(p => p[0] === originalTime);
+      const spo2Point = spo2DataPoints.find(p => p[0] === lookupTime);
       if (spo2Point) remainingVitals.spo2 = spo2Point[1];
     }
 
@@ -2020,12 +2057,13 @@ export function UnifiedTimeline({
       const response = await fetch(`/api/anesthesia/vitals/${anesthesiaRecordId}`);
       if (response.ok) {
         const allSnapshots = await response.json();
-        const timestampMs = new Date(originalTime).getTime();
+        const timestampMs = timestamp.getTime();
         const snapshot = allSnapshots.find((s: any) => 
           new Date(s.timestamp).getTime() === timestampMs
         );
         
         if (snapshot) {
+          console.log('[DELETE] Found snapshot to update:', snapshot.id);
           // PATCH the snapshot to replace data with only remaining vitals
           const patchResponse = await fetch(`/api/anesthesia/vitals/${snapshot.id}`, {
             method: 'PATCH',
@@ -2041,8 +2079,11 @@ export function UnifiedTimeline({
             throw new Error('Failed to update snapshot');
           }
           
+          console.log('[DELETE] Successfully patched snapshot with remaining vitals');
           // Invalidate query to refresh data
           queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/vitals', anesthesiaRecordId] });
+        } else {
+          console.warn('[DELETE] No snapshot found at timestamp:', timestampMs);
         }
       }
     } catch (error) {
@@ -2288,7 +2329,7 @@ export function UnifiedTimeline({
         // Find the index of this data point
         const index = dataArray.findIndex(p => p[0] === timestamp && p[1] === value);
         if (index !== -1) {
-          setEditingValue({ type, time: timestamp, value, index });
+          setEditingValue({ type, time: timestamp, value, index, originalTime: timestamp });
           setEditDialogOpen(true);
         }
       }
