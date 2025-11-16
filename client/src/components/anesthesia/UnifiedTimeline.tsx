@@ -638,6 +638,15 @@ export function UnifiedTimeline({
       bpDataPoints.dia.forEach(([timestamp]) => timestampSet.add(timestamp));
       spo2DataPoints.forEach(([timestamp]) => timestampSet.add(timestamp));
       
+      // Collect timestamps from ventilation parameter arrays
+      ventilationData.etCO2.forEach(([timestamp]) => timestampSet.add(timestamp));
+      ventilationData.pip.forEach(([timestamp]) => timestampSet.add(timestamp));
+      ventilationData.peep.forEach(([timestamp]) => timestampSet.add(timestamp));
+      ventilationData.tidalVolume.forEach(([timestamp]) => timestampSet.add(timestamp));
+      ventilationData.respiratoryRate.forEach(([timestamp]) => timestampSet.add(timestamp));
+      ventilationData.minuteVolume.forEach(([timestamp]) => timestampSet.add(timestamp));
+      ventilationData.fiO2.forEach(([timestamp]) => timestampSet.add(timestamp));
+      
       // Convert to array and sort chronologically
       const timestamps = Array.from(timestampSet).sort((a, b) => a - b);
       
@@ -648,6 +657,13 @@ export function UnifiedTimeline({
           sysBP?: number;
           diaBP?: number;
           spo2?: number;
+          etco2?: number;
+          pip?: number;
+          peep?: number;
+          tidalVolume?: number;
+          respiratoryRate?: number;
+          minuteVolume?: number;
+          fio2?: number;
         } = {};
         
         // Find vitals at this timestamp
@@ -662,6 +678,28 @@ export function UnifiedTimeline({
         
         const spo2Point = spo2DataPoints.find(([t]) => t === timestamp);
         if (spo2Point) snapshot.spo2 = spo2Point[1];
+        
+        // Find ventilation parameters at this timestamp
+        const etco2Point = ventilationData.etCO2.find(([t]) => t === timestamp);
+        if (etco2Point) snapshot.etco2 = etco2Point[1];
+        
+        const pipPoint = ventilationData.pip.find(([t]) => t === timestamp);
+        if (pipPoint) snapshot.pip = pipPoint[1];
+        
+        const peepPoint = ventilationData.peep.find(([t]) => t === timestamp);
+        if (peepPoint) snapshot.peep = peepPoint[1];
+        
+        const tidalVolumePoint = ventilationData.tidalVolume.find(([t]) => t === timestamp);
+        if (tidalVolumePoint) snapshot.tidalVolume = tidalVolumePoint[1];
+        
+        const respiratoryRatePoint = ventilationData.respiratoryRate.find(([t]) => t === timestamp);
+        if (respiratoryRatePoint) snapshot.respiratoryRate = respiratoryRatePoint[1];
+        
+        const minuteVolumePoint = ventilationData.minuteVolume.find(([t]) => t === timestamp);
+        if (minuteVolumePoint) snapshot.minuteVolume = minuteVolumePoint[1];
+        
+        const fio2Point = ventilationData.fiO2.find(([t]) => t === timestamp);
+        if (fio2Point) snapshot.fio2 = fio2Point[1];
         
         return {
           timestamp: new Date(timestamp),
@@ -694,7 +732,7 @@ export function UnifiedTimeline({
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [hrDataPoints, bpDataPoints, spo2DataPoints, anesthesiaRecordId, saveVitalsMutation]);
+  }, [hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, anesthesiaRecordId, saveVitalsMutation]);
   
   // State for ventilation parameters
   const [ventilationData, setVentilationData] = useState<{
