@@ -558,6 +558,44 @@ export function UnifiedTimeline({
   });
   const [spo2DataPoints, setSpo2DataPoints] = useState<VitalPoint[]>(data.vitals.spo2 || []);
   
+  // State for ventilation parameters
+  const [ventilationData, setVentilationData] = useState<{
+    etCO2: VitalPoint[];
+    pip: VitalPoint[];
+    peep: VitalPoint[];
+    tidalVolume: VitalPoint[];
+    respiratoryRate: VitalPoint[];
+    minuteVolume: VitalPoint[];
+    fiO2: VitalPoint[];
+  }>({
+    etCO2: [],
+    pip: [],
+    peep: [],
+    tidalVolume: [],
+    respiratoryRate: [],
+    minuteVolume: [],
+    fiO2: [],
+  });
+  
+  // State for output parameters
+  const [outputData, setOutputData] = useState<{
+    gastricTube: VitalPoint[];
+    drainage: VitalPoint[];
+    vomit: VitalPoint[];
+    urine: VitalPoint[];
+    urine677: VitalPoint[];
+    blood: VitalPoint[];
+    bloodIrrigation: VitalPoint[];
+  }>({
+    gastricTube: [],
+    drainage: [],
+    vomit: [],
+    urine: [],
+    urine677: [],
+    blood: [],
+    bloodIrrigation: [],
+  });
+  
   // Refs for edit mode to avoid recreating event listeners
   const selectedPointRef = useRef(selectedPoint);
   const dragPositionRef = useRef(dragPosition);
@@ -771,25 +809,6 @@ export function UnifiedTimeline({
       }
     };
   }, [hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, outputData, anesthesiaRecordId, saveVitalsMutation]);
-  
-  // State for ventilation parameters
-  const [ventilationData, setVentilationData] = useState<{
-    etCO2: VitalPoint[];
-    pip: VitalPoint[];
-    peep: VitalPoint[];
-    tidalVolume: VitalPoint[];
-    respiratoryRate: VitalPoint[];
-    minuteVolume: VitalPoint[];
-    fiO2: VitalPoint[];
-  }>({
-    etCO2: [],
-    pip: [],
-    peep: [],
-    tidalVolume: [],
-    respiratoryRate: [],
-    minuteVolume: [],
-    fiO2: [],
-  });
 
   // State for ventilation mode entries on parent swimlane
   const [ventilationModeData, setVentilationModeData] = useState<Array<[number, string]>>([]);
@@ -871,25 +890,6 @@ export function UnifiedTimeline({
     minuteVolume: "",
   });
   const [ventilationBulkHoverInfo, setVentilationBulkHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
-  
-  // State for output parameters
-  const [outputData, setOutputData] = useState<{
-    gastricTube: VitalPoint[];
-    drainage: VitalPoint[];
-    vomit: VitalPoint[];
-    urine: VitalPoint[];
-    urine677: VitalPoint[];
-    blood: VitalPoint[];
-    bloodIrrigation: VitalPoint[];
-  }>({
-    gastricTube: [],
-    drainage: [],
-    vomit: [],
-    urine: [],
-    urine677: [],
-    blood: [],
-    bloodIrrigation: [],
-  });
   
   // State for output bulk entry dialog
   const [showOutputBulkDialog, setShowOutputBulkDialog] = useState(false);

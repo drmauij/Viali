@@ -168,6 +168,12 @@ export default function Op() {
     enabled: !!anesthesiaRecord?.id,
   });
 
+  // Fetch hospital users for provider dropdown
+  const { data: hospitalUsers = [] } = useQuery<any[]>({
+    queryKey: [`/api/admin/${activeHospital?.id}/users`],
+    enabled: !!activeHospital?.id,
+  });
+
   // If surgery not found or error, redirect back
   useEffect(() => {
     if (surgeryError || (!isSurgeryLoading && !surgery)) {
@@ -891,6 +897,201 @@ export default function Op() {
                               <SelectItem value="combined">Combined Technique</SelectItem>
                             </SelectContent>
                           </Select>
+                        </div>
+
+                        {/* ASA Physical Status */}
+                        <div className="space-y-2">
+                          <Label>ASA Physical Status</Label>
+                          <Select 
+                            value={anesthesiaRecord?.physicalStatus || ""}
+                            onValueChange={async (value) => {
+                              if (!anesthesiaRecord?.id) return;
+                              try {
+                                await apiRequest("PATCH", `/api/anesthesia/records/${anesthesiaRecord.id}`, {
+                                  physicalStatus: value,
+                                });
+                                queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+                                toast({ title: "Physical status updated" });
+                              } catch (error) {
+                                toast({ title: "Error", description: "Failed to update physical status", variant: "destructive" });
+                              }
+                            }}
+                          >
+                            <SelectTrigger data-testid="select-physical-status">
+                              <SelectValue placeholder="Select ASA status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="P1">P1 - Healthy</SelectItem>
+                              <SelectItem value="P2">P2 - Mild systemic disease</SelectItem>
+                              <SelectItem value="P3">P3 - Severe systemic disease</SelectItem>
+                              <SelectItem value="P4">P4 - Severe disease, constant threat to life</SelectItem>
+                              <SelectItem value="P5">P5 - Moribund, not expected to survive</SelectItem>
+                              <SelectItem value="P6">P6 - Brain-dead organ donor</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Anesthesia Times */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Anesthesia Start Time</Label>
+                            <Input 
+                              type="datetime-local"
+                              value={anesthesiaRecord?.anesthesiaStartTime ? (() => {
+                                const d = new Date(anesthesiaRecord.anesthesiaStartTime);
+                                const offset = d.getTimezoneOffset() * 60000;
+                                const localDate = new Date(d.getTime() - offset);
+                                return localDate.toISOString().slice(0, 16);
+                              })() : ""}
+                              onChange={async (e) => {
+                                if (!anesthesiaRecord?.id) return;
+                                try {
+                                  const value = e.target.value ? new Date(e.target.value).toISOString() : null;
+                                  await apiRequest("PATCH", `/api/anesthesia/records/${anesthesiaRecord.id}`, {
+                                    anesthesiaStartTime: value,
+                                  });
+                                  queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+                                  toast({ title: value ? "Start time updated" : "Start time cleared" });
+                                } catch (error) {
+                                  toast({ title: "Error", description: "Failed to update start time", variant: "destructive" });
+                                }
+                              }}
+                              data-testid="input-anesthesia-start"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Anesthesia End Time</Label>
+                            <Input 
+                              type="datetime-local"
+                              value={anesthesiaRecord?.anesthesiaEndTime ? (() => {
+                                const d = new Date(anesthesiaRecord.anesthesiaEndTime);
+                                const offset = d.getTimezoneOffset() * 60000;
+                                const localDate = new Date(d.getTime() - offset);
+                                return localDate.toISOString().slice(0, 16);
+                              })() : ""}
+                              onChange={async (e) => {
+                                if (!anesthesiaRecord?.id) return;
+                                try {
+                                  const value = e.target.value ? new Date(e.target.value).toISOString() : null;
+                                  await apiRequest("PATCH", `/api/anesthesia/records/${anesthesiaRecord.id}`, {
+                                    anesthesiaEndTime: value,
+                                  });
+                                  queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+                                  toast({ title: value ? "End time updated" : "End time cleared" });
+                                } catch (error) {
+                                  toast({ title: "Error", description: "Failed to update end time", variant: "destructive" });
+                                }
+                              }}
+                              data-testid="input-anesthesia-end"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Procedure & Diagnosis Codes */}
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>CPT Procedure Code</Label>
+                              <Input 
+                                type="text"
+                                placeholder="e.g., 00400"
+                                value={anesthesiaRecord?.procedureCode || ""}
+                                onChange={async (e) => {
+                                  if (!anesthesiaRecord?.id) return;
+                                  try {
+                                    await apiRequest("PATCH", `/api/anesthesia/records/${anesthesiaRecord.id}`, {
+                                      procedureCode: e.target.value,
+                                    });
+                                    queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+                                  } catch (error) {
+                                    toast({ title: "Error", description: "Failed to update procedure code", variant: "destructive" });
+                                  }
+                                }}
+                                data-testid="input-procedure-code"
+                              />
+                            </div>
+                            <div className="space-y-2 flex items-end">
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id="emergency-case"
+                                  checked={anesthesiaRecord?.emergencyCase || false}
+                                  onChange={async (e) => {
+                                    if (!anesthesiaRecord?.id) return;
+                                    try {
+                                      await apiRequest("PATCH", `/api/anesthesia/records/${anesthesiaRecord.id}`, {
+                                        emergencyCase: e.target.checked,
+                                      });
+                                      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+                                      toast({ title: `Emergency status ${e.target.checked ? "set" : "cleared"}` });
+                                    } catch (error) {
+                                      toast({ title: "Error", description: "Failed to update emergency status", variant: "destructive" });
+                                    }
+                                  }}
+                                  className="h-4 w-4"
+                                  data-testid="checkbox-emergency-case"
+                                />
+                                <Label htmlFor="emergency-case" className="font-normal cursor-pointer">
+                                  Emergency Case
+                                </Label>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>ICD-10 Diagnosis Codes (comma-separated)</Label>
+                            <Input 
+                              type="text"
+                              placeholder="e.g., Z01.818, M54.5"
+                              value={anesthesiaRecord?.diagnosisCodes?.join(", ") || ""}
+                              onChange={async (e) => {
+                                if (!anesthesiaRecord?.id) return;
+                                try {
+                                  const codes = e.target.value 
+                                    ? e.target.value.split(",").map(c => c.trim()).filter(c => c.length > 0)
+                                    : [];
+                                  await apiRequest("PATCH", `/api/anesthesia/records/${anesthesiaRecord.id}`, {
+                                    diagnosisCodes: codes,
+                                  });
+                                  queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+                                } catch (error) {
+                                  toast({ title: "Error", description: "Failed to update diagnosis codes", variant: "destructive" });
+                                }
+                              }}
+                              data-testid="input-diagnosis-codes"
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Anesthesia Provider</Label>
+                            <Select 
+                              value={anesthesiaRecord?.providerId || ""}
+                              onValueChange={async (value) => {
+                                if (!anesthesiaRecord?.id) return;
+                                try {
+                                  await apiRequest("PATCH", `/api/anesthesia/records/${anesthesiaRecord.id}`, {
+                                    providerId: value || null,
+                                  });
+                                  queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+                                  toast({ title: "Provider updated" });
+                                } catch (error) {
+                                  toast({ title: "Error", description: "Failed to update provider", variant: "destructive" });
+                                }
+                              }}
+                            >
+                              <SelectTrigger data-testid="select-provider">
+                                <SelectValue placeholder="Select provider" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">None</SelectItem>
+                                {hospitalUsers.map((hu: any) => (
+                                  <SelectItem key={hu.user.id} value={hu.user.id}>
+                                    {hu.user.name || hu.user.email}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
                       </CardContent>
                     </AccordionContent>
