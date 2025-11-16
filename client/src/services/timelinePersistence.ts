@@ -38,7 +38,10 @@ export interface SaveVitalsPayload {
 }
 
 /**
- * Save vitals snapshot to database
+ * Save vitals snapshot to database with upsert logic
+ * - Fetches existing snapshots at the same timestamp
+ * - If a snapshot with overlapping vital types exists, UPDATE it (merge data)
+ * - Otherwise, CREATE a new snapshot
  */
 export async function saveVitals(payload: SaveVitalsPayload): Promise<any> {
   console.log('[PERSISTENCE] saveVitals called with:', {
@@ -58,21 +61,68 @@ export async function saveVitals(payload: SaveVitalsPayload): Promise<any> {
     throw new Error('data object must contain at least one vital sign');
   }
 
-  // Build request payload matching schema
-  const requestPayload: InsertClinicalSnapshot = {
-    anesthesiaRecordId: payload.anesthesiaRecordId,
-    timestamp: payload.timestamp,
-    data: payload.data,
-  };
-
-  console.log('[PERSISTENCE] Sending POST /api/anesthesia/vitals:', JSON.stringify(requestPayload, null, 2));
-
   try {
-    const response = await apiRequest('POST', '/api/anesthesia/vitals', requestPayload);
-    const result = await response.json();
+    // Step 1: Fetch all existing snapshots at this timestamp
+    const getResponse = await apiRequest('GET', `/api/anesthesia/vitals/${payload.anesthesiaRecordId}`);
+    const allSnapshots = await getResponse.json();
     
-    console.log('[PERSISTENCE] saveVitals success:', result);
-    return result;
+    // Filter to snapshots matching the exact timestamp
+    const timestampMs = new Date(payload.timestamp).getTime();
+    const snapshotsAtTimestamp = allSnapshots.filter((snapshot: any) => {
+      const snapshotMs = new Date(snapshot.timestamp).getTime();
+      return snapshotMs === timestampMs;
+    });
+    
+    console.log('[PERSISTENCE] Found existing snapshots at timestamp:', snapshotsAtTimestamp.length);
+    
+    // Step 2: Check if any existing snapshot has overlapping vital types
+    const newVitalKeys = Object.keys(payload.data);
+    let matchingSnapshot = null;
+    
+    for (const snapshot of snapshotsAtTimestamp) {
+      const existingKeys = Object.keys(snapshot.data || {});
+      const hasOverlap = newVitalKeys.some(key => existingKeys.includes(key));
+      
+      if (hasOverlap) {
+        matchingSnapshot = snapshot;
+        console.log('[PERSISTENCE] Found overlapping snapshot, will UPDATE:', snapshot.id);
+        break;
+      }
+    }
+    
+    // Step 3: UPDATE or CREATE
+    if (matchingSnapshot) {
+      // PATCH: Merge new data with existing data
+      const mergedData = { ...matchingSnapshot.data, ...payload.data };
+      const updatePayload = {
+        anesthesiaRecordId: payload.anesthesiaRecordId,
+        timestamp: payload.timestamp,
+        data: mergedData,
+      };
+      
+      console.log('[PERSISTENCE] Sending PATCH /api/anesthesia/vitals:', matchingSnapshot.id, JSON.stringify(updatePayload, null, 2));
+      
+      const response = await apiRequest('PATCH', `/api/anesthesia/vitals/${matchingSnapshot.id}`, updatePayload);
+      const result = await response.json();
+      
+      console.log('[PERSISTENCE] saveVitals UPDATE success:', result);
+      return result;
+    } else {
+      // POST: Create new snapshot
+      const requestPayload: InsertClinicalSnapshot = {
+        anesthesiaRecordId: payload.anesthesiaRecordId,
+        timestamp: payload.timestamp,
+        data: payload.data,
+      };
+      
+      console.log('[PERSISTENCE] Sending POST /api/anesthesia/vitals:', JSON.stringify(requestPayload, null, 2));
+      
+      const response = await apiRequest('POST', '/api/anesthesia/vitals', requestPayload);
+      const result = await response.json();
+      
+      console.log('[PERSISTENCE] saveVitals CREATE success:', result);
+      return result;
+    }
   } catch (error) {
     console.error('[PERSISTENCE] saveVitals failed:', {
       error,
