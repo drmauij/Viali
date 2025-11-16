@@ -19,6 +19,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { saveVitals, saveMedication } from "@/services/timelinePersistence";
 import { apiVitalsToState } from "@/services/timelineState";
+import { useVitalsState } from "@/hooks/useVitalsState";
+import { useMedicationState } from "@/hooks/useMedicationState";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
 import { TimeAdjustInput } from "./TimeAdjustInput";
@@ -444,11 +446,25 @@ export function UnifiedTimeline({
   // State for collapsible parent swimlanes
   const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<Set<string>>(new Set());
   
-  // State for medication dose data points (similar to ventilation)
-  // Map medication swimlane ID to array of [timestamp, dose_string] points
-  const [medicationDoseData, setMedicationDoseData] = useState<{
-    [swimlaneId: string]: Array<[number, string]>; // [timestamp, "5mg"] format
-  }>({});
+  // Use custom hook for medication state management
+  const {
+    medicationDoseData,
+    infusionData,
+    rateInfusionSessions,
+    freeFlowSessions,
+    setMedicationDoseData,
+    setInfusionData,
+    setRateInfusionSessions,
+    setFreeFlowSessions,
+    getActiveRateSession,
+    getActiveFreeFlowSession,
+    resetMedicationData,
+  } = useMedicationState({
+    doses: {},
+    infusions: {},
+    rateSessions: {},
+    freeFlowSessions: {},
+  });
 
   // State for current time indicator - updates every minute
   const [currentTime, setCurrentTime] = useState<number>(now || Date.now());
@@ -486,12 +502,25 @@ export function UnifiedTimeline({
   } | null>(null);
   const [dragPosition, setDragPosition] = useState<{ time: number; value: number } | null>(null);
   const [lastTouchTime, setLastTouchTime] = useState<number>(0); // Track last touch to prevent duplicate mouse events
-  const [hrDataPoints, setHrDataPoints] = useState<VitalPoint[]>(data.vitals.hr || []);
-  const [bpDataPoints, setBpDataPoints] = useState<{ sys: VitalPoint[], dia: VitalPoint[] }>({
+  
+  // Use custom hook for vitals state management
+  const {
+    hrDataPoints,
+    bpDataPoints,
+    spo2DataPoints,
+    hrDataPointsRef,
+    bpDataPointsRef,
+    spo2DataPointsRef,
+    setHrDataPoints,
+    setBpDataPoints,
+    setSpo2DataPoints,
+    resetVitalsData,
+  } = useVitalsState({
+    hr: data.vitals.hr || [],
     sys: data.vitals.sysBP || [],
-    dia: data.vitals.diaBP || []
+    dia: data.vitals.diaBP || [],
+    spo2: data.vitals.spo2 || [],
   });
-  const [spo2DataPoints, setSpo2DataPoints] = useState<VitalPoint[]>(data.vitals.spo2 || []);
   
   // State for ventilation parameters
   const [ventilationData, setVentilationData] = useState<{
@@ -534,9 +563,6 @@ export function UnifiedTimeline({
   // Refs for edit mode to avoid recreating event listeners
   const selectedPointRef = useRef(selectedPoint);
   const dragPositionRef = useRef(dragPosition);
-  const hrDataPointsRef = useRef(hrDataPoints);
-  const bpDataPointsRef = useRef(bpDataPoints);
-  const spo2DataPointsRef = useRef(spo2DataPoints);
   
   // Imperative drag preview (bypass React state for performance)
   const dragPreviewRef = useRef<{ time: number; value: number } | null>(null);
@@ -585,9 +611,6 @@ export function UnifiedTimeline({
   // Keep refs in sync with state
   useEffect(() => { selectedPointRef.current = selectedPoint; }, [selectedPoint]);
   useEffect(() => { dragPositionRef.current = dragPosition; }, [dragPosition]);
-  useEffect(() => { hrDataPointsRef.current = hrDataPoints; }, [hrDataPoints]);
-  useEffect(() => { bpDataPointsRef.current = bpDataPoints; }, [bpDataPoints]);
-  useEffect(() => { spo2DataPointsRef.current = spo2DataPoints; }, [spo2DataPoints]);
   
   // Sync API data into local state when data prop changes (handles tab switching)
   useEffect(() => {
@@ -599,10 +622,8 @@ export function UnifiedTimeline({
     const diaPoints: VitalPoint[] = (data.vitals.diaBP || []).map(v => [v.time, v.value]);
     const spo2Points: VitalPoint[] = (data.vitals.spo2 || []).map(v => [v.time, v.value]);
     
-    setHrDataPoints(hrPoints);
-    setBpDataPoints({ sys: sysPoints, dia: diaPoints });
-    setSpo2DataPoints(spo2Points);
-  }, [data?.vitals]);
+    resetVitalsData({ hr: hrPoints, sys: sysPoints, dia: diaPoints, spo2: spo2Points });
+  }, [data?.vitals, resetVitalsData]);
   
   // Auto-save vitals with debouncing
   useEffect(() => {
@@ -787,15 +808,19 @@ export function UnifiedTimeline({
     
     // Transform and load medication doses (boluses) - will be empty array if no data
     const doses = transformMedicationDoses(data.medications || [], itemToSwimlane);
-    setMedicationDoseData(doses);
     
     // Transform and load rate infusion sessions
     const rateSessions = transformRateInfusions(data.medications || [], itemToSwimlane, anesthesiaItems);
-    setRateInfusionSessions(rateSessions);
     
     // Transform and load free-flow infusion sessions
-    const freeFlowSessions = transformFreeFlowInfusions(data.medications || [], itemToSwimlane, anesthesiaItems);
-    setFreeFlowSessions(freeFlowSessions);
+    const freeFlowSessionsData = transformFreeFlowInfusions(data.medications || [], itemToSwimlane, anesthesiaItems);
+    
+    // Reset medication data using hook
+    resetMedicationData({
+      doses,
+      rateSessions,
+      freeFlowSessions: freeFlowSessionsData,
+    });
     
     // Mark as initialized so we don't overwrite user entries
     initializedFromApiRef.current = true;
@@ -804,7 +829,7 @@ export function UnifiedTimeline({
     
     // Note: Events are already handled via data.events prop for timeline rendering
     // No need to process data.apiEvents separately for now
-  }, [data.medications, anesthesiaItems, administrationGroups]);
+  }, [data.medications, anesthesiaItems, administrationGroups, resetMedicationData]);
 
   // State for ventilation mode entries on parent swimlane
   const [ventilationModeData, setVentilationModeData] = useState<Array<[number, string]>>([]);
@@ -913,10 +938,6 @@ export function UnifiedTimeline({
   const [outputEditInput, setOutputEditInput] = useState("");
   const [outputEditTime, setOutputEditTime] = useState<number>(0);
   
-  // State for infusion data points (map swimlane ID to array of [timestamp, rate_string] points)
-  const [infusionData, setInfusionData] = useState<{
-    [swimlaneId: string]: Array<[number, string]>; // [timestamp, "100ml/h"] format
-  }>({});
   const [infusionHoverInfo, setInfusionHoverInfo] = useState<{ x: number; y: number; time: number; swimlaneId: string; label: string } | null>(null);
   const [showInfusionDialog, setShowInfusionDialog] = useState(false);
   const [pendingInfusionValue, setPendingInfusionValue] = useState<{ swimlaneId: string; time: number; label: string } | null>(null);
@@ -938,14 +959,13 @@ export function UnifiedTimeline({
   const [sheetDoseInput, setSheetDoseInput] = useState("");
   const [sheetTimeInput, setSheetTimeInput] = useState<number>(0);
   
-  // State for free-flow infusion sessions (map swimlaneId to active session info)
+  // Type definitions for infusion sessions (managed by useMedicationState hook)
   type FreeFlowSession = {
     swimlaneId: string;
     startTime: number;
     dose: string;
     label: string;
   };
-  const [freeFlowSessions, setFreeFlowSessions] = useState<{ [swimlaneId: string]: FreeFlowSession[] }>({});
   
   // State for free-flow dose entry dialog (first click, no default dose)
   const [showFreeFlowDoseDialog, setShowFreeFlowDoseDialog] = useState(false);
@@ -968,17 +988,9 @@ export function UnifiedTimeline({
     startTime?: number;
     endTime?: number | null;
   };
-  const [rateInfusionSessions, setRateInfusionSessions] = useState<{ [swimlaneId: string]: RateInfusionSession[] }>({});
   
-  // Helper: Get active/latest session from array
-  const getActiveSession = (swimlaneId: string): RateInfusionSession | null => {
-    const sessions = rateInfusionSessions[swimlaneId];
-    if (!sessions || sessions.length === 0) return null;
-    
-    // Prefer running session, otherwise most recent
-    const runningSession = sessions.find(s => s.state === 'running');
-    return runningSession || sessions[sessions.length - 1];
-  };
+  // Helper: Get active/latest session from array (using hook's function)
+  const getActiveSession = getActiveRateSession;
   
   // State for unified Rate Infusion Sheet
   const [showRateSheet, setShowRateSheet] = useState(false);
