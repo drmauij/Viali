@@ -6192,23 +6192,15 @@ export function UnifiedTimeline({
               setLastAction({ type: 'hr', data: newPoint });
               setHoverInfo(null);
               
-              // Toast notification disabled (can be re-enabled later)
-              // toast({
-              //   title: `❤️ HR ${clickInfo.value} added`,
-              //   description: new Date(clickInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
-              //   duration: 3000,
-              //   action: (
-              //     <Button
-              //       variant="outline"
-              //       size="sm"
-              //       onClick={handleUndo}
-              //       data-testid="button-undo-hr"
-              //     >
-              //       <Undo2 className="w-4 h-4 mr-1" />
-              //       Undo
-              //     </Button>
-              //   ),
-              // });
+              // Save immediately to database
+              if (anesthesiaRecordId) {
+                console.log('[VITALS-SAVE] Saving HR point', { time: clickInfo.time, value: clickInfo.value });
+                saveVitalsMutation.mutate({
+                  anesthesiaRecordId,
+                  timestamp: new Date(clickInfo.time),
+                  data: { hr: clickInfo.value }
+                });
+              }
               
               setIsProcessingClick(false);
             } else if (activeToolMode === 'bp') {
@@ -6235,6 +6227,23 @@ export function UnifiedTimeline({
                   dia: [...prev.dia, diaPoint]
                 }));
                 
+                // Save BP pair to database (both sys and dia at same timestamp)
+                if (anesthesiaRecordId && pendingSysValue) {
+                  console.log('[VITALS-SAVE] Saving BP pair', { 
+                    time: pendingSysValue.time, 
+                    sys: pendingSysValue.value,
+                    dia: clickInfo.value  
+                  });
+                  saveVitalsMutation.mutate({
+                    anesthesiaRecordId,
+                    timestamp: new Date(pendingSysValue.time),
+                    data: { 
+                      sysBP: pendingSysValue.value,
+                      diaBP: clickInfo.value
+                    }
+                  });
+                }
+                
                 // Reset to systolic mode
                 setPendingSysValue(null);
                 setBpEntryMode('sys');
@@ -6246,6 +6255,16 @@ export function UnifiedTimeline({
               setSpo2DataPoints(prev => [...prev, newPoint]);
               setLastAction({ type: 'spo2', data: newPoint });
               setHoverInfo(null);
+              
+              // Save immediately to database
+              if (anesthesiaRecordId) {
+                console.log('[VITALS-SAVE] Saving SPO2 point', { time: clickInfo.time, value: clickInfo.value });
+                saveVitalsMutation.mutate({
+                  anesthesiaRecordId,
+                  timestamp: new Date(clickInfo.time),
+                  data: { spo2: clickInfo.value }
+                });
+              }
               
               // Toast notification disabled (can be re-enabled later)
               // toast({
