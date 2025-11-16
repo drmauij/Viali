@@ -1904,11 +1904,12 @@ export function UnifiedTimeline({
     setEditingValue(null);
   };
 
-  const handleDeleteValue = () => {
-    if (!editingValue) return;
+  const handleDeleteValue = async () => {
+    if (!editingValue || !anesthesiaRecordId) return;
 
-    const { type, index } = editingValue;
+    const { type, index, originalTime } = editingValue;
 
+    // Update local state first
     if (type === 'hr') {
       setHrDataPoints(hrDataPoints.filter((_, i) => i !== index));
     } else if (type === 'sys' || type === 'dia') {
@@ -1921,12 +1922,71 @@ export function UnifiedTimeline({
       setSpo2DataPoints(spo2DataPoints.filter((_, i) => i !== index));
     }
 
-    // Toast notification disabled (can be re-enabled later)
-    // toast({
-    //   title: "Value deleted",
-    //   description: "Vital sign value has been removed",
-    //   duration: 2000,
-    // });
+    // Persist deletion to database
+    // Collect all remaining vitals at this timestamp (excluding the deleted one)
+    const timestamp = new Date(originalTime);
+    const remainingVitals: any = {};
+
+    // Check HR at this timestamp (excluding if we deleted it)
+    if (type !== 'hr') {
+      const hrPoint = hrDataPoints.find(p => p[0] === originalTime);
+      if (hrPoint) remainingVitals.hr = hrPoint[1];
+    }
+
+    // Check BP at this timestamp (excluding if we deleted it)
+    if (type !== 'sys' && type !== 'dia') {
+      const sysPoint = bpDataPoints.sys.find(p => p[0] === originalTime);
+      const diaPoint = bpDataPoints.dia.find(p => p[0] === originalTime);
+      if (sysPoint) remainingVitals.sysBP = sysPoint[1];
+      if (diaPoint) remainingVitals.diaBP = diaPoint[1];
+    }
+
+    // Check SPO2 at this timestamp (excluding if we deleted it)
+    if (type !== 'spo2') {
+      const spo2Point = spo2DataPoints.find(p => p[0] === originalTime);
+      if (spo2Point) remainingVitals.spo2 = spo2Point[1];
+    }
+
+    // Persist the deletion by replacing the snapshot data with only remaining vitals
+    // We need to find the snapshot ID at this timestamp and PATCH it
+    try {
+      // Fetch all vitals to find the snapshot ID at this timestamp
+      const response = await fetch(`/api/anesthesia/vitals/${anesthesiaRecordId}`);
+      if (response.ok) {
+        const allSnapshots = await response.json();
+        const timestampMs = new Date(originalTime).getTime();
+        const snapshot = allSnapshots.find((s: any) => 
+          new Date(s.timestamp).getTime() === timestampMs
+        );
+        
+        if (snapshot) {
+          // PATCH the snapshot to replace data with only remaining vitals
+          const patchResponse = await fetch(`/api/anesthesia/vitals/${snapshot.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              anesthesiaRecordId,
+              timestamp,
+              data: remainingVitals,
+            }),
+          });
+          
+          if (!patchResponse.ok) {
+            throw new Error('Failed to update snapshot');
+          }
+          
+          // Invalidate query to refresh data
+          queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/vitals', anesthesiaRecordId] });
+        }
+      }
+    } catch (error) {
+      console.error('[DELETE] Failed to persist deletion:', error);
+      toast({
+        title: "Error deleting vital",
+        description: "Failed to save deletion to database",
+        variant: "destructive",
+      });
+    }
 
     setEditDialogOpen(false);
     setEditingValue(null);
