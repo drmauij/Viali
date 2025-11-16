@@ -18,6 +18,7 @@ import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { saveVitals, saveMedication } from "@/services/timelinePersistence";
+import { apiVitalsToState } from "@/services/timelineState";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
 import { TimeAdjustInput } from "./TimeAdjustInput";
@@ -878,6 +879,21 @@ export function UnifiedTimeline({
   useEffect(() => { hrDataPointsRef.current = hrDataPoints; }, [hrDataPoints]);
   useEffect(() => { bpDataPointsRef.current = bpDataPoints; }, [bpDataPoints]);
   useEffect(() => { spo2DataPointsRef.current = spo2DataPoints; }, [spo2DataPoints]);
+  
+  // Sync API data into local state when data prop changes (handles tab switching)
+  useEffect(() => {
+    if (!data?.vitals) return;
+    
+    // Convert from {time, value} format to [timestamp, value] format
+    const hrPoints: VitalPoint[] = (data.vitals.hr || []).map(v => [v.time, v.value]);
+    const sysPoints: VitalPoint[] = (data.vitals.sysBP || []).map(v => [v.time, v.value]);
+    const diaPoints: VitalPoint[] = (data.vitals.diaBP || []).map(v => [v.time, v.value]);
+    const spo2Points: VitalPoint[] = (data.vitals.spo2 || []).map(v => [v.time, v.value]);
+    
+    setHrDataPoints(hrPoints);
+    setBpDataPoints({ sys: sysPoints, dia: diaPoints });
+    setSpo2DataPoints(spo2Points);
+  }, [data?.vitals]);
   
   // Auto-save vitals with debouncing
   useEffect(() => {
