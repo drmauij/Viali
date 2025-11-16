@@ -701,8 +701,10 @@ export function UnifiedTimeline({
     mutationFn: saveVitals,
     onSuccess: (data, variables) => {
       console.log('[VITALS] Save successful', { data, variables });
-      // Don't invalidate query - vitals are already in local state
-      // This prevents the 404 response from clearing our data
+      // Invalidate vitals query to ensure fresh data when switching tabs
+      if (anesthesiaRecordId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/vitals', anesthesiaRecordId] });
+      }
     },
     onError: (error) => {
       console.error('[VITALS] Save failed', error);
