@@ -5363,7 +5363,7 @@ If unable to parse any drugs, return:
       console.log('[VITALS] Validation successful:', JSON.stringify(validatedData, null, 2));
 
       // Verify record exists and user has access
-      const record = await storage.getAnesthesiaRecord(validatedData.anesthesiaRecordId);
+      const record = await storage.getAnesthesiaRecordById(validatedData.anesthesiaRecordId);
       
       if (!record) {
         return res.status(404).json({ message: "Anesthesia record not found" });
@@ -5407,7 +5407,7 @@ If unable to parse any drugs, return:
       }
 
       // Verify user has access
-      const record = await storage.getAnesthesiaRecord(vital[0].anesthesiaRecordId);
+      const record = await storage.getAnesthesiaRecordById(vital[0].anesthesiaRecordId);
       if (!record) {
         return res.status(404).json({ message: "Anesthesia record not found" });
       }
@@ -5477,7 +5477,7 @@ If unable to parse any drugs, return:
       const validatedData = insertAnesthesiaMedicationSchema.parse(req.body);
 
       // Verify record exists and user has access
-      const record = await storage.getAnesthesiaRecord(validatedData.anesthesiaRecordId);
+      const record = await storage.getAnesthesiaRecordById(validatedData.anesthesiaRecordId);
       
       if (!record) {
         return res.status(404).json({ message: "Anesthesia record not found" });
@@ -5522,7 +5522,7 @@ If unable to parse any drugs, return:
       const medication = medications[0];
 
       // Verify user has access
-      const record = await storage.getAnesthesiaRecord(medication.anesthesiaRecordId);
+      const record = await storage.getAnesthesiaRecordById(medication.anesthesiaRecordId);
       if (!record) {
         return res.status(404).json({ message: "Anesthesia record not found" });
       }
@@ -5563,7 +5563,7 @@ If unable to parse any drugs, return:
       const medication = medications[0];
 
       // Verify user has access
-      const record = await storage.getAnesthesiaRecord(medication.anesthesiaRecordId);
+      const record = await storage.getAnesthesiaRecordById(medication.anesthesiaRecordId);
       if (!record) {
         return res.status(404).json({ message: "Anesthesia record not found" });
       }
@@ -5633,7 +5633,7 @@ If unable to parse any drugs, return:
       const validatedData = insertAnesthesiaEventSchema.parse(req.body);
 
       // Verify record exists and user has access
-      const record = await storage.getAnesthesiaRecord(validatedData.anesthesiaRecordId);
+      const record = await storage.getAnesthesiaRecordById(validatedData.anesthesiaRecordId);
       
       if (!record) {
         return res.status(404).json({ message: "Anesthesia record not found" });
@@ -5748,7 +5748,7 @@ If unable to parse any drugs, return:
       const inventory = inventoryList[0];
 
       // Verify user has access
-      const record = await storage.getAnesthesiaRecord(inventory.anesthesiaRecordId);
+      const record = await storage.getAnesthesiaRecordById(inventory.anesthesiaRecordId);
       if (!record) {
         return res.status(404).json({ message: "Anesthesia record not found" });
       }

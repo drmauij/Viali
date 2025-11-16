@@ -74,7 +74,12 @@ export async function saveVitals(payload: SaveVitalsPayload): Promise<any> {
     console.log('[PERSISTENCE] saveVitals success:', result);
     return result;
   } catch (error) {
-    console.error('[PERSISTENCE] saveVitals failed:', error);
+    console.error('[PERSISTENCE] saveVitals failed:', {
+      error,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorType: typeof error,
+      errorKeys: error && typeof error === 'object' ? Object.keys(error) : []
+    });
     throw error;
   }
 }
