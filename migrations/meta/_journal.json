@@ -57,6 +57,13 @@
       "when": 1763236800000,
       "tag": "0007_curved_toad",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1763282983000,
+      "tag": "0008_rename_vitals_to_clinical_snapshots",
+      "breakpoints": true
     }
   ]
 }

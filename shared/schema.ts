@@ -669,20 +669,22 @@ export const preOpAssessments = pgTable("preop_assessments", {
   index("idx_preop_assessments_surgery").on(table.surgeryId),
 ]);
 
-// Vitals Snapshots (Time-series data stored as JSONB for efficiency)
-export const vitalsSnapshots = pgTable("vitals_snapshots", {
+// Clinical Snapshots (Vitals, Ventilation, and Output parameters stored as JSONB for efficiency)
+export const clinicalSnapshots = pgTable("clinical_snapshots", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: 'cascade' }),
   timestamp: timestamp("timestamp").notNull(),
   
-  // All vitals stored as JSONB for flexibility and efficiency
+  // All clinical data stored as JSONB for flexibility and efficiency
   data: jsonb("data").$type<{
+    // Vitals
     hr?: number;
     sysBP?: number;
     diaBP?: number;
     meanBP?: number;
     spo2?: number;
     temp?: number;
+    // Ventilation
     etco2?: number;
     pip?: number;
     peep?: number;
@@ -690,13 +692,24 @@ export const vitalsSnapshots = pgTable("vitals_snapshots", {
     respiratoryRate?: number;
     minuteVolume?: number;
     fio2?: number;
+    // Output parameters (fluid balance)
+    gastricTube?: number;
+    drainage?: number;
+    vomit?: number;
+    urine?: number;
+    urine677?: number;
+    blood?: number;
+    bloodIrrigation?: number;
   }>().notNull(),
   
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
-  index("idx_vitals_snapshots_record").on(table.anesthesiaRecordId),
-  index("idx_vitals_snapshots_timestamp").on(table.timestamp),
+  index("idx_clinical_snapshots_record").on(table.anesthesiaRecordId),
+  index("idx_clinical_snapshots_timestamp").on(table.timestamp),
 ]);
+
+// Legacy alias for backward compatibility during migration
+export const vitalsSnapshots = clinicalSnapshots;
 
 // Anesthesia Medications (Boluses and Infusions) - Links to inventory
 export const anesthesiaMedications = pgTable("anesthesia_medications", {
@@ -1059,10 +1072,13 @@ export const insertPreOpAssessmentSchema = createInsertSchema(preOpAssessments).
   updatedAt: true,
 });
 
-export const insertVitalsSnapshotSchema = createInsertSchema(vitalsSnapshots).omit({
+export const insertClinicalSnapshotSchema = createInsertSchema(clinicalSnapshots).omit({
   id: true,
   createdAt: true,
 });
+
+// Legacy alias for backward compatibility
+export const insertVitalsSnapshotSchema = insertClinicalSnapshotSchema;
 
 export const insertAnesthesiaMedicationSchema = createInsertSchema(anesthesiaMedications).omit({
   id: true,
@@ -1144,8 +1160,12 @@ export type AnesthesiaRecord = typeof anesthesiaRecords.$inferSelect;
 export type InsertAnesthesiaRecord = z.infer<typeof insertAnesthesiaRecordSchema>;
 export type PreOpAssessment = typeof preOpAssessments.$inferSelect;
 export type InsertPreOpAssessment = z.infer<typeof insertPreOpAssessmentSchema>;
-export type VitalsSnapshot = typeof vitalsSnapshots.$inferSelect;
-export type InsertVitalsSnapshot = z.infer<typeof insertVitalsSnapshotSchema>;
+export type ClinicalSnapshot = typeof clinicalSnapshots.$inferSelect;
+export type InsertClinicalSnapshot = z.infer<typeof insertClinicalSnapshotSchema>;
+
+// Legacy aliases for backward compatibility
+export type VitalsSnapshot = ClinicalSnapshot;
+export type InsertVitalsSnapshot = InsertClinicalSnapshot;
 export type AnesthesiaMedication = typeof anesthesiaMedications.$inferSelect;
 export type InsertAnesthesiaMedication = z.infer<typeof insertAnesthesiaMedicationSchema>;
 export type AnesthesiaEvent = typeof anesthesiaEvents.$inferSelect;

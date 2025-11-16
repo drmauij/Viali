@@ -647,6 +647,15 @@ export function UnifiedTimeline({
       ventilationData.minuteVolume.forEach(([timestamp]) => timestampSet.add(timestamp));
       ventilationData.fiO2.forEach(([timestamp]) => timestampSet.add(timestamp));
       
+      // Collect timestamps from output parameter arrays
+      outputData.gastricTube.forEach(([timestamp]) => timestampSet.add(timestamp));
+      outputData.drainage.forEach(([timestamp]) => timestampSet.add(timestamp));
+      outputData.vomit.forEach(([timestamp]) => timestampSet.add(timestamp));
+      outputData.urine.forEach(([timestamp]) => timestampSet.add(timestamp));
+      outputData.urine677.forEach(([timestamp]) => timestampSet.add(timestamp));
+      outputData.blood.forEach(([timestamp]) => timestampSet.add(timestamp));
+      outputData.bloodIrrigation.forEach(([timestamp]) => timestampSet.add(timestamp));
+      
       // Convert to array and sort chronologically
       const timestamps = Array.from(timestampSet).sort((a, b) => a - b);
       
@@ -664,6 +673,13 @@ export function UnifiedTimeline({
           respiratoryRate?: number;
           minuteVolume?: number;
           fio2?: number;
+          gastricTube?: number;
+          drainage?: number;
+          vomit?: number;
+          urine?: number;
+          urine677?: number;
+          blood?: number;
+          bloodIrrigation?: number;
         } = {};
         
         // Find vitals at this timestamp
@@ -701,6 +717,28 @@ export function UnifiedTimeline({
         const fio2Point = ventilationData.fiO2.find(([t]) => t === timestamp);
         if (fio2Point) snapshot.fio2 = fio2Point[1];
         
+        // Find output parameters at this timestamp
+        const gastricTubePoint = outputData.gastricTube.find(([t]) => t === timestamp);
+        if (gastricTubePoint) snapshot.gastricTube = gastricTubePoint[1];
+        
+        const drainagePoint = outputData.drainage.find(([t]) => t === timestamp);
+        if (drainagePoint) snapshot.drainage = drainagePoint[1];
+        
+        const vomitPoint = outputData.vomit.find(([t]) => t === timestamp);
+        if (vomitPoint) snapshot.vomit = vomitPoint[1];
+        
+        const urinePoint = outputData.urine.find(([t]) => t === timestamp);
+        if (urinePoint) snapshot.urine = urinePoint[1];
+        
+        const urine677Point = outputData.urine677.find(([t]) => t === timestamp);
+        if (urine677Point) snapshot.urine677 = urine677Point[1];
+        
+        const bloodPoint = outputData.blood.find(([t]) => t === timestamp);
+        if (bloodPoint) snapshot.blood = bloodPoint[1];
+        
+        const bloodIrrigationPoint = outputData.bloodIrrigation.find(([t]) => t === timestamp);
+        if (bloodIrrigationPoint) snapshot.bloodIrrigation = bloodIrrigationPoint[1];
+        
         return {
           timestamp: new Date(timestamp),
           data: snapshot,
@@ -732,7 +770,7 @@ export function UnifiedTimeline({
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, anesthesiaRecordId, saveVitalsMutation]);
+  }, [hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, outputData, anesthesiaRecordId, saveVitalsMutation]);
   
   // State for ventilation parameters
   const [ventilationData, setVentilationData] = useState<{
