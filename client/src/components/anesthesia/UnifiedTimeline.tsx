@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { saveVitals, saveMedication } from "@/services/timelinePersistence";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
 import { TimeAdjustInput } from "./TimeAdjustInput";
@@ -694,36 +695,9 @@ export function UnifiedTimeline({
     return allAnesthesiaItems.filter(item => item.administrationGroup);
   }, [allAnesthesiaItems]);
   
-  // Mutation for auto-saving vitals
+  // Mutation for auto-saving vitals - now using centralized persistence service
   const saveVitalsMutation = useMutation({
-    mutationFn: async (payload: {
-      anesthesiaRecordId: string;
-      timestamp: Date;
-      data: {
-        hr?: number;
-        sysBP?: number;
-        diaBP?: number;
-        spo2?: number;
-        etco2?: number;
-        pip?: number;
-        peep?: number;
-        tidalVolume?: number;
-        respiratoryRate?: number;
-        minuteVolume?: number;
-        fio2?: number;
-        gastricTube?: number;
-        drainage?: number;
-        vomit?: number;
-        urine?: number;
-        urine677?: number;
-        blood?: number;
-        bloodIrrigation?: number;
-      };
-    }) => {
-      console.log('[VITALS] Sending POST request to /api/anesthesia/vitals', payload);
-      const response = await apiRequest('POST', '/api/anesthesia/vitals', payload);
-      return response.json();
-    },
+    mutationFn: saveVitals,
     onSuccess: (data, variables) => {
       console.log('[VITALS] Save successful', { data, variables });
       // Don't invalidate query - vitals are already in local state
@@ -739,28 +713,16 @@ export function UnifiedTimeline({
     },
   });
   
-  // Mutation for saving medication doses
+  // Mutation for saving medication doses - now using centralized persistence service
   const saveMedicationMutation = useMutation({
-    mutationFn: async (payload: {
-      anesthesiaRecordId: string;
-      itemId: string;
-      timestamp: Date;
-      type: string;
-      dose?: string;
-      unit?: string;
-      route?: string;
-    }) => {
-      console.log('[MUTATION] Sending POST request to /api/anesthesia/medications', payload);
-      const response = await apiRequest('POST', '/api/anesthesia/medications', payload);
-      return response.json();
-    },
+    mutationFn: saveMedication,
     onSuccess: (data, variables) => {
-      console.log('[MUTATION] Save successful', { data, variables });
+      console.log('[MEDICATION] Save successful', { data, variables });
       // Don't invalidate query - we'll manually update local state instead
       // This prevents the 404 response from clearing our data
     },
     onError: (error) => {
-      console.error('[MUTATION] Save failed', error);
+      console.error('[MEDICATION] Save failed', error);
       toast({
         title: "Error saving medication",
         description: error instanceof Error ? error.message : "Failed to save medication",
