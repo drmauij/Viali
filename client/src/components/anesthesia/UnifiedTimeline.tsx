@@ -23,6 +23,20 @@ import type { MonitorAnalysisResult } from "@shared/monitorParameters";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
 import { TimeAdjustInput } from "./TimeAdjustInput";
 import { formatTime } from "@/lib/dateUtils";
+import {
+  ONE_MINUTE,
+  FIVE_MINUTES,
+  TEN_MINUTES,
+  THIRTY_MINUTES,
+  ZOOM_LEVELS,
+  findClosestZoomLevel,
+  snapToInterval,
+  calculateSnapInterval,
+  estimateSnapIntervalFromRange,
+  calculateZoomPercentages,
+  calculatePanPercentages,
+  calculateNowLinePosition,
+} from "@/utils/timelineUtils";
 
 /**
  * UnifiedTimeline - Refactored for robustness and flexibility
@@ -2114,11 +2128,10 @@ export function UnifiedTimeline({
     let clickTime = visibleStart + (xPercent * visibleRange);
     
     // Always snap to 1-minute intervals for time markers
-    const oneMinute = 60 * 1000;
-    const snappedTime = Math.round(clickTime / oneMinute) * oneMinute;
+    const snappedTime = snapToInterval(clickTime, ONE_MINUTE);
     
     // Check if clicking on an existing marker (within 1 minute tolerance)
-    const timeTolerance = oneMinute;
+    const timeTolerance = ONE_MINUTE;
     
     for (let i = 0; i < timeMarkers.length; i++) {
       const marker = timeMarkers[i];
@@ -2137,9 +2150,8 @@ export function UnifiedTimeline({
     }
     
     // Validate that time is within editable boundaries
-    const tenMinutes = 10 * 60 * 1000;
-    const editableStartBoundary = chartInitTime - tenMinutes; // FIXED boundary
-    const editableEndBoundary = currentTime + tenMinutes; // MOVING boundary
+    const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
+    const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
     
     if (snappedTime < editableStartBoundary || snappedTime > editableEndBoundary) {
       // Click is outside editable window - ignore
@@ -2476,13 +2488,10 @@ export function UnifiedTimeline({
 
     // Calculate initial zoom and editable zones based on "now"
     const currentTime = now || data.endTime; // Use provided "now" or fall back to endTime
-    const fiveMinutes = 5 * 60 * 1000;
-    const tenMinutes = 10 * 60 * 1000;
-    const thirtyMinutes = 30 * 60 * 1000;
     
     // Initial view: 60-minute window (1 hour) from -30min to +30min around NOW
-    const initialStartTime = currentTime - thirtyMinutes;
-    const initialEndTime = currentTime + thirtyMinutes;
+    const initialStartTime = currentTime - THIRTY_MINUTES;
+    const initialEndTime = currentTime + THIRTY_MINUTES;
 
     // Calculate swimlane positions dynamically with darker group headers
     let currentTop = SWIMLANE_START;
@@ -3125,33 +3134,7 @@ export function UnifiedTimeline({
   const swimlanesHeight = activeSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
   const componentHeight = height ?? (VITALS_TOP_POS + VITALS_HEIGHT + swimlanesHeight);
 
-  // Zoom levels: time spans for different viewing granularities
-  const zoomLevels = [
-    5 * 60 * 1000,        // 5 min
-    10 * 60 * 1000,       // 10 min
-    30 * 60 * 1000,       // 30 min
-    50 * 60 * 1000,       // 50 min - DEFAULT
-    80 * 60 * 1000,       // 80 min
-    120 * 60 * 1000,      // 120 min (2 hours)
-    240 * 60 * 1000,      // 240 min (4 hours)
-    480 * 60 * 1000,      // 480 min (8 hours)
-    1200 * 60 * 1000,     // 1200 min (20 hours)
-  ];
-
-  // Find closest zoom level to current span
-  const findClosestZoomLevel = (currentSpan: number): number => {
-    let closest = zoomLevels[0];
-    let minDiff = Math.abs(currentSpan - closest);
-    
-    for (const level of zoomLevels) {
-      const diff = Math.abs(currentSpan - level);
-      if (diff < minDiff) {
-        minDiff = diff;
-        closest = level;
-      }
-    }
-    return zoomLevels.indexOf(closest);
-  };
+  // Zoom levels are now imported from timelineUtils (ZOOM_LEVELS, findClosestZoomLevel)
 
   // Zoom and pan handlers
   const handleZoomIn = () => {
@@ -3172,7 +3155,7 @@ export function UnifiedTimeline({
         // Find current level and go one step smaller
         const currentLevelIndex = findClosestZoomLevel(currentSpan);
         const newLevelIndex = Math.max(0, currentLevelIndex - 1);
-        const newSpan = zoomLevels[newLevelIndex];
+        const newSpan = ZOOM_LEVELS[newLevelIndex];
         
         const center = (currentMin + currentMax) / 2;
         
@@ -3219,8 +3202,8 @@ export function UnifiedTimeline({
         
         // Find current level and go one step larger
         const currentLevelIndex = findClosestZoomLevel(currentSpan);
-        const newLevelIndex = Math.min(zoomLevels.length - 1, currentLevelIndex + 1);
-        const newSpan = zoomLevels[newLevelIndex];
+        const newLevelIndex = Math.min(ZOOM_LEVELS.length - 1, currentLevelIndex + 1);
+        const newSpan = ZOOM_LEVELS[newLevelIndex];
         
         const center = (currentMin + currentMax) / 2;
         
@@ -6022,9 +6005,9 @@ export function UnifiedTimeline({
             time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
             
             // Check if time is within editable boundaries (only show hover if editable)
-            const tenMinutes = 10 * 60 * 1000;
-            const editableStartBoundary = chartInitTime - tenMinutes; // FIXED boundary
-            const editableEndBoundary = currentTime + tenMinutes; // MOVING boundary
+
+            const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
+            const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
             const isEditable = time >= editableStartBoundary && time <= editableEndBoundary;
             
             // Convert y-position to value based on active tool
@@ -6323,9 +6306,9 @@ export function UnifiedTimeline({
             }
             
             // Validate that click time is within editable boundaries
-            const tenMinutes = 10 * 60 * 1000;
-            const editableStartBoundary = currentTime - tenMinutes;
-            const editableEndBoundary = currentTime + tenMinutes;
+
+            const editableStartBoundary = currentTime - TEN_MINUTES;
+            const editableEndBoundary = currentTime + TEN_MINUTES;
             
             if (clickInfo.time < editableStartBoundary || clickInfo.time > editableEndBoundary) {
               // Click is outside editable window - ignore
@@ -6572,8 +6555,7 @@ export function UnifiedTimeline({
               let time = visibleStart + (xPercent * visibleRange);
               
               // Always snap to 1-minute intervals for time markers
-              const oneMinute = 60 * 1000;
-              time = Math.round(time / oneMinute) * oneMinute;
+              time = snapToInterval(time, ONE_MINUTE);
               
               // Check if we're hovering over an existing marker (within 3 minutes threshold)
               const threeMinutes = 3 * 60 * 1000;
@@ -6659,9 +6641,9 @@ export function UnifiedTimeline({
               time = Math.round(time / oneMinute) * oneMinute;
               
               // Validate that time is within editable boundaries
-              const tenMinutes = 10 * 60 * 1000;
-              const editableStartBoundary = chartInitTime - tenMinutes; // FIXED boundary
-              const editableEndBoundary = currentTime + tenMinutes; // MOVING boundary
+
+              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
+              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
               
               if (time < editableStartBoundary || time > editableEndBoundary) {
                 // Click is outside editable window - ignore
@@ -6799,9 +6781,9 @@ export function UnifiedTimeline({
               time = Math.round(time / oneMinute) * oneMinute;
               
               // Validate that time is within editable boundaries
-              const tenMinutes = 10 * 60 * 1000;
-              const editableStartBoundary = chartInitTime - tenMinutes; // FIXED boundary
-              const editableEndBoundary = currentTime + tenMinutes; // MOVING boundary
+
+              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
+              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
               
               if (time < editableStartBoundary || time > editableEndBoundary) {
                 // Click is outside editable window - ignore
@@ -6894,9 +6876,9 @@ export function UnifiedTimeline({
               time = Math.round(time / oneMinute) * oneMinute;
               
               // Validate that time is within editable boundaries
-              const tenMinutes = 10 * 60 * 1000;
-              const editableStartBoundary = chartInitTime - tenMinutes; // FIXED boundary
-              const editableEndBoundary = currentTime + tenMinutes; // MOVING boundary
+
+              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
+              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
               
               if (time < editableStartBoundary || time > editableEndBoundary) {
                 // Click is outside editable window - ignore
@@ -6991,9 +6973,9 @@ export function UnifiedTimeline({
               time = Math.round(time / oneMinute) * oneMinute;
               
               // Validate that time is within editable boundaries
-              const tenMinutes = 10 * 60 * 1000;
-              const editableStartBoundary = chartInitTime - tenMinutes; // FIXED boundary
-              const editableEndBoundary = currentTime + tenMinutes; // MOVING boundary
+
+              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
+              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
               
               if (time < editableStartBoundary || time > editableEndBoundary) {
                 // Click is outside editable window - ignore
@@ -7582,9 +7564,9 @@ export function UnifiedTimeline({
               time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
               
               // Validate that time is within editable boundaries
-              const tenMinutes = 10 * 60 * 1000;
-              const editableStartBoundary = chartInitTime - tenMinutes; // FIXED boundary
-              const editableEndBoundary = currentTime + tenMinutes; // MOVING boundary
+
+              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
+              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
               
               if (time < editableStartBoundary || time > editableEndBoundary) {
                 // Click is outside editable window - ignore
@@ -7670,9 +7652,9 @@ export function UnifiedTimeline({
               time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
               
               // Validate that time is within editable boundaries
-              const tenMinutes = 10 * 60 * 1000;
-              const editableStartBoundary = chartInitTime - tenMinutes; // FIXED boundary
-              const editableEndBoundary = currentTime + tenMinutes; // MOVING boundary
+
+              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
+              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
               
               if (time < editableStartBoundary || time > editableEndBoundary) {
                 // Click is outside editable window - ignore
@@ -7783,9 +7765,9 @@ export function UnifiedTimeline({
                 time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
                 
                 // Validate that time is within editable boundaries
-                const tenMinutes = 10 * 60 * 1000;
-                const editableStartBoundary = chartInitTime - tenMinutes; // FIXED boundary
-                const editableEndBoundary = currentTime + tenMinutes; // MOVING boundary
+  
+                const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
+                const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
                 
                 if (time < editableStartBoundary || time > editableEndBoundary) {
                   // Click is outside editable window - ignore
