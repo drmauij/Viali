@@ -234,6 +234,8 @@ export default function Op() {
           spo2: [],
         },
         events: [],
+        medications: medicationsData || [],
+        apiEvents: eventsData || [],
       };
     }
 
@@ -280,8 +282,10 @@ export default function Op() {
       endTime: maxTime + 60 * 60 * 1000, // 1 hour after last data point
       vitals,
       events,
+      medications: medicationsData || [],
+      apiEvents: eventsData || [],
     };
-  }, [vitalsData, eventsData]);
+  }, [vitalsData, eventsData, medicationsData]);
 
   // OP State
   const [opData, setOpData] = useState({

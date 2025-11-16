@@ -86,6 +86,8 @@ export type UnifiedTimelineData = {
   endTime: number;
   vitals: TimelineVitals;
   events: TimelineEvent[];
+  medications?: any[]; // Raw medication records from API
+  apiEvents?: any[]; // Raw event records from API (renamed to avoid conflict with timeline events)
 };
 
 // Anesthesia time markers configuration
