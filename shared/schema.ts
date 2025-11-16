@@ -1073,6 +1073,8 @@ export const insertPreOpAssessmentSchema = createInsertSchema(preOpAssessments).
 });
 
 export const insertClinicalSnapshotSchema = createInsertSchema(clinicalSnapshots, {
+  // Coerce timestamp to handle both Date objects and ISO strings
+  timestamp: z.coerce.date(),
   // Explicitly define data field validation for JSONB
   data: z.object({
     // Vitals
@@ -1107,12 +1109,19 @@ export const insertClinicalSnapshotSchema = createInsertSchema(clinicalSnapshots
 // Legacy alias for backward compatibility
 export const insertVitalsSnapshotSchema = insertClinicalSnapshotSchema;
 
-export const insertAnesthesiaMedicationSchema = createInsertSchema(anesthesiaMedications).omit({
+export const insertAnesthesiaMedicationSchema = createInsertSchema(anesthesiaMedications, {
+  // Coerce timestamp to handle both Date objects and ISO strings
+  timestamp: z.coerce.date(),
+  endTimestamp: z.coerce.date().optional(),
+}).omit({
   id: true,
   createdAt: true,
 });
 
-export const insertAnesthesiaEventSchema = createInsertSchema(anesthesiaEvents).omit({
+export const insertAnesthesiaEventSchema = createInsertSchema(anesthesiaEvents, {
+  // Coerce timestamp to handle both Date objects and ISO strings
+  timestamp: z.coerce.date(),
+}).omit({
   id: true,
   createdAt: true,
 });
