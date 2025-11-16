@@ -919,6 +919,11 @@ export function UnifiedTimeline({
   
   // Auto-save vitals with debouncing
   useEffect(() => {
+    // TEMPORARILY DISABLED - This O(n²) operation was blocking the UI for 700-900ms
+    // preventing all user interactions. Need to implement incremental save strategy.
+    console.log('[AUTO-SAVE] Disabled to unblock UI - vitals NOT being auto-saved');
+    return;
+    
     // Only auto-save if anesthesiaRecordId is provided
     if (!anesthesiaRecordId) {
       return;
