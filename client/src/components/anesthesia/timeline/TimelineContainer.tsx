@@ -41,19 +41,19 @@ export function TimelineContainer({
 
   // Fetch vitals data
   const vitalsQuery = useQuery<ClinicalSnapshot[]>({
-    queryKey: ['/api/anesthesia/vitals', anesthesiaRecordId],
+    queryKey: [`/api/anesthesia/vitals/${anesthesiaRecordId}`],
     enabled: !!anesthesiaRecordId,
   });
 
   // Fetch medications data
   const medicationsQuery = useQuery<AnesthesiaMedication[]>({
-    queryKey: ['/api/anesthesia/medications', anesthesiaRecordId],
+    queryKey: [`/api/anesthesia/medications/${anesthesiaRecordId}`],
     enabled: !!anesthesiaRecordId,
   });
 
   // Fetch anesthesia items for medication configuration
   const itemsQuery = useQuery<AnesthesiaItem[]>({
-    queryKey: ['/api/anesthesia/items', hospitalId],
+    queryKey: [`/api/anesthesia/items/${hospitalId}`],
     enabled: !!hospitalId,
   });
 
