@@ -3673,13 +3673,23 @@ export function UnifiedTimeline({
 
   // Handle medication dose entry
   const handleMedicationDoseEntry = async () => {
-    if (!pendingMedicationDose || !medicationDoseInput.trim() || !anesthesiaRecordId) return;
+    console.log('[MED] handleMedicationDoseEntry called', { 
+      pendingMedicationDose, 
+      medicationDoseInput, 
+      anesthesiaRecordId 
+    });
+    
+    if (!pendingMedicationDose || !medicationDoseInput.trim() || !anesthesiaRecordId) {
+      console.log('[MED] Early return - missing data');
+      return;
+    }
     
     const { swimlaneId, time, label } = pendingMedicationDose;
     
     // Extract itemId from swimlaneId (format: "group_{groupId}_item_{itemId}")
     const itemIdMatch = swimlaneId.match(/item_([^_]+)$/);
     if (!itemIdMatch) {
+      console.log('[MED] No itemId match found for swimlaneId:', swimlaneId);
       toast({
         title: "Error",
         description: "Could not identify medication",
@@ -3689,9 +3699,18 @@ export function UnifiedTimeline({
     }
     
     const itemId = itemIdMatch[1];
+    console.log('[MED] Extracted itemId:', itemId);
     
     // Save to database (will auto-update via query invalidation)
     try {
+      console.log('[MED] Calling mutation with:', {
+        anesthesiaRecordId,
+        itemId,
+        timestamp: new Date(time),
+        type: "bolus",
+        dose: medicationDoseInput.trim(),
+      });
+      
       await saveMedicationMutation.mutateAsync({
         anesthesiaRecordId,
         itemId,
@@ -3700,11 +3719,13 @@ export function UnifiedTimeline({
         dose: medicationDoseInput.trim(),
       });
       
+      console.log('[MED] Mutation successful');
       toast({
         title: "Dose saved",
         description: `${label}: ${medicationDoseInput.trim()}`,
       });
     } catch (error) {
+      console.error('[MED] Mutation error:', error);
       // Error toast is already shown by mutation's onError
       return;
     }
