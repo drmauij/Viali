@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { UnifiedTimeline, type UnifiedTimelineData, type TimelineVitals, type TimelineEvent, type VitalPoint } from "@/components/anesthesia/UnifiedTimeline";
+import { TimelineContainer } from "@/components/anesthesia/timeline/TimelineContainer";
 import { PreOpOverview } from "@/components/anesthesia/PreOpOverview";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -637,17 +638,17 @@ export default function Op() {
           {/* Vitals & Timeline Tab */}
           <TabsContent value="vitals" className="data-[state=active]:flex-1 overflow-y-auto flex flex-col mt-0 px-0" data-testid="tab-content-vitals">
             <div className="border-t bg-card">
-              {isVitalsLoading ? (
+              {anesthesiaRecord?.id && surgery ? (
+                <TimelineContainer
+                  anesthesiaRecordId={anesthesiaRecord.id}
+                  startTime={new Date(surgery.startTime).getTime()}
+                  endTime={new Date().getTime()}
+                  height={600}
+                />
+              ) : (
                 <div className="flex items-center justify-center h-64">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
-              ) : (
-                <UnifiedTimeline 
-                  data={timelineData} 
-                  now={new Date().getTime()} 
-                  patientWeight={patientWeight}
-                  anesthesiaRecordId={anesthesiaRecord?.id}
-                />
               )}
             </div>
           </TabsContent>
