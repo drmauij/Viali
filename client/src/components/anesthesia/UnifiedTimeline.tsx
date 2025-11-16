@@ -8486,6 +8486,7 @@ export function UnifiedTimeline({
 
       {/* Medication Dose Entry Dialog */}
       <Dialog open={showMedicationDoseDialog} onOpenChange={(open) => {
+        console.log('[DIALOG] Medication dose dialog open changed:', open);
         if (!open) {
           setShowMedicationDoseDialog(false);
           setPendingMedicationDose(null);
@@ -10610,7 +10611,10 @@ function DialogFooterWithTime({
           </Button>
         )}
         <Button
-          onClick={onSave}
+          onClick={() => {
+            console.log('[BUTTON] Save button clicked in DialogFooterWithTime');
+            onSave();
+          }}
           data-testid="button-save"
           disabled={saveDisabled}
         >
