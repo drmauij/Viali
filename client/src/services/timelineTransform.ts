@@ -68,8 +68,8 @@ export function transformRateInfusions(
   medications: any[],
   itemToSwimlane: Map<string, string>,
   anesthesiaItems: AnesthesiaItem[]
-): { [swimlaneId: string]: any } {
-  const sessions: { [swimlaneId: string]: any } = {};
+): { [swimlaneId: string]: any[] } {
+  const sessions: { [swimlaneId: string]: any[] } = {};
   
   const infusionsByLane: { [swimlaneId: string]: any[] } = {};
   
@@ -91,54 +91,58 @@ export function transformRateInfusions(
     const startRecords = records.filter(r => r.type === 'infusion_start');
     if (startRecords.length === 0) return;
     
-    const startRecord = startRecords[startRecords.length - 1];
+    sessions[swimlaneId] = [];
     
-    const itemId = startRecord.itemId;
-    const item = anesthesiaItems.find(i => i.id === itemId);
-    if (!item || !item.rateUnit || item.rateUnit === 'free') return;
-    
-    const startTime = new Date(startRecord.timestamp).getTime();
-    
-    const stopRecord = records.find(r => 
-      r.type === 'infusion_stop' && new Date(r.timestamp).getTime() > startTime
-    );
-    const hasEndTimestamp = !!startRecord.endTimestamp;
-    const endTime = stopRecord 
-      ? new Date(stopRecord.timestamp).getTime() 
-      : (hasEndTimestamp ? new Date(startRecord.endTimestamp).getTime() : null);
-    const state = (stopRecord || hasEndTimestamp) ? 'stopped' : 'running';
-    
-    const segments: any[] = [];
-    
-    segments.push({
-      startTime,
-      rate: startRecord.rate || '0',
-      rateUnit: item.rateUnit || 'ml/h',
-    });
-    
-    records
-      .filter(r => {
-        if (r.type !== 'rate_change') return false;
-        const changeTime = new Date(r.timestamp).getTime();
-        if (changeTime <= startTime) return false;
-        if (endTime && changeTime >= endTime) return false;
-        return true;
-      })
-      .forEach(rateChange => {
-        segments.push({
-          startTime: new Date(rateChange.timestamp).getTime(),
-          rate: rateChange.rate || '0',
-          rateUnit: item.rateUnit || 'ml/h',
-        });
+    startRecords.forEach(startRecord => {
+      const itemId = startRecord.itemId;
+      const item = anesthesiaItems.find(i => i.id === itemId);
+      if (!item || !item.rateUnit || item.rateUnit === 'free') return;
+      
+      const startTime = new Date(startRecord.timestamp).getTime();
+      
+      const stopRecord = records.find(r => 
+        r.type === 'infusion_stop' && new Date(r.timestamp).getTime() > startTime && new Date(r.timestamp).getTime() <= startTime + 24 * 60 * 60 * 1000
+      );
+      const hasEndTimestamp = !!startRecord.endTimestamp;
+      const endTime = stopRecord 
+        ? new Date(stopRecord.timestamp).getTime() 
+        : (hasEndTimestamp ? new Date(startRecord.endTimestamp).getTime() : null);
+      const state = (stopRecord || hasEndTimestamp) ? 'stopped' : 'running';
+      
+      const segments: any[] = [];
+      
+      segments.push({
+        startTime,
+        rate: startRecord.rate || '0',
+        rateUnit: item.rateUnit || 'ml/h',
       });
-    
-    sessions[swimlaneId] = {
-      swimlaneId,
-      label: item.name,
-      syringeQuantity: startRecord.dose || '50ml',
-      segments,
-      state,
-    };
+      
+      records
+        .filter(r => {
+          if (r.type !== 'rate_change') return false;
+          const changeTime = new Date(r.timestamp).getTime();
+          if (changeTime <= startTime) return false;
+          if (endTime && changeTime >= endTime) return false;
+          return true;
+        })
+        .forEach(rateChange => {
+          segments.push({
+            startTime: new Date(rateChange.timestamp).getTime(),
+            rate: rateChange.rate || '0',
+            rateUnit: item.rateUnit || 'ml/h',
+          });
+        });
+      
+      sessions[swimlaneId].push({
+        swimlaneId,
+        label: item.name,
+        syringeQuantity: startRecord.dose || '50ml',
+        segments,
+        state,
+        startTime,
+        endTime,
+      });
+    });
   });
   
   return sessions;

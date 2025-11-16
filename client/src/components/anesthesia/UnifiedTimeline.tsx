@@ -965,8 +965,20 @@ export function UnifiedTimeline({
     syringeQuantity: string; // total amount in syringe (e.g., "50ml")
     segments: RateInfusionSegment[]; // array of rate changes over time
     state: 'running' | 'paused' | 'stopped'; // infusion state
+    startTime?: number;
+    endTime?: number | null;
   };
-  const [rateInfusionSessions, setRateInfusionSessions] = useState<{ [swimlaneId: string]: RateInfusionSession }>({});
+  const [rateInfusionSessions, setRateInfusionSessions] = useState<{ [swimlaneId: string]: RateInfusionSession[] }>({});
+  
+  // Helper: Get active/latest session from array
+  const getActiveSession = (swimlaneId: string): RateInfusionSession | null => {
+    const sessions = rateInfusionSessions[swimlaneId];
+    if (!sessions || sessions.length === 0) return null;
+    
+    // Prefer running session, otherwise most recent
+    const runningSession = sessions.find(s => s.state === 'running');
+    return runningSession || sessions[sessions.length - 1];
+  };
   
   // State for unified Rate Infusion Sheet
   const [showRateSheet, setShowRateSheet] = useState(false);
@@ -4358,24 +4370,31 @@ export function UnifiedTimeline({
     }
     
     // Update the rate in infusionData and session segments
-    const session = rateInfusionSessions[swimlaneId];
+    const session = getActiveSession(swimlaneId);
     if (session) {
       setRateInfusionSessions(prev => {
-        const currentSession = prev[swimlaneId];
-        if (!currentSession) return prev;
+        const sessions = prev[swimlaneId];
+        if (!sessions || sessions.length === 0) return prev;
         
-        const updatedSegments = currentSession.segments.map((seg, idx) => 
-          idx === currentSession.segments.length - 1
+        // Update the active session (last running or last in array)
+        const activeIndex = sessions.findIndex(s => s.state === 'running');
+        const indexToUpdate = activeIndex !== -1 ? activeIndex : sessions.length - 1;
+        
+        const updatedSegments = sessions[indexToUpdate].segments.map((seg, idx) => 
+          idx === sessions[indexToUpdate].segments.length - 1
             ? { ...seg, rate: newRate, startTime: newTime || seg.startTime }
             : seg
         );
         
+        const updatedSessions = [...sessions];
+        updatedSessions[indexToUpdate] = {
+          ...sessions[indexToUpdate],
+          segments: updatedSegments,
+        };
+        
         return {
           ...prev,
-          [swimlaneId]: {
-            ...currentSession,
-            segments: updatedSegments,
-          },
+          [swimlaneId]: updatedSessions,
         };
       });
     }
@@ -8663,7 +8682,7 @@ export function UnifiedTimeline({
               : [];
             
             // Determine running state from session
-            const session = rateInfusionSessions[swimlaneId];
+            const session = getActiveSession(swimlaneId);
             const isRunning = session?.state === 'running';
             const isPaused = session?.state === 'paused';
             const isStopped = !session || session.state === 'stopped';
