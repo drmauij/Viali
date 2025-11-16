@@ -720,17 +720,17 @@ export function UnifiedTimeline({
         bloodIrrigation?: number;
       };
     }) => {
+      console.log('[VITALS] Sending POST request to /api/anesthesia/vitals', payload);
       const response = await apiRequest('POST', '/api/anesthesia/vitals', payload);
       return response.json();
     },
-    onSuccess: () => {
-      if (anesthesiaRecordId) {
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/anesthesia/vitals/${anesthesiaRecordId}`] 
-        });
-      }
+    onSuccess: (data, variables) => {
+      console.log('[VITALS] Save successful', { data, variables });
+      // Don't invalidate query - vitals are already in local state
+      // This prevents the 404 response from clearing our data
     },
     onError: (error) => {
+      console.error('[VITALS] Save failed', error);
       toast({
         title: "Error saving vitals",
         description: error instanceof Error ? error.message : "Failed to save vitals data",
@@ -750,17 +750,17 @@ export function UnifiedTimeline({
       unit?: string;
       route?: string;
     }) => {
+      console.log('[MUTATION] Sending POST request to /api/anesthesia/medications', payload);
       const response = await apiRequest('POST', '/api/anesthesia/medications', payload);
       return response.json();
     },
-    onSuccess: () => {
-      if (anesthesiaRecordId) {
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/anesthesia/medications/${anesthesiaRecordId}`] 
-        });
-      }
+    onSuccess: (data, variables) => {
+      console.log('[MUTATION] Save successful', { data, variables });
+      // Don't invalidate query - we'll manually update local state instead
+      // This prevents the 404 response from clearing our data
     },
     onError: (error) => {
+      console.error('[MUTATION] Save failed', error);
       toast({
         title: "Error saving medication",
         description: error instanceof Error ? error.message : "Failed to save medication",
@@ -1073,25 +1073,42 @@ export function UnifiedTimeline({
     };
   }, [hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, outputData, anesthesiaRecordId, saveVitalsMutation]);
 
-  // Auto-load medications and events from API data
+  // Auto-load medications and events from API data - ONLY on initial load
+  // Track if we've already initialized from API to prevent overwriting user entries
+  const initializedFromApiRef = useRef(false);
+  
   useEffect(() => {
-    if (!data.medications) return; // Only require medications, events are optional
+    // Skip if items not loaded yet
     if (!anesthesiaItems || anesthesiaItems.length === 0) return;
+    
+    // Only load from API ONCE on initial mount
+    // This prevents overwriting user entries when query refetches with empty 404 response
+    if (initializedFromApiRef.current) return;
+    
+    console.log('[INIT] Initializing medication state from API data', { 
+      hasMedications: !!data.medications,
+      medicationCount: data.medications?.length 
+    });
     
     // Build item-to-swimlane mapping
     const itemToSwimlane = buildItemToSwimlaneMap(anesthesiaItems, administrationGroups);
     
-    // Transform and load medication doses (boluses)
-    const doses = transformMedicationDoses(data.medications, itemToSwimlane);
+    // Transform and load medication doses (boluses) - will be empty array if no data
+    const doses = transformMedicationDoses(data.medications || [], itemToSwimlane);
     setMedicationDoseData(doses);
     
     // Transform and load rate infusion sessions
-    const rateSessions = transformRateInfusions(data.medications, itemToSwimlane, anesthesiaItems);
+    const rateSessions = transformRateInfusions(data.medications || [], itemToSwimlane, anesthesiaItems);
     setRateInfusionSessions(rateSessions);
     
     // Transform and load free-flow infusion sessions
-    const freeFlowSessions = transformFreeFlowInfusions(data.medications, itemToSwimlane, anesthesiaItems);
+    const freeFlowSessions = transformFreeFlowInfusions(data.medications || [], itemToSwimlane, anesthesiaItems);
     setFreeFlowSessions(freeFlowSessions);
+    
+    // Mark as initialized so we don't overwrite user entries
+    initializedFromApiRef.current = true;
+    
+    console.log('[INIT] Medication state initialized');
     
     // Note: Events are already handled via data.events prop for timeline rendering
     // No need to process data.apiEvents separately for now
@@ -3701,14 +3718,16 @@ export function UnifiedTimeline({
     const itemId = itemIdMatch[1];
     console.log('[MED] Extracted itemId:', itemId);
     
-    // Save to database (will auto-update via query invalidation)
+    const doseValue = medicationDoseInput.trim();
+    
+    // Save to database
     try {
       console.log('[MED] Calling mutation with:', {
         anesthesiaRecordId,
         itemId,
         timestamp: new Date(time),
         type: "bolus",
-        dose: medicationDoseInput.trim(),
+        dose: doseValue,
       });
       
       await saveMedicationMutation.mutateAsync({
@@ -3716,13 +3735,23 @@ export function UnifiedTimeline({
         itemId,
         timestamp: new Date(time),
         type: "bolus",
-        dose: medicationDoseInput.trim(),
+        dose: doseValue,
       });
       
-      console.log('[MED] Mutation successful');
+      console.log('[MED] Mutation successful - updating local state');
+      
+      // Manually update local state so the dose appears immediately
+      setMedicationDoseData(prev => {
+        const existing = prev[swimlaneId] || [];
+        return {
+          ...prev,
+          [swimlaneId]: [...existing, [time, doseValue]].sort((a, b) => a[0] - b[0])
+        };
+      });
+      
       toast({
         title: "Dose saved",
-        description: `${label}: ${medicationDoseInput.trim()}`,
+        description: `${label}: ${doseValue}`,
       });
     } catch (error) {
       console.error('[MED] Mutation error:', error);
