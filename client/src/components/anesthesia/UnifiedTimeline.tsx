@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { saveMedication, saveTimeMarkers } from "@/services/timelinePersistence";
+import { queryClient } from "@/lib/queryClient";
 import { useVitalsState } from "@/hooks/useVitalsState";
 import { useMedicationState } from "@/hooks/useMedicationState";
 import { useVentilationState } from "@/hooks/useVentilationState";
@@ -427,6 +428,11 @@ export function UnifiedTimeline({
     mutationFn: saveTimeMarkers,
     onSuccess: (data) => {
       console.log('[TIME_MARKERS] Save successful', data);
+      // Invalidate the anesthesia record query to refetch with updated time markers
+      if (anesthesiaRecordId) {
+        const surgeryId = data.surgeryId;
+        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+      }
     },
     onError: (error) => {
       console.error('[TIME_MARKERS] Save failed', error);
