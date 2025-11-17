@@ -535,6 +535,9 @@ export function UnifiedTimeline({
   const selectedPointRef = useRef(selectedPoint);
   const dragPositionRef = useRef(dragPosition);
   
+  // Ref to track the current record ID to prevent resetting state on remount
+  const currentRecordIdRef = useRef<string | undefined>(anesthesiaRecordId);
+  
   // Imperative drag preview (bypass React state for performance)
   const dragPreviewRef = useRef<{ time: number; value: number } | null>(null);
   const rafIdRef = useRef<number | null>(null);
@@ -583,9 +586,17 @@ export function UnifiedTimeline({
   useEffect(() => { selectedPointRef.current = selectedPoint; }, [selectedPoint]);
   useEffect(() => { dragPositionRef.current = dragPosition; }, [dragPosition]);
   
-  // Sync API data into local state when data prop changes (handles tab switching)
+  // Sync API data into local state ONLY when switching to a different record
+  // This prevents overwriting unsaved changes when component remounts on same record
   useEffect(() => {
     if (!data?.vitals) return;
+    
+    // Only reset if we're switching to a different record
+    const hasRecordChanged = currentRecordIdRef.current !== anesthesiaRecordId;
+    if (!hasRecordChanged) return;
+    
+    // Update the ref to track the new record
+    currentRecordIdRef.current = anesthesiaRecordId;
     
     // Convert from {time, value} format to [timestamp, value] format
     const hrPoints: VitalPoint[] = (data.vitals.hr || []).map(v => [v.time, v.value]);
@@ -594,7 +605,7 @@ export function UnifiedTimeline({
     const spo2Points: VitalPoint[] = (data.vitals.spo2 || []).map(v => [v.time, v.value]);
     
     resetVitalsData({ hr: hrPoints, sys: sysPoints, dia: diaPoints, spo2: spo2Points });
-  }, [data?.vitals, resetVitalsData]);
+  }, [data?.vitals, anesthesiaRecordId, resetVitalsData]);
   
   // Auto-save vitals with debouncing
   useEffect(() => {
@@ -757,21 +768,21 @@ export function UnifiedTimeline({
     };
   }, [hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, outputData, anesthesiaRecordId, saveVitalsMutation]);
 
-  // Auto-load medications and events from API data - ONLY on initial load
-  // Track if we've already initialized from API to prevent overwriting user entries
-  const initializedFromApiRef = useRef(false);
-  
+  // Auto-load medications and events from API data ONLY when switching to a different record
+  // This prevents overwriting unsaved changes when component remounts on same record
   useEffect(() => {
     // Skip if items not loaded yet
     if (!anesthesiaItems || anesthesiaItems.length === 0) return;
     
-    // Only load from API ONCE on initial mount
-    // This prevents overwriting user entries when query refetches with empty 404 response
-    if (initializedFromApiRef.current) return;
+    // Only reset if we're switching to a different record
+    // (currentRecordIdRef is already updated by the vitals sync effect above)
+    const hasRecordChanged = currentRecordIdRef.current !== anesthesiaRecordId;
+    if (!hasRecordChanged && currentRecordIdRef.current !== undefined) return;
     
     console.log('[INIT] Initializing medication state from API data', { 
       hasMedications: !!data.medications,
-      medicationCount: data.medications?.length 
+      medicationCount: data.medications?.length,
+      recordId: anesthesiaRecordId
     });
     
     // Build item-to-swimlane mapping
@@ -793,14 +804,11 @@ export function UnifiedTimeline({
       freeFlowSessions: freeFlowSessionsData,
     });
     
-    // Mark as initialized so we don't overwrite user entries
-    initializedFromApiRef.current = true;
-    
     console.log('[INIT] Medication state initialized');
     
     // Note: Events are already handled via data.events prop for timeline rendering
     // No need to process data.apiEvents separately for now
-  }, [data.medications, anesthesiaItems, administrationGroups, resetMedicationData]);
+  }, [data.medications, anesthesiaItems, administrationGroups, anesthesiaRecordId, resetMedicationData]);
 
   // Event state management hook (heart rhythm, staff, position, events, time markers)
   const {
