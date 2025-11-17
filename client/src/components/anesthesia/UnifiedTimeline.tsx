@@ -535,9 +535,6 @@ export function UnifiedTimeline({
   const selectedPointRef = useRef(selectedPoint);
   const dragPositionRef = useRef(dragPosition);
   
-  // Ref to track the current record ID to prevent resetting state on remount
-  const currentRecordIdRef = useRef<string | undefined>(anesthesiaRecordId);
-  
   // Imperative drag preview (bypass React state for performance)
   const dragPreviewRef = useRef<{ time: number; value: number } | null>(null);
   const rafIdRef = useRef<number | null>(null);
@@ -586,17 +583,30 @@ export function UnifiedTimeline({
   useEffect(() => { selectedPointRef.current = selectedPoint; }, [selectedPoint]);
   useEffect(() => { dragPositionRef.current = dragPosition; }, [dragPosition]);
   
-  // Sync API data into local state ONLY when switching to a different record
-  // This prevents overwriting unsaved changes when component remounts on same record
+  // Track last synced record ID to prevent overwriting unsaved changes on remount
+  const lastSyncedRecordRef = useRef<string | undefined>(undefined);
+  
+  // Sync API data into local state ONLY when:
+  // 1. First mount (lastSyncedRecordRef.current === undefined)
+  // 2. Switching to a different record (anesthesiaRecordId changed)
   useEffect(() => {
     if (!data?.vitals) return;
     
-    // Only reset if we're switching to a different record
-    const hasRecordChanged = currentRecordIdRef.current !== anesthesiaRecordId;
-    if (!hasRecordChanged) return;
+    // Check if we should sync (first mount OR different record)
+    const shouldSync = lastSyncedRecordRef.current === undefined || lastSyncedRecordRef.current !== anesthesiaRecordId;
     
-    // Update the ref to track the new record
-    currentRecordIdRef.current = anesthesiaRecordId;
+    if (!shouldSync) {
+      console.log('[VITALS-SYNC] Skipping sync - already loaded this record', { recordId: anesthesiaRecordId });
+      return;
+    }
+    
+    console.log('[VITALS-SYNC] Syncing vitals from API', { 
+      recordId: anesthesiaRecordId,
+      isFirstMount: lastSyncedRecordRef.current === undefined 
+    });
+    
+    // Update the ref to track this record as synced
+    lastSyncedRecordRef.current = anesthesiaRecordId;
     
     // Convert from {time, value} format to [timestamp, value] format
     const hrPoints: VitalPoint[] = (data.vitals.hr || []).map(v => [v.time, v.value]);
@@ -768,22 +778,33 @@ export function UnifiedTimeline({
     };
   }, [hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, outputData, anesthesiaRecordId, saveVitalsMutation]);
 
-  // Auto-load medications and events from API data ONLY when switching to a different record
-  // This prevents overwriting unsaved changes when component remounts on same record
+  // Track last synced record ID for medications
+  const lastSyncedMedicationRecordRef = useRef<string | undefined>(undefined);
+  
+  // Auto-load medications from API data ONLY when:
+  // 1. First mount (lastSyncedMedicationRecordRef.current === undefined)
+  // 2. Switching to a different record (anesthesiaRecordId changed)
   useEffect(() => {
     // Skip if items not loaded yet
     if (!anesthesiaItems || anesthesiaItems.length === 0) return;
     
-    // Only reset if we're switching to a different record
-    // (currentRecordIdRef is already updated by the vitals sync effect above)
-    const hasRecordChanged = currentRecordIdRef.current !== anesthesiaRecordId;
-    if (!hasRecordChanged && currentRecordIdRef.current !== undefined) return;
+    // Check if we should sync (first mount OR different record)
+    const shouldSync = lastSyncedMedicationRecordRef.current === undefined || lastSyncedMedicationRecordRef.current !== anesthesiaRecordId;
     
-    console.log('[INIT] Initializing medication state from API data', { 
+    if (!shouldSync) {
+      console.log('[MED-SYNC] Skipping sync - already loaded this record', { recordId: anesthesiaRecordId });
+      return;
+    }
+    
+    console.log('[MED-SYNC] Syncing medications from API', { 
       hasMedications: !!data.medications,
       medicationCount: data.medications?.length,
-      recordId: anesthesiaRecordId
+      recordId: anesthesiaRecordId,
+      isFirstMount: lastSyncedMedicationRecordRef.current === undefined
     });
+    
+    // Update the ref to track this record as synced
+    lastSyncedMedicationRecordRef.current = anesthesiaRecordId;
     
     // Build item-to-swimlane mapping
     const itemToSwimlane = buildItemToSwimlaneMap(anesthesiaItems, administrationGroups);
@@ -804,7 +825,7 @@ export function UnifiedTimeline({
       freeFlowSessions: freeFlowSessionsData,
     });
     
-    console.log('[INIT] Medication state initialized');
+    console.log('[MED-SYNC] Medication state initialized');
     
     // Note: Events are already handled via data.events prop for timeline rendering
     // No need to process data.apiEvents separately for now
