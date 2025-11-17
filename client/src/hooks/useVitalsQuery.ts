@@ -77,8 +77,7 @@ export function useAddVitalPoint(anesthesiaRecordId: string | undefined) {
 
       // Snapshot previous value
       const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
-        '/api/anesthesia/vitals/snapshot',
-        anesthesiaRecordId,
+        `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
       ]);
 
       // Optimistically update
@@ -91,7 +90,7 @@ export function useAddVitalPoint(anesthesiaRecordId: string | undefined) {
         };
 
         queryClient.setQueryData<ClinicalSnapshot>(
-          ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
           {
             ...previousSnapshot,
             data: {
@@ -111,7 +110,7 @@ export function useAddVitalPoint(anesthesiaRecordId: string | undefined) {
       // Rollback on error
       if (context?.previousSnapshot) {
         queryClient.setQueryData(
-          ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
           context.previousSnapshot
         );
       }
@@ -148,8 +147,7 @@ export function useAddBPPoint(anesthesiaRecordId: string | undefined) {
       });
 
       const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
-        '/api/anesthesia/vitals/snapshot',
-        anesthesiaRecordId,
+        `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
       ]);
 
       if (previousSnapshot) {
@@ -163,7 +161,7 @@ export function useAddBPPoint(anesthesiaRecordId: string | undefined) {
         };
 
         queryClient.setQueryData<ClinicalSnapshot>(
-          ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
           {
             ...previousSnapshot,
             data: {
@@ -182,7 +180,7 @@ export function useAddBPPoint(anesthesiaRecordId: string | undefined) {
     onError: (err, newPoint, context) => {
       if (context?.previousSnapshot) {
         queryClient.setQueryData(
-          ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
           context.previousSnapshot
         );
       }
@@ -217,8 +215,7 @@ export function useUpdateVitalPoint(anesthesiaRecordId: string | undefined) {
       });
 
       const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
-        '/api/anesthesia/vitals/snapshot',
-        anesthesiaRecordId,
+        `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
       ]);
 
       if (previousSnapshot) {
@@ -244,7 +241,7 @@ export function useUpdateVitalPoint(anesthesiaRecordId: string | undefined) {
         }
 
         queryClient.setQueryData<ClinicalSnapshot>(
-          ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
           {
             ...previousSnapshot,
             data: updatedData,
@@ -257,7 +254,7 @@ export function useUpdateVitalPoint(anesthesiaRecordId: string | undefined) {
     onError: (err, updates, context) => {
       if (context?.previousSnapshot) {
         queryClient.setQueryData(
-          ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
           context.previousSnapshot
         );
       }
@@ -294,8 +291,7 @@ export function useUpdateBPPoint(anesthesiaRecordId: string | undefined) {
       });
 
       const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
-        '/api/anesthesia/vitals/snapshot',
-        anesthesiaRecordId,
+        `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
       ]);
 
       if (previousSnapshot) {
@@ -315,7 +311,7 @@ export function useUpdateBPPoint(anesthesiaRecordId: string | undefined) {
         }
 
         queryClient.setQueryData<ClinicalSnapshot>(
-          ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
           {
             ...previousSnapshot,
             data: updatedData,
@@ -328,7 +324,7 @@ export function useUpdateBPPoint(anesthesiaRecordId: string | undefined) {
     onError: (err, updates, context) => {
       if (context?.previousSnapshot) {
         queryClient.setQueryData(
-          ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
           context.previousSnapshot
         );
       }
@@ -358,8 +354,7 @@ export function useDeleteVitalPoint(anesthesiaRecordId: string | undefined) {
       });
 
       const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
-        '/api/anesthesia/vitals/snapshot',
-        anesthesiaRecordId,
+        `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
       ]);
 
       if (previousSnapshot) {
@@ -378,7 +373,7 @@ export function useDeleteVitalPoint(anesthesiaRecordId: string | undefined) {
         }
 
         queryClient.setQueryData<ClinicalSnapshot>(
-          ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
           {
             ...previousSnapshot,
             data: updatedData,
@@ -391,7 +386,7 @@ export function useDeleteVitalPoint(anesthesiaRecordId: string | undefined) {
     onError: (err, pointId, context) => {
       if (context?.previousSnapshot) {
         queryClient.setQueryData(
-          ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
           context.previousSnapshot
         );
       }
