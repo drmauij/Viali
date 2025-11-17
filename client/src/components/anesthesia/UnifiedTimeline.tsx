@@ -400,10 +400,8 @@ export function UnifiedTimeline({
     mutationFn: saveVitals,
     onSuccess: (data, variables) => {
       console.log('[VITALS] Save successful', { data, variables });
-      // Invalidate vitals query to ensure fresh data when switching tabs
-      if (anesthesiaRecordId) {
-        queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/vitals', anesthesiaRecordId] });
-      }
+      // Don't invalidate query - local state is the source of truth while component is mounted
+      // Query will be refetched when component remounts (dialog reopens)
     },
     onError: (error) => {
       console.error('[VITALS] Save failed', error);
