@@ -5399,45 +5399,6 @@ If unable to parse any drugs, return:
     }
   });
 
-  // Update vitals snapshot (creates audit trail)
-  app.patch('/api/anesthesia/vitals/:id', isAuthenticated, async (req: any, res) => {
-    try {
-      const { id } = req.params;
-      const userId = req.user.id;
-
-      const vital = await storage.getVitalsSnapshotById(id);
-      
-      if (!vital) {
-        return res.status(404).json({ message: "Vitals snapshot not found" });
-      }
-
-      // Verify user has access
-      const record = await storage.getAnesthesiaRecordById(vital.anesthesiaRecordId);
-      if (!record) {
-        return res.status(404).json({ message: "Anesthesia record not found" });
-      }
-
-      const surgery = await storage.getSurgery(record.surgeryId);
-      if (!surgery) {
-        return res.status(404).json({ message: "Surgery not found" });
-      }
-
-      const hospitals = await storage.getUserHospitals(userId);
-      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
-      
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-
-      const updatedVital = await storage.updateVitalsSnapshot(id, req.body, userId);
-      
-      res.json(updatedVital);
-    } catch (error) {
-      console.error("Error updating vitals snapshot:", error);
-      res.status(500).json({ message: "Failed to update vitals snapshot" });
-    }
-  });
-
   // NEW: Point-based CRUD endpoints for robust vitals management
   
   // Get clinical snapshot for a record (auto-creates if doesn't exist)
