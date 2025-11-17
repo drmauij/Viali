@@ -2009,6 +2009,51 @@ export class DatabaseStorage implements IStorage {
   }
 
   /**
+   * Update a BP point by ID (special handling for sys/dia/mean)
+   */
+  async updateBPPoint(
+    pointId: string,
+    updates: { sys?: number; dia?: number; mean?: number; timestamp?: string }
+  ): Promise<ClinicalSnapshot | null> {
+    // Find which snapshot contains this point
+    const allSnapshots = await db.select().from(clinicalSnapshots);
+    
+    for (const snapshot of allSnapshots) {
+      const data = snapshot.data as any;
+      const bpPoints = data.bp || [];
+      const pointIndex = bpPoints.findIndex((p: any) => p.id === pointId);
+      
+      if (pointIndex !== -1) {
+        const updatedPoints = [...bpPoints];
+        updatedPoints[pointIndex] = {
+          ...updatedPoints[pointIndex],
+          ...updates,
+        };
+        // Re-sort after update
+        updatedPoints.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+        
+        const updatedData = {
+          ...data,
+          bp: updatedPoints,
+        };
+        
+        const [updated] = await db
+          .update(clinicalSnapshots)
+          .set({ 
+            data: updatedData,
+            updatedAt: new Date(),
+          })
+          .where(eq(clinicalSnapshots.id, snapshot.id))
+          .returning();
+        
+        return updated;
+      }
+    }
+    
+    return null; // Point not found
+  }
+
+  /**
    * Delete a vital point by ID
    */
   async deleteVitalPoint(pointId: string): Promise<ClinicalSnapshot | null> {

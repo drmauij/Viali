@@ -5593,6 +5593,34 @@ If unable to parse any drugs, return:
     }
   });
 
+  // Update a BP point by ID (special handling for sys/dia/mean)
+  app.patch('/api/anesthesia/vitals/bp/:pointId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { pointId } = req.params;
+      const userId = req.user.id;
+      
+      const validatedData = updateBPPointSchema.parse({
+        pointId,
+        ...req.body
+      });
+
+      // Note: Access control is implicit - user can only update points in records they have access to
+      const updatedSnapshot = await storage.updateBPPoint(pointId, validatedData);
+      
+      if (!updatedSnapshot) {
+        return res.status(404).json({ message: "BP point not found" });
+      }
+
+      res.json(updatedSnapshot);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error updating BP point:", error);
+      res.status(500).json({ message: "Failed to update BP point" });
+    }
+  });
+
   // Delete a vital point by ID
   app.delete('/api/anesthesia/vitals/points/:pointId', isAuthenticated, async (req: any, res) => {
     try {

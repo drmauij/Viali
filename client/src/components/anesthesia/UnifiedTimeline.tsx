@@ -27,6 +27,7 @@ import {
   useAddVitalPoint, 
   useAddBPPoint, 
   useUpdateVitalPoint, 
+  useUpdateBPPoint,
   useDeleteVitalPoint,
   convertToLegacyFormat 
 } from "@/hooks/useVitalsQuery";
@@ -486,6 +487,7 @@ export function UnifiedTimeline({
   const addVitalPointMutation = useAddVitalPoint(anesthesiaRecordId);
   const addBPPointMutation = useAddBPPoint(anesthesiaRecordId);
   const updateVitalPointMutation = useUpdateVitalPoint(anesthesiaRecordId);
+  const updateBPPointMutation = useUpdateBPPoint(anesthesiaRecordId);
   const deleteVitalPointMutation = useDeleteVitalPoint(anesthesiaRecordId);
   
   // Convert React Query snapshot to legacy format for ECharts
@@ -1051,25 +1053,52 @@ export function UnifiedTimeline({
         return;
       }
       
-      // Update the data point with the new snapped position
-      const newPoint: VitalPoint = [currentDrag.time, currentDrag.value];
-      
+      // NEW: Update via React Query mutations with point IDs
+      // Map index to point ID from clinicalSnapshot
+      if (!clinicalSnapshot?.data) {
+        console.error('[EDIT] No clinical snapshot data available');
+        setSelectedPoint(null);
+        setDragPosition(null);
+        setHoverInfo(null);
+        return;
+      }
+
       if (currentSelected.type === 'hr') {
-        const updated = [...hrDataPointsRef.current];
-        updated[currentSelected.index] = newPoint;
-        setHrDataPoints(updated);
-      } else if (currentSelected.type === 'bp-sys') {
-        const updated = [...bpDataPointsRef.current.sys];
-        updated[currentSelected.index] = newPoint;
-        setBpDataPoints({ ...bpDataPointsRef.current, sys: updated });
-      } else if (currentSelected.type === 'bp-dia') {
-        const updated = [...bpDataPointsRef.current.dia];
-        updated[currentSelected.index] = newPoint;
-        setBpDataPoints({ ...bpDataPointsRef.current, dia: updated });
+        const pointId = clinicalSnapshot.data.hr?.[currentSelected.index]?.id;
+        if (pointId) {
+          updateVitalPointMutation.mutate({
+            pointId,
+            timestamp: new Date(currentDrag.time).toISOString(),
+            value: currentDrag.value,
+          });
+        }
+      } else if (currentSelected.type === 'bp-sys' || currentSelected.type === 'bp-dia') {
+        // For BP, use special BP update mutation
+        const bpPoint = clinicalSnapshot.data.bp?.[currentSelected.index];
+        if (bpPoint) {
+          const updates: any = {
+            pointId: bpPoint.id,
+            timestamp: new Date(currentDrag.time).toISOString(),
+          };
+          
+          // Update only the value that was dragged (sys or dia)
+          if (currentSelected.type === 'bp-sys') {
+            updates.sys = currentDrag.value;
+          } else {
+            updates.dia = currentDrag.value;
+          }
+          
+          updateBPPointMutation.mutate(updates);
+        }
       } else if (currentSelected.type === 'spo2') {
-        const updated = [...spo2DataPointsRef.current];
-        updated[currentSelected.index] = newPoint;
-        setSpo2DataPoints(updated);
+        const pointId = clinicalSnapshot.data.spo2?.[currentSelected.index]?.id;
+        if (pointId) {
+          updateVitalPointMutation.mutate({
+            pointId,
+            timestamp: new Date(currentDrag.time).toISOString(),
+            value: currentDrag.value,
+          });
+        }
       }
       
       // Clear selection and drag state
@@ -1525,21 +1554,27 @@ export function UnifiedTimeline({
   };
 
   const handleDeleteValue = async () => {
-    if (!editingValue || !anesthesiaRecordId) return;
+    if (!editingValue || !anesthesiaRecordId || !clinicalSnapshot?.data) return;
 
-    const { type, index, originalTime } = editingValue;
+    const { type, index } = editingValue;
 
-    // Update local state first
+    // NEW: Use React Query delete mutation with point IDs
     if (type === 'hr') {
-      setHrDataPoints(hrDataPoints.filter((_, i) => i !== index));
+      const pointId = clinicalSnapshot.data.hr?.[index]?.id;
+      if (pointId) {
+        deleteVitalPointMutation.mutate(pointId);
+      }
     } else if (type === 'sys' || type === 'dia') {
-      // When deleting BP, delete BOTH systolic and diastolic at the same index
-      setBpDataPoints({
-        sys: bpDataPoints.sys.filter((_, i) => i !== index),
-        dia: bpDataPoints.dia.filter((_, i) => i !== index),
-      });
+      // For BP, delete the entire BP point (includes both sys and dia)
+      const pointId = clinicalSnapshot.data.bp?.[index]?.id;
+      if (pointId) {
+        deleteVitalPointMutation.mutate(pointId);
+      }
     } else if (type === 'spo2') {
-      setSpo2DataPoints(spo2DataPoints.filter((_, i) => i !== index));
+      const pointId = clinicalSnapshot.data.spo2?.[index]?.id;
+      if (pointId) {
+        deleteVitalPointMutation.mutate(pointId);
+      }
     }
 
     // Persist deletion to database
@@ -3074,12 +3109,20 @@ export function UnifiedTimeline({
           }
         }
         
-        // Route to appropriate state
+        // Route to appropriate state - NEW: Use React Query mutations
         if (param.standardName === 'HR') {
-          setHrDataPoints(prev => [...prev, [timestamp, value]]);
+          addVitalPointMutation.mutate({
+            vitalType: 'hr',
+            timestamp: new Date(timestamp).toISOString(),
+            value,
+          });
           addedItems.push('HR');
         } else if (param.standardName === 'SpO2') {
-          setSpo2DataPoints(prev => [...prev, [timestamp, value]]);
+          addVitalPointMutation.mutate({
+            vitalType: 'spo2',
+            timestamp: new Date(timestamp).toISOString(),
+            value,
+          });
           addedItems.push('SpO2');
         }
       });
@@ -3109,10 +3152,12 @@ export function UnifiedTimeline({
           }
         }
         
-        setBpDataPoints(prev => ({
-          sys: [...prev.sys, [timestamp, sysValue]],
-          dia: [...prev.dia, [timestamp, diaValue]],
-        }));
+        // NEW: Use React Query mutation for BP
+        addBPPointMutation.mutate({
+          timestamp: new Date(timestamp).toISOString(),
+          sys: sysValue,
+          dia: diaValue,
+        });
         addedItems.push('BP');
       }
       

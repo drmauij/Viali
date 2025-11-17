@@ -270,6 +270,77 @@ export function useUpdateVitalPoint(anesthesiaRecordId: string | undefined) {
   });
 }
 
+// Hook to update a BP point (special handling for sys/dia/mean)
+export function useUpdateBPPoint(anesthesiaRecordId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      pointId: string;
+      sys?: number;
+      dia?: number;
+      mean?: number;
+      timestamp?: string;
+    }) => {
+      return await apiRequest(
+        'PATCH',
+        `/api/anesthesia/vitals/bp/${data.pointId}`,
+        { sys: data.sys, dia: data.dia, mean: data.mean, timestamp: data.timestamp }
+      );
+    },
+    onMutate: async (updates) => {
+      await queryClient.cancelQueries({
+        queryKey: ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+      });
+
+      const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
+        '/api/anesthesia/vitals/snapshot',
+        anesthesiaRecordId,
+      ]);
+
+      if (previousSnapshot) {
+        const updatedData = { ...previousSnapshot.data };
+        const bpPoints = updatedData.bp || [];
+        const index = bpPoints.findIndex((p: any) => p.id === updates.pointId);
+        
+        if (index !== -1) {
+          const updatedPoints = [...bpPoints];
+          updatedPoints[index] = {
+            ...updatedPoints[index],
+            ...updates,
+          };
+          // Re-sort after update
+          updatedPoints.sort((a: any, b: any) => a.timestamp.localeCompare(b.timestamp));
+          updatedData.bp = updatedPoints;
+        }
+
+        queryClient.setQueryData<ClinicalSnapshot>(
+          ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+          {
+            ...previousSnapshot,
+            data: updatedData,
+          }
+        );
+      }
+
+      return { previousSnapshot };
+    },
+    onError: (err, updates, context) => {
+      if (context?.previousSnapshot) {
+        queryClient.setQueryData(
+          ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+          context.previousSnapshot
+        );
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+      });
+    },
+  });
+}
+
 // Hook to delete a vital point
 export function useDeleteVitalPoint(anesthesiaRecordId: string | undefined) {
   const queryClient = useQueryClient();
