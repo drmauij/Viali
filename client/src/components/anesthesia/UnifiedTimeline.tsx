@@ -481,6 +481,9 @@ export function UnifiedTimeline({
   // State for NOW line horizontal position (as percentage string for CSS)
   const [nowLinePosition, setNowLinePosition] = useState<string>('0%');
   
+  // Track if this is the first render to skip NOW line animation on initial load
+  const isNowLineFirstRenderRef = useRef(true);
+  
   // State for tracking snap intervals (in milliseconds)
   // Vitals and ventilation: zoom-dependent (1min, 5min, or 10min based on zoom level)
   // Medications and events: always 1 minute
@@ -1999,6 +2002,11 @@ export function UnifiedTimeline({
     } else {
       // Hide if out of visible range
       setNowLinePosition('-10px'); // Off screen
+    }
+    
+    // Mark first render as complete after initial position is set
+    if (isNowLineFirstRenderRef.current) {
+      isNowLineFirstRenderRef.current = false;
     }
   }, [currentZoomStart, currentZoomEnd, currentTime, data.startTime, data.endTime]);
 
@@ -7696,7 +7704,7 @@ export function UnifiedTimeline({
           width: '2px',
           height: `${backgroundsHeight - 32}px`,
           backgroundColor: isDark ? '#ef4444' : '#dc2626',
-          transition: 'left 0.3s ease-out',
+          transition: isNowLineFirstRenderRef.current ? 'none' : 'left 0.3s ease-out',
         }}
         data-testid="now-line-indicator"
       />
