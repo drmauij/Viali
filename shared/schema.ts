@@ -669,43 +669,56 @@ export const preOpAssessments = pgTable("preop_assessments", {
   index("idx_preop_assessments_surgery").on(table.surgeryId),
 ]);
 
+// Types for clinical data points with IDs
+export type VitalPointWithId = {
+  id: string;
+  timestamp: string; // ISO timestamp
+  value: number;
+};
+
+export type BPPointWithId = {
+  id: string;
+  timestamp: string;
+  sys: number;
+  dia: number;
+  mean?: number;
+};
+
 // Clinical Snapshots (Vitals, Ventilation, and Output parameters stored as JSONB for efficiency)
+// NEW: Each anesthesia record has ONE snapshot row containing all points as arrays
 export const clinicalSnapshots = pgTable("clinical_snapshots", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: 'cascade' }),
-  timestamp: timestamp("timestamp").notNull(),
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().unique().references(() => anesthesiaRecords.id, { onDelete: 'cascade' }),
   
-  // All clinical data stored as JSONB for flexibility and efficiency
+  // All clinical data stored as arrays of points with IDs
   data: jsonb("data").$type<{
-    // Vitals
-    hr?: number;
-    sysBP?: number;
-    diaBP?: number;
-    meanBP?: number;
-    spo2?: number;
-    temp?: number;
+    // Vitals (arrays of points)
+    hr?: VitalPointWithId[];
+    bp?: BPPointWithId[];
+    spo2?: VitalPointWithId[];
+    temp?: VitalPointWithId[];
     // Ventilation
-    etco2?: number;
-    pip?: number;
-    peep?: number;
-    tidalVolume?: number;
-    respiratoryRate?: number;
-    minuteVolume?: number;
-    fio2?: number;
+    etco2?: VitalPointWithId[];
+    pip?: VitalPointWithId[];
+    peep?: VitalPointWithId[];
+    tidalVolume?: VitalPointWithId[];
+    respiratoryRate?: VitalPointWithId[];
+    minuteVolume?: VitalPointWithId[];
+    fio2?: VitalPointWithId[];
     // Output parameters (fluid balance)
-    gastricTube?: number;
-    drainage?: number;
-    vomit?: number;
-    urine?: number;
-    urine677?: number;
-    blood?: number;
-    bloodIrrigation?: number;
-  }>().notNull(),
+    gastricTube?: VitalPointWithId[];
+    drainage?: VitalPointWithId[];
+    vomit?: VitalPointWithId[];
+    urine?: VitalPointWithId[];
+    urine677?: VitalPointWithId[];
+    blood?: VitalPointWithId[];
+    bloodIrrigation?: VitalPointWithId[];
+  }>().default(sql`'{}'::jsonb`).notNull(),
   
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_clinical_snapshots_record").on(table.anesthesiaRecordId),
-  index("idx_clinical_snapshots_timestamp").on(table.timestamp),
 ]);
 
 // Legacy alias for backward compatibility during migration
@@ -1072,42 +1085,89 @@ export const insertPreOpAssessmentSchema = createInsertSchema(preOpAssessments).
   updatedAt: true,
 });
 
+// Zod schemas for point types
+export const vitalPointWithIdSchema = z.object({
+  id: z.string(),
+  timestamp: z.string(),
+  value: z.number(),
+});
+
+export const bpPointWithIdSchema = z.object({
+  id: z.string(),
+  timestamp: z.string(),
+  sys: z.number(),
+  dia: z.number(),
+  mean: z.number().optional(),
+});
+
 export const insertClinicalSnapshotSchema = createInsertSchema(clinicalSnapshots, {
-  // Coerce timestamp to handle both Date objects and ISO strings
-  timestamp: z.coerce.date(),
-  // Explicitly define data field validation for JSONB
+  // Data is now arrays of points with IDs
   data: z.object({
     // Vitals
-    hr: z.number().optional(),
-    sysBP: z.number().optional(),
-    diaBP: z.number().optional(),
-    meanBP: z.number().optional(),
-    spo2: z.number().optional(),
-    temp: z.number().optional(),
+    hr: z.array(vitalPointWithIdSchema).optional(),
+    bp: z.array(bpPointWithIdSchema).optional(),
+    spo2: z.array(vitalPointWithIdSchema).optional(),
+    temp: z.array(vitalPointWithIdSchema).optional(),
     // Ventilation
-    etco2: z.number().optional(),
-    pip: z.number().optional(),
-    peep: z.number().optional(),
-    tidalVolume: z.number().optional(),
-    respiratoryRate: z.number().optional(),
-    minuteVolume: z.number().optional(),
-    fio2: z.number().optional(),
+    etco2: z.array(vitalPointWithIdSchema).optional(),
+    pip: z.array(vitalPointWithIdSchema).optional(),
+    peep: z.array(vitalPointWithIdSchema).optional(),
+    tidalVolume: z.array(vitalPointWithIdSchema).optional(),
+    respiratoryRate: z.array(vitalPointWithIdSchema).optional(),
+    minuteVolume: z.array(vitalPointWithIdSchema).optional(),
+    fio2: z.array(vitalPointWithIdSchema).optional(),
     // Output parameters
-    gastricTube: z.number().optional(),
-    drainage: z.number().optional(),
-    vomit: z.number().optional(),
-    urine: z.number().optional(),
-    urine677: z.number().optional(),
-    blood: z.number().optional(),
-    bloodIrrigation: z.number().optional(),
-  }),
+    gastricTube: z.array(vitalPointWithIdSchema).optional(),
+    drainage: z.array(vitalPointWithIdSchema).optional(),
+    vomit: z.array(vitalPointWithIdSchema).optional(),
+    urine: z.array(vitalPointWithIdSchema).optional(),
+    urine677: z.array(vitalPointWithIdSchema).optional(),
+    blood: z.array(vitalPointWithIdSchema).optional(),
+    bloodIrrigation: z.array(vitalPointWithIdSchema).optional(),
+  }).optional(),
 }).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
 });
 
 // Legacy alias for backward compatibility
 export const insertVitalsSnapshotSchema = insertClinicalSnapshotSchema;
+
+// Schemas for individual point operations
+export const addVitalPointSchema = z.object({
+  anesthesiaRecordId: z.string(),
+  vitalType: z.enum(['hr', 'spo2', 'temp', 'etco2', 'pip', 'peep', 'tidalVolume', 'respiratoryRate', 'minuteVolume', 'fio2', 'gastricTube', 'drainage', 'vomit', 'urine', 'urine677', 'blood', 'bloodIrrigation']),
+  timestamp: z.string(),
+  value: z.number(),
+});
+
+export const addBPPointSchema = z.object({
+  anesthesiaRecordId: z.string(),
+  timestamp: z.string(),
+  sys: z.number(),
+  dia: z.number(),
+  mean: z.number().optional(),
+});
+
+export const updateVitalPointSchema = z.object({
+  pointId: z.string(),
+  value: z.number().optional(),
+  timestamp: z.string().optional(),
+});
+
+export const updateBPPointSchema = z.object({
+  pointId: z.string(),
+  sys: z.number().optional(),
+  dia: z.number().optional(),
+  mean: z.number().optional(),
+  timestamp: z.string().optional(),
+});
+
+export const deleteVitalPointSchema = z.object({
+  anesthesiaRecordId: z.string(),
+  pointId: z.string(),
+});
 
 export const insertAnesthesiaMedicationSchema = createInsertSchema(anesthesiaMedications, {
   // Coerce timestamp to handle both Date objects and ISO strings

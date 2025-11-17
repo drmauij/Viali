@@ -28,6 +28,7 @@ import {
   anesthesiaRecords,
   preOpAssessments,
   vitalsSnapshots,
+  clinicalSnapshots,
   anesthesiaMedications,
   anesthesiaEvents,
   inventoryUsage,
@@ -79,6 +80,8 @@ import {
   type InsertPreOpAssessment,
   type VitalsSnapshot,
   type InsertVitalsSnapshot,
+  type ClinicalSnapshot,
+  type InsertClinicalSnapshot,
   type AnesthesiaMedication,
   type InsertAnesthesiaMedication,
   type AnesthesiaEvent,
@@ -88,6 +91,7 @@ import {
   type AuditTrail,
   type InsertAuditTrail,
 } from "@shared/schema";
+import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, lte, gte, or, ilike, isNull } from "drizzle-orm";
 
@@ -282,11 +286,16 @@ export interface IStorage {
   createPreOpAssessment(assessment: InsertPreOpAssessment): Promise<PreOpAssessment>;
   updatePreOpAssessment(id: string, updates: Partial<PreOpAssessment>): Promise<PreOpAssessment>;
   
-  // Vitals Snapshots operations
+  // Clinical Snapshots operations (NEW: Point-based CRUD)
+  getClinicalSnapshot(anesthesiaRecordId: string): Promise<ClinicalSnapshot>;
+  addVitalPoint(anesthesiaRecordId: string, vitalType: string, timestamp: string, value: number): Promise<ClinicalSnapshot>;
+  addBPPoint(anesthesiaRecordId: string, timestamp: string, sys: number, dia: number, mean?: number): Promise<ClinicalSnapshot>;
+  updateVitalPoint(pointId: string, updates: { value?: number; timestamp?: string }): Promise<ClinicalSnapshot | null>;
+  deleteVitalPoint(pointId: string): Promise<ClinicalSnapshot | null>;
+  
+  // Legacy methods for backward compatibility
   getVitalsSnapshots(anesthesiaRecordId: string): Promise<VitalsSnapshot[]>;
-  getVitalsSnapshotById(id: string): Promise<VitalsSnapshot | undefined>;
   createVitalsSnapshot(snapshot: InsertVitalsSnapshot): Promise<VitalsSnapshot>;
-  updateVitalsSnapshot(id: string, updates: Partial<VitalsSnapshot>, userId: string): Promise<VitalsSnapshot>;
   
   // Anesthesia Medication operations
   getAnesthesiaMedications(anesthesiaRecordId: string): Promise<AnesthesiaMedication[]>;
@@ -1847,67 +1856,209 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  // Vitals Snapshots operations
-  async getVitalsSnapshots(anesthesiaRecordId: string): Promise<VitalsSnapshot[]> {
-    const snapshots = await db
-      .select()
-      .from(vitalsSnapshots)
-      .where(eq(vitalsSnapshots.anesthesiaRecordId, anesthesiaRecordId))
-      .orderBy(asc(vitalsSnapshots.timestamp));
-    return snapshots;
-  }
-
-  async getVitalsSnapshotById(id: string): Promise<VitalsSnapshot | undefined> {
+  // Clinical Snapshots operations (NEW: Point-based CRUD)
+  
+  /**
+   * Get or create the clinical snapshot for an anesthesia record
+   * NEW: Each record has ONE snapshot containing arrays of points
+   */
+  async getClinicalSnapshot(anesthesiaRecordId: string): Promise<ClinicalSnapshot> {
     const [snapshot] = await db
       .select()
-      .from(vitalsSnapshots)
-      .where(eq(vitalsSnapshots.id, id));
-    return snapshot;
-  }
-
-  async createVitalsSnapshot(snapshot: InsertVitalsSnapshot): Promise<VitalsSnapshot> {
-    // Use INSERT ON CONFLICT to implement upsert with JSONB merge
-    // If a snapshot exists at the same (anesthesia_record_id, timestamp), merge the data
+      .from(clinicalSnapshots)
+      .where(eq(clinicalSnapshots.anesthesiaRecordId, anesthesiaRecordId));
+    
+    if (snapshot) {
+      return snapshot;
+    }
+    
+    // Create empty snapshot if it doesn't exist
     const [created] = await db
-      .insert(vitalsSnapshots)
-      .values(snapshot)
-      .onConflictDoUpdate({
-        target: [vitalsSnapshots.anesthesiaRecordId, vitalsSnapshots.timestamp],
-        set: {
-          // Merge existing data with new data (new values override old)
-          // Use COALESCE to handle NULL values, and EXCLUDED to reference the new row
-          data: sql`coalesce(${vitalsSnapshots.data}, '{}'::jsonb) || coalesce(excluded.data, '{}'::jsonb)`,
-        },
+      .insert(clinicalSnapshots)
+      .values({
+        anesthesiaRecordId,
+        data: {},
       })
       .returning();
+    
     return created;
   }
 
-  async updateVitalsSnapshot(id: string, updates: Partial<VitalsSnapshot>, userId: string): Promise<VitalsSnapshot> {
-    // Get current snapshot for audit log
-    const [currentSnapshot] = await db
-      .select()
-      .from(vitalsSnapshots)
-      .where(eq(vitalsSnapshots.id, id));
-
-    // Update the snapshot
+  /**
+   * Add a vital point (HR, SpO2, Temp, etc.)
+   */
+  async addVitalPoint(
+    anesthesiaRecordId: string,
+    vitalType: string,
+    timestamp: string,
+    value: number
+  ): Promise<ClinicalSnapshot> {
+    const snapshot = await this.getClinicalSnapshot(anesthesiaRecordId);
+    
+    const newPoint = {
+      id: randomUUID(),
+      timestamp,
+      value,
+    };
+    
+    const currentPoints = (snapshot.data as any)[vitalType] || [];
+    const updatedData = {
+      ...snapshot.data,
+      [vitalType]: [...currentPoints, newPoint].sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
+    };
+    
     const [updated] = await db
-      .update(vitalsSnapshots)
-      .set(updates)
-      .where(eq(vitalsSnapshots.id, id))
+      .update(clinicalSnapshots)
+      .set({ 
+        data: updatedData,
+        updatedAt: new Date(),
+      })
+      .where(eq(clinicalSnapshots.anesthesiaRecordId, anesthesiaRecordId))
       .returning();
-
-    // Create audit log entry
-    await this.createAuditLog({
-      recordType: 'vitals_snapshot',
-      recordId: id,
-      action: 'update',
-      userId,
-      oldValue: currentSnapshot,
-      newValue: updated,
-    });
-
+    
     return updated;
+  }
+
+  /**
+   * Add a BP point (systolic, diastolic, mean)
+   */
+  async addBPPoint(
+    anesthesiaRecordId: string,
+    timestamp: string,
+    sys: number,
+    dia: number,
+    mean?: number
+  ): Promise<ClinicalSnapshot> {
+    const snapshot = await this.getClinicalSnapshot(anesthesiaRecordId);
+    
+    const newPoint = {
+      id: randomUUID(),
+      timestamp,
+      sys,
+      dia,
+      mean,
+    };
+    
+    const currentBP = (snapshot.data as any).bp || [];
+    const updatedData = {
+      ...snapshot.data,
+      bp: [...currentBP, newPoint].sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
+    };
+    
+    const [updated] = await db
+      .update(clinicalSnapshots)
+      .set({ 
+        data: updatedData,
+        updatedAt: new Date(),
+      })
+      .where(eq(clinicalSnapshots.anesthesiaRecordId, anesthesiaRecordId))
+      .returning();
+    
+    return updated;
+  }
+
+  /**
+   * Update a vital point by ID
+   */
+  async updateVitalPoint(
+    pointId: string,
+    updates: { value?: number; timestamp?: string }
+  ): Promise<ClinicalSnapshot | null> {
+    // Find which snapshot contains this point
+    const allSnapshots = await db.select().from(clinicalSnapshots);
+    
+    for (const snapshot of allSnapshots) {
+      const data = snapshot.data as any;
+      let found = false;
+      let updatedData = { ...data };
+      
+      // Check all vital types
+      for (const vitalType of Object.keys(data)) {
+        if (Array.isArray(data[vitalType])) {
+          const pointIndex = data[vitalType].findIndex((p: any) => p.id === pointId);
+          if (pointIndex !== -1) {
+            found = true;
+            const updatedPoints = [...data[vitalType]];
+            updatedPoints[pointIndex] = {
+              ...updatedPoints[pointIndex],
+              ...updates,
+            };
+            // Re-sort after update
+            updatedPoints.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+            updatedData[vitalType] = updatedPoints;
+            break;
+          }
+        }
+      }
+      
+      if (found) {
+        const [updated] = await db
+          .update(clinicalSnapshots)
+          .set({ 
+            data: updatedData,
+            updatedAt: new Date(),
+          })
+          .where(eq(clinicalSnapshots.id, snapshot.id))
+          .returning();
+        
+        return updated;
+      }
+    }
+    
+    return null; // Point not found
+  }
+
+  /**
+   * Delete a vital point by ID
+   */
+  async deleteVitalPoint(pointId: string): Promise<ClinicalSnapshot | null> {
+    // Find which snapshot contains this point
+    const allSnapshots = await db.select().from(clinicalSnapshots);
+    
+    for (const snapshot of allSnapshots) {
+      const data = snapshot.data as any;
+      let found = false;
+      let updatedData = { ...data };
+      
+      // Check all vital types
+      for (const vitalType of Object.keys(data)) {
+        if (Array.isArray(data[vitalType])) {
+          const filteredPoints = data[vitalType].filter((p: any) => p.id !== pointId);
+          if (filteredPoints.length < data[vitalType].length) {
+            found = true;
+            updatedData[vitalType] = filteredPoints;
+            break;
+          }
+        }
+      }
+      
+      if (found) {
+        const [updated] = await db
+          .update(clinicalSnapshots)
+          .set({ 
+            data: updatedData,
+            updatedAt: new Date(),
+          })
+          .where(eq(clinicalSnapshots.id, snapshot.id))
+          .returning();
+        
+        return updated;
+      }
+    }
+    
+    return null; // Point not found
+  }
+
+  // Legacy methods for backward compatibility (will be removed after migration)
+  async getVitalsSnapshots(anesthesiaRecordId: string): Promise<VitalsSnapshot[]> {
+    const snapshot = await this.getClinicalSnapshot(anesthesiaRecordId);
+    return [snapshot as any]; // Return as array for compatibility
+  }
+
+  async createVitalsSnapshot(snapshot: InsertVitalsSnapshot): Promise<VitalsSnapshot> {
+    // Legacy method - redirect to new structure
+    // This is a temporary bridge during migration
+    return await this.getClinicalSnapshot(snapshot.anesthesiaRecordId) as any;
   }
 
   // Anesthesia Medication operations
