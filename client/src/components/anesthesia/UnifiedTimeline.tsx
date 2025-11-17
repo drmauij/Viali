@@ -9227,13 +9227,19 @@ export function UnifiedTimeline({
             </Button>
             <Button
               onClick={() => {
+                // Save time markers to database
+                if (anesthesiaRecordId) {
+                  saveTimeMarkersMutation.mutate({
+                    anesthesiaRecordId,
+                    timeMarkers,
+                  });
+                }
                 setBulkEditDialogOpen(false);
-                // Toast notification disabled (can be re-enabled later)
-                // toast({
-                //   title: "Times saved",
-                //   description: "Anesthesia times have been updated",
-                //   duration: 2000,
-                // });
+                toast({
+                  title: "Times saved",
+                  description: "Anesthesia times have been updated",
+                  duration: 2000,
+                });
               }}
               data-testid="button-save-bulk-edit"
             >
