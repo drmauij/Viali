@@ -634,8 +634,8 @@ export default function Op() {
             </div>
           </div>
 
-          {/* Vitals & Timeline Tab */}
-          <TabsContent value="vitals" className="data-[state=active]:flex-1 overflow-y-auto flex flex-col mt-0 px-0" data-testid="tab-content-vitals">
+          {/* Vitals & Timeline Tab - forceMount keeps state when switching tabs */}
+          <TabsContent value="vitals" forceMount className="data-[state=active]:flex-1 overflow-y-auto flex flex-col mt-0 px-0 data-[state=inactive]:hidden" data-testid="tab-content-vitals">
             <div className="border-t bg-card">
               {isVitalsLoading ? (
                 <div className="flex items-center justify-center h-64">

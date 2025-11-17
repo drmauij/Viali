@@ -583,30 +583,28 @@ export function UnifiedTimeline({
   useEffect(() => { selectedPointRef.current = selectedPoint; }, [selectedPoint]);
   useEffect(() => { dragPositionRef.current = dragPosition; }, [dragPosition]);
   
-  // Track last synced record ID to prevent overwriting unsaved changes on remount
-  const lastSyncedRecordRef = useRef<string | undefined>(undefined);
-  
-  // Sync API data into local state ONLY when:
-  // 1. First mount (lastSyncedRecordRef.current === undefined)
-  // 2. Switching to a different record (anesthesiaRecordId changed)
+  // Sync API data into local state ONLY when state is empty
+  // This allows unsaved changes to persist in memory when component remounts
   useEffect(() => {
     if (!data?.vitals) return;
     
-    // Check if we should sync (first mount OR different record)
-    const shouldSync = lastSyncedRecordRef.current === undefined || lastSyncedRecordRef.current !== anesthesiaRecordId;
+    // Check if we already have vitals data in local state
+    const hasLocalData = hrDataPoints.length > 0 || bpDataPoints.sys.length > 0 || 
+                         bpDataPoints.dia.length > 0 || spo2DataPoints.length > 0;
     
-    if (!shouldSync) {
-      console.log('[VITALS-SYNC] Skipping sync - already loaded this record', { recordId: anesthesiaRecordId });
+    if (hasLocalData) {
+      console.log('[VITALS-SYNC] Skipping sync - local state already populated', { 
+        recordId: anesthesiaRecordId,
+        hrCount: hrDataPoints.length,
+        bpCount: bpDataPoints.sys.length 
+      });
       return;
     }
     
-    console.log('[VITALS-SYNC] Syncing vitals from API', { 
+    console.log('[VITALS-SYNC] Syncing vitals from API to empty state', { 
       recordId: anesthesiaRecordId,
-      isFirstMount: lastSyncedRecordRef.current === undefined 
+      apiHrCount: data.vitals.hr?.length || 0
     });
-    
-    // Update the ref to track this record as synced
-    lastSyncedRecordRef.current = anesthesiaRecordId;
     
     // Convert from {time, value} format to [timestamp, value] format
     const hrPoints: VitalPoint[] = (data.vitals.hr || []).map(v => [v.time, v.value]);
@@ -615,7 +613,7 @@ export function UnifiedTimeline({
     const spo2Points: VitalPoint[] = (data.vitals.spo2 || []).map(v => [v.time, v.value]);
     
     resetVitalsData({ hr: hrPoints, sys: sysPoints, dia: diaPoints, spo2: spo2Points });
-  }, [data?.vitals, anesthesiaRecordId, resetVitalsData]);
+  }, [data?.vitals, anesthesiaRecordId, hrDataPoints, bpDataPoints, spo2DataPoints, resetVitalsData]);
   
   // Auto-save vitals with debouncing
   useEffect(() => {
