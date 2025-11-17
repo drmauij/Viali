@@ -606,7 +606,8 @@ export function UnifiedTimeline({
       dia: legacyVitals.dia, 
       spo2: legacyVitals.spo2 
     });
-  }, [legacyVitals, anesthesiaRecordId, resetVitalsData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [legacyVitals, anesthesiaRecordId]);
   
   // NEW: Auto-save removed - vitals are now saved immediately via point-based mutations
   // Each add/edit/delete operation triggers its own optimistic mutation with React Query
@@ -5849,7 +5850,7 @@ export function UnifiedTimeline({
               if (anesthesiaRecordId) {
                 console.log('[VITALS-SAVE] Saving HR point', { time: clickInfo.time, value: clickInfo.value });
                 addVitalPointMutation.mutate({
-                  type: 'hr',
+                  vitalType: 'hr',
                   timestamp: new Date(clickInfo.time).toISOString(),
                   value: clickInfo.value
                 });
@@ -5890,8 +5891,8 @@ export function UnifiedTimeline({
                   });
                   addBPPointMutation.mutate({
                     timestamp: new Date(pendingSysValue.time).toISOString(),
-                    systolic: pendingSysValue.value,
-                    diastolic: clickInfo.value
+                    sys: pendingSysValue.value,
+                    dia: clickInfo.value
                   });
                 }
                 
@@ -5907,7 +5908,7 @@ export function UnifiedTimeline({
               if (anesthesiaRecordId) {
                 console.log('[VITALS-SAVE] Saving SPO2 point', { time: clickInfo.time, value: clickInfo.value });
                 addVitalPointMutation.mutate({
-                  type: 'spo2',
+                  vitalType: 'spo2',
                   timestamp: new Date(clickInfo.time).toISOString(),
                   value: clickInfo.value
                 });
@@ -5959,8 +5960,8 @@ export function UnifiedTimeline({
                 if (anesthesiaRecordId && pendingSysValue) {
                   addBPPointMutation.mutate({
                     timestamp: new Date(pendingSysValue.time).toISOString(),
-                    systolic: pendingSysValue.value,
-                    diastolic: clickInfo.value
+                    sys: pendingSysValue.value,
+                    dia: clickInfo.value
                   });
                 }
                 
@@ -5971,7 +5972,7 @@ export function UnifiedTimeline({
                 // NEW: Save HR via mutation
                 if (anesthesiaRecordId) {
                   addVitalPointMutation.mutate({
-                    type: 'hr',
+                    vitalType: 'hr',
                     timestamp: new Date(clickInfo.time).toISOString(),
                     value: clickInfo.value
                   });
@@ -5983,7 +5984,7 @@ export function UnifiedTimeline({
                 // NEW: Save SpO2 via mutation
                 if (anesthesiaRecordId) {
                   addVitalPointMutation.mutate({
-                    type: 'spo2',
+                    vitalType: 'spo2',
                     timestamp: new Date(clickInfo.time).toISOString(),
                     value: clickInfo.value
                   });

@@ -2052,7 +2052,57 @@ export class DatabaseStorage implements IStorage {
   // Legacy methods for backward compatibility (will be removed after migration)
   async getVitalsSnapshots(anesthesiaRecordId: string): Promise<VitalsSnapshot[]> {
     const snapshot = await this.getClinicalSnapshot(anesthesiaRecordId);
-    return [snapshot as any]; // Return as array for compatibility
+    
+    // Convert new point-based format to old multi-row snapshot format
+    // New format: { data: { hr: [{id, timestamp, value}], bp: [{id, timestamp, sys, dia}], ... } }
+    // Old format: [{ timestamp, data: { hr, spo2, sysBP, diaBP } }, ...]
+    
+    const snapshotData = snapshot.data as any || {};
+    const timestampMap = new Map<string, any>();
+    
+    // Process HR points
+    if (snapshotData.hr && Array.isArray(snapshotData.hr)) {
+      snapshotData.hr.forEach((point: any) => {
+        const existing = timestampMap.get(point.timestamp) || {};
+        timestampMap.set(point.timestamp, { ...existing, hr: point.value });
+      });
+    }
+    
+    // Process SpO2 points
+    if (snapshotData.spo2 && Array.isArray(snapshotData.spo2)) {
+      snapshotData.spo2.forEach((point: any) => {
+        const existing = timestampMap.get(point.timestamp) || {};
+        timestampMap.set(point.timestamp, { ...existing, spo2: point.value });
+      });
+    }
+    
+    // Process BP points
+    if (snapshotData.bp && Array.isArray(snapshotData.bp)) {
+      snapshotData.bp.forEach((point: any) => {
+        const existing = timestampMap.get(point.timestamp) || {};
+        timestampMap.set(point.timestamp, { 
+          ...existing, 
+          sysBP: point.sys, 
+          diaBP: point.dia,
+          meanBP: point.mean,
+        });
+      });
+    }
+    
+    // Convert map to array of snapshots
+    const snapshots = Array.from(timestampMap.entries()).map(([timestamp, data]) => ({
+      id: randomUUID(), // Generate temp ID for compatibility
+      anesthesiaRecordId,
+      timestamp,
+      data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
+    
+    // Sort by timestamp
+    snapshots.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    
+    return snapshots;
   }
 
   async createVitalsSnapshot(snapshot: InsertVitalsSnapshot): Promise<VitalsSnapshot> {
