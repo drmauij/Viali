@@ -1556,7 +1556,7 @@ export function UnifiedTimeline({
   const handleDeleteValue = async () => {
     if (!editingValue || !anesthesiaRecordId || !clinicalSnapshot?.data) return;
 
-    const { type, index } = editingValue;
+    const { type, index, time, originalTime } = editingValue;
 
     // NEW: Use React Query delete mutation with point IDs
     if (type === 'hr') {
