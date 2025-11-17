@@ -1502,53 +1502,9 @@ export function UnifiedTimeline({
 
     if (type === 'spo2') {
       updatedVitals.spo2 = newValue;
-    } else {
-      const spo2Point = spo2DataPoints.find(p => p[0] === lookupTime);
-      if (spo2Point) updatedVitals.spo2 = spo2Point[1];
     }
 
-    // Persist via PATCH to replace the snapshot data
-    try {
-      const response = await fetch(`/api/anesthesia/vitals/${anesthesiaRecordId}`);
-      if (response.ok) {
-        const allSnapshots = await response.json();
-        const timestampMs = timestamp.getTime();
-        const snapshot = allSnapshots.find((s: any) => 
-          new Date(s.timestamp).getTime() === timestampMs
-        );
-        
-        if (snapshot) {
-          console.log('[EDIT] Found snapshot to update:', snapshot.id);
-          const patchResponse = await fetch(`/api/anesthesia/vitals/${snapshot.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              anesthesiaRecordId,
-              timestamp,
-              data: updatedVitals,
-            }),
-          });
-          
-          if (!patchResponse.ok) {
-            throw new Error('Failed to update snapshot');
-          }
-          
-          console.log('[EDIT] Successfully patched snapshot');
-          // Invalidate query to refresh data
-          queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/vitals', anesthesiaRecordId] });
-        } else {
-          console.warn('[EDIT] No snapshot found at timestamp:', timestampMs);
-        }
-      }
-    } catch (error) {
-      console.error('[EDIT] Failed to persist edit:', error);
-      toast({
-        title: "Error updating vital",
-        description: "Failed to save update to database",
-        variant: "destructive",
-      });
-    }
-
+    // All persistence is now handled by React Query mutations above
     setEditDialogOpen(false);
     setEditingValue(null);
   };
@@ -1618,51 +1574,7 @@ export function UnifiedTimeline({
       if (spo2Point) remainingVitals.spo2 = spo2Point[1];
     }
 
-    // Persist the deletion by replacing the snapshot data with only remaining vitals
-    // We need to find the snapshot ID at this timestamp and PATCH it
-    try {
-      // Fetch all vitals to find the snapshot ID at this timestamp
-      const response = await fetch(`/api/anesthesia/vitals/${anesthesiaRecordId}`);
-      if (response.ok) {
-        const allSnapshots = await response.json();
-        const timestampMs = timestamp.getTime();
-        const snapshot = allSnapshots.find((s: any) => 
-          new Date(s.timestamp).getTime() === timestampMs
-        );
-        
-        if (snapshot) {
-          console.log('[DELETE] Found snapshot to update:', snapshot.id);
-          // PATCH the snapshot to replace data with only remaining vitals
-          const patchResponse = await fetch(`/api/anesthesia/vitals/${snapshot.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              anesthesiaRecordId,
-              timestamp,
-              data: remainingVitals,
-            }),
-          });
-          
-          if (!patchResponse.ok) {
-            throw new Error('Failed to update snapshot');
-          }
-          
-          console.log('[DELETE] Successfully patched snapshot with remaining vitals');
-          // Invalidate query to refresh data
-          queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/vitals', anesthesiaRecordId] });
-        } else {
-          console.warn('[DELETE] No snapshot found at timestamp:', timestampMs);
-        }
-      }
-    } catch (error) {
-      console.error('[DELETE] Failed to persist deletion:', error);
-      toast({
-        title: "Error deleting vital",
-        description: "Failed to save deletion to database",
-        variant: "destructive",
-      });
-    }
-
+    // All persistence is now handled by React Query mutations above
     setEditDialogOpen(false);
     setEditingValue(null);
   };
