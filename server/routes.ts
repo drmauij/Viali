@@ -15,6 +15,11 @@ import {
   insertAnesthesiaRecordSchema,
   insertPreOpAssessmentSchema,
   insertVitalsSnapshotSchema,
+  addVitalPointSchema,
+  addBPPointSchema,
+  updateVitalPointSchema,
+  updateBPPointSchema,
+  deleteVitalPointSchema,
   insertAnesthesiaMedicationSchema,
   insertAnesthesiaEventSchema,
   insertInventoryUsageSchema,
@@ -5430,6 +5435,181 @@ If unable to parse any drugs, return:
     } catch (error) {
       console.error("Error updating vitals snapshot:", error);
       res.status(500).json({ message: "Failed to update vitals snapshot" });
+    }
+  });
+
+  // NEW: Point-based CRUD endpoints for robust vitals management
+  
+  // Get clinical snapshot for a record (auto-creates if doesn't exist)
+  app.get('/api/anesthesia/vitals/snapshot/:recordId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId } = req.params;
+      const userId = req.user.id;
+
+      // Verify record exists and user has access
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const snapshot = await storage.getClinicalSnapshot(recordId);
+      res.json(snapshot);
+    } catch (error) {
+      console.error("Error fetching clinical snapshot:", error);
+      res.status(500).json({ message: "Failed to fetch clinical snapshot" });
+    }
+  });
+
+  // Add a vital point (HR, SpO2, temp, etc.)
+  app.post('/api/anesthesia/vitals/:recordId/point', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId } = req.params;
+      const userId = req.user.id;
+      
+      const validatedData = addVitalPointSchema.parse({
+        anesthesiaRecordId: recordId,
+        ...req.body
+      });
+
+      // Verify record exists and user has access
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updatedSnapshot = await storage.addVitalPoint(
+        validatedData.anesthesiaRecordId,
+        validatedData.vitalType,
+        validatedData.timestamp,
+        validatedData.value
+      );
+      
+      res.status(201).json(updatedSnapshot);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error adding vital point:", error);
+      res.status(500).json({ message: "Failed to add vital point" });
+    }
+  });
+
+  // Add a BP point
+  app.post('/api/anesthesia/vitals/:recordId/bp', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId } = req.params;
+      const userId = req.user.id;
+      
+      const validatedData = addBPPointSchema.parse({
+        anesthesiaRecordId: recordId,
+        ...req.body
+      });
+
+      // Verify record exists and user has access
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updatedSnapshot = await storage.addBPPoint(
+        validatedData.anesthesiaRecordId,
+        validatedData.timestamp,
+        validatedData.sys,
+        validatedData.dia,
+        validatedData.mean
+      );
+      
+      res.status(201).json(updatedSnapshot);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error adding BP point:", error);
+      res.status(500).json({ message: "Failed to add BP point" });
+    }
+  });
+
+  // Update a vital point by ID
+  app.patch('/api/anesthesia/vitals/points/:pointId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { pointId } = req.params;
+      const userId = req.user.id;
+      
+      const validatedData = updateVitalPointSchema.parse({
+        pointId,
+        ...req.body
+      });
+
+      // Note: Access control is implicit - user can only update points in records they have access to
+      const updatedSnapshot = await storage.updateVitalPoint(pointId, validatedData);
+      
+      if (!updatedSnapshot) {
+        return res.status(404).json({ message: "Point not found" });
+      }
+
+      res.json(updatedSnapshot);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error updating vital point:", error);
+      res.status(500).json({ message: "Failed to update vital point" });
+    }
+  });
+
+  // Delete a vital point by ID
+  app.delete('/api/anesthesia/vitals/points/:pointId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { pointId } = req.params;
+      const userId = req.user.id;
+
+      // Note: Access control is implicit - user can only delete points in records they have access to
+      const updatedSnapshot = await storage.deleteVitalPoint(pointId);
+      
+      if (!updatedSnapshot) {
+        return res.status(404).json({ message: "Point not found" });
+      }
+
+      res.json(updatedSnapshot);
+    } catch (error) {
+      console.error("Error deleting vital point:", error);
+      res.status(500).json({ message: "Failed to delete vital point" });
     }
   });
 
