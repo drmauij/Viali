@@ -38,6 +38,7 @@ The database includes entities for Users, Hospitals, UserHospitalRoles, Items (w
 - **Anesthesia Module Configuration & Access Control**: Hospitals configure a specific inventory location for the anesthesia module, with access restricted to users assigned to that location.
 - **Hospital Seed Data System**: Automatic and manual provisioning of new hospitals with essential default data, ensuring an idempotent and additive seeding process.
 - **Universal Value Editing System**: `EditableValue` component for consistent click-to-edit functionality across various data types.
+- **Point-Based Vitals System (Nov 2025)**: Complete redesign of vitals storage from multiple snapshot rows to a single row per anesthesia record with arrays of points. Each point has a unique UUID, timestamp, and value, enabling proper CRUD operations. The system uses React Query for optimistic updates and data synchronization, with a conversion layer maintaining backward compatibility with the existing ECharts-based UI. This eliminates the O(n²) snapshot aggregation that was blocking UI for 700-900ms and provides granular point-level edit/delete capabilities.
 
 ## External Dependencies
 

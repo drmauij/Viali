@@ -267,6 +267,10 @@ export async function swapTables() {
   
   try {
     await db.transaction(async (tx) => {
+      // Rename old index first
+      await tx.execute(sql`ALTER INDEX IF EXISTS idx_clinical_snapshots_record RENAME TO idx_clinical_snapshots_record_legacy`);
+      console.log('[MIGRATION] Renamed idx_clinical_snapshots_record → idx_clinical_snapshots_record_legacy');
+      
       // Rename old table to legacy
       await tx.execute(sql`ALTER TABLE clinical_snapshots RENAME TO clinical_snapshots_legacy`);
       console.log('[MIGRATION] Renamed clinical_snapshots → clinical_snapshots_legacy');
@@ -275,13 +279,13 @@ export async function swapTables() {
       await tx.execute(sql`ALTER TABLE clinical_snapshots_new RENAME TO clinical_snapshots`);
       console.log('[MIGRATION] Renamed clinical_snapshots_new → clinical_snapshots');
       
-      // Rename indexes
+      // Rename new index to production name
       await tx.execute(sql`ALTER INDEX idx_clinical_snapshots_new_record RENAME TO idx_clinical_snapshots_record`);
-      console.log('[MIGRATION] Renamed index');
+      console.log('[MIGRATION] Renamed idx_clinical_snapshots_new_record → idx_clinical_snapshots_record');
     });
     
     console.log('[MIGRATION] ✅ Tables swapped successfully!');
-    console.log('[MIGRATION] Legacy table kept as clinical_snapshots_legacy for rollback');
+    console.log('[MIGRATION] Legacy table and index kept for rollback');
     
     return { success: true };
     
@@ -325,4 +329,17 @@ export async function rollbackMigration() {
     console.error('[MIGRATION] ❌ Rollback failed:', error);
     throw error;
   }
+}
+
+// Main execution
+if (import.meta.url === `file://${process.argv[1]}`) {
+  (async () => {
+    try {
+      await migrateVitalsData();
+      process.exit(0);
+    } catch (error) {
+      console.error('Migration failed:', error);
+      process.exit(1);
+    }
+  })();
 }

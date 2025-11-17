@@ -15,15 +15,21 @@ import { MedicationConfigDialog } from "./MedicationConfigDialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { saveVitals, saveMedication } from "@/services/timelinePersistence";
-import { apiVitalsToState } from "@/services/timelineState";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { saveMedication } from "@/services/timelinePersistence";
 import { useVitalsState } from "@/hooks/useVitalsState";
 import { useMedicationState } from "@/hooks/useMedicationState";
 import { useVentilationState } from "@/hooks/useVentilationState";
 import { useEventState } from "@/hooks/useEventState";
 import { useOutputState } from "@/hooks/useOutputState";
+import { 
+  useClinicalSnapshot, 
+  useAddVitalPoint, 
+  useAddBPPoint, 
+  useUpdateVitalPoint, 
+  useDeleteVitalPoint,
+  convertToLegacyFormat 
+} from "@/hooks/useVitalsQuery";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
 import { TimeAdjustInput } from "./TimeAdjustInput";
@@ -395,24 +401,6 @@ export function UnifiedTimeline({
     return allAnesthesiaItems.filter(item => item.administrationGroup);
   }, [allAnesthesiaItems]);
   
-  // Mutation for auto-saving vitals - now using centralized persistence service
-  const saveVitalsMutation = useMutation({
-    mutationFn: saveVitals,
-    onSuccess: (data, variables) => {
-      console.log('[VITALS] Save successful', { data, variables });
-      // Don't invalidate query - local state is the source of truth while component is mounted
-      // Query will be refetched when component remounts (dialog reopens)
-    },
-    onError: (error) => {
-      console.error('[VITALS] Save failed', error);
-      toast({
-        title: "Error saving vitals",
-        description: error instanceof Error ? error.message : "Failed to save vitals data",
-        variant: "destructive",
-      });
-    },
-  });
-  
   // Mutation for saving medication doses - now using centralized persistence service
   const saveMedicationMutation = useMutation({
     mutationFn: saveMedication,
@@ -491,7 +479,21 @@ export function UnifiedTimeline({
   const [dragPosition, setDragPosition] = useState<{ time: number; value: number } | null>(null);
   const [lastTouchTime, setLastTouchTime] = useState<number>(0); // Track last touch to prevent duplicate mouse events
   
-  // Use custom hook for vitals state management
+  // NEW: Fetch clinical snapshot with React Query (single source of truth)
+  const { data: clinicalSnapshot } = useClinicalSnapshot(anesthesiaRecordId);
+  
+  // NEW: Get mutation hooks for point-based CRUD
+  const addVitalPointMutation = useAddVitalPoint(anesthesiaRecordId);
+  const addBPPointMutation = useAddBPPoint(anesthesiaRecordId);
+  const updateVitalPointMutation = useUpdateVitalPoint(anesthesiaRecordId);
+  const deleteVitalPointMutation = useDeleteVitalPoint(anesthesiaRecordId);
+  
+  // Convert React Query snapshot to legacy format for ECharts
+  const legacyVitals = useMemo(() => {
+    return convertToLegacyFormat(clinicalSnapshot);
+  }, [clinicalSnapshot]);
+  
+  // Use custom hook for vitals state management (fed from React Query)
   const {
     hrDataPoints,
     bpDataPoints,
@@ -504,10 +506,10 @@ export function UnifiedTimeline({
     setSpo2DataPoints,
     resetVitalsData,
   } = useVitalsState({
-    hr: data.vitals.hr || [],
-    sys: data.vitals.sysBP || [],
-    dia: data.vitals.diaBP || [],
-    spo2: data.vitals.spo2 || [],
+    hr: legacyVitals.hr,
+    sys: legacyVitals.sys,
+    dia: legacyVitals.dia,
+    spo2: legacyVitals.spo2,
   });
   
   // Use custom hook for ventilation state management
@@ -584,217 +586,31 @@ export function UnifiedTimeline({
   useEffect(() => { selectedPointRef.current = selectedPoint; }, [selectedPoint]);
   useEffect(() => { dragPositionRef.current = dragPosition; }, [dragPosition]);
   
-  // Sync API data into local state on first mount, then keep local state
-  // This ensures we load fresh data when opening the dialog, but preserve unsaved changes when switching tabs
+  // NEW: Sync React Query snapshot into local state (conversion layer)
+  // React Query is the single source of truth - local state is just a view layer for ECharts
   useEffect(() => {
-    if (!data?.vitals) return;
+    if (!legacyVitals) return;
     
-    // On first mount, ALWAYS sync from API regardless of local state
-    if (isFirstMountRef.current) {
-      isFirstMountRef.current = false;
-      
-      console.log('[VITALS-SYNC] Syncing vitals from API', { 
-        recordId: anesthesiaRecordId,
-        isFirstMount: true
-      });
-      
-      // Convert from {time, value} format to [timestamp, value] format
-      const hrPoints: VitalPoint[] = (data.vitals.hr || []).map(v => [v.time, v.value]);
-      const sysPoints: VitalPoint[] = (data.vitals.sysBP || []).map(v => [v.time, v.value]);
-      const diaPoints: VitalPoint[] = (data.vitals.diaBP || []).map(v => [v.time, v.value]);
-      const spo2Points: VitalPoint[] = (data.vitals.spo2 || []).map(v => [v.time, v.value]);
-      
-      resetVitalsData({ hr: hrPoints, sys: sysPoints, dia: diaPoints, spo2: spo2Points });
-      return;
-    }
-    
-    // After first mount, only sync if local state is empty (this shouldn't happen normally)
-    const hasLocalData = hrDataPoints.length > 0 || bpDataPoints.sys.length > 0 || 
-                         bpDataPoints.dia.length > 0 || spo2DataPoints.length > 0;
-    
-    if (hasLocalData) {
-      console.log('[VITALS-SYNC] Skipping sync - local state already populated', { 
-        recordId: anesthesiaRecordId,
-        hrCount: hrDataPoints.length,
-        bpCount: bpDataPoints.sys.length 
-      });
-      return;
-    }
-    
-    console.log('[VITALS-SYNC] Syncing vitals from API to empty state', { 
+    console.log('[VITALS-SYNC] Syncing vitals from React Query to local state', { 
       recordId: anesthesiaRecordId,
-      apiHrCount: data.vitals.hr?.length || 0
+      hrCount: legacyVitals.hr.length,
+      bpCount: legacyVitals.sys.length,
+      spo2Count: legacyVitals.spo2.length
     });
     
-    // Convert from {time, value} format to [timestamp, value] format
-    const hrPoints: VitalPoint[] = (data.vitals.hr || []).map(v => [v.time, v.value]);
-    const sysPoints: VitalPoint[] = (data.vitals.sysBP || []).map(v => [v.time, v.value]);
-    const diaPoints: VitalPoint[] = (data.vitals.diaBP || []).map(v => [v.time, v.value]);
-    const spo2Points: VitalPoint[] = (data.vitals.spo2 || []).map(v => [v.time, v.value]);
-    
-    resetVitalsData({ hr: hrPoints, sys: sysPoints, dia: diaPoints, spo2: spo2Points });
-  }, [data?.vitals, anesthesiaRecordId, hrDataPoints, bpDataPoints, spo2DataPoints, resetVitalsData]);
+    // Always sync from React Query - it's the source of truth
+    // This ensures optimistic updates from mutations propagate to the UI
+    resetVitalsData({ 
+      hr: legacyVitals.hr, 
+      sys: legacyVitals.sys, 
+      dia: legacyVitals.dia, 
+      spo2: legacyVitals.spo2 
+    });
+  }, [legacyVitals, anesthesiaRecordId, resetVitalsData]);
   
-  // Auto-save vitals with debouncing
-  useEffect(() => {
-    // TEMPORARILY DISABLED - This O(n²) operation was blocking the UI for 700-900ms
-    // preventing all user interactions. Need to implement incremental save strategy.
-    console.log('[AUTO-SAVE] Disabled to unblock UI - vitals NOT being auto-saved');
-    return;
-    
-    // Only auto-save if anesthesiaRecordId is provided
-    if (!anesthesiaRecordId) {
-      return;
-    }
-
-    // Clear any pending save timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    // Debounce: wait 2 seconds before saving
-    saveTimeoutRef.current = setTimeout(() => {
-      // Collect all unique timestamps from vitals arrays
-      const timestampSet = new Set<number>();
-      
-      hrDataPoints.forEach(([timestamp]) => timestampSet.add(timestamp));
-      bpDataPoints.sys.forEach(([timestamp]) => timestampSet.add(timestamp));
-      bpDataPoints.dia.forEach(([timestamp]) => timestampSet.add(timestamp));
-      spo2DataPoints.forEach(([timestamp]) => timestampSet.add(timestamp));
-      
-      // Collect timestamps from ventilation parameter arrays
-      ventilationData.etCO2.forEach(([timestamp]) => timestampSet.add(timestamp));
-      ventilationData.pip.forEach(([timestamp]) => timestampSet.add(timestamp));
-      ventilationData.peep.forEach(([timestamp]) => timestampSet.add(timestamp));
-      ventilationData.tidalVolume.forEach(([timestamp]) => timestampSet.add(timestamp));
-      ventilationData.respiratoryRate.forEach(([timestamp]) => timestampSet.add(timestamp));
-      ventilationData.minuteVolume.forEach(([timestamp]) => timestampSet.add(timestamp));
-      ventilationData.fiO2.forEach(([timestamp]) => timestampSet.add(timestamp));
-      
-      // Collect timestamps from output parameter arrays
-      outputData.gastricTube.forEach(([timestamp]) => timestampSet.add(timestamp));
-      outputData.drainage.forEach(([timestamp]) => timestampSet.add(timestamp));
-      outputData.vomit.forEach(([timestamp]) => timestampSet.add(timestamp));
-      outputData.urine.forEach(([timestamp]) => timestampSet.add(timestamp));
-      outputData.urine677.forEach(([timestamp]) => timestampSet.add(timestamp));
-      outputData.blood.forEach(([timestamp]) => timestampSet.add(timestamp));
-      outputData.bloodIrrigation.forEach(([timestamp]) => timestampSet.add(timestamp));
-      
-      // Convert to array and sort chronologically
-      const timestamps = Array.from(timestampSet).sort((a, b) => a - b);
-      
-      // Create snapshot for each timestamp
-      const snapshots = timestamps.map(timestamp => {
-        const snapshot: {
-          hr?: number;
-          sysBP?: number;
-          diaBP?: number;
-          spo2?: number;
-          etco2?: number;
-          pip?: number;
-          peep?: number;
-          tidalVolume?: number;
-          respiratoryRate?: number;
-          minuteVolume?: number;
-          fio2?: number;
-          gastricTube?: number;
-          drainage?: number;
-          vomit?: number;
-          urine?: number;
-          urine677?: number;
-          blood?: number;
-          bloodIrrigation?: number;
-        } = {};
-        
-        // Find vitals at this timestamp
-        const hrPoint = hrDataPoints.find(([t]) => t === timestamp);
-        if (hrPoint) snapshot.hr = hrPoint[1];
-        
-        const sysPoint = bpDataPoints.sys.find(([t]) => t === timestamp);
-        if (sysPoint) snapshot.sysBP = sysPoint[1];
-        
-        const diaPoint = bpDataPoints.dia.find(([t]) => t === timestamp);
-        if (diaPoint) snapshot.diaBP = diaPoint[1];
-        
-        const spo2Point = spo2DataPoints.find(([t]) => t === timestamp);
-        if (spo2Point) snapshot.spo2 = spo2Point[1];
-        
-        // Find ventilation parameters at this timestamp
-        const etco2Point = ventilationData.etCO2.find(([t]) => t === timestamp);
-        if (etco2Point) snapshot.etco2 = etco2Point[1];
-        
-        const pipPoint = ventilationData.pip.find(([t]) => t === timestamp);
-        if (pipPoint) snapshot.pip = pipPoint[1];
-        
-        const peepPoint = ventilationData.peep.find(([t]) => t === timestamp);
-        if (peepPoint) snapshot.peep = peepPoint[1];
-        
-        const tidalVolumePoint = ventilationData.tidalVolume.find(([t]) => t === timestamp);
-        if (tidalVolumePoint) snapshot.tidalVolume = tidalVolumePoint[1];
-        
-        const respiratoryRatePoint = ventilationData.respiratoryRate.find(([t]) => t === timestamp);
-        if (respiratoryRatePoint) snapshot.respiratoryRate = respiratoryRatePoint[1];
-        
-        const minuteVolumePoint = ventilationData.minuteVolume.find(([t]) => t === timestamp);
-        if (minuteVolumePoint) snapshot.minuteVolume = minuteVolumePoint[1];
-        
-        const fio2Point = ventilationData.fiO2.find(([t]) => t === timestamp);
-        if (fio2Point) snapshot.fio2 = fio2Point[1];
-        
-        // Find output parameters at this timestamp
-        const gastricTubePoint = outputData.gastricTube.find(([t]) => t === timestamp);
-        if (gastricTubePoint) snapshot.gastricTube = gastricTubePoint[1];
-        
-        const drainagePoint = outputData.drainage.find(([t]) => t === timestamp);
-        if (drainagePoint) snapshot.drainage = drainagePoint[1];
-        
-        const vomitPoint = outputData.vomit.find(([t]) => t === timestamp);
-        if (vomitPoint) snapshot.vomit = vomitPoint[1];
-        
-        const urinePoint = outputData.urine.find(([t]) => t === timestamp);
-        if (urinePoint) snapshot.urine = urinePoint[1];
-        
-        const urine677Point = outputData.urine677.find(([t]) => t === timestamp);
-        if (urine677Point) snapshot.urine677 = urine677Point[1];
-        
-        const bloodPoint = outputData.blood.find(([t]) => t === timestamp);
-        if (bloodPoint) snapshot.blood = bloodPoint[1];
-        
-        const bloodIrrigationPoint = outputData.bloodIrrigation.find(([t]) => t === timestamp);
-        if (bloodIrrigationPoint) snapshot.bloodIrrigation = bloodIrrigationPoint[1];
-        
-        return {
-          timestamp: new Date(timestamp),
-          data: snapshot,
-        };
-      });
-      
-      // Check if data has changed since last save to prevent duplicate saves
-      const currentDataString = JSON.stringify(snapshots);
-      if (currentDataString === lastSavedDataRef.current) {
-        return;
-      }
-      
-      // Update last saved data reference
-      lastSavedDataRef.current = currentDataString;
-      
-      // Save each snapshot
-      snapshots.forEach(snapshot => {
-        saveVitalsMutation.mutate({
-          anesthesiaRecordId,
-          timestamp: snapshot.timestamp,
-          data: snapshot.data,
-        });
-      });
-    }, 2000); // 2 second debounce
-    
-    // Cleanup timeout on unmount or when dependencies change
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, [hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, outputData, anesthesiaRecordId, saveVitalsMutation]);
+  // NEW: Auto-save removed - vitals are now saved immediately via point-based mutations
+  // Each add/edit/delete operation triggers its own optimistic mutation with React Query
+  // This eliminates the O(n²) snapshot aggregation that was blocking UI for 700-900ms
 
   // Track last synced record ID for medications
   const lastSyncedMedicationRecordRef = useRef<string | undefined>(undefined);
@@ -6028,26 +5844,23 @@ export function UnifiedTimeline({
             
             // Add data point based on active tool mode
             if (activeToolMode === 'hr') {
-              const newPoint: VitalPoint = [clickInfo.time, clickInfo.value];
-              setHrDataPoints(prev => [...prev, newPoint]);
-              setLastAction({ type: 'hr', data: newPoint });
-              setHoverInfo(null);
-              
-              // Save immediately to database
+              // NEW: Save immediately to database using point-based mutation
+              // React Query's optimistic update will handle local state automatically
               if (anesthesiaRecordId) {
                 console.log('[VITALS-SAVE] Saving HR point', { time: clickInfo.time, value: clickInfo.value });
-                saveVitalsMutation.mutate({
-                  anesthesiaRecordId,
-                  timestamp: new Date(clickInfo.time),
-                  data: { hr: clickInfo.value }
+                addVitalPointMutation.mutate({
+                  type: 'hr',
+                  timestamp: new Date(clickInfo.time).toISOString(),
+                  value: clickInfo.value
                 });
+                setLastAction({ type: 'hr', data: [clickInfo.time, clickInfo.value] });
               }
-              
+              setHoverInfo(null);
               setIsProcessingClick(false);
             } else if (activeToolMode === 'bp') {
               // Simplified BP entry: each click adds its value immediately (no pending gray bookmark)
               if (bpEntryMode === 'sys') {
-                // Add systolic value immediately to the chart
+                // Add systolic temporarily for UX (will be replaced by React Query optimistic update)
                 const sysPoint: VitalPoint = [clickInfo.time, clickInfo.value];
                 setBpDataPoints(prev => ({
                   ...prev,
@@ -6060,28 +5873,25 @@ export function UnifiedTimeline({
                 setHoverInfo(null);
                 setIsProcessingClick(false);
               } else {
-                // Add diastolic value immediately to the chart
-                // CRITICAL: Use systolic's timestamp to ensure BP values are synchronized
+                // Add diastolic temporarily for UX (will be replaced by React Query optimistic update)
                 const diaPoint: VitalPoint = [pendingSysValue?.time ?? clickInfo.time, clickInfo.value];
                 setBpDataPoints(prev => ({
                   ...prev,
                   dia: [...prev.dia, diaPoint]
                 }));
                 
-                // Save BP pair to database (both sys and dia at same timestamp)
+                // NEW: Save BP pair to database using point-based mutation
+                // React Query's optimistic update will sync the authoritative data
                 if (anesthesiaRecordId && pendingSysValue) {
                   console.log('[VITALS-SAVE] Saving BP pair', { 
                     time: pendingSysValue.time, 
                     sys: pendingSysValue.value,
                     dia: clickInfo.value  
                   });
-                  saveVitalsMutation.mutate({
-                    anesthesiaRecordId,
-                    timestamp: new Date(pendingSysValue.time),
-                    data: { 
-                      sysBP: pendingSysValue.value,
-                      diaBP: clickInfo.value
-                    }
+                  addBPPointMutation.mutate({
+                    timestamp: new Date(pendingSysValue.time).toISOString(),
+                    systolic: pendingSysValue.value,
+                    diastolic: clickInfo.value
                   });
                 }
                 
@@ -6092,20 +5902,18 @@ export function UnifiedTimeline({
                 setIsProcessingClick(false);
               }
             } else if (activeToolMode === 'spo2') {
-              const newPoint: VitalPoint = [clickInfo.time, clickInfo.value];
-              setSpo2DataPoints(prev => [...prev, newPoint]);
-              setLastAction({ type: 'spo2', data: newPoint });
-              setHoverInfo(null);
-              
-              // Save immediately to database
+              // NEW: Save immediately to database using point-based mutation
+              // React Query's optimistic update will handle local state automatically
               if (anesthesiaRecordId) {
                 console.log('[VITALS-SAVE] Saving SPO2 point', { time: clickInfo.time, value: clickInfo.value });
-                saveVitalsMutation.mutate({
-                  anesthesiaRecordId,
-                  timestamp: new Date(clickInfo.time),
-                  data: { spo2: clickInfo.value }
+                addVitalPointMutation.mutate({
+                  type: 'spo2',
+                  timestamp: new Date(clickInfo.time).toISOString(),
+                  value: clickInfo.value
                 });
+                setLastAction({ type: 'spo2', data: [clickInfo.time, clickInfo.value] });
               }
+              setHoverInfo(null);
               
               // Toast notification disabled (can be re-enabled later)
               // toast({
@@ -6129,6 +5937,7 @@ export function UnifiedTimeline({
             } else if (activeToolMode === 'blend') {
               // Sequential vitals entry mode - automatically progress through sys -> dia -> hr -> spo2 -> loop
               if (blendSequenceStep === 'sys') {
+                // Add systolic temporarily for UX (will be replaced by mutation after diastolic is entered)
                 const sysPoint: VitalPoint = [clickInfo.time, clickInfo.value];
                 setBpDataPoints(prev => ({
                   ...prev,
@@ -6139,23 +5948,46 @@ export function UnifiedTimeline({
                 setHoverInfo(null);
                 setIsProcessingClick(false);
               } else if (blendSequenceStep === 'dia') {
+                // Add diastolic temporarily for UX
                 const diaPoint: VitalPoint = [pendingSysValue?.time ?? clickInfo.time, clickInfo.value];
                 setBpDataPoints(prev => ({
                   ...prev,
                   dia: [...prev.dia, diaPoint]
                 }));
+                
+                // NEW: Save BP pair via mutation
+                if (anesthesiaRecordId && pendingSysValue) {
+                  addBPPointMutation.mutate({
+                    timestamp: new Date(pendingSysValue.time).toISOString(),
+                    systolic: pendingSysValue.value,
+                    diastolic: clickInfo.value
+                  });
+                }
+                
                 setBlendSequenceStep('hr');
                 setHoverInfo(null);
                 setIsProcessingClick(false);
               } else if (blendSequenceStep === 'hr') {
-                const hrPoint: VitalPoint = [clickInfo.time, clickInfo.value];
-                setHrDataPoints(prev => [...prev, hrPoint]);
+                // NEW: Save HR via mutation
+                if (anesthesiaRecordId) {
+                  addVitalPointMutation.mutate({
+                    type: 'hr',
+                    timestamp: new Date(clickInfo.time).toISOString(),
+                    value: clickInfo.value
+                  });
+                }
                 setBlendSequenceStep('spo2');
                 setHoverInfo(null);
                 setIsProcessingClick(false);
               } else if (blendSequenceStep === 'spo2') {
-                const spo2Point: VitalPoint = [clickInfo.time, clickInfo.value];
-                setSpo2DataPoints(prev => [...prev, spo2Point]);
+                // NEW: Save SpO2 via mutation
+                if (anesthesiaRecordId) {
+                  addVitalPointMutation.mutate({
+                    type: 'spo2',
+                    timestamp: new Date(clickInfo.time).toISOString(),
+                    value: clickInfo.value
+                  });
+                }
                 setBlendSequenceStep('sys'); // Loop back to start
                 setPendingSysValue(null); // Clear pending systolic value
                 setHoverInfo(null);
