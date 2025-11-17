@@ -543,6 +543,9 @@ export function UnifiedTimeline({
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedDataRef = useRef<string>(''); // Store stringified version of last saved data
   
+  // Track first mount to always sync from API on initial load
+  const isFirstMountRef = useRef(true);
+  
   // Imperative function to update only the preview series without re-rendering React
   const updateDragPreviewImperatively = useCallback((previewPoint: VitalPoint | null, pointType: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2') => {
     const chartInstance = chartRef.current?.getEchartsInstance();
@@ -583,12 +586,31 @@ export function UnifiedTimeline({
   useEffect(() => { selectedPointRef.current = selectedPoint; }, [selectedPoint]);
   useEffect(() => { dragPositionRef.current = dragPosition; }, [dragPosition]);
   
-  // Sync API data into local state ONLY when state is empty
-  // This allows unsaved changes to persist in memory when component remounts
+  // Sync API data into local state on first mount, then keep local state
+  // This ensures we load fresh data when opening the dialog, but preserve unsaved changes when switching tabs
   useEffect(() => {
     if (!data?.vitals) return;
     
-    // Check if we already have vitals data in local state
+    // On first mount, ALWAYS sync from API regardless of local state
+    if (isFirstMountRef.current) {
+      isFirstMountRef.current = false;
+      
+      console.log('[VITALS-SYNC] Syncing vitals from API', { 
+        recordId: anesthesiaRecordId,
+        isFirstMount: true
+      });
+      
+      // Convert from {time, value} format to [timestamp, value] format
+      const hrPoints: VitalPoint[] = (data.vitals.hr || []).map(v => [v.time, v.value]);
+      const sysPoints: VitalPoint[] = (data.vitals.sysBP || []).map(v => [v.time, v.value]);
+      const diaPoints: VitalPoint[] = (data.vitals.diaBP || []).map(v => [v.time, v.value]);
+      const spo2Points: VitalPoint[] = (data.vitals.spo2 || []).map(v => [v.time, v.value]);
+      
+      resetVitalsData({ hr: hrPoints, sys: sysPoints, dia: diaPoints, spo2: spo2Points });
+      return;
+    }
+    
+    // After first mount, only sync if local state is empty (this shouldn't happen normally)
     const hasLocalData = hrDataPoints.length > 0 || bpDataPoints.sys.length > 0 || 
                          bpDataPoints.dia.length > 0 || spo2DataPoints.length > 0;
     
