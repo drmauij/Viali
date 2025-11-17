@@ -1615,8 +1615,14 @@ export function UnifiedTimeline({
       return;
     }
     
-    // Allow editing anywhere on the timeline (no restrictions for testing)
-    // Users can add time markers at any point
+    // Validate that time is within editable boundaries
+    const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
+    const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
+    
+    if (snappedTime < editableStartBoundary || snappedTime > editableEndBoundary) {
+      // Click is outside editable window - ignore
+      return;
+    }
     
     // Update the marker with the time
     const updated = [...timeMarkers];
@@ -5484,6 +5490,663 @@ export function UnifiedTimeline({
             
             // Check if time is within editable boundaries (only show hover if editable)
 
+            const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
+            const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
+            const isEditable = time >= editableStartBoundary && time <= editableEndBoundary;
+            
+            // Convert y-position to value based on active tool
+            let value: number;
+            const yPercent = y / rect.height;
+            
+            if (activeToolMode === 'edit' && selectedPoint) {
+              // In edit mode with selected point - show drag preview
+              // VERTICAL DRAG ONLY - time stays fixed to original point's timestamp
+              const isSpO2 = selectedPoint.type === 'spo2';
+              if (isSpO2) {
+                const minVal = 45;
+                const maxVal = 105;
+                const rawValue = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+                value = Math.min(rawValue, 100);
+              } else {
+                const minVal = 0;
+                const maxVal = 240;
+                value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+              }
+              const fixedTime = selectedPoint.originalTime; // Keep time constant during drag
+              setDragPosition({ time: fixedTime, value });
+              setHoverInfo({ x: e.clientX, y: e.clientY, value, time: fixedTime });
+            } else if (isEditable && (activeToolMode === 'hr' || activeToolMode === 'bp' || (activeToolMode === 'blend' && (blendSequenceStep === 'sys' || blendSequenceStep === 'dia' || blendSequenceStep === 'hr')))) {
+              // BP/HR scale: 0 to 240 (only show if within editable window)
+              const minVal = 0;
+              const maxVal = 240;
+              value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+              setHoverInfo({ x: e.clientX, y: e.clientY, value, time });
+            } else if (isEditable && (activeToolMode === 'spo2' || (activeToolMode === 'blend' && blendSequenceStep === 'spo2'))) {
+              // SpO2 scale: 45 to 105, capped at 100% (only show if within editable window)
+              const minVal = 45;
+              const maxVal = 105;
+              const rawValue = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+              value = Math.min(rawValue, 100); // Cap at 100%
+              setHoverInfo({ x: e.clientX, y: e.clientY, value, time });
+            } else {
+              // Clear hover info if outside editable window
+              setHoverInfo(null);
+            }
+          }}
+          onMouseLeave={() => setHoverInfo(null)}
+          onMouseDown={(e) => {
+            
+            // Prevent duplicate processing if touch event was just handled (touch devices fire both touch and mouse events)
+            const timeSinceLastTouch = Date.now() - lastTouchTime;
+            if (timeSinceLastTouch < 1000) {
+              return;
+            }
+            
+            if (activeToolMode !== 'edit' || isProcessingClick) return;
+            
+            // Prevent default touch behavior to stop page scrolling during drag
+            e.preventDefault();
+            
+            setIsProcessingClick(true);
+            
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const visibleStart = currentZoomStart ?? data.startTime;
+            const visibleEnd = currentZoomEnd ?? data.endTime;
+            const visibleRange = visibleEnd - visibleStart;
+            
+            const xPercent = x / rect.width;
+            const clickTime = visibleStart + (xPercent * visibleRange);
+            const yPercent = y / rect.height;
+            
+            // Helper to calculate screen position for a data point
+            const getScreenPosition = (time: number, value: number, scale: 'bp-hr' | 'spo2'): { x: number; y: number } => {
+              const xPos = ((time - visibleStart) / visibleRange) * rect.width;
+              let yPos: number;
+              if (scale === 'bp-hr') {
+                const minVal = 0;
+                const maxVal = 240;
+                yPos = ((maxVal - value) / (maxVal - minVal)) * rect.height;
+              } else {
+                const minVal = 45;
+                const maxVal = 105;
+                yPos = ((maxVal - value) / (maxVal - minVal)) * rect.height;
+              }
+              return { x: xPos, y: yPos };
+            };
+            
+            // Find nearest point within click threshold (20px)
+            const threshold = 20;
+            let nearestPoint: typeof selectedPoint = null;
+            let nearestDistance = threshold;
+            
+            // Check HR points
+            hrDataPoints.forEach((point, index) => {
+              const pos = getScreenPosition(point[0], point[1], 'bp-hr');
+              const dist = Math.sqrt((pos.x - x) ** 2 + (pos.y - y) ** 2);
+              if (dist < nearestDistance) {
+                nearestDistance = dist;
+                nearestPoint = { type: 'hr', index, originalTime: point[0], originalValue: point[1] };
+              }
+            });
+            
+            // Check systolic BP points
+            bpDataPoints.sys.forEach((point, index) => {
+              const pos = getScreenPosition(point[0], point[1], 'bp-hr');
+              const dist = Math.sqrt((pos.x - x) ** 2 + (pos.y - y) ** 2);
+              if (dist < nearestDistance) {
+                nearestDistance = dist;
+                nearestPoint = { type: 'bp-sys', index, originalTime: point[0], originalValue: point[1] };
+              }
+            });
+            
+            // Check diastolic BP points
+            bpDataPoints.dia.forEach((point, index) => {
+              const pos = getScreenPosition(point[0], point[1], 'bp-hr');
+              const dist = Math.sqrt((pos.x - x) ** 2 + (pos.y - y) ** 2);
+              if (dist < nearestDistance) {
+                nearestDistance = dist;
+                nearestPoint = { type: 'bp-dia', index, originalTime: point[0], originalValue: point[1] };
+              }
+            });
+            
+            // Check SpO2 points
+            spo2DataPoints.forEach((point, index) => {
+              const pos = getScreenPosition(point[0], point[1], 'spo2');
+              const dist = Math.sqrt((pos.x - x) ** 2 + (pos.y - y) ** 2);
+              if (dist < nearestDistance) {
+                nearestDistance = dist;
+                nearestPoint = { type: 'spo2', index, originalTime: point[0], originalValue: point[1] };
+              }
+            });
+            
+            
+            if (nearestPoint) {
+              setSelectedPoint(nearestPoint);
+              // Immediately update the ref so document-level mousemove handler can track this selection
+              selectedPointRef.current = nearestPoint;
+              // Initialize dragPosition to the original position to engage filter immediately
+              const { originalTime, originalValue } = nearestPoint as NonNullable<typeof nearestPoint>;
+              setDragPosition({ time: originalTime, value: originalValue });
+              dragPositionRef.current = { time: originalTime, value: originalValue };
+              // Initialize drag preview imperatively
+              dragPreviewRef.current = { time: originalTime, value: originalValue };
+            } else {
+            }
+            
+            setIsProcessingClick(false);
+          }}
+          onTouchStart={(e) => {
+            if (activeToolMode !== 'edit' || isProcessingClick) return;
+            
+            // Note: Cannot call e.preventDefault() here because React's synthetic events are passive
+            // Scroll prevention is handled by the native event listener in useEffect with { passive: false }
+            
+            // Record touch time to prevent duplicate mouse event processing
+            setLastTouchTime(Date.now());
+            
+            setIsProcessingClick(true);
+            
+            const rect = e.currentTarget.getBoundingClientRect();
+            const touch = e.touches[0];
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            
+            const visibleStart = currentZoomStart ?? data.startTime;
+            const visibleEnd = currentZoomEnd ?? data.endTime;
+            const visibleRange = visibleEnd - visibleStart;
+            
+            const xPercent = x / rect.width;
+            const clickTime = visibleStart + (xPercent * visibleRange);
+            const yPercent = y / rect.height;
+            
+            // Helper to calculate screen position for a data point
+            const getScreenPosition = (time: number, value: number, scale: 'bp-hr' | 'spo2'): { x: number; y: number } => {
+              const xPos = ((time - visibleStart) / visibleRange) * rect.width;
+              let yPos: number;
+              if (scale === 'bp-hr') {
+                const minVal = 0;
+                const maxVal = 240;
+                yPos = ((maxVal - value) / (maxVal - minVal)) * rect.height;
+              } else {
+                const minVal = 45;
+                const maxVal = 105;
+                yPos = ((maxVal - value) / (maxVal - minVal)) * rect.height;
+              }
+              return { x: xPos, y: yPos };
+            };
+            
+            // Find nearest point within click threshold (20px)
+            const threshold = 20;
+            let nearestPoint: typeof selectedPoint = null;
+            let nearestDistance = threshold;
+            
+            // Check HR points
+            hrDataPoints.forEach((point, index) => {
+              const pos = getScreenPosition(point[0], point[1], 'bp-hr');
+              const dist = Math.sqrt((pos.x - x) ** 2 + (pos.y - y) ** 2);
+              if (dist < nearestDistance) {
+                nearestDistance = dist;
+                nearestPoint = { type: 'hr', index, originalTime: point[0], originalValue: point[1] };
+              }
+            });
+            
+            // Check systolic BP points
+            bpDataPoints.sys.forEach((point, index) => {
+              const pos = getScreenPosition(point[0], point[1], 'bp-hr');
+              const dist = Math.sqrt((pos.x - x) ** 2 + (pos.y - y) ** 2);
+              if (dist < nearestDistance) {
+                nearestDistance = dist;
+                nearestPoint = { type: 'bp-sys', index, originalTime: point[0], originalValue: point[1] };
+              }
+            });
+            
+            // Check diastolic BP points
+            bpDataPoints.dia.forEach((point, index) => {
+              const pos = getScreenPosition(point[0], point[1], 'bp-hr');
+              const dist = Math.sqrt((pos.x - x) ** 2 + (pos.y - y) ** 2);
+              if (dist < nearestDistance) {
+                nearestDistance = dist;
+                nearestPoint = { type: 'bp-dia', index, originalTime: point[0], originalValue: point[1] };
+              }
+            });
+            
+            // Check SpO2 points
+            spo2DataPoints.forEach((point, index) => {
+              const pos = getScreenPosition(point[0], point[1], 'spo2');
+              const dist = Math.sqrt((pos.x - x) ** 2 + (pos.y - y) ** 2);
+              if (dist < nearestDistance) {
+                nearestDistance = dist;
+                nearestPoint = { type: 'spo2', index, originalTime: point[0], originalValue: point[1] };
+              }
+            });
+            
+            
+            if (nearestPoint) {
+              setSelectedPoint(nearestPoint);
+              // Immediately update the ref so document-level touchmove handler can track this selection
+              selectedPointRef.current = nearestPoint;
+              // Initialize dragPosition to the original position to engage filter immediately
+              const { originalTime, originalValue } = nearestPoint as NonNullable<typeof nearestPoint>;
+              setDragPosition({ time: originalTime, value: originalValue });
+              dragPositionRef.current = { time: originalTime, value: originalValue };
+              // Initialize drag preview imperatively
+              dragPreviewRef.current = { time: originalTime, value: originalValue };
+            } else {
+            }
+            
+            setIsProcessingClick(false);
+          }}
+          onClick={(e) => {
+            console.log('[VITALS-CLICK] onClick triggered', { isProcessingClick, activeToolMode });
+            if (isProcessingClick || activeToolMode === 'edit') {
+              console.log('[VITALS-CLICK] Blocked by guard');
+              return;
+            }
+            
+            setIsProcessingClick(true);
+            
+            // On touch devices, calculate value directly from click position
+            let clickInfo = hoverInfo;
+            if (isTouchDevice) {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              const y = e.clientY - rect.top;
+              
+              const visibleStart = currentZoomStart ?? data.startTime;
+              const visibleEnd = currentZoomEnd ?? data.endTime;
+              const visibleRange = visibleEnd - visibleStart;
+              
+              const xPercent = x / rect.width;
+              let time = visibleStart + (xPercent * visibleRange);
+              time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
+              
+              const yPercent = y / rect.height;
+              let value: number;
+              
+              if (activeToolMode === 'hr' || activeToolMode === 'bp' || (activeToolMode === 'blend' && (blendSequenceStep === 'sys' || blendSequenceStep === 'dia' || blendSequenceStep === 'hr'))) {
+                const minVal = 0;
+                const maxVal = 240;
+                value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+              } else if (activeToolMode === 'spo2' || (activeToolMode === 'blend' && blendSequenceStep === 'spo2')) {
+                // SpO2 scale: 45 to 105, capped at 100%
+                const minVal = 45;
+                const maxVal = 105;
+                const rawValue = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+                value = Math.min(rawValue, 100); // Cap at 100%
+              } else {
+                setIsProcessingClick(false);
+                return;
+              }
+              
+              clickInfo = { x: e.clientX, y: e.clientY, value, time };
+            }
+            
+            if (!clickInfo) {
+              setIsProcessingClick(false);
+              return;
+            }
+            
+            // Validate that click time is within editable boundaries
+
+            const editableStartBoundary = currentTime - TEN_MINUTES;
+            const editableEndBoundary = currentTime + TEN_MINUTES;
+            
+            if (clickInfo.time < editableStartBoundary || clickInfo.time > editableEndBoundary) {
+              // Click is outside editable window - ignore
+              setIsProcessingClick(false);
+              return;
+            }
+            
+            // Add data point based on active tool mode
+            if (activeToolMode === 'hr') {
+              // NEW: Save immediately to database using point-based mutation
+              // React Query's optimistic update will handle local state automatically
+              if (anesthesiaRecordId) {
+                console.log('[VITALS-SAVE] Saving HR point', { time: clickInfo.time, value: clickInfo.value });
+                addVitalPointMutation.mutate({
+                  vitalType: 'hr',
+                  timestamp: new Date(clickInfo.time).toISOString(),
+                  value: clickInfo.value
+                });
+                setLastAction({ type: 'hr', data: [clickInfo.time, clickInfo.value] });
+              }
+              setHoverInfo(null);
+              setIsProcessingClick(false);
+            } else if (activeToolMode === 'bp') {
+              // Simplified BP entry: each click adds its value immediately (no pending gray bookmark)
+              if (bpEntryMode === 'sys') {
+                // Add systolic temporarily for UX (will be replaced by React Query optimistic update)
+                const sysPoint: VitalPoint = [clickInfo.time, clickInfo.value];
+                setBpDataPoints(prev => ({
+                  ...prev,
+                  sys: [...prev.sys, sysPoint]
+                }));
+                
+                // Store for reference and switch to diastolic mode
+                setPendingSysValue({ time: clickInfo.time, value: clickInfo.value });
+                setBpEntryMode('dia');
+                setHoverInfo(null);
+                setIsProcessingClick(false);
+              } else {
+                // Add diastolic temporarily for UX (will be replaced by React Query optimistic update)
+                const diaPoint: VitalPoint = [pendingSysValue?.time ?? clickInfo.time, clickInfo.value];
+                setBpDataPoints(prev => ({
+                  ...prev,
+                  dia: [...prev.dia, diaPoint]
+                }));
+                
+                // NEW: Save BP pair to database using point-based mutation
+                // React Query's optimistic update will sync the authoritative data
+                if (anesthesiaRecordId && pendingSysValue) {
+                  console.log('[VITALS-SAVE] Saving BP pair', { 
+                    time: pendingSysValue.time, 
+                    sys: pendingSysValue.value,
+                    dia: clickInfo.value  
+                  });
+                  addBPPointMutation.mutate({
+                    timestamp: new Date(pendingSysValue.time).toISOString(),
+                    sys: pendingSysValue.value,
+                    dia: clickInfo.value
+                  });
+                }
+                
+                // Reset to systolic mode
+                setPendingSysValue(null);
+                setBpEntryMode('sys');
+                setHoverInfo(null);
+                setIsProcessingClick(false);
+              }
+            } else if (activeToolMode === 'spo2') {
+              // NEW: Save immediately to database using point-based mutation
+              // React Query's optimistic update will handle local state automatically
+              if (anesthesiaRecordId) {
+                console.log('[VITALS-SAVE] Saving SPO2 point', { time: clickInfo.time, value: clickInfo.value });
+                addVitalPointMutation.mutate({
+                  vitalType: 'spo2',
+                  timestamp: new Date(clickInfo.time).toISOString(),
+                  value: clickInfo.value
+                });
+                setLastAction({ type: 'spo2', data: [clickInfo.time, clickInfo.value] });
+              }
+              setHoverInfo(null);
+              
+              // Toast notification disabled (can be re-enabled later)
+              // toast({
+              //   title: `💜 SpO2 ${clickInfo.value}% added`,
+              //   description: new Date(clickInfo.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+              //   duration: 3000,
+              //   action: (
+              //     <Button
+              //       variant="outline"
+              //       size="sm"
+              //       onClick={handleUndo}
+              //       data-testid="button-undo-spo2"
+              //     >
+              //       <Undo2 className="w-4 h-4 mr-1" />
+              //       Undo
+              //     </Button>
+              //   ),
+              // });
+              
+              setIsProcessingClick(false);
+            } else if (activeToolMode === 'blend') {
+              // Sequential vitals entry mode - automatically progress through sys -> dia -> hr -> spo2 -> loop
+              if (blendSequenceStep === 'sys') {
+                // Add systolic temporarily for UX (will be replaced by mutation after diastolic is entered)
+                const sysPoint: VitalPoint = [clickInfo.time, clickInfo.value];
+                setBpDataPoints(prev => ({
+                  ...prev,
+                  sys: [...prev.sys, sysPoint]
+                }));
+                setPendingSysValue({ time: clickInfo.time, value: clickInfo.value });
+                setBlendSequenceStep('dia');
+                setHoverInfo(null);
+                setIsProcessingClick(false);
+              } else if (blendSequenceStep === 'dia') {
+                // Add diastolic temporarily for UX
+                const diaPoint: VitalPoint = [pendingSysValue?.time ?? clickInfo.time, clickInfo.value];
+                setBpDataPoints(prev => ({
+                  ...prev,
+                  dia: [...prev.dia, diaPoint]
+                }));
+                
+                // NEW: Save BP pair via mutation
+                if (anesthesiaRecordId && pendingSysValue) {
+                  addBPPointMutation.mutate({
+                    timestamp: new Date(pendingSysValue.time).toISOString(),
+                    sys: pendingSysValue.value,
+                    dia: clickInfo.value
+                  });
+                }
+                
+                setBlendSequenceStep('hr');
+                setHoverInfo(null);
+                setIsProcessingClick(false);
+              } else if (blendSequenceStep === 'hr') {
+                // NEW: Save HR via mutation
+                if (anesthesiaRecordId) {
+                  addVitalPointMutation.mutate({
+                    vitalType: 'hr',
+                    timestamp: new Date(clickInfo.time).toISOString(),
+                    value: clickInfo.value
+                  });
+                }
+                setBlendSequenceStep('spo2');
+                setHoverInfo(null);
+                setIsProcessingClick(false);
+              } else if (blendSequenceStep === 'spo2') {
+                // NEW: Save SpO2 via mutation
+                if (anesthesiaRecordId) {
+                  addVitalPointMutation.mutate({
+                    vitalType: 'spo2',
+                    timestamp: new Date(clickInfo.time).toISOString(),
+                    value: clickInfo.value
+                  });
+                }
+                setBlendSequenceStep('sys'); // Loop back to start
+                setPendingSysValue(null); // Clear pending systolic value
+                setHoverInfo(null);
+                setIsProcessingClick(false);
+              }
+            }
+          }}
+        />
+      )}
+
+      {/* Tooltip for vitals entry - only show on non-touch devices */}
+      {hoverInfo && !isTouchDevice && (
+        <div
+          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
+          style={{
+            left: hoverInfo.x + 10,
+            top: hoverInfo.y - 40,
+          }}
+        >
+          <div className="text-sm font-semibold">
+            {activeToolMode === 'edit' && selectedPoint && (
+              <>
+                {selectedPoint.type === 'hr' && `Dragging HR: ${hoverInfo.value}`}
+                {selectedPoint.type === 'bp-sys' && `Dragging Systolic: ${hoverInfo.value}`}
+                {selectedPoint.type === 'bp-dia' && `Dragging Diastolic: ${hoverInfo.value}`}
+                {selectedPoint.type === 'spo2' && `Dragging SpO2: ${hoverInfo.value}%`}
+              </>
+            )}
+            {activeToolMode === 'hr' && `HR: ${hoverInfo.value}`}
+            {activeToolMode === 'bp' && `${bpEntryMode === 'sys' ? 'Systolic' : 'Diastolic'}: ${hoverInfo.value}`}
+            {activeToolMode === 'spo2' && `SpO2: ${hoverInfo.value}%`}
+            {activeToolMode === 'blend' && blendSequenceStep === 'sys' && `Systolic: ${hoverInfo.value}`}
+            {activeToolMode === 'blend' && blendSequenceStep === 'dia' && `Diastolic: ${hoverInfo.value}`}
+            {activeToolMode === 'blend' && blendSequenceStep === 'hr' && `HR: ${hoverInfo.value}`}
+            {activeToolMode === 'blend' && blendSequenceStep === 'spo2' && `SpO2: ${hoverInfo.value}%`}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {formatTime(hoverInfo.time)}
+          </div>
+        </div>
+      )}
+
+      {/* Tooltip for Zeiten swimlane - only show on non-touch devices */}
+      {zeitenHoverInfo && !isTouchDevice && (
+        <div
+          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
+          style={{
+            left: zeitenHoverInfo.x + 10,
+            top: zeitenHoverInfo.y - 40,
+          }}
+        >
+          {zeitenHoverInfo.existingMarker ? (
+            <>
+              <div className="text-sm font-semibold text-green-600 dark:text-green-400">
+                {zeitenHoverInfo.existingMarker.code} - {zeitenHoverInfo.existingMarker.label}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Set at {formatTime(zeitenHoverInfo.existingMarker.time)}
+              </div>
+            </>
+          ) : zeitenHoverInfo.nextMarker ? (
+            <>
+              <div className="text-sm font-semibold text-primary">
+                {zeitenHoverInfo.nextMarker}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {formatTime(zeitenHoverInfo.time)}
+              </div>
+            </>
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              All markers placed
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Interactive layer for Zeiten swimlane - to place time markers */}
+      {!activeToolMode && (() => {
+        const zeitenLane = swimlanePositions.find(lane => lane.id === 'zeiten');
+        if (!zeitenLane) return null;
+        
+        return (
+          <div
+            className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
+            style={{
+              left: '200px',
+              right: '10px',
+              top: `${zeitenLane.top}px`,
+              height: `${zeitenLane.height}px`,
+              zIndex: 35,
+            }}
+            onMouseMove={(e) => {
+              // Skip hover preview on touch devices
+              if (isTouchDevice) return;
+              
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              
+              // Use tracked zoom state
+              const visibleStart = currentZoomStart ?? data.startTime;
+              const visibleEnd = currentZoomEnd ?? data.endTime;
+              const visibleRange = visibleEnd - visibleStart;
+              
+              // Convert x-position to time
+              const xPercent = x / rect.width;
+              let time = visibleStart + (xPercent * visibleRange);
+              
+              // Always snap to 1-minute intervals for time markers
+              time = snapToInterval(time, ONE_MINUTE);
+              
+              // Check if we're hovering over an existing marker (within 3 minutes threshold)
+              const threeMinutes = 3 * 60 * 1000;
+              const existingMarker = timeMarkers.find(m => 
+                m.time !== null && Math.abs(m.time - time) < threeMinutes
+              );
+              
+              // Find next unplaced marker
+              const nextMarkerIndex = timeMarkers.findIndex(m => m.time === null);
+              const nextMarker = nextMarkerIndex !== -1 ? timeMarkers[nextMarkerIndex] : null;
+              
+              setZeitenHoverInfo({ 
+                x: e.clientX, 
+                y: e.clientY, 
+                time: existingMarker ? existingMarker.time! : time,
+                nextMarker: nextMarker ? `${nextMarker.code} - ${nextMarker.label}` : null,
+                existingMarker: existingMarker ? {
+                  code: existingMarker.code,
+                  label: existingMarker.label,
+                  time: existingMarker.time!
+                } : undefined
+              });
+            }}
+            onMouseLeave={() => setZeitenHoverInfo(null)}
+            onClick={handleZeitenClick}
+            data-testid="interactive-zeiten-lane"
+          />
+        );
+      })()}
+
+      {/* Interactive layer for Events swimlane - to add event comments */}
+      {!activeToolMode && (() => {
+        const eventsLane = swimlanePositions.find(lane => lane.id === 'ereignisse');
+        if (!eventsLane) return null;
+        
+        return (
+          <div
+            className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
+            style={{
+              left: '200px',
+              right: '10px',
+              top: `${eventsLane.top}px`,
+              height: `${eventsLane.height}px`,
+              zIndex: 35,
+            }}
+            onMouseMove={(e) => {
+              if (isTouchDevice) return;
+              
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              
+              const visibleStart = currentZoomStart ?? data.startTime;
+              const visibleEnd = currentZoomEnd ?? data.endTime;
+              const visibleRange = visibleEnd - visibleStart;
+              
+              const xPercent = x / rect.width;
+              let time = visibleStart + (xPercent * visibleRange);
+              
+              // Snap to 1-minute intervals
+              const oneMinute = 60 * 1000;
+              time = Math.round(time / oneMinute) * oneMinute;
+              
+              setEventHoverInfo({ 
+                x: e.clientX, 
+                y: e.clientY, 
+                time
+              });
+            }}
+            onMouseLeave={() => setEventHoverInfo(null)}
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left;
+              
+              const visibleStart = currentZoomStart ?? data.startTime;
+              const visibleEnd = currentZoomEnd ?? data.endTime;
+              const visibleRange = visibleEnd - visibleStart;
+              
+              const xPercent = x / rect.width;
+              let time = visibleStart + (xPercent * visibleRange);
+              
+              // Snap to 1-minute intervals
+              const oneMinute = 60 * 1000;
+              time = Math.round(time / oneMinute) * oneMinute;
+              
+              // Validate that time is within editable boundaries
+
+              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
+              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
+              
+              if (time < editableStartBoundary || time > editableEndBoundary) {
+                // Click is outside editable window - ignore
                 return;
               }
               
@@ -5619,6 +6282,11 @@ export function UnifiedTimeline({
               
               // Validate that time is within editable boundaries
 
+              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
+              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
+              
+              if (time < editableStartBoundary || time > editableEndBoundary) {
+                // Click is outside editable window - ignore
                 return;
               }
               
@@ -5709,6 +6377,11 @@ export function UnifiedTimeline({
               
               // Validate that time is within editable boundaries
 
+              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
+              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
+              
+              if (time < editableStartBoundary || time > editableEndBoundary) {
+                // Click is outside editable window - ignore
                 return;
               }
               
@@ -5801,6 +6474,11 @@ export function UnifiedTimeline({
               
               // Validate that time is within editable boundaries
 
+              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
+              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
+              
+              if (time < editableStartBoundary || time > editableEndBoundary) {
+                // Click is outside editable window - ignore
                 return;
               }
               
@@ -5896,6 +6574,11 @@ export function UnifiedTimeline({
                 
                 // Validate that time is within editable boundaries
                 const fifteenMinutes = 15 * 60 * 1000;
+                const editableStartBoundary = chartInitTime - fifteenMinutes;
+                const editableEndBoundary = currentTime + fifteenMinutes;
+                
+                if (time < editableStartBoundary || time > editableEndBoundary) {
+                  // Click is outside editable window - ignore
                   return;
                 }
                 
@@ -6039,6 +6722,11 @@ export function UnifiedTimeline({
                 
                 // Validate that time is within editable boundaries
                 const fifteenMinutes = 15 * 60 * 1000;
+                const editableStartBoundary = chartInitTime - fifteenMinutes;
+                const editableEndBoundary = currentTime + fifteenMinutes;
+                
+                if (time < editableStartBoundary || time > editableEndBoundary) {
+                  // Click is outside editable window - ignore
                   return;
                 }
                 
@@ -6377,6 +7065,11 @@ export function UnifiedTimeline({
               
               // Validate that time is within editable boundaries
 
+              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
+              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
+              
+              if (time < editableStartBoundary || time > editableEndBoundary) {
+                // Click is outside editable window - ignore
                 return;
               }
               
@@ -6460,6 +7153,11 @@ export function UnifiedTimeline({
               
               // Validate that time is within editable boundaries
 
+              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
+              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
+              
+              if (time < editableStartBoundary || time > editableEndBoundary) {
+                // Click is outside editable window - ignore
                 return;
               }
               
@@ -6568,6 +7266,11 @@ export function UnifiedTimeline({
                 
                 // Validate that time is within editable boundaries
   
+                const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
+                const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
+                
+                if (time < editableStartBoundary || time > editableEndBoundary) {
+                  // Click is outside editable window - ignore
                   return;
                 }
                 
@@ -6709,6 +7412,11 @@ export function UnifiedTimeline({
                 
                 // Validate that time is within editable boundaries
                 const fifteenMinutes = 15 * 60 * 1000;
+                const editableStartBoundary = chartInitTime - fifteenMinutes;
+                const editableEndBoundary = currentTime + fifteenMinutes;
+                
+                if (time < editableStartBoundary || time > editableEndBoundary) {
+                  // Click is outside editable window - ignore
                   return;
                 }
                 
