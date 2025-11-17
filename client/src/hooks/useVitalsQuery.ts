@@ -48,7 +48,7 @@ export interface ClinicalSnapshot {
 // Hook to get the clinical snapshot for a record
 export function useClinicalSnapshot(anesthesiaRecordId: string | undefined) {
   return useQuery<ClinicalSnapshot>({
-    queryKey: ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+    queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
     enabled: !!anesthesiaRecordId,
   });
 }
@@ -72,7 +72,7 @@ export function useAddVitalPoint(anesthesiaRecordId: string | undefined) {
     onMutate: async (newPoint) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({
-        queryKey: ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
       });
 
       // Snapshot previous value
@@ -119,7 +119,7 @@ export function useAddVitalPoint(anesthesiaRecordId: string | undefined) {
     onSettled: () => {
       // Refetch to get server state
       queryClient.invalidateQueries({
-        queryKey: ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
       });
     },
   });
@@ -144,7 +144,7 @@ export function useAddBPPoint(anesthesiaRecordId: string | undefined) {
     },
     onMutate: async (newPoint) => {
       await queryClient.cancelQueries({
-        queryKey: ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
       });
 
       const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
@@ -189,7 +189,7 @@ export function useAddBPPoint(anesthesiaRecordId: string | undefined) {
     },
     onSettled: () => {
       queryClient.invalidateQueries({
-        queryKey: ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
       });
     },
   });
@@ -213,7 +213,7 @@ export function useUpdateVitalPoint(anesthesiaRecordId: string | undefined) {
     },
     onMutate: async (updates) => {
       await queryClient.cancelQueries({
-        queryKey: ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
       });
 
       const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
@@ -264,7 +264,7 @@ export function useUpdateVitalPoint(anesthesiaRecordId: string | undefined) {
     },
     onSettled: () => {
       queryClient.invalidateQueries({
-        queryKey: ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
       });
     },
   });
@@ -290,7 +290,7 @@ export function useUpdateBPPoint(anesthesiaRecordId: string | undefined) {
     },
     onMutate: async (updates) => {
       await queryClient.cancelQueries({
-        queryKey: ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
       });
 
       const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
@@ -335,7 +335,7 @@ export function useUpdateBPPoint(anesthesiaRecordId: string | undefined) {
     },
     onSettled: () => {
       queryClient.invalidateQueries({
-        queryKey: ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
       });
     },
   });
@@ -354,7 +354,7 @@ export function useDeleteVitalPoint(anesthesiaRecordId: string | undefined) {
     },
     onMutate: async (pointId) => {
       await queryClient.cancelQueries({
-        queryKey: ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
       });
 
       const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
@@ -398,7 +398,7 @@ export function useDeleteVitalPoint(anesthesiaRecordId: string | undefined) {
     },
     onSettled: () => {
       queryClient.invalidateQueries({
-        queryKey: ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId],
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
       });
     },
   });
