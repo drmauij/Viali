@@ -1961,6 +1961,11 @@ export function UnifiedTimeline({
 
   // Track initial zoom state
   const hasSetInitialZoomRef = useRef(false);
+  
+  // Reset initial zoom flag when anesthesia record changes (opening a different surgery)
+  useEffect(() => {
+    hasSetInitialZoomRef.current = false;
+  }, [anesthesiaRecordId]);
 
   // Handle chart ready - set initial zoom to 60-minute window with NOW positioned left
   const handleChartReady = (chart: any) => {
