@@ -202,3 +202,51 @@ export async function saveEvent(payload: SaveEventPayload): Promise<any> {
     throw error;
   }
 }
+
+// ===== TIME MARKERS PERSISTENCE =====
+
+export interface TimeMarker {
+  id: string;
+  code: string;
+  label: string;
+  time: number | null; // timestamp in milliseconds, null if not set
+}
+
+export interface SaveTimeMarkersPayload {
+  anesthesiaRecordId: string;
+  timeMarkers: TimeMarker[];
+}
+
+/**
+ * Save time markers to database
+ */
+export async function saveTimeMarkers(payload: SaveTimeMarkersPayload): Promise<any> {
+  console.log('[PERSISTENCE] saveTimeMarkers called with:', {
+    anesthesiaRecordId: payload.anesthesiaRecordId,
+    timeMarkersCount: payload.timeMarkers.length,
+  });
+
+  if (!payload.anesthesiaRecordId) {
+    throw new Error('anesthesiaRecordId is required');
+  }
+  if (!Array.isArray(payload.timeMarkers)) {
+    throw new Error('timeMarkers must be an array');
+  }
+
+  const requestPayload = {
+    timeMarkers: payload.timeMarkers,
+  };
+
+  console.log('[PERSISTENCE] Sending PATCH /api/anesthesia/records/:id/time-markers:', JSON.stringify(requestPayload, null, 2));
+
+  try {
+    const response = await apiRequest('PATCH', `/api/anesthesia/records/${payload.anesthesiaRecordId}/time-markers`, requestPayload);
+    const result = await response.json();
+    
+    console.log('[PERSISTENCE] saveTimeMarkers success:', result);
+    return result;
+  } catch (error) {
+    console.error('[PERSISTENCE] saveTimeMarkers failed:', error);
+    throw error;
+  }
+}

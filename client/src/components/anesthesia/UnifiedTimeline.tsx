@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { saveMedication } from "@/services/timelinePersistence";
+import { saveMedication, saveTimeMarkers } from "@/services/timelinePersistence";
 import { useVitalsState } from "@/hooks/useVitalsState";
 import { useMedicationState } from "@/hooks/useMedicationState";
 import { useVentilationState } from "@/hooks/useVentilationState";
@@ -371,6 +371,7 @@ export function UnifiedTimeline({
   now, // Current time for determining editable zones and initial zoom
   patientWeight, // Patient weight in kg for default ventilation calculations
   anesthesiaRecordId, // Anesthesia record ID for auto-saving vitals
+  anesthesiaRecord, // Full anesthesia record for loading saved data (time markers, etc.)
 }: {
   data: UnifiedTimelineData;
   height?: number;
@@ -378,6 +379,7 @@ export function UnifiedTimeline({
   now?: number;
   patientWeight?: number;
   anesthesiaRecordId?: string;
+  anesthesiaRecord?: any;
 }) {
   const chartRef = useRef<any>(null);
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
@@ -415,6 +417,22 @@ export function UnifiedTimeline({
       toast({
         title: "Error saving medication",
         description: error instanceof Error ? error.message : "Failed to save medication",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation for saving time markers
+  const saveTimeMarkersMutation = useMutation({
+    mutationFn: saveTimeMarkers,
+    onSuccess: (data) => {
+      console.log('[TIME_MARKERS] Save successful', data);
+    },
+    onError: (error) => {
+      console.error('[TIME_MARKERS] Save failed', error);
+      toast({
+        title: "Error saving time markers",
+        description: error instanceof Error ? error.message : "Failed to save time markers",
         variant: "destructive",
       });
     },
@@ -688,6 +706,14 @@ export function UnifiedTimeline({
   } = useEventState({
     timeMarkers: ANESTHESIA_TIME_MARKERS.map(marker => ({ ...marker, time: null }))
   });
+
+  // Load time markers from database when anesthesia record is fetched
+  useEffect(() => {
+    if (anesthesiaRecord?.timeMarkers && Array.isArray(anesthesiaRecord.timeMarkers)) {
+      console.log('[TIME_MARKERS] Loading from database:', anesthesiaRecord.timeMarkers);
+      setTimeMarkers(anesthesiaRecord.timeMarkers);
+    }
+  }, [anesthesiaRecord, setTimeMarkers]);
 
   // UI state for heart rhythm dialogs and interactions
   const [showHeartRhythmDialog, setShowHeartRhythmDialog] = useState(false);
@@ -1628,6 +1654,14 @@ export function UnifiedTimeline({
     const updated = [...timeMarkers];
     updated[nextMarkerIndex] = { ...updated[nextMarkerIndex], time: snappedTime };
     setTimeMarkers(updated);
+
+    // Save to database
+    if (anesthesiaRecordId) {
+      saveTimeMarkersMutation.mutate({
+        anesthesiaRecordId,
+        timeMarkers: updated,
+      });
+    }
   };
 
   // Handle updating time marker time
@@ -1639,6 +1673,14 @@ export function UnifiedTimeline({
     setTimeMarkers(updated);
     setTimeMarkerEditDialogOpen(false);
     setEditingTimeMarker(null);
+
+    // Save to database
+    if (anesthesiaRecordId) {
+      saveTimeMarkersMutation.mutate({
+        anesthesiaRecordId,
+        timeMarkers: updated,
+      });
+    }
   };
 
   // Handle deleting time marker
@@ -1650,6 +1692,14 @@ export function UnifiedTimeline({
     setTimeMarkers(updated);
     setTimeMarkerEditDialogOpen(false);
     setEditingTimeMarker(null);
+
+    // Save to database
+    if (anesthesiaRecordId) {
+      saveTimeMarkersMutation.mutate({
+        anesthesiaRecordId,
+        timeMarkers: updated,
+      });
+    }
   };
 
   // Undo last vital entry

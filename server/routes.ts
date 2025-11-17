@@ -5087,6 +5087,47 @@ If unable to parse any drugs, return:
     }
   });
 
+  // Update time markers for anesthesia record
+  app.patch('/api/anesthesia/records/:id/time-markers', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { timeMarkers } = req.body;
+      const userId = req.user.id;
+
+      const record = await storage.getAnesthesiaRecordById(id);
+      
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      // Verify user has access
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Cannot update closed or amended records
+      if (record.caseStatus === 'closed' || record.caseStatus === 'amended') {
+        return res.status(400).json({ message: "Cannot update closed or amended records. Use amend endpoint instead." });
+      }
+
+      // Update time markers
+      const updatedRecord = await storage.updateAnesthesiaRecord(id, { timeMarkers });
+      
+      res.json(updatedRecord);
+    } catch (error) {
+      console.error("Error updating time markers:", error);
+      res.status(500).json({ message: "Failed to update time markers" });
+    }
+  });
+
   // Close anesthesia record
   app.post('/api/anesthesia/records/:id/close', isAuthenticated, async (req: any, res) => {
     try {

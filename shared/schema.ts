@@ -559,6 +559,14 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
   timeOutChecklist: jsonb("time_out_checklist").$type<Record<string, boolean>>(),
   signOutChecklist: jsonb("sign_out_checklist").$type<Record<string, boolean>>(),
   
+  // Time markers (A1, E, X1, I, L, B1, O1, O2, B2, X2, X, A2, P)
+  timeMarkers: jsonb("time_markers").$type<Array<{
+    id: string;
+    code: string;
+    label: string;
+    time: number | null; // timestamp in milliseconds, null if not set
+  }>>(),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [

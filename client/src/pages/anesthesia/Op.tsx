@@ -647,6 +647,7 @@ export default function Op() {
                   now={new Date().getTime()} 
                   patientWeight={patientWeight}
                   anesthesiaRecordId={anesthesiaRecord?.id}
+                  anesthesiaRecord={anesthesiaRecord}
                 />
               )}
             </div>
