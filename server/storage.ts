@@ -284,6 +284,7 @@ export interface IStorage {
   
   // Vitals Snapshots operations
   getVitalsSnapshots(anesthesiaRecordId: string): Promise<VitalsSnapshot[]>;
+  getVitalsSnapshotById(id: string): Promise<VitalsSnapshot | undefined>;
   createVitalsSnapshot(snapshot: InsertVitalsSnapshot): Promise<VitalsSnapshot>;
   updateVitalsSnapshot(id: string, updates: Partial<VitalsSnapshot>, userId: string): Promise<VitalsSnapshot>;
   
@@ -1854,6 +1855,14 @@ export class DatabaseStorage implements IStorage {
       .where(eq(vitalsSnapshots.anesthesiaRecordId, anesthesiaRecordId))
       .orderBy(asc(vitalsSnapshots.timestamp));
     return snapshots;
+  }
+
+  async getVitalsSnapshotById(id: string): Promise<VitalsSnapshot | undefined> {
+    const [snapshot] = await db
+      .select()
+      .from(vitalsSnapshots)
+      .where(eq(vitalsSnapshots.id, id));
+    return snapshot;
   }
 
   async createVitalsSnapshot(snapshot: InsertVitalsSnapshot): Promise<VitalsSnapshot> {

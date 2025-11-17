@@ -5400,14 +5400,14 @@ If unable to parse any drugs, return:
       const { id } = req.params;
       const userId = req.user.id;
 
-      const vital = await storage.getVitalsSnapshots(id);
+      const vital = await storage.getVitalsSnapshotById(id);
       
-      if (!vital || vital.length === 0) {
+      if (!vital) {
         return res.status(404).json({ message: "Vitals snapshot not found" });
       }
 
       // Verify user has access
-      const record = await storage.getAnesthesiaRecordById(vital[0].anesthesiaRecordId);
+      const record = await storage.getAnesthesiaRecordById(vital.anesthesiaRecordId);
       if (!record) {
         return res.status(404).json({ message: "Anesthesia record not found" });
       }
