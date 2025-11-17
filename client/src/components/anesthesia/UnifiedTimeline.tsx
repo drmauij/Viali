@@ -1851,15 +1851,6 @@ export function UnifiedTimeline({
       return;
     }
     
-    // Validate that time is within editable boundaries
-    const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
-    const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
-    
-    if (snappedTime < editableStartBoundary || snappedTime > editableEndBoundary) {
-      // Click is outside editable window - ignore
-      return;
-    }
-    
     // Update the marker with the time
     const updated = [...timeMarkers];
     updated[nextMarkerIndex] = { ...updated[nextMarkerIndex], time: snappedTime };
@@ -5714,12 +5705,6 @@ export function UnifiedTimeline({
             // Snap to nearest vertical grid line - use zoom-dependent interval for vitals
             time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
             
-            // Check if time is within editable boundaries (only show hover if editable)
-
-            const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
-            const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
-            const isEditable = time >= editableStartBoundary && time <= editableEndBoundary;
-            
             // Convert y-position to value based on active tool
             let value: number;
             const yPercent = y / rect.height;
@@ -5741,21 +5726,20 @@ export function UnifiedTimeline({
               const fixedTime = selectedPoint.originalTime; // Keep time constant during drag
               setDragPosition({ time: fixedTime, value });
               setHoverInfo({ x: e.clientX, y: e.clientY, value, time: fixedTime });
-            } else if (isEditable && (activeToolMode === 'hr' || activeToolMode === 'bp' || (activeToolMode === 'blend' && (blendSequenceStep === 'sys' || blendSequenceStep === 'dia' || blendSequenceStep === 'hr')))) {
-              // BP/HR scale: 0 to 240 (only show if within editable window)
+            } else if (activeToolMode === 'hr' || activeToolMode === 'bp' || (activeToolMode === 'blend' && (blendSequenceStep === 'sys' || blendSequenceStep === 'dia' || blendSequenceStep === 'hr'))) {
+              // BP/HR scale: 0 to 240
               const minVal = 0;
               const maxVal = 240;
               value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
               setHoverInfo({ x: e.clientX, y: e.clientY, value, time });
-            } else if (isEditable && (activeToolMode === 'spo2' || (activeToolMode === 'blend' && blendSequenceStep === 'spo2'))) {
-              // SpO2 scale: 45 to 105, capped at 100% (only show if within editable window)
+            } else if (activeToolMode === 'spo2' || (activeToolMode === 'blend' && blendSequenceStep === 'spo2')) {
+              // SpO2 scale: 45 to 105, capped at 100%
               const minVal = 45;
               const maxVal = 105;
               const rawValue = Math.round(maxVal - (yPercent * (maxVal - minVal)));
               value = Math.min(rawValue, 100); // Cap at 100%
               setHoverInfo({ x: e.clientX, y: e.clientY, value, time });
             } else {
-              // Clear hover info if outside editable window
               setHoverInfo(null);
             }
           }}
@@ -6011,17 +5995,6 @@ export function UnifiedTimeline({
             }
             
             if (!clickInfo) {
-              setIsProcessingClick(false);
-              return;
-            }
-            
-            // Validate that click time is within editable boundaries
-
-            const editableStartBoundary = currentTime - TEN_MINUTES;
-            const editableEndBoundary = currentTime + TEN_MINUTES;
-            
-            if (clickInfo.time < editableStartBoundary || clickInfo.time > editableEndBoundary) {
-              // Click is outside editable window - ignore
               setIsProcessingClick(false);
               return;
             }
@@ -6352,12 +6325,7 @@ export function UnifiedTimeline({
               
               // Validate that time is within editable boundaries
 
-              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
-              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
               
-              if (time < editableStartBoundary || time > editableEndBoundary) {
-                // Click is outside editable window - ignore
-                return;
               }
               
               setPendingEvent({ time });
@@ -6492,12 +6460,7 @@ export function UnifiedTimeline({
               
               // Validate that time is within editable boundaries
 
-              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
-              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
               
-              if (time < editableStartBoundary || time > editableEndBoundary) {
-                // Click is outside editable window - ignore
-                return;
               }
               
               setPendingHeartRhythm({ time });
@@ -6587,12 +6550,7 @@ export function UnifiedTimeline({
               
               // Validate that time is within editable boundaries
 
-              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
-              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
               
-              if (time < editableStartBoundary || time > editableEndBoundary) {
-                // Click is outside editable window - ignore
-                return;
               }
               
               // Prefill with current user's name
@@ -6684,12 +6642,7 @@ export function UnifiedTimeline({
               
               // Validate that time is within editable boundaries
 
-              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
-              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
               
-              if (time < editableStartBoundary || time > editableEndBoundary) {
-                // Click is outside editable window - ignore
-                return;
               }
               
               setPendingPosition({ time });
@@ -6784,12 +6737,7 @@ export function UnifiedTimeline({
                 
                 // Validate that time is within editable boundaries
                 const fifteenMinutes = 15 * 60 * 1000;
-                const editableStartBoundary = chartInitTime - fifteenMinutes;
-                const editableEndBoundary = currentTime + fifteenMinutes;
                 
-                if (time < editableStartBoundary || time > editableEndBoundary) {
-                  // Click is outside editable window - ignore
-                  return;
                 }
                 
                 // Check if we're clicking on an existing dose label
@@ -6932,12 +6880,7 @@ export function UnifiedTimeline({
                 
                 // Validate that time is within editable boundaries
                 const fifteenMinutes = 15 * 60 * 1000;
-                const editableStartBoundary = chartInitTime - fifteenMinutes;
-                const editableEndBoundary = currentTime + fifteenMinutes;
                 
-                if (time < editableStartBoundary || time > editableEndBoundary) {
-                  // Click is outside editable window - ignore
-                  return;
                 }
                 
                 // Check if we're clicking on an existing infusion value
@@ -7275,12 +7218,7 @@ export function UnifiedTimeline({
               
               // Validate that time is within editable boundaries
 
-              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
-              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
               
-              if (time < editableStartBoundary || time > editableEndBoundary) {
-                // Click is outside editable window - ignore
-                return;
               }
               
               setPendingVentilationBulk({ time });
@@ -7363,12 +7301,7 @@ export function UnifiedTimeline({
               
               // Validate that time is within editable boundaries
 
-              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
-              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
               
-              if (time < editableStartBoundary || time > editableEndBoundary) {
-                // Click is outside editable window - ignore
-                return;
               }
               
               setPendingOutputBulk({ time });
@@ -7476,12 +7409,7 @@ export function UnifiedTimeline({
                 
                 // Validate that time is within editable boundaries
   
-                const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
-                const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
                 
-                if (time < editableStartBoundary || time > editableEndBoundary) {
-                  // Click is outside editable window - ignore
-                  return;
                 }
                 
                 setPendingVentilationValue({ 
@@ -7622,12 +7550,7 @@ export function UnifiedTimeline({
                 
                 // Validate that time is within editable boundaries
                 const fifteenMinutes = 15 * 60 * 1000;
-                const editableStartBoundary = chartInitTime - fifteenMinutes;
-                const editableEndBoundary = currentTime + fifteenMinutes;
                 
-                if (time < editableStartBoundary || time > editableEndBoundary) {
-                  // Click is outside editable window - ignore
-                  return;
                 }
                 
                 // Check if we're clicking on an existing value
