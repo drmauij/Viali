@@ -1969,13 +1969,6 @@ export function UnifiedTimeline({
       }
       
       setCurrentVitalsSnapInterval(vitalsSnapInterval);
-      
-      // Enable NOW line transitions after first actual zoom state is received
-      if (isNowLineFirstRenderRef.current) {
-        requestAnimationFrame(() => {
-          isNowLineFirstRenderRef.current = false;
-        });
-      }
     };
 
     // Update immediately
@@ -2019,6 +2012,13 @@ export function UnifiedTimeline({
     // Only update if position changed (avoid unnecessary re-renders)
     if (newPosition !== nowLinePosition) {
       setNowLinePosition(newPosition);
+      
+      // Enable transitions after first position is set with correct zoom data
+      if (isNowLineFirstRenderRef.current) {
+        requestAnimationFrame(() => {
+          isNowLineFirstRenderRef.current = false;
+        });
+      }
     }
   }, [currentZoomStart, currentZoomEnd, currentTime, nowLinePosition]);
 
