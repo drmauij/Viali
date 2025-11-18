@@ -13,6 +13,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { StickyTimelineHeader } from "./StickyTimelineHeader";
 import { MedicationConfigDialog } from "./MedicationConfigDialog";
 import { EventDialog } from "./dialogs/EventDialog";
+import { HeartRhythmDialog } from "./dialogs/HeartRhythmDialog";
+import { StaffDialog } from "./dialogs/StaffDialog";
+import { PositionDialog } from "./dialogs/PositionDialog";
 import { DialogFooterWithTime } from "./DialogFooterWithTime";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -34,11 +37,8 @@ import {
   useDeleteVitalPoint,
   convertToLegacyFormat 
 } from "@/hooks/useVitalsQuery";
-import { useAddRhythmPoint, useUpdateRhythmPoint, useDeleteRhythmPoint } from "@/hooks/useRhythmQuery";
 import { useCreateVentilationMode, useUpdateVentilationMode, useDeleteVentilationMode } from "@/hooks/useVentilationModeQuery";
 import { useCreateOutput, useUpdateOutput, useDeleteOutput } from "@/hooks/useOutputQuery";
-import { useCreatePosition, useUpdatePosition, useDeletePosition } from "@/hooks/usePositionQuery";
-import { useCreateStaff, useUpdateStaff, useDeleteStaff } from "@/hooks/useStaffQuery";
 import { useCreateEvent, useUpdateEvent, useDeleteEvent } from "@/hooks/useEventsQuery";
 import { useCreateMedication, useUpdateMedication, useDeleteMedication } from "@/hooks/useMedicationQuery";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
@@ -453,10 +453,6 @@ export function UnifiedTimeline({
     },
   });
 
-  // Mutation hooks for heart rhythm
-  const addRhythmPoint = useAddRhythmPoint(anesthesiaRecordId);
-  const updateRhythmPoint = useUpdateRhythmPoint(anesthesiaRecordId);
-  const deleteRhythmPoint = useDeleteRhythmPoint(anesthesiaRecordId);
 
   // Mutation hooks for ventilation mode
   const createVentilationMode = useCreateVentilationMode(anesthesiaRecordId);
@@ -468,15 +464,6 @@ export function UnifiedTimeline({
   const updateOutput = useUpdateOutput(anesthesiaRecordId);
   const deleteOutput = useDeleteOutput(anesthesiaRecordId);
 
-  // Mutation hooks for position
-  const createPosition = useCreatePosition(anesthesiaRecordId);
-  const updatePosition = useUpdatePosition(anesthesiaRecordId);
-  const deletePosition = useDeletePosition(anesthesiaRecordId);
-
-  // Mutation hooks for staff
-  const createStaff = useCreateStaff(anesthesiaRecordId);
-  const updateStaff = useUpdateStaff(anesthesiaRecordId);
-  const deleteStaff = useDeleteStaff(anesthesiaRecordId);
 
   // Mutation hooks for events
   const createEvent = useCreateEvent(anesthesiaRecordId || '');
@@ -988,24 +975,18 @@ export function UnifiedTimeline({
   const [showHeartRhythmDialog, setShowHeartRhythmDialog] = useState(false);
   const [pendingHeartRhythm, setPendingHeartRhythm] = useState<{ time: number } | null>(null);
   const [editingHeartRhythm, setEditingHeartRhythm] = useState<{ time: number; rhythm: string; index: number; id: string } | null>(null);
-  const [heartRhythmInput, setHeartRhythmInput] = useState("");
-  const [heartRhythmEditTime, setHeartRhythmEditTime] = useState<number>(0);
   const [heartRhythmHoverInfo, setHeartRhythmHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
 
   // UI state for staff dialogs and interactions
   const [showStaffDialog, setShowStaffDialog] = useState(false);
   const [pendingStaff, setPendingStaff] = useState<{ time: number; role: 'doctor' | 'nurse' | 'assistant' } | null>(null);
   const [editingStaff, setEditingStaff] = useState<{ id: string; time: number; name: string; role: 'doctor' | 'nurse' | 'assistant'; index: number } | null>(null);
-  const [staffInput, setStaffInput] = useState("");
-  const [staffEditTime, setStaffEditTime] = useState<number>(Date.now());
   const [staffHoverInfo, setStaffHoverInfo] = useState<{ x: number; y: number; time: number; role: string } | null>(null);
 
   // UI state for position dialogs and interactions
   const [showPositionDialog, setShowPositionDialog] = useState(false);
   const [pendingPosition, setPendingPosition] = useState<{ time: number } | null>(null);
   const [editingPosition, setEditingPosition] = useState<{ id: string; time: number; position: string; index: number } | null>(null);
-  const [positionInput, setPositionInput] = useState("");
-  const [positionEditTime, setPositionEditTime] = useState<number>(Date.now());
   const [positionHoverInfo, setPositionHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
 
   // UI state for event comment dialogs and interactions
@@ -5190,138 +5171,6 @@ export function UnifiedTimeline({
     setVentilationModeEditInput("");
   };
 
-  // Handle heart rhythm save
-  const handleHeartRhythmSave = (rhythmValue?: string) => {
-    const rhythm = (rhythmValue || heartRhythmInput).trim();
-    if (!rhythm) return;
-    if (!anesthesiaRecordId) return;
-    
-    if (editingHeartRhythm) {
-      // Editing existing value - call update mutation
-      const newTimestamp = heartRhythmEditTime;
-      
-      updateRhythmPoint.mutate({
-        pointId: editingHeartRhythm.id,
-        value: rhythm,
-        timestamp: new Date(newTimestamp).toISOString(),
-      });
-    } else if (pendingHeartRhythm) {
-      // Adding new value - call add mutation
-      addRhythmPoint.mutate({
-        timestamp: new Date(pendingHeartRhythm.time).toISOString(),
-        value: rhythm,
-      });
-    }
-    
-    setShowHeartRhythmDialog(false);
-    setPendingHeartRhythm(null);
-    setEditingHeartRhythm(null);
-    setHeartRhythmInput("");
-    setHeartRhythmEditTime(0);
-  };
-
-  // Handle heart rhythm delete
-  const handleHeartRhythmDelete = () => {
-    if (!editingHeartRhythm) return;
-    if (!anesthesiaRecordId) return;
-    
-    // Call delete mutation
-    deleteRhythmPoint.mutate(editingHeartRhythm.id);
-    
-    setShowHeartRhythmDialog(false);
-    setEditingHeartRhythm(null);
-    setHeartRhythmInput("");
-    setHeartRhythmEditTime(0);
-  };
-
-  // Handle staff entry save
-  const handleStaffSave = () => {
-    const name = staffInput.trim();
-    if (!name) return;
-    if (!anesthesiaRecordId) return;
-    
-    if (editingStaff) {
-      // Editing existing value - call update mutation
-      const { id, role } = editingStaff;
-      
-      updateStaff.mutate({
-        id,
-        timestamp: new Date(staffEditTime),
-        name,
-      });
-    } else if (pendingStaff) {
-      // Adding new value - call create mutation
-      const { time, role } = pendingStaff;
-      
-      createStaff.mutate({
-        anesthesiaRecordId,
-        timestamp: new Date(time),
-        role,
-        name,
-      });
-    }
-    
-    setShowStaffDialog(false);
-    setPendingStaff(null);
-    setEditingStaff(null);
-    setStaffInput("");
-  };
-
-  // Handle staff entry delete
-  const handleStaffDelete = () => {
-    if (!editingStaff) return;
-    if (!anesthesiaRecordId) return;
-    
-    // Call delete mutation
-    deleteStaff.mutate(editingStaff.id);
-    
-    setShowStaffDialog(false);
-    setEditingStaff(null);
-    setStaffInput("");
-  };
-
-  // Handle position entry save
-  const handlePositionSave = () => {
-    const position = positionInput.trim();
-    if (!position) return;
-    if (!anesthesiaRecordId) return;
-    
-    if (editingPosition) {
-      // Editing existing value - call update mutation
-      const { id } = editingPosition;
-      
-      updatePosition.mutate({
-        id,
-        timestamp: new Date(positionEditTime),
-        position,
-      });
-    } else if (pendingPosition) {
-      // Adding new value - call create mutation
-      createPosition.mutate({
-        anesthesiaRecordId,
-        timestamp: new Date(pendingPosition.time),
-        position,
-      });
-    }
-    
-    setShowPositionDialog(false);
-    setPendingPosition(null);
-    setEditingPosition(null);
-    setPositionInput("");
-  };
-
-  // Handle position entry delete
-  const handlePositionDelete = () => {
-    if (!editingPosition) return;
-    if (!anesthesiaRecordId) return;
-    
-    // Call delete mutation
-    deletePosition.mutate(editingPosition.id);
-    
-    setShowPositionDialog(false);
-    setEditingPosition(null);
-    setPositionInput("");
-  };
 
   // Handle ventilation bulk entry save
   const handleVentilationBulkSave = () => {
@@ -10113,211 +9962,61 @@ export function UnifiedTimeline({
       </Dialog>
 
       {/* Heart Rhythm Dialog */}
-      <Dialog open={showHeartRhythmDialog} onOpenChange={setShowHeartRhythmDialog}>
-        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-heart-rhythm">
-          <DialogHeader>
-            <DialogTitle>Heart Rhythm</DialogTitle>
-            <DialogDescription>
-              {editingHeartRhythm ? 'Edit or delete the rhythm' : 'Select a heart rhythm to add'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-            <div className="grid gap-2">
-              <Label>Select Rhythm</Label>
-              <div className="grid gap-1">
-                {editingHeartRhythm ? (
-                  // When editing, show buttons to select new rhythm but require Save
-                  <>
-                    {['SR', 'SVES', 'VES', 'VHF', 'Vorhofflattern', 'Schrittmacher', 'AV Block III', 'Kammerflimmern', 'Torsade de pointes', 'Defibrillator'].map((rhythm) => (
-                      <Button
-                        key={rhythm}
-                        variant={heartRhythmInput === rhythm ? 'default' : 'outline'}
-                        className="justify-start h-12 text-left"
-                        onClick={() => {
-                          setHeartRhythmInput(rhythm);
-                        }}
-                        data-testid={`button-rhythm-${rhythm.toLowerCase().replace(/\s+/g, '-')}`}
-                      >
-                        {rhythm}
-                      </Button>
-                    ))}
-                    <Input
-                      placeholder="Custom value..."
-                      value={heartRhythmInput && !['SR', 'SVES', 'VES', 'VHF', 'Vorhofflattern', 'Schrittmacher', 'AV Block III', 'Kammerflimmern', 'Torsade de pointes', 'Defibrillator'].includes(heartRhythmInput) ? heartRhythmInput : ''}
-                      onChange={(e) => setHeartRhythmInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && heartRhythmInput.trim()) {
-                          handleHeartRhythmSave();
-                        }
-                      }}
-                      className="mt-2"
-                      data-testid="input-heart-rhythm-custom"
-                    />
-                  </>
-                ) : (
-                  // When adding new, preset buttons immediately save
-                  <>
-                    {['SR', 'SVES', 'VES', 'VHF', 'Vorhofflattern', 'Schrittmacher', 'AV Block III', 'Kammerflimmern', 'Torsade de pointes', 'Defibrillator'].map((rhythm) => (
-                      <Button
-                        key={rhythm}
-                        variant="outline"
-                        className="justify-start h-12 text-left"
-                        onClick={() => {
-                          handleHeartRhythmSave(rhythm);
-                        }}
-                        data-testid={`button-rhythm-${rhythm.toLowerCase().replace(/\s+/g, '-')}`}
-                      >
-                        {rhythm}
-                      </Button>
-                    ))}
-                    <Input
-                      placeholder="Custom value..."
-                      value={heartRhythmInput}
-                      onChange={(e) => setHeartRhythmInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && heartRhythmInput.trim()) {
-                          handleHeartRhythmSave();
-                        }
-                      }}
-                      className="mt-2"
-                      data-testid="input-heart-rhythm-custom"
-                    />
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-          <DialogFooterWithTime
-            time={editingHeartRhythm ? heartRhythmEditTime : pendingHeartRhythm?.time}
-            onTimeChange={editingHeartRhythm ? setHeartRhythmEditTime : (newTime) => setPendingHeartRhythm(prev => prev ? { ...prev, time: newTime } : null)}
-            showDelete={!!editingHeartRhythm}
-            onDelete={editingHeartRhythm ? handleHeartRhythmDelete : undefined}
-            onCancel={() => {
-              setShowHeartRhythmDialog(false);
-              setPendingHeartRhythm(null);
-              setEditingHeartRhythm(null);
-              setHeartRhythmInput("");
-            }}
-            onSave={handleHeartRhythmSave}
-            saveDisabled={!heartRhythmInput.trim()}
-            saveLabel={editingHeartRhythm ? 'Save' : 'Add'}
-          />
-        </DialogContent>
-      </Dialog>
+      <HeartRhythmDialog
+        open={showHeartRhythmDialog}
+        onOpenChange={setShowHeartRhythmDialog}
+        anesthesiaRecordId={anesthesiaRecordId}
+        editingHeartRhythm={editingHeartRhythm}
+        pendingHeartRhythm={pendingHeartRhythm}
+        onHeartRhythmCreated={() => {
+          setPendingHeartRhythm(null);
+          setEditingHeartRhythm(null);
+        }}
+        onHeartRhythmUpdated={() => {
+          setEditingHeartRhythm(null);
+        }}
+        onHeartRhythmDeleted={() => {
+          setEditingHeartRhythm(null);
+        }}
+      />
 
       {/* Staff Entry Dialog */}
-      <Dialog open={showStaffDialog} onOpenChange={setShowStaffDialog}>
-        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-staff">
-          <DialogHeader>
-            <DialogTitle>Staff Entry</DialogTitle>
-            <DialogDescription>
-              {editingStaff ? `Edit or delete the ${editingStaff.role} entry` : 'Add staff member to the timeline'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="staff-name">Name</Label>
-              <Input
-                id="staff-name"
-                data-testid="input-staff-name"
-                placeholder="Enter name..."
-                value={staffInput}
-                onChange={(e) => setStaffInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && staffInput.trim()) {
-                    handleStaffSave();
-                  }
-                }}
-              />
-            </div>
-          </div>
-          <DialogFooterWithTime
-            time={editingStaff ? staffEditTime : pendingStaff?.time}
-            onTimeChange={editingStaff ? setStaffEditTime : (newTime) => setPendingStaff(prev => prev ? { ...prev, time: newTime } : null)}
-            showDelete={!!editingStaff}
-            onDelete={editingStaff ? handleStaffDelete : undefined}
-            onCancel={() => {
-              setShowStaffDialog(false);
-              setPendingStaff(null);
-              setEditingStaff(null);
-              setStaffInput("");
-            }}
-            onSave={handleStaffSave}
-            saveDisabled={!staffInput.trim()}
-            saveLabel={editingStaff ? 'Save' : 'Add'}
-          />
-        </DialogContent>
-      </Dialog>
+      <StaffDialog
+        open={showStaffDialog}
+        onOpenChange={setShowStaffDialog}
+        anesthesiaRecordId={anesthesiaRecordId}
+        editingStaff={editingStaff}
+        pendingStaff={pendingStaff}
+        onStaffCreated={() => {
+          setPendingStaff(null);
+          setEditingStaff(null);
+        }}
+        onStaffUpdated={() => {
+          setEditingStaff(null);
+        }}
+        onStaffDeleted={() => {
+          setEditingStaff(null);
+        }}
+      />
 
       {/* Position Dialog */}
-      <Dialog open={showPositionDialog} onOpenChange={setShowPositionDialog}>
-        <DialogContent className="sm:max-w-[500px]" data-testid="dialog-position">
-          <DialogHeader>
-            <DialogTitle>Patient Position</DialogTitle>
-            <DialogDescription>
-              {editingPosition ? 'Edit or delete the patient position' : 'Select a patient position'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-            <div className="grid gap-2">
-              <Label>Select Position</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { key: 'Supine', label: 'Supine (Back)' },
-                  { key: 'Prone', label: 'Prone (Belly)' },
-                  { key: 'Left Side', label: 'Left Side' },
-                  { key: 'Right Side', label: 'Right Side' },
-                  { key: 'Beach Chair', label: 'Beach Chair' },
-                  { key: 'Lithotomy', label: 'Lithotomy' },
-                  { key: 'Head Up', label: 'Head Up' },
-                  { key: 'Head Down', label: 'Head Down' },
-                  { key: 'Sitting for SPA/PDA', label: 'Sitting for SPA/PDA' },
-                  { key: 'Other', label: 'Other' },
-                ].map((pos) => (
-                  <Button
-                    key={pos.key}
-                    variant={positionInput === pos.key ? 'default' : 'outline'}
-                    className="justify-start h-12 text-left"
-                    onClick={() => {
-                      setPositionInput(pos.key);
-                    }}
-                    data-testid={`button-position-${pos.key.toLowerCase().replace(/\s+/g, '-').replace(/\//g, '-')}`}
-                  >
-                    {pos.label}
-                  </Button>
-                ))}
-                <Input
-                  placeholder="Custom position..."
-                  value={positionInput && !['Supine', 'Prone', 'Left Side', 'Right Side', 'Beach Chair', 'Lithotomy', 'Head Up', 'Head Down', 'Sitting for SPA/PDA', 'Other'].includes(positionInput) ? positionInput : ''}
-                  onChange={(e) => setPositionInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && positionInput.trim() && pendingPosition) {
-                      handlePositionSave();
-                    }
-                  }}
-                  className="col-span-2"
-                  data-testid="input-position-custom"
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooterWithTime
-            time={editingPosition ? positionEditTime : pendingPosition?.time}
-            onTimeChange={editingPosition ? setPositionEditTime : (newTime) => setPendingPosition(prev => prev ? { ...prev, time: newTime } : null)}
-            showDelete={!!editingPosition}
-            onDelete={editingPosition ? handlePositionDelete : undefined}
-            onCancel={() => {
-              setShowPositionDialog(false);
-              setPendingPosition(null);
-              setEditingPosition(null);
-              setPositionInput("");
-            }}
-            onSave={handlePositionSave}
-            saveDisabled={!positionInput.trim()}
-            saveLabel={editingPosition ? 'Save' : 'Add'}
-          />
-        </DialogContent>
-      </Dialog>
+      <PositionDialog
+        open={showPositionDialog}
+        onOpenChange={setShowPositionDialog}
+        anesthesiaRecordId={anesthesiaRecordId}
+        editingPosition={editingPosition}
+        pendingPosition={pendingPosition}
+        onPositionCreated={() => {
+          setPendingPosition(null);
+          setEditingPosition(null);
+        }}
+        onPositionUpdated={() => {
+          setEditingPosition(null);
+        }}
+        onPositionDeleted={() => {
+          setEditingPosition(null);
+        }}
+      />
 
       {/* Ventilation Bulk Entry Dialog */}
       <Dialog open={showVentilationBulkDialog} onOpenChange={setShowVentilationBulkDialog}>
