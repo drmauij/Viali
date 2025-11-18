@@ -25,6 +25,12 @@ import { VentilationBulkDialog } from "./dialogs/VentilationBulkDialog";
 import { OutputDialog } from "./dialogs/OutputDialog";
 import { OutputEditDialog } from "./dialogs/OutputEditDialog";
 import { OutputBulkDialog } from "./dialogs/OutputBulkDialog";
+import { InfusionDialog } from "./dialogs/InfusionDialog";
+import { InfusionEditDialog } from "./dialogs/InfusionEditDialog";
+import { FreeFlowDoseDialog } from "./dialogs/FreeFlowDoseDialog";
+import { FreeFlowManageDialog } from "./dialogs/FreeFlowManageDialog";
+import { RateSelectionDialog } from "./dialogs/RateSelectionDialog";
+import { RateManageDialog } from "./dialogs/RateManageDialog";
 import { DialogFooterWithTime } from "./DialogFooterWithTime";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -7137,7 +7143,6 @@ export function UnifiedTimeline({
                     time,
                     label: paramInfo.label
                   });
-                  setOutputValueInput("");
                   setShowOutputDialog(true);
                 }
               }}
@@ -7925,278 +7930,107 @@ export function UnifiedTimeline({
       />
 
       {/* Infusion Value Entry Dialog */}
-      <Dialog open={showInfusionDialog} onOpenChange={(open) => {
-        if (!open) {
-          setShowInfusionDialog(false);
+      <InfusionDialog
+        open={showInfusionDialog}
+        onOpenChange={setShowInfusionDialog}
+        pendingInfusionValue={pendingInfusionValue}
+        onInfusionValueEntry={(swimlaneId, time, value) => {
+          setInfusionData(prev => {
+            const existingData = prev[swimlaneId] || [];
+            return {
+              ...prev,
+              [swimlaneId]: [...existingData, [time, value] as [number, string]]
+            };
+          });
           setPendingInfusionValue(null);
-          setInfusionInput("");
-        } else {
-          setShowInfusionDialog(true);
-        }
-      }}>
-        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-infusion-value">
-          <DialogHeader>
-            <DialogTitle>Add Infusion Rate</DialogTitle>
-            <DialogDescription>
-              {pendingInfusionValue ? `${pendingInfusionValue.label}` : 'Add a new infusion rate value'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="infusion-value">Rate</Label>
-              <Input
-                id="infusion-value"
-                data-testid="input-infusion-value"
-                value={infusionInput}
-                onChange={(e) => setInfusionInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleInfusionValueEntry();
-                  }
-                }}
-                placeholder="e.g., 100ml/h, 50ml/h"
-                autoFocus
-              />
-            </div>
-          </div>
-          <DialogFooterWithTime
-            time={pendingInfusionValue?.time}
-            onTimeChange={(newTime) => setPendingInfusionValue(prev => prev ? { ...prev, time: newTime } : null)}
-            showDelete={false}
-            onCancel={() => {
-              setShowInfusionDialog(false);
-              setPendingInfusionValue(null);
-              setInfusionInput("");
-            }}
-            onSave={handleInfusionValueEntry}
-            saveDisabled={!infusionInput.trim()}
-            saveLabel="Add"
-          />
-        </DialogContent>
-      </Dialog>
+        }}
+      />
 
       {/* Infusion Value Edit Dialog */}
-      <Dialog open={showInfusionEditDialog} onOpenChange={(open) => {
-        if (!open) {
-          setShowInfusionEditDialog(false);
+      <InfusionEditDialog
+        open={showInfusionEditDialog}
+        onOpenChange={setShowInfusionEditDialog}
+        editingInfusionValue={editingInfusionValue}
+        onInfusionValueEditSave={(swimlaneId, index, newTime, value) => {
+          setInfusionData(prev => {
+            const existingData = prev[swimlaneId] || [];
+            const updated = [...existingData];
+            updated[index] = [newTime, value];
+            return {
+              ...prev,
+              [swimlaneId]: updated,
+            };
+          });
           setEditingInfusionValue(null);
-          setInfusionEditInput("");
-          setInfusionEditTime(0);
-        } else {
-          setShowInfusionEditDialog(true);
-        }
-      }}>
-        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-infusion-edit">
-          <DialogHeader>
-            <DialogTitle>Edit Infusion Rate</DialogTitle>
-            <DialogDescription>
-              Edit or delete the infusion rate
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="infusion-edit-value">Rate</Label>
-              <Input
-                id="infusion-edit-value"
-                data-testid="input-infusion-edit-value"
-                value={infusionEditInput}
-                onChange={(e) => setInfusionEditInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleInfusionValueEditSave();
-                  }
-                }}
-                placeholder="e.g., 100ml/h, 50ml/h"
-                autoFocus
-              />
-            </div>
-          </div>
-          <DialogFooterWithTime
-            time={infusionEditTime}
-            onTimeChange={setInfusionEditTime}
-            showDelete={true}
-            onDelete={handleInfusionValueDelete}
-            onCancel={() => {
-              setShowInfusionEditDialog(false);
-              setEditingInfusionValue(null);
-              setInfusionEditInput("");
-              setInfusionEditTime(0);
-            }}
-            onSave={handleInfusionValueEditSave}
-            saveDisabled={!infusionEditInput.trim()}
-          />
-        </DialogContent>
-      </Dialog>
+        }}
+        onInfusionValueDelete={(swimlaneId, index) => {
+          setInfusionData(prev => {
+            const existingData = prev[swimlaneId] || [];
+            const updated = existingData.filter((_, i) => i !== index);
+            return {
+              ...prev,
+              [swimlaneId]: updated,
+            };
+          });
+          setEditingInfusionValue(null);
+        }}
+      />
 
       {/* Free-Flow Dose Entry Dialog */}
-      <Dialog open={showFreeFlowDoseDialog} onOpenChange={(open) => {
-        if (!open) {
-          setShowFreeFlowDoseDialog(false);
+      <FreeFlowDoseDialog
+        open={showFreeFlowDoseDialog}
+        onOpenChange={setShowFreeFlowDoseDialog}
+        pendingFreeFlowDose={pendingFreeFlowDose}
+        onFreeFlowDoseEntry={(swimlaneId, time, dose, label) => {
+          // Create new session
+          const newSession: FreeFlowSession = {
+            swimlaneId,
+            startTime: time,
+            dose,
+            label,
+          };
+          
+          setFreeFlowSessions(prev => {
+            const sessions = prev[swimlaneId] || [];
+            return {
+              ...prev,
+              [swimlaneId]: [...sessions, newSession].sort((a, b) => a.startTime - b.startTime),
+            };
+          });
+          
+          // Add dose marker to infusionData
+          setInfusionData(prev => {
+            const existingData = prev[swimlaneId] || [];
+            return {
+              ...prev,
+              [swimlaneId]: [...existingData, [time, dose] as [number, string]].sort((a, b) => a[0] - b[0]),
+            };
+          });
+          
           setPendingFreeFlowDose(null);
-          setFreeFlowDoseInput("");
-        } else {
-          setShowFreeFlowDoseDialog(true);
-        }
-      }}>
-        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-freeflow-dose">
-          <DialogHeader>
-            <DialogTitle>Enter Dose</DialogTitle>
-            <DialogDescription>
-              {pendingFreeFlowDose ? `${pendingFreeFlowDose.label}` : 'Enter the dose for this free-flow infusion'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="freeflow-dose">Dose</Label>
-              <Input
-                id="freeflow-dose"
-                type="number"
-                inputMode="decimal"
-                data-testid="input-freeflow-dose"
-                value={freeFlowDoseInput}
-                onChange={(e) => setFreeFlowDoseInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleFreeFlowDoseEntry();
-                  }
-                }}
-                placeholder="e.g., 100"
-                autoFocus
-              />
-            </div>
-          </div>
-          <DialogFooterWithTime
-            time={pendingFreeFlowDose?.time}
-            onTimeChange={(newTime) => setPendingFreeFlowDose(prev => prev ? { ...prev, time: newTime } : null)}
-            showDelete={false}
-            onCancel={() => {
-              setShowFreeFlowDoseDialog(false);
-              setPendingFreeFlowDose(null);
-              setFreeFlowDoseInput("");
-            }}
-            onSave={handleFreeFlowDoseEntry}
-            saveDisabled={!freeFlowDoseInput.trim()}
-            saveLabel="Start"
-          />
-        </DialogContent>
-      </Dialog>
+          toast({
+            title: "Free-flow started",
+            description: `${label} started with dose ${dose}`,
+          });
+        }}
+      />
 
       {/* Unified Free-Flow Infusion Sheet */}
-      <Dialog open={showFreeFlowSheet} onOpenChange={(open) => {
-        if (!open) {
-          // Don't auto-save - user must explicitly click Save or action button
-          setShowFreeFlowSheet(false);
-          setFreeFlowSheetSession(null);
-          setSheetDoseInput("");
-          setSheetTimeInput(0);
-        }
-      }}>
-        <DialogContent className="sm:max-w-[450px]" data-testid="dialog-freeflow-sheet">
-          <DialogHeader>
-            <DialogTitle>{freeFlowSheetSession?.label || 'Free-Flow Infusion'}</DialogTitle>
-            <DialogDescription>
-              Manage this free-flow infusion
-            </DialogDescription>
-          </DialogHeader>
-          
-          {freeFlowSheetSession && (() => {
-            const { swimlaneId, startTime, dose, clickMode } = freeFlowSheetSession;
-            
-            // Determine running state
-            const hasActiveSession = (freeFlowSessions[swimlaneId] || []).length > 0;
-            const existingData = infusionData[swimlaneId] || [];
-            const sortedData = [...existingData].sort((a, b) => b[0] - a[0]);
-            const latestDoseMarker = sortedData.find(([_, val]) => val !== "");
-            const latestStopMarker = sortedData.find(([_, val]) => val === "");
-            const isRunning = latestDoseMarker && 
-              (!latestStopMarker || latestDoseMarker[0] >= latestStopMarker[0]) &&
-              hasActiveSession;
-            
-            return (
-              <>
-                {/* Parameters - always visible */}
-                <div className="grid gap-3 mb-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="sheet-dose" className="text-xs">Quantity</Label>
-                    <Input
-                      id="sheet-dose"
-                      type="number"
-                      inputMode="decimal"
-                      data-testid="input-sheet-dose"
-                      value={sheetDoseInput}
-                      onChange={(e) => setSheetDoseInput(e.target.value)}
-                      placeholder="e.g., 1000"
-                      className="h-9"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="sheet-time" className="text-xs">Start Time</Label>
-                    <TimeAdjustInput
-                      value={sheetTimeInput}
-                      onChange={setSheetTimeInput}
-                      data-testid="input-sheet-time"
-                    />
-                  </div>
-                </div>
-
-                {/* Footer Actions */}
-                <div className="flex items-center justify-between gap-2 pt-4 border-t border-border">
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleSheetDelete}
-                    data-testid="button-sheet-delete"
-                  >
-                    <Trash2 className="w-4 h-4 mr-1" />
-                    Delete
-                  </Button>
-                  
-                  <div className="flex gap-2">
-                    {/* Stop button (when running) */}
-                    {isRunning && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={handleSheetStop}
-                        data-testid="button-sheet-stop"
-                      >
-                        <StopCircle className="w-4 h-4 mr-1" />
-                        Stop
-                      </Button>
-                    )}
-                    
-                    {/* Save button (when clicking label) */}
-                    {clickMode === 'label' && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={handleSheetSave}
-                        data-testid="button-sheet-save"
-                        disabled={!sheetDoseInput.trim()}
-                      >
-                        Save
-                      </Button>
-                    )}
-                    
-                    {/* Start New button (when clicking segment) */}
-                    {clickMode === 'segment' && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={handleSheetStartNew}
-                        data-testid="button-sheet-start-new"
-                      >
-                        <PlayCircle className="w-4 h-4 mr-1" />
-                        Start New
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
+      <FreeFlowManageDialog
+        open={showFreeFlowSheet}
+        onOpenChange={setShowFreeFlowSheet}
+        freeFlowSheetSession={freeFlowSheetSession}
+        freeFlowSessions={freeFlowSessions}
+        infusionData={infusionData}
+        onSheetSave={handleSheetSave}
+        onSheetDelete={handleSheetDelete}
+        onSheetStop={handleSheetStop}
+        onSheetStartNew={handleSheetStartNew}
+        sheetDoseInput={sheetDoseInput}
+        onSheetDoseInputChange={setSheetDoseInput}
+        sheetTimeInput={sheetTimeInput}
+        onSheetTimeInputChange={setSheetTimeInput}
+      />
 
       {/* Unified Rate Infusion Sheet */}
       <Dialog open={showRateSheet} onOpenChange={(open) => {
@@ -8416,271 +8250,27 @@ export function UnifiedTimeline({
       </Dialog>
 
       {/* Rate Selection Dialog (for range defaults like "6-12-16") */}
-      <Dialog open={showRateSelectionDialog} onOpenChange={(open) => {
-        if (!open) {
-          setShowRateSelectionDialog(false);
-          setPendingRateSelection(null);
-          setCustomRateInput("");
-        } else {
-          setShowRateSelectionDialog(true);
-        }
-      }}>
-        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-rate-selection">
-          <DialogHeader>
-            <DialogTitle>Select Rate</DialogTitle>
-            <DialogDescription>
-              {pendingRateSelection ? `${pendingRateSelection.label}` : 'Select a rate or enter a custom value'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="text-sm font-medium">Choose from preset rates:</div>
-            <div className="grid grid-cols-3 gap-2">
-              {pendingRateSelection?.rateOptions.map((rate, idx) => (
-                <Button
-                  key={idx}
-                  onClick={() => handleRateSelection(rate)}
-                  variant="outline"
-                  className="h-12"
-                  data-testid={`button-rate-option-${rate}`}
-                >
-                  {rate}
-                </Button>
-              ))}
-            </div>
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  Or enter custom
-                </span>
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="custom-rate">Custom Rate</Label>
-              <Input
-                id="custom-rate"
-                type="number"
-                inputMode="decimal"
-                data-testid="input-custom-rate"
-                value={customRateInput}
-                onChange={(e) => setCustomRateInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleCustomRateEntry();
-                  }
-                }}
-                placeholder="e.g., 8"
-              />
-            </div>
-          </div>
-          <DialogFooterWithTime
-            time={pendingRateSelection?.time}
-            onTimeChange={(newTime) => setPendingRateSelection(prev => prev ? { ...prev, time: newTime } : null)}
-            showDelete={false}
-            onCancel={() => {
-              setShowRateSelectionDialog(false);
-              setPendingRateSelection(null);
-              setCustomRateInput("");
-            }}
-            onSave={handleCustomRateEntry}
-            saveDisabled={!customRateInput.trim()}
-            saveLabel="Set Custom"
-          />
-        </DialogContent>
-      </Dialog>
+      <RateSelectionDialog
+        open={showRateSelectionDialog}
+        onOpenChange={setShowRateSelectionDialog}
+        pendingRateSelection={pendingRateSelection}
+        onRateSelection={handleRateSelection}
+        onCustomRateEntry={handleCustomRateEntry}
+      />
 
       {/* Rate Management Dialog (edit/stop/change existing rate) */}
-      <Dialog open={showRateManageDialog} onOpenChange={(open) => {
-        if (!open) {
-          setShowRateManageDialog(false);
-          setManagingRate(null);
-          setRateManageTime(0);
-          setRateManageInput("");
-        } else {
-          setShowRateManageDialog(true);
-        }
-      }}>
-        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-rate-manage">
-          <DialogHeader>
-            <DialogTitle>Manage Infusion</DialogTitle>
-            <DialogDescription>
-              {managingRate ? `${managingRate.label} - Current: ${managingRate.value}` : 'Manage this rate'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            {/* Conditional Stop/Start/Start New Actions */}
-            <div className="grid grid-cols-2 gap-2">
-              {managingRate && (() => {
-                const { swimlaneId } = managingRate;
-                const existingData = infusionData[swimlaneId] || [];
-                
-                // Find the latest NON-EMPTY marker to determine running state
-                // This handles same-timestamp scenarios correctly
-                const sortedData = [...existingData].sort((a, b) => b[0] - a[0]); // Sort descending by time
-                
-                // Find the first non-empty marker (most recent rate value)
-                const latestRateMarker = sortedData.find(([_, val]) => val !== "");
-                // Find the first empty marker (most recent stop)
-                const latestStopMarker = sortedData.find(([_, val]) => val === "");
-                
-                // Infusion is running if:
-                // 1. There's a rate marker AND
-                // 2. (No stop marker OR rate marker is same time or newer than stop marker)
-                // Using >= instead of > to handle same-timestamp resume scenarios
-                const isRunning = latestRateMarker && 
-                  (!latestStopMarker || latestRateMarker[0] >= latestStopMarker[0]);
-                
-                // Get default rate for Start/Start New buttons
-                const getDefaultRate = () => {
-                  if (rateManageInput.trim() && !isNaN(Number(rateManageInput)) && Number(rateManageInput) > 0) {
-                    return rateManageInput.trim();
-                  } else if (managingRate?.value && managingRate.value !== "") {
-                    return managingRate.value;
-                  } else if (managingRate?.rateOptions && managingRate.rateOptions.length > 0) {
-                    return managingRate.rateOptions[0];
-                  }
-                  return "";
-                };
-                
-                return (
-                  <>
-                    {/* Stop button - only visible for running infusions */}
-                    {isRunning && (
-                      <Button
-                        onClick={handleRateStop}
-                        variant="outline"
-                        className="h-20 flex flex-col gap-2"
-                        data-testid="button-rate-stop"
-                      >
-                        <StopCircle className="w-6 h-6" />
-                        <span className="text-sm">Stop</span>
-                      </Button>
-                    )}
-                    
-                    {/* Start button - only visible for stopped infusions */}
-                    {!isRunning && (
-                      <Button
-                        onClick={() => {
-                          const rate = getDefaultRate();
-                          if (rate) handleRateStart(rate);
-                        }}
-                        variant="outline"
-                        className="h-20 flex flex-col gap-2"
-                        data-testid="button-rate-start"
-                      >
-                        <PlayCircle className="w-6 h-6" />
-                        <span className="text-sm">Start</span>
-                      </Button>
-                    )}
-                    
-                    {/* Start New button - always visible */}
-                    <Button
-                      onClick={() => {
-                        const rate = getDefaultRate();
-                        if (rate) handleRateStartNew(rate);
-                      }}
-                      variant="outline"
-                      className="h-20 flex flex-col gap-2"
-                      data-testid="button-rate-start-new"
-                    >
-                      <PlayCircle className="w-6 h-6" />
-                      <span className="text-sm">Start New</span>
-                    </Button>
-                  </>
-                );
-              })()}
-            </div>
-            
-            {/* Separate Change Rate Section */}
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  Change Rate
-                </span>
-              </div>
-            </div>
-            
-            {managingRate?.rateOptions && managingRate.rateOptions.length > 0 && (
-              <>
-                <div className="text-sm font-medium">Preset rates:</div>
-                <div className="grid grid-cols-3 gap-2">
-                  {managingRate.rateOptions.map((rate, idx) => (
-                    <Button
-                      key={idx}
-                      onClick={() => handleRateChange(rate)}
-                      variant="outline"
-                      className="h-12"
-                      data-testid={`button-change-rate-${rate}`}
-                    >
-                      {rate}
-                    </Button>
-                  ))}
-                </div>
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">
-                      Or custom
-                    </span>
-                  </div>
-                </div>
-              </>
-            )}
-            
-            <div className="grid gap-2">
-              <Label htmlFor="rate-manage-input">Custom Rate</Label>
-              <Input
-                id="rate-manage-input"
-                type="number"
-                inputMode="decimal"
-                data-testid="input-rate-manage"
-                value={rateManageInput}
-                onChange={(e) => setRateManageInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && rateManageInput.trim() && !isNaN(Number(rateManageInput)) && Number(rateManageInput) > 0) {
-                    handleRateChange(rateManageInput.trim());
-                  }
-                }}
-                placeholder="e.g., 10"
-              />
-              <Button
-                onClick={() => handleRateChange(rateManageInput.trim())}
-                disabled={!rateManageInput.trim() || isNaN(Number(rateManageInput)) || Number(rateManageInput) <= 0}
-                className="w-full"
-                data-testid="button-change-rate-custom"
-              >
-                Change to {rateManageInput.trim() || "..."}
-              </Button>
-            </div>
-          </div>
-          <DialogFooterWithTime
-            time={rateManageTime}
-            onTimeChange={setRateManageTime}
-            showDelete={false}
-            onCancel={() => {
-              setShowRateManageDialog(false);
-              setManagingRate(null);
-              setRateManageTime(0);
-              setRateManageInput("");
-            }}
-            onSave={() => {
-              setShowRateManageDialog(false);
-              setManagingRate(null);
-              setRateManageTime(0);
-              setRateManageInput("");
-            }}
-            saveDisabled={false}
-            saveLabel="Close"
-          />
-        </DialogContent>
-      </Dialog>
+      <RateManageDialog
+        open={showRateManageDialog}
+        onOpenChange={setShowRateManageDialog}
+        managingRate={managingRate}
+        infusionData={infusionData}
+        rateManageTime={rateManageTime}
+        onRateManageTimeChange={setRateManageTime}
+        onRateStop={handleRateStop}
+        onRateStart={handleRateStart}
+        onRateStartNew={handleRateStartNew}
+        onRateChange={handleRateChange}
+      />
 
       {/* Output Value Entry Dialog */}
       <OutputDialog
