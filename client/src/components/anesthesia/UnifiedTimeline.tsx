@@ -804,10 +804,12 @@ export function UnifiedTimeline({
     
     if (ventilationModes.length > 0) {
       console.log('[VENT-MODE-SYNC] Loading ventilation modes from snapshot:', ventilationModes.length, 'points');
-      const modeEntries = ventilationModes.map((point: any) => [
-        new Date(point.timestamp).getTime(),
-        point.value,
-      ]);
+      // Store as objects with ID to enable proper CRUD operations
+      const modeEntries = ventilationModes.map((point: any) => ({
+        id: point.id,
+        timestamp: new Date(point.timestamp).getTime(),
+        value: point.value,
+      }));
       setVentilationModeData(modeEntries);
     } else {
       // Clear stale state when switching to record with no data
@@ -877,18 +879,20 @@ export function UnifiedTimeline({
     
     if (totalPoints > 0) {
       console.log('[OUTPUT-SYNC] Loading output data from snapshot:', totalPoints, 'points');
-      const outputData: any = {};
+      const outputDataEntries: any = {};
       
       for (const [key, points] of Object.entries(outputParams)) {
         if (points.length > 0) {
-          outputData[key] = points.map((point: any) => [
-            new Date(point.timestamp).getTime(),
-            point.value,
-          ]);
+          // Store as objects with ID to enable proper CRUD operations
+          outputDataEntries[key] = points.map((point: any) => ({
+            id: point.id,
+            timestamp: new Date(point.timestamp).getTime(),
+            value: point.value,
+          }));
         }
       }
       
-      setOutputData(outputData);
+      setOutputData(outputDataEntries);
     } else {
       // Clear stale state when switching to record with no data
       setOutputData({});
@@ -899,10 +903,12 @@ export function UnifiedTimeline({
   useEffect(() => {
     if (apiPositions.length > 0) {
       console.log('[POSITION-SYNC] Loading positions from API:', apiPositions.length, 'entries');
-      const positionEntries: [number, string][] = apiPositions.map((pos: any) => [
-        new Date(pos.timestamp).getTime(),
-        pos.position,
-      ]);
+      // Store as objects with ID to enable proper CRUD operations
+      const positionEntries = apiPositions.map((pos: any) => ({
+        id: pos.id,
+        timestamp: new Date(pos.timestamp).getTime(),
+        position: pos.position,
+      }));
       setPositionData(positionEntries);
     } else {
       // Clear stale state when switching to record with no data
@@ -915,16 +921,23 @@ export function UnifiedTimeline({
     if (apiStaff.length > 0) {
       console.log('[STAFF-SYNC] Loading staff from API:', apiStaff.length, 'entries');
       
-      // Group staff entries by role into the expected StaffData structure
-      const staffByRole: { doctor: [number, string][]; nurse: [number, string][]; assistant: [number, string][] } = {
+      // Group staff entries by role, preserving IDs for CRUD operations
+      const staffByRole: { 
+        doctor: Array<{id: string; timestamp: number; name: string}>;
+        nurse: Array<{id: string; timestamp: number; name: string}>;
+        assistant: Array<{id: string; timestamp: number; name: string}>;
+      } = {
         doctor: [],
         nurse: [],
         assistant: [],
       };
       
       apiStaff.forEach((staff: any) => {
-        const time = new Date(staff.timestamp).getTime();
-        const entry: [number, string] = [time, staff.name];
+        const entry = {
+          id: staff.id,
+          timestamp: new Date(staff.timestamp).getTime(),
+          name: staff.name,
+        };
         staffByRole[staff.role as 'doctor' | 'nurse' | 'assistant'].push(entry);
       });
       
@@ -999,7 +1012,7 @@ export function UnifiedTimeline({
 
   // State for ventilation mode edit dialog
   const [showVentilationModeEditDialog, setShowVentilationModeEditDialog] = useState(false);
-  const [editingVentilationMode, setEditingVentilationMode] = useState<{ time: number; mode: string; index: number } | null>(null);
+  const [editingVentilationMode, setEditingVentilationMode] = useState<{ time: number; mode: string; index: number; id: string } | null>(null);
   const [ventilationModeEditInput, setVentilationModeEditInput] = useState("");
   const [ventilationModeEditTime, setVentilationModeEditTime] = useState<number>(0);
 
@@ -1040,7 +1053,7 @@ export function UnifiedTimeline({
   
   // State for output value edit dialog
   const [showOutputEditDialog, setShowOutputEditDialog] = useState(false);
-  const [editingOutputValue, setEditingOutputValue] = useState<{ paramKey: keyof typeof outputData; time: number; value: string; index: number; label: string } | null>(null);
+  const [editingOutputValue, setEditingOutputValue] = useState<{ paramKey: keyof typeof outputData; time: number; value: string; index: number; label: string; id: string } | null>(null);
   const [outputEditInput, setOutputEditInput] = useState("");
   const [outputEditTime, setOutputEditTime] = useState<number>(0);
   
@@ -5089,16 +5102,15 @@ export function UnifiedTimeline({
   // Handle ventilation mode edit save
   const handleVentilationModeEditSave = () => {
     if (!editingVentilationMode || !ventilationModeEditInput.trim()) return;
+    if (!anesthesiaRecordId) return;
     
-    const { index } = editingVentilationMode;
-    
-    // Use the edited timestamp directly (it's already a number)
     const newTimestamp = ventilationModeEditTime;
     
-    setVentilationModeData(prev => {
-      const updated = [...prev];
-      updated[index] = [newTimestamp, ventilationModeEditInput.trim()];
-      return updated;
+    // Call update mutation
+    updateVentilationMode.mutate({
+      pointId: editingVentilationMode.id,
+      value: ventilationModeEditInput.trim(),
+      timestamp: new Date(newTimestamp).toISOString(),
     });
     
     setShowVentilationModeEditDialog(false);
@@ -5110,10 +5122,10 @@ export function UnifiedTimeline({
   // Handle ventilation mode delete
   const handleVentilationModeDelete = () => {
     if (!editingVentilationMode) return;
+    if (!anesthesiaRecordId) return;
     
-    const { index } = editingVentilationMode;
-    
-    setVentilationModeData(prev => prev.filter((_, i) => i !== index));
+    // Call delete mutation
+    deleteVentilationMode.mutate(editingVentilationMode.id);
     
     setShowVentilationModeEditDialog(false);
     setEditingVentilationMode(null);
@@ -5168,23 +5180,27 @@ export function UnifiedTimeline({
   const handleStaffSave = () => {
     const name = staffInput.trim();
     if (!name) return;
+    if (!anesthesiaRecordId) return;
     
     if (editingStaff) {
-      // Editing existing value - use edited time
-      const { index, role } = editingStaff;
+      // Editing existing value - call update mutation
+      const { id, role } = editingStaff;
       
-      setStaffData(prev => {
-        const updated = { ...prev };
-        updated[role][index] = [staffEditTime, name];
-        return updated;
+      updateStaff.mutate({
+        id,
+        timestamp: new Date(staffEditTime),
+        name,
       });
     } else if (pendingStaff) {
-      // Adding new value
+      // Adding new value - call create mutation
       const { time, role } = pendingStaff;
-      setStaffData(prev => ({
-        ...prev,
-        [role]: [...prev[role], [time, name]],
-      }));
+      
+      createStaff.mutate({
+        anesthesiaRecordId,
+        timestamp: new Date(time),
+        role,
+        name,
+      });
     }
     
     setShowStaffDialog(false);
@@ -5196,13 +5212,10 @@ export function UnifiedTimeline({
   // Handle staff entry delete
   const handleStaffDelete = () => {
     if (!editingStaff) return;
+    if (!anesthesiaRecordId) return;
     
-    const { index, role } = editingStaff;
-    
-    setStaffData(prev => ({
-      ...prev,
-      [role]: prev[role].filter((_, i) => i !== index),
-    }));
+    // Call delete mutation
+    deleteStaff.mutate(editingStaff.id);
     
     setShowStaffDialog(false);
     setEditingStaff(null);
@@ -5213,22 +5226,24 @@ export function UnifiedTimeline({
   const handlePositionSave = () => {
     const position = positionInput.trim();
     if (!position) return;
-    
-    let time: number;
+    if (!anesthesiaRecordId) return;
     
     if (editingPosition) {
-      // Editing existing value - use edited time
-      const { index } = editingPosition;
+      // Editing existing value - call update mutation
+      const { id } = editingPosition;
       
-      setPositionData(prev => {
-        const updated = [...prev];
-        updated[index] = [positionEditTime, position];
-        return updated;
+      updatePosition.mutate({
+        id,
+        timestamp: new Date(positionEditTime),
+        position,
       });
     } else if (pendingPosition) {
-      // Adding new value
-      time = pendingPosition.time;
-      setPositionData(prev => [...prev, [time, position]]);
+      // Adding new value - call create mutation
+      createPosition.mutate({
+        anesthesiaRecordId,
+        timestamp: new Date(pendingPosition.time),
+        position,
+      });
     }
     
     setShowPositionDialog(false);
@@ -5240,10 +5255,10 @@ export function UnifiedTimeline({
   // Handle position entry delete
   const handlePositionDelete = () => {
     if (!editingPosition) return;
+    if (!anesthesiaRecordId) return;
     
-    const { index } = editingPosition;
-    
-    setPositionData(prev => prev.filter((_, i) => i !== index));
+    // Call delete mutation
+    deletePosition.mutate(editingPosition.id);
     
     setShowPositionDialog(false);
     setEditingPosition(null);
@@ -5407,8 +5422,9 @@ export function UnifiedTimeline({
   // Handle output value edit save
   const handleOutputValueEditSave = () => {
     if (!editingOutputValue || !outputEditInput.trim()) return;
+    if (!anesthesiaRecordId) return;
     
-    const { paramKey, index } = editingOutputValue;
+    const { paramKey, id } = editingOutputValue;
     const value = parseFloat(outputEditInput.trim());
     
     if (isNaN(value)) {
@@ -5420,17 +5436,14 @@ export function UnifiedTimeline({
       return;
     }
     
-    // Use the edited timestamp directly (it's already a number)
     const newTimestamp = outputEditTime;
     
-    setOutputData(prev => {
-      const existingData = prev[paramKey] || [];
-      const updated = [...existingData];
-      updated[index] = [newTimestamp, value];
-      return {
-        ...prev,
-        [paramKey]: updated,
-      };
+    // Call update mutation
+    updateOutput.mutate({
+      pointId: id,
+      paramKey: paramKey as any,
+      value,
+      timestamp: new Date(newTimestamp).toISOString(),
     });
     
     // Reset dialog state
@@ -5443,16 +5456,14 @@ export function UnifiedTimeline({
   // Handle output value delete
   const handleOutputValueDelete = () => {
     if (!editingOutputValue) return;
+    if (!anesthesiaRecordId) return;
     
-    const { paramKey, index } = editingOutputValue;
+    const { paramKey, id } = editingOutputValue;
     
-    setOutputData(prev => {
-      const existingData = prev[paramKey] || [];
-      const updated = existingData.filter((_, i) => i !== index);
-      return {
-        ...prev,
-        [paramKey]: updated,
-      };
+    // Call delete mutation
+    deleteOutput.mutate({
+      pointId: id,
+      paramKey: paramKey as any,
     });
     
     setShowOutputEditDialog(false);
@@ -7685,8 +7696,8 @@ export function UnifiedTimeline({
                 // Check if there's an existing value at this time
                 const existingValues = outputData[paramInfo.key] || [];
                 const clickTolerance = currentVitalsSnapInterval;
-                const hasExistingValue = existingValues.some(([valueTime]) => 
-                  Math.abs(valueTime - time) <= clickTolerance
+                const hasExistingValue = existingValues.some((point) => 
+                  Math.abs(point.timestamp - time) <= clickTolerance
                 );
                 
                 setOutputHoverInfo({ 
@@ -7725,20 +7736,21 @@ export function UnifiedTimeline({
                 // Check if we're clicking on an existing value
                 const existingValues = outputData[paramInfo.key] || [];
                 const clickTolerance = currentVitalsSnapInterval;
-                const existingValueAtTime = existingValues.find(([valueTime]) => 
-                  Math.abs(valueTime - time) <= clickTolerance
+                const existingValueAtTime = existingValues.find((point) => 
+                  Math.abs(point.timestamp - time) <= clickTolerance
                 );
                 
                 if (existingValueAtTime) {
                   // Open edit dialog for existing value
-                  const [valueTime, value] = existingValueAtTime;
-                  const valueIndex = existingValues.findIndex(([t, v]) => t === valueTime && v === value);
+                  const { id, timestamp: valueTime, value } = existingValueAtTime;
+                  const valueIndex = existingValues.findIndex(p => p.id === id);
                   setEditingOutputValue({
                     paramKey: paramInfo.key,
                     time: valueTime,
                     value: value.toString(),
                     index: valueIndex,
                     label: paramInfo.label,
+                    id,
                   });
                   setOutputEditInput(value.toString());
                   setOutputEditTime(valueTime);
@@ -8086,7 +8098,8 @@ export function UnifiedTimeline({
       })}
 
       {/* Ventilation mode values as DOM overlays (parent swimlane) */}
-      {!collapsedSwimlanes.has('ventilation') && ventilationModeData.map(([timestamp, mode], index) => {
+      {!collapsedSwimlanes.has('ventilation') && ventilationModeData.map((point, index) => {
+        const { id, timestamp, value: mode } = point;
         const ventilationLane = swimlanePositions.find(lane => lane.id === 'ventilation');
         if (!ventilationLane) return null;
         
@@ -8114,6 +8127,7 @@ export function UnifiedTimeline({
                 time: timestamp,
                 mode,
                 index,
+                id,
               });
               setVentilationModeEditInput(mode);
               setVentilationModeEditTime(timestamp);
@@ -8241,7 +8255,8 @@ export function UnifiedTimeline({
           bloodIrrigation: 'Blood and Irrigation',
         };
         
-        return dataPoints.map(([timestamp, value], index) => {
+        return dataPoints.map((point, index) => {
+          const { id, timestamp, value } = point;
           const xFraction = (timestamp - visibleStart) / visibleRange;
           
           if (xFraction < 0 || xFraction > 1) return null;
@@ -8265,6 +8280,7 @@ export function UnifiedTimeline({
                   value: value.toString(),
                   index,
                   label: labelMap[paramKey] || paramKey,
+                  id,
                 });
                 setOutputEditInput(value.toString());
                 setOutputEditTime(timestamp);

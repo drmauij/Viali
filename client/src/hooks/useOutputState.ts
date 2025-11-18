@@ -1,15 +1,15 @@
 import { useState } from 'react';
 
-export type VitalPoint = [number, number]; // [timestamp, value]
+export type OutputPoint = { id: string; timestamp: number; value: number };
 
 export interface OutputData {
-  gastricTube: VitalPoint[];
-  drainage: VitalPoint[];
-  vomit: VitalPoint[];
-  urine: VitalPoint[];
-  urine677: VitalPoint[];
-  blood: VitalPoint[];
-  bloodIrrigation: VitalPoint[];
+  gastricTube: OutputPoint[];
+  drainage: OutputPoint[];
+  vomit: OutputPoint[];
+  urine: OutputPoint[];
+  urine677: OutputPoint[];
+  blood: OutputPoint[];
+  bloodIrrigation: OutputPoint[];
 }
 
 export interface UseOutputStateReturn {

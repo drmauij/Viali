@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 
 export type VentilationPoint = [number, number]; // [timestamp, value]
-export type VentilationModePoint = [number, string]; // [timestamp, mode]
+export type VentilationModePoint = { id: string; timestamp: number; value: string };
 
 export interface VentilationData {
   etCO2: VentilationPoint[];
