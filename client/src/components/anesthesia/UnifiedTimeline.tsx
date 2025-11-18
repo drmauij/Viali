@@ -5254,49 +5254,49 @@ export function UnifiedTimeline({
       if (bulkVentilationParams.peep) {
         const value = parseFloat(bulkVentilationParams.peep);
         if (!isNaN(value)) {
-          updated.peep = [...updated.peep, [time, value] as VitalPoint];
+          updated.peep = [...(updated.peep || []), [time, value] as VitalPoint];
         }
       }
       
       if (bulkVentilationParams.fiO2) {
         const value = parseFloat(bulkVentilationParams.fiO2);
         if (!isNaN(value)) {
-          updated.fiO2 = [...updated.fiO2, [time, value] as VitalPoint];
+          updated.fiO2 = [...(updated.fiO2 || []), [time, value] as VitalPoint];
         }
       }
       
       if (bulkVentilationParams.tidalVolume) {
         const value = parseFloat(bulkVentilationParams.tidalVolume);
         if (!isNaN(value)) {
-          updated.tidalVolume = [...updated.tidalVolume, [time, value] as VitalPoint];
+          updated.tidalVolume = [...(updated.tidalVolume || []), [time, value] as VitalPoint];
         }
       }
       
       if (bulkVentilationParams.respiratoryRate) {
         const value = parseFloat(bulkVentilationParams.respiratoryRate);
         if (!isNaN(value)) {
-          updated.respiratoryRate = [...updated.respiratoryRate, [time, value] as VitalPoint];
+          updated.respiratoryRate = [...(updated.respiratoryRate || []), [time, value] as VitalPoint];
         }
       }
       
       if (bulkVentilationParams.etCO2) {
         const value = parseFloat(bulkVentilationParams.etCO2);
         if (!isNaN(value)) {
-          updated.etCO2 = [...updated.etCO2, [time, value] as VitalPoint];
+          updated.etCO2 = [...(updated.etCO2 || []), [time, value] as VitalPoint];
         }
       }
       
       if (bulkVentilationParams.pip) {
         const value = parseFloat(bulkVentilationParams.pip);
         if (!isNaN(value)) {
-          updated.pip = [...updated.pip, [time, value] as VitalPoint];
+          updated.pip = [...(updated.pip || []), [time, value] as VitalPoint];
         }
       }
       
       if (bulkVentilationParams.minuteVolume) {
         const value = parseFloat(bulkVentilationParams.minuteVolume);
         if (!isNaN(value)) {
-          updated.minuteVolume = [...updated.minuteVolume, [time, value] as VitalPoint];
+          updated.minuteVolume = [...(updated.minuteVolume || []), [time, value] as VitalPoint];
         }
       }
       
@@ -5321,49 +5321,49 @@ export function UnifiedTimeline({
       if (bulkOutputParams.gastricTube) {
         const value = parseFloat(bulkOutputParams.gastricTube);
         if (!isNaN(value)) {
-          updated.gastricTube = [...updated.gastricTube, [time, value] as VitalPoint];
+          updated.gastricTube = [...(updated.gastricTube || []), [time, value] as VitalPoint];
         }
       }
       
       if (bulkOutputParams.drainage) {
         const value = parseFloat(bulkOutputParams.drainage);
         if (!isNaN(value)) {
-          updated.drainage = [...updated.drainage, [time, value] as VitalPoint];
+          updated.drainage = [...(updated.drainage || []), [time, value] as VitalPoint];
         }
       }
       
       if (bulkOutputParams.vomit) {
         const value = parseFloat(bulkOutputParams.vomit);
         if (!isNaN(value)) {
-          updated.vomit = [...updated.vomit, [time, value] as VitalPoint];
+          updated.vomit = [...(updated.vomit || []), [time, value] as VitalPoint];
         }
       }
       
       if (bulkOutputParams.urine) {
         const value = parseFloat(bulkOutputParams.urine);
         if (!isNaN(value)) {
-          updated.urine = [...updated.urine, [time, value] as VitalPoint];
+          updated.urine = [...(updated.urine || []), [time, value] as VitalPoint];
         }
       }
       
       if (bulkOutputParams.urine677) {
         const value = parseFloat(bulkOutputParams.urine677);
         if (!isNaN(value)) {
-          updated.urine677 = [...updated.urine677, [time, value] as VitalPoint];
+          updated.urine677 = [...(updated.urine677 || []), [time, value] as VitalPoint];
         }
       }
       
       if (bulkOutputParams.blood) {
         const value = parseFloat(bulkOutputParams.blood);
         if (!isNaN(value)) {
-          updated.blood = [...updated.blood, [time, value] as VitalPoint];
+          updated.blood = [...(updated.blood || []), [time, value] as VitalPoint];
         }
       }
       
       if (bulkOutputParams.bloodIrrigation) {
         const value = parseFloat(bulkOutputParams.bloodIrrigation);
         if (!isNaN(value)) {
-          updated.bloodIrrigation = [...updated.bloodIrrigation, [time, value] as VitalPoint];
+          updated.bloodIrrigation = [...(updated.bloodIrrigation || []), [time, value] as VitalPoint];
         }
       }
       
