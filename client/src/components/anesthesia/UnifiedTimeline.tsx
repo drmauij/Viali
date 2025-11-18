@@ -1566,7 +1566,7 @@ export function UnifiedTimeline({
 
     // Check all configured anesthesia items across all administration groups
     administrationGroups.forEach((group) => {
-      const groupItems = itemsByAdminGroup[group.name] || [];
+      const groupItems = itemsByAdminGroup[group.id] || [];
       groupItems.forEach((item, index) => {
         const itemDisplayName = formatItemDisplayName(item);
         const medDrugName = extractDrugName(itemDisplayName);
@@ -1659,7 +1659,7 @@ export function UnifiedTimeline({
             });
             
             // Add child lanes for items in this group
-            const groupItems = itemsByAdminGroup[group.name] || [];
+            const groupItems = itemsByAdminGroup[group.id] || [];
             groupItems.forEach((item, index) => {
               lanes.push({
                 id: `admingroup-${group.id}-item-${index}`,
