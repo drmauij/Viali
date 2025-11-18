@@ -1993,12 +1993,14 @@ export function UnifiedTimeline({
     // Only run on initial mount
     if (!isNowLineFirstRenderRef.current) return;
     
-    const visibleStart = currentZoomStart ?? data.startTime;
-    const visibleEnd = currentZoomEnd ?? data.endTime;
-    const visibleRange = visibleEnd - visibleStart;
-    const xFraction = (currentTime - visibleStart) / visibleRange;
+    // Use the same initial zoom window as the chart: 60-minute window centered on NOW
+    // This matches the chart's initial view exactly
+    const initialStartTime = currentTime - THIRTY_MINUTES;
+    const initialEndTime = currentTime + THIRTY_MINUTES;
+    const visibleRange = initialEndTime - initialStartTime;
+    const xFraction = (currentTime - initialStartTime) / visibleRange;
     
-    // Calculate initial position
+    // Calculate initial position (should be centered at 50% since NOW is in the middle of the initial window)
     if (xFraction >= 0 && xFraction <= 1) {
       const leftPosition = `calc(200px + ${xFraction} * (100% - 210px))`;
       setNowLinePosition(leftPosition);
