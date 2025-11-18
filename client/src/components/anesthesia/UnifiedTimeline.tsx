@@ -482,8 +482,8 @@ export function UnifiedTimeline({
   // Start hidden (off-screen) until correct position is calculated
   const [nowLinePosition, setNowLinePosition] = useState<string>('-10px');
   
-  // Track if this is the first render to skip NOW line animation on initial load
-  const isNowLineFirstRenderRef = useRef(true);
+  // State to control NOW line transitions - use state instead of ref to trigger re-renders
+  const [nowLineTransitionsEnabled, setNowLineTransitionsEnabled] = useState<boolean>(false);
   
   // State for tracking snap intervals (in milliseconds)
   // Vitals and ventilation: zoom-dependent (1min, 5min, or 10min based on zoom level)
@@ -2015,13 +2015,14 @@ export function UnifiedTimeline({
       setNowLinePosition(newPosition);
       
       // Enable transitions after first position is set with correct zoom data
-      if (isNowLineFirstRenderRef.current) {
-        requestAnimationFrame(() => {
-          isNowLineFirstRenderRef.current = false;
-        });
+      // Use setTimeout to ensure position is set first, then enable transitions
+      if (!nowLineTransitionsEnabled) {
+        setTimeout(() => {
+          setNowLineTransitionsEnabled(true);
+        }, 100);
       }
     }
-  }, [currentZoomStart, currentZoomEnd, currentTime, nowLinePosition]);
+  }, [currentZoomStart, currentZoomEnd, currentTime, nowLinePosition, nowLineTransitionsEnabled]);
 
   // Note: All timeline values (ventilation modes, parameters, medication doses, events) are now
   // rendered as DOM overlays for reliable click handling and scrolling. No ECharts graphics needed.
@@ -7717,7 +7718,7 @@ export function UnifiedTimeline({
           width: '2px',
           height: `${backgroundsHeight - 32}px`,
           backgroundColor: isDark ? '#ef4444' : '#dc2626',
-          transition: isNowLineFirstRenderRef.current ? 'none' : 'left 0.3s ease-out',
+          transition: nowLineTransitionsEnabled ? 'left 0.3s ease-out' : 'none',
         }}
         data-testid="now-line-indicator"
       />
