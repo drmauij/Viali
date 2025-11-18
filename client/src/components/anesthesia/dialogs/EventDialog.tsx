@@ -56,7 +56,7 @@ export function EventDialog({
   }, [editingEvent]);
 
   const handleSave = () => {
-    if (!eventTextInput.trim()) return;
+    if (!eventTextInput?.trim()) return;
     if (!anesthesiaRecordId) return;
 
     if (editingEvent) {
@@ -139,7 +139,7 @@ export function EventDialog({
           onDelete={editingEvent ? handleDelete : undefined}
           onCancel={handleClose}
           onSave={handleSave}
-          saveDisabled={!eventTextInput.trim()}
+          saveDisabled={!eventTextInput?.trim()}
           saveLabel={editingEvent ? "Save" : "Add"}
         />
       </DialogContent>
