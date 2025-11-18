@@ -22,6 +22,9 @@ import { VentilationDialog } from "./dialogs/VentilationDialog";
 import { VentilationEditDialog } from "./dialogs/VentilationEditDialog";
 import { VentilationModeEditDialog } from "./dialogs/VentilationModeEditDialog";
 import { VentilationBulkDialog } from "./dialogs/VentilationBulkDialog";
+import { OutputDialog } from "./dialogs/OutputDialog";
+import { OutputEditDialog } from "./dialogs/OutputEditDialog";
+import { OutputBulkDialog } from "./dialogs/OutputBulkDialog";
 import { DialogFooterWithTime } from "./DialogFooterWithTime";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -44,7 +47,6 @@ import {
   convertToLegacyFormat 
 } from "@/hooks/useVitalsQuery";
 import { useCreateVentilationMode, useUpdateVentilationMode, useDeleteVentilationMode } from "@/hooks/useVentilationModeQuery";
-import { useCreateOutput, useUpdateOutput, useDeleteOutput } from "@/hooks/useOutputQuery";
 import { useCreateEvent, useUpdateEvent, useDeleteEvent } from "@/hooks/useEventsQuery";
 import { useCreateMedication, useUpdateMedication, useDeleteMedication } from "@/hooks/useMedicationQuery";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
@@ -464,12 +466,6 @@ export function UnifiedTimeline({
   const createVentilationMode = useCreateVentilationMode(anesthesiaRecordId);
   const updateVentilationMode = useUpdateVentilationMode(anesthesiaRecordId);
   const deleteVentilationMode = useDeleteVentilationMode(anesthesiaRecordId);
-
-  // Mutation hooks for output
-  const createOutput = useCreateOutput(anesthesiaRecordId);
-  const updateOutput = useUpdateOutput(anesthesiaRecordId);
-  const deleteOutput = useDeleteOutput(anesthesiaRecordId);
-
 
   // Mutation hooks for events
   const createEvent = useCreateEvent(anesthesiaRecordId || '');
@@ -1023,28 +1019,16 @@ export function UnifiedTimeline({
   // State for output bulk entry dialog
   const [showOutputBulkDialog, setShowOutputBulkDialog] = useState(false);
   const [pendingOutputBulk, setPendingOutputBulk] = useState<{ time: number } | null>(null);
-  const [bulkOutputParams, setBulkOutputParams] = useState({
-    gastricTube: "",
-    drainage: "",
-    vomit: "",
-    urine: "",
-    urine677: "",
-    blood: "",
-    bloodIrrigation: "",
-  });
   const [outputBulkHoverInfo, setOutputBulkHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
   
   // State for output value add dialog (single value)
   const [showOutputDialog, setShowOutputDialog] = useState(false);
   const [pendingOutputValue, setPendingOutputValue] = useState<{ paramKey: keyof typeof outputData; time: number; label: string } | null>(null);
-  const [outputValueInput, setOutputValueInput] = useState("");
   const [outputHoverInfo, setOutputHoverInfo] = useState<{ x: number; y: number; time: number; paramKey: keyof typeof outputData; label: string } | null>(null);
   
   // State for output value edit dialog
   const [showOutputEditDialog, setShowOutputEditDialog] = useState(false);
   const [editingOutputValue, setEditingOutputValue] = useState<{ paramKey: keyof typeof outputData; time: number; value: string; index: number; label: string; id: string } | null>(null);
-  const [outputEditInput, setOutputEditInput] = useState("");
-  const [outputEditTime, setOutputEditTime] = useState<number>(0);
   
   const [infusionHoverInfo, setInfusionHoverInfo] = useState<{ x: number; y: number; time: number; swimlaneId: string; label: string } | null>(null);
   const [showInfusionDialog, setShowInfusionDialog] = useState(false);
@@ -1405,25 +1389,6 @@ export function UnifiedTimeline({
     return () => clearInterval(interval);
   }, [now]);
 
-  // Auto-calculate Minute Volume from Tidal Volume × Respiratory Rate
-  useEffect(() => {
-    const tidalVol = parseFloat(bulkVentilationParams.tidalVolume);
-    const respRate = parseFloat(bulkVentilationParams.respiratoryRate);
-    
-    if (!isNaN(tidalVol) && !isNaN(respRate) && tidalVol > 0 && respRate > 0) {
-      // Minute Volume (l/min) = (Tidal Volume in ml / 1000) × Respiratory Rate
-      const minuteVol = (tidalVol / 1000) * respRate;
-      const roundedMinuteVol = minuteVol.toFixed(1);
-      
-      // Only update if different to avoid infinite loop
-      if (bulkVentilationParams.minuteVolume !== roundedMinuteVol) {
-        setBulkVentilationParams(prev => ({
-          ...prev,
-          minuteVolume: roundedMinuteVol
-        }));
-      }
-    }
-  }, [bulkVentilationParams.tidalVolume, bulkVentilationParams.respiratoryRate]);
 
   // Toggle collapsed state for parent swimlanes
   const toggleSwimlane = (id: string) => {
@@ -1450,16 +1415,6 @@ export function UnifiedTimeline({
     return () => observer.disconnect();
   }, []);
 
-  // Update default tidal volume when patient weight changes
-  useEffect(() => {
-    if (patientWeight) {
-      const calculatedVT = (6 * patientWeight).toString();
-      setBulkVentilationParams(prev => ({
-        ...prev,
-        tidalVolume: calculatedVT,
-      }));
-    }
-  }, [patientWeight]);
 
   // Group items by administration group and sort alphabetically within each group
   const itemsByAdminGroup = useMemo(() => {
@@ -4881,191 +4836,7 @@ export function UnifiedTimeline({
     setRateManageInput("");
   };
 
-  // Handle output value entry (single parameter)
-  const handleOutputValueEntry = () => {
-    if (!pendingOutputValue || !outputValueInput.trim()) return;
-    if (!anesthesiaRecordId) return;
-    
-    const { paramKey, time, label } = pendingOutputValue;
-    const value = parseFloat(outputValueInput.trim());
-    
-    if (isNaN(value)) {
-      toast({
-        title: "Invalid value",
-        description: "Please enter a valid number",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Call mutation to save to database
-    createOutput.mutate({
-      anesthesiaRecordId,
-      paramKey,
-      value,
-      timestamp: new Date(time).toISOString(),
-    });
-    
-    // Reset dialog state
-    setShowOutputDialog(false);
-    setPendingOutputValue(null);
-    setOutputValueInput("");
-  };
 
-
-
-
-
-  // Handle output bulk entry save
-  const handleOutputBulkSave = () => {
-    if (!pendingOutputBulk) return;
-    if (!anesthesiaRecordId) return;
-    
-    const { time } = pendingOutputBulk;
-    const timestamp = new Date(time).toISOString();
-    
-    // Add all filled parameters using createOutput mutation
-    if (bulkOutputParams.gastricTube) {
-      const value = parseFloat(bulkOutputParams.gastricTube);
-      if (!isNaN(value)) {
-        createOutput.mutate({
-          anesthesiaRecordId,
-          timestamp,
-          parameter: 'gastricTube',
-          value,
-        });
-      }
-    }
-    
-    if (bulkOutputParams.drainage) {
-      const value = parseFloat(bulkOutputParams.drainage);
-      if (!isNaN(value)) {
-        createOutput.mutate({
-          anesthesiaRecordId,
-          timestamp,
-          parameter: 'drainage',
-          value,
-        });
-      }
-    }
-    
-    if (bulkOutputParams.vomit) {
-      const value = parseFloat(bulkOutputParams.vomit);
-      if (!isNaN(value)) {
-        createOutput.mutate({
-          anesthesiaRecordId,
-          timestamp,
-          parameter: 'vomit',
-          value,
-        });
-      }
-    }
-    
-    if (bulkOutputParams.urine) {
-      const value = parseFloat(bulkOutputParams.urine);
-      if (!isNaN(value)) {
-        createOutput.mutate({
-          anesthesiaRecordId,
-          timestamp,
-          parameter: 'urine',
-          value,
-        });
-      }
-    }
-    
-    if (bulkOutputParams.urine677) {
-      const value = parseFloat(bulkOutputParams.urine677);
-      if (!isNaN(value)) {
-        createOutput.mutate({
-          anesthesiaRecordId,
-          timestamp,
-          parameter: 'urine677',
-          value,
-        });
-      }
-    }
-    
-    if (bulkOutputParams.blood) {
-      const value = parseFloat(bulkOutputParams.blood);
-      if (!isNaN(value)) {
-        createOutput.mutate({
-          anesthesiaRecordId,
-          timestamp,
-          parameter: 'blood',
-          value,
-        });
-      }
-    }
-    
-    if (bulkOutputParams.bloodIrrigation) {
-      const value = parseFloat(bulkOutputParams.bloodIrrigation);
-      if (!isNaN(value)) {
-        createOutput.mutate({
-          anesthesiaRecordId,
-          timestamp,
-          parameter: 'bloodIrrigation',
-          value,
-        });
-      }
-    }
-    
-    // Reset dialog state
-    setShowOutputBulkDialog(false);
-    setPendingOutputBulk(null);
-  };
-
-  // Handle output value edit save
-  const handleOutputValueEditSave = () => {
-    if (!editingOutputValue || !outputEditInput.trim()) return;
-    if (!anesthesiaRecordId) return;
-    
-    const { paramKey, id } = editingOutputValue;
-    const value = parseFloat(outputEditInput.trim());
-    
-    if (isNaN(value)) {
-      toast({
-        title: "Invalid value",
-        description: "Please enter a valid number",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    const newTimestamp = outputEditTime;
-    
-    // Call update mutation
-    updateOutput.mutate({
-      pointId: id,
-      paramKey: paramKey as any,
-      value,
-      timestamp: new Date(newTimestamp).toISOString(),
-    });
-    
-    // Reset dialog state
-    setShowOutputEditDialog(false);
-    setEditingOutputValue(null);
-    setOutputEditInput("");
-    setOutputEditTime(0);
-  };
-
-  // Handle output value delete
-  const handleOutputValueDelete = () => {
-    if (!editingOutputValue) return;
-    if (!anesthesiaRecordId) return;
-    
-    const { paramKey, id } = editingOutputValue;
-    
-    // Call delete mutation
-    deleteOutput.mutate({
-      pointId: id,
-      paramKey: paramKey as any,
-    });
-    
-    setShowOutputEditDialog(false);
-    setEditingOutputValue(null);
-    setOutputEditInput("");
-    setOutputEditTime(0);
-  };
 
   // Calculate swimlane positions for sidebar
   const SWIMLANE_START = VITALS_TOP_POS + VITALS_HEIGHT;
@@ -8912,57 +8683,15 @@ export function UnifiedTimeline({
       </Dialog>
 
       {/* Output Value Entry Dialog */}
-      <Dialog open={showOutputDialog} onOpenChange={(open) => {
-        if (!open) {
-          setShowOutputDialog(false);
+      <OutputDialog
+        open={showOutputDialog}
+        onOpenChange={setShowOutputDialog}
+        anesthesiaRecordId={anesthesiaRecordId}
+        pendingOutputValue={pendingOutputValue}
+        onOutputCreated={() => {
           setPendingOutputValue(null);
-          setOutputValueInput("");
-        } else {
-          setShowOutputDialog(true);
-        }
-      }}>
-        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-output-value">
-          <DialogHeader>
-            <DialogTitle>Add Output Value</DialogTitle>
-            <DialogDescription>
-              {pendingOutputValue ? `${pendingOutputValue.label}` : 'Add a new output value'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="output-value">Volume (ml)</Label>
-              <Input
-                id="output-value"
-                data-testid="input-output-value"
-                type="number"
-                step="1"
-                value={outputValueInput}
-                onChange={(e) => setOutputValueInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleOutputValueEntry();
-                  }
-                }}
-                placeholder="e.g., 50, 100, 200"
-                autoFocus
-              />
-            </div>
-          </div>
-          <DialogFooterWithTime
-            time={pendingOutputValue?.time}
-            onTimeChange={(newTime) => setPendingOutputValue(prev => prev ? { ...prev, time: newTime } : null)}
-            showDelete={false}
-            onCancel={() => {
-              setShowOutputDialog(false);
-              setPendingOutputValue(null);
-              setOutputValueInput("");
-            }}
-            onSave={handleOutputValueEntry}
-            saveDisabled={!outputValueInput.trim()}
-            saveLabel="Add"
-          />
-        </DialogContent>
-      </Dialog>
+        }}
+      />
 
       {/* Ventilation Parameter Entry Dialog */}
       <VentilationDialog
@@ -9474,160 +9203,29 @@ export function UnifiedTimeline({
       />
 
       {/* Output Bulk Entry Dialog */}
-      <Dialog open={showOutputBulkDialog} onOpenChange={setShowOutputBulkDialog}>
-        <DialogContent className="sm:max-w-[550px]" data-testid="dialog-output-bulk">
-          <DialogHeader>
-            <DialogTitle>Output Bulk Entry</DialogTitle>
-            <DialogDescription>
-              Add output parameters to the timeline
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-2">
-                <Label htmlFor="bulk-gastrictube">Gastric Tube (ml)</Label>
-                <Input
-                  id="bulk-gastrictube"
-                  type="number"
-                  step="1"
-                  value={bulkOutputParams.gastricTube}
-                  onChange={(e) => setBulkOutputParams(prev => ({ ...prev, gastricTube: e.target.value }))}
-                  data-testid="input-bulk-gastrictube"
-                  placeholder="Optional"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="bulk-drainage">Drainage (ml)</Label>
-                <Input
-                  id="bulk-drainage"
-                  type="number"
-                  step="1"
-                  value={bulkOutputParams.drainage}
-                  onChange={(e) => setBulkOutputParams(prev => ({ ...prev, drainage: e.target.value }))}
-                  data-testid="input-bulk-drainage"
-                  placeholder="Optional"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="bulk-vomit">Vomit (ml)</Label>
-                <Input
-                  id="bulk-vomit"
-                  type="number"
-                  step="1"
-                  value={bulkOutputParams.vomit}
-                  onChange={(e) => setBulkOutputParams(prev => ({ ...prev, vomit: e.target.value }))}
-                  data-testid="input-bulk-vomit"
-                  placeholder="Optional"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="bulk-urine">Urine (ml)</Label>
-                <Input
-                  id="bulk-urine"
-                  type="number"
-                  step="1"
-                  value={bulkOutputParams.urine}
-                  onChange={(e) => setBulkOutputParams(prev => ({ ...prev, urine: e.target.value }))}
-                  data-testid="input-bulk-urine"
-                  placeholder="Optional"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="bulk-urine677">Urine 677 (ml)</Label>
-                <Input
-                  id="bulk-urine677"
-                  type="number"
-                  step="1"
-                  value={bulkOutputParams.urine677}
-                  onChange={(e) => setBulkOutputParams(prev => ({ ...prev, urine677: e.target.value }))}
-                  data-testid="input-bulk-urine677"
-                  placeholder="Optional"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="bulk-blood">Blood (ml)</Label>
-                <Input
-                  id="bulk-blood"
-                  type="number"
-                  step="1"
-                  value={bulkOutputParams.blood}
-                  onChange={(e) => setBulkOutputParams(prev => ({ ...prev, blood: e.target.value }))}
-                  data-testid="input-bulk-blood"
-                  placeholder="Optional"
-                />
-              </div>
-              <div className="grid gap-2 col-span-2">
-                <Label htmlFor="bulk-bloodirrigation">Blood and Irrigation in Suction (ml)</Label>
-                <Input
-                  id="bulk-bloodirrigation"
-                  type="number"
-                  step="1"
-                  value={bulkOutputParams.bloodIrrigation}
-                  onChange={(e) => setBulkOutputParams(prev => ({ ...prev, bloodIrrigation: e.target.value }))}
-                  data-testid="input-bulk-bloodirrigation"
-                  placeholder="Optional"
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooterWithTime
-            time={pendingOutputBulk?.time}
-            onTimeChange={(newTime) => setPendingOutputBulk(prev => prev ? { ...prev, time: newTime } : null)}
-            showDelete={false}
-            onCancel={() => {
-              setShowOutputBulkDialog(false);
-              setPendingOutputBulk(null);
-            }}
-            onSave={handleOutputBulkSave}
-            saveLabel="Add All"
-          />
-        </DialogContent>
-      </Dialog>
+      <OutputBulkDialog
+        open={showOutputBulkDialog}
+        onOpenChange={setShowOutputBulkDialog}
+        anesthesiaRecordId={anesthesiaRecordId}
+        pendingOutputBulk={pendingOutputBulk}
+        onOutputBulkCreated={() => {
+          setPendingOutputBulk(null);
+        }}
+      />
 
       {/* Output Value Edit Dialog */}
-      <Dialog open={showOutputEditDialog} onOpenChange={setShowOutputEditDialog}>
-        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-output-edit">
-          <DialogHeader>
-            <DialogTitle>Edit Output Value</DialogTitle>
-            <DialogDescription>
-              {editingOutputValue ? `Edit or delete the ${editingOutputValue.label} value` : 'Edit output value'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="output-edit-value">Value (ml)</Label>
-              <Input
-                id="output-edit-value"
-                data-testid="input-output-edit-value"
-                type="number"
-                step="1"
-                value={outputEditInput}
-                onChange={(e) => setOutputEditInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleOutputValueEditSave();
-                  }
-                }}
-                placeholder="Enter value"
-                autoFocus
-              />
-            </div>
-          </div>
-          <DialogFooterWithTime
-            time={outputEditTime}
-            onTimeChange={setOutputEditTime}
-            showDelete={true}
-            onDelete={handleOutputValueDelete}
-            onCancel={() => {
-              setShowOutputEditDialog(false);
-              setEditingOutputValue(null);
-              setOutputEditInput("");
-            }}
-            onSave={handleOutputValueEditSave}
-            saveDisabled={!outputEditInput.trim()}
-          />
-        </DialogContent>
-      </Dialog>
+      <OutputEditDialog
+        open={showOutputEditDialog}
+        onOpenChange={setShowOutputEditDialog}
+        anesthesiaRecordId={anesthesiaRecordId}
+        editingOutputValue={editingOutputValue}
+        onOutputUpdated={() => {
+          setEditingOutputValue(null);
+        }}
+        onOutputDeleted={() => {
+          setEditingOutputValue(null);
+        }}
+      />
 
       {/* Loading overlay for image processing */}
       {isProcessingImage && (
