@@ -1798,7 +1798,45 @@ export function UnifiedTimeline({
       updatedVitals.spo2 = newValue;
     }
 
-    // All persistence is now handled by React Query mutations above
+    // Find the point ID from clinical snapshot
+    const pointId = (() => {
+      if (type === 'hr') {
+        return clinicalSnapshot?.data?.hr?.[index]?.id;
+      } else if (type === 'sys' || type === 'dia') {
+        return clinicalSnapshot?.data?.bp?.[index]?.id;
+      } else if (type === 'spo2') {
+        return clinicalSnapshot?.data?.spo2?.[index]?.id;
+      }
+      return undefined;
+    })();
+
+    if (!pointId) {
+      console.error('[EDIT] Could not find point ID for update:', { type, index });
+      toast({
+        title: "Error updating vital",
+        description: "Could not locate vital point in database",
+        variant: "destructive",
+      });
+      setEditDialogOpen(false);
+      setEditingValue(null);
+      return;
+    }
+
+    // Persist update to database using React Query mutation
+    if (type === 'hr' || type === 'spo2') {
+      updateVitalPointMutation.mutate({
+        pointId,
+        timestamp,
+        value: updatedVitals,
+      });
+    } else if (type === 'sys' || type === 'dia') {
+      updateBPPointMutation.mutate({
+        pointId,
+        timestamp,
+        value: updatedVitals,
+      });
+    }
+
     setEditDialogOpen(false);
     setEditingValue(null);
   };
