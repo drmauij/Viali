@@ -2,6 +2,12 @@ import { useState, useCallback } from 'react';
 
 export type EventPoint = [number, string]; // [timestamp, value]
 
+export interface HeartRhythmPoint {
+  id: string;
+  timestamp: number;
+  value: string;
+}
+
 export interface StaffData {
   doctor: EventPoint[];
   nurse: EventPoint[];
@@ -25,22 +31,22 @@ export interface AnesthesiaTimeMarker {
 }
 
 export interface UseEventStateReturn {
-  heartRhythmData: EventPoint[];
+  heartRhythmData: HeartRhythmPoint[];
   staffData: StaffData;
   positionData: EventPoint[];
   eventComments: EventComment[];
   timeMarkers: AnesthesiaTimeMarker[];
-  setHeartRhythmData: React.Dispatch<React.SetStateAction<EventPoint[]>>;
+  setHeartRhythmData: React.Dispatch<React.SetStateAction<HeartRhythmPoint[]>>;
   setStaffData: React.Dispatch<React.SetStateAction<StaffData>>;
   setPositionData: React.Dispatch<React.SetStateAction<EventPoint[]>>;
   setEventComments: React.Dispatch<React.SetStateAction<EventComment[]>>;
   setTimeMarkers: React.Dispatch<React.SetStateAction<AnesthesiaTimeMarker[]>>;
-  addHeartRhythm: (point: EventPoint) => void;
+  addHeartRhythm: (point: HeartRhythmPoint) => void;
   addStaffEntry: (role: keyof StaffData, point: EventPoint) => void;
   addPosition: (point: EventPoint) => void;
   addEvent: (comment: EventComment) => void;
   resetEventData: (data: {
-    heartRhythm?: EventPoint[];
+    heartRhythm?: HeartRhythmPoint[];
     staff?: StaffData;
     position?: EventPoint[];
     events?: EventComment[];
@@ -49,13 +55,13 @@ export interface UseEventStateReturn {
 }
 
 export function useEventState(initialData?: {
-  heartRhythm?: EventPoint[];
+  heartRhythm?: HeartRhythmPoint[];
   staff?: StaffData;
   position?: EventPoint[];
   events?: EventComment[];
   timeMarkers?: AnesthesiaTimeMarker[];
 }): UseEventStateReturn {
-  const [heartRhythmData, setHeartRhythmData] = useState<EventPoint[]>(
+  const [heartRhythmData, setHeartRhythmData] = useState<HeartRhythmPoint[]>(
     initialData?.heartRhythm || []
   );
 
@@ -79,7 +85,7 @@ export function useEventState(initialData?: {
     initialData?.timeMarkers || []
   );
 
-  const addHeartRhythm = useCallback((point: EventPoint) => {
+  const addHeartRhythm = useCallback((point: HeartRhythmPoint) => {
     setHeartRhythmData(prev => [...prev, point]);
   }, []);
 

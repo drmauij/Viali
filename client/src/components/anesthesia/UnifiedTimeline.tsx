@@ -781,10 +781,12 @@ export function UnifiedTimeline({
     
     if (heartRhythm.length > 0) {
       console.log('[RHYTHM-SYNC] Loading heart rhythm from snapshot:', heartRhythm.length, 'points');
-      const rhythmEntries: [number, string][] = heartRhythm.map((point: any) => [
-        new Date(point.timestamp).getTime(),
-        point.value,
-      ]);
+      // Store as objects with ID to enable proper CRUD operations
+      const rhythmEntries = heartRhythm.map((point: any) => ({
+        id: point.id,
+        timestamp: new Date(point.timestamp).getTime(),
+        value: point.value,
+      }));
       setHeartRhythmData(rhythmEntries);
     } else {
       // Clear stale state when switching to record with no data
@@ -953,7 +955,7 @@ export function UnifiedTimeline({
   // UI state for heart rhythm dialogs and interactions
   const [showHeartRhythmDialog, setShowHeartRhythmDialog] = useState(false);
   const [pendingHeartRhythm, setPendingHeartRhythm] = useState<{ time: number } | null>(null);
-  const [editingHeartRhythm, setEditingHeartRhythm] = useState<{ time: number; rhythm: string; index: number } | null>(null);
+  const [editingHeartRhythm, setEditingHeartRhythm] = useState<{ time: number; rhythm: string; index: number; id: string } | null>(null);
   const [heartRhythmInput, setHeartRhythmInput] = useState("");
   const [heartRhythmEditTime, setHeartRhythmEditTime] = useState<number>(0);
   const [heartRhythmHoverInfo, setHeartRhythmHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
@@ -5122,26 +5124,23 @@ export function UnifiedTimeline({
   const handleHeartRhythmSave = (rhythmValue?: string) => {
     const rhythm = (rhythmValue || heartRhythmInput).trim();
     if (!rhythm) return;
-    
-    // Determine time to use
-    let time: number;
+    if (!anesthesiaRecordId) return;
     
     if (editingHeartRhythm) {
-      // Editing existing value
-      const { index } = editingHeartRhythm;
-      
-      // Use the edited timestamp directly (it's already a number)
+      // Editing existing value - call update mutation
       const newTimestamp = heartRhythmEditTime;
       
-      setHeartRhythmData(prev => {
-        const updated = [...prev];
-        updated[index] = [newTimestamp, rhythm];
-        return updated;
+      updateRhythmPoint.mutate({
+        pointId: editingHeartRhythm.id,
+        value: rhythm,
+        timestamp: new Date(newTimestamp).toISOString(),
       });
     } else if (pendingHeartRhythm) {
-      // Adding new value
-      time = pendingHeartRhythm.time;
-      setHeartRhythmData(prev => [...prev, [time, rhythm]]);
+      // Adding new value - call add mutation
+      addRhythmPoint.mutate({
+        timestamp: new Date(pendingHeartRhythm.time).toISOString(),
+        value: rhythm,
+      });
     }
     
     setShowHeartRhythmDialog(false);
@@ -5154,10 +5153,10 @@ export function UnifiedTimeline({
   // Handle heart rhythm delete
   const handleHeartRhythmDelete = () => {
     if (!editingHeartRhythm) return;
+    if (!anesthesiaRecordId) return;
     
-    const { index } = editingHeartRhythm;
-    
-    setHeartRhythmData(prev => prev.filter((_, i) => i !== index));
+    // Call delete mutation
+    deleteRhythmPoint.mutate(editingHeartRhythm.id);
     
     setShowHeartRhythmDialog(false);
     setEditingHeartRhythm(null);
@@ -7950,7 +7949,8 @@ export function UnifiedTimeline({
 
 
       {/* Heart Rhythm values as DOM overlays */}
-      {heartRhythmData.map(([timestamp, rhythm], index) => {
+      {heartRhythmData.map((point, index) => {
+        const { id, timestamp, value: rhythm } = point;
         const rhythmLane = swimlanePositions.find(lane => lane.id === 'herzrhythmus');
         if (!rhythmLane) return null;
         
@@ -7965,7 +7965,7 @@ export function UnifiedTimeline({
         
         return (
           <div
-            key={`rhythm-${timestamp}-${index}`}
+            key={`rhythm-${id}`}
             className="absolute z-40 cursor-pointer flex items-center justify-center group font-mono font-semibold text-sm px-2"
             style={{
               left: leftPosition,
@@ -7978,6 +7978,7 @@ export function UnifiedTimeline({
                 time: timestamp,
                 rhythm,
                 index,
+                id, // Add ID for mutations
               });
               setHeartRhythmInput(rhythm);
               setHeartRhythmEditTime(timestamp);
