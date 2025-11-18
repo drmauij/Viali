@@ -100,6 +100,7 @@ import { MedicationsSwimlane } from "./swimlanes/MedicationsSwimlane";
 import { VentilationSwimlane, generateVentilationSeries } from "./swimlanes/VentilationSwimlane";
 import { OutputSwimlane } from "./swimlanes/OutputSwimlane";
 import { PositionSwimlane } from "./swimlanes/PositionSwimlane";
+import { StaffSwimlane } from "./swimlanes/StaffSwimlane";
 
 /**
  * UnifiedTimeline - Refactored for robustness and flexibility
@@ -822,7 +823,6 @@ export function UnifiedTimeline({
   const [showStaffDialog, setShowStaffDialog] = useState(false);
   const [pendingStaff, setPendingStaff] = useState<{ time: number; role: 'doctor' | 'nurse' | 'assistant' } | null>(null);
   const [editingStaff, setEditingStaff] = useState<{ id: string; time: number; name: string; role: 'doctor' | 'nurse' | 'assistant'; index: number } | null>(null);
-  const [staffHoverInfo, setStaffHoverInfo] = useState<{ x: number; y: number; time: number; role: string } | null>(null);
 
   // UI state for position dialogs and interactions
   const [showPositionDialog, setShowPositionDialog] = useState(false);
@@ -4731,104 +4731,32 @@ export function UnifiedTimeline({
         </div>
       )}
 
-      {/* Interactive layers for staff swimlanes - to add staff entries */}
-      {!activeToolMode && !collapsedSwimlanes.has("staff") && ['doctor', 'nurse', 'assistant'].map((role) => {
-        const staffLane = swimlanePositions.find(lane => lane.id === `staff-${role}`);
-        if (!staffLane) return null;
-        
-        return (
-          <div
-            key={`staff-interactive-${role}`}
-            className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
-            style={{
-              left: '200px',
-              right: '10px',
-              top: `${staffLane.top}px`,
-              height: `${staffLane.height}px`,
-              zIndex: 35,
-            }}
-            onMouseMove={(e) => {
-              if (isTouchDevice) return;
-              
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = e.clientX - rect.left;
-              
-              const visibleStart = currentZoomStart ?? data.startTime;
-              const visibleEnd = currentZoomEnd ?? data.endTime;
-              const visibleRange = visibleEnd - visibleStart;
-              
-              const xPercent = x / rect.width;
-              let time = visibleStart + (xPercent * visibleRange);
-              
-              // Snap to 1-minute intervals
-              const oneMinute = 60 * 1000;
-              time = Math.round(time / oneMinute) * oneMinute;
-              
-              setStaffHoverInfo({ 
-                x: e.clientX, 
-                y: e.clientY, 
-                time,
-                role: role.charAt(0).toUpperCase() + role.slice(1)
-              });
-            }}
-            onMouseLeave={() => setStaffHoverInfo(null)}
-            onClick={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = e.clientX - rect.left;
-              
-              const visibleStart = currentZoomStart ?? data.startTime;
-              const visibleEnd = currentZoomEnd ?? data.endTime;
-              const visibleRange = visibleEnd - visibleStart;
-              
-              const xPercent = x / rect.width;
-              let time = visibleStart + (xPercent * visibleRange);
-              
-              // Snap to 1-minute intervals
-              const oneMinute = 60 * 1000;
-              time = Math.round(time / oneMinute) * oneMinute;
-              
-              // Validate that time is within editable boundaries
-
-              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
-              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
-              
-              if (time < editableStartBoundary || time > editableEndBoundary) {
-                // Click is outside editable window - ignore
-                return;
-              }
-              
-              // Prefill with current user's name
-              const userFirstName = (user as any)?.firstName || "";
-              const userLastName = (user as any)?.lastName || "";
-              const userName = userFirstName && userLastName ? `${userFirstName} ${userLastName}` : userFirstName || userLastName || "";
-              
-              setPendingStaff({ time, role: role as 'doctor' | 'nurse' | 'assistant' });
-              setEditingStaff(null);
-              setStaffInput(userName);
-              setShowStaffDialog(true);
-            }}
-            data-testid={`interactive-staff-${role}-lane`}
-          />
-        );
-      })}
-
-      {/* Tooltip for staff entry */}
-      {staffHoverInfo && !isTouchDevice && (
-        <div
-          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
-          style={{
-            left: staffHoverInfo.x + 10,
-            top: staffHoverInfo.y - 40,
-          }}
-        >
-          <div className="text-sm font-semibold text-primary">
-            Click to add {staffHoverInfo.role.toLowerCase()}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {formatTime(staffHoverInfo.time)}
-          </div>
-        </div>
-      )}
+      {/* StaffSwimlane Component - Interactive layers and rendering for staff assignments */}
+      <StaffSwimlane
+        swimlanePositions={swimlanePositions}
+        isTouchDevice={isTouchDevice}
+        userName={(() => {
+          const userFirstName = (user as any)?.firstName || "";
+          const userLastName = (user as any)?.lastName || "";
+          return userFirstName && userLastName ? `${userFirstName} ${userLastName}` : userFirstName || userLastName || "";
+        })()}
+        onStaffDialogOpen={(pending) => {
+          setPendingStaff(pending);
+          setEditingStaff(null);
+          setStaffInput((() => {
+            const userFirstName = (user as any)?.firstName || "";
+            const userLastName = (user as any)?.lastName || "";
+            return userFirstName && userLastName ? `${userFirstName} ${userLastName}` : userFirstName || userLastName || "";
+          })());
+          setShowStaffDialog(true);
+        }}
+        onStaffEditDialogOpen={(editing) => {
+          setEditingStaff(editing);
+          setStaffInput(editing.name);
+          setStaffEditTime(editing.time);
+          setShowStaffDialog(true);
+        }}
+      />
 
       {/* PositionSwimlane Component - Interactive layer and rendering for patient positioning */}
       <PositionSwimlane
@@ -5026,56 +4954,6 @@ export function UnifiedTimeline({
           </div>
         );
       })}
-
-      {/* Staff values as DOM overlays */}
-      {!collapsedSwimlanes.has('staff') && Object.entries(staffData).flatMap(([role, entries]) =>
-        entries.map((entry, index) => {
-          const { id, timestamp, name } = entry;
-          const staffLane = swimlanePositions.find(lane => lane.id === `staff-${role}`);
-          if (!staffLane) return null;
-          
-          const visibleStart = currentZoomStart ?? data.startTime;
-          const visibleEnd = currentZoomEnd ?? data.endTime;
-          const visibleRange = visibleEnd - visibleStart;
-          const xFraction = (timestamp - visibleStart) / visibleRange;
-          
-          if (xFraction < 0 || xFraction > 1) return null;
-          
-          const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 30px)`;
-          
-          return (
-            <div
-              key={`staff-${role}-${timestamp}-${index}`}
-              className="absolute z-40 cursor-pointer flex items-center justify-center group font-mono text-sm px-2"
-              style={{
-                left: leftPosition,
-                top: `${staffLane.top + (staffLane.height / 2) - 10}px`,
-                minWidth: '60px',
-                height: '20px',
-              }}
-              onClick={() => {
-                setEditingStaff({
-                  id,
-                  time: timestamp,
-                  name,
-                  role: role as 'doctor' | 'nurse' | 'assistant',
-                  index,
-                });
-                setStaffInput(name);
-                setStaffEditTime(timestamp);
-                setShowStaffDialog(true);
-              }}
-              title={`${name} (${role}) at ${formatTime(timestamp)}`}
-              data-testid={`staff-${role}-${index}`}
-            >
-              <span className="group-hover:scale-110 transition-transform text-slate-700 dark:text-slate-300">
-                {name}
-              </span>
-            </div>
-          );
-        })
-      )}
-
 
       {/* Medication Dose Entry Dialog */}
       <MedicationDoseDialog
