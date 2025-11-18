@@ -43,6 +43,14 @@ export function VitalsSwimlane({
     addVitalPointMutation,
     addBPPointMutation,
     data,
+    blendSequenceStep,
+    setBlendSequenceStep,
+    bpEntryMode,
+    setBpEntryMode,
+    pendingSysValue,
+    setPendingSysValue,
+    isProcessingClick,
+    setIsProcessingClick,
   } = useTimelineContext();
 
   const {
@@ -52,12 +60,8 @@ export function VitalsSwimlane({
     setBpDataPoints,
   } = vitalsState;
 
-  // State for interactive vital entry
-  const [blendSequenceStep, setBlendSequenceStep] = useState<'sys' | 'dia' | 'hr' | 'spo2'>('sys');
-  const [pendingSysValue, setPendingSysValue] = useState<{ time: number; value: number } | null>(null);
-  const [bpEntryMode, setBpEntryMode] = useState<'sys' | 'dia'>('sys');
+  // State for hover tooltip (remains local to this component)
   const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; value: number; time: number } | null>(null);
-  const [isProcessingClick, setIsProcessingClick] = useState(false);
   const [lastTouchTime, setLastTouchTime] = useState<number>(0);
   const [lastAction, setLastAction] = useState<{ type: 'hr' | 'bp' | 'spo2'; data?: VitalPoint; bpData?: { sys: VitalPoint; dia: VitalPoint } } | null>(null);
 

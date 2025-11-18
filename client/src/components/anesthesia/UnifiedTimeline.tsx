@@ -4343,6 +4343,14 @@ export function UnifiedTimeline({
       toggleSwimlane={toggleSwimlane}
       activeToolMode={activeToolMode}
       setActiveToolMode={setActiveToolMode}
+      blendSequenceStep={blendSequenceStep}
+      setBlendSequenceStep={setBlendSequenceStep}
+      bpEntryMode={bpEntryMode}
+      setBpEntryMode={setBpEntryMode}
+      pendingSysValue={pendingSysValue}
+      setPendingSysValue={setPendingSysValue}
+      isProcessingClick={isProcessingClick}
+      setIsProcessingClick={setIsProcessingClick}
       addVitalPointMutation={addVitalPointMutation}
       updateVitalPointMutation={updateVitalPointMutation}
       deleteVitalPointMutation={deleteVitalPointMutation}

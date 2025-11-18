@@ -132,6 +132,14 @@ export interface TimelineContextValue {
   toggleSwimlane: (swimlaneId: string) => void;
   activeToolMode: VitalsToolMode;
   setActiveToolMode: (mode: VitalsToolMode) => void;
+  blendSequenceStep: 'sys' | 'dia' | 'hr' | 'spo2';
+  setBlendSequenceStep: (step: 'sys' | 'dia' | 'hr' | 'spo2') => void;
+  bpEntryMode: 'sys' | 'dia';
+  setBpEntryMode: (mode: 'sys' | 'dia') => void;
+  pendingSysValue: { time: number; value: number } | null;
+  setPendingSysValue: (value: { time: number; value: number } | null) => void;
+  isProcessingClick: boolean;
+  setIsProcessingClick: (processing: boolean) => void;
   formatTime: (date: string | Date | null | undefined) => string;
   snapToInterval: (timestamp: number, interval: number) => number;
   calculateSnapInterval: (intervalMinutes: number) => number;
@@ -191,6 +199,14 @@ export interface TimelineContextProviderProps {
   toggleSwimlane: (swimlaneId: string) => void;
   activeToolMode: VitalsToolMode;
   setActiveToolMode: (mode: VitalsToolMode) => void;
+  blendSequenceStep: 'sys' | 'dia' | 'hr' | 'spo2';
+  setBlendSequenceStep: (step: 'sys' | 'dia' | 'hr' | 'spo2') => void;
+  bpEntryMode: 'sys' | 'dia';
+  setBpEntryMode: (mode: 'sys' | 'dia') => void;
+  pendingSysValue: { time: number; value: number } | null;
+  setPendingSysValue: (value: { time: number; value: number } | null) => void;
+  isProcessingClick: boolean;
+  setIsProcessingClick: (processing: boolean) => void;
   addVitalPointMutation: ReturnType<typeof useAddVitalPoint>;
   updateVitalPointMutation: ReturnType<typeof useUpdateVitalPoint>;
   deleteVitalPointMutation: ReturnType<typeof useDeleteVitalPoint>;
@@ -259,6 +275,14 @@ export function TimelineContextProvider({
   toggleSwimlane,
   activeToolMode,
   setActiveToolMode,
+  blendSequenceStep,
+  setBlendSequenceStep,
+  bpEntryMode,
+  setBpEntryMode,
+  pendingSysValue,
+  setPendingSysValue,
+  isProcessingClick,
+  setIsProcessingClick,
   addVitalPointMutation,
   updateVitalPointMutation,
   deleteVitalPointMutation,
@@ -309,6 +333,14 @@ export function TimelineContextProvider({
       toggleSwimlane,
       activeToolMode,
       setActiveToolMode,
+      blendSequenceStep,
+      setBlendSequenceStep,
+      bpEntryMode,
+      setBpEntryMode,
+      pendingSysValue,
+      setPendingSysValue,
+      isProcessingClick,
+      setIsProcessingClick,
       formatTime: formatTimeUtil,
       snapToInterval,
       calculateSnapInterval,
@@ -361,6 +393,14 @@ export function TimelineContextProvider({
       toggleSwimlane,
       activeToolMode,
       setActiveToolMode,
+      blendSequenceStep,
+      setBlendSequenceStep,
+      bpEntryMode,
+      setBpEntryMode,
+      pendingSysValue,
+      setPendingSysValue,
+      isProcessingClick,
+      setIsProcessingClick,
       addVitalPointMutation,
       updateVitalPointMutation,
       deleteVitalPointMutation,
