@@ -22,6 +22,8 @@ import {
   deleteVitalPointSchema,
   addRhythmPointSchema,
   updateRhythmPointSchema,
+  addVentilationModePointSchema,
+  updateVentilationModePointSchema,
   insertAnesthesiaMedicationSchema,
   insertAnesthesiaEventSchema,
   insertAnesthesiaPositionSchema,
@@ -5805,7 +5807,145 @@ If unable to parse any drugs, return:
     }
   });
 
-  // 7. Medications
+  // 7. Ventilation Modes
+
+  // Add ventilation mode point
+  app.post('/api/anesthesia/ventilation-modes', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const validatedData = addVentilationModePointSchema.parse(req.body);
+
+      // Verify record exists and user has access
+      const record = await storage.getAnesthesiaRecordById(validatedData.anesthesiaRecordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updatedSnapshot = await storage.addVentilationModePoint(
+        validatedData.anesthesiaRecordId,
+        validatedData.timestamp,
+        validatedData.value
+      );
+      
+      res.status(201).json(updatedSnapshot);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error adding ventilation mode point:", error);
+      res.status(500).json({ message: "Failed to add ventilation mode point" });
+    }
+  });
+
+  // Update a ventilation mode point by ID
+  app.patch('/api/anesthesia/ventilation-modes/:pointId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { pointId } = req.params;
+      const userId = req.user.id;
+      
+      const validatedData = updateVentilationModePointSchema.parse({
+        pointId,
+        ...req.body
+      });
+
+      // Verify record exists and user has access
+      const record = await storage.getAnesthesiaRecordById(validatedData.anesthesiaRecordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Extract only provided updatable fields to pass to storage
+      const updates: Record<string, any> = {};
+      if (validatedData.value !== undefined) updates.value = validatedData.value;
+      if (validatedData.timestamp !== undefined) updates.timestamp = validatedData.timestamp;
+      
+      const updatedSnapshot = await storage.updateVentilationModePoint(
+        validatedData.anesthesiaRecordId,
+        pointId,
+        updates
+      );
+      
+      if (!updatedSnapshot) {
+        return res.status(404).json({ message: "Ventilation mode point not found" });
+      }
+
+      res.json(updatedSnapshot);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error updating ventilation mode point:", error);
+      res.status(500).json({ message: "Failed to update ventilation mode point" });
+    }
+  });
+
+  // Delete a ventilation mode point by ID
+  app.delete('/api/anesthesia/ventilation-modes/:pointId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { pointId } = req.params;
+      const userId = req.user.id;
+      const { anesthesiaRecordId } = req.body;
+
+      if (!anesthesiaRecordId) {
+        return res.status(400).json({ message: "anesthesiaRecordId is required" });
+      }
+
+      // Verify record exists and user has access
+      const record = await storage.getAnesthesiaRecordById(anesthesiaRecordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updatedSnapshot = await storage.deleteVentilationModePoint(anesthesiaRecordId, pointId);
+      
+      if (!updatedSnapshot) {
+        return res.status(404).json({ message: "Ventilation mode point not found" });
+      }
+
+      res.json(updatedSnapshot);
+    } catch (error) {
+      console.error("Error deleting ventilation mode point:", error);
+      res.status(500).json({ message: "Failed to delete ventilation mode point" });
+    }
+  });
+
+  // 8. Medications
 
   // Get all medications for a record
   app.get('/api/anesthesia/medications/:recordId', isAuthenticated, async (req: any, res) => {

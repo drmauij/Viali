@@ -714,6 +714,7 @@ export const clinicalSnapshots = pgTable("clinical_snapshots", {
     // Heart Rhythm
     heartRhythm?: RhythmPointWithId[];
     // Ventilation
+    ventilationModes?: RhythmPointWithId[]; // Ventilation modes (string values like "PCV", "VCV")
     etco2?: VitalPointWithId[];
     pip?: VitalPointWithId[];
     peep?: VitalPointWithId[];
@@ -1219,6 +1220,19 @@ export const addRhythmPointSchema = z.object({
 });
 
 export const updateRhythmPointSchema = z.object({
+  pointId: z.string(),
+  value: z.string().optional(),
+  timestamp: z.string().optional(),
+});
+
+export const addVentilationModePointSchema = z.object({
+  anesthesiaRecordId: z.string(),
+  timestamp: z.string(),
+  value: z.string(), // String value like "PCV", "VCV", "SIMV"
+});
+
+export const updateVentilationModePointSchema = z.object({
+  anesthesiaRecordId: z.string(),
   pointId: z.string(),
   value: z.string().optional(),
   timestamp: z.string().optional(),

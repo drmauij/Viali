@@ -302,6 +302,11 @@ export interface IStorage {
   updateRhythmPoint(pointId: string, updates: { value?: string; timestamp?: string }): Promise<ClinicalSnapshot | null>;
   deleteRhythmPoint(pointId: string): Promise<ClinicalSnapshot | null>;
   
+  // Ventilation Mode operations
+  addVentilationModePoint(anesthesiaRecordId: string, timestamp: string, value: string): Promise<ClinicalSnapshot>;
+  updateVentilationModePoint(anesthesiaRecordId: string, pointId: string, updates: { value?: string; timestamp?: string }): Promise<ClinicalSnapshot | null>;
+  deleteVentilationModePoint(anesthesiaRecordId: string, pointId: string): Promise<ClinicalSnapshot | null>;
+  
   // Legacy methods for backward compatibility
   getVitalsSnapshots(anesthesiaRecordId: string): Promise<VitalsSnapshot[]>;
   createVitalsSnapshot(snapshot: InsertVitalsSnapshot): Promise<VitalsSnapshot>;
@@ -2187,6 +2192,110 @@ export class DatabaseStorage implements IStorage {
     }
     
     return null; // Point not found
+  }
+
+  /**
+   * Add a ventilation mode point
+   */
+  async addVentilationModePoint(
+    anesthesiaRecordId: string,
+    timestamp: string,
+    value: string
+  ): Promise<ClinicalSnapshot> {
+    const snapshot = await this.getClinicalSnapshot(anesthesiaRecordId);
+    
+    const newPoint = {
+      id: randomUUID(),
+      timestamp,
+      value,
+    };
+    
+    const currentModes = (snapshot.data as any).ventilationModes || [];
+    const updatedData = {
+      ...snapshot.data,
+      ventilationModes: [...currentModes, newPoint],
+    };
+    
+    const [updated] = await db
+      .update(clinicalSnapshots)
+      .set({ 
+        data: updatedData,
+        updatedAt: new Date(),
+      })
+      .where(eq(clinicalSnapshots.id, snapshot.id))
+      .returning();
+    
+    return updated;
+  }
+
+  /**
+   * Update a ventilation mode point
+   */
+  async updateVentilationModePoint(
+    anesthesiaRecordId: string,
+    pointId: string,
+    updates: { value?: string; timestamp?: string }
+  ): Promise<ClinicalSnapshot | null> {
+    const snapshot = await this.getClinicalSnapshot(anesthesiaRecordId);
+    const data = snapshot.data as any;
+    const ventilationModes = data.ventilationModes || [];
+    
+    const pointIndex = ventilationModes.findIndex((p: any) => p.id === pointId);
+    if (pointIndex === -1) {
+      return null; // Point not found in this snapshot
+    }
+    
+    const updatedPoints = [...ventilationModes];
+    updatedPoints[pointIndex] = {
+      ...updatedPoints[pointIndex],
+      ...updates,
+    };
+    
+    const updatedData = {
+      ...data,
+      ventilationModes: updatedPoints,
+    };
+    
+    const [updated] = await db
+      .update(clinicalSnapshots)
+      .set({ 
+        data: updatedData,
+        updatedAt: new Date(),
+      })
+      .where(eq(clinicalSnapshots.id, snapshot.id))
+      .returning();
+    
+    return updated;
+  }
+
+  /**
+   * Delete a ventilation mode point
+   */
+  async deleteVentilationModePoint(anesthesiaRecordId: string, pointId: string): Promise<ClinicalSnapshot | null> {
+    const snapshot = await this.getClinicalSnapshot(anesthesiaRecordId);
+    const data = snapshot.data as any;
+    const ventilationModes = data.ventilationModes || [];
+    
+    const filteredPoints = ventilationModes.filter((p: any) => p.id !== pointId);
+    if (filteredPoints.length >= ventilationModes.length) {
+      return null; // Point not found in this snapshot
+    }
+    
+    const updatedData = {
+      ...data,
+      ventilationModes: filteredPoints,
+    };
+    
+    const [updated] = await db
+      .update(clinicalSnapshots)
+      .set({ 
+        data: updatedData,
+        updatedAt: new Date(),
+      })
+      .where(eq(clinicalSnapshots.id, snapshot.id))
+      .returning();
+    
+    return updated;
   }
 
   /**
