@@ -95,6 +95,7 @@ import {
   generateVitalsSeries, 
   generateVitalsYAxisLabels 
 } from "./swimlanes/VitalsSwimlane";
+import { EventsSwimlane } from "./swimlanes/EventsSwimlane";
 
 /**
  * UnifiedTimeline - Refactored for robustness and flexibility
@@ -4931,225 +4932,24 @@ export function UnifiedTimeline({
         isTouchDevice={isTouchDevice}
       />
 
-      {/* Interactive layer for Zeiten swimlane - to place time markers */}
-      {!activeToolMode && (() => {
-        const zeitenLane = swimlanePositions.find(lane => lane.id === 'zeiten');
-        if (!zeitenLane) return null;
-        
-        return (
-          <div
-            className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
-            style={{
-              left: '200px',
-              right: '10px',
-              top: `${zeitenLane.top}px`,
-              height: `${zeitenLane.height}px`,
-              zIndex: 35,
-            }}
-            onMouseMove={(e) => {
-              // Skip hover preview on touch devices
-              if (isTouchDevice) return;
-              
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = e.clientX - rect.left;
-              
-              // Use tracked zoom state
-              const visibleStart = currentZoomStart ?? data.startTime;
-              const visibleEnd = currentZoomEnd ?? data.endTime;
-              const visibleRange = visibleEnd - visibleStart;
-              
-              // Convert x-position to time
-              const xPercent = x / rect.width;
-              let time = visibleStart + (xPercent * visibleRange);
-              
-              // Always snap to 1-minute intervals for time markers
-              time = snapToInterval(time, ONE_MINUTE);
-              
-              // Check if we're hovering over an existing marker (within 3 minutes threshold)
-              const threeMinutes = 3 * 60 * 1000;
-              const existingMarker = timeMarkers.find(m => 
-                m.time !== null && Math.abs(m.time - time) < threeMinutes
-              );
-              
-              // Find next unplaced marker
-              const nextMarkerIndex = timeMarkers.findIndex(m => m.time === null);
-              const nextMarker = nextMarkerIndex !== -1 ? timeMarkers[nextMarkerIndex] : null;
-              
-              setZeitenHoverInfo({ 
-                x: e.clientX, 
-                y: e.clientY, 
-                time: existingMarker ? existingMarker.time! : time,
-                nextMarker: nextMarker ? `${nextMarker.code} - ${nextMarker.label}` : null,
-                existingMarker: existingMarker ? {
-                  code: existingMarker.code,
-                  label: existingMarker.label,
-                  time: existingMarker.time!
-                } : undefined
-              });
-            }}
-            onMouseLeave={() => setZeitenHoverInfo(null)}
-            onClick={handleZeitenClick}
-            data-testid="interactive-zeiten-lane"
-          />
-        );
-      })()}
-
-      {/* Interactive layer for Events swimlane - to add event comments */}
-      {(!activeToolMode || activeToolMode === 'edit') && (() => {
-        const eventsLane = swimlanePositions.find(lane => lane.id === 'ereignisse');
-        console.log('[EVENTS-INTERACTIVE] Rendering check - activeToolMode:', activeToolMode, 'eventsLane found:', !!eventsLane);
-        if (!eventsLane) {
-          console.log('[EVENTS-INTERACTIVE] No ereignisse lane found in swimlanePositions:', swimlanePositions.map(l => l.id));
-          return null;
-        }
-        
-        console.log('[EVENTS-INTERACTIVE] Rendering interactive events layer at top:', eventsLane.top, 'height:', eventsLane.height);
-        return (
-          <div
-            className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
-            style={{
-              left: '200px',
-              right: '10px',
-              top: `${eventsLane.top}px`,
-              height: `${eventsLane.height}px`,
-              zIndex: 35,
-            }}
-            onMouseMove={(e) => {
-              if (isTouchDevice) return;
-              
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = e.clientX - rect.left;
-              
-              const visibleStart = currentZoomStart ?? data.startTime;
-              const visibleEnd = currentZoomEnd ?? data.endTime;
-              const visibleRange = visibleEnd - visibleStart;
-              
-              const xPercent = x / rect.width;
-              let time = visibleStart + (xPercent * visibleRange);
-              
-              // Snap to 1-minute intervals
-              const oneMinute = 60 * 1000;
-              time = Math.round(time / oneMinute) * oneMinute;
-              
-              setEventHoverInfo({ 
-                x: e.clientX, 
-                y: e.clientY, 
-                time
-              });
-            }}
-            onMouseLeave={() => setEventHoverInfo(null)}
-            onClick={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = e.clientX - rect.left;
-              
-              const visibleStart = currentZoomStart ?? data.startTime;
-              const visibleEnd = currentZoomEnd ?? data.endTime;
-              const visibleRange = visibleEnd - visibleStart;
-              
-              const xPercent = x / rect.width;
-              let time = visibleStart + (xPercent * visibleRange);
-              
-              // Snap to 1-minute intervals
-              const oneMinute = 60 * 1000;
-              time = Math.round(time / oneMinute) * oneMinute;
-              
-              // SAFEGUARD: Validate time is reasonable (not 0, not NaN, not in ancient past)
-              // If calculation failed due to zero visibleRange, fall back to currentTime
-              const MIN_VALID_TIMESTAMP = new Date('2020-01-01').getTime();
-              if (!time || isNaN(time) || time < MIN_VALID_TIMESTAMP) {
-                console.warn('[EVENTS-CLICK] Invalid time calculated:', time, '- falling back to currentTime');
-                time = currentTime;
-              }
-              
-              // Validate that time is within editable boundaries
-              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
-              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
-              
-              console.log('[EVENTS-CLICK] Clicked at time:', new Date(time).toLocaleTimeString(), 
-                'Boundaries:', new Date(editableStartBoundary).toLocaleTimeString(), '-', new Date(editableEndBoundary).toLocaleTimeString(),
-                'Valid:', time >= editableStartBoundary && time <= editableEndBoundary);
-              
-              if (time < editableStartBoundary || time > editableEndBoundary) {
-                // Click is outside editable window - ignore
-                console.log('[EVENTS-CLICK] Click REJECTED - outside editable window');
-                return;
-              }
-              
-              console.log('[EVENTS-CLICK] Click ACCEPTED - opening dialog');
-              setPendingEvent({ time });
-              setShowEventDialog(true);
-            }}
-            data-testid="interactive-events-lane"
-          />
-        );
-      })()}
-
-      {/* Tooltip for events entry */}
-      {eventHoverInfo && !isTouchDevice && (
-        <div
-          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
-          style={{
-            left: eventHoverInfo.x + 10,
-            top: eventHoverInfo.y - 40,
-          }}
-        >
-          <div className="text-sm font-semibold text-primary">
-            Click to add event
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {formatTime(eventHoverInfo.time)}
-          </div>
-        </div>
-      )}
-
-      {/* Inline popup for existing events */}
-      {hoveredEvent && !isTouchDevice && (
-        <div
-          className="fixed z-50 pointer-events-none"
-          style={{
-            left: hoveredEvent.x,
-            top: hoveredEvent.y - 20,
-            transform: 'translate(-50%, -100%)',
-          }}
-        >
-          <div className="bg-background border-2 border-primary rounded-lg shadow-xl max-w-md p-4 relative">
-            <div className="flex items-center gap-2 mb-2">
-              <MessageSquareText className="w-4 h-4 text-primary" />
-              <span className="text-sm font-semibold text-primary">Event Comment</span>
-              <span className="text-xs text-muted-foreground ml-auto">
-                {formatTime(hoveredEvent.event.time)}
-              </span>
-            </div>
-            <div className="text-sm text-foreground whitespace-pre-wrap break-words max-h-48 overflow-y-auto">
-              {hoveredEvent.event.text}
-            </div>
-            <div className="text-xs text-muted-foreground mt-2 italic">
-              Click to edit
-            </div>
-            {/* Arrow pointing down to the icon - double layer for border effect */}
-            {/* Outer arrow (border) */}
-            <div
-              className="absolute left-1/2 -translate-x-1/2 w-0 h-0"
-              style={{
-                bottom: '-12px',
-                borderLeft: '12px solid transparent',
-                borderRight: '12px solid transparent',
-                borderTop: '12px solid hsl(var(--primary))',
-              }}
-            />
-            {/* Inner arrow (background) */}
-            <div
-              className="absolute left-1/2 -translate-x-1/2 w-0 h-0"
-              style={{
-                bottom: '-10px',
-                borderLeft: '10px solid transparent',
-                borderRight: '10px solid transparent',
-                borderTop: '10px solid hsl(var(--background))',
-              }}
-            />
-          </div>
-        </div>
-      )}
+      {/* EventsSwimlane Component - Interactive layers and rendering for events and time markers */}
+      <EventsSwimlane
+        swimlanePositions={swimlanePositions}
+        isTouchDevice={isTouchDevice}
+        onEventDialogOpen={(pending) => {
+          setPendingEvent(pending);
+          setShowEventDialog(true);
+        }}
+        onEventEditDialogOpen={(event) => {
+          setEditingEvent(event);
+          setEventEditTime(event.time);
+          setShowEventDialog(true);
+        }}
+        onTimeMarkerEditDialogOpen={(editData) => {
+          setEditingTimeMarker(editData);
+          setTimeMarkerEditDialogOpen(true);
+        }}
+      />
 
       {/* Interactive layer for Heart Rhythm swimlane - to add rhythm entries */}
       {!activeToolMode && (() => {
@@ -6454,117 +6254,6 @@ export function UnifiedTimeline({
           />
         );
       })}
-
-      {/* Time marker badges on the timeline */}
-      {timeMarkers.filter(m => m.time !== null).map((marker) => {
-        const visibleStart = currentZoomStart ?? data.startTime;
-        const visibleEnd = currentZoomEnd ?? data.endTime;
-        const visibleRange = visibleEnd - visibleStart;
-        
-        // Calculate x position from time (as decimal 0-1)
-        const xFraction = (marker.time! - visibleStart) / visibleRange;
-        
-        // Only render if in visible range
-        if (xFraction < 0 || xFraction > 1) return null;
-        
-        const zeitenLane = swimlanePositions.find(lane => lane.id === 'zeiten');
-        if (!zeitenLane) return null;
-        
-        // Calculate exact pixel position: sidebar width (200px) + fraction of chart area - half badge width (16px)
-        // Chart area width is: calc(100% - 200px - 10px) = calc(100% - 210px)
-        const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 16px)`;
-        
-        return (
-          <div
-            key={marker.id}
-            className="absolute z-40 pointer-events-none flex items-center justify-center"
-            style={{
-              left: leftPosition,
-              top: `${zeitenLane.top + 4}px`,
-              width: '32px',
-              height: '32px',
-            }}
-          >
-            <div
-              className="w-8 h-8 rounded flex items-center justify-center text-xs font-bold shadow-md"
-              style={{
-                backgroundColor: marker.bgColor,
-                color: marker.color,
-              }}
-              data-testid={`time-marker-${marker.code}`}
-            >
-              {marker.code}
-            </div>
-          </div>
-        );
-      })}
-
-      {/* Event comment icons on the timeline */}
-      {(() => {
-        const visibleStart = currentZoomStart ?? data.startTime;
-        const visibleEnd = currentZoomEnd ?? data.endTime;
-        const visibleRange = visibleEnd - visibleStart;
-        console.log('[EVENTS-RENDER] Rendering event icons', {
-          eventCount: eventComments.length,
-          currentZoomStart,
-          currentZoomEnd,
-          dataStartTime: data.startTime,
-          dataEndTime: data.endTime,
-          visibleStart: new Date(visibleStart).toISOString(),
-          visibleEnd: new Date(visibleEnd).toISOString(),
-          visibleRange,
-          firstEvent: eventComments[0] ? new Date(eventComments[0].time).toISOString() : null
-        });
-        return eventComments.map((event) => {
-          
-          const xFraction = (event.time - visibleStart) / visibleRange;
-          
-          if (xFraction < 0 || xFraction > 1) {
-            console.log('[EVENTS-RENDER] Event outside visible range:', event.id, xFraction);
-            return null;
-          }
-          
-          const eventsLane = swimlanePositions.find(lane => lane.id === 'ereignisse');
-          if (!eventsLane) {
-            console.log('[EVENTS-RENDER] No ereignisse lane found for event:', event.id);
-            return null;
-          }
-        
-        const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 12px)`;
-        
-        return (
-          <div
-            key={event.id}
-            className="absolute z-40 cursor-pointer flex items-center justify-center group"
-            style={{
-              left: leftPosition,
-              top: `${eventsLane.top + 8}px`,
-              width: '24px',
-              height: '24px',
-            }}
-            onClick={() => {
-              setEditingEvent(event);
-              setEventEditTime(event.time);
-              setShowEventDialog(true);
-            }}
-            onMouseEnter={(e) => {
-              if (!isTouchDevice) {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setHoveredEvent({
-                  event,
-                  x: rect.left + rect.width / 2,
-                  y: rect.top,
-                });
-              }
-            }}
-            onMouseLeave={() => setHoveredEvent(null)}
-            data-testid={`event-icon-${event.id}`}
-          >
-            <MessageSquareText className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
-          </div>
-        );
-        });
-      })()}
 
       {/* NOW line - Current time indicator */}
       <div
