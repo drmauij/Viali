@@ -18,6 +18,10 @@ import { StaffDialog } from "./dialogs/StaffDialog";
 import { PositionDialog } from "./dialogs/PositionDialog";
 import { MedicationDoseDialog } from "./dialogs/MedicationDoseDialog";
 import { MedicationEditDialog } from "./dialogs/MedicationEditDialog";
+import { VentilationDialog } from "./dialogs/VentilationDialog";
+import { VentilationEditDialog } from "./dialogs/VentilationEditDialog";
+import { VentilationModeEditDialog } from "./dialogs/VentilationModeEditDialog";
+import { VentilationBulkDialog } from "./dialogs/VentilationBulkDialog";
 import { DialogFooterWithTime } from "./DialogFooterWithTime";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -1006,28 +1010,14 @@ export function UnifiedTimeline({
   // State for ventilation value edit dialog
   const [showVentilationEditDialog, setShowVentilationEditDialog] = useState(false);
   const [editingVentilationValue, setEditingVentilationValue] = useState<{ paramKey: keyof typeof ventilationData; time: number; value: string; index: number; label: string; id: string } | null>(null);
-  const [ventilationEditInput, setVentilationEditInput] = useState("");
-  const [ventilationEditTime, setVentilationEditTime] = useState<number>(0);
 
   // State for ventilation mode edit dialog
   const [showVentilationModeEditDialog, setShowVentilationModeEditDialog] = useState(false);
   const [editingVentilationMode, setEditingVentilationMode] = useState<{ time: number; mode: string; index: number; id: string } | null>(null);
-  const [ventilationModeEditInput, setVentilationModeEditInput] = useState("");
-  const [ventilationModeEditTime, setVentilationModeEditTime] = useState<number>(0);
 
   // State for ventilation bulk entry dialog
   const [showVentilationBulkDialog, setShowVentilationBulkDialog] = useState(false);
   const [pendingVentilationBulk, setPendingVentilationBulk] = useState<{ time: number } | null>(null);
-  const [ventilationMode, setVentilationMode] = useState("PCV - druckkontrolliert");
-  const [bulkVentilationParams, setBulkVentilationParams] = useState({
-    peep: "5",
-    fiO2: "40",
-    tidalVolume: "",
-    respiratoryRate: "12",
-    etCO2: "35",
-    pip: "",
-    minuteVolume: "",
-  });
   const [ventilationBulkHoverInfo, setVentilationBulkHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
   
   // State for output bulk entry dialog
@@ -1183,7 +1173,6 @@ export function UnifiedTimeline({
   const [ventilationHoverInfo, setVentilationHoverInfo] = useState<{ x: number; y: number; time: number; paramKey: keyof typeof ventilationData; label: string } | null>(null);
   const [showVentilationDialog, setShowVentilationDialog] = useState(false);
   const [pendingVentilationValue, setPendingVentilationValue] = useState<{ paramKey: keyof typeof ventilationData; time: number; label: string } | null>(null);
-  const [ventilationValueInput, setVentilationValueInput] = useState("");
 
   // Touch device detection
   const [isTouchDevice, setIsTouchDevice] = useState(false);
@@ -3689,42 +3678,6 @@ export function UnifiedTimeline({
     }
   };
 
-  // Handle ventilation parameter entry
-  const handleVentilationParameterEntry = () => {
-    if (!pendingVentilationValue || !ventilationValueInput.trim()) return;
-    if (!anesthesiaRecordId) return;
-    
-    const { paramKey, time, label } = pendingVentilationValue;
-    const value = parseFloat(ventilationValueInput.trim());
-    
-    if (isNaN(value)) {
-      toast({
-        title: "Invalid Value",
-        description: "Please enter a valid number",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Call mutation to save to database
-    addVitalPointMutation.mutate({
-      anesthesiaRecordId,
-      vitalType: paramKey,
-      value,
-      timestamp: new Date(time).toISOString(),
-    });
-    
-    // Toast notification disabled (can be re-enabled later)
-    // toast({
-    //   title: "Value Added",
-    //   description: `${label}: ${value} at ${new Date(time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`,
-    // });
-    
-    // Reset dialog state
-    setShowVentilationDialog(false);
-    setPendingVentilationValue(null);
-    setVentilationValueInput("");
-  };
 
   // Handle infusion value entry
   const handleInfusionValueEntry = () => {
@@ -4959,191 +4912,9 @@ export function UnifiedTimeline({
     setOutputValueInput("");
   };
 
-  // Handle ventilation value edit save
-  const handleVentilationValueEditSave = () => {
-    if (!editingVentilationValue || !ventilationEditInput.trim()) return;
-    if (!anesthesiaRecordId) return;
-    
-    const { id, paramKey } = editingVentilationValue;
-    const value = parseFloat(ventilationEditInput.trim());
-    
-    if (isNaN(value)) {
-      toast({
-        title: "Invalid value",
-        description: "Please enter a valid number",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Use the edited timestamp directly (it's already a number)
-    const newTimestamp = ventilationEditTime;
-    
-    // Call mutation to update in database
-    updateVitalPointMutation.mutate({
-      id,
-      value,
-      timestamp: new Date(newTimestamp).toISOString(),
-    });
-    
-    // Reset dialog state
-    setShowVentilationEditDialog(false);
-    setEditingVentilationValue(null);
-    setVentilationEditInput("");
-    setVentilationEditTime(0);
-  };
-
-  // Handle ventilation value delete
-  const handleVentilationValueDelete = () => {
-    if (!editingVentilationValue) return;
-    if (!anesthesiaRecordId) return;
-    
-    const { id } = editingVentilationValue;
-    
-    // Call mutation to delete from database
-    deleteVitalPointMutation.mutate(id);
-    
-    setShowVentilationEditDialog(false);
-    setEditingVentilationValue(null);
-    setVentilationEditInput("");
-  };
-
-  // Handle ventilation mode edit save
-  const handleVentilationModeEditSave = () => {
-    if (!editingVentilationMode || !ventilationModeEditInput.trim()) return;
-    if (!anesthesiaRecordId) return;
-    
-    const newTimestamp = ventilationModeEditTime;
-    
-    // Call update mutation
-    updateVentilationMode.mutate({
-      pointId: editingVentilationMode.id,
-      value: ventilationModeEditInput.trim(),
-      timestamp: new Date(newTimestamp).toISOString(),
-    });
-    
-    setShowVentilationModeEditDialog(false);
-    setEditingVentilationMode(null);
-    setVentilationModeEditInput("");
-    setVentilationModeEditTime(0);
-  };
-
-  // Handle ventilation mode delete
-  const handleVentilationModeDelete = () => {
-    if (!editingVentilationMode) return;
-    if (!anesthesiaRecordId) return;
-    
-    // Call delete mutation
-    deleteVentilationMode.mutate(editingVentilationMode.id);
-    
-    setShowVentilationModeEditDialog(false);
-    setEditingVentilationMode(null);
-    setVentilationModeEditInput("");
-  };
 
 
-  // Handle ventilation bulk entry save
-  const handleVentilationBulkSave = () => {
-    if (!pendingVentilationBulk) return;
-    if (!anesthesiaRecordId) return;
-    
-    const { time } = pendingVentilationBulk;
-    const timestamp = new Date(time).toISOString();
-    
-    // Save the selected ventilation mode - check if we need to add it
-    const shouldAddMode = ventilationModeData.length === 0 || 
-      ventilationModeData[ventilationModeData.length - 1][1] !== ventilationMode;
-    
-    if (shouldAddMode) {
-      createVentilationMode.mutate({
-        anesthesiaRecordId,
-        timestamp,
-        mode: ventilationMode,
-      });
-    }
-    
-    // Add all filled parameters using addVitalPoint mutation
-    if (bulkVentilationParams.peep) {
-      const value = parseFloat(bulkVentilationParams.peep);
-      if (!isNaN(value)) {
-        addVitalPointMutation.mutate({
-          vitalType: 'peep',
-          timestamp,
-          value,
-        });
-      }
-    }
-    
-    if (bulkVentilationParams.fiO2) {
-      const value = parseFloat(bulkVentilationParams.fiO2);
-      if (!isNaN(value)) {
-        addVitalPointMutation.mutate({
-          vitalType: 'fiO2',
-          timestamp,
-          value,
-        });
-      }
-    }
-    
-    if (bulkVentilationParams.tidalVolume) {
-      const value = parseFloat(bulkVentilationParams.tidalVolume);
-      if (!isNaN(value)) {
-        addVitalPointMutation.mutate({
-          vitalType: 'tidalVolume',
-          timestamp,
-          value,
-        });
-      }
-    }
-    
-    if (bulkVentilationParams.respiratoryRate) {
-      const value = parseFloat(bulkVentilationParams.respiratoryRate);
-      if (!isNaN(value)) {
-        addVitalPointMutation.mutate({
-          vitalType: 'respiratoryRate',
-          timestamp,
-          value,
-        });
-      }
-    }
-    
-    if (bulkVentilationParams.etCO2) {
-      const value = parseFloat(bulkVentilationParams.etCO2);
-      if (!isNaN(value)) {
-        addVitalPointMutation.mutate({
-          vitalType: 'etCO2',
-          timestamp,
-          value,
-        });
-      }
-    }
-    
-    if (bulkVentilationParams.pip) {
-      const value = parseFloat(bulkVentilationParams.pip);
-      if (!isNaN(value)) {
-        addVitalPointMutation.mutate({
-          vitalType: 'pip',
-          timestamp,
-          value,
-        });
-      }
-    }
-    
-    if (bulkVentilationParams.minuteVolume) {
-      const value = parseFloat(bulkVentilationParams.minuteVolume);
-      if (!isNaN(value)) {
-        addVitalPointMutation.mutate({
-          vitalType: 'minuteVolume',
-          timestamp,
-          value,
-        });
-      }
-    }
-    
-    // Reset dialog state
-    setShowVentilationBulkDialog(false);
-    setPendingVentilationBulk(null);
-  };
+
 
   // Handle output bulk entry save
   const handleOutputBulkSave = () => {
@@ -9194,57 +8965,15 @@ export function UnifiedTimeline({
       </Dialog>
 
       {/* Ventilation Parameter Entry Dialog */}
-      <Dialog open={showVentilationDialog} onOpenChange={(open) => {
-        if (!open) {
-          setShowVentilationDialog(false);
+      <VentilationDialog
+        open={showVentilationDialog}
+        onOpenChange={setShowVentilationDialog}
+        anesthesiaRecordId={anesthesiaRecordId}
+        pendingVentilationValue={pendingVentilationValue}
+        onVentilationCreated={() => {
           setPendingVentilationValue(null);
-          setVentilationValueInput("");
-        } else {
-          setShowVentilationDialog(true);
-        }
-      }}>
-        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-ventilation-value">
-          <DialogHeader>
-            <DialogTitle>Add Value</DialogTitle>
-            <DialogDescription>
-              {pendingVentilationValue ? `${pendingVentilationValue.label}` : 'Add a new ventilation parameter value'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="ventilation-value">Value</Label>
-              <Input
-                id="ventilation-value"
-                data-testid="input-ventilation-value"
-                type="number"
-                step="0.1"
-                value={ventilationValueInput}
-                onChange={(e) => setVentilationValueInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleVentilationParameterEntry();
-                  }
-                }}
-                placeholder="e.g., 35, 12.5, 98"
-                autoFocus
-              />
-            </div>
-          </div>
-          <DialogFooterWithTime
-            time={pendingVentilationValue?.time}
-            onTimeChange={(newTime) => setPendingVentilationValue(prev => prev ? { ...prev, time: newTime } : null)}
-            showDelete={false}
-            onCancel={() => {
-              setShowVentilationDialog(false);
-              setPendingVentilationValue(null);
-              setVentilationValueInput("");
-            }}
-            onSave={handleVentilationParameterEntry}
-            saveDisabled={!ventilationValueInput.trim()}
-            saveLabel="Add"
-          />
-        </DialogContent>
-      </Dialog>
+        }}
+      />
 
       {/* Edit Value Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
@@ -9647,92 +9376,32 @@ export function UnifiedTimeline({
       />
 
       {/* Ventilation Value Edit Dialog */}
-      <Dialog open={showVentilationEditDialog} onOpenChange={setShowVentilationEditDialog}>
-        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-ventilation-edit">
-          <DialogHeader>
-            <DialogTitle>Edit {editingVentilationValue?.label}</DialogTitle>
-            <DialogDescription>
-              Edit or delete the ventilation value
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="ventilation-edit-value">Value</Label>
-              <Input
-                id="ventilation-edit-value"
-                data-testid="input-ventilation-edit-value"
-                type="number"
-                step="any"
-                value={ventilationEditInput}
-                onChange={(e) => setVentilationEditInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleVentilationValueEditSave();
-                  }
-                }}
-                placeholder="Enter value"
-                autoFocus
-              />
-            </div>
-          </div>
-          <DialogFooterWithTime
-            time={ventilationEditTime}
-            onTimeChange={setVentilationEditTime}
-            showDelete={true}
-            onDelete={handleVentilationValueDelete}
-            onCancel={() => {
-              setShowVentilationEditDialog(false);
-              setEditingVentilationValue(null);
-              setVentilationEditInput("");
-            }}
-            onSave={handleVentilationValueEditSave}
-            saveDisabled={!ventilationEditInput.trim()}
-          />
-        </DialogContent>
-      </Dialog>
+      <VentilationEditDialog
+        open={showVentilationEditDialog}
+        onOpenChange={setShowVentilationEditDialog}
+        anesthesiaRecordId={anesthesiaRecordId}
+        editingVentilationValue={editingVentilationValue}
+        onVentilationUpdated={() => {
+          setEditingVentilationValue(null);
+        }}
+        onVentilationDeleted={() => {
+          setEditingVentilationValue(null);
+        }}
+      />
 
       {/* Ventilation Mode Edit Dialog */}
-      <Dialog open={showVentilationModeEditDialog} onOpenChange={setShowVentilationModeEditDialog}>
-        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-ventilation-mode-edit">
-          <DialogHeader>
-            <DialogTitle>Edit Ventilation Mode</DialogTitle>
-            <DialogDescription>
-              Edit or delete the ventilation mode
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="mode-edit-value">Mode</Label>
-              <Select value={ventilationModeEditInput} onValueChange={setVentilationModeEditInput}>
-                <SelectTrigger id="mode-edit-value" data-testid="select-mode-edit-value">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Präoxygenierung">Preoxygenation</SelectItem>
-                  <SelectItem value="Assistierte Spontanatmung">Assisted Spontaneous Breathing</SelectItem>
-                  <SelectItem value="Spontanatmung am Gerät">Spontaneous Breathing on Device</SelectItem>
-                  <SelectItem value="PCV - druckkontrolliert">PCV - Pressure Controlled</SelectItem>
-                  <SelectItem value="VCV - volumenkontrolliert">VCV - Volume Controlled</SelectItem>
-                  <SelectItem value="CPAP - PSV">CPAP - PSV</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooterWithTime
-            time={ventilationModeEditTime}
-            onTimeChange={setVentilationModeEditTime}
-            showDelete={true}
-            onDelete={handleVentilationModeDelete}
-            onCancel={() => {
-              setShowVentilationModeEditDialog(false);
-              setEditingVentilationMode(null);
-              setVentilationModeEditInput("");
-            }}
-            onSave={handleVentilationModeEditSave}
-            saveDisabled={!ventilationModeEditInput.trim()}
-          />
-        </DialogContent>
-      </Dialog>
+      <VentilationModeEditDialog
+        open={showVentilationModeEditDialog}
+        onOpenChange={setShowVentilationModeEditDialog}
+        anesthesiaRecordId={anesthesiaRecordId}
+        editingVentilationMode={editingVentilationMode}
+        onVentilationModeUpdated={() => {
+          setEditingVentilationMode(null);
+        }}
+        onVentilationModeDeleted={() => {
+          setEditingVentilationMode(null);
+        }}
+      />
 
       {/* Heart Rhythm Dialog */}
       <HeartRhythmDialog
@@ -9792,127 +9461,17 @@ export function UnifiedTimeline({
       />
 
       {/* Ventilation Bulk Entry Dialog */}
-      <Dialog open={showVentilationBulkDialog} onOpenChange={setShowVentilationBulkDialog}>
-        <DialogContent className="sm:max-w-[550px]" data-testid="dialog-ventilation-bulk">
-          <DialogHeader>
-            <DialogTitle>Ventilation Bulk Entry</DialogTitle>
-            <DialogDescription>
-              Add ventilation parameters to the timeline
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-            <div className="grid gap-2">
-              <Label htmlFor="vent-mode">Ventilation Mode</Label>
-              <Select value={ventilationMode} onValueChange={setVentilationMode}>
-                <SelectTrigger id="vent-mode" data-testid="select-vent-mode">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Präoxygenierung">Preoxygenation</SelectItem>
-                  <SelectItem value="Assistierte Spontanatmung">Assisted Spontaneous Breathing</SelectItem>
-                  <SelectItem value="Spontanatmung am Gerät">Spontaneous Breathing on Device</SelectItem>
-                  <SelectItem value="PCV - druckkontrolliert">PCV - Pressure Controlled</SelectItem>
-                  <SelectItem value="VCV - volumenkontrolliert">VCV - Volume Controlled</SelectItem>
-                  <SelectItem value="CPAP - PSV">CPAP - PSV</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-2">
-                <Label htmlFor="bulk-peep">PEEP (cmH₂O)</Label>
-                <Input
-                  id="bulk-peep"
-                  type="number"
-                  step="1"
-                  value={bulkVentilationParams.peep}
-                  onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, peep: e.target.value }))}
-                  data-testid="input-bulk-peep"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="bulk-fio2">FiO₂ (%)</Label>
-                <Input
-                  id="bulk-fio2"
-                  type="number"
-                  step="1"
-                  value={bulkVentilationParams.fiO2}
-                  onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, fiO2: e.target.value }))}
-                  data-testid="input-bulk-fio2"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="bulk-vt">Tidal Volume (ml)</Label>
-                <Input
-                  id="bulk-vt"
-                  type="number"
-                  step="10"
-                  value={bulkVentilationParams.tidalVolume}
-                  onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, tidalVolume: e.target.value }))}
-                  data-testid="input-bulk-vt"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="bulk-rr">Resp. Rate (/min)</Label>
-                <Input
-                  id="bulk-rr"
-                  type="number"
-                  step="1"
-                  value={bulkVentilationParams.respiratoryRate}
-                  onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, respiratoryRate: e.target.value }))}
-                  data-testid="input-bulk-rr"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="bulk-mv">Minute Volume (l/min)</Label>
-                <Input
-                  id="bulk-mv"
-                  type="number"
-                  step="0.1"
-                  value={bulkVentilationParams.minuteVolume}
-                  onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, minuteVolume: e.target.value }))}
-                  placeholder="Optional"
-                  data-testid="input-bulk-mv"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="bulk-etco2">EtCO₂ (mmHg)</Label>
-                <Input
-                  id="bulk-etco2"
-                  type="number"
-                  step="1"
-                  value={bulkVentilationParams.etCO2}
-                  onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, etCO2: e.target.value }))}
-                  placeholder="Optional"
-                  data-testid="input-bulk-etco2"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="bulk-pip">P insp (cmH₂O)</Label>
-                <Input
-                  id="bulk-pip"
-                  type="number"
-                  step="1"
-                  value={bulkVentilationParams.pip}
-                  onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, pip: e.target.value }))}
-                  placeholder="Optional"
-                  data-testid="input-bulk-pip"
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooterWithTime
-            time={pendingVentilationBulk?.time}
-            onTimeChange={(newTime) => setPendingVentilationBulk(prev => prev ? { ...prev, time: newTime } : null)}
-            showDelete={false}
-            onCancel={() => {
-              setShowVentilationBulkDialog(false);
-              setPendingVentilationBulk(null);
-            }}
-            onSave={handleVentilationBulkSave}
-            saveLabel="Add All"
-          />
-        </DialogContent>
-      </Dialog>
+      <VentilationBulkDialog
+        open={showVentilationBulkDialog}
+        onOpenChange={setShowVentilationBulkDialog}
+        anesthesiaRecordId={anesthesiaRecordId}
+        pendingVentilationBulk={pendingVentilationBulk}
+        ventilationModeData={ventilationModeData}
+        patientWeight={patientWeight}
+        onVentilationBulkCreated={() => {
+          setPendingVentilationBulk(null);
+        }}
+      />
 
       {/* Output Bulk Entry Dialog */}
       <Dialog open={showOutputBulkDialog} onOpenChange={setShowOutputBulkDialog}>
