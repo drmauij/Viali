@@ -101,6 +101,7 @@ import { VentilationSwimlane, generateVentilationSeries } from "./swimlanes/Vent
 import { OutputSwimlane } from "./swimlanes/OutputSwimlane";
 import { PositionSwimlane } from "./swimlanes/PositionSwimlane";
 import { StaffSwimlane } from "./swimlanes/StaffSwimlane";
+import { HeartRhythmSwimlane } from "./swimlanes/HeartRhythmSwimlane";
 
 /**
  * UnifiedTimeline - Refactored for robustness and flexibility
@@ -817,7 +818,6 @@ export function UnifiedTimeline({
   const [showHeartRhythmDialog, setShowHeartRhythmDialog] = useState(false);
   const [pendingHeartRhythm, setPendingHeartRhythm] = useState<{ time: number } | null>(null);
   const [editingHeartRhythm, setEditingHeartRhythm] = useState<{ time: number; rhythm: string; index: number; id: string } | null>(null);
-  const [heartRhythmHoverInfo, setHeartRhythmHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
 
   // UI state for staff dialogs and interactions
   const [showStaffDialog, setShowStaffDialog] = useState(false);
@@ -4638,98 +4638,24 @@ export function UnifiedTimeline({
         clinicalSnapshot={clinicalSnapshot}
       />
 
-      {/* Interactive layer for Heart Rhythm swimlane - to add rhythm entries */}
-      {!activeToolMode && (() => {
-        const rhythmLane = swimlanePositions.find(lane => lane.id === 'herzrhythmus');
-        if (!rhythmLane) return null;
-        
-        return (
-          <div
-            className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
-            style={{
-              left: '200px',
-              right: '10px',
-              top: `${rhythmLane.top}px`,
-              height: `${rhythmLane.height}px`,
-              zIndex: 35,
-            }}
-            onMouseMove={(e) => {
-              if (isTouchDevice) return;
-              
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = e.clientX - rect.left;
-              
-              const visibleStart = currentZoomStart ?? data.startTime;
-              const visibleEnd = currentZoomEnd ?? data.endTime;
-              const visibleRange = visibleEnd - visibleStart;
-              
-              const xPercent = x / rect.width;
-              let time = visibleStart + (xPercent * visibleRange);
-              
-              // Snap to 1-minute intervals
-              const oneMinute = 60 * 1000;
-              time = Math.round(time / oneMinute) * oneMinute;
-              
-              setHeartRhythmHoverInfo({ 
-                x: e.clientX, 
-                y: e.clientY, 
-                time
-              });
-            }}
-            onMouseLeave={() => setHeartRhythmHoverInfo(null)}
-            onClick={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = e.clientX - rect.left;
-              
-              const visibleStart = currentZoomStart ?? data.startTime;
-              const visibleEnd = currentZoomEnd ?? data.endTime;
-              const visibleRange = visibleEnd - visibleStart;
-              
-              const xPercent = x / rect.width;
-              let time = visibleStart + (xPercent * visibleRange);
-              
-              // Snap to 1-minute intervals
-              const oneMinute = 60 * 1000;
-              time = Math.round(time / oneMinute) * oneMinute;
-              
-              // Validate that time is within editable boundaries
-
-              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
-              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
-              
-              if (time < editableStartBoundary || time > editableEndBoundary) {
-                // Click is outside editable window - ignore
-                return;
-              }
-              
-              setPendingHeartRhythm({ time });
-              setEditingHeartRhythm(null);
-              setHeartRhythmInput("");
-              setHeartRhythmEditTime(0);
-              setShowHeartRhythmDialog(true);
-            }}
-            data-testid="interactive-heart-rhythm-lane"
-          />
-        );
-      })()}
-
-      {/* Tooltip for heart rhythm entry */}
-      {heartRhythmHoverInfo && !isTouchDevice && (
-        <div
-          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
-          style={{
-            left: heartRhythmHoverInfo.x + 10,
-            top: heartRhythmHoverInfo.y - 40,
-          }}
-        >
-          <div className="text-sm font-semibold text-primary">
-            Click to add rhythm
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {formatTime(heartRhythmHoverInfo.time)}
-          </div>
-        </div>
-      )}
+      {/* HeartRhythmSwimlane Component - Interactive layer and rendering for heart rhythm tracking */}
+      <HeartRhythmSwimlane
+        swimlanePositions={swimlanePositions}
+        isTouchDevice={isTouchDevice}
+        onHeartRhythmDialogOpen={(pending) => {
+          setPendingHeartRhythm(pending);
+          setEditingHeartRhythm(null);
+          setHeartRhythmInput("");
+          setHeartRhythmEditTime(0);
+          setShowHeartRhythmDialog(true);
+        }}
+        onHeartRhythmEditDialogOpen={(editing) => {
+          setEditingHeartRhythm(editing);
+          setHeartRhythmInput(editing.rhythm);
+          setHeartRhythmEditTime(editing.time);
+          setShowHeartRhythmDialog(true);
+        }}
+      />
 
       {/* StaffSwimlane Component - Interactive layers and rendering for staff assignments */}
       <StaffSwimlane
@@ -4909,51 +4835,6 @@ export function UnifiedTimeline({
       />
 
 
-      {/* Heart Rhythm values as DOM overlays */}
-      {heartRhythmData.map((point, index) => {
-        const { id, timestamp, value: rhythm } = point;
-        const rhythmLane = swimlanePositions.find(lane => lane.id === 'herzrhythmus');
-        if (!rhythmLane) return null;
-        
-        const visibleStart = currentZoomStart ?? data.startTime;
-        const visibleEnd = currentZoomEnd ?? data.endTime;
-        const visibleRange = visibleEnd - visibleStart;
-        const xFraction = (timestamp - visibleStart) / visibleRange;
-        
-        if (xFraction < 0 || xFraction > 1) return null;
-        
-        const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 20px)`;
-        
-        return (
-          <div
-            key={`rhythm-${id}`}
-            className="absolute z-40 cursor-pointer flex items-center justify-center group font-mono font-semibold text-sm px-2"
-            style={{
-              left: leftPosition,
-              top: `${rhythmLane.top + (rhythmLane.height / 2) - 10}px`,
-              minWidth: '40px',
-              height: '20px',
-            }}
-            onClick={() => {
-              setEditingHeartRhythm({
-                time: timestamp,
-                rhythm,
-                index,
-                id, // Add ID for mutations
-              });
-              setHeartRhythmInput(rhythm);
-              setHeartRhythmEditTime(timestamp);
-              setShowHeartRhythmDialog(true);
-            }}
-            title={`${rhythm} at ${formatTime(timestamp)}`}
-            data-testid={`heart-rhythm-${index}`}
-          >
-            <span className="group-hover:scale-110 transition-transform text-pink-600 dark:text-pink-400">
-              {rhythm}
-            </span>
-          </div>
-        );
-      })}
 
       {/* Medication Dose Entry Dialog */}
       <MedicationDoseDialog
