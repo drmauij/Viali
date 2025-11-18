@@ -855,10 +855,12 @@ export function UnifiedTimeline({
       
       for (const [key, points] of Object.entries(ventParams)) {
         if (points.length > 0) {
-          ventData[key] = points.map((point: any) => [
-            new Date(point.timestamp).getTime(),
-            point.value,
-          ]);
+          // Store as objects with ID to enable proper CRUD operations
+          ventData[key] = points.map((point: any) => ({
+            id: point.id,
+            timestamp: new Date(point.timestamp).getTime(),
+            value: point.value,
+          }));
         }
       }
       
@@ -1018,7 +1020,7 @@ export function UnifiedTimeline({
 
   // State for ventilation value edit dialog
   const [showVentilationEditDialog, setShowVentilationEditDialog] = useState(false);
-  const [editingVentilationValue, setEditingVentilationValue] = useState<{ paramKey: keyof typeof ventilationData; time: number; value: string; index: number; label: string } | null>(null);
+  const [editingVentilationValue, setEditingVentilationValue] = useState<{ paramKey: keyof typeof ventilationData; time: number; value: string; index: number; label: string; id: string } | null>(null);
   const [ventilationEditInput, setVentilationEditInput] = useState("");
   const [ventilationEditTime, setVentilationEditTime] = useState<number>(0);
 
@@ -3645,8 +3647,8 @@ export function UnifiedTimeline({
     
     const { swimlaneId, time, label } = pendingMedicationDose;
     
-    // Extract itemId from swimlaneId (format: "group_{groupId}_item_{itemId}")
-    const itemIdMatch = swimlaneId.match(/item_([^_]+)$/);
+    // Extract itemId from swimlaneId (format: "admingroup-{groupId}-item-{index}")
+    const itemIdMatch = swimlaneId.match(/item-(\d+)$/);
     if (!itemIdMatch) {
       console.log('[MED] No itemId match found for swimlaneId:', swimlaneId);
       toast({
@@ -3657,8 +3659,23 @@ export function UnifiedTimeline({
       return;
     }
     
-    const itemId = itemIdMatch[1];
-    console.log('[MED] Extracted itemId:', itemId);
+    const itemIndex = parseInt(itemIdMatch[1]);
+    console.log('[MED] Extracted item index:', itemIndex);
+    
+    // Get the actual itemId from anesthesiaItems using the index
+    const item = anesthesiaItems?.[itemIndex];
+    if (!item?.id) {
+      console.log('[MED] No anesthesia item found at index:', itemIndex);
+      toast({
+        title: "Error",
+        description: "Could not identify medication",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const itemId = item.id;
+    console.log('[MED] Resolved itemId:', itemId);
     
     const doseValue = medicationDoseInput.trim();
     
@@ -3711,6 +3728,7 @@ export function UnifiedTimeline({
   // Handle ventilation parameter entry
   const handleVentilationParameterEntry = () => {
     if (!pendingVentilationValue || !ventilationValueInput.trim()) return;
+    if (!anesthesiaRecordId) return;
     
     const { paramKey, time, label } = pendingVentilationValue;
     const value = parseFloat(ventilationValueInput.trim());
@@ -3724,12 +3742,12 @@ export function UnifiedTimeline({
       return;
     }
     
-    setVentilationData(prev => {
-      const existingData = prev[paramKey] || [];
-      return {
-        ...prev,
-        [paramKey]: [...existingData, [time, value] as VitalPoint]
-      };
+    // Call mutation to save to database
+    addVitalPointMutation.mutate({
+      anesthesiaRecordId,
+      vitalType: paramKey,
+      value,
+      timestamp: new Date(time).toISOString(),
     });
     
     // Toast notification disabled (can be re-enabled later)
@@ -5025,6 +5043,7 @@ export function UnifiedTimeline({
   // Handle output value entry (single parameter)
   const handleOutputValueEntry = () => {
     if (!pendingOutputValue || !outputValueInput.trim()) return;
+    if (!anesthesiaRecordId) return;
     
     const { paramKey, time, label } = pendingOutputValue;
     const value = parseFloat(outputValueInput.trim());
@@ -5038,12 +5057,12 @@ export function UnifiedTimeline({
       return;
     }
     
-    setOutputData(prev => {
-      const existingData = prev[paramKey] || [];
-      return {
-        ...prev,
-        [paramKey]: [...existingData, [time, value] as VitalPoint]
-      };
+    // Call mutation to save to database
+    createOutput.mutate({
+      anesthesiaRecordId,
+      paramKey,
+      value,
+      timestamp: new Date(time).toISOString(),
     });
     
     // Reset dialog state
@@ -5055,8 +5074,9 @@ export function UnifiedTimeline({
   // Handle ventilation value edit save
   const handleVentilationValueEditSave = () => {
     if (!editingVentilationValue || !ventilationEditInput.trim()) return;
+    if (!anesthesiaRecordId) return;
     
-    const { paramKey, index } = editingVentilationValue;
+    const { id, paramKey } = editingVentilationValue;
     const value = parseFloat(ventilationEditInput.trim());
     
     if (isNaN(value)) {
@@ -5071,14 +5091,11 @@ export function UnifiedTimeline({
     // Use the edited timestamp directly (it's already a number)
     const newTimestamp = ventilationEditTime;
     
-    setVentilationData(prev => {
-      const existingData = prev[paramKey] || [];
-      const updated = [...existingData];
-      updated[index] = [newTimestamp, value];
-      return {
-        ...prev,
-        [paramKey]: updated,
-      };
+    // Call mutation to update in database
+    updateVitalPointMutation.mutate({
+      id,
+      value,
+      timestamp: new Date(newTimestamp).toISOString(),
     });
     
     // Reset dialog state
@@ -5091,17 +5108,12 @@ export function UnifiedTimeline({
   // Handle ventilation value delete
   const handleVentilationValueDelete = () => {
     if (!editingVentilationValue) return;
+    if (!anesthesiaRecordId) return;
     
-    const { paramKey, index } = editingVentilationValue;
+    const { id } = editingVentilationValue;
     
-    setVentilationData(prev => {
-      const existingData = prev[paramKey] || [];
-      const updated = existingData.filter((_, i) => i !== index);
-      return {
-        ...prev,
-        [paramKey]: updated,
-      };
-    });
+    // Call mutation to delete from database
+    deleteVitalPointMutation.mutate(id);
     
     setShowVentilationEditDialog(false);
     setEditingVentilationValue(null);
@@ -8231,7 +8243,8 @@ export function UnifiedTimeline({
           fiO2: 'FiO2',
         };
         
-        return dataPoints.map(([timestamp, value], index) => {
+        return dataPoints.map((point, index) => {
+          const { id, timestamp, value } = point;
           const xFraction = (timestamp - visibleStart) / visibleRange;
           
           if (xFraction < 0 || xFraction > 1) return null;
@@ -8255,6 +8268,7 @@ export function UnifiedTimeline({
                   value: value.toString(),
                   index,
                   label: labelMap[paramKey] || paramKey,
+                  id,
                 });
                 setVentilationEditInput(value.toString());
                 setVentilationEditTime(timestamp);
