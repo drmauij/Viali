@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 
-export type EventPoint = [number, string]; // [timestamp, value]
+export type EventPoint = [number, string]; // [timestamp, value] - DEPRECATED, use specific types below
 
 export interface HeartRhythmPoint {
   id: string;
@@ -8,10 +8,22 @@ export interface HeartRhythmPoint {
   value: string;
 }
 
+export interface StaffPoint {
+  id: string;
+  timestamp: number;
+  name: string;
+}
+
+export interface PositionPoint {
+  id: string;
+  timestamp: number;
+  position: string;
+}
+
 export interface StaffData {
-  doctor: EventPoint[];
-  nurse: EventPoint[];
-  assistant: EventPoint[];
+  doctor: StaffPoint[];
+  nurse: StaffPoint[];
+  assistant: StaffPoint[];
 }
 
 export interface EventComment {
@@ -33,22 +45,22 @@ export interface AnesthesiaTimeMarker {
 export interface UseEventStateReturn {
   heartRhythmData: HeartRhythmPoint[];
   staffData: StaffData;
-  positionData: EventPoint[];
+  positionData: PositionPoint[];
   eventComments: EventComment[];
   timeMarkers: AnesthesiaTimeMarker[];
   setHeartRhythmData: React.Dispatch<React.SetStateAction<HeartRhythmPoint[]>>;
   setStaffData: React.Dispatch<React.SetStateAction<StaffData>>;
-  setPositionData: React.Dispatch<React.SetStateAction<EventPoint[]>>;
+  setPositionData: React.Dispatch<React.SetStateAction<PositionPoint[]>>;
   setEventComments: React.Dispatch<React.SetStateAction<EventComment[]>>;
   setTimeMarkers: React.Dispatch<React.SetStateAction<AnesthesiaTimeMarker[]>>;
   addHeartRhythm: (point: HeartRhythmPoint) => void;
-  addStaffEntry: (role: keyof StaffData, point: EventPoint) => void;
-  addPosition: (point: EventPoint) => void;
+  addStaffEntry: (role: keyof StaffData, point: StaffPoint) => void;
+  addPosition: (point: PositionPoint) => void;
   addEvent: (comment: EventComment) => void;
   resetEventData: (data: {
     heartRhythm?: HeartRhythmPoint[];
     staff?: StaffData;
-    position?: EventPoint[];
+    position?: PositionPoint[];
     events?: EventComment[];
     timeMarkers?: AnesthesiaTimeMarker[];
   }) => void;
@@ -57,7 +69,7 @@ export interface UseEventStateReturn {
 export function useEventState(initialData?: {
   heartRhythm?: HeartRhythmPoint[];
   staff?: StaffData;
-  position?: EventPoint[];
+  position?: PositionPoint[];
   events?: EventComment[];
   timeMarkers?: AnesthesiaTimeMarker[];
 }): UseEventStateReturn {
@@ -73,7 +85,7 @@ export function useEventState(initialData?: {
     }
   );
 
-  const [positionData, setPositionData] = useState<EventPoint[]>(
+  const [positionData, setPositionData] = useState<PositionPoint[]>(
     initialData?.position || []
   );
 
@@ -89,14 +101,14 @@ export function useEventState(initialData?: {
     setHeartRhythmData(prev => [...prev, point]);
   }, []);
 
-  const addStaffEntry = useCallback((role: keyof StaffData, point: EventPoint) => {
+  const addStaffEntry = useCallback((role: keyof StaffData, point: StaffPoint) => {
     setStaffData(prev => ({
       ...prev,
       [role]: [...prev[role], point]
     }));
   }, []);
 
-  const addPosition = useCallback((point: EventPoint) => {
+  const addPosition = useCallback((point: PositionPoint) => {
     setPositionData(prev => [...prev, point]);
   }, []);
 
@@ -107,7 +119,7 @@ export function useEventState(initialData?: {
   const resetEventData = useCallback((data: {
     heartRhythm?: HeartRhythmPoint[];
     staff?: StaffData;
-    position?: EventPoint[];
+    position?: PositionPoint[];
     events?: EventComment[];
     timeMarkers?: AnesthesiaTimeMarker[];
   }) => {

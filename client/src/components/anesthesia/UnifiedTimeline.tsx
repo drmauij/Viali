@@ -976,7 +976,7 @@ export function UnifiedTimeline({
   // UI state for staff dialogs and interactions
   const [showStaffDialog, setShowStaffDialog] = useState(false);
   const [pendingStaff, setPendingStaff] = useState<{ time: number; role: 'doctor' | 'nurse' | 'assistant' } | null>(null);
-  const [editingStaff, setEditingStaff] = useState<{ time: number; name: string; role: 'doctor' | 'nurse' | 'assistant'; index: number } | null>(null);
+  const [editingStaff, setEditingStaff] = useState<{ id: string; time: number; name: string; role: 'doctor' | 'nurse' | 'assistant'; index: number } | null>(null);
   const [staffInput, setStaffInput] = useState("");
   const [staffEditTime, setStaffEditTime] = useState<number>(Date.now());
   const [staffHoverInfo, setStaffHoverInfo] = useState<{ x: number; y: number; time: number; role: string } | null>(null);
@@ -984,7 +984,7 @@ export function UnifiedTimeline({
   // UI state for position dialogs and interactions
   const [showPositionDialog, setShowPositionDialog] = useState(false);
   const [pendingPosition, setPendingPosition] = useState<{ time: number } | null>(null);
-  const [editingPosition, setEditingPosition] = useState<{ time: number; position: string; index: number } | null>(null);
+  const [editingPosition, setEditingPosition] = useState<{ id: string; time: number; position: string; index: number } | null>(null);
   const [positionInput, setPositionInput] = useState("");
   const [positionEditTime, setPositionEditTime] = useState<number>(Date.now());
   const [positionHoverInfo, setPositionHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
@@ -8008,7 +8008,8 @@ export function UnifiedTimeline({
 
       {/* Staff values as DOM overlays */}
       {!collapsedSwimlanes.has('staff') && Object.entries(staffData).flatMap(([role, entries]) =>
-        entries.map(([timestamp, name], index) => {
+        entries.map((entry, index) => {
+          const { id, timestamp, name } = entry;
           const staffLane = swimlanePositions.find(lane => lane.id === `staff-${role}`);
           if (!staffLane) return null;
           
@@ -8033,6 +8034,7 @@ export function UnifiedTimeline({
               }}
               onClick={() => {
                 setEditingStaff({
+                  id,
                   time: timestamp,
                   name,
                   role: role as 'doctor' | 'nurse' | 'assistant',
@@ -8054,7 +8056,8 @@ export function UnifiedTimeline({
       )}
 
       {/* Position values as DOM overlays */}
-      {positionData.map(([timestamp, position], index) => {
+      {positionData.map((entry, index) => {
+        const { id, timestamp, position } = entry;
         const positionLane = swimlanePositions.find(lane => lane.id === 'position');
         if (!positionLane) return null;
         
@@ -8079,6 +8082,7 @@ export function UnifiedTimeline({
             }}
             onClick={() => {
               setEditingPosition({
+                id,
                 time: timestamp,
                 position,
                 index,
