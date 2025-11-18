@@ -228,7 +228,7 @@ export function MedicationConfigDialog({
     const config = {
       name: configItemName,
       medicationGroup: configMedicationGroup || undefined,
-      administrationGroup: administrationGroup.name,
+      administrationGroup: administrationGroup.id,
       defaultDose: configDefaultDose || undefined,
       ampuleTotalContent: configAmpuleContent.trim() || undefined,
       administrationRoute: configAdministrationRoute,
