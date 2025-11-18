@@ -1222,6 +1222,7 @@ export function UnifiedTimeline({
     value: number;
     index: number;
     originalTime: number;  // Track original timestamp for database lookups
+    pointId?: string;  // NEW: Capture point ID immediately when clicking
   } | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
@@ -1803,37 +1804,22 @@ export function UnifiedTimeline({
       updatedVitals.spo2 = newValue;
     }
 
-    // Find the point ID from clinical snapshot
-    const pointId = (() => {
-      if (type === 'hr') {
-        return clinicalSnapshot?.data?.hr?.[index]?.id;
-      } else if (type === 'sys' || type === 'dia') {
-        return clinicalSnapshot?.data?.bp?.[index]?.id;
-      } else if (type === 'spo2') {
-        return clinicalSnapshot?.data?.spo2?.[index]?.id;
-      }
-      return undefined;
-    })();
-
-    console.log('[EDIT] Point ID lookup:', { type, index, pointId, 
-      hrCount: clinicalSnapshot?.data?.hr?.length,
-      bpCount: clinicalSnapshot?.data?.bp?.length,
-      spo2Count: clinicalSnapshot?.data?.spo2?.length
-    });
+    // CRITICAL FIX: Use point ID captured at click time
+    const pointId = editingValue.pointId;
+    
+    console.log('[EDIT] Using captured point ID:', { type, index, pointId, timestamp, updatedVitals });
 
     if (!pointId) {
-      console.error('[EDIT] Could not find point ID for update:', { type, index });
+      console.error('[EDIT] No point ID available - was not captured on click:', { type, index });
       toast({
         title: "Error updating vital",
-        description: "Could not locate vital point in database",
+        description: "Could not locate vital point. Please try clicking the point again.",
         variant: "destructive",
       });
       setEditDialogOpen(false);
       setEditingValue(null);
       return;
     }
-
-    console.log('[EDIT] Calling mutation:', { type, pointId, timestamp, updatedVitals });
 
     // Persist update to database using React Query mutation
     if (type === 'hr' || type === 'spo2') {
@@ -2194,7 +2180,19 @@ export function UnifiedTimeline({
         // Find the index of this data point
         const index = dataArray.findIndex(p => p[0] === timestamp && p[1] === value);
         if (index !== -1) {
-          setEditingValue({ type, time: timestamp, value, index, originalTime: timestamp });
+          // CRITICAL FIX: Capture point ID from clinical snapshot when clicking
+          let pointId: string | undefined;
+          if (type === 'hr') {
+            pointId = clinicalSnapshot?.data?.hr?.[index]?.id;
+          } else if (type === 'sys' || type === 'dia') {
+            pointId = clinicalSnapshot?.data?.bp?.[index]?.id;
+          } else if (type === 'spo2') {
+            pointId = clinicalSnapshot?.data?.spo2?.[index]?.id;
+          }
+
+          console.log('[CLICK] Captured point for editing:', { type, index, pointId, timestamp, value });
+          
+          setEditingValue({ type, time: timestamp, value, index, originalTime: timestamp, pointId });
           setEditDialogOpen(true);
         }
       }
@@ -2204,7 +2202,7 @@ export function UnifiedTimeline({
     return () => {
       chart.off('click', handleChartClick);
     };
-  }, [chartRef, activeToolMode, hrDataPoints, bpDataPoints, spo2DataPoints]);
+  }, [chartRef, activeToolMode, hrDataPoints, bpDataPoints, spo2DataPoints, clinicalSnapshot]);
 
   // Update zoom state when zoom changes
   useEffect(() => {
