@@ -47,6 +47,7 @@ import {
   notes,
   anesthesiaRecords,
   vitalsSnapshots,
+  clinicalSnapshots,
   anesthesiaMedications,
   anesthesiaEvents,
   anesthesiaPositions,

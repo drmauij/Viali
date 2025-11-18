@@ -8,7 +8,7 @@ import { useCreateEvent, useUpdateEvent, useDeleteEvent } from "@/hooks/useEvent
 interface EventToEdit {
   id: string;
   time: number;
-  description: string;
+  text: string;
 }
 
 interface PendingEvent {
@@ -47,7 +47,7 @@ export function EventDialog({
   // Sync editing event data to form
   useEffect(() => {
     if (editingEvent) {
-      setEventTextInput(editingEvent.description);
+      setEventTextInput(editingEvent.text);
       setEventEditTime(editingEvent.time);
     } else {
       setEventTextInput("");
