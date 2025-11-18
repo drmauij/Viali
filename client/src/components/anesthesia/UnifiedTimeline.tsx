@@ -2024,6 +2024,16 @@ export function UnifiedTimeline({
         const end = dataZoom.end ?? 100;
         const fullRange = data.endTime - data.startTime;
         
+        // SAFEGUARD: Bail out if range is collapsed to prevent division by zero
+        if (fullRange <= 0) {
+          console.warn('[ZOOM-EVENT] Skipping zoom update - data range is zero or negative', {
+            startTime: new Date(data.startTime).toISOString(),
+            endTime: new Date(data.endTime).toISOString(),
+            fullRange
+          });
+          return;
+        }
+        
         const visibleStart = data.startTime + (start / 100) * fullRange;
         const visibleEnd = data.startTime + (end / 100) * fullRange;
         
@@ -2156,6 +2166,16 @@ export function UnifiedTimeline({
       const start = dataZoom.start ?? 0;
       const end = dataZoom.end ?? 100;
       const fullRange = data.endTime - data.startTime;
+      
+      // SAFEGUARD: Bail out if range is collapsed to prevent division by zero
+      if (fullRange <= 0) {
+        console.warn('[ZOOM] Skipping zoom update - data range is zero or negative', {
+          startTime: new Date(data.startTime).toISOString(),
+          endTime: new Date(data.endTime).toISOString(),
+          fullRange
+        });
+        return;
+      }
       
       const visibleStart = data.startTime + (start / 100) * fullRange;
       const visibleEnd = data.startTime + (end / 100) * fullRange;
@@ -7932,11 +7952,21 @@ export function UnifiedTimeline({
 
       {/* Event comment icons on the timeline */}
       {(() => {
-        console.log('[EVENTS-RENDER] Rendering event icons, eventComments length:', eventComments.length, eventComments);
+        const visibleStart = currentZoomStart ?? data.startTime;
+        const visibleEnd = currentZoomEnd ?? data.endTime;
+        const visibleRange = visibleEnd - visibleStart;
+        console.log('[EVENTS-RENDER] Rendering event icons', {
+          eventCount: eventComments.length,
+          currentZoomStart,
+          currentZoomEnd,
+          dataStartTime: data.startTime,
+          dataEndTime: data.endTime,
+          visibleStart: new Date(visibleStart).toISOString(),
+          visibleEnd: new Date(visibleEnd).toISOString(),
+          visibleRange,
+          firstEvent: eventComments[0] ? new Date(eventComments[0].time).toISOString() : null
+        });
         return eventComments.map((event) => {
-          const visibleStart = currentZoomStart ?? data.startTime;
-          const visibleEnd = currentZoomEnd ?? data.endTime;
-          const visibleRange = visibleEnd - visibleStart;
           
           const xFraction = (event.time - visibleStart) / visibleRange;
           
