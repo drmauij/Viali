@@ -511,6 +511,22 @@ export function UnifiedTimeline({
   // NEW: Fetch clinical snapshot with React Query (single source of truth)
   const { data: clinicalSnapshot } = useClinicalSnapshot(anesthesiaRecordId);
   
+  // Fetch positions, staff, and events from separate tables
+  const { data: apiPositions = [] } = useQuery<any[]>({
+    queryKey: [`/api/anesthesia/positions/${anesthesiaRecordId}`],
+    enabled: !!anesthesiaRecordId,
+  });
+  
+  const { data: apiStaff = [] } = useQuery<any[]>({
+    queryKey: [`/api/anesthesia/staff/${anesthesiaRecordId}`],
+    enabled: !!anesthesiaRecordId,
+  });
+  
+  const { data: apiEvents = [] } = useQuery<any[]>({
+    queryKey: [`/api/anesthesia/events/${anesthesiaRecordId}`],
+    enabled: !!anesthesiaRecordId,
+  });
+  
   // NEW: Get mutation hooks for point-based CRUD
   const addVitalPointMutation = useAddVitalPoint(anesthesiaRecordId);
   const addBPPointMutation = useAddBPPoint(anesthesiaRecordId);
@@ -724,6 +740,150 @@ export function UnifiedTimeline({
       setTimeMarkers(anesthesiaRecord.timeMarkers);
     }
   }, [anesthesiaRecord, setTimeMarkers]);
+
+  // NEW: Sync heart rhythm data from clinical snapshot
+  useEffect(() => {
+    if (!clinicalSnapshot?.data) return;
+    
+    const snapshotData = clinicalSnapshot.data as any;
+    const heartRhythm = snapshotData.heartRhythm || [];
+    
+    if (heartRhythm.length > 0) {
+      console.log('[RHYTHM-SYNC] Loading heart rhythm from snapshot:', heartRhythm.length, 'points');
+      const rhythmEntries = heartRhythm.map((point: any) => ({
+        time: parseInt(point.timestamp),
+        rhythm: point.value,
+      }));
+      setHeartRhythmData(rhythmEntries);
+    }
+  }, [clinicalSnapshot, setHeartRhythmData]);
+
+  // NEW: Sync ventilation mode data from clinical snapshot
+  useEffect(() => {
+    if (!clinicalSnapshot?.data) return;
+    
+    const snapshotData = clinicalSnapshot.data as any;
+    const ventilationModes = snapshotData.ventilationModes || [];
+    
+    if (ventilationModes.length > 0) {
+      console.log('[VENT-MODE-SYNC] Loading ventilation modes from snapshot:', ventilationModes.length, 'points');
+      const modeEntries = ventilationModes.map((point: any) => [
+        parseInt(point.timestamp),
+        point.value,
+      ]);
+      setVentilationModeData(modeEntries);
+    }
+  }, [clinicalSnapshot, setVentilationModeData]);
+
+  // NEW: Sync ventilation parameter data from clinical snapshot
+  useEffect(() => {
+    if (!clinicalSnapshot?.data) return;
+    
+    const snapshotData = clinicalSnapshot.data as any;
+    
+    // Extract all ventilation parameters
+    const ventParams = {
+      etCO2: snapshotData.etco2 || [],
+      pip: snapshotData.pip || [],
+      peep: snapshotData.peep || [],
+      tidalVolume: snapshotData.tidalVolume || [],
+      respiratoryRate: snapshotData.respiratoryRate || [],
+      minuteVolume: snapshotData.minuteVolume || [],
+      fiO2: snapshotData.fio2 || [],
+    };
+    
+    const totalPoints = Object.values(ventParams).reduce((sum, arr) => sum + arr.length, 0);
+    
+    if (totalPoints > 0) {
+      console.log('[VENT-PARAMS-SYNC] Loading ventilation parameters from snapshot:', totalPoints, 'points');
+      const ventData: any = {};
+      
+      for (const [key, points] of Object.entries(ventParams)) {
+        if (points.length > 0) {
+          ventData[key] = points.map((point: any) => [
+            parseInt(point.timestamp),
+            point.value,
+          ]);
+        }
+      }
+      
+      setVentilationData(ventData);
+    }
+  }, [clinicalSnapshot, setVentilationData]);
+
+  // NEW: Sync output data from clinical snapshot
+  useEffect(() => {
+    if (!clinicalSnapshot?.data) return;
+    
+    const snapshotData = clinicalSnapshot.data as any;
+    
+    // Extract all output parameters
+    const outputParams = {
+      gastricTube: snapshotData.gastricTube || [],
+      drainage: snapshotData.drainage || [],
+      vomit: snapshotData.vomit || [],
+      urine: snapshotData.urine || [],
+      urine677: snapshotData.urine677 || [],
+      blood: snapshotData.blood || [],
+      bloodIrrigation: snapshotData.bloodIrrigation || [],
+    };
+    
+    const totalPoints = Object.values(outputParams).reduce((sum, arr) => sum + arr.length, 0);
+    
+    if (totalPoints > 0) {
+      console.log('[OUTPUT-SYNC] Loading output data from snapshot:', totalPoints, 'points');
+      const outputData: any = {};
+      
+      for (const [key, points] of Object.entries(outputParams)) {
+        if (points.length > 0) {
+          outputData[key] = points.map((point: any) => [
+            parseInt(point.timestamp),
+            point.value,
+          ]);
+        }
+      }
+      
+      setOutputData(outputData);
+    }
+  }, [clinicalSnapshot, setOutputData]);
+
+  // NEW: Sync position data from API
+  useEffect(() => {
+    if (!apiPositions || apiPositions.length === 0) return;
+    
+    console.log('[POSITION-SYNC] Loading positions from API:', apiPositions.length, 'entries');
+    const positionEntries = apiPositions.map((pos: any) => ({
+      time: new Date(pos.timestamp).getTime(),
+      position: pos.position,
+    }));
+    setPositionData(positionEntries);
+  }, [apiPositions, setPositionData]);
+
+  // NEW: Sync staff data from API
+  useEffect(() => {
+    if (!apiStaff || apiStaff.length === 0) return;
+    
+    console.log('[STAFF-SYNC] Loading staff from API:', apiStaff.length, 'entries');
+    const staffEntries = apiStaff.map((staff: any) => ({
+      time: new Date(staff.timestamp).getTime(),
+      role: staff.role,
+      name: staff.name,
+    }));
+    setStaffData(staffEntries);
+  }, [apiStaff, setStaffData]);
+
+  // NEW: Sync event comments from API
+  useEffect(() => {
+    if (!apiEvents || apiEvents.length === 0) return;
+    
+    console.log('[EVENTS-SYNC] Loading events from API:', apiEvents.length, 'entries');
+    const eventEntries = apiEvents.map((event: any) => ({
+      time: new Date(event.timestamp).getTime(),
+      eventType: event.eventType,
+      description: event.description,
+    }));
+    setEventComments(eventEntries);
+  }, [apiEvents, setEventComments]);
 
   // UI state for heart rhythm dialogs and interactions
   const [showHeartRhythmDialog, setShowHeartRhythmDialog] = useState(false);
