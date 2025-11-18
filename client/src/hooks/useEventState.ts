@@ -105,7 +105,7 @@ export function useEventState(initialData?: {
   }, []);
 
   const resetEventData = useCallback((data: {
-    heartRhythm?: EventPoint[];
+    heartRhythm?: HeartRhythmPoint[];
     staff?: StaffData;
     position?: EventPoint[];
     events?: EventComment[];
