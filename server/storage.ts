@@ -32,6 +32,7 @@ import {
   anesthesiaMedications,
   anesthesiaEvents,
   anesthesiaPositions,
+  anesthesiaStaff,
   inventoryUsage,
   auditTrail,
   type User,
@@ -89,6 +90,8 @@ import {
   type InsertAnesthesiaEvent,
   type AnesthesiaPosition,
   type InsertAnesthesiaPosition,
+  type AnesthesiaStaff,
+  type InsertAnesthesiaStaff,
   type InventoryUsage,
   type InsertInventoryUsage,
   type AuditTrail,
@@ -320,6 +323,12 @@ export interface IStorage {
   createAnesthesiaPosition(position: InsertAnesthesiaPosition): Promise<AnesthesiaPosition>;
   updateAnesthesiaPosition(id: string, position: Partial<InsertAnesthesiaPosition>, userId: string): Promise<AnesthesiaPosition>;
   deleteAnesthesiaPosition(id: string, userId: string): Promise<void>;
+  
+  // Anesthesia Staff operations
+  getAnesthesiaStaff(anesthesiaRecordId: string): Promise<AnesthesiaStaff[]>;
+  createAnesthesiaStaff(staff: InsertAnesthesiaStaff): Promise<AnesthesiaStaff>;
+  updateAnesthesiaStaff(id: string, staff: Partial<InsertAnesthesiaStaff>, userId: string): Promise<AnesthesiaStaff>;
+  deleteAnesthesiaStaff(id: string, userId: string): Promise<void>;
   
   // Inventory Usage operations
   getInventoryUsage(anesthesiaRecordId: string): Promise<InventoryUsage[]>;
@@ -2470,6 +2479,79 @@ export class DatabaseStorage implements IStorage {
       action: 'delete',
       userId,
       oldValue: currentPosition,
+      newValue: null,
+    });
+  }
+
+  // Anesthesia Staff operations
+  async getAnesthesiaStaff(anesthesiaRecordId: string): Promise<AnesthesiaStaff[]> {
+    const staff = await db
+      .select()
+      .from(anesthesiaStaff)
+      .where(eq(anesthesiaStaff.anesthesiaRecordId, anesthesiaRecordId))
+      .orderBy(asc(anesthesiaStaff.timestamp));
+    return staff;
+  }
+
+  async createAnesthesiaStaff(staff: InsertAnesthesiaStaff): Promise<AnesthesiaStaff> {
+    const [created] = await db.insert(anesthesiaStaff).values(staff).returning();
+    return created;
+  }
+
+  async updateAnesthesiaStaff(id: string, staff: Partial<InsertAnesthesiaStaff>, userId: string): Promise<AnesthesiaStaff> {
+    // Get current staff for audit log
+    const [currentStaff] = await db
+      .select()
+      .from(anesthesiaStaff)
+      .where(eq(anesthesiaStaff.id, id));
+
+    // Guard: Throw error if staff doesn't exist
+    if (!currentStaff) {
+      throw new Error(`Staff with id ${id} not found`);
+    }
+
+    // Update the staff
+    const [updated] = await db
+      .update(anesthesiaStaff)
+      .set(staff)
+      .where(eq(anesthesiaStaff.id, id))
+      .returning();
+
+    // Create audit log entry
+    await this.createAuditLog({
+      recordType: 'anesthesia_staff',
+      recordId: id,
+      action: 'update',
+      userId,
+      oldValue: currentStaff,
+      newValue: updated,
+    });
+
+    return updated;
+  }
+
+  async deleteAnesthesiaStaff(id: string, userId: string): Promise<void> {
+    // Get current staff for audit log
+    const [currentStaff] = await db
+      .select()
+      .from(anesthesiaStaff)
+      .where(eq(anesthesiaStaff.id, id));
+
+    // Guard: Throw error if staff doesn't exist
+    if (!currentStaff) {
+      throw new Error(`Staff with id ${id} not found`);
+    }
+
+    // Delete the staff
+    await db.delete(anesthesiaStaff).where(eq(anesthesiaStaff.id, id));
+
+    // Create audit log entry
+    await this.createAuditLog({
+      recordType: 'anesthesia_staff',
+      recordId: id,
+      action: 'delete',
+      userId,
+      oldValue: currentStaff,
       newValue: null,
     });
   }
