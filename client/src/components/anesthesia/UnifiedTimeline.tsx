@@ -751,10 +751,10 @@ export function UnifiedTimeline({
     
     if (heartRhythm.length > 0) {
       console.log('[RHYTHM-SYNC] Loading heart rhythm from snapshot:', heartRhythm.length, 'points');
-      const rhythmEntries = heartRhythm.map((point: any) => ({
-        time: new Date(point.timestamp).getTime(),
-        rhythm: point.value,
-      }));
+      const rhythmEntries: [number, string][] = heartRhythm.map((point: any) => [
+        new Date(point.timestamp).getTime(),
+        point.value,
+      ]);
       setHeartRhythmData(rhythmEntries);
     } else {
       // Clear stale state when switching to record with no data
@@ -867,10 +867,10 @@ export function UnifiedTimeline({
   useEffect(() => {
     if (apiPositions.length > 0) {
       console.log('[POSITION-SYNC] Loading positions from API:', apiPositions.length, 'entries');
-      const positionEntries = apiPositions.map((pos: any) => ({
-        time: new Date(pos.timestamp).getTime(),
-        position: pos.position,
-      }));
+      const positionEntries: [number, string][] = apiPositions.map((pos: any) => [
+        new Date(pos.timestamp).getTime(),
+        pos.position,
+      ]);
       setPositionData(positionEntries);
     } else {
       // Clear stale state when switching to record with no data
@@ -882,15 +882,24 @@ export function UnifiedTimeline({
   useEffect(() => {
     if (apiStaff.length > 0) {
       console.log('[STAFF-SYNC] Loading staff from API:', apiStaff.length, 'entries');
-      const staffEntries = apiStaff.map((staff: any) => ({
-        time: new Date(staff.timestamp).getTime(),
-        role: staff.role,
-        name: staff.name,
-      }));
-      setStaffData(staffEntries);
+      
+      // Group staff entries by role into the expected StaffData structure
+      const staffByRole: { doctor: [number, string][]; nurse: [number, string][]; assistant: [number, string][] } = {
+        doctor: [],
+        nurse: [],
+        assistant: [],
+      };
+      
+      apiStaff.forEach((staff: any) => {
+        const time = new Date(staff.timestamp).getTime();
+        const entry: [number, string] = [time, staff.name];
+        staffByRole[staff.role as 'doctor' | 'nurse' | 'assistant'].push(entry);
+      });
+      
+      setStaffData(staffByRole);
     } else {
       // Clear stale state when switching to record with no data
-      setStaffData([]);
+      setStaffData({ doctor: [], nurse: [], assistant: [] });
     }
   }, [apiStaff, setStaffData]);
 
@@ -899,9 +908,10 @@ export function UnifiedTimeline({
     if (apiEvents.length > 0) {
       console.log('[EVENTS-SYNC] Loading events from API:', apiEvents.length, 'entries');
       const eventEntries = apiEvents.map((event: any) => ({
+        id: event.id,
         time: new Date(event.timestamp).getTime(),
-        eventType: event.eventType,
-        description: event.description,
+        text: event.description || event.eventType, // Use description as text, fallback to eventType
+        anesthesiaRecordId: event.anesthesiaRecordId,
       }));
       setEventComments(eventEntries);
     } else {
