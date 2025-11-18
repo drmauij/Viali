@@ -307,6 +307,11 @@ export interface IStorage {
   updateVentilationModePoint(anesthesiaRecordId: string, pointId: string, updates: { value?: string; timestamp?: string }): Promise<ClinicalSnapshot | null>;
   deleteVentilationModePoint(anesthesiaRecordId: string, pointId: string): Promise<ClinicalSnapshot | null>;
   
+  // Output operations
+  addOutputPoint(anesthesiaRecordId: string, paramKey: string, timestamp: string, value: number): Promise<ClinicalSnapshot>;
+  updateOutputPoint(anesthesiaRecordId: string, paramKey: string, pointId: string, updates: { value?: number; timestamp?: string }): Promise<ClinicalSnapshot | null>;
+  deleteOutputPoint(anesthesiaRecordId: string, paramKey: string, pointId: string): Promise<ClinicalSnapshot | null>;
+  
   // Legacy methods for backward compatibility
   getVitalsSnapshots(anesthesiaRecordId: string): Promise<VitalsSnapshot[]>;
   createVitalsSnapshot(snapshot: InsertVitalsSnapshot): Promise<VitalsSnapshot>;
@@ -2284,6 +2289,131 @@ export class DatabaseStorage implements IStorage {
     const updatedData = {
       ...data,
       ventilationModes: filteredPoints,
+    };
+    
+    const [updated] = await db
+      .update(clinicalSnapshots)
+      .set({ 
+        data: updatedData,
+        updatedAt: new Date(),
+      })
+      .where(eq(clinicalSnapshots.id, snapshot.id))
+      .returning();
+    
+    return updated;
+  }
+
+  /**
+   * Add an output point
+   */
+  async addOutputPoint(
+    anesthesiaRecordId: string,
+    paramKey: string,
+    timestamp: string,
+    value: number
+  ): Promise<ClinicalSnapshot> {
+    // Guard against falsy paramKey
+    if (!paramKey) {
+      throw new Error('paramKey is required for addOutputPoint');
+    }
+    
+    const snapshot = await this.getClinicalSnapshot(anesthesiaRecordId);
+    
+    const newPoint = {
+      id: randomUUID(),
+      timestamp,
+      value,
+    };
+    
+    const currentPoints = (snapshot.data as any)[paramKey] || [];
+    const updatedData = {
+      ...snapshot.data,
+      [paramKey]: [...currentPoints, newPoint],
+    };
+    
+    const [updated] = await db
+      .update(clinicalSnapshots)
+      .set({ 
+        data: updatedData,
+        updatedAt: new Date(),
+      })
+      .where(eq(clinicalSnapshots.id, snapshot.id))
+      .returning();
+    
+    return updated;
+  }
+
+  /**
+   * Update an output point
+   */
+  async updateOutputPoint(
+    anesthesiaRecordId: string,
+    paramKey: string,
+    pointId: string,
+    updates: { value?: number; timestamp?: string }
+  ): Promise<ClinicalSnapshot | null> {
+    // Guard against falsy paramKey
+    if (!paramKey) {
+      throw new Error('paramKey is required for updateOutputPoint');
+    }
+    
+    const snapshot = await this.getClinicalSnapshot(anesthesiaRecordId);
+    const data = snapshot.data as any;
+    const points = data[paramKey] || [];
+    
+    const pointIndex = points.findIndex((p: any) => p.id === pointId);
+    if (pointIndex === -1) {
+      return null; // Point not found in this snapshot
+    }
+    
+    const updatedPoints = [...points];
+    updatedPoints[pointIndex] = {
+      ...updatedPoints[pointIndex],
+      ...updates,
+    };
+    
+    const updatedData = {
+      ...data,
+      [paramKey]: updatedPoints,
+    };
+    
+    const [updated] = await db
+      .update(clinicalSnapshots)
+      .set({ 
+        data: updatedData,
+        updatedAt: new Date(),
+      })
+      .where(eq(clinicalSnapshots.id, snapshot.id))
+      .returning();
+    
+    return updated;
+  }
+
+  /**
+   * Delete an output point
+   */
+  async deleteOutputPoint(
+    anesthesiaRecordId: string,
+    paramKey: string,
+    pointId: string
+  ): Promise<ClinicalSnapshot | null> {
+    // Guard against falsy paramKey
+    if (!paramKey) {
+      throw new Error('paramKey is required for deleteOutputPoint');
+    }
+    
+    const snapshot = await this.getClinicalSnapshot(anesthesiaRecordId);
+    const data = snapshot.data as any;
+    const points = data[paramKey] || [];
+    
+    const filteredPoints = points.filter((p: any) => p.id !== pointId);
+    if (filteredPoints.length >= points.length) {
+      return null; // Point not found in this snapshot
+    }
+    
+    const updatedData = {
+      ...data,
+      [paramKey]: filteredPoints,
     };
     
     const [updated] = await db

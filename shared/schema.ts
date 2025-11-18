@@ -1238,6 +1238,27 @@ export const updateVentilationModePointSchema = z.object({
   timestamp: z.string().optional(),
 });
 
+export const addOutputPointSchema = z.object({
+  anesthesiaRecordId: z.string(),
+  paramKey: z.enum(['gastricTube', 'drainage', 'vomit', 'urine', 'urine677', 'blood', 'bloodIrrigation']),
+  timestamp: z.string(),
+  value: z.number(),
+});
+
+export const updateOutputPointSchema = z.object({
+  anesthesiaRecordId: z.string(),
+  paramKey: z.enum(['gastricTube', 'drainage', 'vomit', 'urine', 'urine677', 'blood', 'bloodIrrigation']),
+  pointId: z.string(),
+  value: z.number().optional(),
+  timestamp: z.string().optional(),
+});
+
+export const deleteOutputPointSchema = z.object({
+  anesthesiaRecordId: z.string(),
+  paramKey: z.enum(['gastricTube', 'drainage', 'vomit', 'urine', 'urine677', 'blood', 'bloodIrrigation']),
+  pointId: z.string(),
+});
+
 export const deleteVitalPointSchema = z.object({
   anesthesiaRecordId: z.string(),
   pointId: z.string(),
