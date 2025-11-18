@@ -1,0 +1,203 @@
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
+import { useMutation } from "@tanstack/react-query";
+import { saveMedication } from "@/services/timelinePersistence";
+import { useToast } from "@/hooks/use-toast";
+
+interface PendingMedicationDose {
+  swimlaneId: string;
+  time: number;
+  label: string;
+}
+
+interface AnesthesiaItem {
+  id: string;
+  name: string;
+}
+
+interface MedicationDoseDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  anesthesiaRecordId: string | null;
+  pendingMedicationDose: PendingMedicationDose | null;
+  anesthesiaItems: AnesthesiaItem[];
+  onMedicationDoseCreated?: () => void;
+  onLocalStateUpdate?: (swimlaneId: string, time: number, doseValue: string) => void;
+}
+
+export function MedicationDoseDialog({
+  open,
+  onOpenChange,
+  anesthesiaRecordId,
+  pendingMedicationDose,
+  anesthesiaItems,
+  onMedicationDoseCreated,
+  onLocalStateUpdate,
+}: MedicationDoseDialogProps) {
+  const [medicationDoseInput, setMedicationDoseInput] = useState("");
+  const { toast } = useToast();
+
+  // Mutation for saving medication doses
+  const saveMedicationMutation = useMutation({
+    mutationFn: saveMedication,
+    onSuccess: (data, variables) => {
+      console.log('[MEDICATION] Save successful', { data, variables });
+    },
+    onError: (error) => {
+      console.error('[MEDICATION] Save failed', error);
+      toast({
+        title: "Error saving medication",
+        description: error instanceof Error ? error.message : "Failed to save medication",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Reset input when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setMedicationDoseInput("");
+    }
+  }, [open]);
+
+  const handleSave = async () => {
+    console.log('[MED] handleMedicationDoseEntry called', { 
+      pendingMedicationDose, 
+      medicationDoseInput, 
+      anesthesiaRecordId 
+    });
+    
+    if (!pendingMedicationDose || !medicationDoseInput.trim() || !anesthesiaRecordId) {
+      console.log('[MED] Early return - missing data');
+      return;
+    }
+    
+    const { swimlaneId, time, label } = pendingMedicationDose;
+    
+    // Extract itemId from swimlaneId (format: "admingroup-{groupId}-item-{index}")
+    const itemIdMatch = swimlaneId.match(/item-(\d+)$/);
+    if (!itemIdMatch) {
+      console.log('[MED] No itemId match found for swimlaneId:', swimlaneId);
+      toast({
+        title: "Error",
+        description: "Could not identify medication",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const itemIndex = parseInt(itemIdMatch[1]);
+    console.log('[MED] Extracted item index:', itemIndex);
+    
+    // Get the actual itemId from anesthesiaItems using the index
+    const item = anesthesiaItems?.[itemIndex];
+    if (!item?.id) {
+      console.log('[MED] No anesthesia item found at index:', itemIndex);
+      toast({
+        title: "Error",
+        description: "Could not identify medication",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const itemId = item.id;
+    console.log('[MED] Resolved itemId:', itemId);
+    
+    const doseValue = medicationDoseInput.trim();
+    
+    // Save to database
+    try {
+      console.log('[MED] Calling mutation with:', {
+        anesthesiaRecordId,
+        itemId,
+        timestamp: new Date(time),
+        type: "bolus",
+        dose: doseValue,
+      });
+      
+      await saveMedicationMutation.mutateAsync({
+        anesthesiaRecordId,
+        itemId,
+        timestamp: new Date(time),
+        type: "bolus",
+        dose: doseValue,
+      });
+      
+      console.log('[MED] Mutation successful - updating local state');
+      
+      // Manually update local state so the dose appears immediately
+      onLocalStateUpdate?.(swimlaneId, time, doseValue);
+      
+      toast({
+        title: "Dose saved",
+        description: `${label}: ${doseValue}`,
+      });
+
+      onMedicationDoseCreated?.();
+      handleClose();
+    } catch (error) {
+      console.error('[MED] Mutation error:', error);
+      // Error toast is already shown by mutation's onError
+      return;
+    }
+  };
+
+  const handleClose = () => {
+    onOpenChange(false);
+    setMedicationDoseInput("");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(open) => {
+      console.log('[DIALOG] Medication dose dialog open changed:', open);
+      if (!open) {
+        handleClose();
+      } else {
+        onOpenChange(true);
+      }
+    }}>
+      <DialogContent className="sm:max-w-[425px]" data-testid="dialog-medication-dose">
+        <DialogHeader>
+          <DialogTitle>Add Dose</DialogTitle>
+          <DialogDescription>
+            {pendingMedicationDose ? `${pendingMedicationDose.label}` : 'Add a new medication dose'}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="dose-value">Dose</Label>
+            <Input
+              id="dose-value"
+              data-testid="input-dose-value"
+              value={medicationDoseInput}
+              onChange={(e) => setMedicationDoseInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSave();
+                }
+              }}
+              placeholder="e.g., 5mg, 100mg, 2ml"
+              autoFocus
+            />
+          </div>
+        </div>
+        <DialogFooterWithTime
+          time={pendingMedicationDose?.time}
+          onTimeChange={(newTime) => {
+            // Update the time in the parent component if needed
+            // For now, this is a placeholder since UnifiedTimeline manages this state
+          }}
+          showDelete={false}
+          onCancel={handleClose}
+          onSave={handleSave}
+          saveDisabled={!medicationDoseInput.trim()}
+          saveLabel="Add"
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}

@@ -16,6 +16,8 @@ import { EventDialog } from "./dialogs/EventDialog";
 import { HeartRhythmDialog } from "./dialogs/HeartRhythmDialog";
 import { StaffDialog } from "./dialogs/StaffDialog";
 import { PositionDialog } from "./dialogs/PositionDialog";
+import { MedicationDoseDialog } from "./dialogs/MedicationDoseDialog";
+import { MedicationEditDialog } from "./dialogs/MedicationEditDialog";
 import { DialogFooterWithTime } from "./DialogFooterWithTime";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -1000,8 +1002,6 @@ export function UnifiedTimeline({
   // State for medication dose edit dialog
   const [showMedicationEditDialog, setShowMedicationEditDialog] = useState(false);
   const [editingMedicationDose, setEditingMedicationDose] = useState<{ swimlaneId: string; time: number; dose: string; index: number; id: string } | null>(null);
-  const [medicationEditInput, setMedicationEditInput] = useState("");
-  const [medicationEditTime, setMedicationEditTime] = useState<number>(Date.now());
 
   // State for ventilation value edit dialog
   const [showVentilationEditDialog, setShowVentilationEditDialog] = useState(false);
@@ -1172,7 +1172,6 @@ export function UnifiedTimeline({
   const [medicationHoverInfo, setMedicationHoverInfo] = useState<{ x: number; y: number; time: number; swimlaneId: string; label: string } | null>(null);
   const [showMedicationDoseDialog, setShowMedicationDoseDialog] = useState(false);
   const [pendingMedicationDose, setPendingMedicationDose] = useState<{ swimlaneId: string; time: number; label: string } | null>(null);
-  const [medicationDoseInput, setMedicationDoseInput] = useState("");
 
   // State for administration group medication configuration dialog
   const [showMedicationConfigDialog, setShowMedicationConfigDialog] = useState(false);
@@ -3690,99 +3689,6 @@ export function UnifiedTimeline({
     }
   };
 
-  // Handle medication dose entry
-  const handleMedicationDoseEntry = async () => {
-    console.log('[MED] handleMedicationDoseEntry called', { 
-      pendingMedicationDose, 
-      medicationDoseInput, 
-      anesthesiaRecordId 
-    });
-    
-    if (!pendingMedicationDose || !medicationDoseInput.trim() || !anesthesiaRecordId) {
-      console.log('[MED] Early return - missing data');
-      return;
-    }
-    
-    const { swimlaneId, time, label } = pendingMedicationDose;
-    
-    // Extract itemId from swimlaneId (format: "admingroup-{groupId}-item-{index}")
-    const itemIdMatch = swimlaneId.match(/item-(\d+)$/);
-    if (!itemIdMatch) {
-      console.log('[MED] No itemId match found for swimlaneId:', swimlaneId);
-      toast({
-        title: "Error",
-        description: "Could not identify medication",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    const itemIndex = parseInt(itemIdMatch[1]);
-    console.log('[MED] Extracted item index:', itemIndex);
-    
-    // Get the actual itemId from anesthesiaItems using the index
-    const item = anesthesiaItems?.[itemIndex];
-    if (!item?.id) {
-      console.log('[MED] No anesthesia item found at index:', itemIndex);
-      toast({
-        title: "Error",
-        description: "Could not identify medication",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    const itemId = item.id;
-    console.log('[MED] Resolved itemId:', itemId);
-    
-    const doseValue = medicationDoseInput.trim();
-    
-    // Save to database
-    try {
-      console.log('[MED] Calling mutation with:', {
-        anesthesiaRecordId,
-        itemId,
-        timestamp: new Date(time),
-        type: "bolus",
-        dose: doseValue,
-      });
-      
-      await saveMedicationMutation.mutateAsync({
-        anesthesiaRecordId,
-        itemId,
-        timestamp: new Date(time),
-        type: "bolus",
-        dose: doseValue,
-      });
-      
-      console.log('[MED] Mutation successful - updating local state');
-      
-      // Manually update local state so the dose appears immediately
-      setMedicationDoseData(prev => {
-        const existing = prev[swimlaneId] || [];
-        const newEntry: [number, string] = [time, doseValue];
-        return {
-          ...prev,
-          [swimlaneId]: [...existing, newEntry].sort((a, b) => a[0] - b[0])
-        };
-      });
-      
-      toast({
-        title: "Dose saved",
-        description: `${label}: ${doseValue}`,
-      });
-    } catch (error) {
-      console.error('[MED] Mutation error:', error);
-      // Error toast is already shown by mutation's onError
-      return;
-    }
-    
-    // Reset dialog state
-    setShowMedicationDoseDialog(false);
-    setPendingMedicationDose(null);
-    setMedicationDoseInput("");
-  };
-
   // Handle ventilation parameter entry
   const handleVentilationParameterEntry = () => {
     if (!pendingVentilationValue || !ventilationValueInput.trim()) return;
@@ -3818,42 +3724,6 @@ export function UnifiedTimeline({
     setShowVentilationDialog(false);
     setPendingVentilationValue(null);
     setVentilationValueInput("");
-  };
-
-
-  // Handle medication dose edit save
-  const handleMedicationDoseEditSave = () => {
-    if (!editingMedicationDose || !medicationEditInput.trim()) return;
-    if (!anesthesiaRecordId) return;
-    
-    const { id } = editingMedicationDose;
-    
-    // Call update mutation
-    updateMedication.mutate({
-      id,
-      timestamp: new Date(medicationEditTime),
-      dose: medicationEditInput.trim(),
-    });
-    
-    // Reset dialog state
-    setShowMedicationEditDialog(false);
-    setEditingMedicationDose(null);
-    setMedicationEditInput("");
-  };
-
-  // Handle medication dose delete
-  const handleMedicationDoseDelete = () => {
-    if (!editingMedicationDose) return;
-    if (!anesthesiaRecordId) return;
-    
-    const { id } = editingMedicationDose;
-    
-    // Call delete mutation
-    deleteMedication.mutate(id);
-    
-    setShowMedicationEditDialog(false);
-    setEditingMedicationDose(null);
-    setMedicationEditInput("");
   };
 
   // Handle infusion value entry
@@ -8469,56 +8339,34 @@ export function UnifiedTimeline({
       })}
 
       {/* Medication Dose Entry Dialog */}
-      <Dialog open={showMedicationDoseDialog} onOpenChange={(open) => {
-        console.log('[DIALOG] Medication dose dialog open changed:', open);
-        if (!open) {
-          setShowMedicationDoseDialog(false);
+      <MedicationDoseDialog
+        open={showMedicationDoseDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowMedicationDoseDialog(false);
+            setPendingMedicationDose(null);
+          } else {
+            setShowMedicationDoseDialog(true);
+          }
+        }}
+        anesthesiaRecordId={anesthesiaRecordId || null}
+        pendingMedicationDose={pendingMedicationDose}
+        anesthesiaItems={anesthesiaItems}
+        onMedicationDoseCreated={() => {
           setPendingMedicationDose(null);
-          setMedicationDoseInput("");
-        } else {
-          setShowMedicationDoseDialog(true);
-        }
-      }}>
-        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-medication-dose">
-          <DialogHeader>
-            <DialogTitle>Add Dose</DialogTitle>
-            <DialogDescription>
-              {pendingMedicationDose ? `${pendingMedicationDose.label}` : 'Add a new medication dose'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="dose-value">Dose</Label>
-              <Input
-                id="dose-value"
-                data-testid="input-dose-value"
-                value={medicationDoseInput}
-                onChange={(e) => setMedicationDoseInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleMedicationDoseEntry();
-                  }
-                }}
-                placeholder="e.g., 5mg, 100mg, 2ml"
-                autoFocus
-              />
-            </div>
-          </div>
-          <DialogFooterWithTime
-            time={pendingMedicationDose?.time}
-            onTimeChange={(newTime) => setPendingMedicationDose(prev => prev ? { ...prev, time: newTime } : null)}
-            showDelete={false}
-            onCancel={() => {
-              setShowMedicationDoseDialog(false);
-              setPendingMedicationDose(null);
-              setMedicationDoseInput("");
-            }}
-            onSave={handleMedicationDoseEntry}
-            saveDisabled={!medicationDoseInput.trim()}
-            saveLabel="Add"
-          />
-        </DialogContent>
-      </Dialog>
+        }}
+        onLocalStateUpdate={(swimlaneId, time, doseValue) => {
+          // Manually update local state so the dose appears immediately
+          setMedicationDoseData(prev => {
+            const existing = prev[swimlaneId] || [];
+            const newEntry: [number, string] = [time, doseValue];
+            return {
+              ...prev,
+              [swimlaneId]: [...existing, newEntry].sort((a, b) => a[0] - b[0])
+            };
+          });
+        }}
+      />
 
       {/* Medication Configuration Dialog (from timeline admin groups) */}
       <MedicationConfigDialog
@@ -9784,94 +9632,19 @@ export function UnifiedTimeline({
       />
 
       {/* Medication Dose Edit Dialog */}
-      <Dialog open={showMedicationEditDialog} onOpenChange={setShowMedicationEditDialog}>
-        <DialogContent className="sm:max-w-[425px]" data-testid="dialog-medication-edit">
-          <DialogHeader>
-            <DialogTitle>Edit Dose</DialogTitle>
-            <DialogDescription>
-              Edit or delete the medication dose
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            {(() => {
-              // Get the swimlane to check for range defaults
-              const swimlane = editingMedicationDose 
-                ? activeSwimlanes.find(lane => lane.id === editingMedicationDose.swimlaneId)
-                : null;
-              
-              // Parse dose presets from defaultDose (e.g., "25-35-50")
-              const dosePresets = swimlane?.defaultDose && swimlane.defaultDose.includes('-')
-                ? swimlane.defaultDose.split('-').map(v => v.trim()).filter(v => v)
-                : [];
-              
-              return (
-                <>
-                  {/* Preset Buttons if available */}
-                  {dosePresets.length > 0 && (
-                    <>
-                      <div className="text-sm font-medium">Quick doses:</div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {dosePresets.map((dose, idx) => (
-                          <Button
-                            key={idx}
-                            onClick={() => setMedicationEditInput(dose)}
-                            variant="outline"
-                            className="h-12"
-                            data-testid={`button-dose-preset-${dose}`}
-                          >
-                            {dose}
-                          </Button>
-                        ))}
-                      </div>
-                      <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                          <span className="w-full border-t" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                          <span className="bg-background px-2 text-muted-foreground">
-                            Or custom
-                          </span>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                  
-                  {/* Dose Input */}
-                  <div className="grid gap-2">
-                    <Label htmlFor="dose-edit-value">Dose</Label>
-                    <Input
-                      id="dose-edit-value"
-                      data-testid="input-dose-edit-value"
-                      value={medicationEditInput}
-                      onChange={(e) => setMedicationEditInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleMedicationDoseEditSave();
-                        }
-                      }}
-                      placeholder="e.g., 5mg, 100mg, 2ml"
-                      autoFocus
-                    />
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-          <DialogFooterWithTime
-            time={medicationEditTime}
-            onTimeChange={setMedicationEditTime}
-            showDelete={true}
-            onDelete={handleMedicationDoseDelete}
-            onCancel={() => {
-              setShowMedicationEditDialog(false);
-              setEditingMedicationDose(null);
-              setMedicationEditInput("");
-            }}
-            onSave={handleMedicationDoseEditSave}
-            saveDisabled={!medicationEditInput.trim()}
-          />
-        </DialogContent>
-      </Dialog>
+      <MedicationEditDialog
+        open={showMedicationEditDialog}
+        onOpenChange={setShowMedicationEditDialog}
+        anesthesiaRecordId={anesthesiaRecordId || null}
+        editingMedicationDose={editingMedicationDose}
+        activeSwimlanes={activeSwimlanes}
+        onMedicationDoseUpdated={() => {
+          setEditingMedicationDose(null);
+        }}
+        onMedicationDoseDeleted={() => {
+          setEditingMedicationDose(null);
+        }}
+      />
 
       {/* Ventilation Value Edit Dialog */}
       <Dialog open={showVentilationEditDialog} onOpenChange={setShowVentilationEditDialog}>
