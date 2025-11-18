@@ -2022,16 +2022,17 @@ export function UnifiedTimeline({
       if (dataZoom) {
         const start = dataZoom.start ?? 0;
         const end = dataZoom.end ?? 100;
-        const fullRange = data.endTime - data.startTime;
+        let fullRange = data.endTime - data.startTime;
         
-        // SAFEGUARD: Bail out if range is collapsed to prevent division by zero
+        // SAFEGUARD: Use minimum window if range is collapsed
+        const MIN_RANGE = 10 * 60 * 1000; // 10 minutes minimum window
         if (fullRange <= 0) {
-          console.warn('[ZOOM-EVENT] Skipping zoom update - data range is zero or negative', {
+          console.warn('[ZOOM-EVENT] Data range is zero or negative, using minimum 10-minute window', {
             startTime: new Date(data.startTime).toISOString(),
             endTime: new Date(data.endTime).toISOString(),
-            fullRange
+            originalRange: fullRange
           });
-          return;
+          fullRange = MIN_RANGE;
         }
         
         const visibleStart = data.startTime + (start / 100) * fullRange;
@@ -2165,16 +2166,17 @@ export function UnifiedTimeline({
       
       const start = dataZoom.start ?? 0;
       const end = dataZoom.end ?? 100;
-      const fullRange = data.endTime - data.startTime;
+      let fullRange = data.endTime - data.startTime;
       
-      // SAFEGUARD: Bail out if range is collapsed to prevent division by zero
+      // SAFEGUARD: Use minimum window if range is collapsed
+      const MIN_RANGE = 10 * 60 * 1000; // 10 minutes minimum window
       if (fullRange <= 0) {
-        console.warn('[ZOOM] Skipping zoom update - data range is zero or negative', {
+        console.warn('[ZOOM] Data range is zero or negative, using minimum 10-minute window', {
           startTime: new Date(data.startTime).toISOString(),
           endTime: new Date(data.endTime).toISOString(),
-          fullRange
+          originalRange: fullRange
         });
-        return;
+        fullRange = MIN_RANGE;
       }
       
       const visibleStart = data.startTime + (start / 100) * fullRange;
@@ -6510,8 +6512,15 @@ export function UnifiedTimeline({
               const oneMinute = 60 * 1000;
               time = Math.round(time / oneMinute) * oneMinute;
               
+              // SAFEGUARD: Validate time is reasonable (not 0, not NaN, not in ancient past)
+              // If calculation failed due to zero visibleRange, fall back to currentTime
+              const MIN_VALID_TIMESTAMP = new Date('2020-01-01').getTime();
+              if (!time || isNaN(time) || time < MIN_VALID_TIMESTAMP) {
+                console.warn('[EVENTS-CLICK] Invalid time calculated:', time, '- falling back to currentTime');
+                time = currentTime;
+              }
+              
               // Validate that time is within editable boundaries
-
               const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
               const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
               
@@ -9552,6 +9561,7 @@ export function UnifiedTimeline({
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="pointer-events-auto relative z-10"
                     onClick={() => {
                       const updated = [...timeMarkers];
                       updated[index] = { ...updated[index], time: Date.now() };
@@ -9565,6 +9575,7 @@ export function UnifiedTimeline({
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="pointer-events-auto relative z-10"
                     onClick={() => {
                       const updated = [...timeMarkers];
                       updated[index] = { ...updated[index], time: null };
