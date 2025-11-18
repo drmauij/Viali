@@ -136,7 +136,7 @@ export function PositionSwimlane({
       )}
 
       {/* Position values as DOM overlays */}
-      {positionData.map((entry, index) => {
+      {positionData.map((entry: PositionPoint, index: number) => {
         const { id, timestamp, position } = entry;
         if (!positionLane) return null;
 

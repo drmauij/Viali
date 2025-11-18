@@ -141,7 +141,7 @@ export function HeartRhythmSwimlane({
       )}
 
       {/* Heart rhythm values as DOM overlays */}
-      {heartRhythmData.map((point, index) => {
+      {heartRhythmData.map((point: HeartRhythmPoint, index: number) => {
         const { id, timestamp, value: rhythm } = point;
         if (!rhythmLane) return null;
 

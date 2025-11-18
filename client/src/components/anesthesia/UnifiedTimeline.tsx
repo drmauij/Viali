@@ -55,7 +55,9 @@ import {
 import { useCreateVentilationMode, useUpdateVentilationMode, useDeleteVentilationMode } from "@/hooks/useVentilationModeQuery";
 import { useCreateEvent, useUpdateEvent, useDeleteEvent } from "@/hooks/useEventsQuery";
 import { useCreateMedication, useUpdateMedication, useDeleteMedication } from "@/hooks/useMedicationQuery";
+import { useCreateOutput, useUpdateOutput, useDeleteOutput } from "@/hooks/useOutputQuery";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
+import { TimelineContextProvider } from "./TimelineContext";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
 import { TimeAdjustInput } from "./TimeAdjustInput";
 import { formatTime } from "@/lib/dateUtils";
@@ -318,8 +320,26 @@ export function UnifiedTimeline({
   const updateMedication = useUpdateMedication(anesthesiaRecordId);
   const deleteMedication = useDeleteMedication(anesthesiaRecordId);
   
+  // Mutation hooks for output
+  const createOutput = useCreateOutput(anesthesiaRecordId);
+  const updateOutput = useUpdateOutput(anesthesiaRecordId);
+  const deleteOutput = useDeleteOutput(anesthesiaRecordId);
+  
   // State for collapsible parent swimlanes
   const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<Set<string>>(new Set());
+  
+  // Function to toggle swimlane collapsed state
+  const toggleSwimlane = (swimlaneId: string) => {
+    setCollapsedSwimlanes(prev => {
+      const next = new Set(prev);
+      if (next.has(swimlaneId)) {
+        next.delete(swimlaneId);
+      } else {
+        next.add(swimlaneId);
+      }
+      return next;
+    });
+  };
   
   // Use custom hook for medication state management
   const {
@@ -1224,20 +1244,6 @@ export function UnifiedTimeline({
 
     return () => clearInterval(interval);
   }, [now]);
-
-
-  // Toggle collapsed state for parent swimlanes
-  const toggleSwimlane = (id: string) => {
-    setCollapsedSwimlanes(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
 
   // Listen for theme changes
   useEffect(() => {
@@ -4252,8 +4258,116 @@ export function UnifiedTimeline({
   // chartHeight = VITALS_HEIGHT + swimlanesHeight (from the option calculation)
   const backgroundsHeight = VITALS_TOP_POS + VITALS_HEIGHT + swimlanesHeight;
   
+  // Create state objects to pass to TimelineContextProvider
+  const vitalsState = {
+    hrDataPoints,
+    bpDataPoints,
+    spo2DataPoints,
+    hrDataPointsRef,
+    bpDataPointsRef,
+    spo2DataPointsRef,
+    setHrDataPoints,
+    setBpDataPoints,
+    setSpo2DataPoints,
+    resetVitalsData,
+  };
+  
+  const medicationState = {
+    medicationDoseData,
+    infusionData,
+    rateInfusionSessions,
+    freeFlowSessions,
+    setMedicationDoseData,
+    setInfusionData,
+    setRateInfusionSessions,
+    setFreeFlowSessions,
+    getActiveRateSession,
+    getActiveFreeFlowSession,
+    resetMedicationData,
+  };
+  
+  const ventilationState = {
+    ventilationData,
+    ventilationModeData,
+    setVentilationData,
+    setVentilationModeData,
+    resetVentilationData,
+  };
+  
+  const eventState = {
+    heartRhythmData,
+    staffData,
+    positionData,
+    eventComments,
+    timeMarkers,
+    setHeartRhythmData,
+    setStaffData,
+    setPositionData,
+    setEventComments,
+    setTimeMarkers,
+    addHeartRhythm,
+    addStaffEntry,
+    addPosition,
+    addEvent,
+    resetEventData,
+  };
+  
+  const outputState = {
+    outputData,
+    setOutputData,
+    resetOutputData,
+  };
+  
   return (
-    <div className="w-full relative" style={{ height: componentHeight }}>
+    <TimelineContextProvider
+      vitalsState={vitalsState}
+      medicationState={medicationState}
+      ventilationState={ventilationState}
+      eventState={eventState}
+      outputState={outputState}
+      currentTime={currentTime}
+      setCurrentTime={setCurrentTime}
+      chartInitTime={chartInitTime}
+      currentZoomStart={currentZoomStart ?? 0}
+      setCurrentZoomStart={setCurrentZoomStart}
+      currentZoomEnd={currentZoomEnd ?? 100}
+      setCurrentZoomEnd={setCurrentZoomEnd}
+      currentVitalsSnapInterval={currentVitalsSnapInterval}
+      setCurrentVitalsSnapInterval={setCurrentVitalsSnapInterval}
+      currentDrugSnapInterval={currentDrugSnapInterval}
+      setCurrentDrugSnapInterval={() => {}}
+      isDark={isDark}
+      setIsDark={setIsDark}
+      collapsedSwimlanes={collapsedSwimlanes}
+      setCollapsedSwimlanes={setCollapsedSwimlanes}
+      toggleSwimlane={toggleSwimlane}
+      activeToolMode={activeToolMode}
+      setActiveToolMode={setActiveToolMode}
+      addVitalPointMutation={addVitalPointMutation}
+      updateVitalPointMutation={updateVitalPointMutation}
+      deleteVitalPointMutation={deleteVitalPointMutation}
+      addBPPointMutation={addBPPointMutation}
+      updateBPPointMutation={updateBPPointMutation}
+      createMedicationMutation={createMedication}
+      updateMedicationMutation={updateMedication}
+      deleteMedicationMutation={deleteMedication}
+      createVentilationModeMutation={createVentilationMode}
+      updateVentilationModeMutation={updateVentilationMode}
+      deleteVentilationModeMutation={deleteVentilationMode}
+      createEventMutation={createEvent}
+      updateEventMutation={updateEvent}
+      deleteEventMutation={deleteEvent}
+      createOutputMutation={createOutput}
+      updateOutputMutation={updateOutput}
+      deleteOutputMutation={deleteOutput}
+      anesthesiaItems={anesthesiaItems}
+      administrationGroups={administrationGroups}
+      anesthesiaRecordId={anesthesiaRecordId}
+      patientWeight={patientWeight}
+      data={data}
+      swimlanes={activeSwimlanes}
+    >
+      <div className="w-full relative" style={{ height: componentHeight }}>
       {/* Sticky Timeline Header */}
       <StickyTimelineHeader
         startTime={data.startTime}
@@ -5778,6 +5892,7 @@ export function UnifiedTimeline({
         </div>
       )}
     </div>
+    </TimelineContextProvider>
   );
 }
 

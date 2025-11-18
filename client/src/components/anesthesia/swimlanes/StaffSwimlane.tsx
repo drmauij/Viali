@@ -151,7 +151,7 @@ export function StaffSwimlane({
       )}
 
       {/* Staff values as DOM overlays */}
-      {!collapsedSwimlanes.has('staff') && Object.entries(staffData).flatMap(([role, entries]: [string, StaffPoint[]]) =>
+      {!collapsedSwimlanes.has('staff') && (Object.entries(staffData) as [string, StaffPoint[]][]).flatMap(([role, entries]) =>
         entries.map((entry: StaffPoint, index: number) => {
           const { id, timestamp, name } = entry;
           const staffLane = swimlanePositions.find(lane => lane.id === `staff-${role}`);
