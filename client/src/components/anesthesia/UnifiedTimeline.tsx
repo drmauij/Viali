@@ -99,6 +99,7 @@ import { EventsSwimlane } from "./swimlanes/EventsSwimlane";
 import { MedicationsSwimlane } from "./swimlanes/MedicationsSwimlane";
 import { VentilationSwimlane, generateVentilationSeries } from "./swimlanes/VentilationSwimlane";
 import { OutputSwimlane } from "./swimlanes/OutputSwimlane";
+import { PositionSwimlane } from "./swimlanes/PositionSwimlane";
 
 /**
  * UnifiedTimeline - Refactored for robustness and flexibility
@@ -827,7 +828,6 @@ export function UnifiedTimeline({
   const [showPositionDialog, setShowPositionDialog] = useState(false);
   const [pendingPosition, setPendingPosition] = useState<{ time: number } | null>(null);
   const [editingPosition, setEditingPosition] = useState<{ id: string; time: number; position: string; index: number } | null>(null);
-  const [positionHoverInfo, setPositionHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
 
   // UI state for event comment dialogs and interactions
   const [showEventDialog, setShowEventDialog] = useState(false);
@@ -4830,97 +4830,23 @@ export function UnifiedTimeline({
         </div>
       )}
 
-      {/* Interactive layer for position swimlane */}
-      {!activeToolMode && (() => {
-        const positionLane = swimlanePositions.find(lane => lane.id === 'position');
-        if (!positionLane) return null;
-        
-        return (
-          <div
-            className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
-            style={{
-              left: '200px',
-              right: '10px',
-              top: `${positionLane.top}px`,
-              height: `${positionLane.height}px`,
-              zIndex: 35,
-            }}
-            onMouseMove={(e) => {
-              if (isTouchDevice) return;
-              
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = e.clientX - rect.left;
-              
-              const visibleStart = currentZoomStart ?? data.startTime;
-              const visibleEnd = currentZoomEnd ?? data.endTime;
-              const visibleRange = visibleEnd - visibleStart;
-              
-              const xPercent = x / rect.width;
-              let time = visibleStart + (xPercent * visibleRange);
-              
-              // Snap to 1-minute intervals
-              const oneMinute = 60 * 1000;
-              time = Math.round(time / oneMinute) * oneMinute;
-              
-              setPositionHoverInfo({ 
-                x: e.clientX, 
-                y: e.clientY, 
-                time
-              });
-            }}
-            onMouseLeave={() => setPositionHoverInfo(null)}
-            onClick={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = e.clientX - rect.left;
-              
-              const visibleStart = currentZoomStart ?? data.startTime;
-              const visibleEnd = currentZoomEnd ?? data.endTime;
-              const visibleRange = visibleEnd - visibleStart;
-              
-              const xPercent = x / rect.width;
-              let time = visibleStart + (xPercent * visibleRange);
-              
-              // Snap to 1-minute intervals
-              const oneMinute = 60 * 1000;
-              time = Math.round(time / oneMinute) * oneMinute;
-              
-              // Validate that time is within editable boundaries
-
-              const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
-              const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
-              
-              if (time < editableStartBoundary || time > editableEndBoundary) {
-                // Click is outside editable window - ignore
-                return;
-              }
-              
-              setPendingPosition({ time });
-              setEditingPosition(null);
-              setPositionInput("");
-              setShowPositionDialog(true);
-            }}
-            data-testid="interactive-position-lane"
-          />
-        );
-      })()}
-
-      {/* Tooltip for position entry */}
-      {positionHoverInfo && !isTouchDevice && (
-        <div
-          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
-          style={{
-            left: positionHoverInfo.x + 10,
-            top: positionHoverInfo.y - 40,
-          }}
-        >
-          <div className="text-sm font-semibold text-primary">
-            Click to add position
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {formatTime(positionHoverInfo.time)}
-          </div>
-        </div>
-      )}
+      {/* PositionSwimlane Component - Interactive layer and rendering for patient positioning */}
+      <PositionSwimlane
+        swimlanePositions={swimlanePositions}
+        isTouchDevice={isTouchDevice}
+        onPositionDialogOpen={(pending) => {
+          setPendingPosition(pending);
+          setEditingPosition(null);
+          setPositionInput("");
+          setShowPositionDialog(true);
+        }}
+        onPositionEditDialogOpen={(editing) => {
+          setEditingPosition(editing);
+          setPositionInput(editing.position);
+          setPositionEditTime(editing.time);
+          setShowPositionDialog(true);
+        }}
+      />
 
       {/* OutputSwimlane Component - Interactive layers and rendering for output parameters */}
       <OutputSwimlane
@@ -5150,51 +5076,6 @@ export function UnifiedTimeline({
         })
       )}
 
-      {/* Position values as DOM overlays */}
-      {positionData.map((entry, index) => {
-        const { id, timestamp, position } = entry;
-        const positionLane = swimlanePositions.find(lane => lane.id === 'position');
-        if (!positionLane) return null;
-        
-        const visibleStart = currentZoomStart ?? data.startTime;
-        const visibleEnd = currentZoomEnd ?? data.endTime;
-        const visibleRange = visibleEnd - visibleStart;
-        const xFraction = (timestamp - visibleStart) / visibleRange;
-        
-        if (xFraction < 0 || xFraction > 1) return null;
-        
-        const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 30px)`;
-        
-        return (
-          <div
-            key={`position-${timestamp}-${index}`}
-            className="absolute z-40 cursor-pointer flex items-center justify-center group font-mono font-semibold text-sm px-2"
-            style={{
-              left: leftPosition,
-              top: `${positionLane.top + (positionLane.height / 2) - 10}px`,
-              minWidth: '60px',
-              height: '20px',
-            }}
-            onClick={() => {
-              setEditingPosition({
-                id,
-                time: timestamp,
-                position,
-                index,
-              });
-              setPositionInput(position);
-              setPositionEditTime(timestamp);
-              setShowPositionDialog(true);
-            }}
-            title={`${position} at ${formatTime(timestamp)}`}
-            data-testid={`position-${index}`}
-          >
-            <span className="group-hover:scale-110 transition-transform text-slate-600 dark:text-slate-400">
-              {position}
-            </span>
-          </div>
-        );
-      })}
 
       {/* Medication Dose Entry Dialog */}
       <MedicationDoseDialog
