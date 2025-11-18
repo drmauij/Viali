@@ -2216,6 +2216,64 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async updateAnesthesiaEvent(id: string, event: Partial<InsertAnesthesiaEvent>, userId: string): Promise<AnesthesiaEvent> {
+    // Get current event for audit log
+    const [currentEvent] = await db
+      .select()
+      .from(anesthesiaEvents)
+      .where(eq(anesthesiaEvents.id, id));
+
+    // Guard: Throw error if event doesn't exist
+    if (!currentEvent) {
+      throw new Error(`Event with id ${id} not found`);
+    }
+
+    // Update the event
+    const [updated] = await db
+      .update(anesthesiaEvents)
+      .set(event)
+      .where(eq(anesthesiaEvents.id, id))
+      .returning();
+
+    // Create audit log entry
+    await this.createAuditLog({
+      recordType: 'anesthesia_event',
+      recordId: id,
+      action: 'update',
+      userId,
+      oldValue: currentEvent,
+      newValue: updated,
+    });
+
+    return updated;
+  }
+
+  async deleteAnesthesiaEvent(id: string, userId: string): Promise<void> {
+    // Get current event for audit log
+    const [currentEvent] = await db
+      .select()
+      .from(anesthesiaEvents)
+      .where(eq(anesthesiaEvents.id, id));
+
+    // Guard: Throw error if event doesn't exist
+    if (!currentEvent) {
+      throw new Error(`Event with id ${id} not found`);
+    }
+
+    // Delete the event
+    await db.delete(anesthesiaEvents).where(eq(anesthesiaEvents.id, id));
+
+    // Create audit log entry
+    await this.createAuditLog({
+      recordType: 'anesthesia_event',
+      recordId: id,
+      action: 'delete',
+      userId,
+      oldValue: currentEvent,
+      newValue: null,
+    });
+  }
+
   // Inventory Usage operations
   async getInventoryUsage(anesthesiaRecordId: string): Promise<InventoryUsage[]> {
     const usage = await db

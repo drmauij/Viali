@@ -5873,6 +5873,95 @@ If unable to parse any drugs, return:
     }
   });
 
+  // Update event
+  app.patch('/api/anesthesia/events/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      const validatedData = insertAnesthesiaEventSchema.partial().parse(req.body);
+
+      // SECURITY: Explicit whitelist of allowed update fields
+      // Only timestamp, eventType, and description can be modified
+      // Users cannot change anesthesiaRecordId (migration) or createdBy (attribution)
+      const { timestamp, eventType, description } = validatedData;
+      const allowedUpdates = { timestamp, eventType, description };
+
+      // Get the event first to verify access
+      const [event] = await db.select().from(anesthesiaEvents).where(eq(anesthesiaEvents.id, id));
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      // Verify record exists and user has access
+      const record = await storage.getAnesthesiaRecordById(event.anesthesiaRecordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updated = await storage.updateAnesthesiaEvent(id, allowedUpdates, userId);
+      
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error updating event:", error);
+      res.status(500).json({ message: "Failed to update event" });
+    }
+  });
+
+  // Delete event
+  app.delete('/api/anesthesia/events/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      // Get the event first to verify access
+      const [event] = await db.select().from(anesthesiaEvents).where(eq(anesthesiaEvents.id, id));
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+
+      // Verify record exists and user has access
+      const record = await storage.getAnesthesiaRecordById(event.anesthesiaRecordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      await storage.deleteAnesthesiaEvent(id, userId);
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting event:", error);
+      res.status(500).json({ message: "Failed to delete event" });
+    }
+  });
+
   // 9. Inventory Usage
 
   // Get inventory usage for a record
