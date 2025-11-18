@@ -8,7 +8,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState, useEffect } from "react";
-import { Loader2, Trash2, Save } from "lucide-react";
+import { Loader2, Trash2, Save, X } from "lucide-react";
 
 interface EditSurgeryDialogProps {
   surgeryId: string | null;
@@ -307,6 +307,16 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                       Delete
                     </>
                   )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={onClose}
+                  disabled={deleteMutation.isPending || updateMutation.isPending}
+                  data-testid="button-cancel-surgery"
+                  className="flex-1"
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  Cancel
                 </Button>
                 <Button
                   onClick={handleUpdate}
