@@ -1969,6 +1969,13 @@ export function UnifiedTimeline({
       }
       
       setCurrentVitalsSnapInterval(vitalsSnapInterval);
+      
+      // Enable NOW line transitions after first actual zoom state is received
+      if (isNowLineFirstRenderRef.current) {
+        requestAnimationFrame(() => {
+          isNowLineFirstRenderRef.current = false;
+        });
+      }
     };
 
     // Update immediately
@@ -1988,36 +1995,8 @@ export function UnifiedTimeline({
     };
   }, [chartRef, data.startTime, data.endTime]);
 
-  // Initialize NOW line position synchronously before first paint
-  useLayoutEffect(() => {
-    // Only run on initial mount
-    if (!isNowLineFirstRenderRef.current) return;
-    
-    // Use the same initial zoom window as the chart: 60-minute window centered on NOW
-    // This matches the chart's initial view exactly
-    const initialStartTime = currentTime - THIRTY_MINUTES;
-    const initialEndTime = currentTime + THIRTY_MINUTES;
-    const visibleRange = initialEndTime - initialStartTime;
-    const xFraction = (currentTime - initialStartTime) / visibleRange;
-    
-    // Calculate initial position (should be centered at 50% since NOW is in the middle of the initial window)
-    if (xFraction >= 0 && xFraction <= 1) {
-      const leftPosition = `calc(200px + ${xFraction} * (100% - 210px))`;
-      setNowLinePosition(leftPosition);
-    } else {
-      setNowLinePosition('-10px');
-    }
-    
-    // Enable transitions after first paint completes
-    requestAnimationFrame(() => {
-      isNowLineFirstRenderRef.current = false;
-    });
-  }, []); // Run once on mount
-  
-  // Update NOW line position when zoom/pan/time changes (after initial mount)
+  // Update NOW line position when zoom/pan/time changes
   useEffect(() => {
-    // Skip until layout effect has run
-    if (isNowLineFirstRenderRef.current) return;
     
     const visibleStart = currentZoomStart ?? data.startTime;
     const visibleEnd = currentZoomEnd ?? data.endTime;
