@@ -31,6 +31,7 @@ import {
   clinicalSnapshots,
   anesthesiaMedications,
   anesthesiaEvents,
+  anesthesiaPositions,
   inventoryUsage,
   auditTrail,
   type User,
@@ -86,6 +87,8 @@ import {
   type InsertAnesthesiaMedication,
   type AnesthesiaEvent,
   type InsertAnesthesiaEvent,
+  type AnesthesiaPosition,
+  type InsertAnesthesiaPosition,
   type InventoryUsage,
   type InsertInventoryUsage,
   type AuditTrail,
@@ -309,6 +312,14 @@ export interface IStorage {
   // Anesthesia Event operations
   getAnesthesiaEvents(anesthesiaRecordId: string): Promise<AnesthesiaEvent[]>;
   createAnesthesiaEvent(event: InsertAnesthesiaEvent): Promise<AnesthesiaEvent>;
+  updateAnesthesiaEvent(id: string, event: Partial<InsertAnesthesiaEvent>, userId: string): Promise<AnesthesiaEvent>;
+  deleteAnesthesiaEvent(id: string, userId: string): Promise<void>;
+  
+  // Anesthesia Position operations
+  getAnesthesiaPositions(anesthesiaRecordId: string): Promise<AnesthesiaPosition[]>;
+  createAnesthesiaPosition(position: InsertAnesthesiaPosition): Promise<AnesthesiaPosition>;
+  updateAnesthesiaPosition(id: string, position: Partial<InsertAnesthesiaPosition>, userId: string): Promise<AnesthesiaPosition>;
+  deleteAnesthesiaPosition(id: string, userId: string): Promise<void>;
   
   // Inventory Usage operations
   getInventoryUsage(anesthesiaRecordId: string): Promise<InventoryUsage[]>;
@@ -2386,6 +2397,79 @@ export class DatabaseStorage implements IStorage {
       action: 'delete',
       userId,
       oldValue: currentEvent,
+      newValue: null,
+    });
+  }
+
+  // Anesthesia Position operations
+  async getAnesthesiaPositions(anesthesiaRecordId: string): Promise<AnesthesiaPosition[]> {
+    const positions = await db
+      .select()
+      .from(anesthesiaPositions)
+      .where(eq(anesthesiaPositions.anesthesiaRecordId, anesthesiaRecordId))
+      .orderBy(asc(anesthesiaPositions.timestamp));
+    return positions;
+  }
+
+  async createAnesthesiaPosition(position: InsertAnesthesiaPosition): Promise<AnesthesiaPosition> {
+    const [created] = await db.insert(anesthesiaPositions).values(position).returning();
+    return created;
+  }
+
+  async updateAnesthesiaPosition(id: string, position: Partial<InsertAnesthesiaPosition>, userId: string): Promise<AnesthesiaPosition> {
+    // Get current position for audit log
+    const [currentPosition] = await db
+      .select()
+      .from(anesthesiaPositions)
+      .where(eq(anesthesiaPositions.id, id));
+
+    // Guard: Throw error if position doesn't exist
+    if (!currentPosition) {
+      throw new Error(`Position with id ${id} not found`);
+    }
+
+    // Update the position
+    const [updated] = await db
+      .update(anesthesiaPositions)
+      .set(position)
+      .where(eq(anesthesiaPositions.id, id))
+      .returning();
+
+    // Create audit log entry
+    await this.createAuditLog({
+      recordType: 'anesthesia_position',
+      recordId: id,
+      action: 'update',
+      userId,
+      oldValue: currentPosition,
+      newValue: updated,
+    });
+
+    return updated;
+  }
+
+  async deleteAnesthesiaPosition(id: string, userId: string): Promise<void> {
+    // Get current position for audit log
+    const [currentPosition] = await db
+      .select()
+      .from(anesthesiaPositions)
+      .where(eq(anesthesiaPositions.id, id));
+
+    // Guard: Throw error if position doesn't exist
+    if (!currentPosition) {
+      throw new Error(`Position with id ${id} not found`);
+    }
+
+    // Delete the position
+    await db.delete(anesthesiaPositions).where(eq(anesthesiaPositions.id, id));
+
+    // Create audit log entry
+    await this.createAuditLog({
+      recordType: 'anesthesia_position',
+      recordId: id,
+      action: 'delete',
+      userId,
+      oldValue: currentPosition,
       newValue: null,
     });
   }

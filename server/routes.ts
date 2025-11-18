@@ -24,6 +24,7 @@ import {
   updateRhythmPointSchema,
   insertAnesthesiaMedicationSchema,
   insertAnesthesiaEventSchema,
+  insertAnesthesiaPositionSchema,
   insertInventoryUsageSchema,
   insertNoteSchema,
   orderLines, 
@@ -42,6 +43,7 @@ import {
   vitalsSnapshots,
   anesthesiaMedications,
   anesthesiaEvents,
+  anesthesiaPositions,
   preOpAssessments
 } from "@shared/schema";
 import { z } from "zod";
@@ -6120,7 +6122,177 @@ If unable to parse any drugs, return:
     }
   });
 
-  // 9. Inventory Usage
+  // 9. Positions
+
+  // Get all positions for a record
+  app.get('/api/anesthesia/positions/:recordId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId } = req.params;
+      const userId = req.user.id;
+
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      // Verify user has access
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const positions = await storage.getAnesthesiaPositions(recordId);
+      
+      res.json(positions);
+    } catch (error) {
+      console.error("Error fetching positions:", error);
+      res.status(500).json({ message: "Failed to fetch positions" });
+    }
+  });
+
+  // Create position
+  app.post('/api/anesthesia/positions', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+
+      const validatedData = insertAnesthesiaPositionSchema.parse(req.body);
+
+      // Verify record exists and user has access
+      const record = await storage.getAnesthesiaRecordById(validatedData.anesthesiaRecordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const newPosition = await storage.createAnesthesiaPosition({
+        ...validatedData,
+        createdBy: userId,
+      });
+      
+      res.status(201).json(newPosition);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating position:", error);
+      res.status(500).json({ message: "Failed to create position" });
+    }
+  });
+
+  // Update position
+  app.patch('/api/anesthesia/positions/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      // Validate input using partial schema
+      const updateSchema = insertAnesthesiaPositionSchema.partial().pick({
+        timestamp: true,
+        position: true,
+      });
+      
+      const validatedUpdates = updateSchema.parse(req.body);
+
+      // Reject empty updates
+      if (Object.keys(validatedUpdates).length === 0) {
+        return res.status(400).json({ message: "No valid fields to update" });
+      }
+
+      // Get the position first to verify access
+      const [position] = await db.select().from(anesthesiaPositions).where(eq(anesthesiaPositions.id, id));
+      if (!position) {
+        return res.status(404).json({ message: "Position not found" });
+      }
+
+      // Verify record exists and user has access
+      const record = await storage.getAnesthesiaRecordById(position.anesthesiaRecordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updated = await storage.updateAnesthesiaPosition(id, validatedUpdates, userId);
+      
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error updating position:", error);
+      res.status(500).json({ message: "Failed to update position" });
+    }
+  });
+
+  // Delete position
+  app.delete('/api/anesthesia/positions/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      // Get the position first to verify access
+      const [position] = await db.select().from(anesthesiaPositions).where(eq(anesthesiaPositions.id, id));
+      if (!position) {
+        return res.status(404).json({ message: "Position not found" });
+      }
+
+      // Verify record exists and user has access
+      const record = await storage.getAnesthesiaRecordById(position.anesthesiaRecordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      await storage.deleteAnesthesiaPosition(id, userId);
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting position:", error);
+      res.status(500).json({ message: "Failed to delete position" });
+    }
+  });
+
+  // 10. Inventory Usage
 
   // Get inventory usage for a record
   app.get('/api/anesthesia/inventory/:recordId', isAuthenticated, async (req: any, res) => {

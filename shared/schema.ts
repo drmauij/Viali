@@ -788,6 +788,21 @@ export const anesthesiaEvents = pgTable("anesthesia_events", {
   index("idx_anesthesia_events_type").on(table.eventType),
 ]);
 
+// Anesthesia Positions (Patient positioning during surgery)
+export const anesthesiaPositions = pgTable("anesthesia_positions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: 'cascade' }),
+  
+  timestamp: timestamp("timestamp").notNull(),
+  position: varchar("position").notNull(), // supine, prone, lateral, lithotomy, etc.
+  
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_anesthesia_positions_record").on(table.anesthesiaRecordId),
+  index("idx_anesthesia_positions_timestamp").on(table.timestamp),
+]);
+
 // Inventory Usage (Auto-computed from medication records)
 export const inventoryUsage = pgTable("inventory_usage", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1214,6 +1229,14 @@ export const insertAnesthesiaEventSchema = createInsertSchema(anesthesiaEvents, 
   createdAt: true,
 });
 
+export const insertAnesthesiaPositionSchema = createInsertSchema(anesthesiaPositions, {
+  // Coerce timestamp to handle both Date objects and ISO strings
+  timestamp: z.coerce.date(),
+}).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertInventoryUsageSchema = createInsertSchema(inventoryUsage).omit({
   id: true,
   createdAt: true,
@@ -1294,6 +1317,8 @@ export type AnesthesiaMedication = typeof anesthesiaMedications.$inferSelect;
 export type InsertAnesthesiaMedication = z.infer<typeof insertAnesthesiaMedicationSchema>;
 export type AnesthesiaEvent = typeof anesthesiaEvents.$inferSelect;
 export type InsertAnesthesiaEvent = z.infer<typeof insertAnesthesiaEventSchema>;
+export type AnesthesiaPosition = typeof anesthesiaPositions.$inferSelect;
+export type InsertAnesthesiaPosition = z.infer<typeof insertAnesthesiaPositionSchema>;
 export type InventoryUsage = typeof inventoryUsage.$inferSelect;
 export type InsertInventoryUsage = z.infer<typeof insertInventoryUsageSchema>;
 export type AuditTrail = typeof auditTrail.$inferSelect;
