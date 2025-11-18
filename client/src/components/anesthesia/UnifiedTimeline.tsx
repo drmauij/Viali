@@ -1997,9 +1997,14 @@ export function UnifiedTimeline({
 
   // Update NOW line position when zoom/pan/time changes
   useEffect(() => {
+    // Don't calculate position until actual zoom state is available from chart
+    // This prevents using fallback data.startTime/data.endTime which shows wrong position
+    if (currentZoomStart === null || currentZoomEnd === null) {
+      return;
+    }
     
-    const visibleStart = currentZoomStart ?? data.startTime;
-    const visibleEnd = currentZoomEnd ?? data.endTime;
+    const visibleStart = currentZoomStart;
+    const visibleEnd = currentZoomEnd;
     const visibleRange = visibleEnd - visibleStart;
     const xFraction = (currentTime - visibleStart) / visibleRange;
     
@@ -2015,7 +2020,7 @@ export function UnifiedTimeline({
     if (newPosition !== nowLinePosition) {
       setNowLinePosition(newPosition);
     }
-  }, [currentZoomStart, currentZoomEnd, currentTime, data.startTime, data.endTime, nowLinePosition]);
+  }, [currentZoomStart, currentZoomEnd, currentTime, nowLinePosition]);
 
   // Note: All timeline values (ventilation modes, parameters, medication doses, events) are now
   // rendered as DOM overlays for reliable click handling and scrolling. No ECharts graphics needed.
