@@ -479,7 +479,8 @@ export function UnifiedTimeline({
   const [currentZoomEnd, setCurrentZoomEnd] = useState<number | undefined>(undefined);
   
   // State for NOW line horizontal position (as percentage string for CSS)
-  const [nowLinePosition, setNowLinePosition] = useState<string>('0%');
+  // Start hidden (off-screen) until correct position is calculated
+  const [nowLinePosition, setNowLinePosition] = useState<string>('-10px');
   
   // Track if this is the first render to skip NOW line animation on initial load
   const isNowLineFirstRenderRef = useRef(true);
