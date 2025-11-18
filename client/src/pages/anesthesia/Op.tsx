@@ -277,9 +277,14 @@ export default function Op() {
     const minTime = timestamps.length > 0 ? Math.min(...timestamps) : new Date().getTime() - 6 * 60 * 60 * 1000;
     const maxTime = timestamps.length > 0 ? Math.max(...timestamps) : new Date().getTime() + 6 * 60 * 60 * 1000;
 
+    // Always extend timeline to at least 6 hours into the future from now
+    const now = new Date().getTime();
+    const futureExtension = now + 6 * 60 * 60 * 1000;
+    const calculatedEndTime = maxTime + 60 * 60 * 1000; // 1 hour after last data point
+    
     return {
       startTime: minTime - 60 * 60 * 1000, // 1 hour before first data point
-      endTime: maxTime + 60 * 60 * 1000, // 1 hour after last data point
+      endTime: Math.max(calculatedEndTime, futureExtension), // At least 6 hours into the future
       vitals,
       events,
       medications: medicationsData || [],
