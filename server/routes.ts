@@ -20,6 +20,8 @@ import {
   updateVitalPointSchema,
   updateBPPointSchema,
   deleteVitalPointSchema,
+  addRhythmPointSchema,
+  updateRhythmPointSchema,
   insertAnesthesiaMedicationSchema,
   insertAnesthesiaEventSchema,
   insertInventoryUsageSchema,
@@ -5640,6 +5642,162 @@ If unable to parse any drugs, return:
     } catch (error) {
       console.error("Error deleting vital point:", error);
       res.status(500).json({ message: "Failed to delete vital point" });
+    }
+  });
+
+  // Heart Rhythm endpoints
+  
+  // Add a rhythm point
+  app.post('/api/anesthesia/rhythm', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const validatedData = addRhythmPointSchema.parse(req.body);
+
+      // Verify record exists and user has access
+      const record = await storage.getAnesthesiaRecordById(validatedData.anesthesiaRecordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updatedSnapshot = await storage.addRhythmPoint(
+        validatedData.anesthesiaRecordId,
+        validatedData.timestamp,
+        validatedData.value
+      );
+      
+      res.status(201).json(updatedSnapshot);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error adding rhythm point:", error);
+      res.status(500).json({ message: "Failed to add rhythm point" });
+    }
+  });
+
+  // Update a rhythm point by ID
+  app.patch('/api/anesthesia/rhythm/:pointId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { pointId } = req.params;
+      const userId = req.user.id;
+      
+      const validatedData = updateRhythmPointSchema.parse({
+        pointId,
+        ...req.body
+      });
+
+      // Get the clinical snapshot to verify access
+      const allSnapshots = await db.select().from(clinicalSnapshots);
+      let snapshot = null;
+      
+      for (const s of allSnapshots) {
+        const heartRhythm = (s.data as any).heartRhythm || [];
+        if (heartRhythm.some((p: any) => p.id === pointId)) {
+          snapshot = s;
+          break;
+        }
+      }
+      
+      if (!snapshot) {
+        return res.status(404).json({ message: "Rhythm point not found" });
+      }
+
+      // Verify record exists and user has access
+      const record = await storage.getAnesthesiaRecordById(snapshot.anesthesiaRecordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updatedSnapshot = await storage.updateRhythmPoint(pointId, validatedData);
+      
+      if (!updatedSnapshot) {
+        return res.status(404).json({ message: "Rhythm point not found" });
+      }
+
+      res.json(updatedSnapshot);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error updating rhythm point:", error);
+      res.status(500).json({ message: "Failed to update rhythm point" });
+    }
+  });
+
+  // Delete a rhythm point by ID
+  app.delete('/api/anesthesia/rhythm/:pointId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { pointId } = req.params;
+      const userId = req.user.id;
+
+      // Get the clinical snapshot to verify access
+      const allSnapshots = await db.select().from(clinicalSnapshots);
+      let snapshot = null;
+      
+      for (const s of allSnapshots) {
+        const heartRhythm = (s.data as any).heartRhythm || [];
+        if (heartRhythm.some((p: any) => p.id === pointId)) {
+          snapshot = s;
+          break;
+        }
+      }
+      
+      if (!snapshot) {
+        return res.status(404).json({ message: "Rhythm point not found" });
+      }
+
+      // Verify record exists and user has access
+      const record = await storage.getAnesthesiaRecordById(snapshot.anesthesiaRecordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updatedSnapshot = await storage.deleteRhythmPoint(pointId);
+      
+      if (!updatedSnapshot) {
+        return res.status(404).json({ message: "Rhythm point not found" });
+      }
+
+      res.json(updatedSnapshot);
+    } catch (error) {
+      console.error("Error deleting rhythm point:", error);
+      res.status(500).json({ message: "Failed to delete rhythm point" });
     }
   });
 

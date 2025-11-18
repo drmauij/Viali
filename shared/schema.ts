@@ -692,6 +692,12 @@ export type BPPointWithId = {
   mean?: number;
 };
 
+export type RhythmPointWithId = {
+  id: string;
+  timestamp: string;
+  value: string; // String value (e.g., "Sinus", "Atrial Fib")
+};
+
 // Clinical Snapshots (Vitals, Ventilation, and Output parameters stored as JSONB for efficiency)
 // NEW: Each anesthesia record has ONE snapshot row containing all points as arrays
 export const clinicalSnapshots = pgTable("clinical_snapshots", {
@@ -705,6 +711,8 @@ export const clinicalSnapshots = pgTable("clinical_snapshots", {
     bp?: BPPointWithId[];
     spo2?: VitalPointWithId[];
     temp?: VitalPointWithId[];
+    // Heart Rhythm
+    heartRhythm?: RhythmPointWithId[];
     // Ventilation
     etco2?: VitalPointWithId[];
     pip?: VitalPointWithId[];
@@ -1169,6 +1177,18 @@ export const updateBPPointSchema = z.object({
   sys: z.number().optional(),
   dia: z.number().optional(),
   mean: z.number().optional(),
+  timestamp: z.string().optional(),
+});
+
+export const addRhythmPointSchema = z.object({
+  anesthesiaRecordId: z.string(),
+  timestamp: z.string(),
+  value: z.string(), // String value like "Sinus", "Atrial Fib"
+});
+
+export const updateRhythmPointSchema = z.object({
+  pointId: z.string(),
+  value: z.string().optional(),
   timestamp: z.string().optional(),
 });
 

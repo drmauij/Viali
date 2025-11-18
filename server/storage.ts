@@ -292,6 +292,9 @@ export interface IStorage {
   addBPPoint(anesthesiaRecordId: string, timestamp: string, sys: number, dia: number, mean?: number): Promise<ClinicalSnapshot>;
   updateVitalPoint(pointId: string, updates: { value?: number; timestamp?: string }): Promise<ClinicalSnapshot | null>;
   deleteVitalPoint(pointId: string): Promise<ClinicalSnapshot | null>;
+  addRhythmPoint(anesthesiaRecordId: string, timestamp: string, value: string): Promise<ClinicalSnapshot>;
+  updateRhythmPoint(pointId: string, updates: { value?: string; timestamp?: string }): Promise<ClinicalSnapshot | null>;
+  deleteRhythmPoint(pointId: string): Promise<ClinicalSnapshot | null>;
   
   // Legacy methods for backward compatibility
   getVitalsSnapshots(anesthesiaRecordId: string): Promise<VitalsSnapshot[]>;
@@ -2035,6 +2038,119 @@ export class DatabaseStorage implements IStorage {
         const updatedData = {
           ...data,
           bp: updatedPoints,
+        };
+        
+        const [updated] = await db
+          .update(clinicalSnapshots)
+          .set({ 
+            data: updatedData,
+            updatedAt: new Date(),
+          })
+          .where(eq(clinicalSnapshots.id, snapshot.id))
+          .returning();
+        
+        return updated;
+      }
+    }
+    
+    return null; // Point not found
+  }
+
+  /**
+   * Add a rhythm point (string value like "Sinus", "Atrial Fib")
+   */
+  async addRhythmPoint(
+    anesthesiaRecordId: string,
+    timestamp: string,
+    value: string
+  ): Promise<ClinicalSnapshot> {
+    const snapshot = await this.getClinicalSnapshot(anesthesiaRecordId);
+    
+    const newPoint = {
+      id: randomUUID(),
+      timestamp,
+      value,
+    };
+    
+    const currentRhythm = (snapshot.data as any).heartRhythm || [];
+    const updatedData = {
+      ...snapshot.data,
+      heartRhythm: [...currentRhythm, newPoint].sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
+    };
+    
+    const [updated] = await db
+      .update(clinicalSnapshots)
+      .set({ 
+        data: updatedData,
+        updatedAt: new Date(),
+      })
+      .where(eq(clinicalSnapshots.anesthesiaRecordId, anesthesiaRecordId))
+      .returning();
+    
+    return updated;
+  }
+
+  /**
+   * Update a rhythm point by ID
+   */
+  async updateRhythmPoint(
+    pointId: string,
+    updates: { value?: string; timestamp?: string }
+  ): Promise<ClinicalSnapshot | null> {
+    // Find which snapshot contains this point
+    const allSnapshots = await db.select().from(clinicalSnapshots);
+    
+    for (const snapshot of allSnapshots) {
+      const data = snapshot.data as any;
+      const heartRhythm = data.heartRhythm || [];
+      
+      const pointIndex = heartRhythm.findIndex((p: any) => p.id === pointId);
+      if (pointIndex !== -1) {
+        const updatedPoints = [...heartRhythm];
+        updatedPoints[pointIndex] = {
+          ...updatedPoints[pointIndex],
+          ...updates,
+        };
+        // Re-sort after update
+        updatedPoints.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+        
+        const updatedData = {
+          ...data,
+          heartRhythm: updatedPoints,
+        };
+        
+        const [updated] = await db
+          .update(clinicalSnapshots)
+          .set({ 
+            data: updatedData,
+            updatedAt: new Date(),
+          })
+          .where(eq(clinicalSnapshots.id, snapshot.id))
+          .returning();
+        
+        return updated;
+      }
+    }
+    
+    return null; // Point not found
+  }
+
+  /**
+   * Delete a rhythm point by ID
+   */
+  async deleteRhythmPoint(pointId: string): Promise<ClinicalSnapshot | null> {
+    // Find which snapshot contains this point
+    const allSnapshots = await db.select().from(clinicalSnapshots);
+    
+    for (const snapshot of allSnapshots) {
+      const data = snapshot.data as any;
+      const heartRhythm = data.heartRhythm || [];
+      
+      const filteredPoints = heartRhythm.filter((p: any) => p.id !== pointId);
+      if (filteredPoints.length < heartRhythm.length) {
+        const updatedData = {
+          ...data,
+          heartRhythm: filteredPoints,
         };
         
         const [updated] = await db
