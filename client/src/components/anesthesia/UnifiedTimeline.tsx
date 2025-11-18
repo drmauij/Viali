@@ -1988,27 +1988,53 @@ export function UnifiedTimeline({
     };
   }, [chartRef, data.startTime, data.endTime]);
 
-  // Update NOW line position when zoom/pan changes
-  useEffect(() => {
+  // Initialize NOW line position synchronously before first paint
+  useLayoutEffect(() => {
+    // Only run on initial mount
+    if (!isNowLineFirstRenderRef.current) return;
+    
     const visibleStart = currentZoomStart ?? data.startTime;
     const visibleEnd = currentZoomEnd ?? data.endTime;
     const visibleRange = visibleEnd - visibleStart;
     const xFraction = (currentTime - visibleStart) / visibleRange;
     
-    // Only show if in visible range
+    // Calculate initial position
     if (xFraction >= 0 && xFraction <= 1) {
       const leftPosition = `calc(200px + ${xFraction} * (100% - 210px))`;
       setNowLinePosition(leftPosition);
     } else {
-      // Hide if out of visible range
-      setNowLinePosition('-10px'); // Off screen
+      setNowLinePosition('-10px');
     }
     
-    // Mark first render as complete after initial position is set
-    if (isNowLineFirstRenderRef.current) {
+    // Enable transitions after first paint completes
+    requestAnimationFrame(() => {
       isNowLineFirstRenderRef.current = false;
+    });
+  }, []); // Run once on mount
+  
+  // Update NOW line position when zoom/pan/time changes (after initial mount)
+  useEffect(() => {
+    // Skip until layout effect has run
+    if (isNowLineFirstRenderRef.current) return;
+    
+    const visibleStart = currentZoomStart ?? data.startTime;
+    const visibleEnd = currentZoomEnd ?? data.endTime;
+    const visibleRange = visibleEnd - visibleStart;
+    const xFraction = (currentTime - visibleStart) / visibleRange;
+    
+    // Calculate new position
+    let newPosition: string;
+    if (xFraction >= 0 && xFraction <= 1) {
+      newPosition = `calc(200px + ${xFraction} * (100% - 210px))`;
+    } else {
+      newPosition = '-10px';
     }
-  }, [currentZoomStart, currentZoomEnd, currentTime, data.startTime, data.endTime]);
+    
+    // Only update if position changed (avoid unnecessary re-renders)
+    if (newPosition !== nowLinePosition) {
+      setNowLinePosition(newPosition);
+    }
+  }, [currentZoomStart, currentZoomEnd, currentTime, data.startTime, data.endTime, nowLinePosition]);
 
   // Note: All timeline values (ventilation modes, parameters, medication doses, events) are now
   // rendered as DOM overlays for reliable click handling and scrolling. No ECharts graphics needed.
