@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 
-export type MedicationDosePoint = [number, string]; // [timestamp, dose]
+export type MedicationDosePoint = [number, string, string]; // [timestamp, dose, id]
 
 export interface RateInfusionSegment {
   startTime: number;

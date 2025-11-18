@@ -37,6 +37,8 @@ import { useCreateVentilationMode, useUpdateVentilationMode, useDeleteVentilatio
 import { useCreateOutput, useUpdateOutput, useDeleteOutput } from "@/hooks/useOutputQuery";
 import { useCreatePosition, useUpdatePosition, useDeletePosition } from "@/hooks/usePositionQuery";
 import { useCreateStaff, useUpdateStaff, useDeleteStaff } from "@/hooks/useStaffQuery";
+import { useCreateEvent, useUpdateEvent, useDeleteEvent } from "@/hooks/useEventsQuery";
+import { useCreateMedication, useUpdateMedication, useDeleteMedication } from "@/hooks/useMedicationQuery";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
 import { TimeAdjustInput } from "./TimeAdjustInput";
@@ -473,6 +475,16 @@ export function UnifiedTimeline({
   const createStaff = useCreateStaff(anesthesiaRecordId);
   const updateStaff = useUpdateStaff(anesthesiaRecordId);
   const deleteStaff = useDeleteStaff(anesthesiaRecordId);
+
+  // Mutation hooks for events
+  const createEvent = useCreateEvent(anesthesiaRecordId || '');
+  const updateEvent = useUpdateEvent(anesthesiaRecordId || '');
+  const deleteEvent = useDeleteEvent(anesthesiaRecordId || '');
+
+  // Mutation hooks for medications
+  const createMedication = useCreateMedication(anesthesiaRecordId);
+  const updateMedication = useUpdateMedication(anesthesiaRecordId);
+  const deleteMedication = useDeleteMedication(anesthesiaRecordId);
   
   // State for collapsible parent swimlanes
   const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<Set<string>>(new Set());
@@ -1000,7 +1012,7 @@ export function UnifiedTimeline({
 
   // State for medication dose edit dialog
   const [showMedicationEditDialog, setShowMedicationEditDialog] = useState(false);
-  const [editingMedicationDose, setEditingMedicationDose] = useState<{ swimlaneId: string; time: number; dose: string; index: number } | null>(null);
+  const [editingMedicationDose, setEditingMedicationDose] = useState<{ swimlaneId: string; time: number; dose: string; index: number; id: string } | null>(null);
   const [medicationEditInput, setMedicationEditInput] = useState("");
   const [medicationEditTime, setMedicationEditTime] = useState<number>(Date.now());
 
@@ -3735,20 +3747,22 @@ export function UnifiedTimeline({
   // Handle event comment save
   const handleEventSave = () => {
     if (!eventTextInput.trim()) return;
+    if (!anesthesiaRecordId) return;
     
     if (editingEvent) {
-      // Edit existing event - use edited time
-      setEventComments(prev => 
-        prev.map(ev => ev.id === editingEvent.id ? { ...ev, text: eventTextInput.trim(), time: eventEditTime } : ev)
-      );
+      // Edit existing event - call update mutation
+      updateEvent.mutate({
+        id: editingEvent.id,
+        timestamp: new Date(eventEditTime),
+        description: eventTextInput.trim(),
+      });
     } else if (pendingEvent) {
-      // Add new event
-      const newEvent: EventComment = {
-        id: `event-${Date.now()}`,
-        time: pendingEvent.time,
-        text: eventTextInput.trim(),
-      };
-      setEventComments(prev => [...prev, newEvent]);
+      // Add new event - call create mutation
+      createEvent.mutate({
+        anesthesiaRecordId,
+        timestamp: new Date(pendingEvent.time),
+        description: eventTextInput.trim(),
+      });
     }
     
     // Reset dialog state
@@ -3760,9 +3774,11 @@ export function UnifiedTimeline({
 
   // Handle event delete
   const handleEventDelete = () => {
-    if (editingEvent) {
-      setEventComments(prev => prev.filter(ev => ev.id !== editingEvent.id));
-    }
+    if (!editingEvent) return;
+    if (!anesthesiaRecordId) return;
+    
+    // Call delete mutation
+    deleteEvent.mutate(editingEvent.id);
     
     setShowEventDialog(false);
     setEditingEvent(null);
@@ -3772,17 +3788,15 @@ export function UnifiedTimeline({
   // Handle medication dose edit save
   const handleMedicationDoseEditSave = () => {
     if (!editingMedicationDose || !medicationEditInput.trim()) return;
+    if (!anesthesiaRecordId) return;
     
-    const { swimlaneId, index } = editingMedicationDose;
+    const { id } = editingMedicationDose;
     
-    setMedicationDoseData(prev => {
-      const existingData = prev[swimlaneId] || [];
-      const updated = [...existingData];
-      updated[index] = [medicationEditTime, medicationEditInput.trim()];
-      return {
-        ...prev,
-        [swimlaneId]: updated,
-      };
+    // Call update mutation
+    updateMedication.mutate({
+      id,
+      timestamp: new Date(medicationEditTime),
+      dose: medicationEditInput.trim(),
     });
     
     // Reset dialog state
@@ -3794,17 +3808,12 @@ export function UnifiedTimeline({
   // Handle medication dose delete
   const handleMedicationDoseDelete = () => {
     if (!editingMedicationDose) return;
+    if (!anesthesiaRecordId) return;
     
-    const { swimlaneId, index } = editingMedicationDose;
+    const { id } = editingMedicationDose;
     
-    setMedicationDoseData(prev => {
-      const existingData = prev[swimlaneId] || [];
-      const updated = existingData.filter((_, i) => i !== index);
-      return {
-        ...prev,
-        [swimlaneId]: updated,
-      };
-    });
+    // Call delete mutation
+    deleteMedication.mutate(id);
     
     setShowMedicationEditDialog(false);
     setEditingMedicationDose(null);
@@ -5268,84 +5277,100 @@ export function UnifiedTimeline({
   // Handle ventilation bulk entry save
   const handleVentilationBulkSave = () => {
     if (!pendingVentilationBulk) return;
+    if (!anesthesiaRecordId) return;
     
     const { time } = pendingVentilationBulk;
+    const timestamp = new Date(time).toISOString();
     
-    // Save the selected ventilation mode to the parent swimlane ONLY if:
-    // 1. It's the first value, OR
-    // 2. It's different from the previous mode
-    setVentilationModeData(prev => {
-      if (prev.length === 0) {
-        // First value - always add
-        return [[time, ventilationMode]];
-      }
-      
-      // Check if the last mode is different from the current one
-      const lastMode = prev[prev.length - 1][1];
-      if (lastMode !== ventilationMode) {
-        // Different from previous - add it
-        return [...prev, [time, ventilationMode]];
-      }
-      
-      // Same as previous - don't add
-      return prev;
-    });
+    // Save the selected ventilation mode - check if we need to add it
+    const shouldAddMode = ventilationModeData.length === 0 || 
+      ventilationModeData[ventilationModeData.length - 1][1] !== ventilationMode;
     
-    // Add all filled parameters at the same time
-    setVentilationData(prev => {
-      const updated = { ...prev };
-      
-      if (bulkVentilationParams.peep) {
-        const value = parseFloat(bulkVentilationParams.peep);
-        if (!isNaN(value)) {
-          updated.peep = [...(updated.peep || []), [time, value] as VitalPoint];
-        }
+    if (shouldAddMode) {
+      createVentilationMode.mutate({
+        anesthesiaRecordId,
+        timestamp,
+        mode: ventilationMode,
+      });
+    }
+    
+    // Add all filled parameters using addVitalPoint mutation
+    if (bulkVentilationParams.peep) {
+      const value = parseFloat(bulkVentilationParams.peep);
+      if (!isNaN(value)) {
+        addVitalPointMutation.mutate({
+          vitalType: 'peep',
+          timestamp,
+          value,
+        });
       }
-      
-      if (bulkVentilationParams.fiO2) {
-        const value = parseFloat(bulkVentilationParams.fiO2);
-        if (!isNaN(value)) {
-          updated.fiO2 = [...(updated.fiO2 || []), [time, value] as VitalPoint];
-        }
+    }
+    
+    if (bulkVentilationParams.fiO2) {
+      const value = parseFloat(bulkVentilationParams.fiO2);
+      if (!isNaN(value)) {
+        addVitalPointMutation.mutate({
+          vitalType: 'fiO2',
+          timestamp,
+          value,
+        });
       }
-      
-      if (bulkVentilationParams.tidalVolume) {
-        const value = parseFloat(bulkVentilationParams.tidalVolume);
-        if (!isNaN(value)) {
-          updated.tidalVolume = [...(updated.tidalVolume || []), [time, value] as VitalPoint];
-        }
+    }
+    
+    if (bulkVentilationParams.tidalVolume) {
+      const value = parseFloat(bulkVentilationParams.tidalVolume);
+      if (!isNaN(value)) {
+        addVitalPointMutation.mutate({
+          vitalType: 'tidalVolume',
+          timestamp,
+          value,
+        });
       }
-      
-      if (bulkVentilationParams.respiratoryRate) {
-        const value = parseFloat(bulkVentilationParams.respiratoryRate);
-        if (!isNaN(value)) {
-          updated.respiratoryRate = [...(updated.respiratoryRate || []), [time, value] as VitalPoint];
-        }
+    }
+    
+    if (bulkVentilationParams.respiratoryRate) {
+      const value = parseFloat(bulkVentilationParams.respiratoryRate);
+      if (!isNaN(value)) {
+        addVitalPointMutation.mutate({
+          vitalType: 'respiratoryRate',
+          timestamp,
+          value,
+        });
       }
-      
-      if (bulkVentilationParams.etCO2) {
-        const value = parseFloat(bulkVentilationParams.etCO2);
-        if (!isNaN(value)) {
-          updated.etCO2 = [...(updated.etCO2 || []), [time, value] as VitalPoint];
-        }
+    }
+    
+    if (bulkVentilationParams.etCO2) {
+      const value = parseFloat(bulkVentilationParams.etCO2);
+      if (!isNaN(value)) {
+        addVitalPointMutation.mutate({
+          vitalType: 'etCO2',
+          timestamp,
+          value,
+        });
       }
-      
-      if (bulkVentilationParams.pip) {
-        const value = parseFloat(bulkVentilationParams.pip);
-        if (!isNaN(value)) {
-          updated.pip = [...(updated.pip || []), [time, value] as VitalPoint];
-        }
+    }
+    
+    if (bulkVentilationParams.pip) {
+      const value = parseFloat(bulkVentilationParams.pip);
+      if (!isNaN(value)) {
+        addVitalPointMutation.mutate({
+          vitalType: 'pip',
+          timestamp,
+          value,
+        });
       }
-      
-      if (bulkVentilationParams.minuteVolume) {
-        const value = parseFloat(bulkVentilationParams.minuteVolume);
-        if (!isNaN(value)) {
-          updated.minuteVolume = [...(updated.minuteVolume || []), [time, value] as VitalPoint];
-        }
+    }
+    
+    if (bulkVentilationParams.minuteVolume) {
+      const value = parseFloat(bulkVentilationParams.minuteVolume);
+      if (!isNaN(value)) {
+        addVitalPointMutation.mutate({
+          vitalType: 'minuteVolume',
+          timestamp,
+          value,
+        });
       }
-      
-      return updated;
-    });
+    }
     
     // Reset dialog state
     setShowVentilationBulkDialog(false);
@@ -5355,64 +5380,95 @@ export function UnifiedTimeline({
   // Handle output bulk entry save
   const handleOutputBulkSave = () => {
     if (!pendingOutputBulk) return;
+    if (!anesthesiaRecordId) return;
     
     const { time } = pendingOutputBulk;
+    const timestamp = new Date(time).toISOString();
     
-    // Add all filled parameters at the same time
-    setOutputData(prev => {
-      const updated = { ...prev };
-      
-      if (bulkOutputParams.gastricTube) {
-        const value = parseFloat(bulkOutputParams.gastricTube);
-        if (!isNaN(value)) {
-          updated.gastricTube = [...(updated.gastricTube || []), [time, value] as VitalPoint];
-        }
+    // Add all filled parameters using createOutput mutation
+    if (bulkOutputParams.gastricTube) {
+      const value = parseFloat(bulkOutputParams.gastricTube);
+      if (!isNaN(value)) {
+        createOutput.mutate({
+          anesthesiaRecordId,
+          timestamp,
+          parameter: 'gastricTube',
+          value,
+        });
       }
-      
-      if (bulkOutputParams.drainage) {
-        const value = parseFloat(bulkOutputParams.drainage);
-        if (!isNaN(value)) {
-          updated.drainage = [...(updated.drainage || []), [time, value] as VitalPoint];
-        }
+    }
+    
+    if (bulkOutputParams.drainage) {
+      const value = parseFloat(bulkOutputParams.drainage);
+      if (!isNaN(value)) {
+        createOutput.mutate({
+          anesthesiaRecordId,
+          timestamp,
+          parameter: 'drainage',
+          value,
+        });
       }
-      
-      if (bulkOutputParams.vomit) {
-        const value = parseFloat(bulkOutputParams.vomit);
-        if (!isNaN(value)) {
-          updated.vomit = [...(updated.vomit || []), [time, value] as VitalPoint];
-        }
+    }
+    
+    if (bulkOutputParams.vomit) {
+      const value = parseFloat(bulkOutputParams.vomit);
+      if (!isNaN(value)) {
+        createOutput.mutate({
+          anesthesiaRecordId,
+          timestamp,
+          parameter: 'vomit',
+          value,
+        });
       }
-      
-      if (bulkOutputParams.urine) {
-        const value = parseFloat(bulkOutputParams.urine);
-        if (!isNaN(value)) {
-          updated.urine = [...(updated.urine || []), [time, value] as VitalPoint];
-        }
+    }
+    
+    if (bulkOutputParams.urine) {
+      const value = parseFloat(bulkOutputParams.urine);
+      if (!isNaN(value)) {
+        createOutput.mutate({
+          anesthesiaRecordId,
+          timestamp,
+          parameter: 'urine',
+          value,
+        });
       }
-      
-      if (bulkOutputParams.urine677) {
-        const value = parseFloat(bulkOutputParams.urine677);
-        if (!isNaN(value)) {
-          updated.urine677 = [...(updated.urine677 || []), [time, value] as VitalPoint];
-        }
+    }
+    
+    if (bulkOutputParams.urine677) {
+      const value = parseFloat(bulkOutputParams.urine677);
+      if (!isNaN(value)) {
+        createOutput.mutate({
+          anesthesiaRecordId,
+          timestamp,
+          parameter: 'urine677',
+          value,
+        });
       }
-      
-      if (bulkOutputParams.blood) {
-        const value = parseFloat(bulkOutputParams.blood);
-        if (!isNaN(value)) {
-          updated.blood = [...(updated.blood || []), [time, value] as VitalPoint];
-        }
+    }
+    
+    if (bulkOutputParams.blood) {
+      const value = parseFloat(bulkOutputParams.blood);
+      if (!isNaN(value)) {
+        createOutput.mutate({
+          anesthesiaRecordId,
+          timestamp,
+          parameter: 'blood',
+          value,
+        });
       }
-      
-      if (bulkOutputParams.bloodIrrigation) {
-        const value = parseFloat(bulkOutputParams.bloodIrrigation);
-        if (!isNaN(value)) {
-          updated.bloodIrrigation = [...(updated.bloodIrrigation || []), [time, value] as VitalPoint];
-        }
+    }
+    
+    if (bulkOutputParams.bloodIrrigation) {
+      const value = parseFloat(bulkOutputParams.bloodIrrigation);
+      if (!isNaN(value)) {
+        createOutput.mutate({
+          anesthesiaRecordId,
+          timestamp,
+          parameter: 'bloodIrrigation',
+          value,
+        });
       }
-      
-      return updated;
-    });
+    }
     
     // Reset dialog state
     setShowOutputBulkDialog(false);
@@ -6904,35 +6960,27 @@ export function UnifiedTimeline({
                 
                 if (existingDoseAtTime) {
                   // Open edit dialog for existing dose
-                  const [doseTime, dose] = existingDoseAtTime;
-                  const doseIndex = existingDoses.findIndex(([t, d]) => t === doseTime && d === dose);
+                  const [doseTime, dose, id] = existingDoseAtTime;
+                  const doseIndex = existingDoses.findIndex(([t, d, i]) => t === doseTime && d === dose && i === id);
                   setEditingMedicationDose({
                     swimlaneId: lane.id,
                     time: doseTime,
                     dose: dose.toString(),
                     index: doseIndex,
+                    id,
                   });
                   // If dose contains hyphens (range values), start with empty field for custom entry
                   setMedicationEditInput(dose.toString().includes('-') ? '' : dose.toString());
                   setShowMedicationEditDialog(true);
                 } else {
-                  // Check if there's a default dose
-                  if (lane.defaultDose) {
-                    // Has default dose: insert it directly without dialog
-                    const updated = { ...medicationDoseData };
-                    if (!updated[lane.id]) updated[lane.id] = [];
-                    const newEntry: [number, string] = [time, lane.defaultDose];
-                    updated[lane.id] = [...updated[lane.id], newEntry].sort((a, b) => a[0] - b[0]);
-                    setMedicationDoseData(updated);
-                  } else {
-                    // No default dose: open dialog
-                    setPendingMedicationDose({ 
-                      swimlaneId: lane.id, 
-                      time, 
-                      label: lane.label.trim() 
-                    });
-                    setShowMedicationDoseDialog(true);
-                  }
+                  // Check if there's a default dose - no longer using local state
+                  // Let the dialog handle new doses to ensure they're persisted via mutations
+                  setPendingMedicationDose({ 
+                    swimlaneId: lane.id, 
+                    time, 
+                    label: lane.label.trim() 
+                  });
+                  setShowMedicationDoseDialog(true);
                 }
               }}
               data-testid={`interactive-medication-lane-${lane.id}`}
@@ -8314,7 +8362,7 @@ export function UnifiedTimeline({
         const visibleEnd = currentZoomEnd ?? data.endTime;
         const visibleRange = visibleEnd - visibleStart;
         
-        return medicationDoseData[lane.id].map(([timestamp, dose], index) => {
+        return medicationDoseData[lane.id].map(([timestamp, dose, id], index) => {
           let leftPercent = ((timestamp - visibleStart) / visibleRange) * 100;
           
           if (leftPercent < 0 || leftPercent > 100) return null;
@@ -8345,6 +8393,7 @@ export function UnifiedTimeline({
                   time: timestamp,
                   dose: dose.toString(),
                   index,
+                  id,
                 });
                 // If dose contains hyphens (range values), start with empty field for custom entry
                 setMedicationEditInput(dose.toString().includes('-') ? '' : dose.toString());

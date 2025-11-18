@@ -38,8 +38,8 @@ export function buildItemToSwimlaneMap(
 export function transformMedicationDoses(
   medications: any[],
   itemToSwimlane: Map<string, string>
-): { [swimlaneId: string]: Array<[number, string]> } {
-  const doseData: { [swimlaneId: string]: Array<[number, string]> } = {};
+): { [swimlaneId: string]: Array<[number, string, string]> } {
+  const doseData: { [swimlaneId: string]: Array<[number, string, string]> } = {};
   
   medications
     .filter(med => med.type === 'bolus')
@@ -49,12 +49,13 @@ export function transformMedicationDoses(
       
       const timestamp = new Date(med.timestamp).getTime();
       const dose = med.dose || '?';
+      const id = med.id;
       
       if (!doseData[swimlaneId]) {
         doseData[swimlaneId] = [];
       }
       
-      doseData[swimlaneId].push([timestamp, dose]);
+      doseData[swimlaneId].push([timestamp, dose, id]);
     });
   
   Object.keys(doseData).forEach(swimlaneId => {
