@@ -32,6 +32,11 @@ import {
   useDeleteVitalPoint,
   convertToLegacyFormat 
 } from "@/hooks/useVitalsQuery";
+import { useAddRhythmPoint, useUpdateRhythmPoint, useDeleteRhythmPoint } from "@/hooks/useRhythmQuery";
+import { useCreateVentilationMode, useUpdateVentilationMode, useDeleteVentilationMode } from "@/hooks/useVentilationModeQuery";
+import { useCreateOutput, useUpdateOutput, useDeleteOutput } from "@/hooks/useOutputQuery";
+import { useCreatePosition, useUpdatePosition, useDeletePosition } from "@/hooks/usePositionQuery";
+import { useCreateStaff, useUpdateStaff, useDeleteStaff } from "@/hooks/useStaffQuery";
 import type { MonitorAnalysisResult } from "@shared/monitorParameters";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
 import { TimeAdjustInput } from "./TimeAdjustInput";
@@ -443,6 +448,31 @@ export function UnifiedTimeline({
       });
     },
   });
+
+  // Mutation hooks for heart rhythm
+  const addRhythmPoint = useAddRhythmPoint(anesthesiaRecordId);
+  const updateRhythmPoint = useUpdateRhythmPoint(anesthesiaRecordId);
+  const deleteRhythmPoint = useDeleteRhythmPoint(anesthesiaRecordId);
+
+  // Mutation hooks for ventilation mode
+  const createVentilationMode = useCreateVentilationMode(anesthesiaRecordId);
+  const updateVentilationMode = useUpdateVentilationMode(anesthesiaRecordId);
+  const deleteVentilationMode = useDeleteVentilationMode(anesthesiaRecordId);
+
+  // Mutation hooks for output
+  const createOutput = useCreateOutput(anesthesiaRecordId);
+  const updateOutput = useUpdateOutput(anesthesiaRecordId);
+  const deleteOutput = useDeleteOutput(anesthesiaRecordId);
+
+  // Mutation hooks for position
+  const createPosition = useCreatePosition(anesthesiaRecordId);
+  const updatePosition = useUpdatePosition(anesthesiaRecordId);
+  const deletePosition = useDeletePosition(anesthesiaRecordId);
+
+  // Mutation hooks for staff
+  const createStaff = useCreateStaff(anesthesiaRecordId);
+  const updateStaff = useUpdateStaff(anesthesiaRecordId);
+  const deleteStaff = useDeleteStaff(anesthesiaRecordId);
   
   // State for collapsible parent swimlanes
   const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<Set<string>>(new Set());
