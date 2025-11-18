@@ -966,7 +966,8 @@ export function UnifiedTimeline({
 
   // NEW: Sync event comments from API
   useEffect(() => {
-    if (apiEvents.length > 0) {
+    console.log('[EVENTS-SYNC] apiEvents changed:', apiEvents?.length || 0, 'entries', apiEvents);
+    if (apiEvents && apiEvents.length > 0) {
       console.log('[EVENTS-SYNC] Loading events from API:', apiEvents.length, 'entries');
       const eventEntries = apiEvents.map((event: any) => ({
         id: event.id,
@@ -974,9 +975,11 @@ export function UnifiedTimeline({
         text: event.description || event.eventType, // Use description as text, fallback to eventType
         anesthesiaRecordId: event.anesthesiaRecordId,
       }));
+      console.log('[EVENTS-SYNC] Mapped event entries:', eventEntries);
       setEventComments(eventEntries);
     } else {
       // Clear stale state when switching to record with no data
+      console.log('[EVENTS-SYNC] Clearing event comments (no data)');
       setEventComments([]);
     }
   }, [apiEvents, setEventComments]);
@@ -6429,10 +6432,15 @@ export function UnifiedTimeline({
       })()}
 
       {/* Interactive layer for Events swimlane - to add event comments */}
-      {!activeToolMode && (() => {
+      {(!activeToolMode || activeToolMode === 'edit') && (() => {
         const eventsLane = swimlanePositions.find(lane => lane.id === 'ereignisse');
-        if (!eventsLane) return null;
+        console.log('[EVENTS-INTERACTIVE] Rendering check - activeToolMode:', activeToolMode, 'eventsLane found:', !!eventsLane);
+        if (!eventsLane) {
+          console.log('[EVENTS-INTERACTIVE] No ereignisse lane found in swimlanePositions:', swimlanePositions.map(l => l.id));
+          return null;
+        }
         
+        console.log('[EVENTS-INTERACTIVE] Rendering interactive events layer at top:', eventsLane.top, 'height:', eventsLane.height);
         return (
           <div
             className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
@@ -6487,11 +6495,17 @@ export function UnifiedTimeline({
               const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
               const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
               
+              console.log('[EVENTS-CLICK] Clicked at time:', new Date(time).toLocaleTimeString(), 
+                'Boundaries:', new Date(editableStartBoundary).toLocaleTimeString(), '-', new Date(editableEndBoundary).toLocaleTimeString(),
+                'Valid:', time >= editableStartBoundary && time <= editableEndBoundary);
+              
               if (time < editableStartBoundary || time > editableEndBoundary) {
                 // Click is outside editable window - ignore
+                console.log('[EVENTS-CLICK] Click REJECTED - outside editable window');
                 return;
               }
               
+              console.log('[EVENTS-CLICK] Click ACCEPTED - opening dialog');
               setPendingEvent({ time });
               setShowEventDialog(true);
             }}
@@ -7917,17 +7931,25 @@ export function UnifiedTimeline({
       })}
 
       {/* Event comment icons on the timeline */}
-      {eventComments.map((event) => {
-        const visibleStart = currentZoomStart ?? data.startTime;
-        const visibleEnd = currentZoomEnd ?? data.endTime;
-        const visibleRange = visibleEnd - visibleStart;
-        
-        const xFraction = (event.time - visibleStart) / visibleRange;
-        
-        if (xFraction < 0 || xFraction > 1) return null;
-        
-        const eventsLane = swimlanePositions.find(lane => lane.id === 'ereignisse');
-        if (!eventsLane) return null;
+      {(() => {
+        console.log('[EVENTS-RENDER] Rendering event icons, eventComments length:', eventComments.length, eventComments);
+        return eventComments.map((event) => {
+          const visibleStart = currentZoomStart ?? data.startTime;
+          const visibleEnd = currentZoomEnd ?? data.endTime;
+          const visibleRange = visibleEnd - visibleStart;
+          
+          const xFraction = (event.time - visibleStart) / visibleRange;
+          
+          if (xFraction < 0 || xFraction > 1) {
+            console.log('[EVENTS-RENDER] Event outside visible range:', event.id, xFraction);
+            return null;
+          }
+          
+          const eventsLane = swimlanePositions.find(lane => lane.id === 'ereignisse');
+          if (!eventsLane) {
+            console.log('[EVENTS-RENDER] No ereignisse lane found for event:', event.id);
+            return null;
+          }
         
         const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 12px)`;
         
@@ -7962,7 +7984,8 @@ export function UnifiedTimeline({
             <MessageSquareText className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
           </div>
         );
-      })}
+        });
+      })()}
 
       {/* NOW line - Current time indicator */}
       <div
