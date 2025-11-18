@@ -1727,7 +1727,12 @@ export function UnifiedTimeline({
 
   // Handle editing vital values
   const handleSaveEdit = async (newValue: number) => {
-    if (!editingValue || !anesthesiaRecordId) return;
+    console.log('[EDIT] handleSaveEdit called:', { newValue, editingValue, anesthesiaRecordId, hasClinicalSnapshot: !!clinicalSnapshot });
+    
+    if (!editingValue || !anesthesiaRecordId) {
+      console.log('[EDIT] Bailing out - missing editingValue or anesthesiaRecordId');
+      return;
+    }
 
     const { type, index, time, originalTime } = editingValue;
 
@@ -1810,6 +1815,12 @@ export function UnifiedTimeline({
       return undefined;
     })();
 
+    console.log('[EDIT] Point ID lookup:', { type, index, pointId, 
+      hrCount: clinicalSnapshot?.data?.hr?.length,
+      bpCount: clinicalSnapshot?.data?.bp?.length,
+      spo2Count: clinicalSnapshot?.data?.spo2?.length
+    });
+
     if (!pointId) {
       console.error('[EDIT] Could not find point ID for update:', { type, index });
       toast({
@@ -1822,14 +1833,18 @@ export function UnifiedTimeline({
       return;
     }
 
+    console.log('[EDIT] Calling mutation:', { type, pointId, timestamp, updatedVitals });
+
     // Persist update to database using React Query mutation
     if (type === 'hr' || type === 'spo2') {
+      console.log('[EDIT] Calling updateVitalPointMutation');
       updateVitalPointMutation.mutate({
         pointId,
         timestamp,
         value: updatedVitals,
       });
     } else if (type === 'sys' || type === 'dia') {
+      console.log('[EDIT] Calling updateBPPointMutation');
       updateBPPointMutation.mutate({
         pointId,
         timestamp,
