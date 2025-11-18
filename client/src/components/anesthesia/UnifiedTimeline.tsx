@@ -2538,7 +2538,7 @@ export function UnifiedTimeline({
       
       
       // Add etCO2 text labels (index 0)
-      if (ventilationData.etCO2.length > 0) {
+      if (ventilationData.etCO2?.length > 0) {
         const paramIndex = ventilationParentIndex + 1; // First child after parent
         const gridIdx = paramIndex + 1; // +1 because vitals is grid 0
         // Map to store original values for the formatter
@@ -2569,7 +2569,7 @@ export function UnifiedTimeline({
       }
       
       // Add PIP text labels (index 1)
-      if (ventilationData.pip.length > 0) {
+      if (ventilationData.pip?.length > 0) {
         const paramIndex = ventilationParentIndex + 2;
         const gridIdx = paramIndex + 1;
         const valuesMap = new Map(ventilationData.pip.map(([time, val]) => [time, val]));
@@ -2598,7 +2598,7 @@ export function UnifiedTimeline({
       }
       
       // Add PEEP text labels (index 2)
-      if (ventilationData.peep.length > 0) {
+      if (ventilationData.peep?.length > 0) {
         const paramIndex = ventilationParentIndex + 3;
         const gridIdx = paramIndex + 1;
         const valuesMap = new Map(ventilationData.peep.map(([time, val]) => [time, val]));
@@ -2627,7 +2627,7 @@ export function UnifiedTimeline({
       }
       
       // Add Tidal Volume text labels (index 3)
-      if (ventilationData.tidalVolume.length > 0) {
+      if (ventilationData.tidalVolume?.length > 0) {
         const paramIndex = ventilationParentIndex + 4;
         const gridIdx = paramIndex + 1;
         const valuesMap = new Map(ventilationData.tidalVolume.map(([time, val]) => [time, val]));
@@ -2656,7 +2656,7 @@ export function UnifiedTimeline({
       }
       
       // Add Respiratory Rate text labels (index 4)
-      if (ventilationData.respiratoryRate.length > 0) {
+      if (ventilationData.respiratoryRate?.length > 0) {
         const paramIndex = ventilationParentIndex + 5;
         const gridIdx = paramIndex + 1;
         const valuesMap = new Map(ventilationData.respiratoryRate.map(([time, val]) => [time, val]));
@@ -2685,7 +2685,7 @@ export function UnifiedTimeline({
       }
       
       // Add Minute Volume text labels (index 5)
-      if (ventilationData.minuteVolume.length > 0) {
+      if (ventilationData.minuteVolume?.length > 0) {
         const paramIndex = ventilationParentIndex + 6;
         const gridIdx = paramIndex + 1;
         const valuesMap = new Map(ventilationData.minuteVolume.map(([time, val]) => [time, val]));
@@ -2714,7 +2714,7 @@ export function UnifiedTimeline({
       }
       
       // Add FiO2 text labels (index 6)
-      if (ventilationData.fiO2.length > 0) {
+      if (ventilationData.fiO2?.length > 0) {
         const paramIndex = ventilationParentIndex + 7;
         const gridIdx = paramIndex + 1;
         const valuesMap = new Map(ventilationData.fiO2.map(([time, val]) => [time, val]));
