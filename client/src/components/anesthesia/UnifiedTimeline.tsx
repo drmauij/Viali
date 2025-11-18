@@ -743,53 +743,62 @@ export function UnifiedTimeline({
 
   // NEW: Sync heart rhythm data from clinical snapshot
   useEffect(() => {
-    if (!clinicalSnapshot?.data) return;
+    // Wait for snapshot to load (undefined means loading, null/object means resolved)
+    if (clinicalSnapshot === undefined) return;
     
-    const snapshotData = clinicalSnapshot.data as any;
-    const heartRhythm = snapshotData.heartRhythm || [];
+    const snapshotData = clinicalSnapshot?.data as any;
+    const heartRhythm = snapshotData?.heartRhythm || [];
     
     if (heartRhythm.length > 0) {
       console.log('[RHYTHM-SYNC] Loading heart rhythm from snapshot:', heartRhythm.length, 'points');
       const rhythmEntries = heartRhythm.map((point: any) => ({
-        time: parseInt(point.timestamp),
+        time: new Date(point.timestamp).getTime(),
         rhythm: point.value,
       }));
       setHeartRhythmData(rhythmEntries);
+    } else {
+      // Clear stale state when switching to record with no data
+      setHeartRhythmData([]);
     }
   }, [clinicalSnapshot, setHeartRhythmData]);
 
   // NEW: Sync ventilation mode data from clinical snapshot
   useEffect(() => {
-    if (!clinicalSnapshot?.data) return;
+    // Wait for snapshot to load (undefined means loading, null/object means resolved)
+    if (clinicalSnapshot === undefined) return;
     
-    const snapshotData = clinicalSnapshot.data as any;
-    const ventilationModes = snapshotData.ventilationModes || [];
+    const snapshotData = clinicalSnapshot?.data as any;
+    const ventilationModes = snapshotData?.ventilationModes || [];
     
     if (ventilationModes.length > 0) {
       console.log('[VENT-MODE-SYNC] Loading ventilation modes from snapshot:', ventilationModes.length, 'points');
       const modeEntries = ventilationModes.map((point: any) => [
-        parseInt(point.timestamp),
+        new Date(point.timestamp).getTime(),
         point.value,
       ]);
       setVentilationModeData(modeEntries);
+    } else {
+      // Clear stale state when switching to record with no data
+      setVentilationModeData([]);
     }
   }, [clinicalSnapshot, setVentilationModeData]);
 
   // NEW: Sync ventilation parameter data from clinical snapshot
   useEffect(() => {
-    if (!clinicalSnapshot?.data) return;
+    // Wait for snapshot to load (undefined means loading, null/object means resolved)
+    if (clinicalSnapshot === undefined) return;
     
-    const snapshotData = clinicalSnapshot.data as any;
+    const snapshotData = clinicalSnapshot?.data as any;
     
     // Extract all ventilation parameters
     const ventParams = {
-      etCO2: snapshotData.etco2 || [],
-      pip: snapshotData.pip || [],
-      peep: snapshotData.peep || [],
-      tidalVolume: snapshotData.tidalVolume || [],
-      respiratoryRate: snapshotData.respiratoryRate || [],
-      minuteVolume: snapshotData.minuteVolume || [],
-      fiO2: snapshotData.fio2 || [],
+      etCO2: snapshotData?.etco2 || [],
+      pip: snapshotData?.pip || [],
+      peep: snapshotData?.peep || [],
+      tidalVolume: snapshotData?.tidalVolume || [],
+      respiratoryRate: snapshotData?.respiratoryRate || [],
+      minuteVolume: snapshotData?.minuteVolume || [],
+      fiO2: snapshotData?.fio2 || [],
     };
     
     const totalPoints = Object.values(ventParams).reduce((sum, arr) => sum + arr.length, 0);
@@ -801,31 +810,35 @@ export function UnifiedTimeline({
       for (const [key, points] of Object.entries(ventParams)) {
         if (points.length > 0) {
           ventData[key] = points.map((point: any) => [
-            parseInt(point.timestamp),
+            new Date(point.timestamp).getTime(),
             point.value,
           ]);
         }
       }
       
       setVentilationData(ventData);
+    } else {
+      // Clear stale state when switching to record with no data
+      setVentilationData({});
     }
   }, [clinicalSnapshot, setVentilationData]);
 
   // NEW: Sync output data from clinical snapshot
   useEffect(() => {
-    if (!clinicalSnapshot?.data) return;
+    // Wait for snapshot to load (undefined means loading, null/object means resolved)
+    if (clinicalSnapshot === undefined) return;
     
-    const snapshotData = clinicalSnapshot.data as any;
+    const snapshotData = clinicalSnapshot?.data as any;
     
     // Extract all output parameters
     const outputParams = {
-      gastricTube: snapshotData.gastricTube || [],
-      drainage: snapshotData.drainage || [],
-      vomit: snapshotData.vomit || [],
-      urine: snapshotData.urine || [],
-      urine677: snapshotData.urine677 || [],
-      blood: snapshotData.blood || [],
-      bloodIrrigation: snapshotData.bloodIrrigation || [],
+      gastricTube: snapshotData?.gastricTube || [],
+      drainage: snapshotData?.drainage || [],
+      vomit: snapshotData?.vomit || [],
+      urine: snapshotData?.urine || [],
+      urine677: snapshotData?.urine677 || [],
+      blood: snapshotData?.blood || [],
+      bloodIrrigation: snapshotData?.bloodIrrigation || [],
     };
     
     const totalPoints = Object.values(outputParams).reduce((sum, arr) => sum + arr.length, 0);
@@ -837,52 +850,64 @@ export function UnifiedTimeline({
       for (const [key, points] of Object.entries(outputParams)) {
         if (points.length > 0) {
           outputData[key] = points.map((point: any) => [
-            parseInt(point.timestamp),
+            new Date(point.timestamp).getTime(),
             point.value,
           ]);
         }
       }
       
       setOutputData(outputData);
+    } else {
+      // Clear stale state when switching to record with no data
+      setOutputData({});
     }
   }, [clinicalSnapshot, setOutputData]);
 
   // NEW: Sync position data from API
   useEffect(() => {
-    if (!apiPositions || apiPositions.length === 0) return;
-    
-    console.log('[POSITION-SYNC] Loading positions from API:', apiPositions.length, 'entries');
-    const positionEntries = apiPositions.map((pos: any) => ({
-      time: new Date(pos.timestamp).getTime(),
-      position: pos.position,
-    }));
-    setPositionData(positionEntries);
+    if (apiPositions.length > 0) {
+      console.log('[POSITION-SYNC] Loading positions from API:', apiPositions.length, 'entries');
+      const positionEntries = apiPositions.map((pos: any) => ({
+        time: new Date(pos.timestamp).getTime(),
+        position: pos.position,
+      }));
+      setPositionData(positionEntries);
+    } else {
+      // Clear stale state when switching to record with no data
+      setPositionData([]);
+    }
   }, [apiPositions, setPositionData]);
 
   // NEW: Sync staff data from API
   useEffect(() => {
-    if (!apiStaff || apiStaff.length === 0) return;
-    
-    console.log('[STAFF-SYNC] Loading staff from API:', apiStaff.length, 'entries');
-    const staffEntries = apiStaff.map((staff: any) => ({
-      time: new Date(staff.timestamp).getTime(),
-      role: staff.role,
-      name: staff.name,
-    }));
-    setStaffData(staffEntries);
+    if (apiStaff.length > 0) {
+      console.log('[STAFF-SYNC] Loading staff from API:', apiStaff.length, 'entries');
+      const staffEntries = apiStaff.map((staff: any) => ({
+        time: new Date(staff.timestamp).getTime(),
+        role: staff.role,
+        name: staff.name,
+      }));
+      setStaffData(staffEntries);
+    } else {
+      // Clear stale state when switching to record with no data
+      setStaffData([]);
+    }
   }, [apiStaff, setStaffData]);
 
   // NEW: Sync event comments from API
   useEffect(() => {
-    if (!apiEvents || apiEvents.length === 0) return;
-    
-    console.log('[EVENTS-SYNC] Loading events from API:', apiEvents.length, 'entries');
-    const eventEntries = apiEvents.map((event: any) => ({
-      time: new Date(event.timestamp).getTime(),
-      eventType: event.eventType,
-      description: event.description,
-    }));
-    setEventComments(eventEntries);
+    if (apiEvents.length > 0) {
+      console.log('[EVENTS-SYNC] Loading events from API:', apiEvents.length, 'entries');
+      const eventEntries = apiEvents.map((event: any) => ({
+        time: new Date(event.timestamp).getTime(),
+        eventType: event.eventType,
+        description: event.description,
+      }));
+      setEventComments(eventEntries);
+    } else {
+      // Clear stale state when switching to record with no data
+      setEventComments([]);
+    }
   }, [apiEvents, setEventComments]);
 
   // UI state for heart rhythm dialogs and interactions
