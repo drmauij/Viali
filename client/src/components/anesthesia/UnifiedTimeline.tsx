@@ -855,12 +855,12 @@ export function UnifiedTimeline({
       
       for (const [key, points] of Object.entries(ventParams)) {
         if (points.length > 0) {
-          // Store as objects with ID to enable proper CRUD operations
-          ventData[key] = points.map((point: any) => ({
-            id: point.id,
-            timestamp: new Date(point.timestamp).getTime(),
-            value: point.value,
-          }));
+          // Store as tuples [timestamp, value] for compatibility with rendering code
+          // IDs are tracked separately in clinicalSnapshot and looked up during edit operations
+          ventData[key] = points.map((point: any) => [
+            new Date(point.timestamp).getTime(),
+            point.value,
+          ]);
         }
       }
       
@@ -8220,6 +8220,17 @@ export function UnifiedTimeline({
           fiO2: 6,
         };
         
+        // Map local paramKey to snapshot data key
+        const snapshotKeyMap: Record<string, string> = {
+          etCO2: 'etco2',
+          pip: 'pip',
+          peep: 'peep',
+          tidalVolume: 'tidalVolume',
+          respiratoryRate: 'respiratoryRate',
+          minuteVolume: 'minuteVolume',
+          fiO2: 'fio2',
+        };
+        
         const paramIndex = paramIndexMap[paramKey];
         if (paramIndex === undefined) return [];
         
@@ -8243,8 +8254,15 @@ export function UnifiedTimeline({
           fiO2: 'FiO2',
         };
         
-        return dataPoints.map((point, index) => {
-          const { id, timestamp, value } = point;
+        return dataPoints.map((point: VitalPoint, index: number) => {
+          // Destructure as tuple [timestamp, value]
+          const [timestamp, value] = point;
+          
+          // Look up the ID from clinical snapshot for edit/delete operations
+          const snapshotKey = snapshotKeyMap[paramKey];
+          const snapshotData = clinicalSnapshot?.data as any;
+          const pointId = snapshotData?.[snapshotKey]?.[index]?.id || '';
+          
           const xFraction = (timestamp - visibleStart) / visibleRange;
           
           if (xFraction < 0 || xFraction > 1) return null;
@@ -8268,7 +8286,7 @@ export function UnifiedTimeline({
                   value: value.toString(),
                   index,
                   label: labelMap[paramKey] || paramKey,
-                  id,
+                  id: pointId,
                 });
                 setVentilationEditInput(value.toString());
                 setVentilationEditTime(timestamp);
