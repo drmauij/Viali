@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { StickyTimelineHeader } from "./StickyTimelineHeader";
 import { MedicationConfigDialog } from "./MedicationConfigDialog";
+import { EventDialog } from "./dialogs/EventDialog";
+import { DialogFooterWithTime } from "./DialogFooterWithTime";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -1007,7 +1009,6 @@ export function UnifiedTimeline({
   const [showEventDialog, setShowEventDialog] = useState(false);
   const [pendingEvent, setPendingEvent] = useState<{ time: number } | null>(null);
   const [editingEvent, setEditingEvent] = useState<EventComment | null>(null);
-  const [eventTextInput, setEventTextInput] = useState("");
   const [eventEditTime, setEventEditTime] = useState<number>(Date.now());
   const [eventHoverInfo, setEventHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
   const [hoveredEvent, setHoveredEvent] = useState<{ event: EventComment; x: number; y: number } | null>(null);
@@ -3762,46 +3763,6 @@ export function UnifiedTimeline({
     setVentilationValueInput("");
   };
 
-  // Handle event comment save
-  const handleEventSave = () => {
-    if (!eventTextInput.trim()) return;
-    if (!anesthesiaRecordId) return;
-    
-    if (editingEvent) {
-      // Edit existing event - call update mutation
-      updateEvent.mutate({
-        id: editingEvent.id,
-        timestamp: new Date(eventEditTime),
-        description: eventTextInput.trim(),
-      });
-    } else if (pendingEvent) {
-      // Add new event - call create mutation
-      createEvent.mutate({
-        anesthesiaRecordId,
-        timestamp: new Date(pendingEvent.time),
-        description: eventTextInput.trim(),
-      });
-    }
-    
-    // Reset dialog state
-    setShowEventDialog(false);
-    setPendingEvent(null);
-    setEditingEvent(null);
-    setEventTextInput("");
-  };
-
-  // Handle event delete
-  const handleEventDelete = () => {
-    if (!editingEvent) return;
-    if (!anesthesiaRecordId) return;
-    
-    // Call delete mutation
-    deleteEvent.mutate(editingEvent.id);
-    
-    setShowEventDialog(false);
-    setEditingEvent(null);
-    setEventTextInput("");
-  };
 
   // Handle medication dose edit save
   const handleMedicationDoseEditSave = () => {
@@ -6532,7 +6493,6 @@ export function UnifiedTimeline({
               }
               
               setPendingEvent({ time });
-              setEventTextInput("");
               setShowEventDialog(true);
             }}
             data-testid="interactive-events-lane"
@@ -7983,7 +7943,6 @@ export function UnifiedTimeline({
             }}
             onClick={() => {
               setEditingEvent(event);
-              setEventTextInput(event.text);
               setEventEditTime(event.time);
               setShowEventDialog(true);
             }}
@@ -9843,45 +9802,22 @@ export function UnifiedTimeline({
       </Dialog>
 
       {/* Event Comment Dialog */}
-      <Dialog open={showEventDialog} onOpenChange={setShowEventDialog}>
-        <DialogContent className="sm:max-w-[500px]" data-testid="dialog-event-comment">
-          <DialogHeader>
-            <DialogTitle>{editingEvent ? 'Edit Event' : 'Add Event'}</DialogTitle>
-            <DialogDescription>
-              {editingEvent ? 'Edit or delete the event comment' : 'Add an event to the timeline'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="event-text">Event Comment</Label>
-              <Textarea
-                id="event-text"
-                data-testid="input-event-text"
-                value={eventTextInput}
-                onChange={(e) => setEventTextInput(e.target.value)}
-                placeholder="Enter event description..."
-                rows={4}
-                autoFocus
-              />
-            </div>
-          </div>
-          <DialogFooterWithTime
-            time={editingEvent ? eventEditTime : pendingEvent?.time}
-            onTimeChange={editingEvent ? setEventEditTime : (newTime) => setPendingEvent(prev => prev ? { ...prev, time: newTime } : null)}
-            showDelete={!!editingEvent}
-            onDelete={editingEvent ? handleEventDelete : undefined}
-            onCancel={() => {
-              setShowEventDialog(false);
-              setPendingEvent(null);
-              setEditingEvent(null);
-              setEventTextInput("");
-            }}
-            onSave={handleEventSave}
-            saveDisabled={!eventTextInput.trim()}
-            saveLabel={editingEvent ? 'Save' : 'Add'}
-          />
-        </DialogContent>
-      </Dialog>
+      <EventDialog
+        open={showEventDialog}
+        onOpenChange={setShowEventDialog}
+        anesthesiaRecordId={anesthesiaRecordId}
+        editingEvent={editingEvent}
+        pendingEvent={pendingEvent}
+        onEventCreated={() => {
+          setPendingEvent(null);
+        }}
+        onEventUpdated={() => {
+          setEditingEvent(null);
+        }}
+        onEventDeleted={() => {
+          setEditingEvent(null);
+        }}
+      />
 
       {/* Medication Dose Edit Dialog */}
       <Dialog open={showMedicationEditDialog} onOpenChange={setShowMedicationEditDialog}>
@@ -10630,66 +10566,3 @@ function EditValueForm({
   );
 }
 
-// Dialog Footer Component with Time Navigation (matches screenshot design)
-// Left: Time with arrows, Right: Delete icon button and Save button
-function DialogFooterWithTime({
-  time,
-  onTimeChange,
-  onDelete,
-  onCancel,
-  onSave,
-  showDelete = false,
-  saveDisabled = false,
-  saveLabel = 'Save',
-  cancelLabel = 'Cancel',
-}: {
-  time?: number;
-  onTimeChange?: (newTime: number) => void;
-  onDelete?: () => void;
-  onCancel: () => void;
-  onSave: () => void;
-  showDelete?: boolean;
-  saveDisabled?: boolean;
-  saveLabel?: string;
-  cancelLabel?: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2 pt-4">
-      {/* Left: Time navigation (compact) */}
-      <div className="flex items-center gap-1">
-        {time !== undefined && onTimeChange && (
-          <TimeAdjustInput
-            value={time}
-            onChange={onTimeChange}
-            data-testid="footer-time-input"
-          />
-        )}
-      </div>
-      
-      {/* Right: Delete and Save buttons */}
-      <div className="flex gap-2 ml-auto">
-        {showDelete && onDelete && (
-          <Button
-            variant="destructive"
-            size="icon"
-            onClick={onDelete}
-            data-testid="button-delete"
-            className="h-9 w-9"
-          >
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        )}
-        <Button
-          onClick={() => {
-            console.log('[BUTTON] Save button clicked in DialogFooterWithTime');
-            onSave();
-          }}
-          data-testid="button-save"
-          disabled={saveDisabled}
-        >
-          {saveLabel}
-        </Button>
-      </div>
-    </div>
-  );
-}
