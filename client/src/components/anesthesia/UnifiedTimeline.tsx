@@ -7362,8 +7362,8 @@ export function UnifiedTimeline({
         // Check if there's an existing value at the hover position
         const existingValues = outputData[outputHoverInfo.paramKey] || [];
         const clickTolerance = currentVitalsSnapInterval;
-        const hasExistingValue = existingValues.some(([valueTime]) => 
-          Math.abs(valueTime - outputHoverInfo.time) <= clickTolerance
+        const hasExistingValue = existingValues.some((point) => 
+          Math.abs(point.timestamp - outputHoverInfo.time) <= clickTolerance
         );
         
         return (
