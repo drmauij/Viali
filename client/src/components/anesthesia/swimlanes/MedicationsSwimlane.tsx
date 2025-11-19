@@ -280,15 +280,21 @@ export function MedicationsSwimlane({
         // Include all medication items (bolus and infusions)
         const isMedicationItem = lane.hierarchyLevel === 'item' && lane.id.startsWith('admingroup-');
         
+        // Check BOTH medicationDoseData (bolus) AND infusionData (rate-controlled infusions)
+        const bolusData = medicationDoseData[lane.id] || [];
+        const infusionDataPoints = infusionData[lane.id] || [];
+        const hasAnyData = bolusData.length > 0 || infusionDataPoints.length > 0;
+        
         console.log('[MED-RENDER] Checking lane for medication markers:', {
           laneId: lane.id,
           isMedicationItem,
-          hasDoseData: !!medicationDoseData[lane.id]?.length,
-          doseData: medicationDoseData[lane.id],
+          hasBolusDoses: bolusData.length,
+          hasInfusionData: infusionDataPoints.length,
+          hasAnyData,
           allDoseKeys: Object.keys(medicationDoseData)
         });
         
-        if (!isMedicationItem || !medicationDoseData[lane.id]?.length) return [];
+        if (!isMedicationItem || !hasAnyData) return [];
         
         const childLane = swimlanePositions.find(pos => pos.id === lane.id);
         if (!childLane) return [];
@@ -297,7 +303,13 @@ export function MedicationsSwimlane({
         const visibleEnd = currentZoomEnd ?? data.endTime;
         const visibleRange = visibleEnd - visibleStart;
         
-        return medicationDoseData[lane.id].map(([timestamp, dose, id], index) => {
+        // Render tick marks for BOTH bolus doses and infusion rate changes
+        const allTickMarks = [
+          ...bolusData.map(([timestamp, dose, id], index) => ({ timestamp, dose, id, index, type: 'bolus' as const })),
+          ...infusionDataPoints.map(([timestamp, dose], index) => ({ timestamp, dose, id: `infusion-${index}`, index, type: 'infusion' as const }))
+        ].sort((a, b) => a.timestamp - b.timestamp);
+        
+        return allTickMarks.map(({ timestamp, dose, id, index, type }) => {
           let leftPercent = ((timestamp - visibleStart) / visibleRange) * 100;
           
           if (leftPercent < 0 || leftPercent > 100) return null;
@@ -314,7 +326,7 @@ export function MedicationsSwimlane({
           
           return (
             <BolusPill
-              key={`bolus-pill-${lane.id}-${timestamp}-${index}`}
+              key={`${type}-pill-${lane.id}-${timestamp}-${index}`}
               timestamp={timestamp}
               dose={dose.toString()}
               medicationName={lane.label.trim()}
@@ -323,17 +335,34 @@ export function MedicationsSwimlane({
               yPosition={yPosition}
               swimlaneHeight={childLane.height}
               isDark={isDark}
-              testId={`bolus-pill-${lane.id}-${index}`}
+              testId={`${type}-pill-${lane.id}-${index}`}
               formatTime={formatTime}
               isTouchDevice={isTouchDevice}
               onClick={() => {
-                onMedicationEditDialogOpen({
-                  swimlaneId: lane.id,
-                  time: timestamp,
-                  dose: dose.toString(),
-                  index,
-                  id,
-                });
+                if (type === 'bolus') {
+                  // Bolus medication - edit dose dialog
+                  onMedicationEditDialogOpen({
+                    swimlaneId: lane.id,
+                    time: timestamp,
+                    dose: dose.toString(),
+                    index,
+                    id: id as string,
+                  });
+                } else {
+                  // Rate-controlled infusion tick mark - open rate management
+                  const rateOptions = lane.defaultDose?.includes('-') 
+                    ? lane.defaultDose.split('-').map(v => v.trim()).filter(v => v)
+                    : undefined;
+                  
+                  onRateManageDialogOpen({
+                    swimlaneId: lane.id,
+                    time: timestamp,
+                    value: dose.toString(),
+                    index,
+                    label: lane.label.trim(),
+                    rateOptions,
+                  }, timestamp, dose.toString());
+                }
               }}
             />
           );
