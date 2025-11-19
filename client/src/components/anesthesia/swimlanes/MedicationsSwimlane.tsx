@@ -700,8 +700,16 @@ export function MedicationsSwimlane({
                 } else {
                   // Check if this is a free-flow infusion (no rate)
                   if (lane.rateUnit === 'free') {
+                    console.log('[FREE-FLOW-CLICK] Clicked free-flow lane:', { 
+                      swimlaneId: lane.id, 
+                      defaultDose: lane.defaultDose, 
+                      time,
+                      anesthesiaRecordId 
+                    });
+                    
                     // Check if there's any active free-flow session on this swimlane
                     const sessions = freeFlowSessions[lane.id] || [];
+                    console.log('[FREE-FLOW-CLICK] Existing sessions:', sessions.length);
                     
                     if (sessions.length > 0) {
                       // Swimlane is already busy - find the closest session and show unified sheet
@@ -716,20 +724,33 @@ export function MedicationsSwimlane({
                     } else {
                       // First click: check for default dose
                       if (lane.defaultDose) {
+                        console.log('[FREE-FLOW-CLICK] Has default dose, creating session:', lane.defaultDose);
+                        
                         // Extract group ID and item index from swimlane id
                         const groupMatch = lane.id.match(/admingroup-([^-]+)-item-(\d+)/);
-                        if (!groupMatch || !anesthesiaRecordId) return;
+                        if (!groupMatch || !anesthesiaRecordId) {
+                          console.log('[FREE-FLOW-CLICK] Failed to match swimlane ID or missing recordId');
+                          return;
+                        }
                         
                         const groupId = groupMatch[1];
                         const itemIndex = parseInt(groupMatch[2], 10);
+                        console.log('[FREE-FLOW-CLICK] Extracted:', { groupId, itemIndex });
                         
                         // Find all items in this administration group and get the item at index
                         // Note: Items are already sorted by buildItemToSwimlaneMap
                         const groupItems = anesthesiaItems
                           .filter(item => item.administrationGroup === groupId);
                         
+                        console.log('[FREE-FLOW-CLICK] Group items:', groupItems.length);
+                        
                         const item = groupItems[itemIndex];
-                        if (!item) return;
+                        if (!item) {
+                          console.log('[FREE-FLOW-CLICK] Item not found at index', itemIndex);
+                          return;
+                        }
+                        
+                        console.log('[FREE-FLOW-CLICK] Found item:', item.id, item.name);
                         
                         // Create new session with default dose
                         const newSession: FreeFlowSession = {
@@ -738,6 +759,8 @@ export function MedicationsSwimlane({
                           dose: lane.defaultDose,
                           label: lane.label.trim(),
                         };
+                        
+                        console.log('[FREE-FLOW-CLICK] Creating session:', newSession);
                         
                         // Update state directly
                         medicationState.setFreeFlowSessions(prev => ({
@@ -751,6 +774,8 @@ export function MedicationsSwimlane({
                           [lane.id]: [...(prev[lane.id] || []), [time, lane.defaultDose]].sort((a, b) => a[0] - b[0]),
                         }));
                         
+                        console.log('[FREE-FLOW-CLICK] States updated, calling mutation...');
+                        
                         // 🔥 FIX: Save to database
                         createMedicationMutation.mutate({
                           anesthesiaRecordId,
@@ -760,6 +785,8 @@ export function MedicationsSwimlane({
                           rate: 'free',
                           dose: lane.defaultDose,
                         });
+                        
+                        console.log('[FREE-FLOW-CLICK] Mutation called!');
                       } else {
                         // No default dose: show dose entry dialog
                         onFreeFlowDoseDialogOpen({
