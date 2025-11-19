@@ -189,11 +189,23 @@ export function transformFreeFlowInfusions(
   
   Object.entries(recordsByLane).forEach(([swimlaneId, records]) => {
     const startRecords = records.filter(r => r.type === 'infusion_start');
+    console.log('[FREE-FLOW-TRANSFORM] Processing swimlane:', swimlaneId, 'with', startRecords.length, 'start records');
     
     startRecords.forEach(startRec => {
       const item = anesthesiaItems.find(i => i.id === startRec.itemId);
+      console.log('[FREE-FLOW-TRANSFORM] Checking record:', {
+        itemId: startRec.itemId,
+        foundItem: !!item,
+        itemRateUnit: item?.rateUnit,
+        recordRate: startRec.rate,
+        dose: startRec.dose
+      });
+      
       // Check both item.rateUnit and startRec.rate to ensure it's a free-flow infusion
-      if (!item || (item.rateUnit !== 'free' && startRec.rate !== 'free')) return;
+      if (!item || (item.rateUnit !== 'free' && startRec.rate !== 'free')) {
+        console.log('[FREE-FLOW-TRANSFORM] Skipping - not a free-flow infusion');
+        return;
+      }
       
       const startTime = new Date(startRec.timestamp).getTime();
       
@@ -202,18 +214,25 @@ export function transformFreeFlowInfusions(
         r.type === 'infusion_stop' && new Date(r.timestamp).getTime() > startTime
       );
       
-      if (hasEndTimestamp || stopRecord) return;
+      console.log('[FREE-FLOW-TRANSFORM] Stop check:', { hasEndTimestamp, hasStopRecord: !!stopRecord });
+      
+      if (hasEndTimestamp || stopRecord) {
+        console.log('[FREE-FLOW-TRANSFORM] Skipping - already stopped');
+        return;
+      }
       
       if (!sessions[swimlaneId]) {
         sessions[swimlaneId] = [];
       }
       
-      sessions[swimlaneId].push({
+      const session = {
         swimlaneId,
         startTime,
         dose: startRec.dose || '?',
         label: item.name,
-      });
+      };
+      console.log('[FREE-FLOW-TRANSFORM] Creating free-flow session:', session);
+      sessions[swimlaneId].push(session);
     });
   });
   
