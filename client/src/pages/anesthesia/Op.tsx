@@ -488,13 +488,15 @@ export default function Op() {
   const patientAge = calculateAge(patient?.birthday);
 
   // Show loading state while initial data is loading
-  if (isSurgeryLoading || isPreOpLoading || isPatientLoading) {
+  // Wait for anesthesia record first, then wait for timeline data to load
+  const isLoadingTimeline = anesthesiaRecord?.id && (isVitalsLoading || isMedicationsLoading || isEventsLoading);
+  if (isSurgeryLoading || isPreOpLoading || isPatientLoading || isRecordLoading || isLoadingTimeline) {
     return (
       <Dialog open={isOpen} onOpenChange={handleDialogChange}>
         <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col items-center justify-center [&>button]:hidden">
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="text-lg font-medium">Loading surgery data...</p>
+            <p className="text-lg font-medium">Loading anesthesia record...</p>
           </div>
         </DialogContent>
       </Dialog>
