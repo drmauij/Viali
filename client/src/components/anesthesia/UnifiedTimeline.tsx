@@ -4960,7 +4960,7 @@ export function UnifiedTimeline({
         return (
           <div
             key={`admin-config-${lane.id}`}
-            className="absolute cursor-pointer hover:bg-blue-500/10 transition-colors"
+            className="absolute cursor-pointer"
             style={{
               left: '200px',
               right: '10px',
