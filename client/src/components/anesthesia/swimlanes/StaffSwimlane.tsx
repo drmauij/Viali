@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useTimelineContext } from '../TimelineContext';
 import type { StaffPoint } from '@/hooks/useEventState';
 
@@ -56,14 +55,6 @@ export function StaffSwimlane({
 
   const { staffData } = eventState;
 
-  // State for hover tooltip
-  const [staffHoverInfo, setStaffHoverInfo] = useState<{
-    x: number;
-    y: number;
-    time: number;
-    role: string;
-  } | null>(null);
-
   // Calculate visible range
   const visibleStart = currentZoomStart ?? data.startTime;
   const visibleEnd = currentZoomEnd ?? data.endTime;
@@ -71,85 +62,6 @@ export function StaffSwimlane({
 
   return (
     <>
-      {/* Interactive layers for staff swimlanes - to add staff entries */}
-      {!activeToolMode && !collapsedSwimlanes.has("staff") && ['doctor', 'nurse', 'assistant'].map((role) => {
-        const staffLane = swimlanePositions.find(lane => lane.id === `staff-${role}`);
-        if (!staffLane) return null;
-        
-        return (
-          <div
-            key={`staff-interactive-${role}`}
-            className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
-            style={{
-              left: '200px',
-              right: '10px',
-              top: `${staffLane.top}px`,
-              height: `${staffLane.height}px`,
-              zIndex: 35,
-            }}
-            onMouseMove={(e) => {
-              if (isTouchDevice) return;
-              
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = e.clientX - rect.left;
-              
-              const xPercent = x / rect.width;
-              let time = visibleStart + (xPercent * visibleRange);
-              
-              // Snap to 1-minute intervals
-              time = Math.round(time / ONE_MINUTE) * ONE_MINUTE;
-              
-              setStaffHoverInfo({ 
-                x: e.clientX, 
-                y: e.clientY, 
-                time,
-                role: role.charAt(0).toUpperCase() + role.slice(1)
-              });
-            }}
-            onMouseLeave={() => setStaffHoverInfo(null)}
-            onClick={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = e.clientX - rect.left;
-              
-              const xPercent = x / rect.width;
-              let time = visibleStart + (xPercent * visibleRange);
-              
-              // Snap to 1-minute intervals
-              time = Math.round(time / ONE_MINUTE) * ONE_MINUTE;
-              
-              // Validate that time is within editable boundaries
-              const editableStartBoundary = chartInitTime - TEN_MINUTES;
-              const editableEndBoundary = currentTime + TEN_MINUTES;
-              
-              if (time < editableStartBoundary || time > editableEndBoundary) {
-                return;
-              }
-              
-              onStaffDialogOpen({ time, role: role as 'doctor' | 'nurse' | 'assistant' });
-            }}
-            data-testid={`interactive-staff-${role}-lane`}
-          />
-        );
-      })}
-
-      {/* Tooltip for staff entry */}
-      {staffHoverInfo && !isTouchDevice && (
-        <div
-          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
-          style={{
-            left: staffHoverInfo.x + 10,
-            top: staffHoverInfo.y - 40,
-          }}
-        >
-          <div className="text-sm font-semibold text-primary">
-            Click to add {staffHoverInfo.role.toLowerCase()}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {formatTime(new Date(staffHoverInfo.time))}
-          </div>
-        </div>
-      )}
-
       {/* Staff values as DOM overlays */}
       {!collapsedSwimlanes.has('staff') && (Object.entries(staffData) as [string, StaffPoint[]][]).flatMap(([role, entries]) =>
         entries.map((entry: StaffPoint, index: number) => {
