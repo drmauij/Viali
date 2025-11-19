@@ -168,7 +168,7 @@ const BolusPill = ({
   return (
     <>
       <div
-        className="absolute flex items-end cursor-pointer hover:scale-110 transition-transform"
+        className="absolute flex flex-col items-center justify-center cursor-pointer hover:scale-110 transition-transform"
         style={{
           left: `calc(200px + ((100% - 210px) * ${leftPercent} / 100))`,
           top: `${yPosition}px`,
@@ -195,21 +195,22 @@ const BolusPill = ({
         }}
         data-testid={testId}
       >
-        {/* Vertical tick line */}
+        {/* Dose number in the middle */}
+        <span 
+          className="text-base font-semibold"
+          style={{ color: '#000000' }}
+        >
+          {dose}
+        </span>
+        {/* Vertical tick line at the bottom */}
         <div
+          className="mt-auto"
           style={{
             width: '2px',
             height: '12px',
             backgroundColor: '#000000',
           }}
         />
-        {/* Dose number beside the tick */}
-        <span 
-          className="text-base font-semibold ml-1"
-          style={{ color: '#000000' }}
-        >
-          {dose}
-        </span>
       </div>
       
       {/* Tooltip */}
