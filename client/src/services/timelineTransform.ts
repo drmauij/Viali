@@ -36,7 +36,7 @@ export function buildItemToSwimlaneMap(
   });
   
   Object.keys(itemsByAdminGroup).forEach(groupId => {
-    itemsByAdminGroup[groupId].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    itemsByAdminGroup[groupId].sort((a, b) => a.name.localeCompare(b.name));
   });
   
   administrationGroups
