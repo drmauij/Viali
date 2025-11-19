@@ -4644,6 +4644,23 @@ export function UnifiedTimeline({
                     {lane.label}
                   </span>
                 </button>
+              ) : isCollapsibleParent ? (
+                // For collapsible parent swimlanes, make entire label area clickable to toggle
+                <button
+                  onClick={() => toggleSwimlane(lane.id)}
+                  className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1"
+                  data-testid={`button-toggle-${lane.id}`}
+                  title={collapsedSwimlanes.has(lane.id) ? "Expand" : "Collapse"}
+                >
+                  {collapsedSwimlanes.has(lane.id) ? (
+                    <ChevronRight className="w-4 h-4 text-foreground/70 shrink-0" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-foreground/70 shrink-0" />
+                  )}
+                  <span className={`${labelClass} text-black dark:text-white`}>
+                    {lane.label}
+                  </span>
+                </button>
               ) : (
                 <div className="flex items-center gap-1 flex-1">
                   {isCollapsibleParent && (
@@ -4829,6 +4846,29 @@ export function UnifiedTimeline({
           setShowStaffDialog(true);
         }}
       />
+
+      {/* Interactive overlays for collapsible parent swimlanes */}
+      {swimlanePositions.map((lane) => {
+        const isCollapsibleParent = lane.id === "medikamente" || lane.id === "ventilation" || lane.id === "output" || lane.id === "staff";
+        if (!isCollapsibleParent) return null;
+        
+        return (
+          <div
+            key={`overlay-${lane.id}`}
+            className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
+            style={{
+              left: '200px',
+              right: '10px',
+              top: `${lane.top}px`,
+              height: `${lane.height}px`,
+              zIndex: 25,
+            }}
+            onClick={() => toggleSwimlane(lane.id)}
+            data-testid={`interactive-parent-lane-${lane.id}`}
+            title={collapsedSwimlanes.has(lane.id) ? "Expand" : "Collapse"}
+          />
+        );
+      })}
 
       {/* PositionSwimlane Component - Interactive layer and rendering for patient positioning */}
       <PositionSwimlane
