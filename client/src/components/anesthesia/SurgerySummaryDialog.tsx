@@ -344,7 +344,7 @@ export default function SurgerySummaryDialog({
         </div>
 
         {/* Footer with Cancel Button */}
-        <div className="sticky bottom-0 z-10 bg-background border-t px-6 py-4 flex justify-end">
+        <div className="shrink-0 bg-background border-t px-6 py-4 flex justify-end">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
