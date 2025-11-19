@@ -5916,6 +5916,8 @@ export function UnifiedTimeline({
         open={showStaffDialog}
         onOpenChange={setShowStaffDialog}
         anesthesiaRecordId={anesthesiaRecordId}
+        hospitalId={activeHospital?.id || null}
+        anesthesiaUnitId={activeHospital?.unitId || null}
         editingStaff={editingStaff}
         pendingStaff={pendingStaff}
         onStaffCreated={() => {

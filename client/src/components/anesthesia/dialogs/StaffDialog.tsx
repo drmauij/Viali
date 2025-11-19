@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
 import { useCreateStaff, useUpdateStaff, useDeleteStaff } from "@/hooks/useStaffQuery";
 
@@ -18,10 +20,26 @@ interface PendingStaff {
   role: 'doctor' | 'nurse' | 'assistant';
 }
 
+interface HospitalUser {
+  id: string;
+  userId: string;
+  hospitalId: string;
+  unitId: string;
+  role: string;
+  user: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+}
+
 interface StaffDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   anesthesiaRecordId: string | null;
+  hospitalId: string | null;
+  anesthesiaUnitId: string | null;
   editingStaff: EditingStaff | null;
   pendingStaff: PendingStaff | null;
   onStaffCreated?: () => void;
@@ -33,6 +51,8 @@ export function StaffDialog({
   open,
   onOpenChange,
   anesthesiaRecordId,
+  hospitalId,
+  anesthesiaUnitId,
   editingStaff,
   pendingStaff,
   onStaffCreated,
@@ -41,6 +61,21 @@ export function StaffDialog({
 }: StaffDialogProps) {
   const [staffInput, setStaffInput] = useState("");
   const [staffEditTime, setStaffEditTime] = useState<number>(Date.now());
+
+  // Get the current role (from editing or pending)
+  const currentRole = editingStaff?.role || pendingStaff?.role;
+
+  // Fetch users from the hospital
+  const { data: allUsers = [] } = useQuery<HospitalUser[]>({
+    queryKey: [`/api/admin/${hospitalId}/users`],
+    enabled: !!hospitalId && !!open && currentRole !== 'assistant',
+  });
+
+  // Filter users by anesthesia unit and role
+  const filteredUsers = allUsers.filter(user => 
+    user.unitId === anesthesiaUnitId && 
+    user.role === currentRole
+  );
 
   // Initialize mutation hooks
   const createStaff = useCreateStaff(anesthesiaRecordId || undefined);
@@ -127,22 +162,111 @@ export function StaffDialog({
             {editingStaff ? `Edit or delete the ${editingStaff.role} entry` : 'Add staff member to the timeline'}
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="staff-name">Name</Label>
-            <Input
-              id="staff-name"
-              data-testid="input-staff-name"
-              placeholder="Enter name..."
-              value={staffInput}
-              onChange={(e) => setStaffInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && staffInput.trim()) {
-                  handleSave();
-                }
-              }}
-            />
-          </div>
+        <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+          {currentRole === 'assistant' ? (
+            // For assistant role, show free text input
+            <div className="grid gap-2">
+              <Label htmlFor="staff-name">Name</Label>
+              <Input
+                id="staff-name"
+                data-testid="input-staff-name"
+                placeholder="Enter name..."
+                value={staffInput}
+                onChange={(e) => setStaffInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && staffInput.trim()) {
+                    handleSave();
+                  }
+                }}
+              />
+            </div>
+          ) : (
+            // For doctor/nurse roles, show selectable user list
+            <div className="grid gap-2">
+              <Label>Select {currentRole}</Label>
+              <div className="grid grid-cols-1 gap-2">
+                {filteredUsers.map((hospitalUser) => {
+                  const displayName = [hospitalUser.user.firstName, hospitalUser.user.lastName]
+                    .filter(Boolean)
+                    .join(' ') || hospitalUser.user.email;
+                  
+                  return (
+                    <Button
+                      key={hospitalUser.id}
+                      variant={staffInput === displayName ? 'default' : 'outline'}
+                      className="justify-start h-auto py-3 text-left"
+                      onClick={() => {
+                        if (!anesthesiaRecordId) return;
+                        
+                        if (editingStaff) {
+                          updateStaff.mutate(
+                            {
+                              id: editingStaff.id,
+                              timestamp: new Date(staffEditTime),
+                              name: displayName,
+                            },
+                            {
+                              onSuccess: () => {
+                                onStaffUpdated?.();
+                                handleClose();
+                              },
+                            }
+                          );
+                        } else if (pendingStaff) {
+                          createStaff.mutate(
+                            {
+                              anesthesiaRecordId,
+                              timestamp: new Date(pendingStaff.time),
+                              role: pendingStaff.role,
+                              name: displayName,
+                            },
+                            {
+                              onSuccess: () => {
+                                onStaffCreated?.();
+                                handleClose();
+                              },
+                            }
+                          );
+                        }
+                      }}
+                      data-testid={`button-staff-${hospitalUser.user.id}`}
+                    >
+                      <div className="flex flex-col items-start">
+                        <span className="font-medium">{displayName}</span>
+                        {hospitalUser.user.email && (
+                          <span className="text-xs text-muted-foreground">{hospitalUser.user.email}</span>
+                        )}
+                      </div>
+                    </Button>
+                  );
+                })}
+              </div>
+              {filteredUsers.length === 0 && (
+                <div className="text-sm text-muted-foreground py-4 text-center">
+                  No {currentRole}s found in this unit
+                </div>
+              )}
+              {/* Custom input for other names */}
+              <div className="mt-2 pt-2 border-t">
+                <Label htmlFor="staff-name-custom">Or enter custom name</Label>
+                <Input
+                  id="staff-name-custom"
+                  data-testid="input-staff-name-custom"
+                  placeholder="Enter custom name..."
+                  value={staffInput && !filteredUsers.some(u => 
+                    [u.user.firstName, u.user.lastName].filter(Boolean).join(' ') === staffInput || 
+                    u.user.email === staffInput
+                  ) ? staffInput : ''}
+                  onChange={(e) => setStaffInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && staffInput.trim()) {
+                      handleSave();
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </div>
         <DialogFooterWithTime
           time={editingStaff ? staffEditTime : pendingStaff?.time}
