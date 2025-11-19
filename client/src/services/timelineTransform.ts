@@ -59,20 +59,31 @@ export function transformMedicationDoses(
   const doseData: { [swimlaneId: string]: Array<[number, string, string]> } = {};
   
   medications
-    .filter(med => med.type === 'bolus')
+    .filter(med => med.type === 'bolus' || med.type === 'infusion_start' || med.type === 'rate_change' || med.type === 'infusion_stop')
     .forEach(med => {
       const swimlaneId = itemToSwimlane.get(med.itemId);
       if (!swimlaneId) return;
       
       const timestamp = new Date(med.timestamp).getTime();
-      const dose = med.dose || '?';
       const id = med.id;
+      
+      // Format dose/rate based on type
+      let displayValue = '';
+      if (med.type === 'bolus') {
+        displayValue = med.dose || '?';
+      } else if (med.type === 'infusion_start') {
+        displayValue = `Start ${med.dose || ''}`;
+      } else if (med.type === 'rate_change') {
+        displayValue = med.rate || '?';
+      } else if (med.type === 'infusion_stop') {
+        displayValue = 'Stop';
+      }
       
       if (!doseData[swimlaneId]) {
         doseData[swimlaneId] = [];
       }
       
-      doseData[swimlaneId].push([timestamp, dose, id]);
+      doseData[swimlaneId].push([timestamp, displayValue, id]);
     });
   
   Object.keys(doseData).forEach(swimlaneId => {

@@ -226,7 +226,7 @@ const BolusPill = ({
             Dose: {dose}
           </div>
           <div className="text-xs text-muted-foreground">
-            {formatTime(timestamp)}
+            {formatTime(new Date(timestamp))}
           </div>
           <div className="text-xs text-muted-foreground italic mt-1">
             Click to edit
@@ -341,19 +341,20 @@ export function MedicationsSwimlane({
   
   return (
     <>
-      {/* Bolus Medication Pills - Horizontal bars for single-point doses */}
+      {/* Medication Markers - Simple tick marks for all medication events (bolus, infusions, rate changes) */}
       {activeSwimlanes.flatMap((lane, laneIndex) => {
-        const isMedicationChild = !lane.rateUnit;
+        // Include all medication items (bolus and infusions)
+        const isMedicationItem = lane.hierarchyLevel === 'item' && lane.id.startsWith('admingroup-');
         
-        console.log('[MED-RENDER] Checking lane for bolus pills:', {
+        console.log('[MED-RENDER] Checking lane for medication markers:', {
           laneId: lane.id,
-          isMedicationChild,
+          isMedicationItem,
           hasDoseData: !!medicationDoseData[lane.id]?.length,
           doseData: medicationDoseData[lane.id],
           allDoseKeys: Object.keys(medicationDoseData)
         });
         
-        if (!isMedicationChild || !medicationDoseData[lane.id]?.length) return [];
+        if (!isMedicationItem || !medicationDoseData[lane.id]?.length) return [];
         
         const childLane = swimlanePositions.find(pos => pos.id === lane.id);
         if (!childLane) return [];
