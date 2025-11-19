@@ -560,9 +560,24 @@ export function UnifiedTimeline({
   // Auto-load medications from API data - React Query is the single source of truth
   // Always sync when data.medications changes (after mutations, cache invalidation, or record switch)
   useEffect(() => {
+    console.log('[MED-SYNC-DEBUG] useEffect triggered', {
+      hasAnesthesiaItems: !!anesthesiaItems,
+      anesthesiaItemsLength: anesthesiaItems?.length || 0,
+      hasMedications: !!data.medications,
+      medicationsIsArray: Array.isArray(data.medications),
+      medicationsLength: data.medications?.length || 0,
+      recordId: anesthesiaRecordId
+    });
+    
     // Skip if items not loaded yet
-    if (!anesthesiaItems || anesthesiaItems.length === 0) return;
-    if (!data.medications) return;
+    if (!anesthesiaItems || anesthesiaItems.length === 0) {
+      console.log('[MED-SYNC-DEBUG] Skipping - no anesthesia items');
+      return;
+    }
+    if (!data.medications) {
+      console.log('[MED-SYNC-DEBUG] Skipping - no medications data');
+      return;
+    }
     
     console.log('[MED-SYNC] Syncing medications from React Query to local state', { 
       medicationCount: data.medications.length,

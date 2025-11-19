@@ -747,7 +747,7 @@ export const anesthesiaMedications = pgTable("anesthesia_medications", {
   anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: 'cascade' }),
   itemId: varchar("item_id").notNull().references(() => items.id), // Link to inventory
   
-  timestamp: timestamp("timestamp").notNull(),
+  timestamp: timestamp("timestamp", { withTimezone: true }).notNull(),
   type: varchar("type", { 
     enum: ["bolus", "infusion_start", "infusion_stop", "rate_change"] 
   }).notNull(),
@@ -759,12 +759,12 @@ export const anesthesiaMedications = pgTable("anesthesia_medications", {
   
   // Rate (for infusions)
   rate: varchar("rate"), // e.g., "5 ml/hr", "0.1 μg/kg/min"
-  endTimestamp: timestamp("end_timestamp"), // When infusion stopped
+  endTimestamp: timestamp("end_timestamp", { withTimezone: true }), // When infusion stopped
   
   // User tracking
   administeredBy: varchar("administered_by").references(() => users.id),
   
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 }, (table) => [
   index("idx_anesthesia_medications_record").on(table.anesthesiaRecordId),
   index("idx_anesthesia_medications_item").on(table.itemId),
