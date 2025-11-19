@@ -4617,14 +4617,14 @@ export function UnifiedTimeline({
                 // For Times swimlane, make entire label area clickable
                 <button
                   onClick={() => setBulkEditDialogOpen(true)}
-                  className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1"
+                  className="flex items-center justify-between gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1"
                   data-testid="button-edit-anesthesia-times"
                   title="Edit Anesthesia Times"
                 >
-                  <Clock className="w-4 h-4 text-foreground/70 shrink-0" />
                   <span className={`${labelClass} text-black dark:text-white`}>
                     {lane.label}
                   </span>
+                  <Clock className="w-4 h-4 text-foreground/70 group-hover:text-foreground shrink-0" />
                 </button>
               ) : (
                 <div className="flex items-center gap-1 flex-1">
