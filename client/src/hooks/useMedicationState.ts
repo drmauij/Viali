@@ -97,7 +97,7 @@ export function useMedicationState(initialData?: {
 
   const getActiveRateSession = useCallback((swimlaneId: string): RateInfusionSession | null => {
     const sessions = rateInfusionSessions[swimlaneId];
-    if (!sessions || sessions.length === 0) return null;
+    if (!sessions || !Array.isArray(sessions) || sessions.length === 0) return null;
     
     // Prefer running session, otherwise most recent
     const runningSession = sessions.find(s => s.state === 'running');
@@ -106,7 +106,7 @@ export function useMedicationState(initialData?: {
 
   const getActiveFreeFlowSession = useCallback((swimlaneId: string): FreeFlowSession | null => {
     const sessions = freeFlowSessions[swimlaneId];
-    if (!sessions || sessions.length === 0) return null;
+    if (!sessions || !Array.isArray(sessions) || sessions.length === 0) return null;
     
     // Return most recent session
     return sessions[sessions.length - 1];
