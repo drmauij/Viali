@@ -343,7 +343,7 @@ export function MedicationsSwimlane({
       {/* Infusion Lines - Horizontal lines for rate-controlled infusions */}
       {activeSwimlanes.flatMap((lane) => {
         const sessions = rateInfusionSessions[lane.id];
-        if (!sessions || sessions.length === 0) return [];
+        if (!sessions || !Array.isArray(sessions) || sessions.length === 0) return [];
         
         const childLane = swimlanePositions.find(pos => pos.id === lane.id);
         if (!childLane) return [];
@@ -399,7 +399,7 @@ export function MedicationsSwimlane({
       {/* Infusion Lines - Horizontal lines for free-flow infusions */}
       {activeSwimlanes.flatMap((lane) => {
         const sessions = freeFlowSessions[lane.id];
-        if (!sessions || sessions.length === 0) return [];
+        if (!sessions || !Array.isArray(sessions) || sessions.length === 0) return [];
         
         const childLane = swimlanePositions.find(pos => pos.id === lane.id);
         if (!childLane) return [];
