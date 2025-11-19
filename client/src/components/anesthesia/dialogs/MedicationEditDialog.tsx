@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +41,7 @@ export function MedicationEditDialog({
 }: MedicationEditDialogProps) {
   const [medicationEditInput, setMedicationEditInput] = useState("");
   const [medicationEditTime, setMedicationEditTime] = useState<number>(Date.now());
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Initialize mutation hooks
   const updateMedication = useUpdateMedication(anesthesiaRecordId || undefined);
@@ -51,6 +52,8 @@ export function MedicationEditDialog({
     if (editingMedicationDose) {
       setMedicationEditInput(editingMedicationDose.dose);
       setMedicationEditTime(editingMedicationDose.time);
+      // Autoselect text for immediate editing
+      setTimeout(() => inputRef.current?.select(), 0);
     } else {
       setMedicationEditInput("");
       setMedicationEditTime(Date.now());
@@ -153,6 +156,7 @@ export function MedicationEditDialog({
           <div className="grid gap-2">
             <Label htmlFor="dose-edit-value">Dose</Label>
             <Input
+              ref={inputRef}
               id="dose-edit-value"
               data-testid="input-dose-edit-value"
               value={medicationEditInput}

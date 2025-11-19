@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +33,7 @@ export function OutputEditDialog({
 }: OutputEditDialogProps) {
   const [outputEditInput, setOutputEditInput] = useState("");
   const [outputEditTime, setOutputEditTime] = useState<number>(0);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const updateOutput = useUpdateOutput(anesthesiaRecordId || undefined);
   const deleteOutput = useDeleteOutput(anesthesiaRecordId || undefined);
@@ -41,6 +42,8 @@ export function OutputEditDialog({
     if (open && editingOutputValue) {
       setOutputEditInput(editingOutputValue.value);
       setOutputEditTime(editingOutputValue.time);
+      // Autoselect text for immediate editing
+      setTimeout(() => inputRef.current?.select(), 0);
     } else if (!open) {
       setOutputEditInput("");
       setOutputEditTime(0);
@@ -113,6 +116,7 @@ export function OutputEditDialog({
           <div className="grid gap-2">
             <Label htmlFor="output-edit-value">Value (ml)</Label>
             <Input
+              ref={inputRef}
               id="output-edit-value"
               data-testid="input-output-edit-value"
               type="number"

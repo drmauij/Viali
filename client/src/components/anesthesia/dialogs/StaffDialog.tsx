@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -61,6 +61,7 @@ export function StaffDialog({
 }: StaffDialogProps) {
   const [staffInput, setStaffInput] = useState("");
   const [staffEditTime, setStaffEditTime] = useState<number>(Date.now());
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Get the current role (from editing or pending)
   const currentRole = editingStaff?.role || pendingStaff?.role;
@@ -93,6 +94,8 @@ export function StaffDialog({
     if (editingStaff) {
       setStaffInput(editingStaff.name);
       setStaffEditTime(editingStaff.time);
+      // Autoselect text for immediate editing
+      setTimeout(() => inputRef.current?.select(), 0);
     } else {
       setStaffInput("");
       setStaffEditTime(Date.now());
@@ -174,6 +177,7 @@ export function StaffDialog({
             <div className="grid gap-2">
               <Label htmlFor="staff-name">Name</Label>
               <Input
+                ref={inputRef}
                 id="staff-name"
                 data-testid="input-staff-name"
                 placeholder="Enter name..."
@@ -184,6 +188,7 @@ export function StaffDialog({
                     handleSave();
                   }
                 }}
+                autoFocus
               />
             </div>
           ) : (

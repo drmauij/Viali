@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,6 +34,7 @@ export function VentilationEditDialog({
 }: VentilationEditDialogProps) {
   const [ventilationEditInput, setVentilationEditInput] = useState("");
   const [ventilationEditTime, setVentilationEditTime] = useState<number>(0);
+  const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const updateVitalPointMutation = useUpdateVitalPoint(anesthesiaRecordId || undefined);
@@ -43,6 +44,8 @@ export function VentilationEditDialog({
     if (editingVentilationValue) {
       setVentilationEditInput(editingVentilationValue.value);
       setVentilationEditTime(editingVentilationValue.time);
+      // Autoselect text for immediate editing
+      setTimeout(() => inputRef.current?.select(), 0);
     } else {
       setVentilationEditInput("");
       setVentilationEditTime(0);
@@ -115,6 +118,7 @@ export function VentilationEditDialog({
           <div className="grid gap-2">
             <Label htmlFor="ventilation-edit-value">Value</Label>
             <Input
+              ref={inputRef}
               id="ventilation-edit-value"
               data-testid="input-ventilation-edit-value"
               type="number"
