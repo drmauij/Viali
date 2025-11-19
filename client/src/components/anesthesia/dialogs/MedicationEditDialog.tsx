@@ -118,7 +118,7 @@ export function MedicationEditDialog({
         <DialogHeader>
           <DialogTitle>Edit Dose</DialogTitle>
           <DialogDescription>
-            Edit or delete the medication dose
+            {swimlane?.label || 'Edit or delete the medication dose'}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
