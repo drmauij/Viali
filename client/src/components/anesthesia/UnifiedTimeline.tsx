@@ -3721,7 +3721,7 @@ export function UnifiedTimeline({
     });
     
     try {
-      await createMedicationMutation.mutateAsync({
+      await saveMedicationMutation.mutateAsync({
         anesthesiaRecordId,
         itemId: item.id,
         timestamp: new Date(newStartTime),
