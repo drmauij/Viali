@@ -342,6 +342,17 @@ export default function SurgerySummaryDialog({
             </Card>
           </div>
         </div>
+
+        {/* Footer with Cancel Button */}
+        <div className="flex justify-end pt-4 border-t">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            data-testid="button-cancel-summary"
+          >
+            Cancel
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
