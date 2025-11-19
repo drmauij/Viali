@@ -5019,7 +5019,7 @@ export function UnifiedTimeline({
         return (
           <div
             key={`medication-label-${lane.id}`}
-            className="absolute cursor-pointer hover:bg-yellow-500/10 transition-colors"
+            className="absolute cursor-pointer hover:bg-yellow-500/10 transition-colors pointer-events-auto"
             style={{
               left: '0px',
               width: '200px',
