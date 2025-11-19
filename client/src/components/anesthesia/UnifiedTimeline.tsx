@@ -4942,8 +4942,6 @@ export function UnifiedTimeline({
         }}
         onOutputEditDialogOpen={(editing) => {
           setEditingOutputValue(editing);
-          setOutputEditInput(editing.value);
-          setOutputEditTime(editing.time);
           setShowOutputEditDialog(true);
         }}
         onOutputBulkDialogOpen={(pending) => {
