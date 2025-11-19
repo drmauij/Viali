@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Droplet } from "lucide-react";
 import { useTimelineContext } from "../TimelineContext";
+import { useCreateMedication } from "@/hooks/useMedicationQuery";
 import type {
   RateInfusionSegment,
   RateInfusionSession,
@@ -248,7 +249,11 @@ export function MedicationsSwimlane({
     data,
     swimlanes: activeSwimlanes,
     anesthesiaItems,
+    anesthesiaRecordId,
   } = useTimelineContext();
+
+  // Mutation for creating medications
+  const createMedicationMutation = useCreateMedication(anesthesiaRecordId);
 
   const {
     medicationDoseData,
@@ -711,6 +716,21 @@ export function MedicationsSwimlane({
                     } else {
                       // First click: check for default dose
                       if (lane.defaultDose) {
+                        // Extract group ID and item index from swimlane id
+                        const groupMatch = lane.id.match(/admingroup-([^-]+)-item-(\d+)/);
+                        if (!groupMatch || !anesthesiaRecordId) return;
+                        
+                        const groupId = groupMatch[1];
+                        const itemIndex = parseInt(groupMatch[2], 10);
+                        
+                        // Find all items in this administration group and get the item at index
+                        // Note: Items are already sorted by buildItemToSwimlaneMap
+                        const groupItems = anesthesiaItems
+                          .filter(item => item.administrationGroup === groupId);
+                        
+                        const item = groupItems[itemIndex];
+                        if (!item) return;
+                        
                         // Create new session with default dose
                         const newSession: FreeFlowSession = {
                           swimlaneId: lane.id,
@@ -718,6 +738,7 @@ export function MedicationsSwimlane({
                           dose: lane.defaultDose,
                           label: lane.label.trim(),
                         };
+                        
                         // Update state directly
                         medicationState.setFreeFlowSessions(prev => ({
                           ...prev,
@@ -729,6 +750,16 @@ export function MedicationsSwimlane({
                           ...prev,
                           [lane.id]: [...(prev[lane.id] || []), [time, lane.defaultDose]].sort((a, b) => a[0] - b[0]),
                         }));
+                        
+                        // 🔥 FIX: Save to database
+                        createMedicationMutation.mutate({
+                          anesthesiaRecordId,
+                          itemId: item.id,
+                          timestamp: new Date(time),
+                          type: 'infusion_start' as const,
+                          rate: 'free',
+                          dose: lane.defaultDose,
+                        });
                       } else {
                         // No default dose: show dose entry dialog
                         onFreeFlowDoseDialogOpen({
