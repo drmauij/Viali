@@ -115,7 +115,7 @@ export function VentilationBulkDialog({
           if (!isNaN(etCO2Value)) {
             try {
               await apiRequest('POST', `/api/anesthesia/vitals/${anesthesiaRecordId}/point`, {
-                vitalType: 'etCO2',
+                vitalType: 'etco2',
                 timestamp,
                 value: etCO2Value,
               });
@@ -145,11 +145,11 @@ export function VentilationBulkDialog({
         // Collect all valid vital parameters
         const parameterMappings = [
           { key: 'peep', vitalType: 'peep' },
-          { key: 'fiO2', vitalType: 'fiO2' },
+          { key: 'fiO2', vitalType: 'fio2' },
           { key: 'tidalVolume', vitalType: 'tidalVolume' },
           { key: 'respiratoryRate', vitalType: 'respiratoryRate' },
           { key: 'minuteVolume', vitalType: 'minuteVolume' },
-          { key: 'etCO2', vitalType: 'etCO2' },
+          { key: 'etCO2', vitalType: 'etco2' },
           { key: 'pip', vitalType: 'pip' },
         ];
         
