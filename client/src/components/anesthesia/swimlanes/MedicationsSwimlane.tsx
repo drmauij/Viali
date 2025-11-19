@@ -975,9 +975,8 @@ export function MedicationsSwimlane({
                           anesthesiaRecordId,
                           itemId: item.id,
                           timestamp: new Date(time),
-                          type: 'infusion_rate_change' as const,
+                          type: 'rate_change' as const,
                           rate: lane.defaultDose,
-                          dose: null,
                         });
                         
                         console.log('[RATE-INFUSION-CLICK] Mutation called!');
