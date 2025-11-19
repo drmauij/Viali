@@ -4673,7 +4673,7 @@ export function UnifiedTimeline({
                       setShowMedicationConfigDialog(true);
                     }
                   }}
-                  className="flex items-center gap-1 flex-1 text-left hover:bg-blue-500/10 transition-colors rounded px-1 -mx-1"
+                  className="flex items-center gap-1 flex-1 text-left cursor-pointer"
                   data-testid={`button-configure-${lane.id}`}
                   title="Configure Medications"
                 >
