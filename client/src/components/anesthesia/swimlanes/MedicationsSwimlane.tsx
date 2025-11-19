@@ -445,7 +445,7 @@ export function MedicationsSwimlane({
         if (medicationParentIndex === -1 || collapsedSwimlanes.has("medikamente")) return null;
         
         return activeSwimlanes.map((lane, index) => {
-          const isMedicationChild = !lane.rateUnit && lane.hierarchyLevel !== 'group';
+          const isMedicationChild = !lane.rateUnit && lane.hierarchyLevel !== 'group' && lane.id !== 'medikamente';
           if (!isMedicationChild) return null;
           
           const lanePosition = swimlanePositions.find(l => l.id === lane.id);
@@ -579,7 +579,7 @@ export function MedicationsSwimlane({
         if (medicationParentIndex === -1 || collapsedSwimlanes.has("medikamente")) return null;
         
         return activeSwimlanes.map((lane, index) => {
-          const isInfusionChild = lane.rateUnit !== null && lane.rateUnit !== undefined;
+          const isInfusionChild = lane.rateUnit !== null && lane.rateUnit !== undefined && lane.id !== 'medikamente';
           if (!isInfusionChild) return null;
           
           const lanePosition = swimlanePositions.find(l => l.id === lane.id);
