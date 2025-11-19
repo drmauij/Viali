@@ -838,6 +838,8 @@ export function UnifiedTimeline({
   const [showHeartRhythmDialog, setShowHeartRhythmDialog] = useState(false);
   const [pendingHeartRhythm, setPendingHeartRhythm] = useState<{ time: number } | null>(null);
   const [editingHeartRhythm, setEditingHeartRhythm] = useState<{ time: number; rhythm: string; index: number; id: string } | null>(null);
+  const [heartRhythmInput, setHeartRhythmInput] = useState("");
+  const [heartRhythmEditTime, setHeartRhythmEditTime] = useState<number>(0);
 
   // UI state for staff dialogs and interactions
   const [showStaffDialog, setShowStaffDialog] = useState(false);
