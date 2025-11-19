@@ -407,7 +407,9 @@ export function UnifiedTimeline({
   const [lastTouchTime, setLastTouchTime] = useState<number>(0); // Track last touch to prevent duplicate mouse events
   
   // NEW: Fetch clinical snapshot with React Query (single source of truth)
-  const { data: clinicalSnapshot } = useClinicalSnapshot(anesthesiaRecordId);
+  // 🔍 TEMPORARILY DISABLED TO TEST IF THIS HOOK BLOCKS COMMITS
+  // const { data: clinicalSnapshot } = useClinicalSnapshot(anesthesiaRecordId);
+  const clinicalSnapshot = undefined;
   
   // Fetch positions, staff, and events from separate tables
   const { data: apiPositions = [] } = useQuery<any[]>({
