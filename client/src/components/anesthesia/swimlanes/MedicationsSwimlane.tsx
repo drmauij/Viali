@@ -727,8 +727,8 @@ export function MedicationsSwimlane({
                         return currentDist < closestDist ? session : closest;
                       }, sessions[0]);
                       
-                      // Open unified free-flow sheet in segment mode
-                      onFreeFlowSheetOpen({ ...closestSession, clickMode: 'segment' }, closestSession.dose, closestSession.startTime);
+                      // 🔥 FIX: Open unified free-flow sheet with CLICKED time, not session start time
+                      onFreeFlowSheetOpen({ ...closestSession, clickMode: 'segment' }, closestSession.dose, time);
                     } else {
                       // First click: check for default dose
                       if (lane.defaultDose) {
