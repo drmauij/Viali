@@ -25,12 +25,29 @@ export function buildItemToSwimlaneMap(
 ): Map<string, string> {
   const map = new Map<string, string>();
   
+  const itemsByAdminGroup: Record<string, AnesthesiaItem[]> = {};
   anesthesiaItems.forEach(item => {
     if (item.administrationGroup) {
-      const swimlaneId = `group_${item.administrationGroup}_item_${item.id}`;
-      map.set(item.id, swimlaneId);
+      if (!itemsByAdminGroup[item.administrationGroup]) {
+        itemsByAdminGroup[item.administrationGroup] = [];
+      }
+      itemsByAdminGroup[item.administrationGroup].push(item);
     }
   });
+  
+  Object.keys(itemsByAdminGroup).forEach(groupId => {
+    itemsByAdminGroup[groupId].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+  });
+  
+  administrationGroups
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .forEach(group => {
+      const groupItems = itemsByAdminGroup[group.id] || [];
+      groupItems.forEach((item, index) => {
+        const swimlaneId = `admingroup-${group.id}-item-${index}`;
+        map.set(item.id, swimlaneId);
+      });
+    });
   
   return map;
 }
