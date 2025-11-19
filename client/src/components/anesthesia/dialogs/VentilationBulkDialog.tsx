@@ -65,8 +65,10 @@ export function VentilationBulkDialog({
         etCO2: "",
         pip: "",
       });
-    } else if (patientWeight) {
-      const tidalVolumeCalc = Math.round(patientWeight * 6);
+    } else {
+      // Use provided weight or default to 70 kg
+      const weightToUse = patientWeight || 70;
+      const tidalVolumeCalc = Math.round(weightToUse * 6);
       setBulkVentilationParams(prev => ({
         ...prev,
         peep: "5",
