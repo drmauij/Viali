@@ -103,12 +103,12 @@ export default function SurgerySummaryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="sticky top-0 z-10 bg-background border-b px-6 py-4">
           <DialogTitle>Surgery Summary</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
           {/* Patient Info with Allergies */}
           <div className="bg-muted/50 p-4 rounded-lg space-y-3">
             <div className="grid grid-cols-2 gap-3">
@@ -344,7 +344,7 @@ export default function SurgerySummaryDialog({
         </div>
 
         {/* Footer with Cancel Button */}
-        <div className="flex justify-end pt-4 border-t">
+        <div className="sticky bottom-0 z-10 bg-background border-t px-6 py-4 flex justify-end">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
