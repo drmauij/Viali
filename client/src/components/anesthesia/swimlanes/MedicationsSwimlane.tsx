@@ -252,6 +252,7 @@ export interface MedicationsSwimlaneProps {
   isTouchDevice: boolean;
   onMedicationDoseDialogOpen: (pending: { swimlaneId: string; time: number; label: string }) => void;
   onMedicationEditDialogOpen: (editing: { swimlaneId: string; time: number; dose: string; index: number; id: string }) => void;
+  onInstantMedicationSave: (swimlaneId: string, time: number, dose: string, itemId: string) => Promise<void>;
   onInfusionDialogOpen: (pending: { swimlaneId: string; time: number; label: string }) => void;
   onFreeFlowDoseDialogOpen: (pending: { swimlaneId: string; time: number; label: string }) => void;
   onFreeFlowSheetOpen: (session: FreeFlowSession & { clickMode?: 'label' | 'segment' }, doseInput: string, timeInput: number) => void;
@@ -276,6 +277,7 @@ export function MedicationsSwimlane({
   isTouchDevice,
   onMedicationDoseDialogOpen,
   onMedicationEditDialogOpen,
+  onInstantMedicationSave,
   onInfusionDialogOpen,
   onFreeFlowDoseDialogOpen,
   onFreeFlowSheetOpen,
@@ -598,12 +600,20 @@ export function MedicationsSwimlane({
                     id,
                   });
                 } else {
-                  // Open dialog for new dose
-                  onMedicationDoseDialogOpen({ 
-                    swimlaneId: lane.id, 
-                    time, 
-                    label: lane.label.trim() 
-                  });
+                  // Check if medication has a simple default dose (no hyphen = single value)
+                  const hasSimpleDefaultDose = lane.defaultDose && !lane.defaultDose.includes('-');
+                  
+                  if (hasSimpleDefaultDose && lane.itemId) {
+                    // Instantly save with default dose without opening dialog
+                    onInstantMedicationSave(lane.id, time, lane.defaultDose!, lane.itemId);
+                  } else {
+                    // Open dialog for new dose (no default or has range)
+                    onMedicationDoseDialogOpen({ 
+                      swimlaneId: lane.id, 
+                      time, 
+                      label: lane.label.trim() 
+                    });
+                  }
                 }
               }}
               data-testid={`interactive-medication-lane-${lane.id}`}

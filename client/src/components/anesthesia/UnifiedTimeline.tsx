@@ -4878,6 +4878,42 @@ export function UnifiedTimeline({
           setEditingMedicationDose(editing);
           setShowMedicationEditDialog(true);
         }}
+        onInstantMedicationSave={async (swimlaneId, time, dose, itemId) => {
+          if (!anesthesiaRecordId) return;
+          
+          try {
+            // Save to database
+            await saveMedicationMutation.mutateAsync({
+              anesthesiaRecordId,
+              itemId,
+              timestamp: new Date(time),
+              type: "bolus",
+              dose: dose,
+            });
+            
+            // Update local state immediately
+            setMedicationDoseData(prev => {
+              const existing = prev[swimlaneId] || [];
+              const newEntry: [number, string, string] = [time, dose, `temp-${Date.now()}`];
+              return {
+                ...prev,
+                [swimlaneId]: [...existing, newEntry].sort((a, b) => a[0] - b[0])
+              };
+            });
+            
+            toast({
+              title: "Dose saved",
+              description: `Added ${dose} at ${formatTime(new Date(time))}`,
+            });
+          } catch (error) {
+            console.error('[INSTANT-SAVE] Error saving medication:', error);
+            toast({
+              title: "Error saving dose",
+              description: "Please try again",
+              variant: "destructive",
+            });
+          }
+        }}
         onInfusionDialogOpen={(pending) => {
           setPendingInfusionValue(pending);
           setShowInfusionDialog(true);
