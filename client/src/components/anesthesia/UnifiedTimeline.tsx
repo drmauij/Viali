@@ -4636,14 +4636,13 @@ export function UnifiedTimeline({
                     setPendingEvent({ time: currentTime });
                     setShowEventDialog(true);
                   }}
-                  className="flex items-center justify-between gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1"
+                  className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1"
                   data-testid="button-add-event"
                   title="Add Event"
                 >
                   <span className={`${labelClass} text-black dark:text-white`}>
                     {lane.label}
                   </span>
-                  <MessageSquareText className="w-4 h-4 text-foreground/70 group-hover:text-foreground shrink-0" />
                 </button>
               ) : (
                 <div className="flex items-center gap-1 flex-1">
