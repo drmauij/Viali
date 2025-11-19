@@ -4693,6 +4693,30 @@ export function UnifiedTimeline({
                     {lane.label}
                   </span>
                 </button>
+              ) : swimlaneConfig?.hierarchyLevel === 'item' && lane.itemId ? (
+                // For medication item labels, make them clickable to edit
+                <button
+                  onClick={() => {
+                    // Find the medication item using the itemId property from the lane
+                    const medicationItem = anesthesiaItems.find(item => item.id === lane.itemId);
+                    if (medicationItem && medicationItem.administrationGroup) {
+                      // Find the admin group
+                      const adminGroup = administrationGroups.find(g => g.name === medicationItem.administrationGroup);
+                      if (adminGroup) {
+                        setSelectedAdminGroupForConfig(adminGroup);
+                        setEditingItemForConfig(medicationItem);
+                        setShowMedicationConfigDialog(true);
+                      }
+                    }
+                  }}
+                  className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1 cursor-pointer"
+                  data-testid={`button-edit-medication-${lane.id}`}
+                  title="Edit Medication Configuration"
+                >
+                  <span className={`${labelClass} text-black dark:text-white`}>
+                    {lane.label}
+                  </span>
+                </button>
               ) : (
                 <div className="flex items-center gap-1 flex-1">
                   {isCollapsibleParent && (
@@ -4958,49 +4982,8 @@ export function UnifiedTimeline({
         </div>
       )}
 
-      {/* Shared overlay container for ALL interactive overlays (admin groups + medication labels) */}
-      <div 
-        className="absolute inset-0 pointer-events-none z-[70]" 
-        data-testid="overlay-root"
-      >
-        {/* Medication label overlays (LEFT side) - Each overlay individually has pointer-events-auto */}
-        {!activeToolMode && activeSwimlanes.map((lane) => {
-          // Only show for individual medication items (hierarchyLevel === 'item')
-          if (lane.hierarchyLevel !== 'item' || !lane.itemId) return null;
-          
-          const lanePosition = swimlanePositions.find(l => l.id === lane.id);
-          if (!lanePosition) return null;
-          
-          // Find the medication item using the itemId property from the lane
-          const medicationItem = anesthesiaItems.find(item => item.id === lane.itemId);
-          if (!medicationItem || !medicationItem.administrationGroup) return null;
-          
-          // Find the admin group
-          const adminGroup = administrationGroups.find(g => g.name === medicationItem.administrationGroup);
-          if (!adminGroup) return null;
-          
-          return (
-            <div
-              key={`medication-label-${lane.id}`}
-              className="absolute cursor-pointer hover:bg-yellow-500/10 transition-colors pointer-events-auto"
-              style={{
-                left: '0px',
-                width: '200px',
-                top: `${lanePosition.top}px`,
-                height: `${lanePosition.height}px`,
-              }}
-              onClick={() => {
-                // Open medication config dialog for editing this item
-                setSelectedAdminGroupForConfig(adminGroup);
-                setEditingItemForConfig(medicationItem);
-                setShowMedicationConfigDialog(true);
-              }}
-              data-testid={`interactive-medication-label-${lane.id}`}
-            />
-          );
-        })}
-
-        {/* Administration group overlays (RIGHT side) - Each overlay individually has pointer-events-auto */}
+      {/* Interactive overlays for administration groups (RIGHT side chart area only) */}
+      <div className="absolute inset-0 pointer-events-none z-[70]">
         {!activeToolMode && activeSwimlanes.map((lane) => {
           if (lane.hierarchyLevel !== 'group') return null;
           
