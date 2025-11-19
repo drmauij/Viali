@@ -131,60 +131,109 @@ const InfusionPill = ({
 };
 
 /**
- * BolusPill Component - Horizontal bar for bolus medication administration
+ * BolusPill Component - Vertical tick mark for bolus medication administration
  */
 type BolusPillProps = {
   timestamp: number;
   dose: string;
+  medicationName: string;
   isBeforeNow: boolean;
   onClick: () => void;
   leftPercent: number;
   yPosition: number;
   isDark: boolean;
   testId: string;
+  formatTime: (time: number) => string;
+  isTouchDevice: boolean;
 };
 
 const BolusPill = ({
   timestamp,
   dose,
+  medicationName,
   isBeforeNow,
   onClick,
   leftPercent,
   yPosition,
   isDark,
   testId,
+  formatTime,
+  isTouchDevice,
 }: BolusPillProps) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+
   return (
-    <div
-      className="absolute flex items-center cursor-pointer"
-      style={{
-        left: `calc(200px + ((100% - 210px) * ${leftPercent} / 100))`,
-        top: `${yPosition}px`,
-        height: '32px',
-        zIndex: 40,
-      }}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-      data-testid={testId}
-    >
-      {/* Vertical tick line */}
+    <>
       <div
+        className="absolute flex items-center cursor-pointer hover:scale-110 transition-transform"
         style={{
-          width: '2px',
-          height: '16px',
-          backgroundColor: '#000000',
+          left: `calc(200px + ((100% - 210px) * ${leftPercent} / 100))`,
+          top: `${yPosition}px`,
+          height: '32px',
+          zIndex: 40,
         }}
-      />
-      {/* Dose number beside the tick */}
-      <span 
-        className="text-sm font-semibold ml-1"
-        style={{ color: '#000000' }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+        onMouseEnter={(e) => {
+          if (!isTouchDevice) {
+            setShowTooltip(true);
+            setTooltipPosition({ x: e.clientX, y: e.clientY });
+          }
+        }}
+        onMouseMove={(e) => {
+          if (!isTouchDevice) {
+            setTooltipPosition({ x: e.clientX, y: e.clientY });
+          }
+        }}
+        onMouseLeave={() => {
+          setShowTooltip(false);
+        }}
+        data-testid={testId}
       >
-        {dose}
-      </span>
-    </div>
+        {/* Vertical tick line */}
+        <div
+          style={{
+            width: '2px',
+            height: '16px',
+            backgroundColor: '#000000',
+          }}
+        />
+        {/* Dose number beside the tick */}
+        <span 
+          className="text-sm font-semibold ml-1"
+          style={{ color: '#000000' }}
+        >
+          {dose}
+        </span>
+      </div>
+      
+      {/* Tooltip */}
+      {showTooltip && !isTouchDevice && (
+        <div
+          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
+          style={{
+            left: tooltipPosition.x + 10,
+            top: tooltipPosition.y - 40,
+          }}
+        >
+          <div className="text-sm font-semibold text-primary">
+            {medicationName}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Dose: {dose}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {formatTime(timestamp)}
+          </div>
+          <div className="text-xs text-muted-foreground italic mt-1">
+            Click to edit
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
@@ -333,11 +382,14 @@ export function MedicationsSwimlane({
               key={`bolus-pill-${lane.id}-${timestamp}-${index}`}
               timestamp={timestamp}
               dose={dose.toString()}
+              medicationName={lane.label.trim()}
               isBeforeNow={isBeforeNow}
               leftPercent={leftPercent}
               yPosition={yPosition}
               isDark={isDark}
               testId={`bolus-pill-${lane.id}-${index}`}
+              formatTime={formatTime}
+              isTouchDevice={isTouchDevice}
               onClick={() => {
                 onMedicationEditDialogOpen({
                   swimlaneId: lane.id,
