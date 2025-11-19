@@ -9,124 +9,53 @@ import type {
 } from "@/hooks/useMedicationState";
 
 /**
- * InfusionPill Component - Unified horizontal bar for both free-flow and rate-based infusions
+ * InfusionLine Component - Horizontal line for infusions starting from vertical tick
  */
-type InfusionPillProps = {
+type InfusionLineProps = {
   startTime: number;
-  endTime: number;
-  rate: string;
+  endTime: number | null;
   isFreeFlow: boolean;
-  isBeforeNow: boolean;
-  isAfterNow: boolean;
-  crossesNow: boolean;
-  currentTime: number;
-  onLabelClick: () => void;
-  onSegmentClick: () => void;
+  onClick: () => void;
   leftPercent: number;
   widthPercent: number;
   yPosition: number;
-  isDark: boolean;
-  rateUnit?: string;
+  swimlaneHeight: number;
   testId: string;
 };
 
-const InfusionPill = ({
+const InfusionLine = ({
   startTime,
   endTime,
-  rate,
   isFreeFlow,
-  isBeforeNow,
-  isAfterNow,
-  crossesNow,
-  currentTime,
-  onLabelClick,
-  onSegmentClick,
+  onClick,
   leftPercent,
   widthPercent,
   yPosition,
-  isDark,
-  rateUnit,
+  swimlaneHeight,
   testId,
-}: InfusionPillProps) => {
-  const isStopMarker = rate === "";
-  
-  // Don't render pills for stop markers
-  if (isStopMarker) return null;
-  
-  // Determine color based on time position - subtle teal for past, gray for future
-  const pillColor = isBeforeNow 
-    ? (isDark ? '#14b8a6' : '#0d9488')  // Teal (past)
-    : (isDark ? '#94a3b8' : '#64748b'); // Slate gray (future)
-  
-  // Different styles for free-flow vs rate-based - all subtle with thin borders
-  const pillStyle: React.CSSProperties = isFreeFlow ? {
-    // Free-flow: Subtle diagonal stripes + thin dashed border
-    background: `repeating-linear-gradient(
-      45deg,
-      ${pillColor}0D,
-      ${pillColor}0D 6px,
-      ${pillColor}1A 6px,
-      ${pillColor}1A 12px
-    )`,
-    border: `1px dashed ${pillColor}`,  // Thin dashed border
-    borderRadius: '6px',
-  } : {
-    // Rate-based: Very subtle solid background + thin border
-    background: `${pillColor}1A`,  // 10% opacity
-    border: `1px solid ${pillColor}`,  // Thin border
-    borderRadius: '6px',
-  };
+}: InfusionLineProps) => {
+  // Line starts 2px from the tick's bottom end
+  // Tick is 12px tall and attached to swimlane bottom
+  // So line should be positioned 2px from the swimlane bottom
+  const lineYOffset = swimlaneHeight - 2;
   
   return (
     <div
-      className="absolute flex items-center overflow-hidden"
+      className="absolute cursor-pointer hover:opacity-80 transition-opacity"
       style={{
-        left: `calc(200px + ${leftPercent}%)`,
-        width: `calc(${widthPercent}% * (100% - 210px) / 100)`,
-        top: `${yPosition}px`,
-        height: '32px',
-        zIndex: 40,
-        ...pillStyle,
+        left: `calc(200px + ((100% - 210px) * ${leftPercent} / 100))`,
+        top: `${yPosition + lineYOffset}px`,
+        width: `calc((100% - 210px) * ${widthPercent} / 100)`,
+        height: '0',
+        borderTop: isFreeFlow ? '2px dashed #ef4444' : '2px solid #ef4444', // Red for both, dashed for free-flow
+        zIndex: 35, // Below tick marks (40) but above background
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
       }}
       data-testid={testId}
-    >
-      {/* Label Click Zone (left ~30% of pill) - Emphasized */}
-      <div
-        className="flex items-center justify-center cursor-pointer hover:shadow-sm transition-all px-2 h-full shrink-0"
-        style={{
-          minWidth: '60px',
-          maxWidth: '30%',
-          borderRight: `1px solid ${pillColor}4D`,
-        }}
-        onClick={(e) => {
-          e.stopPropagation();
-          onLabelClick();
-        }}
-        data-testid={`${testId}-label`}
-      >
-        <span className="text-sm font-semibold truncate" style={{ color: pillColor }}>
-          {rate}
-          {rateUnit && ` ${rateUnit}`}
-        </span>
-      </div>
-      
-      {/* Segment Click Zone (right ~70% of pill) */}
-      <div
-        className="flex-1 flex items-center justify-center cursor-pointer hover:shadow-sm transition-all px-2 h-full gap-1"
-        onClick={(e) => {
-          e.stopPropagation();
-          onSegmentClick();
-        }}
-        data-testid={`${testId}-segment`}
-      >
-        {isFreeFlow ? (
-          <Droplet className="w-4 h-4 flex-shrink-0" style={{ color: pillColor, strokeWidth: 2 }} />
-        ) : null}
-        <span className="text-xs font-medium truncate" style={{ color: pillColor }}>
-          {isFreeFlow ? 'Free Flow' : 'Running'}
-        </span>
-      </div>
-    </div>
+    />
   );
 };
 
@@ -405,6 +334,110 @@ export function MedicationsSwimlane({
                   index,
                   id,
                 });
+              }}
+            />
+          );
+        }).filter(Boolean);
+      })}
+
+      {/* Infusion Lines - Horizontal lines for rate-controlled infusions */}
+      {activeSwimlanes.flatMap((lane) => {
+        const sessions = rateInfusionSessions[lane.id];
+        if (!sessions || sessions.length === 0) return [];
+        
+        const childLane = swimlanePositions.find(pos => pos.id === lane.id);
+        if (!childLane) return [];
+        
+        const visibleStart = currentZoomStart ?? data.startTime;
+        const visibleEnd = currentZoomEnd ?? data.endTime;
+        const visibleRange = visibleEnd - visibleStart;
+        
+        return sessions.map((session, sessionIndex) => {
+          const startTime = session.startTime || 0;
+          const endTime = session.endTime || visibleEnd; // If no end time, draw to end of visible range
+          
+          let leftPercent = ((startTime - visibleStart) / visibleRange) * 100;
+          let widthPercent = ((endTime - startTime) / visibleRange) * 100;
+          
+          // Clip to visible range
+          if (leftPercent + widthPercent < 0 || leftPercent > 100) return null;
+          leftPercent = Math.max(0, leftPercent);
+          widthPercent = Math.min(100 - leftPercent, widthPercent);
+          
+          return (
+            <InfusionLine
+              key={`rate-infusion-line-${lane.id}-${sessionIndex}`}
+              startTime={startTime}
+              endTime={endTime}
+              isFreeFlow={false}
+              leftPercent={leftPercent}
+              widthPercent={widthPercent}
+              yPosition={childLane.top}
+              swimlaneHeight={childLane.height}
+              testId={`rate-infusion-line-${lane.id}-${sessionIndex}`}
+              onClick={() => {
+                // Open dialog to change rate or stop infusion
+                const rateUnit = session.segments[0]?.rateUnit || 'ml/h';
+                onRateSheetOpen(
+                  { 
+                    swimlaneId: lane.id, 
+                    label: lane.label.trim(), 
+                    clickMode: 'segment',
+                    rateUnit,
+                    defaultDose: lane.defaultDose || undefined
+                  },
+                  session.segments[session.segments.length - 1]?.rate || '0',
+                  currentTime,
+                  session.syringeQuantity
+                );
+              }}
+            />
+          );
+        }).filter(Boolean);
+      })}
+
+      {/* Infusion Lines - Horizontal lines for free-flow infusions */}
+      {activeSwimlanes.flatMap((lane) => {
+        const sessions = freeFlowSessions[lane.id];
+        if (!sessions || sessions.length === 0) return [];
+        
+        const childLane = swimlanePositions.find(pos => pos.id === lane.id);
+        if (!childLane) return [];
+        
+        const visibleStart = currentZoomStart ?? data.startTime;
+        const visibleEnd = currentZoomEnd ?? data.endTime;
+        const visibleRange = visibleEnd - visibleStart;
+        
+        return sessions.map((session, sessionIndex) => {
+          const startTime = session.startTime;
+          const endTime = visibleEnd; // Free-flow always draws to end of visible range
+          
+          let leftPercent = ((startTime - visibleStart) / visibleRange) * 100;
+          let widthPercent = ((endTime - startTime) / visibleRange) * 100;
+          
+          // Clip to visible range
+          if (leftPercent + widthPercent < 0 || leftPercent > 100) return null;
+          leftPercent = Math.max(0, leftPercent);
+          widthPercent = Math.min(100 - leftPercent, widthPercent);
+          
+          return (
+            <InfusionLine
+              key={`freeflow-infusion-line-${lane.id}-${sessionIndex}`}
+              startTime={startTime}
+              endTime={null}
+              isFreeFlow={true}
+              leftPercent={leftPercent}
+              widthPercent={widthPercent}
+              yPosition={childLane.top}
+              swimlaneHeight={childLane.height}
+              testId={`freeflow-infusion-line-${lane.id}-${sessionIndex}`}
+              onClick={() => {
+                // Open dialog to stop free-flow infusion
+                onFreeFlowSheetOpen(
+                  { ...session, clickMode: 'segment' },
+                  session.dose,
+                  currentTime
+                );
               }}
             />
           );
