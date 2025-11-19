@@ -270,8 +270,12 @@ export function UnifiedTimeline({
     mutationFn: saveMedication,
     onSuccess: (data, variables) => {
       console.log('[MEDICATION] Save successful', { data, variables });
-      // Don't invalidate query - we'll manually update local state instead
-      // This prevents the 404 response from clearing our data
+      // Invalidate medication cache to trigger refetch and sync
+      if (anesthesiaRecordId) {
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/anesthesia/medications/${anesthesiaRecordId}`] 
+        });
+      }
     },
     onError: (error) => {
       console.error('[MEDICATION] Save failed', error);
