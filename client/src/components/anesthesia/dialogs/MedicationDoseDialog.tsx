@@ -6,6 +6,7 @@ import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTi
 import { useMutation } from "@tanstack/react-query";
 import { saveMedication } from "@/services/timelinePersistence";
 import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 
 interface PendingMedicationDose {
   swimlaneId: string;
@@ -47,6 +48,12 @@ export function MedicationDoseDialog({
     mutationFn: saveMedication,
     onSuccess: (data, variables) => {
       console.log('[MEDICATION] Save successful', { data, variables });
+      // Invalidate medication cache to trigger refetch and sync
+      if (anesthesiaRecordId) {
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/anesthesia/medications/${anesthesiaRecordId}`] 
+        });
+      }
     },
     onError: (error) => {
       console.error('[MEDICATION] Save failed', error);
