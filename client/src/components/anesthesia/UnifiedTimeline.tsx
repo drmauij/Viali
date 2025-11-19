@@ -1589,18 +1589,19 @@ export function UnifiedTimeline({
 
     // Persist update to database using React Query mutation
     if (type === 'hr' || type === 'spo2') {
-      console.log('[EDIT] Calling updateVitalPointMutation');
+      console.log('[EDIT] Calling updateVitalPointMutation with value:', newValue);
       updateVitalPointMutation.mutate({
         pointId,
-        timestamp,
-        value: updatedVitals,
+        timestamp: timestamp.toISOString(),
+        value: newValue,
       });
     } else if (type === 'sys' || type === 'dia') {
-      console.log('[EDIT] Calling updateBPPointMutation');
+      console.log('[EDIT] Calling updateBPPointMutation with BP values:', { sys: updatedVitals.sysBP, dia: updatedVitals.diaBP });
       updateBPPointMutation.mutate({
         pointId,
-        timestamp,
-        value: updatedVitals,
+        timestamp: timestamp.toISOString(),
+        sys: updatedVitals.sysBP,
+        dia: updatedVitals.diaBP,
       });
     }
 
