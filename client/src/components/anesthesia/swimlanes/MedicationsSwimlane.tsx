@@ -727,7 +727,8 @@ export function MedicationsSwimlane({
                         console.log('[FREE-FLOW-CLICK] Has default dose, creating session:', lane.defaultDose);
                         
                         // Extract group ID and item index from swimlane id
-                        const groupMatch = lane.id.match(/admingroup-([^-]+)-item-(\d+)/);
+                        // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+                        const groupMatch = lane.id.match(/admingroup-([a-f0-9-]+)-item-(\d+)/);
                         if (!groupMatch || !anesthesiaRecordId) {
                           console.log('[FREE-FLOW-CLICK] Failed to match swimlane ID or missing recordId');
                           return;
