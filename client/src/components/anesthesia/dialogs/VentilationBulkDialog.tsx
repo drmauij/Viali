@@ -163,42 +163,30 @@ export function VentilationBulkDialog({
           { key: 'pip', vitalType: 'pip' },
         ];
         
-        // Batch all vital point mutations using direct API calls (to avoid auto-invalidation)
-        const mutations = parameterMappings
-          .map(({ key, vitalType }) => {
-            const valueStr = bulkVentilationParams[key as keyof typeof bulkVentilationParams];
-            console.log(`[VENTILATION-BULK] Processing ${key}:`, { valueStr, vitalType });
-            if (valueStr) {
-              const value = parseFloat(valueStr);
-              if (!isNaN(value)) {
-                console.log(`[VENTILATION-BULK] Sending ${vitalType}:`, { value, timestamp });
-                return apiRequest('POST', `/api/anesthesia/vitals/${anesthesiaRecordId}/point`, {
+        // Save vital points SEQUENTIALLY to avoid race conditions
+        // (parallel writes cause lost updates in JSONB fields)
+        for (const { key, vitalType } of parameterMappings) {
+          const valueStr = bulkVentilationParams[key as keyof typeof bulkVentilationParams];
+          if (valueStr) {
+            const value = parseFloat(valueStr);
+            if (!isNaN(value)) {
+              try {
+                await apiRequest('POST', `/api/anesthesia/vitals/${anesthesiaRecordId}/point`, {
                   vitalType,
                   timestamp,
                   value,
-                }).catch(error => {
-                  console.error(`[VENTILATION-BULK] Failed to save ${vitalType}:`, {
-                    vitalType,
-                    value,
-                    timestamp,
-                    error: error?.message || error
-                  });
-                  return null;
                 });
-              } else {
-                console.log(`[VENTILATION-BULK] Skipping ${key} - NaN value`);
+              } catch (error) {
+                console.error(`[VENTILATION-BULK] Failed to save ${vitalType}:`, {
+                  vitalType,
+                  value,
+                  timestamp,
+                  error: error?.message || error
+                });
               }
-            } else {
-              console.log(`[VENTILATION-BULK] Skipping ${key} - empty value`);
             }
-            return null;
-          })
-          .filter(Boolean);
-        
-        console.log(`[VENTILATION-BULK] Total mutations to execute:`, mutations.length);
-        
-        // Wait for all mutations to complete (ignoring individual failures)
-        await Promise.all(mutations);
+          }
+        }
       }
       
       // Manually invalidate the cache once at the end to prevent flickering
