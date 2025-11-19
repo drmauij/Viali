@@ -445,7 +445,12 @@ export function MedicationsSwimlane({
         if (medicationParentIndex === -1 || collapsedSwimlanes.has("medikamente")) return null;
         
         return activeSwimlanes.map((lane, index) => {
-          const isMedicationChild = !lane.rateUnit && lane.hierarchyLevel !== 'group' && lane.id !== 'medikamente';
+          // Only include actual medication child lanes (must be item hierarchyLevel and belong to medications)
+          const isMedicationChild = 
+            !lane.rateUnit && 
+            lane.hierarchyLevel === 'item' && 
+            lane.id !== 'medikamente' &&
+            index > medicationParentIndex; // Must come after the parent in the swimlane order
           if (!isMedicationChild) return null;
           
           const lanePosition = swimlanePositions.find(l => l.id === lane.id);
