@@ -298,6 +298,14 @@ export function MedicationsSwimlane({
       {activeSwimlanes.flatMap((lane, laneIndex) => {
         const isMedicationChild = !lane.rateUnit;
         
+        console.log('[MED-RENDER] Checking lane for bolus pills:', {
+          laneId: lane.id,
+          isMedicationChild,
+          hasDoseData: !!medicationDoseData[lane.id]?.length,
+          doseData: medicationDoseData[lane.id],
+          allDoseKeys: Object.keys(medicationDoseData)
+        });
+        
         if (!isMedicationChild || !medicationDoseData[lane.id]?.length) return [];
         
         const childLane = swimlanePositions.find(pos => pos.id === lane.id);
