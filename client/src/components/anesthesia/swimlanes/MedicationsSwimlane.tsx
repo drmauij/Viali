@@ -915,6 +915,34 @@ export function MedicationsSwimlane({
                         }, value.toString(), valueTime);
                       } else {
                         // No existing rates: insert default directly for first click and create session
+                        
+                        // Extract group ID and item index from swimlane id
+                        const groupMatch = lane.id.match(/admingroup-([a-f0-9-]+)-item-(\d+)/);
+                        if (!groupMatch || !anesthesiaRecordId) {
+                          console.error('[RATE-INFUSION-CLICK] Failed to match swimlane ID or missing recordId');
+                          return;
+                        }
+                        
+                        const groupId = groupMatch[1];
+                        const itemIndex = parseInt(groupMatch[2], 10);
+                        
+                        // Find all items in this administration group and get the item at index
+                        const groupItems = anesthesiaItems.filter(item => item.administrationGroup === groupId);
+                        const item = groupItems[itemIndex];
+                        if (!item) {
+                          console.error('[RATE-INFUSION-CLICK] Item not found at index', itemIndex);
+                          return;
+                        }
+                        
+                        console.log('[RATE-INFUSION-CLICK] Starting rate-controlled infusion:', {
+                          itemId: item.id,
+                          itemName: item.name,
+                          rate: lane.defaultDose,
+                          rateUnit: lane.rateUnit,
+                          time
+                        });
+                        
+                        // Update local state for immediate feedback
                         setInfusionData(prev => ({
                           ...prev,
                           [lane.id]: [...(prev[lane.id] || []), [time, lane.defaultDose]].sort((a, b) => a[0] - b[0]),
@@ -933,9 +961,22 @@ export function MedicationsSwimlane({
                             label: lane.label.trim(),
                             syringeQuantity: "50ml", // Default
                             segments: [newSegment],
+                            startTime: time,
                             state: 'running',
                           },
                         }));
+                        
+                        // 🔥 FIX: Save to database
+                        createMedicationMutation.mutate({
+                          anesthesiaRecordId,
+                          itemId: item.id,
+                          timestamp: new Date(time),
+                          type: 'infusion_rate_change' as const,
+                          rate: lane.defaultDose,
+                          dose: null,
+                        });
+                        
+                        console.log('[RATE-INFUSION-CLICK] Mutation called!');
                       }
                     }
                   } else {
