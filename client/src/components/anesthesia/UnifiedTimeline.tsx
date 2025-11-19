@@ -4933,13 +4933,11 @@ export function UnifiedTimeline({
         onPositionDialogOpen={(pending) => {
           setPendingPosition(pending);
           setEditingPosition(null);
-          setPositionInput("");
           setShowPositionDialog(true);
         }}
         onPositionEditDialogOpen={(editing) => {
           setEditingPosition(editing);
-          setPositionInput(editing.position);
-          setPositionEditTime(editing.time);
+          setPendingPosition(null);
           setShowPositionDialog(true);
         }}
       />
