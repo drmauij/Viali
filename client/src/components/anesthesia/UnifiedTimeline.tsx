@@ -4673,6 +4673,18 @@ export function UnifiedTimeline({
                       setShowMedicationConfigDialog(true);
                     }
                   }}
+                  onMouseMove={(e) => {
+                    if (isTouchDevice) return;
+                    const adminGroup = administrationGroups.find(g => `admingroup-${g.id}` === lane.id);
+                    if (adminGroup) {
+                      setAdminGroupHoverInfo({
+                        x: e.clientX,
+                        y: e.clientY,
+                        groupName: adminGroup.name,
+                      });
+                    }
+                  }}
+                  onMouseLeave={() => setAdminGroupHoverInfo(null)}
                   className="flex items-center gap-1 flex-1 text-left cursor-pointer"
                   data-testid={`button-configure-${lane.id}`}
                   title="Configure Medications"
