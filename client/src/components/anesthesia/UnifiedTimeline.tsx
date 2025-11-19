@@ -4369,6 +4369,7 @@ export function UnifiedTimeline({
       createOutputMutation={createOutput}
       updateOutputMutation={updateOutput}
       deleteOutputMutation={deleteOutput}
+      saveTimeMarkersMutation={saveTimeMarkersMutation}
       anesthesiaItems={anesthesiaItems}
       administrationGroups={administrationGroups}
       anesthesiaRecordId={anesthesiaRecordId}

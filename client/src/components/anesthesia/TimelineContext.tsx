@@ -161,6 +161,7 @@ export interface TimelineContextValue {
   createOutputMutation: ReturnType<typeof useCreateOutput>;
   updateOutputMutation: ReturnType<typeof useUpdateOutput>;
   deleteOutputMutation: ReturnType<typeof useDeleteOutput>;
+  saveTimeMarkersMutation?: any;
   anesthesiaRecordId?: string;
   patientWeight?: number;
   data: UnifiedTimelineData;
@@ -224,6 +225,7 @@ export interface TimelineContextProviderProps {
   createOutputMutation: ReturnType<typeof useCreateOutput>;
   updateOutputMutation: ReturnType<typeof useUpdateOutput>;
   deleteOutputMutation: ReturnType<typeof useDeleteOutput>;
+  saveTimeMarkersMutation?: any;
   anesthesiaItems: AnesthesiaItem[];
   administrationGroups: AdministrationGroup[];
   anesthesiaRecordId?: string;
@@ -300,6 +302,7 @@ export function TimelineContextProvider({
   createOutputMutation,
   updateOutputMutation,
   deleteOutputMutation,
+  saveTimeMarkersMutation,
   anesthesiaItems,
   administrationGroups,
   anesthesiaRecordId,
@@ -362,6 +365,7 @@ export function TimelineContextProvider({
       createOutputMutation,
       updateOutputMutation,
       deleteOutputMutation,
+      saveTimeMarkersMutation,
       anesthesiaRecordId,
       patientWeight,
       data,
@@ -418,6 +422,7 @@ export function TimelineContextProvider({
       createOutputMutation,
       updateOutputMutation,
       deleteOutputMutation,
+      saveTimeMarkersMutation,
       anesthesiaRecordId,
       patientWeight,
       data,

@@ -42,6 +42,8 @@ export function EventsSwimlane({
     formatTime,
     snapToInterval,
     data,
+    saveTimeMarkersMutation,
+    anesthesiaRecordId,
   } = useTimelineContext();
 
   const { eventComments, timeMarkers } = eventState;
@@ -111,6 +113,15 @@ export function EventsSwimlane({
           time,
         };
         eventState.setTimeMarkers(updatedMarkers);
+        
+        // Save to database
+        if (anesthesiaRecordId && saveTimeMarkersMutation) {
+          console.log('[TIME_MARKERS] Swimlane click - triggering save mutation');
+          saveTimeMarkersMutation.mutate({
+            anesthesiaRecordId,
+            timeMarkers: updatedMarkers,
+          });
+        }
       }
     }
   };
