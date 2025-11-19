@@ -69,12 +69,18 @@ export function VentilationBulkDialog({
       // Use provided weight or default to 70 kg
       const weightToUse = patientWeight || 70;
       const tidalVolumeCalc = Math.round(weightToUse * 6);
+      const respiratoryRateDefault = 12;
+      const minuteVolumeCalc = Math.round((tidalVolumeCalc * respiratoryRateDefault) / 1000 * 10) / 10; // Convert ml to L and round to 1 decimal
+      
       setBulkVentilationParams(prev => ({
         ...prev,
         peep: "5",
         fiO2: "40",
         tidalVolume: tidalVolumeCalc.toString(),
-        respiratoryRate: "12",
+        respiratoryRate: respiratoryRateDefault.toString(),
+        minuteVolume: minuteVolumeCalc.toString(),
+        etCO2: "38",
+        pip: "15",
       }));
     }
   }, [open, patientWeight]);
