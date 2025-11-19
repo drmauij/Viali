@@ -4888,17 +4888,11 @@ export function UnifiedTimeline({
         onStaffDialogOpen={(pending) => {
           setPendingStaff(pending);
           setEditingStaff(null);
-          setStaffInput((() => {
-            const userFirstName = (user as any)?.firstName || "";
-            const userLastName = (user as any)?.lastName || "";
-            return userFirstName && userLastName ? `${userFirstName} ${userLastName}` : userFirstName || userLastName || "";
-          })());
           setShowStaffDialog(true);
         }}
         onStaffEditDialogOpen={(editing) => {
           setEditingStaff(editing);
-          setStaffInput(editing.name);
-          setStaffEditTime(editing.time);
+          setPendingStaff(null);
           setShowStaffDialog(true);
         }}
       />
