@@ -85,7 +85,7 @@ export function VentilationBulkDialog({
     }
   }, [open, patientWeight]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!pendingVentilationBulk) return;
     if (!anesthesiaRecordId) return;
     
@@ -95,40 +95,53 @@ export function VentilationBulkDialog({
     const shouldAddMode = ventilationModeData.length === 0 || 
       ventilationModeData[ventilationModeData.length - 1][1] !== ventilationMode;
     
-    if (shouldAddMode) {
-      createVentilationMode.mutate({
-        anesthesiaRecordId,
-        timestamp,
-        value: ventilationMode,
-      });
-    }
-    
-    const parameterMappings = [
-      { key: 'peep', vitalType: 'peep' },
-      { key: 'fiO2', vitalType: 'fiO2' },
-      { key: 'tidalVolume', vitalType: 'tidalVolume' },
-      { key: 'respiratoryRate', vitalType: 'respiratoryRate' },
-      { key: 'minuteVolume', vitalType: 'minuteVolume' },
-      { key: 'etCO2', vitalType: 'etCO2' },
-      { key: 'pip', vitalType: 'pip' },
-    ];
-    
-    parameterMappings.forEach(({ key, vitalType }) => {
-      const valueStr = bulkVentilationParams[key as keyof typeof bulkVentilationParams];
-      if (valueStr) {
-        const value = parseFloat(valueStr);
-        if (!isNaN(value)) {
-          addVitalPointMutation.mutate({
-            vitalType,
-            timestamp,
-            value,
-          });
-        }
+    try {
+      // Create ventilation mode first if needed
+      if (shouldAddMode) {
+        await createVentilationMode.mutateAsync({
+          anesthesiaRecordId,
+          timestamp,
+          value: ventilationMode,
+        });
       }
-    });
-    
-    onVentilationBulkCreated?.();
-    handleClose();
+      
+      // Collect all valid vital parameters
+      const parameterMappings = [
+        { key: 'peep', vitalType: 'peep' },
+        { key: 'fiO2', vitalType: 'fiO2' },
+        { key: 'tidalVolume', vitalType: 'tidalVolume' },
+        { key: 'respiratoryRate', vitalType: 'respiratoryRate' },
+        { key: 'minuteVolume', vitalType: 'minuteVolume' },
+        { key: 'etCO2', vitalType: 'etCO2' },
+        { key: 'pip', vitalType: 'pip' },
+      ];
+      
+      // Batch all vital point mutations and wait for all to complete
+      const mutations = parameterMappings
+        .map(({ key, vitalType }) => {
+          const valueStr = bulkVentilationParams[key as keyof typeof bulkVentilationParams];
+          if (valueStr) {
+            const value = parseFloat(valueStr);
+            if (!isNaN(value)) {
+              return addVitalPointMutation.mutateAsync({
+                vitalType,
+                timestamp,
+                value,
+              });
+            }
+          }
+          return null;
+        })
+        .filter(Boolean);
+      
+      // Wait for all mutations to complete
+      await Promise.all(mutations);
+      
+      onVentilationBulkCreated?.();
+      handleClose();
+    } catch (error) {
+      console.error('[VENTILATION-BULK] Error saving bulk entry:', error);
+    }
   };
 
   const handleClose = () => {
