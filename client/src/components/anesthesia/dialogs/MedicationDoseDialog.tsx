@@ -162,6 +162,63 @@ export function MedicationDoseDialog({
     setMedicationDoseInput("");
   };
 
+  const handleQuickSelect = async (value: string) => {
+    const trimmedValue = value.trim();
+    
+    if (!pendingMedicationDose || !anesthesiaRecordId) {
+      return;
+    }
+    
+    const { swimlaneId, time, label } = pendingMedicationDose;
+    
+    // Extract itemId from swimlaneId
+    const itemIdMatch = swimlaneId.match(/item-(\d+)$/);
+    if (!itemIdMatch) {
+      toast({
+        title: "Error",
+        description: "Could not identify medication",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const itemIndex = parseInt(itemIdMatch[1]);
+    const item = anesthesiaItems?.[itemIndex];
+    if (!item?.id) {
+      toast({
+        title: "Error",
+        description: "Could not identify medication",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const itemId = item.id;
+    
+    // Save immediately
+    try {
+      await saveMedicationMutation.mutateAsync({
+        anesthesiaRecordId,
+        itemId,
+        timestamp: new Date(time),
+        type: "bolus",
+        dose: trimmedValue,
+      });
+      
+      onLocalStateUpdate?.(swimlaneId, time, trimmedValue);
+      
+      toast({
+        title: "Dose saved",
+        description: `${label}: ${trimmedValue}`,
+      });
+
+      onMedicationDoseCreated?.();
+      handleClose();
+    } catch (error) {
+      console.error('[QUICK-SELECT] Mutation error:', error);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={(open) => {
       console.log('[DIALOG] Medication dose dialog open changed:', open);
@@ -190,7 +247,7 @@ export function MedicationDoseDialog({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setMedicationDoseInput(value.trim())}
+                    onClick={() => handleQuickSelect(value)}
                     data-testid={`button-quick-select-${value.trim()}`}
                     className="min-w-[60px]"
                   >
