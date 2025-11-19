@@ -176,7 +176,7 @@ export function VentilationBulkDialog({
       
       // Manually invalidate the cache once at the end to prevent flickering
       await queryClient.invalidateQueries({ 
-        queryKey: ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId] 
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`] 
       });
       
       onVentilationBulkCreated?.();
