@@ -270,7 +270,29 @@ export function UnifiedTimeline({
     mutationFn: saveMedication,
     onSuccess: (data, variables) => {
       console.log('[MEDICATION] Save successful', { data, variables });
-      // Invalidate medication cache to trigger refetch and sync
+      
+      // 🔥 FIX: Immediately update local state (don't wait for useEffect)
+      // This makes infusions work like boluses
+      if (variables.type === 'infusion_start' && variables.rate === 'free') {
+        // Find the item and its swimlane
+        const item = anesthesiaItems.find(i => i.id === variables.itemId);
+        if (item && item.administrationGroup) {
+          const swimlaneId = `admingroup-${item.administrationGroup}-item-${item.id}`;
+          const newSession = {
+            swimlaneId,
+            startTime: new Date(variables.timestamp).getTime(),
+            dose: variables.dose,
+            label: item.name,
+          };
+          console.log('[MEDICATION] Adding free-flow session to local state:', newSession);
+          setFreeFlowSessions(prev => ({
+            ...prev,
+            [swimlaneId]: [...(prev[swimlaneId] || []), newSession]
+          }));
+        }
+      }
+      
+      // Still invalidate cache for consistency (but don't rely on useEffect)
       if (anesthesiaRecordId) {
         queryClient.invalidateQueries({ 
           queryKey: [`/api/anesthesia/medications/${anesthesiaRecordId}`] 
