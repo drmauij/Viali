@@ -553,33 +553,17 @@ export function UnifiedTimeline({
   // Each add/edit/delete operation triggers its own optimistic mutation with React Query
   // This eliminates the O(n²) snapshot aggregation that was blocking UI for 700-900ms
 
-  // Track last synced record ID for medications
-  const lastSyncedMedicationRecordRef = useRef<string | undefined>(undefined);
-  
-  // Auto-load medications from API data ONLY when:
-  // 1. First mount (lastSyncedMedicationRecordRef.current === undefined)
-  // 2. Switching to a different record (anesthesiaRecordId changed)
+  // Auto-load medications from API data - React Query is the single source of truth
+  // Always sync when data.medications changes (after mutations, cache invalidation, or record switch)
   useEffect(() => {
     // Skip if items not loaded yet
     if (!anesthesiaItems || anesthesiaItems.length === 0) return;
+    if (!data.medications) return;
     
-    // Check if we should sync (first mount OR different record)
-    const shouldSync = lastSyncedMedicationRecordRef.current === undefined || lastSyncedMedicationRecordRef.current !== anesthesiaRecordId;
-    
-    if (!shouldSync) {
-      console.log('[MED-SYNC] Skipping sync - already loaded this record', { recordId: anesthesiaRecordId });
-      return;
-    }
-    
-    console.log('[MED-SYNC] Syncing medications from API', { 
-      hasMedications: !!data.medications,
-      medicationCount: data.medications?.length,
-      recordId: anesthesiaRecordId,
-      isFirstMount: lastSyncedMedicationRecordRef.current === undefined
+    console.log('[MED-SYNC] Syncing medications from React Query to local state', { 
+      medicationCount: data.medications.length,
+      recordId: anesthesiaRecordId
     });
-    
-    // Update the ref to track this record as synced
-    lastSyncedMedicationRecordRef.current = anesthesiaRecordId;
     
     // Build item-to-swimlane mapping
     const itemToSwimlane = buildItemToSwimlaneMap(anesthesiaItems, administrationGroups);
