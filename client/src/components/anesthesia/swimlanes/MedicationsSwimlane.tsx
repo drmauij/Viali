@@ -199,13 +199,13 @@ const BolusPill = ({
         <div
           style={{
             width: '2px',
-            height: '8px',
+            height: '12px',
             backgroundColor: '#000000',
           }}
         />
         {/* Dose number beside the tick */}
         <span 
-          className="text-sm font-semibold ml-1"
+          className="text-base font-semibold ml-1"
           style={{ color: '#000000' }}
         >
           {dose}
