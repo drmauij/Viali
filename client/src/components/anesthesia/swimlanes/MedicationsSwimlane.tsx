@@ -203,7 +203,7 @@ export interface MedicationsSwimlaneProps {
   }>;
   isTouchDevice: boolean;
   onMedicationDoseDialogOpen: (pending: { swimlaneId: string; time: number; label: string }) => void;
-  onMedicationEditDialogOpen: (editing: { swimlaneId: string; time: number; dose: string; index: number; id?: string }) => void;
+  onMedicationEditDialogOpen: (editing: { swimlaneId: string; time: number; dose: string; index: number; id: string }) => void;
   onInfusionDialogOpen: (pending: { swimlaneId: string; time: number; label: string }) => void;
   onFreeFlowDoseDialogOpen: (pending: { swimlaneId: string; time: number; label: string }) => void;
   onFreeFlowSheetOpen: (session: FreeFlowSession & { clickMode?: 'label' | 'segment' }, doseInput: string, timeInput: number) => void;
