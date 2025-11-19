@@ -5934,6 +5934,13 @@ function EditValueForm({
     onSave(numValue);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSave();
+    }
+  };
+
   return (
     <div className="grid gap-4 py-4">
       <div className="grid gap-2">
@@ -5943,7 +5950,9 @@ function EditValueForm({
           type="number"
           value={value}
           onChange={(e) => setValue(e.target.value)}
+          onKeyDown={handleKeyDown}
           data-testid="input-edit-value"
+          autoFocus
         />
       </div>
       <div className="flex justify-between gap-2">
