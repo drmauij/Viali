@@ -4661,6 +4661,26 @@ export function UnifiedTimeline({
                     {lane.label}
                   </span>
                 </button>
+              ) : swimlaneConfig?.hierarchyLevel === 'group' ? (
+                // For administration group headers, make entire label area clickable to configure medications
+                <button
+                  onClick={() => {
+                    // Find the corresponding admin group by matching lane ID format: admingroup-${group.id}
+                    const adminGroup = administrationGroups.find(g => `admingroup-${g.id}` === lane.id);
+                    if (adminGroup) {
+                      setSelectedAdminGroupForConfig(adminGroup);
+                      setEditingItemForConfig(null);
+                      setShowMedicationConfigDialog(true);
+                    }
+                  }}
+                  className="flex items-center gap-1 flex-1 text-left hover:bg-blue-500/10 transition-colors rounded px-1 -mx-1"
+                  data-testid={`button-configure-${lane.id}`}
+                  title="Configure Medications"
+                >
+                  <span className={`${labelClass} text-black dark:text-white`}>
+                    {lane.label}
+                  </span>
+                </button>
               ) : (
                 <div className="flex items-center gap-1 flex-1">
                   {isCollapsibleParent && (
