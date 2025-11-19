@@ -4428,9 +4428,9 @@ export function UnifiedTimeline({
       </div>
 
       {/* Left sidebar */}
-      <div className="absolute left-0 top-0 w-[200px] h-full border-r border-border z-30 bg-background">
+      <div className="absolute left-0 top-0 w-[200px] h-full border-r border-border z-30 bg-background pointer-events-none">
         {/* Y-axis scales - manually rendered on right side of white area */}
-        <div className="absolute top-[32px] h-[380px] w-full pointer-events-none z-50">
+        <div className="absolute top-[32px] h-[380px] w-full z-50">
           {/* First scale: 20-220 with 20-unit steps (11 values) - close to grid, grid extends 0 to 240 for top and bottom padding */}
           {[20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220].map((val) => {
             const yPercent = ((240 - val) / 240) * 100;
@@ -4620,7 +4620,7 @@ export function UnifiedTimeline({
                 // For Times swimlane, make entire label area clickable
                 <button
                   onClick={() => setBulkEditDialogOpen(true)}
-                  className="flex items-center justify-between gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1"
+                  className="flex items-center justify-between gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1 pointer-events-auto"
                   data-testid="button-edit-anesthesia-times"
                   title="Edit Anesthesia Times"
                 >
@@ -4636,7 +4636,7 @@ export function UnifiedTimeline({
                     setPendingEvent({ time: currentTime });
                     setShowEventDialog(true);
                   }}
-                  className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1"
+                  className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1 pointer-events-auto"
                   data-testid="button-add-event"
                   title="Add Event"
                 >
@@ -4648,7 +4648,7 @@ export function UnifiedTimeline({
                 // For collapsible parent swimlanes, make entire label area clickable to toggle
                 <button
                   onClick={() => toggleSwimlane(lane.id)}
-                  className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1"
+                  className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1 pointer-events-auto"
                   data-testid={`button-toggle-${lane.id}`}
                   title={collapsedSwimlanes.has(lane.id) ? "Expand" : "Collapse"}
                 >
@@ -4685,7 +4685,7 @@ export function UnifiedTimeline({
                     }
                   }}
                   onMouseLeave={() => setAdminGroupHoverInfo(null)}
-                  className="flex items-center gap-1 flex-1 text-left cursor-pointer"
+                  className="flex items-center gap-1 flex-1 text-left cursor-pointer pointer-events-auto"
                   data-testid={`button-configure-${lane.id}`}
                   title="Configure Medications"
                 >
@@ -4698,7 +4698,7 @@ export function UnifiedTimeline({
                   {isCollapsibleParent && (
                     <button
                       onClick={() => toggleSwimlane(lane.id)}
-                      className="p-0.5 rounded hover:bg-background/50 transition-colors group"
+                      className="p-0.5 rounded hover:bg-background/50 transition-colors group pointer-events-auto"
                       data-testid={`button-toggle-${lane.id}`}
                       title={collapsedSwimlanes.has(lane.id) ? "Expand" : "Collapse"}
                     >
