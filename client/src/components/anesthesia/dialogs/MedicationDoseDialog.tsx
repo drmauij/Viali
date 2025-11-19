@@ -189,7 +189,7 @@ export function MedicationDoseDialog({
                   handleSave();
                 }
               }}
-              placeholder="e.g., 5mg, 100mg, 2ml"
+              placeholder="e.g., 5, 100, 2"
               autoFocus
             />
           </div>
