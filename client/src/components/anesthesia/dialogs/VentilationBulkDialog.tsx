@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
 import { useCreateVentilationMode } from "@/hooks/useVentilationModeQuery";
-import { useAddVitalPoint } from "@/hooks/useVitalsQuery";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 
 interface PendingVentilationBulk {
   time: number;
@@ -54,7 +54,6 @@ export function VentilationBulkDialog({
   });
 
   const createVentilationMode = useCreateVentilationMode(anesthesiaRecordId || undefined);
-  const addVitalPointMutation = useAddVitalPoint(anesthesiaRecordId || undefined);
 
   useEffect(() => {
     if (!open) {
@@ -110,15 +109,19 @@ export function VentilationBulkDialog({
           value: spontaneousModeValue,
         });
         
-        // Only save etCO2 if provided
+        // Only save etCO2 if provided (direct API call to avoid auto-invalidation)
         if (bulkVentilationParams.etCO2) {
           const etCO2Value = parseFloat(bulkVentilationParams.etCO2);
           if (!isNaN(etCO2Value)) {
-            await addVitalPointMutation.mutateAsync({
-              vitalType: 'etCO2',
-              timestamp,
-              value: etCO2Value,
-            });
+            try {
+              await apiRequest('POST', `/api/anesthesia/vitals/${anesthesiaRecordId}/point`, {
+                vitalType: 'etCO2',
+                timestamp,
+                value: etCO2Value,
+              });
+            } catch (error) {
+              console.error('[VENTILATION-BULK] Failed to save etCO2:', error);
+            }
           }
         }
       } else {
@@ -146,14 +149,14 @@ export function VentilationBulkDialog({
           { key: 'pip', vitalType: 'pip' },
         ];
         
-        // Batch all vital point mutations and wait for all to complete
+        // Batch all vital point mutations using direct API calls (to avoid auto-invalidation)
         const mutations = parameterMappings
           .map(({ key, vitalType }) => {
             const valueStr = bulkVentilationParams[key as keyof typeof bulkVentilationParams];
             if (valueStr) {
               const value = parseFloat(valueStr);
               if (!isNaN(value)) {
-                return addVitalPointMutation.mutateAsync({
+                return apiRequest('POST', `/api/anesthesia/vitals/${anesthesiaRecordId}/point`, {
                   vitalType,
                   timestamp,
                   value,
@@ -170,6 +173,11 @@ export function VentilationBulkDialog({
         // Wait for all mutations to complete (ignoring individual failures)
         await Promise.all(mutations);
       }
+      
+      // Manually invalidate the cache once at the end to prevent flickering
+      await queryClient.invalidateQueries({ 
+        queryKey: ['/api/anesthesia/vitals/snapshot', anesthesiaRecordId] 
+      });
       
       onVentilationBulkCreated?.();
       handleClose();
@@ -192,22 +200,6 @@ export function VentilationBulkDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-          {/* Spontaneous Breathing Checkbox */}
-          <div className="flex items-center space-x-2">
-            <Checkbox 
-              id="spontaneous-breathing" 
-              checked={isSpontaneousBreathing}
-              onCheckedChange={(checked) => setIsSpontaneousBreathing(checked === true)}
-              data-testid="checkbox-spontaneous-breathing"
-            />
-            <Label 
-              htmlFor="spontaneous-breathing" 
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-            >
-              Spontaneous Breathing
-            </Label>
-          </div>
-
           {isSpontaneousBreathing ? (
             // Spontaneous breathing mode - only show O2 flow and etCO2
             <div className="grid grid-cols-2 gap-3">
@@ -338,6 +330,22 @@ export function VentilationBulkDialog({
           </div>
             </>
           )}
+
+          {/* Spontaneous Breathing Checkbox - at the end */}
+          <div className="flex items-center space-x-2 pt-4 border-t">
+            <Checkbox 
+              id="spontaneous-breathing" 
+              checked={isSpontaneousBreathing}
+              onCheckedChange={(checked) => setIsSpontaneousBreathing(checked === true)}
+              data-testid="checkbox-spontaneous-breathing"
+            />
+            <Label 
+              htmlFor="spontaneous-breathing" 
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+            >
+              Spontaneous Breathing
+            </Label>
+          </div>
         </div>
         <DialogFooterWithTime
           time={pendingVentilationBulk?.time}
