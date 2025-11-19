@@ -148,7 +148,37 @@ export function PositionDialog({
                   variant={positionInput === pos.key ? 'default' : 'outline'}
                   className="justify-start h-12 text-left"
                   onClick={() => {
-                    setPositionInput(pos.key);
+                    if (!anesthesiaRecordId) return;
+                    
+                    if (editingPosition) {
+                      updatePosition.mutate(
+                        {
+                          id: editingPosition.id,
+                          timestamp: new Date(positionEditTime),
+                          position: pos.key,
+                        },
+                        {
+                          onSuccess: () => {
+                            onPositionUpdated?.();
+                            handleClose();
+                          },
+                        }
+                      );
+                    } else if (pendingPosition) {
+                      createPosition.mutate(
+                        {
+                          anesthesiaRecordId,
+                          timestamp: new Date(pendingPosition.time),
+                          position: pos.key,
+                        },
+                        {
+                          onSuccess: () => {
+                            onPositionCreated?.();
+                            handleClose();
+                          },
+                        }
+                      );
+                    }
                   }}
                   data-testid={`button-position-${pos.key.toLowerCase().replace(/\s+/g, '-').replace(/\//g, '-')}`}
                 >
