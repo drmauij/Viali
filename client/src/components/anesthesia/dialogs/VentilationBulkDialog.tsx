@@ -5,7 +5,6 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
-import { useCreateVentilationMode } from "@/hooks/useVentilationModeQuery";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
 interface PendingVentilationBulk {
@@ -43,6 +42,7 @@ export function VentilationBulkDialog({
   const [ventilationMode, setVentilationMode] = useState("PCV - druckkontrolliert");
   const [isSpontaneousBreathing, setIsSpontaneousBreathing] = useState(false);
   const [oxygenFlowRate, setOxygenFlowRate] = useState("");
+  const [dialogTime, setDialogTime] = useState<number>(Date.now());
   const [bulkVentilationParams, setBulkVentilationParams] = useState({
     peep: "",
     fiO2: "",
@@ -52,8 +52,6 @@ export function VentilationBulkDialog({
     etCO2: "",
     pip: "",
   });
-
-  const createVentilationMode = useCreateVentilationMode(anesthesiaRecordId || undefined);
 
   useEffect(() => {
     if (!open) {
@@ -70,6 +68,11 @@ export function VentilationBulkDialog({
         pip: "",
       });
     } else {
+      // Initialize time from pending data
+      if (pendingVentilationBulk) {
+        setDialogTime(pendingVentilationBulk.time);
+      }
+      
       // Use provided weight or default to 70 kg
       const weightToUse = patientWeight || 70;
       const tidalVolumeCalc = Math.round(weightToUse * 6);
@@ -87,14 +90,12 @@ export function VentilationBulkDialog({
         pip: "15",
       }));
     }
-  }, [open, patientWeight]);
+  }, [open, patientWeight, pendingVentilationBulk]);
 
   const handleSave = async () => {
-    if (!pendingVentilationBulk) return;
     if (!anesthesiaRecordId) return;
     
-    const { time } = pendingVentilationBulk;
-    const timestamp = new Date(time).toISOString();
+    const timestamp = new Date(dialogTime).toISOString();
     
     try {
       if (isSpontaneousBreathing) {
@@ -103,7 +104,8 @@ export function VentilationBulkDialog({
           ? `Spontaneous: ${oxygenFlowRate} l/min O₂` 
           : "Spontaneous Breathing";
         
-        await createVentilationMode.mutateAsync({
+        // Use direct API call to avoid auto-invalidation
+        await apiRequest('POST', '/api/anesthesia/ventilation-modes', {
           anesthesiaRecordId,
           timestamp,
           value: spontaneousModeValue,
@@ -133,9 +135,9 @@ export function VentilationBulkDialog({
         const shouldAddMode = ventilationModeData.length === 0 || 
           ventilationModeData[ventilationModeData.length - 1][1] !== ventilationMode;
         
-        // Create ventilation mode first if needed
+        // Create ventilation mode first if needed (use direct API call to avoid auto-invalidation)
         if (shouldAddMode) {
-          await createVentilationMode.mutateAsync({
+          await apiRequest('POST', '/api/anesthesia/ventilation-modes', {
             anesthesiaRecordId,
             timestamp,
             value: ventilationMode,
@@ -357,10 +359,8 @@ export function VentilationBulkDialog({
           </div>
         </div>
         <DialogFooterWithTime
-          time={pendingVentilationBulk?.time}
-          onTimeChange={(newTime) => {
-            // This is a controlled component update - parent should handle this
-          }}
+          time={dialogTime}
+          onTimeChange={setDialogTime}
           showDelete={false}
           onCancel={handleClose}
           onSave={handleSave}
