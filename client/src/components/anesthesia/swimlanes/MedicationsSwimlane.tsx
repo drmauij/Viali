@@ -141,6 +141,7 @@ type BolusPillProps = {
   onClick: () => void;
   leftPercent: number;
   yPosition: number;
+  swimlaneHeight: number;
   isDark: boolean;
   testId: string;
   formatTime: (time: number) => string;
@@ -155,6 +156,7 @@ const BolusPill = ({
   onClick,
   leftPercent,
   yPosition,
+  swimlaneHeight,
   isDark,
   testId,
   formatTime,
@@ -166,11 +168,11 @@ const BolusPill = ({
   return (
     <>
       <div
-        className="absolute flex items-center cursor-pointer hover:scale-110 transition-transform"
+        className="absolute flex items-end cursor-pointer hover:scale-110 transition-transform"
         style={{
           left: `calc(200px + ((100% - 210px) * ${leftPercent} / 100))`,
           top: `${yPosition}px`,
-          height: '32px',
+          height: `${swimlaneHeight}px`,
           zIndex: 40,
         }}
         onClick={(e) => {
@@ -197,7 +199,7 @@ const BolusPill = ({
         <div
           style={{
             width: '2px',
-            height: '16px',
+            height: '8px',
             backgroundColor: '#000000',
           }}
         />
@@ -378,7 +380,7 @@ export function MedicationsSwimlane({
           leftPercent = Math.max(5, Math.min(95, leftPercent));
           
           const isBeforeNow = timestamp < currentTime;
-          const yPosition = childLane.top + (childLane.height / 2) - 16; // Center pill vertically
+          const yPosition = childLane.top; // Start from top of swimlane, tick will attach to bottom
           
           return (
             <BolusPill
@@ -389,6 +391,7 @@ export function MedicationsSwimlane({
               isBeforeNow={isBeforeNow}
               leftPercent={leftPercent}
               yPosition={yPosition}
+              swimlaneHeight={childLane.height}
               isDark={isDark}
               testId={`bolus-pill-${lane.id}-${index}`}
               formatTime={formatTime}
