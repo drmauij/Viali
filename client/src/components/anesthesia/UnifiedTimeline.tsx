@@ -3660,12 +3660,13 @@ export function UnifiedTimeline({
   };
 
   // Handle sheet start new (hang a new bag)
-  const handleSheetStartNew = () => {
+  const handleSheetStartNew = async () => {
     if (!freeFlowSheetSession) return;
     
     const { swimlaneId, label } = freeFlowSheetSession;
     const newDose = sheetDoseInput.trim() || freeFlowSheetSession.dose;
-    const newStartTime = currentTime;
+    // 🔥 FIX: Use sheetTimeInput (clicked time) instead of currentTime
+    const newStartTime = sheetTimeInput || currentTime;
     
     if (!newDose) {
       toast({
@@ -3676,15 +3677,18 @@ export function UnifiedTimeline({
       return;
     }
     
-    // Stop any active sessions
-    setFreeFlowSessions(prev => {
-      return {
-        ...prev,
-        [swimlaneId]: [],
-      };
-    });
+    // Get item ID from swimlane
+    const item = anesthesiaItems.find(i => `admingroup-${i.administrationGroup}-item-${i.sortOrder}` === swimlaneId);
+    if (!item) {
+      toast({
+        title: "Error",
+        description: "Could not find medication item",
+        variant: "destructive",
+      });
+      return;
+    }
     
-    // Create new session at current time with new dose
+    // 🔥 FIX: Update local state optimistically
     const newSession: FreeFlowSession = {
       swimlaneId,
       startTime: newStartTime,
@@ -3700,20 +3704,44 @@ export function UnifiedTimeline({
       };
     });
     
-    // Add stop marker at current time, then immediately start new segment with new dose
     setInfusionData(prev => {
       const existingData = prev[swimlaneId] || [];
-      const withStop = [...existingData, [newStartTime, ""] as [number, string]];
       return {
         ...prev,
-        [swimlaneId]: [...withStop, [newStartTime, newDose] as [number, string]].sort((a, b) => a[0] - b[0]),
+        [swimlaneId]: [...existingData, [newStartTime, newDose] as [number, string]].sort((a, b) => a[0] - b[0]),
       };
     });
     
-    toast({
-      title: "New bag started",
-      description: `${label} - new bag with ${newDose}ml started`,
+    // 🔥 FIX: Save to database using mutation
+    console.log('[SHEET-START-NEW] Saving to database:', {
+      anesthesiaRecordId,
+      itemId: item.id,
+      timestamp: new Date(newStartTime),
+      dose: newDose,
     });
+    
+    try {
+      await createMedicationMutation.mutateAsync({
+        anesthesiaRecordId,
+        itemId: item.id,
+        timestamp: new Date(newStartTime),
+        type: 'infusion_start' as const,
+        rate: 'free',
+        dose: newDose,
+      });
+      
+      toast({
+        title: "New bag started",
+        description: `${label} - new bag with ${newDose}ml started`,
+      });
+    } catch (error) {
+      console.error('[SHEET-START-NEW] Failed to save:', error);
+      toast({
+        title: "Error saving infusion",
+        description: error instanceof Error ? error.message : "Failed to save",
+        variant: "destructive",
+      });
+    }
     
     // Close sheet
     setShowFreeFlowSheet(false);
