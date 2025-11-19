@@ -97,7 +97,7 @@ const BolusPill = ({
   return (
     <>
       <div
-        className="absolute flex flex-col justify-center cursor-pointer hover:scale-110 transition-transform"
+        className="absolute flex flex-col cursor-pointer hover:scale-110 transition-transform"
         style={{
           left: `calc(200px + ((100% - 210px) * ${leftPercent} / 100))`,
           top: `${yPosition}px`,
@@ -124,10 +124,14 @@ const BolusPill = ({
         }}
         data-testid={testId}
       >
-        {/* Dose number in the middle */}
+        {/* Dose number positioned absolutely in vertical center */}
         <span 
-          className="text-base font-semibold leading-none"
-          style={{ color: '#000000' }}
+          className="absolute text-base font-semibold leading-none"
+          style={{ 
+            color: '#000000',
+            top: '50%',
+            transform: 'translateY(-50%)'
+          }}
         >
           {dose}
         </span>
