@@ -5025,7 +5025,7 @@ export function UnifiedTimeline({
               width: '200px',
               top: `${lanePosition.top}px`,
               height: `${lanePosition.height}px`,
-              zIndex: 30,
+              zIndex: 35,
             }}
             onClick={() => {
               // Open medication config dialog for editing this item
