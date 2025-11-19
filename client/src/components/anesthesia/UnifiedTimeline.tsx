@@ -557,16 +557,28 @@ export function UnifiedTimeline({
   // Each add/edit/delete operation triggers its own optimistic mutation with React Query
   // This eliminates the O(n²) snapshot aggregation that was blocking UI for 700-900ms
 
+  console.log('📍 [MED-SYNC-SETUP] About to define medication sync useEffect', {
+    componentRendering: true,
+    hasData: !!data,
+    hasMedications: !!data?.medications,
+    medicationsValue: data?.medications,
+    hasAnesthesiaItems: !!anesthesiaItems,
+    anesthesiaItemsValue: anesthesiaItems
+  });
+
   // Auto-load medications from API data - React Query is the single source of truth
   // Always sync when data.medications changes (after mutations, cache invalidation, or record switch)
   useEffect(() => {
-    console.log('[MED-SYNC-DEBUG] useEffect triggered', {
+    console.log('🔥🔥🔥 [MED-SYNC-EFFECT-FIRED] useEffect executed', {
       hasAnesthesiaItems: !!anesthesiaItems,
       anesthesiaItemsLength: anesthesiaItems?.length || 0,
       hasMedications: !!data.medications,
       medicationsIsArray: Array.isArray(data.medications),
       medicationsLength: data.medications?.length || 0,
-      recordId: anesthesiaRecordId
+      hasAdminGroups: !!administrationGroups,
+      adminGroupsLength: administrationGroups?.length || 0,
+      recordId: anesthesiaRecordId,
+      hasResetFn: !!resetMedicationData
     });
     
     // Skip if items not loaded yet
