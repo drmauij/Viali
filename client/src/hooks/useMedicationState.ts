@@ -118,10 +118,20 @@ export function useMedicationState(initialData?: {
     rateSessions?: RateInfusionSessions;
     freeFlowSessions?: FreeFlowSessions;
   }) => {
+    console.log('[MED-STATE] resetMedicationData called with:', {
+      dosesUndefined: data.doses === undefined,
+      infusionsUndefined: data.infusions === undefined,
+      rateSessionsUndefined: data.rateSessions === undefined,
+      freeFlowSessionsUndefined: data.freeFlowSessions === undefined,
+      freeFlowSessionsData: data.freeFlowSessions
+    });
     if (data.doses !== undefined) setMedicationDoseData(data.doses);
     if (data.infusions !== undefined) setInfusionData(data.infusions);
     if (data.rateSessions !== undefined) setRateInfusionSessions(data.rateSessions);
-    if (data.freeFlowSessions !== undefined) setFreeFlowSessions(data.freeFlowSessions);
+    if (data.freeFlowSessions !== undefined) {
+      console.log('[MED-STATE] Setting freeFlowSessions to:', data.freeFlowSessions);
+      setFreeFlowSessions(data.freeFlowSessions);
+    }
   }, []);
 
   return {

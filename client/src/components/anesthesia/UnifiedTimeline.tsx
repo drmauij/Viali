@@ -594,6 +594,12 @@ export function UnifiedTimeline({
     const freeFlowSessionsData = transformFreeFlowInfusions(data.medications || [], itemToSwimlane, anesthesiaItems);
     
     // Reset medication data using hook
+    console.log('[MED-SYNC] Calling resetMedicationData with:', {
+      dosesCount: Object.keys(doses).length,
+      rateSessionsCount: Object.keys(rateSessions).length,
+      freeFlowSessionsCount: Object.keys(freeFlowSessionsData).length,
+      freeFlowSessions: freeFlowSessionsData
+    });
     resetMedicationData({
       doses,
       rateSessions,
