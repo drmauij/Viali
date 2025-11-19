@@ -6240,7 +6240,16 @@ If unable to parse any drugs, return:
         return res.status(403).json({ message: "Access denied" });
       }
 
-      const updatedMedication = await storage.updateAnesthesiaMedication(id, req.body, userId);
+      // Convert timestamp strings to Date objects for Drizzle
+      const updates = { ...req.body };
+      if (updates.timestamp && typeof updates.timestamp === 'string') {
+        updates.timestamp = new Date(updates.timestamp);
+      }
+      if (updates.endTimestamp && typeof updates.endTimestamp === 'string') {
+        updates.endTimestamp = new Date(updates.endTimestamp);
+      }
+
+      const updatedMedication = await storage.updateAnesthesiaMedication(id, updates, userId);
       
       res.json(updatedMedication);
     } catch (error) {
