@@ -97,6 +97,14 @@ export function VentilationBulkDialog({
     
     const timestamp = new Date(dialogTime).toISOString();
     
+    console.log('[VENTILATION-BULK] Current state:', {
+      isSpontaneousBreathing,
+      oxygenFlowRate,
+      bulkVentilationParams,
+      ventilationMode,
+      timestamp,
+    });
+    
     try {
       if (isSpontaneousBreathing) {
         // For spontaneous breathing, save mode with O2 flow rate
@@ -159,9 +167,11 @@ export function VentilationBulkDialog({
         const mutations = parameterMappings
           .map(({ key, vitalType }) => {
             const valueStr = bulkVentilationParams[key as keyof typeof bulkVentilationParams];
+            console.log(`[VENTILATION-BULK] Processing ${key}:`, { valueStr, vitalType });
             if (valueStr) {
               const value = parseFloat(valueStr);
               if (!isNaN(value)) {
+                console.log(`[VENTILATION-BULK] Sending ${vitalType}:`, { value, timestamp });
                 return apiRequest('POST', `/api/anesthesia/vitals/${anesthesiaRecordId}/point`, {
                   vitalType,
                   timestamp,
@@ -175,11 +185,17 @@ export function VentilationBulkDialog({
                   });
                   return null;
                 });
+              } else {
+                console.log(`[VENTILATION-BULK] Skipping ${key} - NaN value`);
               }
+            } else {
+              console.log(`[VENTILATION-BULK] Skipping ${key} - empty value`);
             }
             return null;
           })
           .filter(Boolean);
+        
+        console.log(`[VENTILATION-BULK] Total mutations to execute:`, mutations.length);
         
         // Wait for all mutations to complete (ignoring individual failures)
         await Promise.all(mutations);
