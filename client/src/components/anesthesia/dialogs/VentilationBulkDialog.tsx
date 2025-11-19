@@ -157,6 +157,9 @@ export function VentilationBulkDialog({
                   vitalType,
                   timestamp,
                   value,
+                }).catch(error => {
+                  console.error(`[VENTILATION-BULK] Failed to save ${vitalType}:`, error);
+                  return null;
                 });
               }
             }
@@ -164,7 +167,7 @@ export function VentilationBulkDialog({
           })
           .filter(Boolean);
         
-        // Wait for all mutations to complete
+        // Wait for all mutations to complete (ignoring individual failures)
         await Promise.all(mutations);
       }
       

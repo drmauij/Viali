@@ -4840,8 +4840,6 @@ export function UnifiedTimeline({
         }}
         onVentilationEditDialogOpen={(editing) => {
           setEditingVentilationValue(editing);
-          setVentilationEditInput(editing.value);
-          setVentilationEditTime(editing.time);
           setShowVentilationEditDialog(true);
         }}
         onVentilationModeEditDialogOpen={(editing) => {
