@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
 import { useMutation } from "@tanstack/react-query";
 import { saveMedication } from "@/services/timelinePersistence";
@@ -12,6 +13,7 @@ interface PendingMedicationDose {
   swimlaneId: string;
   time: number;
   label: string;
+  defaultDose?: string | null;
 }
 
 interface AnesthesiaItem {
@@ -177,8 +179,30 @@ export function MedicationDoseDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
+          {/* Quick-select buttons for range default doses */}
+          {pendingMedicationDose?.defaultDose?.includes('-') && (
+            <div className="grid gap-2">
+              <Label>Quick Select</Label>
+              <div className="flex gap-2 flex-wrap">
+                {pendingMedicationDose.defaultDose.split('-').map((value) => (
+                  <Button
+                    key={value}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setMedicationDoseInput(value.trim())}
+                    data-testid={`button-quick-select-${value.trim()}`}
+                    className="min-w-[60px]"
+                  >
+                    {value.trim()}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+          
           <div className="grid gap-2">
-            <Label htmlFor="dose-value">Dose</Label>
+            <Label htmlFor="dose-value">Dose {pendingMedicationDose?.defaultDose?.includes('-') ? '(or enter custom)' : ''}</Label>
             <Input
               id="dose-value"
               data-testid="input-dose-value"

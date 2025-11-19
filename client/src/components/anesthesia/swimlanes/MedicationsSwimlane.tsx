@@ -250,7 +250,7 @@ export interface MedicationsSwimlaneProps {
     colorDark: string;
   }>;
   isTouchDevice: boolean;
-  onMedicationDoseDialogOpen: (pending: { swimlaneId: string; time: number; label: string }) => void;
+  onMedicationDoseDialogOpen: (pending: { swimlaneId: string; time: number; label: string; defaultDose?: string | null }) => void;
   onMedicationEditDialogOpen: (editing: { swimlaneId: string; time: number; dose: string; index: number; id: string }) => void;
   onInstantMedicationSave: (swimlaneId: string, time: number, dose: string, itemId: string) => Promise<void>;
   onInfusionDialogOpen: (pending: { swimlaneId: string; time: number; label: string }) => void;
@@ -611,7 +611,8 @@ export function MedicationsSwimlane({
                     onMedicationDoseDialogOpen({ 
                       swimlaneId: lane.id, 
                       time, 
-                      label: lane.label.trim() 
+                      label: lane.label.trim(),
+                      defaultDose: lane.defaultDose
                     });
                   }
                 }
