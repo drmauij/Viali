@@ -198,6 +198,9 @@ export function StaffDialog({
                       onClick={() => {
                         if (!anesthesiaRecordId) return;
                         
+                        // Update staffInput for variant highlighting
+                        setStaffInput(displayName);
+                        
                         if (editingStaff) {
                           updateStaff.mutate(
                             {
@@ -253,10 +256,7 @@ export function StaffDialog({
                   id="staff-name-custom"
                   data-testid="input-staff-name-custom"
                   placeholder="Enter custom name..."
-                  value={staffInput && !filteredUsers.some(u => 
-                    [u.user.firstName, u.user.lastName].filter(Boolean).join(' ') === staffInput || 
-                    u.user.email === staffInput
-                  ) ? staffInput : ''}
+                  value={staffInput}
                   onChange={(e) => setStaffInput(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && staffInput.trim()) {
