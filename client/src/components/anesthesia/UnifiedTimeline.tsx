@@ -4846,8 +4846,6 @@ export function UnifiedTimeline({
         }}
         onVentilationModeEditDialogOpen={(editing) => {
           setEditingVentilationMode(editing);
-          setVentilationModeEditInput(editing.mode);
-          setVentilationModeEditTime(editing.time);
           setShowVentilationModeEditDialog(true);
         }}
         onVentilationBulkDialogOpen={(pending) => {
