@@ -6213,13 +6213,14 @@ If unable to parse any drugs, return:
       const { id } = req.params;
       const userId = req.user.id;
 
-      const medications = await storage.getAnesthesiaMedications(id);
+      const [medication] = await db
+        .select()
+        .from(anesthesiaMedications)
+        .where(eq(anesthesiaMedications.id, id));
       
-      if (!medications || medications.length === 0) {
+      if (!medication) {
         return res.status(404).json({ message: "Medication not found" });
       }
-
-      const medication = medications[0];
 
       // Verify user has access
       const record = await storage.getAnesthesiaRecordById(medication.anesthesiaRecordId);
@@ -6254,13 +6255,14 @@ If unable to parse any drugs, return:
       const { id } = req.params;
       const userId = req.user.id;
 
-      const medications = await storage.getAnesthesiaMedications(id);
+      const [medication] = await db
+        .select()
+        .from(anesthesiaMedications)
+        .where(eq(anesthesiaMedications.id, id));
       
-      if (!medications || medications.length === 0) {
+      if (!medication) {
         return res.status(404).json({ message: "Medication not found" });
       }
-
-      const medication = medications[0];
 
       // Verify user has access
       const record = await storage.getAnesthesiaRecordById(medication.anesthesiaRecordId);
