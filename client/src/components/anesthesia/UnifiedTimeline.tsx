@@ -4697,29 +4697,16 @@ export function UnifiedTimeline({
                 // For medication item labels, make them clickable to edit
                 <button
                   onClick={() => {
-                    console.log('[MED-LABEL-CLICK]', { 
-                      laneId: lane.id, 
-                      itemId: lane.itemId,
-                      anesthesiaItemsCount: anesthesiaItems.length,
-                      adminGroupsCount: administrationGroups.length 
-                    });
                     // Find the medication item using the itemId property from the lane
                     const medicationItem = anesthesiaItems.find(item => item.id === lane.itemId);
-                    console.log('[MED-LABEL-CLICK] Found medicationItem:', medicationItem);
                     if (medicationItem && medicationItem.administrationGroup) {
-                      // Find the admin group
-                      const adminGroup = administrationGroups.find(g => g.name === medicationItem.administrationGroup);
-                      console.log('[MED-LABEL-CLICK] Found adminGroup:', adminGroup);
+                      // Find the admin group by ID (administrationGroup field stores the UUID)
+                      const adminGroup = administrationGroups.find(g => g.id === medicationItem.administrationGroup);
                       if (adminGroup) {
-                        console.log('[MED-LABEL-CLICK] Opening dialog');
                         setSelectedAdminGroupForConfig(adminGroup);
                         setEditingItemForConfig(medicationItem);
                         setShowMedicationConfigDialog(true);
-                      } else {
-                        console.log('[MED-LABEL-CLICK] Admin group not found');
                       }
-                    } else {
-                      console.log('[MED-LABEL-CLICK] Medication item not found or missing administrationGroup');
                     }
                   }}
                   className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1 cursor-pointer"
