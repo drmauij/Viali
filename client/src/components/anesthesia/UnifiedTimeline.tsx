@@ -4793,8 +4793,6 @@ export function UnifiedTimeline({
         }}
         onMedicationEditDialogOpen={(editing) => {
           setEditingMedicationDose(editing);
-          setMedicationEditInput(editing.dose.toString().includes('-') ? '' : editing.dose.toString());
-          setMedicationEditTime(editing.time);
           setShowMedicationEditDialog(true);
         }}
         onInfusionDialogOpen={(pending) => {
