@@ -5474,18 +5474,29 @@ export function UnifiedTimeline({
                   saveTimeMarkersMutation.mutate({
                     anesthesiaRecordId,
                     timeMarkers,
+                  }, {
+                    onSuccess: () => {
+                      setBulkEditDialogOpen(false);
+                      toast({
+                        title: "Times saved",
+                        description: "Anesthesia times have been updated",
+                        duration: 2000,
+                      });
+                    },
+                    onError: (error) => {
+                      toast({
+                        title: "Error saving times",
+                        description: error instanceof Error ? error.message : "Failed to save times",
+                        variant: "destructive",
+                      });
+                    }
                   });
                 }
-                setBulkEditDialogOpen(false);
-                toast({
-                  title: "Times saved",
-                  description: "Anesthesia times have been updated",
-                  duration: 2000,
-                });
               }}
               data-testid="button-save-bulk-edit"
+              disabled={saveTimeMarkersMutation.isPending}
             >
-              Save
+              {saveTimeMarkersMutation.isPending ? 'Saving...' : 'Save'}
             </Button>
           </div>
         </DialogContent>
