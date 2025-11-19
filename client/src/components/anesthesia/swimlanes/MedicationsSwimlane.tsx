@@ -97,7 +97,7 @@ const BolusPill = ({
   return (
     <>
       <div
-        className="absolute flex flex-col items-center justify-center cursor-pointer hover:scale-110 transition-transform"
+        className="absolute flex flex-col justify-center cursor-pointer hover:scale-110 transition-transform"
         style={{
           left: `calc(200px + ((100% - 210px) * ${leftPercent} / 100))`,
           top: `${yPosition}px`,
@@ -126,7 +126,7 @@ const BolusPill = ({
       >
         {/* Dose number in the middle */}
         <span 
-          className="text-base font-semibold"
+          className="text-base font-semibold leading-none"
           style={{ color: '#000000' }}
         >
           {dose}
