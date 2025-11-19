@@ -25,7 +25,7 @@ export function useCreateOutput(anesthesiaRecordId: string | undefined) {
     // No optimistic update - rely on cache invalidation for type safety
     onSettled: () => {
       queryClient.invalidateQueries({
-        queryKey: [`/api/anesthesia/snapshots/${anesthesiaRecordId}`],
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
       });
     },
   });
@@ -55,7 +55,7 @@ export function useUpdateOutput(anesthesiaRecordId: string | undefined) {
     // No optimistic update - rely on cache invalidation for type safety
     onSettled: () => {
       queryClient.invalidateQueries({
-        queryKey: [`/api/anesthesia/snapshots/${anesthesiaRecordId}`],
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
       });
     },
   });
@@ -78,7 +78,7 @@ export function useDeleteOutput(anesthesiaRecordId: string | undefined) {
     },
     onMutate: async (data) => {
       await queryClient.cancelQueries({
-        queryKey: [`/api/anesthesia/snapshots/${anesthesiaRecordId}`],
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
       });
 
       const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
@@ -117,7 +117,7 @@ export function useDeleteOutput(anesthesiaRecordId: string | undefined) {
     },
     onSettled: () => {
       queryClient.invalidateQueries({
-        queryKey: [`/api/anesthesia/snapshots/${anesthesiaRecordId}`],
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
       });
     },
   });
