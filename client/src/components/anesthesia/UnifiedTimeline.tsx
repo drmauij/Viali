@@ -557,6 +557,11 @@ export function UnifiedTimeline({
   // Each add/edit/delete operation triggers its own optimistic mutation with React Query
   // This eliminates the O(n²) snapshot aggregation that was blocking UI for 700-900ms
 
+  // 🔍 SENTINEL: Test if React commits this component at all
+  useEffect(() => {
+    console.log('⚡ [SENTINEL] Component committed by React - effects can now run');
+  }, []);
+
   console.log('📍 [MED-SYNC-SETUP] About to define medication sync useEffect', {
     componentRendering: true,
     hasData: !!data,
