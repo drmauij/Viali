@@ -115,6 +115,14 @@ export async function saveMedication(payload: SaveMedicationPayload): Promise<an
     type: payload.type,
     dose: payload.dose,
   });
+  
+  console.log('[TIMESTAMP-DEBUG] Persistence layer timestamp:', {
+    timestampRaw: payload.timestamp,
+    timestampType: typeof payload.timestamp,
+    timestampISO: payload.timestamp.toISOString(),
+    timestampEpoch: payload.timestamp.getTime(),
+    timestampLocal: payload.timestamp.toLocaleString(),
+  });
 
   // Validate payload structure
   if (!payload.anesthesiaRecordId) {

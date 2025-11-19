@@ -6173,8 +6173,19 @@ If unable to parse any drugs, return:
   app.post('/api/anesthesia/medications', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
+      
+      console.log('[TIMESTAMP-DEBUG] Backend received medication POST:', {
+        rawTimestamp: req.body.timestamp,
+        rawTimestampType: typeof req.body.timestamp,
+      });
 
       const validatedData = insertAnesthesiaMedicationSchema.parse(req.body);
+      
+      console.log('[TIMESTAMP-DEBUG] After Zod validation:', {
+        validatedTimestamp: validatedData.timestamp,
+        validatedTimestampType: typeof validatedData.timestamp,
+        validatedTimestampISO: validatedData.timestamp instanceof Date ? validatedData.timestamp.toISOString() : 'not a date',
+      });
 
       // Verify record exists and user has access
       const record = await storage.getAnesthesiaRecordById(validatedData.anesthesiaRecordId);

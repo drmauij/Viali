@@ -784,6 +784,12 @@ export function MedicationsSwimlane({
                         }));
                         
                         console.log('[FREE-FLOW-CLICK] States updated, calling mutation...');
+                        console.log('[TIMESTAMP-DEBUG] Free-flow click:', {
+                          clickedTimeEpoch: time,
+                          clickedTimeDate: new Date(time),
+                          clickedTimeISO: new Date(time).toISOString(),
+                          clickedTimeLocal: new Date(time).toLocaleString(),
+                        });
                         
                         // 🔥 FIX: Save to database
                         createMedicationMutation.mutate({
