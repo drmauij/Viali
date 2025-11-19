@@ -69,12 +69,20 @@ export function StaffSwimlane({
   const visibleEnd = currentZoomEnd ?? data.endTime;
   const visibleRange = visibleEnd - visibleStart;
 
+  // Check if staff parent swimlane exists (to avoid rendering child overlays on parent area)
+  const staffParentLane = swimlanePositions.find(lane => lane.id === 'staff');
+  const isStaffExpanded = !collapsedSwimlanes.has("staff") && staffParentLane;
+
   return (
     <>
       {/* Interactive layers for staff swimlanes - to add staff entries */}
-      {!activeToolMode && !collapsedSwimlanes.has("staff") && ['doctor', 'nurse', 'assistant'].map((role) => {
+      {!activeToolMode && isStaffExpanded && ['doctor', 'nurse', 'assistant'].map((role) => {
         const staffLane = swimlanePositions.find(lane => lane.id === `staff-${role}`);
         if (!staffLane) return null;
+        
+        // Only render if this is actually a child lane (not overlapping with parent)
+        const isChildLane = staffParentLane && staffLane.top > staffParentLane.top;
+        if (!isChildLane) return null;
         
         return (
           <div
