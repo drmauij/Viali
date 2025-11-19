@@ -58,11 +58,23 @@ export function transformMedicationDoses(
 ): { [swimlaneId: string]: Array<[number, string, string]> } {
   const doseData: { [swimlaneId: string]: Array<[number, string, string]> } = {};
   
-  medications
-    .filter(med => med.type === 'bolus')
-    .forEach(med => {
-      const swimlaneId = itemToSwimlane.get(med.itemId);
-      if (!swimlaneId) return;
+  const bolusMeds = medications.filter(med => med.type === 'bolus');
+  console.log('[TRANSFORM] Processing bolus medications:', bolusMeds.length, 'total');
+  
+  bolusMeds.forEach(med => {
+    const swimlaneId = itemToSwimlane.get(med.itemId);
+    console.log('[TRANSFORM] Medication:', {
+      id: med.id,
+      itemId: med.itemId,
+      dose: med.dose,
+      swimlaneId,
+      timestamp: med.timestamp
+    });
+    
+    if (!swimlaneId) {
+      console.warn('[TRANSFORM] No swimlane found for itemId:', med.itemId);
+      return;
+    }
       
       const timestamp = new Date(med.timestamp).getTime();
       const dose = med.dose || '?';
@@ -79,6 +91,7 @@ export function transformMedicationDoses(
     doseData[swimlaneId].sort((a, b) => a[0] - b[0]);
   });
   
+  console.log('[TRANSFORM] Final dose data:', doseData);
   return doseData;
 }
 
