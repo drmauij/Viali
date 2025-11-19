@@ -24,6 +24,7 @@ interface MedicationDoseDialogProps {
   anesthesiaRecordId: string | null;
   pendingMedicationDose: PendingMedicationDose | null;
   anesthesiaItems: AnesthesiaItem[];
+  onTimeChange?: (newTime: number) => void;
   onMedicationDoseCreated?: () => void;
   onLocalStateUpdate?: (swimlaneId: string, time: number, doseValue: string) => void;
 }
@@ -34,6 +35,7 @@ export function MedicationDoseDialog({
   anesthesiaRecordId,
   pendingMedicationDose,
   anesthesiaItems,
+  onTimeChange,
   onMedicationDoseCreated,
   onLocalStateUpdate,
 }: MedicationDoseDialogProps) {
@@ -187,10 +189,7 @@ export function MedicationDoseDialog({
         </div>
         <DialogFooterWithTime
           time={pendingMedicationDose?.time}
-          onTimeChange={(newTime) => {
-            // Update the time in the parent component if needed
-            // For now, this is a placeholder since UnifiedTimeline manages this state
-          }}
+          onTimeChange={onTimeChange}
           showDelete={false}
           onCancel={handleClose}
           onSave={handleSave}

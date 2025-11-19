@@ -5033,6 +5033,14 @@ export function UnifiedTimeline({
         anesthesiaRecordId={anesthesiaRecordId || null}
         pendingMedicationDose={pendingMedicationDose}
         anesthesiaItems={anesthesiaItems}
+        onTimeChange={(newTime) => {
+          if (pendingMedicationDose) {
+            setPendingMedicationDose({
+              ...pendingMedicationDose,
+              time: newTime,
+            });
+          }
+        }}
         onMedicationDoseCreated={() => {
           setPendingMedicationDose(null);
         }}
