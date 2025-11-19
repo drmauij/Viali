@@ -120,7 +120,11 @@ export function VentilationBulkDialog({
                 value: etCO2Value,
               });
             } catch (error) {
-              console.error('[VENTILATION-BULK] Failed to save etCO2:', error);
+              console.error('[VENTILATION-BULK] Failed to save etCO2:', {
+                value: etCO2Value,
+                timestamp,
+                error: error?.message || error
+              });
             }
           }
         }
@@ -161,7 +165,12 @@ export function VentilationBulkDialog({
                   timestamp,
                   value,
                 }).catch(error => {
-                  console.error(`[VENTILATION-BULK] Failed to save ${vitalType}:`, error);
+                  console.error(`[VENTILATION-BULK] Failed to save ${vitalType}:`, {
+                    vitalType,
+                    value,
+                    timestamp,
+                    error: error?.message || error
+                  });
                   return null;
                 });
               }
