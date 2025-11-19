@@ -97,97 +97,38 @@ export function VentilationBulkDialog({
     
     const timestamp = new Date(dialogTime).toISOString();
     
-    console.log('[VENTILATION-BULK] Current state:', {
-      isSpontaneousBreathing,
-      oxygenFlowRate,
-      bulkVentilationParams,
-      ventilationMode,
-      timestamp,
-    });
-    
     try {
+      // Prepare parameters object with all valid values
+      const parameters: any = {};
+      if (bulkVentilationParams.peep) parameters.peep = parseFloat(bulkVentilationParams.peep);
+      if (bulkVentilationParams.fiO2) parameters.fio2 = parseFloat(bulkVentilationParams.fiO2);
+      if (bulkVentilationParams.tidalVolume) parameters.tidalVolume = parseFloat(bulkVentilationParams.tidalVolume);
+      if (bulkVentilationParams.respiratoryRate) parameters.respiratoryRate = parseFloat(bulkVentilationParams.respiratoryRate);
+      if (bulkVentilationParams.minuteVolume) parameters.minuteVolume = parseFloat(bulkVentilationParams.minuteVolume);
+      if (bulkVentilationParams.etCO2) parameters.etco2 = parseFloat(bulkVentilationParams.etCO2);
+      if (bulkVentilationParams.pip) parameters.pip = parseFloat(bulkVentilationParams.pip);
+      
+      // Determine ventilation mode
+      let modeValue = null;
       if (isSpontaneousBreathing) {
-        // For spontaneous breathing, save mode with O2 flow rate
-        const spontaneousModeValue = oxygenFlowRate 
+        modeValue = oxygenFlowRate 
           ? `Spontaneous: ${oxygenFlowRate} l/min O₂` 
           : "Spontaneous Breathing";
-        
-        // Use direct API call to avoid auto-invalidation
-        await apiRequest('POST', '/api/anesthesia/ventilation-modes', {
-          anesthesiaRecordId,
-          timestamp,
-          value: spontaneousModeValue,
-        });
-        
-        // Only save etCO2 if provided (direct API call to avoid auto-invalidation)
-        if (bulkVentilationParams.etCO2) {
-          const etCO2Value = parseFloat(bulkVentilationParams.etCO2);
-          if (!isNaN(etCO2Value)) {
-            try {
-              await apiRequest('POST', `/api/anesthesia/vitals/${anesthesiaRecordId}/point`, {
-                vitalType: 'etco2',
-                timestamp,
-                value: etCO2Value,
-              });
-            } catch (error) {
-              console.error('[VENTILATION-BULK] Failed to save etCO2:', {
-                value: etCO2Value,
-                timestamp,
-                error: error?.message || error
-              });
-            }
-          }
-        }
       } else {
-        // Regular ventilation mode handling
         const shouldAddMode = ventilationModeData.length === 0 || 
           ventilationModeData[ventilationModeData.length - 1][1] !== ventilationMode;
-        
-        // Create ventilation mode first if needed (use direct API call to avoid auto-invalidation)
         if (shouldAddMode) {
-          await apiRequest('POST', '/api/anesthesia/ventilation-modes', {
-            anesthesiaRecordId,
-            timestamp,
-            value: ventilationMode,
-          });
-        }
-        
-        // Collect all valid vital parameters
-        const parameterMappings = [
-          { key: 'peep', vitalType: 'peep' },
-          { key: 'fiO2', vitalType: 'fio2' },
-          { key: 'tidalVolume', vitalType: 'tidalVolume' },
-          { key: 'respiratoryRate', vitalType: 'respiratoryRate' },
-          { key: 'minuteVolume', vitalType: 'minuteVolume' },
-          { key: 'etCO2', vitalType: 'etco2' },
-          { key: 'pip', vitalType: 'pip' },
-        ];
-        
-        // Save vital points SEQUENTIALLY to avoid race conditions
-        // (parallel writes cause lost updates in JSONB fields)
-        for (const { key, vitalType } of parameterMappings) {
-          const valueStr = bulkVentilationParams[key as keyof typeof bulkVentilationParams];
-          if (valueStr) {
-            const value = parseFloat(valueStr);
-            if (!isNaN(value)) {
-              try {
-                await apiRequest('POST', `/api/anesthesia/vitals/${anesthesiaRecordId}/point`, {
-                  vitalType,
-                  timestamp,
-                  value,
-                });
-              } catch (error) {
-                console.error(`[VENTILATION-BULK] Failed to save ${vitalType}:`, {
-                  vitalType,
-                  value,
-                  timestamp,
-                  error: error?.message || error
-                });
-              }
-            }
-          }
+          modeValue = ventilationMode;
         }
       }
+      
+      // Single API call to save everything atomically
+      await apiRequest('POST', '/api/anesthesia/ventilation/bulk', {
+        anesthesiaRecordId,
+        timestamp,
+        ventilationMode: modeValue,
+        parameters,
+      });
       
       // Manually invalidate the cache once at the end to prevent flickering
       await queryClient.invalidateQueries({ 

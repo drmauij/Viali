@@ -1225,6 +1225,21 @@ export const updateRhythmPointSchema = z.object({
   timestamp: z.string().optional(),
 });
 
+export const addBulkVentilationSchema = z.object({
+  anesthesiaRecordId: z.string(),
+  timestamp: z.string(),
+  ventilationMode: z.string().optional(),
+  parameters: z.object({
+    peep: z.number().optional(),
+    fio2: z.number().optional(),
+    tidalVolume: z.number().optional(),
+    respiratoryRate: z.number().optional(),
+    minuteVolume: z.number().optional(),
+    etco2: z.number().optional(),
+    pip: z.number().optional(),
+  }),
+});
+
 export const addVentilationModePointSchema = z.object({
   anesthesiaRecordId: z.string(),
   timestamp: z.string(),

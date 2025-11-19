@@ -24,6 +24,7 @@ import {
   updateRhythmPointSchema,
   addVentilationModePointSchema,
   updateVentilationModePointSchema,
+  addBulkVentilationSchema,
   addOutputPointSchema,
   updateOutputPointSchema,
   deleteOutputPointSchema,
@@ -5946,6 +5947,47 @@ If unable to parse any drugs, return:
     } catch (error) {
       console.error("Error deleting ventilation mode point:", error);
       res.status(500).json({ message: "Failed to delete ventilation mode point" });
+    }
+  });
+
+  // Bulk add ventilation parameters (optimized for ventilation bulk entry dialog)
+  app.post('/api/anesthesia/ventilation/bulk', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const validatedData = addBulkVentilationSchema.parse(req.body);
+
+      // Verify record exists and user has access
+      const record = await storage.getAnesthesiaRecordById(validatedData.anesthesiaRecordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updatedSnapshot = await storage.addBulkVentilationParameters(
+        validatedData.anesthesiaRecordId,
+        validatedData.timestamp,
+        validatedData.ventilationMode || null,
+        validatedData.parameters
+      );
+      
+      res.status(201).json(updatedSnapshot);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error adding bulk ventilation parameters:", error);
+      res.status(500).json({ message: "Failed to add bulk ventilation parameters" });
     }
   });
 

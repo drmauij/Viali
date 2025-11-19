@@ -306,6 +306,20 @@ export interface IStorage {
   addVentilationModePoint(anesthesiaRecordId: string, timestamp: string, value: string): Promise<ClinicalSnapshot>;
   updateVentilationModePoint(anesthesiaRecordId: string, pointId: string, updates: { value?: string; timestamp?: string }): Promise<ClinicalSnapshot | null>;
   deleteVentilationModePoint(anesthesiaRecordId: string, pointId: string): Promise<ClinicalSnapshot | null>;
+  addBulkVentilationParameters(
+    anesthesiaRecordId: string,
+    timestamp: string,
+    ventilationMode: string | null,
+    parameters: {
+      peep?: number;
+      fio2?: number;
+      tidalVolume?: number;
+      respiratoryRate?: number;
+      minuteVolume?: number;
+      etco2?: number;
+      pip?: number;
+    }
+  ): Promise<ClinicalSnapshot>;
   
   // Output operations
   addOutputPoint(anesthesiaRecordId: string, paramKey: string, timestamp: string, value: number): Promise<ClinicalSnapshot>;
@@ -2291,6 +2305,82 @@ export class DatabaseStorage implements IStorage {
       ventilationModes: filteredPoints,
     };
     
+    const [updated] = await db
+      .update(clinicalSnapshots)
+      .set({ 
+        data: updatedData,
+        updatedAt: new Date(),
+      })
+      .where(eq(clinicalSnapshots.id, snapshot.id))
+      .returning();
+    
+    return updated;
+  }
+
+  /**
+   * Add bulk ventilation parameters in a single transaction
+   * This is optimized for the ventilation bulk entry dialog
+   */
+  async addBulkVentilationParameters(
+    anesthesiaRecordId: string,
+    timestamp: string,
+    ventilationMode: string | null,
+    parameters: {
+      peep?: number;
+      fio2?: number;
+      tidalVolume?: number;
+      respiratoryRate?: number;
+      minuteVolume?: number;
+      etco2?: number;
+      pip?: number;
+    }
+  ): Promise<ClinicalSnapshot> {
+    const snapshot = await this.getClinicalSnapshot(anesthesiaRecordId);
+    const data = snapshot.data as any;
+    
+    // Build updated data object
+    const updatedData = { ...data };
+    
+    // Add ventilation mode if provided
+    if (ventilationMode) {
+      const currentModes = data.ventilationModes || [];
+      const newModePoint = {
+        id: randomUUID(),
+        timestamp,
+        value: ventilationMode,
+      };
+      updatedData.ventilationModes = [...currentModes, newModePoint].sort((a, b) => 
+        a.timestamp.localeCompare(b.timestamp)
+      );
+    }
+    
+    // Add each parameter that has a value
+    const vitalTypeMap = {
+      peep: 'peep',
+      fio2: 'fio2',
+      tidalVolume: 'tidalVolume',
+      respiratoryRate: 'respiratoryRate',
+      minuteVolume: 'minuteVolume',
+      etco2: 'etco2',
+      pip: 'pip',
+    };
+    
+    for (const [paramKey, vitalType] of Object.entries(vitalTypeMap)) {
+      const value = parameters[paramKey as keyof typeof parameters];
+      if (value !== undefined && value !== null) {
+        const currentPoints = data[vitalType] || [];
+        const newPoint = {
+          id: randomUUID(),
+          timestamp,
+          value,
+        };
+        updatedData[vitalType] = [...currentPoints, newPoint].sort((a, b) => 
+          a.timestamp.localeCompare(b.timestamp)
+        );
+      }
+    }
+    
+    // Single database update with all changes
     const [updated] = await db
       .update(clinicalSnapshots)
       .set({ 
