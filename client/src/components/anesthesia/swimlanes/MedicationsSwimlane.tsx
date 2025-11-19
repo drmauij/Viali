@@ -154,28 +154,19 @@ const BolusPill = ({
   isDark,
   testId,
 }: BolusPillProps) => {
-  // Determine color based on time position - subtle teal for past, gray for future
-  const pillColor = isBeforeNow 
+  // Determine color based on time position - teal for past, gray for future
+  const tickColor = isBeforeNow 
     ? (isDark ? '#14b8a6' : '#0d9488')  // Teal (past)
     : (isDark ? '#94a3b8' : '#64748b'); // Slate gray (future)
   
-  // Subtle background with thin border, emphasis on label
-  const pillStyle: React.CSSProperties = {
-    background: `${pillColor}1A`,  // 10% opacity - very subtle
-    border: `1px solid ${pillColor}`,  // Thin border
-    borderRadius: '6px',
-  };
-  
   return (
     <div
-      className="absolute flex items-center justify-center overflow-hidden cursor-pointer hover:shadow-md transition-all px-3"
+      className="absolute flex items-center cursor-pointer"
       style={{
-        left: `calc(200px + ((100% - 210px) * ${leftPercent} / 100) - 30px)`,
-        width: '60px', // Fixed width for bolus pills
+        left: `calc(200px + ((100% - 210px) * ${leftPercent} / 100))`,
         top: `${yPosition}px`,
         height: '32px',
         zIndex: 40,
-        ...pillStyle,
       }}
       onClick={(e) => {
         e.stopPropagation();
@@ -183,7 +174,19 @@ const BolusPill = ({
       }}
       data-testid={testId}
     >
-      <span className="text-sm font-semibold truncate" style={{ color: pillColor }}>
+      {/* Vertical tick line */}
+      <div
+        style={{
+          width: '2px',
+          height: '24px',
+          backgroundColor: tickColor,
+        }}
+      />
+      {/* Dose number beside the tick */}
+      <span 
+        className="text-sm font-semibold ml-1"
+        style={{ color: tickColor }}
+      >
         {dose}
       </span>
     </div>
