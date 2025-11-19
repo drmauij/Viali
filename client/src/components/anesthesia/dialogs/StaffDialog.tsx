@@ -71,11 +71,17 @@ export function StaffDialog({
     enabled: !!hospitalId && !!open && currentRole !== 'assistant',
   });
 
-  // Filter users by anesthesia unit and role
-  const filteredUsers = allUsers.filter(user => 
-    user.unitId === anesthesiaUnitId && 
-    user.role === currentRole
-  );
+  // Filter users by anesthesia unit and role, then sort by surname
+  const filteredUsers = allUsers
+    .filter(user => 
+      user.unitId === anesthesiaUnitId && 
+      user.role === currentRole
+    )
+    .sort((a, b) => {
+      const lastNameA = a.user.lastName?.toLowerCase() || '';
+      const lastNameB = b.user.lastName?.toLowerCase() || '';
+      return lastNameA.localeCompare(lastNameB);
+    });
 
   // Initialize mutation hooks
   const createStaff = useCreateStaff(anesthesiaRecordId || undefined);
@@ -234,12 +240,7 @@ export function StaffDialog({
                       }}
                       data-testid={`button-staff-${hospitalUser.user.id}`}
                     >
-                      <div className="flex flex-col items-start">
-                        <span className="font-medium">{displayName}</span>
-                        {hospitalUser.user.email && (
-                          <span className="text-xs text-muted-foreground">{hospitalUser.user.email}</span>
-                        )}
-                      </div>
+                      {displayName}
                     </Button>
                   );
                 })}
