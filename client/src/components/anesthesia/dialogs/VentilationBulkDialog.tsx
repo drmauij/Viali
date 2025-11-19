@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
 import { useCreateVentilationMode } from "@/hooks/useVentilationModeQuery";
@@ -40,6 +41,8 @@ export function VentilationBulkDialog({
   onVentilationBulkCreated,
 }: VentilationBulkDialogProps) {
   const [ventilationMode, setVentilationMode] = useState("PCV - druckkontrolliert");
+  const [isSpontaneousBreathing, setIsSpontaneousBreathing] = useState(false);
+  const [oxygenFlowRate, setOxygenFlowRate] = useState("");
   const [bulkVentilationParams, setBulkVentilationParams] = useState({
     peep: "",
     fiO2: "",
@@ -56,6 +59,8 @@ export function VentilationBulkDialog({
   useEffect(() => {
     if (!open) {
       setVentilationMode("PCV - druckkontrolliert");
+      setIsSpontaneousBreathing(false);
+      setOxygenFlowRate("");
       setBulkVentilationParams({
         peep: "",
         fiO2: "",
@@ -92,50 +97,76 @@ export function VentilationBulkDialog({
     const { time } = pendingVentilationBulk;
     const timestamp = new Date(time).toISOString();
     
-    const shouldAddMode = ventilationModeData.length === 0 || 
-      ventilationModeData[ventilationModeData.length - 1][1] !== ventilationMode;
-    
     try {
-      // Create ventilation mode first if needed
-      if (shouldAddMode) {
+      if (isSpontaneousBreathing) {
+        // For spontaneous breathing, save mode with O2 flow rate
+        const spontaneousModeValue = oxygenFlowRate 
+          ? `Spontaneous: ${oxygenFlowRate} l/min O₂` 
+          : "Spontaneous Breathing";
+        
         await createVentilationMode.mutateAsync({
           anesthesiaRecordId,
           timestamp,
-          value: ventilationMode,
+          value: spontaneousModeValue,
         });
-      }
-      
-      // Collect all valid vital parameters
-      const parameterMappings = [
-        { key: 'peep', vitalType: 'peep' },
-        { key: 'fiO2', vitalType: 'fiO2' },
-        { key: 'tidalVolume', vitalType: 'tidalVolume' },
-        { key: 'respiratoryRate', vitalType: 'respiratoryRate' },
-        { key: 'minuteVolume', vitalType: 'minuteVolume' },
-        { key: 'etCO2', vitalType: 'etCO2' },
-        { key: 'pip', vitalType: 'pip' },
-      ];
-      
-      // Batch all vital point mutations and wait for all to complete
-      const mutations = parameterMappings
-        .map(({ key, vitalType }) => {
-          const valueStr = bulkVentilationParams[key as keyof typeof bulkVentilationParams];
-          if (valueStr) {
-            const value = parseFloat(valueStr);
-            if (!isNaN(value)) {
-              return addVitalPointMutation.mutateAsync({
-                vitalType,
-                timestamp,
-                value,
-              });
-            }
+        
+        // Only save etCO2 if provided
+        if (bulkVentilationParams.etCO2) {
+          const etCO2Value = parseFloat(bulkVentilationParams.etCO2);
+          if (!isNaN(etCO2Value)) {
+            await addVitalPointMutation.mutateAsync({
+              vitalType: 'etCO2',
+              timestamp,
+              value: etCO2Value,
+            });
           }
-          return null;
-        })
-        .filter(Boolean);
-      
-      // Wait for all mutations to complete
-      await Promise.all(mutations);
+        }
+      } else {
+        // Regular ventilation mode handling
+        const shouldAddMode = ventilationModeData.length === 0 || 
+          ventilationModeData[ventilationModeData.length - 1][1] !== ventilationMode;
+        
+        // Create ventilation mode first if needed
+        if (shouldAddMode) {
+          await createVentilationMode.mutateAsync({
+            anesthesiaRecordId,
+            timestamp,
+            value: ventilationMode,
+          });
+        }
+        
+        // Collect all valid vital parameters
+        const parameterMappings = [
+          { key: 'peep', vitalType: 'peep' },
+          { key: 'fiO2', vitalType: 'fiO2' },
+          { key: 'tidalVolume', vitalType: 'tidalVolume' },
+          { key: 'respiratoryRate', vitalType: 'respiratoryRate' },
+          { key: 'minuteVolume', vitalType: 'minuteVolume' },
+          { key: 'etCO2', vitalType: 'etCO2' },
+          { key: 'pip', vitalType: 'pip' },
+        ];
+        
+        // Batch all vital point mutations and wait for all to complete
+        const mutations = parameterMappings
+          .map(({ key, vitalType }) => {
+            const valueStr = bulkVentilationParams[key as keyof typeof bulkVentilationParams];
+            if (valueStr) {
+              const value = parseFloat(valueStr);
+              if (!isNaN(value)) {
+                return addVitalPointMutation.mutateAsync({
+                  vitalType,
+                  timestamp,
+                  value,
+                });
+              }
+            }
+            return null;
+          })
+          .filter(Boolean);
+        
+        // Wait for all mutations to complete
+        await Promise.all(mutations);
+      }
       
       onVentilationBulkCreated?.();
       handleClose();
@@ -158,22 +189,69 @@ export function VentilationBulkDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-          <div className="grid gap-2">
-            <Label htmlFor="vent-mode">Ventilation Mode</Label>
-            <Select value={ventilationMode} onValueChange={setVentilationMode}>
-              <SelectTrigger id="vent-mode" data-testid="select-vent-mode">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {VENTILATION_MODES.map((mode) => (
-                  <SelectItem key={mode.value} value={mode.value}>
-                    {mode.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Spontaneous Breathing Checkbox */}
+          <div className="flex items-center space-x-2">
+            <Checkbox 
+              id="spontaneous-breathing" 
+              checked={isSpontaneousBreathing}
+              onCheckedChange={(checked) => setIsSpontaneousBreathing(checked === true)}
+              data-testid="checkbox-spontaneous-breathing"
+            />
+            <Label 
+              htmlFor="spontaneous-breathing" 
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+            >
+              Spontaneous Breathing
+            </Label>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+
+          {isSpontaneousBreathing ? (
+            // Spontaneous breathing mode - only show O2 flow and etCO2
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label htmlFor="bulk-o2-flow">O₂ Flow (l/min)</Label>
+                <Input
+                  id="bulk-o2-flow"
+                  type="number"
+                  step="0.5"
+                  value={oxygenFlowRate}
+                  onChange={(e) => setOxygenFlowRate(e.target.value)}
+                  placeholder="e.g., 2"
+                  data-testid="input-bulk-o2-flow"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="bulk-etco2-spontaneous">EtCO₂ (mmHg)</Label>
+                <Input
+                  id="bulk-etco2-spontaneous"
+                  type="number"
+                  step="1"
+                  value={bulkVentilationParams.etCO2}
+                  onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, etCO2: e.target.value }))}
+                  placeholder="Optional"
+                  data-testid="input-bulk-etco2"
+                />
+              </div>
+            </div>
+          ) : (
+            // Normal ventilation mode - show all parameters
+            <>
+              <div className="grid gap-2">
+                <Label htmlFor="vent-mode">Ventilation Mode</Label>
+                <Select value={ventilationMode} onValueChange={setVentilationMode}>
+                  <SelectTrigger id="vent-mode" data-testid="select-vent-mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {VENTILATION_MODES.map((mode) => (
+                      <SelectItem key={mode.value} value={mode.value}>
+                        {mode.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
               <Label htmlFor="bulk-peep">PEEP (cmH₂O)</Label>
               <Input
@@ -255,6 +333,8 @@ export function VentilationBulkDialog({
               />
             </div>
           </div>
+            </>
+          )}
         </div>
         <DialogFooterWithTime
           time={pendingVentilationBulk?.time}
