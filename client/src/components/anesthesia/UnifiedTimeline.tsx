@@ -4613,35 +4613,39 @@ export function UnifiedTimeline({
                 borderColor: isDark ? "#444444" : "#d1d5db"
               }}
             >
-              <div className="flex items-center gap-1 flex-1">
-                {isCollapsibleParent && (
-                  <button
-                    onClick={() => toggleSwimlane(lane.id)}
-                    className="p-0.5 rounded hover:bg-background/50 transition-colors group"
-                    data-testid={`button-toggle-${lane.id}`}
-                    title={collapsedSwimlanes.has(lane.id) ? "Expand" : "Collapse"}
-                  >
-                    {collapsedSwimlanes.has(lane.id) ? (
-                      <ChevronRight className="w-4 h-4 text-foreground/70 group-hover:text-foreground transition-colors" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-foreground/70 group-hover:text-foreground transition-colors" />
-                    )}
-                  </button>
-                )}
-                <span className={`${labelClass} text-black dark:text-white`}>
-                  {lane.label}
-                </span>
-              </div>
-              
-              {isZeitenLane && (
+              {isZeitenLane ? (
+                // For Times swimlane, make entire label area clickable
                 <button
                   onClick={() => setBulkEditDialogOpen(true)}
-                  className="p-1 rounded hover:bg-background/50 transition-colors group"
+                  className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1"
                   data-testid="button-edit-anesthesia-times"
                   title="Edit Anesthesia Times"
                 >
-                  <Clock className="w-4 h-4 text-foreground/70 group-hover:text-foreground transition-colors" />
+                  <Clock className="w-4 h-4 text-foreground/70 shrink-0" />
+                  <span className={`${labelClass} text-black dark:text-white`}>
+                    {lane.label}
+                  </span>
                 </button>
+              ) : (
+                <div className="flex items-center gap-1 flex-1">
+                  {isCollapsibleParent && (
+                    <button
+                      onClick={() => toggleSwimlane(lane.id)}
+                      className="p-0.5 rounded hover:bg-background/50 transition-colors group"
+                      data-testid={`button-toggle-${lane.id}`}
+                      title={collapsedSwimlanes.has(lane.id) ? "Expand" : "Collapse"}
+                    >
+                      {collapsedSwimlanes.has(lane.id) ? (
+                        <ChevronRight className="w-4 h-4 text-foreground/70 group-hover:text-foreground transition-colors" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-foreground/70 group-hover:text-foreground transition-colors" />
+                      )}
+                    </button>
+                  )}
+                  <span className={`${labelClass} text-black dark:text-white`}>
+                    {lane.label}
+                  </span>
+                </div>
               )}
             </div>
           );
