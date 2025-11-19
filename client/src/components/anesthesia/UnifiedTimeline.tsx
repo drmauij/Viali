@@ -581,6 +581,13 @@ export function UnifiedTimeline({
       hasResetFn: !!resetMedicationData
     });
     
+    // 🔥 FIX: Guard against React StrictMode timing issue
+    // resetMedicationData can be undefined during first render due to StrictMode double-render
+    if (!resetMedicationData) {
+      console.log('[MED-SYNC-DEBUG] Skipping - resetMedicationData not yet initialized (StrictMode timing)');
+      return;
+    }
+    
     // Skip if items not loaded yet
     if (!anesthesiaItems || anesthesiaItems.length === 0) {
       console.log('[MED-SYNC-DEBUG] Skipping - no anesthesia items');
