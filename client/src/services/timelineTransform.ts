@@ -192,7 +192,8 @@ export function transformFreeFlowInfusions(
     
     startRecords.forEach(startRec => {
       const item = anesthesiaItems.find(i => i.id === startRec.itemId);
-      if (!item || item.rateUnit !== 'free') return;
+      // Check both item.rateUnit and startRec.rate to ensure it's a free-flow infusion
+      if (!item || (item.rateUnit !== 'free' && startRec.rate !== 'free')) return;
       
       const startTime = new Date(startRec.timestamp).getTime();
       
