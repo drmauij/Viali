@@ -5469,13 +5469,21 @@ export function UnifiedTimeline({
             </Button>
             <Button
               onClick={() => {
+                console.log('[TIME_MARKERS] Save button clicked', {
+                  anesthesiaRecordId,
+                  timeMarkersCount: timeMarkers.length,
+                  timeMarkers
+                });
+                
                 // Save time markers to database
                 if (anesthesiaRecordId) {
+                  console.log('[TIME_MARKERS] Triggering mutation...');
                   saveTimeMarkersMutation.mutate({
                     anesthesiaRecordId,
                     timeMarkers,
                   }, {
                     onSuccess: () => {
+                      console.log('[TIME_MARKERS] Save successful, closing dialog');
                       setBulkEditDialogOpen(false);
                       toast({
                         title: "Times saved",
@@ -5484,6 +5492,7 @@ export function UnifiedTimeline({
                       });
                     },
                     onError: (error) => {
+                      console.error('[TIME_MARKERS] Save failed', error);
                       toast({
                         title: "Error saving times",
                         description: error instanceof Error ? error.message : "Failed to save times",
@@ -5491,6 +5500,8 @@ export function UnifiedTimeline({
                       });
                     }
                   });
+                } else {
+                  console.error('[TIME_MARKERS] Cannot save - no anesthesiaRecordId');
                 }
               }}
               data-testid="button-save-bulk-edit"
