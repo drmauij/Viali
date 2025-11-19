@@ -72,7 +72,7 @@ export function transformMedicationDoses(
       if (med.type === 'bolus') {
         displayValue = med.dose || '?';
       } else if (med.type === 'infusion_start') {
-        displayValue = `Start ${med.dose || ''}`;
+        displayValue = med.dose || '?';
       } else if (med.type === 'rate_change') {
         displayValue = med.rate || '?';
       } else if (med.type === 'infusion_stop') {
