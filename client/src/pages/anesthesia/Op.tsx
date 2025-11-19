@@ -162,6 +162,15 @@ export default function Op() {
     enabled: !!anesthesiaRecord?.id,
   });
 
+  // Debug: Log medications data
+  useEffect(() => {
+    console.log('[OP-MEDS] Medications data changed:', {
+      recordId: anesthesiaRecord?.id,
+      count: medicationsData?.length,
+      data: medicationsData,
+    });
+  }, [medicationsData, anesthesiaRecord?.id]);
+
   // Fetch events (requires recordId)
   const { data: eventsData = [], isLoading: isEventsLoading } = useQuery({
     queryKey: [`/api/anesthesia/events/${anesthesiaRecord?.id}`],
