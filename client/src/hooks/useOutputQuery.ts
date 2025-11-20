@@ -3,7 +3,7 @@ import { apiRequest } from '@/lib/queryClient';
 import type { ClinicalSnapshot } from '@shared/schema';
 
 // Valid output parameter keys
-export type OutputParamKey = 'gastricTube' | 'drainage' | 'vomit' | 'urine' | 'urine677' | 'blood' | 'bloodIrrigation';
+export type OutputParamKey = 'gastricTube' | 'drainage' | 'vomit' | 'urine' | 'blood' | 'bloodIrrigation';
 
 // Hook to create an output point
 export function useCreateOutput(anesthesiaRecordId: string | undefined) {

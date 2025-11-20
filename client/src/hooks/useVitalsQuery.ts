@@ -32,7 +32,6 @@ export interface ClinicalSnapshotData {
   drainage?: VitalPointWithId[];
   vomit?: VitalPointWithId[];
   urine?: VitalPointWithId[];
-  urine677?: VitalPointWithId[];
   blood?: VitalPointWithId[];
   bloodIrrigation?: VitalPointWithId[];
 }

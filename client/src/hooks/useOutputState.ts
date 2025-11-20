@@ -7,7 +7,6 @@ export interface OutputData {
   drainage: OutputPoint[];
   vomit: OutputPoint[];
   urine: OutputPoint[];
-  urine677: OutputPoint[];
   blood: OutputPoint[];
   bloodIrrigation: OutputPoint[];
 }
@@ -23,7 +22,6 @@ const INITIAL_OUTPUT_DATA: OutputData = {
   drainage: [],
   vomit: [],
   urine: [],
-  urine677: [],
   blood: [],
   bloodIrrigation: [],
 };
@@ -49,7 +47,6 @@ export function useOutputState(): UseOutputStateReturn {
       drainage: [],
       vomit: [],
       urine: [],
-      urine677: [],
       blood: [],
       bloodIrrigation: [],
     });

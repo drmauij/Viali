@@ -26,9 +26,8 @@ const OUTPUT_PARAM_MAP: { [index: number]: { key: keyof OutputData; label: strin
   1: { key: 'drainage', label: 'Drainage' },
   2: { key: 'vomit', label: 'Vomit' },
   3: { key: 'urine', label: 'Urine' },
-  4: { key: 'urine677', label: 'Urine 677' },
-  5: { key: 'blood', label: 'Blood' },
-  6: { key: 'bloodIrrigation', label: 'Blood and Irrigation' },
+  4: { key: 'blood', label: 'Blood' },
+  5: { key: 'bloodIrrigation', label: 'Blood and Irrigation' },
 };
 
 /**
@@ -39,7 +38,6 @@ const LABEL_MAP: Record<string, string> = {
   drainage: 'Drainage',
   vomit: 'Vomit',
   urine: 'Urine',
-  urine677: 'Urine 677',
   blood: 'Blood',
   bloodIrrigation: 'Blood and Irrigation',
 };
@@ -52,9 +50,8 @@ const PARAM_INDEX_MAP: Record<string, number> = {
   drainage: 1,
   vomit: 2,
   urine: 3,
-  urine677: 4,
-  blood: 5,
-  bloodIrrigation: 6,
+  blood: 4,
+  bloodIrrigation: 5,
 };
 
 interface OutputSwimlaneProps {

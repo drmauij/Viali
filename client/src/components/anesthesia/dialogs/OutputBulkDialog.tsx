@@ -29,7 +29,6 @@ export function OutputBulkDialog({
     drainage: "",
     vomit: "",
     urine: "",
-    urine677: "",
     blood: "",
     bloodIrrigation: "",
   });
@@ -43,7 +42,6 @@ export function OutputBulkDialog({
         drainage: "",
         vomit: "",
         urine: "",
-        urine677: "",
         blood: "",
         bloodIrrigation: "",
       });
@@ -63,7 +61,6 @@ export function OutputBulkDialog({
       { key: 'drainage', paramKey: 'drainage' as const },
       { key: 'vomit', paramKey: 'vomit' as const },
       { key: 'urine', paramKey: 'urine' as const },
-      { key: 'urine677', paramKey: 'urine677' as const },
       { key: 'blood', paramKey: 'blood' as const },
       { key: 'bloodIrrigation', paramKey: 'bloodIrrigation' as const },
     ];
@@ -147,18 +144,6 @@ export function OutputBulkDialog({
                 value={bulkOutputParams.urine}
                 onChange={(e) => setBulkOutputParams(prev => ({ ...prev, urine: e.target.value }))}
                 data-testid="input-bulk-urine"
-                placeholder="Optional"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="bulk-urine677">Urine 677 (ml)</Label>
-              <Input
-                id="bulk-urine677"
-                type="number"
-                step="1"
-                value={bulkOutputParams.urine677}
-                onChange={(e) => setBulkOutputParams(prev => ({ ...prev, urine677: e.target.value }))}
-                data-testid="input-bulk-urine677"
                 placeholder="Optional"
               />
             </div>

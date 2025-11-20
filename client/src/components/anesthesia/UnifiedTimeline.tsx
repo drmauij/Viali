@@ -792,7 +792,6 @@ export function UnifiedTimeline({
       drainage: snapshotData?.drainage || [],
       vomit: snapshotData?.vomit || [],
       urine: snapshotData?.urine || [],
-      urine677: snapshotData?.urine677 || [],
       blood: snapshotData?.blood || [],
       bloodIrrigation: snapshotData?.bloodIrrigation || [],
     };
@@ -1464,7 +1463,6 @@ export function UnifiedTimeline({
     "Drainage (ml)",
     "Vomit (ml)",
     "Urine (ml)",
-    "Urine 677 (ml)",
     "Blood (ml)",
     "Blood and Irrigation in Suction (ml)",
   ];

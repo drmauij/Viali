@@ -31,7 +31,6 @@ export interface SaveVitalsPayload {
     drainage?: number;
     vomit?: number;
     urine?: number;
-    urine677?: number;
     blood?: number;
     bloodIrrigation?: number;
   };
