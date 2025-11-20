@@ -706,7 +706,7 @@ export function MedicationsSwimlane({
                 if (existingValueAtTime) {
                   // Check if this is a rate-controlled infusion or free-flow
                   if (lane.rateUnit === 'free') {
-                    // For free-flow, open unified Infusion Sheet
+                    // SCENARIO 1: Clicked on existing tick/value => Edit Dose dialog
                     const [valueTime, value] = existingValueAtTime;
                     
                     // Find the session for this marker
@@ -754,15 +754,24 @@ export function MedicationsSwimlane({
                     console.log('[FREE-FLOW-CLICK] Existing sessions:', sessions.length);
                     
                     if (sessions.length > 0) {
-                      // Swimlane is already busy - find the closest session and show unified sheet
-                      const closestSession = sessions.reduce((closest, session) => {
-                        const currentDist = Math.abs(session.startTime - time);
-                        const closestDist = Math.abs(closest.startTime - time);
-                        return currentDist < closestDist ? session : closest;
-                      }, sessions[0]);
+                      // Find if click is on a running infusion or a stopped area
+                      const clickedSession = sessions.find(session => {
+                        const sessionStart = session.startTime;
+                        const sessionEnd = session.endTime || currentTime;
+                        return time >= sessionStart && time <= sessionEnd;
+                      });
                       
-                      // 🔥 FIX: Open unified free-flow sheet with CLICKED time, not session start time
-                      onFreeFlowSheetOpen({ ...closestSession, clickMode: 'segment' }, closestSession.dose, time);
+                      if (clickedSession && !clickedSession.endTime) {
+                        // SCENARIO 2: Clicked on RUNNING infusion area => Stop or Start New dialog
+                        console.log('[FREE-FLOW-CLICK] Scenario 2: Running infusion area clicked');
+                        // TODO: Open Stop/Start-New dialog
+                        alert('Scenario 2: Stop or Start New - Coming soon!');
+                      } else {
+                        // SCENARIO 3: Clicked on STOPPED infusion area or empty space => Start or Start New dialog
+                        console.log('[FREE-FLOW-CLICK] Scenario 3: Stopped infusion area clicked');
+                        // TODO: Open Start/Start-New dialog with previous dose
+                        alert('Scenario 3: Start or Start New - Coming soon!');
+                      }
                     } else {
                       // First click: check for default dose
                       if (lane.defaultDose) {
