@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Droplet } from "lucide-react";
 import { useTimelineContext } from "../TimelineContext";
-import { useCreateMedication } from "@/hooks/useMedicationQuery";
+import { useCreateMedication, useUpdateMedication, useDeleteMedication } from "@/hooks/useMedicationQuery";
 import { InfusionStartEditDialog } from "../dialogs/InfusionStartEditDialog";
+import { RateChangeEditDialog } from "../dialogs/RateChangeEditDialog";
 import { useToast } from "@/hooks/use-toast";
 import type {
   RateInfusionSegment,
@@ -21,6 +22,7 @@ type UnifiedInfusionProps = {
   medicationName: string;
   onClick: () => void; // Click on line - opens management sheet
   onStartTickClick: () => void; // Click on start tick - opens edit dialog
+  onSegmentClick?: (segment: { startTime: number; rate: string; rateUnit?: string }, segmentIndex: number) => void; // Click on rate change marker
   leftPercent: number;
   widthPercent: number;
   yPosition: number;
@@ -41,6 +43,7 @@ const UnifiedInfusion = ({
   medicationName,
   onClick,
   onStartTickClick,
+  onSegmentClick,
   leftPercent,
   widthPercent,
   yPosition,
@@ -169,17 +172,21 @@ const UnifiedInfusion = ({
         return (
           <div
             key={`segment-marker-${index}`}
-            className="absolute flex flex-col items-center pointer-events-none"
+            className="absolute flex flex-col items-center cursor-pointer hover:scale-110 transition-transform"
             style={{
               left: `calc(200px + ((100% - 210px) * ${segmentLeftPercent} / 100))`,
               top: `${yPosition}px`,
               height: `${swimlaneHeight}px`,
               zIndex: 38,
             }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSegmentClick?.(segment, index + 1);
+            }}
             data-testid={`${testId}-segment-${index}`}
           >
             <span 
-              className="absolute text-base font-semibold leading-none"
+              className="absolute text-sm font-semibold leading-none"
               style={{ 
                 color: '#ef4444',
                 top: '50%',
@@ -465,6 +472,20 @@ export function MedicationsSwimlane({
   } | null>(null);
   const [showInfusionEditDialog, setShowInfusionEditDialog] = useState(false);
 
+  // State for rate change edit dialog
+  const [editingRateChange, setEditingRateChange] = useState<{
+    medicationId: string;
+    currentRate: string;
+    currentTime: number;
+    rateUnit: string;
+    medicationName: string;
+  } | null>(null);
+  const [showRateChangeEditDialog, setShowRateChangeEditDialog] = useState(false);
+
+  // Mutation hooks
+  const updateMedicationMutation = useUpdateMedication(anesthesiaRecordId);
+  const deleteMedicationMutation = useDeleteMedication(anesthesiaRecordId);
+
   // Helper: Get active rate session
   const getActiveSession = (swimlaneId: string): RateInfusionSession | null => {
     const sessions = rateInfusionSessions[swimlaneId];
@@ -477,6 +498,44 @@ export function MedicationsSwimlane({
   // Helper: Calculate editable boundaries
   const TEN_MINUTES = 10 * 60 * 1000;
   const FIFTEEN_MINUTES = 15 * 60 * 1000;
+
+  // Handler: Save rate change edit
+  const handleSaveRateChange = async (medicationId: string, newRate: string, newTime: Date) => {
+    try {
+      await updateMedicationMutation.mutateAsync({
+        id: medicationId,
+        rate: newRate,
+        timestamp: newTime,
+      });
+      toast({
+        title: "Rate change updated",
+        description: "The rate change has been successfully updated.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update rate change.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handler: Delete rate change
+  const handleDeleteRateChange = async (medicationId: string) => {
+    try {
+      await deleteMedicationMutation.mutateAsync(medicationId);
+      toast({
+        title: "Rate change deleted",
+        description: "The rate change has been successfully deleted.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete rate change.",
+        variant: "destructive",
+      });
+    }
+  };
   
   return (
     <>
@@ -624,6 +683,33 @@ export function MedicationsSwimlane({
                   isFreeFlow: false,
                 });
                 setShowInfusionEditDialog(true);
+              }}
+              onSegmentClick={(segment, segmentIndex) => {
+                // Find the medication ID for this rate change by matching timestamp and item
+                const rateChangeMedication = data.medications?.find(med => 
+                  med.type === 'rate_change' &&
+                  med.itemId === lane.itemId &&
+                  new Date(med.timestamp).getTime() === segment.startTime
+                );
+                
+                if (!rateChangeMedication) {
+                  toast({
+                    title: "Error",
+                    description: "Could not find medication record for this rate change.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                
+                // Set up edit data
+                setEditingRateChange({
+                  medicationId: rateChangeMedication.id,
+                  currentRate: segment.rate,
+                  currentTime: segment.startTime,
+                  rateUnit: segment.rateUnit || lane.rateUnit || 'ml/h',
+                  medicationName: lane.label.trim(),
+                });
+                setShowRateChangeEditDialog(true);
               }}
             />
           );
@@ -1255,6 +1341,16 @@ export function MedicationsSwimlane({
         onInfusionDeleted={() => {
           // Cache will be invalidated automatically by the mutation
         }}
+      />
+
+      {/* Rate Change Edit Dialog */}
+      <RateChangeEditDialog
+        open={showRateChangeEditDialog}
+        onOpenChange={setShowRateChangeEditDialog}
+        rateChangeData={editingRateChange}
+        onSave={handleSaveRateChange}
+        onDelete={handleDeleteRateChange}
+        formatTime={formatTime}
       />
     </>
   );
