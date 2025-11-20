@@ -970,13 +970,14 @@ export function MedicationsSwimlane({
                           }],
                         }));
                         
-                        // 🔥 FIX: Save to database
+                        // 🔥 FIX: Save to database as infusion_start (first rate)
                         createMedicationMutation.mutate({
                           anesthesiaRecordId,
                           itemId: item.id,
                           timestamp: new Date(time),
-                          type: 'rate_change' as const,
+                          type: 'infusion_start' as const,
                           rate: lane.defaultDose,
+                          dose: lane.defaultDose, // Syringe quantity
                         });
                         
                         console.log('[RATE-INFUSION-CLICK] Mutation called!');
