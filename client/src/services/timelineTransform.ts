@@ -136,21 +136,36 @@ export function transformRateInfusions(
         rateUnit: item.rateUnit || 'ml/h',
       });
       
-      records
-        .filter(r => {
-          if (r.type !== 'rate_change') return false;
-          const changeTime = new Date(r.timestamp).getTime();
-          if (changeTime <= startTime) return false;
-          if (endTime && changeTime >= endTime) return false;
-          return true;
-        })
-        .forEach(rateChange => {
-          segments.push({
-            startTime: new Date(rateChange.timestamp).getTime(),
-            rate: rateChange.rate || '0',
-            rateUnit: item.rateUnit || 'ml/h',
-          });
+      const rateChanges = records.filter(r => {
+        if (r.type !== 'rate_change') return false;
+        const changeTime = new Date(r.timestamp).getTime();
+        if (changeTime <= startTime) return false;
+        if (endTime && changeTime >= endTime) return false;
+        return true;
+      });
+      
+      console.log('[RATE-TRANSFORM] Processing infusion:', {
+        itemName: item.name,
+        startTime,
+        endTime,
+        totalRecords: records.length,
+        rateChangeCount: rateChanges.length,
+        rateChanges: rateChanges.map(r => ({ timestamp: r.timestamp, rate: r.rate }))
+      });
+      
+      rateChanges.forEach(rateChange => {
+        segments.push({
+          startTime: new Date(rateChange.timestamp).getTime(),
+          rate: rateChange.rate || '0',
+          rateUnit: item.rateUnit || 'ml/h',
         });
+      });
+      
+      console.log('[RATE-TRANSFORM] Created session with segments:', {
+        itemName: item.name,
+        segmentCount: segments.length,
+        segments: segments.map(s => ({ startTime: s.startTime, rate: s.rate }))
+      });
       
       sessions[swimlaneId].push({
         id: startRecord.id, // Store medication record ID for editing/deleting
