@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trash2 } from "lucide-react";
+import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
 
 interface RateChangeEditDialogProps {
   open: boolean;
@@ -29,30 +28,21 @@ export function RateChangeEditDialog({
   formatTime,
 }: RateChangeEditDialogProps) {
   const [rateValue, setRateValue] = useState("");
-  const [timeValue, setTimeValue] = useState("");
+  const [editTime, setEditTime] = useState<number>(Date.now());
 
   useEffect(() => {
     if (rateChangeData) {
       setRateValue(rateChangeData.currentRate);
-      setTimeValue(formatTime(rateChangeData.currentTime));
+      setEditTime(rateChangeData.currentTime);
     } else {
       setRateValue("");
-      setTimeValue("");
+      setEditTime(Date.now());
     }
-  }, [rateChangeData, formatTime]);
+  }, [rateChangeData]);
 
   const handleSave = () => {
     if (!rateChangeData || !rateValue.trim()) return;
-
-    // Parse time string back to epoch
-    // Format is "HH:MM" - we need to convert to epoch based on the original date
-    const originalDate = new Date(rateChangeData.currentTime);
-    const [hours, minutes] = timeValue.split(':').map(Number);
-    
-    const newDate = new Date(originalDate);
-    newDate.setHours(hours, minutes, 0, 0);
-
-    onSave(rateChangeData.medicationId, rateValue.trim(), newDate);
+    onSave(rateChangeData.medicationId, rateValue.trim(), new Date(editTime));
     onOpenChange(false);
   };
 
@@ -86,51 +76,27 @@ export function RateChangeEditDialog({
               type="number"
               value={rateValue}
               onChange={(e) => setRateValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSave();
+                }
+              }}
               placeholder="Enter rate"
               data-testid="input-rate-value"
-            />
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="time-value">Time</Label>
-            <Input
-              id="time-value"
-              type="time"
-              value={timeValue}
-              onChange={(e) => setTimeValue(e.target.value)}
-              data-testid="input-time-value"
+              autoFocus
             />
           </div>
         </div>
 
-        <DialogFooter className="flex-col gap-2 sm:flex-row">
-          <Button
-            onClick={handleDelete}
-            variant="destructive"
-            className="w-full sm:w-auto"
-            data-testid="button-delete-rate-change"
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Delete
-          </Button>
-          <div className="flex gap-2 flex-1">
-            <Button
-              onClick={handleClose}
-              variant="outline"
-              className="flex-1"
-              data-testid="button-cancel"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSave}
-              className="flex-1"
-              data-testid="button-save"
-            >
-              Save
-            </Button>
-          </div>
-        </DialogFooter>
+        <DialogFooterWithTime
+          time={editTime}
+          onTimeChange={setEditTime}
+          showDelete={true}
+          onDelete={handleDelete}
+          onCancel={handleClose}
+          onSave={handleSave}
+          saveDisabled={!rateValue.trim()}
+        />
       </DialogContent>
     </Dialog>
   );
