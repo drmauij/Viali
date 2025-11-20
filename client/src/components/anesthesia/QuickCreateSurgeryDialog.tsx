@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -61,6 +62,7 @@ export default function QuickCreateSurgeryDialog({
   const [duration, setDuration] = useState<number>(getDefaultDuration());
   const [plannedSurgery, setPlannedSurgery] = useState("");
   const [surgeon, setSurgeon] = useState("");
+  const [notes, setNotes] = useState("");
   
   // New patient form state
   const [newPatientFirstName, setNewPatientFirstName] = useState("");
@@ -220,6 +222,7 @@ export default function QuickCreateSurgeryDialog({
     setDuration(getDefaultDuration());
     setPlannedSurgery("");
     setSurgeon("");
+    setNotes("");
     setShowNewPatientForm(false);
     setNewPatientFirstName("");
     setNewPatientSurname("");
@@ -289,6 +292,7 @@ export default function QuickCreateSurgeryDialog({
       actualEndTime: endDate.toISOString(),
       plannedSurgery: plannedSurgery.trim(),
       surgeon: surgeon.trim() || undefined,
+      notes: notes.trim() || undefined,
       status: "planned",
     });
   };
@@ -535,6 +539,19 @@ export default function QuickCreateSurgeryDialog({
                 )}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Notes */}
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notes <span className="text-xs text-muted-foreground">(optional)</span></Label>
+            <Textarea
+              id="notes"
+              placeholder="Enter notes about antibiotics, patient position, etc."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              data-testid="textarea-notes"
+              rows={3}
+            />
           </div>
         </div>
 
