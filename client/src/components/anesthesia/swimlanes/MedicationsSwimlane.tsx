@@ -58,6 +58,10 @@ const UnifiedInfusion = ({
   const lineYOffset = swimlaneHeight - 2;
   const visibleRange = visibleEnd - visibleStart;
   
+  // Calculate actual start position (before clipping)
+  const actualStartPercent = ((startTime - visibleStart) / visibleRange) * 100;
+  const showStartTick = actualStartPercent >= -5 && actualStartPercent <= 100; // Show if within view (with small buffer)
+  
   // Calculate end tick position if infusion is stopped
   const endLeftPercent = endTime ? ((endTime - visibleStart) / visibleRange) * 100 : null;
   const showEndTick = endTime !== null && endLeftPercent !== null && endLeftPercent >= 0 && endLeftPercent <= 100;
@@ -65,7 +69,7 @@ const UnifiedInfusion = ({
   return (
     <>
       {/* Start Tick */}
-      <div
+      {showStartTick && <div
         className="absolute flex flex-col cursor-pointer hover:scale-110 transition-transform"
         style={{
           left: `calc(200px + ((100% - 210px) * ${leftPercent} / 100))`,
@@ -111,7 +115,7 @@ const UnifiedInfusion = ({
             backgroundColor: '#ef4444',
           }}
         />
-      </div>
+      </div>}
 
       {/* Horizontal Line */}
       <div
