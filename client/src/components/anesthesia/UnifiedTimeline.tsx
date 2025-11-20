@@ -5335,6 +5335,15 @@ export function UnifiedTimeline({
                   };
                 });
                 
+                // Add end tick marker at stop position
+                setInfusionData(prev => {
+                  const existingData = prev[session.swimlaneId] || [];
+                  return {
+                    ...prev,
+                    [session.swimlaneId]: [...existingData, [clickTime, session.dose] as [number, string]].sort((a, b) => a[0] - b[0]),
+                  };
+                });
+                
                 // TODO: Persist to database
                 
                 toast({

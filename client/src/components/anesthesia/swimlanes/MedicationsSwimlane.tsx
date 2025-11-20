@@ -447,7 +447,7 @@ export function MedicationsSwimlane({
         
         return sessions.map((session, sessionIndex) => {
           const startTime = session.startTime;
-          const endTime = visibleEnd; // Free-flow always draws to end of visible range
+          const endTime = session.endTime || visibleEnd; // Use session endTime if stopped, otherwise visible range
           
           let leftPercent = ((startTime - visibleStart) / visibleRange) * 100;
           let widthPercent = ((endTime - startTime) / visibleRange) * 100;
