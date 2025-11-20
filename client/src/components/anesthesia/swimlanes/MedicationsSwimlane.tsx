@@ -929,37 +929,8 @@ export function MedicationsSwimlane({
                         
                         console.log('[FREE-FLOW-CLICK] Found item:', item.id, item.name);
                         
-                        // Create new session with default dose
-                        const newSession: FreeFlowSession = {
-                          swimlaneId: lane.id,
-                          startTime: time,
-                          dose: lane.defaultDose,
-                          label: lane.label.trim(),
-                        };
-                        
-                        console.log('[FREE-FLOW-CLICK] Creating session:', newSession);
-                        
-                        // Update state directly
-                        medicationState.setFreeFlowSessions(prev => ({
-                          ...prev,
-                          [lane.id]: [...(prev[lane.id] || []), newSession].sort((a, b) => a.startTime - b.startTime),
-                        }));
-                        
-                        // Add visual marker
-                        setInfusionData(prev => ({
-                          ...prev,
-                          [lane.id]: [...(prev[lane.id] || []), [time, lane.defaultDose]].sort((a, b) => a[0] - b[0]),
-                        }));
-                        
-                        console.log('[FREE-FLOW-CLICK] States updated, calling mutation...');
-                        console.log('[TIMESTAMP-DEBUG] Free-flow click:', {
-                          clickedTimeEpoch: time,
-                          clickedTimeDate: new Date(time),
-                          clickedTimeISO: new Date(time).toISOString(),
-                          clickedTimeLocal: new Date(time).toLocaleString(),
-                        });
-                        
-                        // 🔥 FIX: Save to database
+                        // Create new free-flow infusion in database
+                        // React Query will automatically update the UI via cache invalidation
                         createMedicationMutation.mutate({
                           anesthesiaRecordId,
                           itemId: item.id,
@@ -969,7 +940,7 @@ export function MedicationsSwimlane({
                           dose: lane.defaultDose,
                         });
                         
-                        console.log('[FREE-FLOW-CLICK] Mutation called!');
+                        console.log('[FREE-FLOW-CLICK] Free-flow infusion created');
                       } else {
                         // No default dose: show dose entry dialog
                         onFreeFlowDoseDialogOpen({
