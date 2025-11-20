@@ -3,6 +3,7 @@ import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
 import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil, StopCircle, PlayCircle, Droplet, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -976,6 +977,21 @@ export function UnifiedTimeline({
   const [showFreeFlowDoseDialog, setShowFreeFlowDoseDialog] = useState(false);
   const [pendingFreeFlowDose, setPendingFreeFlowDose] = useState<{ swimlaneId: string; time: number; label: string } | null>(null);
   const [freeFlowDoseInput, setFreeFlowDoseInput] = useState("");
+  
+  // State for free-flow stop/start-new dialog (scenario 2: running infusion clicked)
+  const [showFreeFlowStopDialog, setShowFreeFlowStopDialog] = useState(false);
+  const [pendingFreeFlowStop, setPendingFreeFlowStop] = useState<{ 
+    session: FreeFlowSession; 
+    clickTime: number; 
+  } | null>(null);
+  
+  // State for free-flow start/start-new dialog (scenario 3: stopped area clicked)
+  const [showFreeFlowRestartDialog, setShowFreeFlowRestartDialog] = useState(false);
+  const [pendingFreeFlowRestart, setPendingFreeFlowRestart] = useState<{ 
+    previousSession: FreeFlowSession; 
+    clickTime: number; 
+  } | null>(null);
+  const [freeFlowRestartDoseInput, setFreeFlowRestartDoseInput] = useState("");
   
   // State for rate-based infusion sessions (map swimlaneId to active session info)
   type RateInfusionSegment = {
@@ -4922,6 +4938,15 @@ export function UnifiedTimeline({
           setPendingFreeFlowDose(pending);
           setShowFreeFlowDoseDialog(true);
         }}
+        onFreeFlowStopDialogOpen={(session, clickTime) => {
+          setPendingFreeFlowStop({ session, clickTime });
+          setShowFreeFlowStopDialog(true);
+        }}
+        onFreeFlowRestartDialogOpen={(previousSession, clickTime) => {
+          setPendingFreeFlowRestart({ previousSession, clickTime });
+          setFreeFlowRestartDoseInput(previousSession.dose); // Pre-fill with previous dose
+          setShowFreeFlowRestartDialog(true);
+        }}
         onFreeFlowSheetOpen={(session, doseInput, timeInput) => {
           setFreeFlowSheetSession(session);
           setSheetDoseInput(doseInput);
@@ -5281,6 +5306,238 @@ export function UnifiedTimeline({
           });
         }}
       />
+
+      {/* Free-Flow Stop/Start-New Dialog (Scenario 2: Running infusion clicked) */}
+      <AlertDialog open={showFreeFlowStopDialog} onOpenChange={setShowFreeFlowStopDialog}>
+        <AlertDialogContent data-testid="dialog-freeflow-stop">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pendingFreeFlowStop?.session.label}</AlertDialogTitle>
+            <AlertDialogDescription>
+              This infusion is currently running. Choose an action:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex flex-col gap-2 my-4">
+            <Button
+              onClick={() => {
+                if (!pendingFreeFlowStop) return;
+                const { session, clickTime } = pendingFreeFlowStop;
+                
+                // STOP action: Add endTime to current session
+                setFreeFlowSessions(prev => {
+                  const sessions = prev[session.swimlaneId] || [];
+                  return {
+                    ...prev,
+                    [session.swimlaneId]: sessions.map(s => 
+                      s.startTime === session.startTime 
+                        ? { ...s, endTime: clickTime }
+                        : s
+                    ),
+                  };
+                });
+                
+                // TODO: Persist to database
+                
+                toast({
+                  title: "Infusion stopped",
+                  description: `${session.label} stopped at ${formatTime(clickTime)}`,
+                });
+                
+                setShowFreeFlowStopDialog(false);
+                setPendingFreeFlowStop(null);
+              }}
+              variant="default"
+              data-testid="button-freeflow-stop"
+            >
+              <StopCircle className="w-4 h-4 mr-2" />
+              Stop Infusion
+            </Button>
+            <Button
+              onClick={() => {
+                if (!pendingFreeFlowStop) return;
+                const { session, clickTime } = pendingFreeFlowStop;
+                
+                // START NEW action: Stop current + Start new with same dose
+                setFreeFlowSessions(prev => {
+                  const sessions = prev[session.swimlaneId] || [];
+                  const updated = sessions.map(s => 
+                    s.startTime === session.startTime 
+                      ? { ...s, endTime: clickTime }
+                      : s
+                  );
+                  
+                  // Add new session
+                  const newSession: FreeFlowSession = {
+                    swimlaneId: session.swimlaneId,
+                    startTime: clickTime,
+                    dose: session.dose,
+                    label: session.label,
+                  };
+                  
+                  return {
+                    ...prev,
+                    [session.swimlaneId]: [...updated, newSession].sort((a, b) => a.startTime - b.startTime),
+                  };
+                });
+                
+                // Add new tick marker
+                setInfusionData(prev => {
+                  const existingData = prev[session.swimlaneId] || [];
+                  return {
+                    ...prev,
+                    [session.swimlaneId]: [...existingData, [clickTime, session.dose] as [number, string]].sort((a, b) => a[0] - b[0]),
+                  };
+                });
+                
+                // TODO: Persist to database
+                
+                toast({
+                  title: "New infusion started",
+                  description: `${session.label} restarted with dose ${session.dose}`,
+                });
+                
+                setShowFreeFlowStopDialog(false);
+                setPendingFreeFlowStop(null);
+              }}
+              variant="outline"
+              data-testid="button-freeflow-start-new"
+            >
+              <PlayCircle className="w-4 h-4 mr-2" />
+              Start New Infusion
+            </Button>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel">Cancel</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Free-Flow Start/Start-New Dialog (Scenario 3: Stopped area clicked) */}
+      <AlertDialog open={showFreeFlowRestartDialog} onOpenChange={setShowFreeFlowRestartDialog}>
+        <AlertDialogContent data-testid="dialog-freeflow-restart">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pendingFreeFlowRestart?.previousSession.label}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Previous infusion was stopped. Choose an action:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex flex-col gap-4 my-4">
+            <div className="text-sm text-muted-foreground">
+              Previous dose: <span className="font-semibold">{pendingFreeFlowRestart?.previousSession.dose}</span>
+            </div>
+            <Button
+              onClick={() => {
+                if (!pendingFreeFlowRestart) return;
+                const { previousSession, clickTime } = pendingFreeFlowRestart;
+                
+                // START action: Resume with previous dose
+                const newSession: FreeFlowSession = {
+                  swimlaneId: previousSession.swimlaneId,
+                  startTime: clickTime,
+                  dose: previousSession.dose,
+                  label: previousSession.label,
+                };
+                
+                setFreeFlowSessions(prev => {
+                  const sessions = prev[previousSession.swimlaneId] || [];
+                  return {
+                    ...prev,
+                    [previousSession.swimlaneId]: [...sessions, newSession].sort((a, b) => a.startTime - b.startTime),
+                  };
+                });
+                
+                // Add tick marker
+                setInfusionData(prev => {
+                  const existingData = prev[previousSession.swimlaneId] || [];
+                  return {
+                    ...prev,
+                    [previousSession.swimlaneId]: [...existingData, [clickTime, previousSession.dose] as [number, string]].sort((a, b) => a[0] - b[0]),
+                  };
+                });
+                
+                // TODO: Persist to database
+                
+                toast({
+                  title: "Infusion resumed",
+                  description: `${previousSession.label} resumed with dose ${previousSession.dose}`,
+                });
+                
+                setShowFreeFlowRestartDialog(false);
+                setPendingFreeFlowRestart(null);
+              }}
+              variant="default"
+              data-testid="button-freeflow-resume"
+            >
+              <PlayCircle className="w-4 h-4 mr-2" />
+              Resume (Dose: {pendingFreeFlowRestart?.previousSession.dose})
+            </Button>
+            <div className="space-y-2">
+              <Label htmlFor="new-dose">Or start with new dose:</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="new-dose"
+                  type="number"
+                  inputMode="decimal"
+                  value={freeFlowRestartDoseInput}
+                  onChange={(e) => setFreeFlowRestartDoseInput(e.target.value)}
+                  placeholder="Enter new dose"
+                  data-testid="input-new-dose"
+                />
+                <Button
+                  onClick={() => {
+                    if (!pendingFreeFlowRestart || !freeFlowRestartDoseInput.trim()) return;
+                    const { previousSession, clickTime } = pendingFreeFlowRestart;
+                    
+                    // START NEW action: Start with new dose
+                    const newSession: FreeFlowSession = {
+                      swimlaneId: previousSession.swimlaneId,
+                      startTime: clickTime,
+                      dose: freeFlowRestartDoseInput.trim(),
+                      label: previousSession.label,
+                    };
+                    
+                    setFreeFlowSessions(prev => {
+                      const sessions = prev[previousSession.swimlaneId] || [];
+                      return {
+                        ...prev,
+                        [previousSession.swimlaneId]: [...sessions, newSession].sort((a, b) => a.startTime - b.startTime),
+                      };
+                    });
+                    
+                    // Add tick marker
+                    setInfusionData(prev => {
+                      const existingData = prev[previousSession.swimlaneId] || [];
+                      return {
+                        ...prev,
+                        [previousSession.swimlaneId]: [...existingData, [clickTime, freeFlowRestartDoseInput.trim()] as [number, string]].sort((a, b) => a[0] - b[0]),
+                      };
+                    });
+                    
+                    // TODO: Persist to database
+                    
+                    toast({
+                      title: "New infusion started",
+                      description: `${previousSession.label} started with new dose ${freeFlowRestartDoseInput.trim()}`,
+                    });
+                    
+                    setShowFreeFlowRestartDialog(false);
+                    setPendingFreeFlowRestart(null);
+                    setFreeFlowRestartDoseInput("");
+                  }}
+                  variant="outline"
+                  disabled={!freeFlowRestartDoseInput.trim()}
+                  data-testid="button-freeflow-start-new-dose"
+                >
+                  <PlayCircle className="w-4 h-4 mr-2" />
+                  Start New
+                </Button>
+              </div>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel">Cancel</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Unified Free-Flow Infusion Sheet */}
       <FreeFlowManageDialog

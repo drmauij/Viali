@@ -192,6 +192,8 @@ export interface MedicationsSwimlaneProps {
   onInfusionDialogOpen: (pending: { swimlaneId: string; time: number; label: string }) => void;
   onFreeFlowDoseDialogOpen: (pending: { swimlaneId: string; time: number; label: string }) => void;
   onFreeFlowSheetOpen: (session: FreeFlowSession & { clickMode?: 'label' | 'segment' }, doseInput: string, timeInput: number) => void;
+  onFreeFlowStopDialogOpen: (session: FreeFlowSession, clickTime: number) => void;
+  onFreeFlowRestartDialogOpen: (previousSession: FreeFlowSession, clickTime: number) => void;
   onRateSheetOpen: (session: { swimlaneId: string; label: string; clickMode: 'label' | 'segment'; rateUnit: string; defaultDose?: string }, rateInput: string, timeInput: number, quantityInput?: string) => void;
   onRateManageDialogOpen: (managing: { swimlaneId: string; time: number; value: string; index: number; label: string; rateOptions?: string[] }, time: number, input: string) => void;
   onRateSelectionDialogOpen: (pending: { swimlaneId: string; time: number; label: string; rateOptions: string[] }) => void;
@@ -217,6 +219,8 @@ export function MedicationsSwimlane({
   onInfusionDialogOpen,
   onFreeFlowDoseDialogOpen,
   onFreeFlowSheetOpen,
+  onFreeFlowStopDialogOpen,
+  onFreeFlowRestartDialogOpen,
   onRateSheetOpen,
   onRateManageDialogOpen,
   onRateSelectionDialogOpen,
@@ -764,13 +768,15 @@ export function MedicationsSwimlane({
                       if (clickedSession && !clickedSession.endTime) {
                         // SCENARIO 2: Clicked on RUNNING infusion area => Stop or Start New dialog
                         console.log('[FREE-FLOW-CLICK] Scenario 2: Running infusion area clicked');
-                        // TODO: Open Stop/Start-New dialog
-                        alert('Scenario 2: Stop or Start New - Coming soon!');
+                        onFreeFlowStopDialogOpen(clickedSession, time);
                       } else {
-                        // SCENARIO 3: Clicked on STOPPED infusion area or empty space => Start or Start New dialog
+                        // SCENARIO 3: Clicked on STOPPED infusion area => Start or Start New dialog
                         console.log('[FREE-FLOW-CLICK] Scenario 3: Stopped infusion area clicked');
-                        // TODO: Open Start/Start-New dialog with previous dose
-                        alert('Scenario 3: Start or Start New - Coming soon!');
+                        // Find the most recent stopped session for this swimlane
+                        const stoppedSession = sessions.filter(s => s.endTime).sort((a, b) => (b.endTime || 0) - (a.endTime || 0))[0];
+                        if (stoppedSession) {
+                          onFreeFlowRestartDialogOpen(stoppedSession, time);
+                        }
                       }
                     } else {
                       // First click: check for default dose
