@@ -189,6 +189,12 @@ export default function SurgerySummaryDialog({
                           surgery.status === 'cancelled' ? 'CANCELLED' : null
                         ].filter(Boolean).join(', ')}
                       </div>
+                      {surgery.notes && (
+                        <div className="text-sm mt-2 pt-2 border-t border-border/50">
+                          <span className="text-xs font-medium text-muted-foreground">Notes:</span>
+                          <p className="text-sm mt-0.5 whitespace-pre-wrap" data-testid="text-summary-notes">{surgery.notes}</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 mt-1" />
