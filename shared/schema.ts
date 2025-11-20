@@ -568,12 +568,122 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
     time: number | null; // timestamp in milliseconds, null if not set
   }>>(),
   
+  // Anesthesia Overview - Track which sections are active
+  anesthesiaOverview: jsonb("anesthesia_overview").$type<{
+    general?: boolean;
+    sedation?: boolean;
+    regionalSpinal?: boolean;
+    regionalEpidural?: boolean;
+    regionalPeripheral?: boolean;
+  }>(),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_anesthesia_records_surgery").on(table.surgeryId),
   index("idx_anesthesia_records_provider").on(table.providerId),
   index("idx_anesthesia_records_status").on(table.caseStatus),
+]);
+
+// Anesthesia Installations - Track peripheral/arterial/central line placements
+export const anesthesiaInstallations = pgTable("anesthesia_installations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: "cascade" }),
+  
+  // Type of installation
+  category: varchar("category", { enum: ["peripheral", "arterial", "central"] }).notNull(),
+  
+  // Common fields
+  location: varchar("location"), // e.g., "right-hand", "radial-left", "right-ijv"
+  attempts: integer("attempts"),
+  notes: text("notes"),
+  
+  // Category-specific data stored as JSONB for flexibility
+  metadata: jsonb("metadata").$type<{
+    // Peripheral venous
+    gauge?: string; // "18G", "20G", etc.
+    
+    // Arterial line
+    technique?: string; // "direct", "transfixion", "ultrasound"
+    
+    // Central venous catheter
+    lumens?: number; // 1, 2, 3, 4
+    depth?: number; // cm
+    cvcTechnique?: string; // "landmark", "ultrasound"
+    ekgProof?: boolean;
+    rxControl?: boolean;
+  }>(),
+  
+  placementTime: timestamp("placement_time"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_installations_record").on(table.anesthesiaRecordId),
+  index("idx_installations_category").on(table.category),
+]);
+
+// Anesthesia Technique Details - Store technique-specific documentation
+export const anesthesiaTechniqueDetails = pgTable("anesthesia_technique_details", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: "cascade" }),
+  
+  // Which technique section this belongs to
+  technique: varchar("technique", { 
+    enum: ["general", "sedation", "regional_spinal", "regional_epidural", "regional_peripheral"] 
+  }).notNull(),
+  
+  // Technique-specific data stored as JSONB
+  details: jsonb("details").$type<{
+    // General Anesthesia
+    approach?: "tiva" | "balanced";
+    airwayDevice?: string; // "ett", "lma", "facemask", "tracheostomy"
+    airwaySize?: string;
+    airwayDepth?: number;
+    airwayCuffPressure?: number;
+    airwayNotes?: string;
+    specialEquipment?: {
+      doppellumen?: boolean;
+      cMac?: boolean;
+      bronchoskop?: boolean;
+      lmAuragain?: boolean;
+    };
+    difficultAirway?: {
+      encountered?: boolean;
+      grade?: string;
+      notes?: string;
+    };
+    
+    // Sedation
+    sedationLevel?: string;
+    sedationMedications?: string;
+    sedationMonitoring?: string;
+    
+    // Regional Spinal
+    spinalLocation?: string;
+    spinalNiveau?: string;
+    spinalNeedle?: string;
+    gerinnungskontrolle?: boolean;
+    gerinnungsmedikament?: string;
+    
+    // Regional Epidural
+    epiduralLocation?: string;
+    lossOfResistance?: string;
+    catheterDepth?: number;
+    epiduralNeedle?: string;
+    
+    // Regional Peripheral
+    blockTechnique?: string;
+    blockSide?: "left" | "right" | "bilateral";
+    withCatheter?: boolean;
+    ultrasoundUsed?: boolean;
+    peripheralNeedle?: string;
+  }>(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_technique_details_record").on(table.anesthesiaRecordId),
+  index("idx_technique_details_technique").on(table.technique),
 ]);
 
 // Pre-Op Assessments
@@ -1313,6 +1423,20 @@ export const insertAnesthesiaStaffSchema = createInsertSchema(anesthesiaStaff, {
   createdAt: true,
 });
 
+export const insertAnesthesiaInstallationSchema = createInsertSchema(anesthesiaInstallations, {
+  placementTime: z.coerce.date().optional(),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAnesthesiaTechniqueDetailSchema = createInsertSchema(anesthesiaTechniqueDetails).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertInventoryUsageSchema = createInsertSchema(inventoryUsage).omit({
   id: true,
   createdAt: true,
@@ -1397,6 +1521,10 @@ export type AnesthesiaPosition = typeof anesthesiaPositions.$inferSelect;
 export type InsertAnesthesiaPosition = z.infer<typeof insertAnesthesiaPositionSchema>;
 export type AnesthesiaStaff = typeof anesthesiaStaff.$inferSelect;
 export type InsertAnesthesiaStaff = z.infer<typeof insertAnesthesiaStaffSchema>;
+export type AnesthesiaInstallation = typeof anesthesiaInstallations.$inferSelect;
+export type InsertAnesthesiaInstallation = z.infer<typeof insertAnesthesiaInstallationSchema>;
+export type AnesthesiaTechniqueDetail = typeof anesthesiaTechniqueDetails.$inferSelect;
+export type InsertAnesthesiaTechniqueDetail = z.infer<typeof insertAnesthesiaTechniqueDetailSchema>;
 export type InventoryUsage = typeof inventoryUsage.$inferSelect;
 export type InsertInventoryUsage = z.infer<typeof insertInventoryUsageSchema>;
 export type AuditTrail = typeof auditTrail.$inferSelect;
