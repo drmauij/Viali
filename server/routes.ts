@@ -32,6 +32,8 @@ import {
   insertAnesthesiaEventSchema,
   insertAnesthesiaPositionSchema,
   insertAnesthesiaStaffSchema,
+  insertAnesthesiaInstallationSchema,
+  insertAnesthesiaTechniqueDetailSchema,
   insertInventoryUsageSchema,
   insertNoteSchema,
   orderLines, 
@@ -6820,7 +6822,109 @@ If unable to parse any drugs, return:
     }
   });
 
-  // 11. Inventory Usage
+  // 11. Anesthesia Installations
+
+  // Get installations for a record
+  app.get('/api/anesthesia/installations/:recordId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId } = req.params;
+      const userId = req.user.id;
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) return res.status(404).json({ message: "Surgery not found" });
+      const hospitals = await storage.getUserHospitals(userId);
+      if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
+      const installations = await storage.getAnesthesiaInstallations(recordId);
+      res.json(installations);
+    } catch (error) {
+      console.error("Error fetching installations:", error);
+      res.status(500).json({ message: "Failed to fetch installations" });
+    }
+  });
+
+  // Create installation
+  app.post('/api/anesthesia/installations', isAuthenticated, async (req: any, res) => {
+    try {
+      const validated = insertAnesthesiaInstallationSchema.parse(req.body);
+      const record = await storage.getAnesthesiaRecordById(validated.anesthesiaRecordId);
+      if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) return res.status(404).json({ message: "Surgery not found" });
+      const hospitals = await storage.getUserHospitals(req.user.id);
+      if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
+      const created = await storage.createAnesthesiaInstallation(validated);
+      res.json(created);
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      console.error("Error creating installation:", error);
+      res.status(500).json({ message: "Failed to create installation" });
+    }
+  });
+
+  // Update installation
+  app.patch('/api/anesthesia/installations/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const updated = await storage.updateAnesthesiaInstallation(req.params.id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating installation:", error);
+      res.status(500).json({ message: "Failed to update installation" });
+    }
+  });
+
+  // Delete installation
+  app.delete('/api/anesthesia/installations/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      await storage.deleteAnesthesiaInstallation(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting installation:", error);
+      res.status(500).json({ message: "Failed to delete installation" });
+    }
+  });
+
+  // 12. Anesthesia Technique Details
+
+  // Get technique details for a record
+  app.get('/api/anesthesia/technique-details/:recordId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId } = req.params;
+      const userId = req.user.id;
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) return res.status(404).json({ message: "Surgery not found" });
+      const hospitals = await storage.getUserHospitals(userId);
+      if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
+      const details = await storage.getAnesthesiaTechniqueDetails(recordId);
+      res.json(details);
+    } catch (error) {
+      console.error("Error fetching technique details:", error);
+      res.status(500).json({ message: "Failed to fetch technique details" });
+    }
+  });
+
+  // Upsert technique detail
+  app.post('/api/anesthesia/technique-details', isAuthenticated, async (req: any, res) => {
+    try {
+      const validated = insertAnesthesiaTechniqueDetailSchema.parse(req.body);
+      const record = await storage.getAnesthesiaRecordById(validated.anesthesiaRecordId);
+      if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) return res.status(404).json({ message: "Surgery not found" });
+      const hospitals = await storage.getUserHospitals(req.user.id);
+      if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
+      const created = await storage.upsertAnesthesiaTechniqueDetail(validated);
+      res.json(created);
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      console.error("Error upserting technique detail:", error);
+      res.status(500).json({ message: "Failed to upsert technique detail" });
+    }
+  });
+
+  // 13. Inventory Usage
 
   // Get inventory usage for a record
   app.get('/api/anesthesia/inventory/:recordId', isAuthenticated, async (req: any, res) => {

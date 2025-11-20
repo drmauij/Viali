@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { UnifiedTimeline, type UnifiedTimelineData, type TimelineVitals, type TimelineEvent, type VitalPoint } from "@/components/anesthesia/UnifiedTimeline";
 import { PreOpOverview } from "@/components/anesthesia/PreOpOverview";
+import { InstallationsSection, GeneralAnesthesiaSection, SedationSection, RegionalAnesthesiaSection } from "@/components/anesthesia/AnesthesiaDocumentation";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -684,199 +685,7 @@ export default function Op() {
                       <CardTitle className="text-lg">Installations</CardTitle>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <CardContent className="space-y-6 pt-0">
-                        {/* Peripheral Access */}
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-base font-semibold">Peripheral Venous Access</Label>
-                            <Button variant="outline" size="sm" data-testid="button-add-pv-access">
-                              <Plus className="h-4 w-4 mr-1" />
-                              Add Entry
-                            </Button>
-                          </div>
-
-                          {/* Entry 1 */}
-                          <div className="border rounded-lg p-4 space-y-3 bg-slate-50 dark:bg-slate-900">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium">Entry #1</span>
-                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" data-testid="button-remove-pv-1">
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label>Location</Label>
-                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-pv-location-1">
-                                  <option value="">Select location</option>
-                                  <option value="right-hand">Right Hand (Dorsum)</option>
-                                  <option value="left-hand">Left Hand (Dorsum)</option>
-                                  <option value="right-forearm">Right Forearm</option>
-                                  <option value="left-forearm">Left Forearm</option>
-                                  <option value="right-ac-fossa">Right Antecubital Fossa</option>
-                                  <option value="left-ac-fossa">Left Antecubital Fossa</option>
-                                  <option value="right-wrist">Right Wrist</option>
-                                  <option value="left-wrist">Left Wrist</option>
-                                  <option value="right-foot">Right Foot</option>
-                                  <option value="left-foot">Left Foot</option>
-                                </select>
-                              </div>
-                              <div className="space-y-2">
-                                <Label>Gauge</Label>
-                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-pv-gauge-1">
-                                  <option value="">Select gauge</option>
-                                  <option value="14G">14G (Orange)</option>
-                                  <option value="16G">16G (Gray)</option>
-                                  <option value="18G">18G (Green)</option>
-                                  <option value="20G">20G (Pink)</option>
-                                  <option value="22G">22G (Blue)</option>
-                                  <option value="24G">24G (Yellow)</option>
-                                </select>
-                              </div>
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Number of Attempts</Label>
-                              <Input type="number" placeholder="1" defaultValue="1" data-testid="input-pv-attempts-1" />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Notes</Label>
-                              <Textarea rows={2} placeholder="Additional notes..." data-testid="textarea-pv-notes-1" />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Arterial Line */}
-                        <div className="space-y-3">
-                          <Label className="text-base font-semibold">Arterial Line</Label>
-                          <div className="border rounded-lg p-4 space-y-3">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label>Location</Label>
-                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-arterial-location">
-                                  <option value="">Select location</option>
-                                  <option value="radial-left">Radial - Left</option>
-                                  <option value="radial-right">Radial - Right</option>
-                                  <option value="femoral-left">Femoral - Left</option>
-                                  <option value="femoral-right">Femoral - Right</option>
-                                  <option value="brachial">Brachial</option>
-                                </select>
-                              </div>
-                              <div className="space-y-2">
-                                <Label>Gauge</Label>
-                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-arterial-gauge">
-                                  <option value="">Select gauge</option>
-                                  <option value="18G">18G</option>
-                                  <option value="20G">20G</option>
-                                  <option value="22G">22G</option>
-                                </select>
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label>Number of Attempts</Label>
-                                <Input type="number" placeholder="1" data-testid="input-arterial-attempts" />
-                              </div>
-                              <div className="space-y-2">
-                                <Label>Technique</Label>
-                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-arterial-technique">
-                                  <option value="">Select technique</option>
-                                  <option value="direct">Direct (Seldinger)</option>
-                                  <option value="transfixion">Transfixion</option>
-                                  <option value="ultrasound">Ultrasound-guided</option>
-                                </select>
-                              </div>
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Notes</Label>
-                              <Textarea rows={2} placeholder="Additional notes..." data-testid="textarea-arterial-notes" />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Central Line */}
-                        <div className="space-y-3">
-                          <Label className="text-base font-semibold">Central Venous Catheter</Label>
-                          <div className="border rounded-lg p-4 space-y-3">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label>Location</Label>
-                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-cvc-location">
-                                  <option value="">Select location</option>
-                                  <option value="right-ijv">Right Internal Jugular</option>
-                                  <option value="left-ijv">Left Internal Jugular</option>
-                                  <option value="right-subclavian">Right Subclavian</option>
-                                  <option value="left-subclavian">Left Subclavian</option>
-                                  <option value="femoral">Femoral</option>
-                                </select>
-                              </div>
-                              <div className="space-y-2">
-                                <Label>Lumens</Label>
-                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-cvc-lumens">
-                                  <option value="">Select lumens</option>
-                                  <option value="1">Single</option>
-                                  <option value="2">Double</option>
-                                  <option value="3">Triple</option>
-                                  <option value="4">Quad</option>
-                                </select>
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label>Depth (cm)</Label>
-                                <Input type="number" placeholder="16" data-testid="input-cvc-depth" />
-                              </div>
-                              <div className="space-y-2">
-                                <Label>Technique</Label>
-                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-cvc-technique">
-                                  <option value="">Select technique</option>
-                                  <option value="landmark">Landmark</option>
-                                  <option value="ultrasound">Ultrasound-guided</option>
-                                </select>
-                              </div>
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Notes</Label>
-                              <Textarea rows={2} placeholder="Additional notes..." data-testid="textarea-cvc-notes" />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Airway */}
-                        <div className="space-y-3">
-                          <Label className="text-base font-semibold">Airway Management</Label>
-                          <div className="border rounded-lg p-4 space-y-3">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label>Device</Label>
-                                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-airway-device">
-                                  <option value="">Select device</option>
-                                  <option value="ett">Endotracheal Tube</option>
-                                  <option value="lma">Laryngeal Mask Airway</option>
-                                  <option value="facemask">Face Mask</option>
-                                  <option value="tracheostomy">Tracheostomy</option>
-                                </select>
-                              </div>
-                              <div className="space-y-2">
-                                <Label>Size</Label>
-                                <Input type="text" placeholder="e.g., 7.5" data-testid="input-airway-size" />
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label>Depth (cm at teeth)</Label>
-                                <Input type="number" placeholder="22" data-testid="input-airway-depth" />
-                              </div>
-                              <div className="space-y-2">
-                                <Label>Cuff Pressure (cmH₂O)</Label>
-                                <Input type="number" placeholder="20" data-testid="input-airway-cuff" />
-                              </div>
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Notes</Label>
-                              <Textarea rows={2} placeholder="Additional notes..." data-testid="textarea-airway-notes" />
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
+                      <InstallationsSection anesthesiaRecordId={anesthesiaRecord?.id} />
                     </AccordionContent>
                   </Card>
                 </AccordionItem>
@@ -1115,6 +924,42 @@ export default function Op() {
                           </div>
                         </div>
                       </CardContent>
+                    </AccordionContent>
+                  </Card>
+                </AccordionItem>
+
+                {/* General Anesthesia Section */}
+                <AccordionItem value="general-anesthesia">
+                  <Card>
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-general-anesthesia">
+                      <CardTitle className="text-lg">General Anesthesia</CardTitle>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <GeneralAnesthesiaSection anesthesiaRecordId={anesthesiaRecord?.id} />
+                    </AccordionContent>
+                  </Card>
+                </AccordionItem>
+
+                {/* Sedation Section */}
+                <AccordionItem value="sedation">
+                  <Card>
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-sedation">
+                      <CardTitle className="text-lg">Sedation</CardTitle>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <SedationSection anesthesiaRecordId={anesthesiaRecord?.id} />
+                    </AccordionContent>
+                  </Card>
+                </AccordionItem>
+
+                {/* Regional Anesthesia Section */}
+                <AccordionItem value="regional-anesthesia">
+                  <Card>
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-regional-anesthesia">
+                      <CardTitle className="text-lg">Regional Anesthesia</CardTitle>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <RegionalAnesthesiaSection anesthesiaRecordId={anesthesiaRecord?.id} />
                     </AccordionContent>
                   </Card>
                 </AccordionItem>

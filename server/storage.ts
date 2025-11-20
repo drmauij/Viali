@@ -33,6 +33,8 @@ import {
   anesthesiaEvents,
   anesthesiaPositions,
   anesthesiaStaff,
+  anesthesiaInstallations,
+  anesthesiaTechniqueDetails,
   inventoryUsage,
   auditTrail,
   type User,
@@ -92,6 +94,10 @@ import {
   type InsertAnesthesiaPosition,
   type AnesthesiaStaff,
   type InsertAnesthesiaStaff,
+  type AnesthesiaInstallation,
+  type InsertAnesthesiaInstallation,
+  type AnesthesiaTechniqueDetail,
+  type InsertAnesthesiaTechniqueDetail,
   type InventoryUsage,
   type InsertInventoryUsage,
   type AuditTrail,
@@ -2895,6 +2901,75 @@ export class DatabaseStorage implements IStorage {
       oldValue: currentStaff,
       newValue: null,
     });
+  }
+
+  // Anesthesia Installation operations
+  async getAnesthesiaInstallations(anesthesiaRecordId: string): Promise<AnesthesiaInstallation[]> {
+    const installations = await db
+      .select()
+      .from(anesthesiaInstallations)
+      .where(eq(anesthesiaInstallations.anesthesiaRecordId, anesthesiaRecordId))
+      .orderBy(anesthesiaInstallations.createdAt);
+    return installations;
+  }
+
+  async createAnesthesiaInstallation(installation: InsertAnesthesiaInstallation): Promise<AnesthesiaInstallation> {
+    const [created] = await db.insert(anesthesiaInstallations).values(installation).returning();
+    return created;
+  }
+
+  async updateAnesthesiaInstallation(id: string, updates: Partial<AnesthesiaInstallation>): Promise<AnesthesiaInstallation> {
+    const [updated] = await db
+      .update(anesthesiaInstallations)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(anesthesiaInstallations.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteAnesthesiaInstallation(id: string): Promise<void> {
+    await db.delete(anesthesiaInstallations).where(eq(anesthesiaInstallations.id, id));
+  }
+
+  // Anesthesia Technique Detail operations
+  async getAnesthesiaTechniqueDetails(anesthesiaRecordId: string): Promise<AnesthesiaTechniqueDetail[]> {
+    const details = await db
+      .select()
+      .from(anesthesiaTechniqueDetails)
+      .where(eq(anesthesiaTechniqueDetails.anesthesiaRecordId, anesthesiaRecordId));
+    return details;
+  }
+
+  async getAnesthesiaTechniqueDetail(anesthesiaRecordId: string, technique: string): Promise<AnesthesiaTechniqueDetail | undefined> {
+    const [detail] = await db
+      .select()
+      .from(anesthesiaTechniqueDetails)
+      .where(
+        and(
+          eq(anesthesiaTechniqueDetails.anesthesiaRecordId, anesthesiaRecordId),
+          eq(anesthesiaTechniqueDetails.technique, technique)
+        )
+      );
+    return detail;
+  }
+
+  async upsertAnesthesiaTechniqueDetail(detail: InsertAnesthesiaTechniqueDetail): Promise<AnesthesiaTechniqueDetail> {
+    const [upserted] = await db
+      .insert(anesthesiaTechniqueDetails)
+      .values(detail)
+      .onConflictDoUpdate({
+        target: [anesthesiaTechniqueDetails.anesthesiaRecordId, anesthesiaTechniqueDetails.technique],
+        set: {
+          details: detail.details,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return upserted;
+  }
+
+  async deleteAnesthesiaTechniqueDetail(id: string): Promise<void> {
+    await db.delete(anesthesiaTechniqueDetails).where(eq(anesthesiaTechniqueDetails.id, id));
   }
 
   // Inventory Usage operations
