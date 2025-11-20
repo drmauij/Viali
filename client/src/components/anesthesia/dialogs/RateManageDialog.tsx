@@ -113,7 +113,9 @@ export function RateManageDialog({
     }}>
       <DialogContent className="sm:max-w-[425px]" data-testid="dialog-rate-manage">
         <DialogHeader>
-          <DialogTitle>{managingRate?.label}</DialogTitle>
+          <DialogTitle>
+            {managingRate?.label ? managingRate.label.split('(')[0].trim() : 'Rate-Controlled Infusion'}
+          </DialogTitle>
           <DialogDescription>
             {isRunning ? "Adjust or change infusion rate" : "This infusion is currently stopped"}
           </DialogDescription>
@@ -176,7 +178,7 @@ export function RateManageDialog({
             {isRunning && (
               <Button
                 onClick={handleStopInfusion}
-                variant="default"
+                variant="outline"
                 className="w-full"
                 data-testid="button-rate-stop"
               >
@@ -194,11 +196,14 @@ export function RateManageDialog({
               <PlayCircle className="w-4 h-4 mr-2" />
               Start New Infusion
             </Button>
-
+          </div>
+          
+          {/* Cancel button - Small on bottom right */}
+          <div className="flex justify-end pt-2">
             <Button
               onClick={handleClose}
-              variant="outline"
-              className="w-full"
+              variant="ghost"
+              size="sm"
               data-testid="button-cancel"
             >
               Cancel
