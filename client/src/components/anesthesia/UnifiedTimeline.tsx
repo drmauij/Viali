@@ -5360,45 +5360,11 @@ export function UnifiedTimeline({
           </AlertDialogHeader>
           <div className="flex flex-col gap-2 my-4">
             <Button
-              onClick={async () => {
+              onClick={() => {
                 if (!pendingFreeFlowStop) return;
                 const { session, clickTime } = pendingFreeFlowStop;
                 
-                // Find the medication record in the database that matches this session
-                const matchingMedication = data.medications?.find(med => {
-                  const medTime = new Date(med.timestamp).getTime();
-                  return med.type === 'infusion_start' && 
-                         med.rate === 'free' &&
-                         Math.abs(medTime - session.startTime) < 1000; // Within 1 second tolerance
-                });
-                
-                if (matchingMedication) {
-                  try {
-                    console.log('[FREE-FLOW-STOP] Updating medication:', {
-                      id: matchingMedication.id,
-                      endTimestamp: new Date(clickTime),
-                      endTimestampISO: new Date(clickTime).toISOString(),
-                    });
-                    
-                    // Persist to database
-                    const result = await updateMedication.mutateAsync({
-                      id: matchingMedication.id,
-                      endTimestamp: new Date(clickTime),
-                    });
-                    
-                    console.log('[FREE-FLOW-STOP] Update result:', result);
-                  } catch (error) {
-                    console.error('[FREE-FLOW-STOP] Failed to persist:', error);
-                    toast({
-                      title: "Error",
-                      description: "Failed to stop infusion. Please try again.",
-                      variant: "destructive",
-                    });
-                    return;
-                  }
-                }
-                
-                // STOP action: Add endTime to current session (dashed line will stop at this point)
+                // Optimistic update: Immediately update UI
                 setFreeFlowSessions(prev => {
                   const sessions = prev[session.swimlaneId] || [];
                   return {
@@ -5420,13 +5386,30 @@ export function UnifiedTimeline({
                   };
                 });
                 
+                // Close dialog immediately
+                setShowFreeFlowStopDialog(false);
+                setPendingFreeFlowStop(null);
+                
+                // Show success message immediately
                 toast({
                   title: "Infusion stopped",
                   description: `${session.label} stopped at ${formatTime(clickTime)}`,
                 });
                 
-                setShowFreeFlowStopDialog(false);
-                setPendingFreeFlowStop(null);
+                // Background: Persist to database
+                const matchingMedication = data.medications?.find(med => {
+                  const medTime = new Date(med.timestamp).getTime();
+                  return med.type === 'infusion_start' && 
+                         med.rate === 'free' &&
+                         Math.abs(medTime - session.startTime) < 1000; // Within 1 second tolerance
+                });
+                
+                if (matchingMedication) {
+                  updateMedication.mutate({
+                    id: matchingMedication.id,
+                    endTimestamp: new Date(clickTime),
+                  });
+                }
               }}
               variant="default"
               data-testid="button-freeflow-stop"
@@ -5548,22 +5531,34 @@ export function UnifiedTimeline({
                 if (!pendingFreeFlowRestart) return;
                 const { previousSession } = pendingFreeFlowRestart;
                 
-                // Resume action: Clear the endTimestamp to make the infusion continue
-                // No new session is created, no new tick is added - just remove the stop
-                updateMedication.mutate({ 
-                  id: previousSession.id,
-                  endTimestamp: null as any, // Clear the stop timestamp
-                }, {
-                  onSuccess: () => {
-                    toast({
-                      title: "Infusion resumed",
-                      description: `${previousSession.label} continues with dose ${previousSession.dose}`,
-                    });
-                  },
+                // Optimistic update: Immediately update UI to remove endTime
+                setFreeFlowSessions(prev => {
+                  const sessions = prev[previousSession.swimlaneId] || [];
+                  return {
+                    ...prev,
+                    [previousSession.swimlaneId]: sessions.map(s => 
+                      s.id === previousSession.id 
+                        ? { ...s, endTime: undefined }
+                        : s
+                    ),
+                  };
                 });
                 
+                // Close dialog immediately
                 setShowFreeFlowRestartDialog(false);
                 setPendingFreeFlowRestart(null);
+                
+                // Show success message immediately
+                toast({
+                  title: "Infusion resumed",
+                  description: `${previousSession.label} continues with dose ${previousSession.dose}`,
+                });
+                
+                // Background: Persist to database (clear the stop timestamp)
+                updateMedication.mutate({ 
+                  id: previousSession.id,
+                  endTimestamp: null as any,
+                });
               }}
               variant="default"
               className="w-full"
