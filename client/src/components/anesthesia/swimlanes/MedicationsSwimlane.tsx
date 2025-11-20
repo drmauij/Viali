@@ -594,11 +594,17 @@ export function MedicationsSwimlane({
               visibleStart={visibleStart}
               visibleEnd={visibleEnd}
               onClick={() => {
-                onFreeFlowSheetOpen(
-                  { ...session, clickMode: 'segment' },
-                  session.dose,
-                  currentTime
-                );
+                // If infusion is stopped (has endTime), show resume dialog
+                // If infusion is running (no endTime), show management sheet
+                if (endTime) {
+                  onFreeFlowRestartDialogOpen(session, currentTime);
+                } else {
+                  onFreeFlowSheetOpen(
+                    { ...session, clickMode: 'segment' },
+                    session.dose,
+                    currentTime
+                  );
+                }
               }}
               onStartTickClick={() => {
                 setEditingInfusionStart({
