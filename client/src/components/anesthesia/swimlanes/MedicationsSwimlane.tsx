@@ -678,6 +678,13 @@ export function MedicationsSwimlane({
               }}
               onMouseLeave={() => setInfusionHoverInfo(null)}
               onClick={(e) => {
+                // Don't handle clicks if they're on the tick mark itself (which has stopPropagation)
+                // This check prevents double-dialog opening when clicking tick marks
+                if ((e.target as HTMLElement).closest('[data-testid^="bolus-pill-"]') || 
+                    (e.target as HTMLElement).closest('[data-testid^="infusion-pill-"]')) {
+                  return;
+                }
+                
                 const rect = e.currentTarget.getBoundingClientRect();
                 const x = e.clientX - rect.left;
                 
