@@ -1173,7 +1173,7 @@ export default function PatientDetail() {
               New Surgery
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Surgery</DialogTitle>
               <DialogDescription>Schedule a new surgery for this patient</DialogDescription>
@@ -1307,7 +1307,7 @@ export default function PatientDetail() {
 
       {/* Edit Surgery Dialog */}
       <Dialog open={!!editingCaseId} onOpenChange={(open) => !open && setEditingCaseId(null)}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Surgery</DialogTitle>
             <DialogDescription>Update surgery details</DialogDescription>
