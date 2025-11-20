@@ -30,6 +30,7 @@ type UnifiedInfusionProps = {
   isTouchDevice: boolean;
   visibleStart: number;
   visibleEnd: number;
+  segments?: Array<{ startTime: number; rate: string; rateUnit?: string }>; // For rendering rate change markers
 };
 
 const UnifiedInfusion = ({
@@ -49,6 +50,7 @@ const UnifiedInfusion = ({
   isTouchDevice,
   visibleStart,
   visibleEnd,
+  segments,
 }: UnifiedInfusionProps) => {
   const [showTooltip, setShowTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
@@ -151,6 +153,33 @@ const UnifiedInfusion = ({
           />
         </div>
       )}
+
+      {/* Rate Change Markers (carets) - only for rate-controlled infusions */}
+      {!isFreeFlow && segments && segments.length > 1 && segments.slice(1).map((segment, index) => {
+        const segmentTime = segment.startTime;
+        const segmentLeftPercent = ((segmentTime - visibleStart) / visibleRange) * 100;
+        
+        // Only render if within visible range
+        if (segmentLeftPercent < 0 || segmentLeftPercent > 100) return null;
+        
+        return (
+          <div
+            key={`segment-marker-${index}`}
+            className="absolute flex flex-col items-center pointer-events-none"
+            style={{
+              left: `calc(200px + ((100% - 210px) * ${segmentLeftPercent} / 100))`,
+              top: `${yPosition + lineYOffset - 10}px`,
+              zIndex: 38,
+            }}
+            data-testid={`${testId}-segment-${index}`}
+          >
+            <span className="text-xs font-bold" style={{ color: '#ef4444' }}>^</span>
+            <span className="text-[10px] font-semibold whitespace-nowrap" style={{ color: '#ef4444' }}>
+              {segment.rate}
+            </span>
+          </div>
+        );
+      })}
 
       {/* Tooltip */}
       {showTooltip && !isTouchDevice && (
@@ -529,6 +558,7 @@ export function MedicationsSwimlane({
               isTouchDevice={isTouchDevice}
               visibleStart={visibleStart}
               visibleEnd={visibleEnd}
+              segments={session.segments}
               onClick={() => {
                 // If session is running (no endTime), open the simplified RateManageDialog
                 // If session is stopped (has endTime), allow resuming or show appropriate dialog
