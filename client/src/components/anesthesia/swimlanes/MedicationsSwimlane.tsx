@@ -131,16 +131,12 @@ const UnifiedInfusion = ({
       {/* End Tick (only if infusion is stopped) */}
       {showEndTick && endLeftPercent !== null && (
         <div
-          className="absolute flex flex-col cursor-pointer hover:scale-110 transition-transform"
+          className="absolute flex flex-col pointer-events-none"
           style={{
             left: `calc(200px + ((100% - 210px) * ${endLeftPercent} / 100))`,
             top: `${yPosition}px`,
             height: `${swimlaneHeight}px`,
             zIndex: 40,
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            onClick();
           }}
           data-testid={`${testId}-end-tick`}
         >
@@ -179,7 +175,7 @@ const UnifiedInfusion = ({
             </div>
           )}
           <div className="text-xs text-muted-foreground italic mt-1">
-            Click start: edit | Click line: {endTime ? 'view' : 'manage'}
+            Click start tick: edit | Click line: {endTime ? 'view' : 'manage'}
           </div>
         </div>
       )}
