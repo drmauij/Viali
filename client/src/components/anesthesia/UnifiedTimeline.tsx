@@ -5512,38 +5512,20 @@ export function UnifiedTimeline({
             <Button
               onClick={() => {
                 if (!pendingFreeFlowRestart) return;
-                const { previousSession, clickTime } = pendingFreeFlowRestart;
+                const { previousSession } = pendingFreeFlowRestart;
                 
-                // START action: Resume with previous dose
-                const newSession: FreeFlowSession = {
-                  swimlaneId: previousSession.swimlaneId,
-                  startTime: clickTime,
-                  dose: previousSession.dose,
-                  label: previousSession.label,
-                };
-                
-                setFreeFlowSessions(prev => {
-                  const sessions = prev[previousSession.swimlaneId] || [];
-                  return {
-                    ...prev,
-                    [previousSession.swimlaneId]: [...sessions, newSession].sort((a, b) => a.startTime - b.startTime),
-                  };
-                });
-                
-                // Add tick marker
-                setInfusionData(prev => {
-                  const existingData = prev[previousSession.swimlaneId] || [];
-                  return {
-                    ...prev,
-                    [previousSession.swimlaneId]: [...existingData, [clickTime, previousSession.dose] as [number, string]].sort((a, b) => a[0] - b[0]),
-                  };
-                });
-                
-                // TODO: Persist to database
-                
-                toast({
-                  title: "Infusion resumed",
-                  description: `${previousSession.label} resumed with dose ${previousSession.dose}`,
+                // Resume action: Clear the endTimestamp to make the infusion continue
+                // No new session is created, no new tick is added - just remove the stop
+                updateMedication.mutate({ 
+                  id: previousSession.id,
+                  endTimestamp: null as any, // Clear the stop timestamp
+                }, {
+                  onSuccess: () => {
+                    toast({
+                      title: "Infusion resumed",
+                      description: `${previousSession.label} continues with dose ${previousSession.dose}`,
+                    });
+                  },
                 });
                 
                 setShowFreeFlowRestartDialog(false);
@@ -5572,36 +5554,47 @@ export function UnifiedTimeline({
                     if (!pendingFreeFlowRestart || !freeFlowRestartDoseInput.trim()) return;
                     const { previousSession, clickTime } = pendingFreeFlowRestart;
                     
-                    // START NEW action: Start with new dose
-                    const newSession: FreeFlowSession = {
-                      swimlaneId: previousSession.swimlaneId,
-                      startTime: clickTime,
+                    // START NEW action: Create a new infusion with new dose
+                    // Extract item ID from swimlane ID
+                    const groupMatch = previousSession.swimlaneId.match(/admingroup-([a-f0-9-]+)-item-(\d+)/);
+                    if (!groupMatch || !anesthesiaRecordId) {
+                      toast({
+                        variant: "destructive",
+                        title: "Error",
+                        description: "Unable to start new infusion",
+                      });
+                      return;
+                    }
+                    
+                    const groupId = groupMatch[1];
+                    const itemIndex = parseInt(groupMatch[2], 10);
+                    const groupItems = anesthesiaItems.filter(item => item.administrationGroup === groupId);
+                    const item = groupItems[itemIndex];
+                    
+                    if (!item) {
+                      toast({
+                        variant: "destructive",
+                        title: "Error",
+                        description: "Item not found",
+                      });
+                      return;
+                    }
+                    
+                    // Create new infusion in database
+                    createMedication.mutate({
+                      anesthesiaRecordId,
+                      itemId: item.id,
+                      timestamp: new Date(clickTime),
+                      type: 'infusion_start' as const,
+                      rate: 'free',
                       dose: freeFlowRestartDoseInput.trim(),
-                      label: previousSession.label,
-                    };
-                    
-                    setFreeFlowSessions(prev => {
-                      const sessions = prev[previousSession.swimlaneId] || [];
-                      return {
-                        ...prev,
-                        [previousSession.swimlaneId]: [...sessions, newSession].sort((a, b) => a.startTime - b.startTime),
-                      };
-                    });
-                    
-                    // Add tick marker
-                    setInfusionData(prev => {
-                      const existingData = prev[previousSession.swimlaneId] || [];
-                      return {
-                        ...prev,
-                        [previousSession.swimlaneId]: [...existingData, [clickTime, freeFlowRestartDoseInput.trim()] as [number, string]].sort((a, b) => a[0] - b[0]),
-                      };
-                    });
-                    
-                    // TODO: Persist to database
-                    
-                    toast({
-                      title: "New infusion started",
-                      description: `${previousSession.label} started with new dose ${freeFlowRestartDoseInput.trim()}`,
+                    }, {
+                      onSuccess: () => {
+                        toast({
+                          title: "New infusion started",
+                          description: `${previousSession.label} started with new dose ${freeFlowRestartDoseInput.trim()}`,
+                        });
+                      },
                     });
                     
                     setShowFreeFlowRestartDialog(false);
