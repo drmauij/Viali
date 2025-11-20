@@ -5322,7 +5322,7 @@ export function UnifiedTimeline({
                 if (!pendingFreeFlowStop) return;
                 const { session, clickTime } = pendingFreeFlowStop;
                 
-                // STOP action: Add endTime to current session
+                // STOP action: Add endTime to current session (dashed line will stop at this point)
                 setFreeFlowSessions(prev => {
                   const sessions = prev[session.swimlaneId] || [];
                   return {
@@ -5332,15 +5332,6 @@ export function UnifiedTimeline({
                         ? { ...s, endTime: clickTime }
                         : s
                     ),
-                  };
-                });
-                
-                // Add end tick marker at stop position
-                setInfusionData(prev => {
-                  const existingData = prev[session.swimlaneId] || [];
-                  return {
-                    ...prev,
-                    [session.swimlaneId]: [...existingData, [clickTime, session.dose] as [number, string]].sort((a, b) => a[0] - b[0]),
                   };
                 });
                 
