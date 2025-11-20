@@ -408,26 +408,15 @@ export function MedicationsSwimlane({
   
   return (
     <>
-      {/* Medication Markers - Simple tick marks for all medication events (bolus, infusions, rate changes) */}
+      {/* Bolus Medication Markers - Tick marks for bolus doses only */}
       {activeSwimlanes.flatMap((lane, laneIndex) => {
-        // Include all medication items (bolus and infusions)
+        // Only include medication items
         const isMedicationItem = lane.hierarchyLevel === 'item' && lane.id.startsWith('admingroup-');
         
-        // Check BOTH medicationDoseData (bolus) AND infusionData (rate-controlled infusions)
+        // Only render bolus doses here (infusions are handled separately)
         const bolusData = medicationDoseData[lane.id] || [];
-        const infusionDataPoints = infusionData[lane.id] || [];
-        const hasAnyData = bolusData.length > 0 || infusionDataPoints.length > 0;
         
-        console.log('[MED-RENDER] Checking lane for medication markers:', {
-          laneId: lane.id,
-          isMedicationItem,
-          hasBolusDoses: bolusData.length,
-          hasInfusionData: infusionDataPoints.length,
-          hasAnyData,
-          allDoseKeys: Object.keys(medicationDoseData)
-        });
-        
-        if (!isMedicationItem || !hasAnyData) return [];
+        if (!isMedicationItem || bolusData.length === 0) return [];
         
         const childLane = swimlanePositions.find(pos => pos.id === lane.id);
         if (!childLane) return [];
@@ -436,22 +425,11 @@ export function MedicationsSwimlane({
         const visibleEnd = currentZoomEnd ?? data.endTime;
         const visibleRange = visibleEnd - visibleStart;
         
-        // Render tick marks for BOTH bolus doses and infusion rate changes
-        const allTickMarks = [
-          ...bolusData.map(([timestamp, dose, id], index) => ({ timestamp, dose, id, index, type: 'bolus' as const })),
-          ...infusionDataPoints.map(([timestamp, dose], index) => ({ timestamp, dose, id: `infusion-${index}`, index, type: 'infusion' as const }))
-        ].sort((a, b) => a.timestamp - b.timestamp);
-        
-        return allTickMarks.map(({ timestamp, dose, id, index, type }) => {
+        return bolusData.map(([timestamp, dose, id], index) => {
           let leftPercent = ((timestamp - visibleStart) / visibleRange) * 100;
           
           if (leftPercent < 0 || leftPercent > 100) return null;
           
-          // Ensure pills don't overflow into swimlane label column
-          // Pills are 60px wide with 30px offset for centering
-          // Minimum safe position: 200px (label width) + 30px (half pill) = 230px from left
-          // This translates to approximately 5% of most screen widths as a conservative minimum
-          // Maximum safe position: stay within right boundary (95%)
           leftPercent = Math.max(5, Math.min(95, leftPercent));
           
           const isBeforeNow = timestamp < currentTime;
@@ -459,7 +437,7 @@ export function MedicationsSwimlane({
           
           return (
             <BolusPill
-              key={`${type}-pill-${lane.id}-${timestamp}-${index}`}
+              key={`bolus-pill-${lane.id}-${timestamp}-${index}`}
               timestamp={timestamp}
               dose={dose.toString()}
               medicationName={lane.label.trim()}
@@ -468,54 +446,24 @@ export function MedicationsSwimlane({
               yPosition={yPosition}
               swimlaneHeight={childLane.height}
               isDark={isDark}
-              testId={`${type}-pill-${lane.id}-${index}`}
+              testId={`bolus-pill-${lane.id}-${index}`}
               formatTime={formatTime}
               isTouchDevice={isTouchDevice}
               onClick={() => {
-                if (type === 'bolus') {
-                  // Bolus medication - edit dose dialog
-                  onMedicationEditDialogOpen({
-                    swimlaneId: lane.id,
-                    time: timestamp,
-                    dose: dose.toString(),
-                    index,
-                    id: id as string,
-                  });
-                } else {
-                  // Infusion tick mark - check if free-flow or rate-controlled
-                  if (lane.rateUnit === 'free') {
-                    // Free-flow infusion - open free-flow sheet with 'label' click mode to allow editing
-                    const sessions = freeFlowSessions[lane.id] || [];
-                    const session = sessions.find(s => s.startTime === timestamp) || {
-                      swimlaneId: lane.id,
-                      startTime: timestamp,
-                      dose: dose.toString(),
-                      label: lane.label.trim(),
-                    };
-                    onFreeFlowSheetOpen({ ...session, clickMode: 'label' }, dose.toString(), timestamp);
-                  } else {
-                    // Rate-controlled infusion tick mark - open rate management
-                    const rateOptions = lane.defaultDose?.includes('-') 
-                      ? lane.defaultDose.split('-').map(v => v.trim()).filter(v => v)
-                      : undefined;
-                    
-                    onRateManageDialogOpen({
-                      swimlaneId: lane.id,
-                      time: timestamp,
-                      value: dose.toString(),
-                      index,
-                      label: lane.label.trim(),
-                      rateOptions,
-                    }, timestamp, dose.toString());
-                  }
-                }
+                onMedicationEditDialogOpen({
+                  swimlaneId: lane.id,
+                  time: timestamp,
+                  dose: dose.toString(),
+                  index,
+                  id: id as string,
+                });
               }}
             />
           );
         }).filter(Boolean);
       })}
 
-      {/* Infusion Lines - Horizontal lines for rate-controlled infusions */}
+      {/* Rate-Controlled Infusions - Unified rendering with start/line/end */}
       {activeSwimlanes.flatMap((lane) => {
         const sessions = rateInfusionSessions[lane.id];
         if (!sessions || !Array.isArray(sessions) || sessions.length === 0) return [];
@@ -529,10 +477,11 @@ export function MedicationsSwimlane({
         
         return sessions.map((session, sessionIndex) => {
           const startTime = session.startTime || 0;
-          const endTime = session.endTime || visibleEnd; // If no end time, draw to end of visible range
+          const endTime = session.endTime || null; // null means still running
+          const displayEndTime = endTime || visibleEnd; // For rendering, use visible end if running
           
           let leftPercent = ((startTime - visibleStart) / visibleRange) * 100;
-          let widthPercent = ((endTime - startTime) / visibleRange) * 100;
+          let widthPercent = ((displayEndTime - startTime) / visibleRange) * 100;
           
           // Clip to visible range
           if (leftPercent + widthPercent < 0 || leftPercent > 100) return null;
@@ -540,18 +489,23 @@ export function MedicationsSwimlane({
           widthPercent = Math.min(100 - leftPercent, widthPercent);
           
           return (
-            <InfusionLine
-              key={`rate-infusion-line-${lane.id}-${sessionIndex}`}
+            <UnifiedInfusion
+              key={`rate-infusion-${lane.id}-${sessionIndex}`}
               startTime={startTime}
               endTime={endTime}
+              startDose={session.startDose || session.syringeQuantity || '?'}
               isFreeFlow={false}
+              medicationName={lane.label.trim()}
               leftPercent={leftPercent}
               widthPercent={widthPercent}
               yPosition={childLane.top}
               swimlaneHeight={childLane.height}
-              testId={`rate-infusion-line-${lane.id}-${sessionIndex}`}
+              testId={`rate-infusion-${lane.id}-${sessionIndex}`}
+              formatTime={formatTime}
+              isTouchDevice={isTouchDevice}
+              visibleStart={visibleStart}
+              visibleEnd={visibleEnd}
               onClick={() => {
-                // Open dialog to change rate or stop infusion
                 const rateUnit = session.segments[0]?.rateUnit || 'ml/h';
                 onRateSheetOpen(
                   { 
@@ -571,7 +525,7 @@ export function MedicationsSwimlane({
         }).filter(Boolean);
       })}
 
-      {/* Infusion Lines - Horizontal lines for free-flow infusions */}
+      {/* Free-Flow Infusions - Unified rendering with start/line/end */}
       {activeSwimlanes.flatMap((lane) => {
         const sessions = freeFlowSessions[lane.id];
         if (!sessions || !Array.isArray(sessions) || sessions.length === 0) return [];
@@ -585,10 +539,11 @@ export function MedicationsSwimlane({
         
         return sessions.map((session, sessionIndex) => {
           const startTime = session.startTime;
-          const endTime = session.endTime || visibleEnd; // Use session endTime if stopped, otherwise visible range
+          const endTime = session.endTime || null; // null means still running
+          const displayEndTime = endTime || visibleEnd; // For rendering, use visible end if running
           
           let leftPercent = ((startTime - visibleStart) / visibleRange) * 100;
-          let widthPercent = ((endTime - startTime) / visibleRange) * 100;
+          let widthPercent = ((displayEndTime - startTime) / visibleRange) * 100;
           
           // Clip to visible range
           if (leftPercent + widthPercent < 0 || leftPercent > 100) return null;
@@ -596,18 +551,23 @@ export function MedicationsSwimlane({
           widthPercent = Math.min(100 - leftPercent, widthPercent);
           
           return (
-            <InfusionLine
-              key={`freeflow-infusion-line-${lane.id}-${sessionIndex}`}
+            <UnifiedInfusion
+              key={`freeflow-infusion-${lane.id}-${sessionIndex}`}
               startTime={startTime}
-              endTime={null}
+              endTime={endTime}
+              startDose={session.dose || '?'}
               isFreeFlow={true}
+              medicationName={lane.label.trim()}
               leftPercent={leftPercent}
               widthPercent={widthPercent}
               yPosition={childLane.top}
               swimlaneHeight={childLane.height}
-              testId={`freeflow-infusion-line-${lane.id}-${sessionIndex}`}
+              testId={`freeflow-infusion-${lane.id}-${sessionIndex}`}
+              formatTime={formatTime}
+              isTouchDevice={isTouchDevice}
+              visibleStart={visibleStart}
+              visibleEnd={visibleEnd}
               onClick={() => {
-                // Open dialog to stop free-flow infusion
                 onFreeFlowSheetOpen(
                   { ...session, clickMode: 'segment' },
                   session.dose,
