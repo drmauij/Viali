@@ -168,11 +168,11 @@ const UnifiedInfusion = ({
             Start dose: {startDose}
           </div>
           <div className="text-xs text-muted-foreground">
-            Started: {formatTime(new Date(startTime))}
+            Started: {formatTime(startTime)}
           </div>
           {endTime && (
             <div className="text-xs text-muted-foreground">
-              Stopped: {formatTime(new Date(endTime))}
+              Stopped: {formatTime(endTime)}
             </div>
           )}
           <div className="text-xs text-muted-foreground italic mt-1">
@@ -359,12 +359,15 @@ export function MedicationsSwimlane({
     currentDrugSnapInterval,
     isDark,
     collapsedSwimlanes,
-    formatTime,
+    formatTime: originalFormatTime,
     data,
     swimlanes: activeSwimlanes,
     anesthesiaItems,
     anesthesiaRecordId,
   } = useTimelineContext();
+  
+  // Wrapper to convert timestamp to Date for formatTime
+  const formatTime = (timestamp: number) => originalFormatTime(new Date(timestamp));
 
   // Mutation for creating medications
   const createMedicationMutation = useCreateMedication(anesthesiaRecordId);
@@ -397,9 +400,11 @@ export function MedicationsSwimlane({
 
   // Helper: Get active rate session
   const getActiveSession = (swimlaneId: string): RateInfusionSession | null => {
-    const session = rateInfusionSessions[swimlaneId];
-    if (!session) return null;
-    return session;
+    const sessions = rateInfusionSessions[swimlaneId];
+    if (!sessions || !Array.isArray(sessions) || sessions.length === 0) return null;
+    // Prefer running session, otherwise most recent
+    const runningSession = sessions.find(s => s.state === 'running');
+    return runningSession || sessions[sessions.length - 1];
   };
 
   // Helper: Calculate editable boundaries

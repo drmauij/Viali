@@ -12,6 +12,7 @@ export interface RateInfusionSession {
   swimlaneId: string;
   label: string;
   syringeQuantity: string;
+  startDose: string; // Added for unified infusion rendering
   segments: RateInfusionSegment[];
   state: 'running' | 'paused' | 'stopped';
   startTime?: number;
@@ -23,6 +24,7 @@ export interface FreeFlowSession {
   startTime: number;
   dose: string;
   label: string;
+  endTime?: number | null; // Added for stopped infusions
 }
 
 export interface MedicationDoseData {

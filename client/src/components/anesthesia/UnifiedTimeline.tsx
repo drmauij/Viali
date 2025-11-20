@@ -91,7 +91,6 @@ import {
   transformMedicationDoses,
   transformRateInfusions,
   transformFreeFlowInfusions,
-  transformInfusionMarkers,
 } from "@/services/timelineTransform";
 import { 
   VitalsSwimlane, 
@@ -644,22 +643,17 @@ export function UnifiedTimeline({
     // Transform and load free-flow infusion sessions
     const freeFlowSessionsData = transformFreeFlowInfusions(data.medications || [], itemToSwimlane, anesthesiaItems);
     
-    // Transform and load infusion markers (for both active and stopped infusions)
-    const infusionMarkersData = transformInfusionMarkers(data.medications || [], itemToSwimlane, anesthesiaItems);
-    
     // Reset medication data using hook
     console.log('[MED-SYNC] Calling resetMedicationData with:', {
       dosesCount: Object.keys(doses).length,
       rateSessionsCount: Object.keys(rateSessions).length,
       freeFlowSessionsCount: Object.keys(freeFlowSessionsData).length,
-      infusionMarkersCount: Object.keys(infusionMarkersData).length,
       freeFlowSessions: freeFlowSessionsData
     });
     resetMedicationData({
       doses,
       rateSessions,
       freeFlowSessions: freeFlowSessionsData,
-      infusions: infusionMarkersData,
     });
     
     console.log('[MED-SYNC] Medication state initialized');
