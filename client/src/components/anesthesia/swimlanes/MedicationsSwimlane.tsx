@@ -530,19 +530,34 @@ export function MedicationsSwimlane({
               visibleStart={visibleStart}
               visibleEnd={visibleEnd}
               onClick={() => {
-                const rateUnit = session.segments[0]?.rateUnit || 'ml/h';
-                onRateSheetOpen(
-                  { 
-                    swimlaneId: lane.id, 
-                    label: lane.label.trim(), 
-                    clickMode: 'segment',
-                    rateUnit,
-                    defaultDose: lane.defaultDose || undefined
-                  },
-                  session.segments[session.segments.length - 1]?.rate || '0',
-                  currentTime,
-                  session.syringeQuantity
-                );
+                // If session is running (no endTime), open the simplified RateManageDialog
+                // If session is stopped (has endTime), allow resuming or show appropriate dialog
+                if (!endTime) {
+                  // Running infusion - open simplified manage dialog
+                  const currentRate = session.segments[session.segments.length - 1]?.rate || '0';
+                  const rateUnit = session.segments[0]?.rateUnit || lane.rateUnit || 'ml/h';
+                  
+                  // Parse rate options from defaultDose if available (e.g., "4-10-16")
+                  const rateOptions = lane.defaultDose && lane.defaultDose.includes('-')
+                    ? lane.defaultDose.split('-').map(v => v.trim()).filter(v => v)
+                    : undefined;
+                  
+                  onRateManageDialogOpen(
+                    {
+                      swimlaneId: lane.id,
+                      time: currentTime, // Use current time for proper forward-looking management
+                      value: currentRate,
+                      index: 0,
+                      label: `${lane.label.trim()} (${rateUnit})`, // Include rate unit in label
+                      rateOptions,
+                    },
+                    currentTime,
+                    currentRate
+                  );
+                } else {
+                  // Stopped infusion - check if it can be resumed
+                  onRateRestartDialogOpen(session, currentTime);
+                }
               }}
               onStartTickClick={() => {
                 setEditingInfusionStart({
@@ -1004,29 +1019,35 @@ export function MedicationsSwimlane({
                       const existingRates = infusionData[lane.id] || [];
                       
                       if (existingRates.length > 0) {
-                        // Rates already exist - show unified rate sheet for the active segment
-                        // Find the active segment: last rate before or at click time
-                        const ratesBeforeOrAt = existingRates.filter(([t]) => t <= time);
-                        let targetRate: [number, string];
+                        // Rates already exist - check if there's a running session
+                        const session = getActiveSession(lane.id);
                         
-                        if (ratesBeforeOrAt.length > 0) {
-                          // Use the last rate before or at the click
-                          targetRate = ratesBeforeOrAt[ratesBeforeOrAt.length - 1];
+                        if (session && !session.endTime) {
+                          // Running infusion exists - open simplified manage dialog
+                          const currentRate = session.segments[session.segments.length - 1]?.rate || '0';
+                          const rateUnit = session.segments[0]?.rateUnit || lane.rateUnit || 'ml/h';
+                          
+                          onRateManageDialogOpen(
+                            {
+                              swimlaneId: lane.id,
+                              time: time, // Use click time, not session start
+                              value: currentRate,
+                              index: 0,
+                              label: `${lane.label.trim()} (${rateUnit})`, // Include rate unit in label
+                              rateOptions,
+                            },
+                            time, // Use click time for proper forward-looking management
+                            currentRate
+                          );
                         } else {
-                          // Clicking before all rates - use the first rate
-                          targetRate = existingRates[0];
+                          // No running session - start a new one
+                          onRateSelectionDialogOpen({
+                            swimlaneId: lane.id,
+                            time,
+                            label: lane.label.trim(),
+                            rateOptions,
+                          });
                         }
-                        
-                        const [valueTime, value] = targetRate;
-                        
-                        // Open unified rate sheet in segment mode (for forward actions)
-                        onRateSheetOpen({
-                          swimlaneId: lane.id,
-                          label: lane.label.trim(),
-                          clickMode: 'segment',
-                          rateUnit: lane.rateUnit || '',
-                          defaultDose: lane.defaultDose || undefined,
-                        }, value.toString(), valueTime);
                       } else {
                         // No existing rates: show rate selection dialog to start first infusion
                         onRateSelectionDialogOpen({
@@ -1041,29 +1062,35 @@ export function MedicationsSwimlane({
                       const existingRates = infusionData[lane.id] || [];
                       
                       if (existingRates.length > 0) {
-                        // Rates already exist - show unified rate sheet for the active segment
-                        // Find the active segment: last rate before or at click time
-                        const ratesBeforeOrAt = existingRates.filter(([t]) => t <= time);
-                        let targetRate: [number, string];
+                        // Rates already exist - check if there's a running session
+                        const session = getActiveSession(lane.id);
                         
-                        if (ratesBeforeOrAt.length > 0) {
-                          // Use the last rate before or at the click
-                          targetRate = ratesBeforeOrAt[ratesBeforeOrAt.length - 1];
+                        if (session && !session.endTime) {
+                          // Running infusion exists - open simplified manage dialog
+                          const currentRate = session.segments[session.segments.length - 1]?.rate || '0';
+                          const rateUnit = session.segments[0]?.rateUnit || lane.rateUnit || 'ml/h';
+                          
+                          onRateManageDialogOpen(
+                            {
+                              swimlaneId: lane.id,
+                              time: time, // Use click time, not session start
+                              value: currentRate,
+                              index: 0,
+                              label: `${lane.label.trim()} (${rateUnit})`, // Include rate unit in label
+                              rateOptions: undefined,
+                            },
+                            time, // Use click time for proper forward-looking management
+                            currentRate
+                          );
                         } else {
-                          // Clicking before all rates - use the first rate
-                          targetRate = existingRates[0];
+                          // No running session - start a new one with the default dose
+                          onRateSelectionDialogOpen({
+                            swimlaneId: lane.id,
+                            time,
+                            label: lane.label.trim(),
+                            rateOptions: [lane.defaultDose], // Wrap simple default in array
+                          });
                         }
-                        
-                        const [valueTime, value] = targetRate;
-                        
-                        // Open unified rate sheet in segment mode (for forward actions)
-                        onRateSheetOpen({
-                          swimlaneId: lane.id,
-                          label: lane.label.trim(),
-                          clickMode: 'segment',
-                          rateUnit: lane.rateUnit || '',
-                          defaultDose: lane.defaultDose || undefined,
-                        }, value.toString(), valueTime);
                       } else {
                         // No existing rates: insert default directly for first click and create session
                         
