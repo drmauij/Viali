@@ -3,8 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { StopCircle, PlayCircle } from "lucide-react";
-import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
+import { Minus, Plus, StopCircle, PlayCircle } from "lucide-react";
 
 interface ManagingRate {
   swimlaneId: string;
@@ -40,23 +39,20 @@ export function RateManageDialog({
   onRateStartNew,
   onRateChange,
 }: RateManageDialogProps) {
-  const [rateManageInput, setRateManageInput] = useState("");
+  const [rateInput, setRateInput] = useState("");
 
   // Sync managing rate data to form
   useEffect(() => {
     if (managingRate) {
-      onRateManageTimeChange(managingRate.time);
-      setRateManageInput("");
+      setRateInput(managingRate.value || "");
     } else {
-      setRateManageInput("");
-      onRateManageTimeChange(0);
+      setRateInput("");
     }
   }, [managingRate]);
 
   const handleClose = () => {
     onOpenChange(false);
-    setRateManageInput("");
-    onRateManageTimeChange(0);
+    setRateInput("");
   };
 
   // Determine if infusion is running
@@ -74,16 +70,35 @@ export function RateManageDialog({
       (!latestStopMarker || latestRateMarker[0] >= latestStopMarker[0]);
   })();
 
-  // Get default rate for Start/Start New buttons
-  const getDefaultRate = () => {
-    if (rateManageInput.trim() && !isNaN(Number(rateManageInput)) && Number(rateManageInput) > 0) {
-      return rateManageInput.trim();
-    } else if (managingRate?.value && managingRate.value !== "") {
-      return managingRate.value;
-    } else if (managingRate?.rateOptions && managingRate.rateOptions.length > 0) {
-      return managingRate.rateOptions[0];
+  const handleSaveRate = () => {
+    if (rateInput.trim() && !isNaN(Number(rateInput)) && Number(rateInput) > 0) {
+      onRateChange(rateInput.trim());
     }
-    return "";
+  };
+
+  const handleStopInfusion = () => {
+    onRateStop();
+    handleClose();
+  };
+
+  const handleStartNewInfusion = () => {
+    const rate = rateInput.trim() || managingRate?.value || "";
+    if (rate) {
+      onRateStartNew(rate);
+      handleClose();
+    }
+  };
+
+  const incrementRate = () => {
+    const currentValue = Number(rateInput) || 0;
+    setRateInput(String(currentValue + 1));
+  };
+
+  const decrementRate = () => {
+    const currentValue = Number(rateInput) || 0;
+    if (currentValue > 0) {
+      setRateInput(String(currentValue - 1));
+    }
   };
 
   return (
@@ -96,134 +111,98 @@ export function RateManageDialog({
     }}>
       <DialogContent className="sm:max-w-[425px]" data-testid="dialog-rate-manage">
         <DialogHeader>
-          <DialogTitle>Manage Infusion</DialogTitle>
+          <DialogTitle>{managingRate?.label}</DialogTitle>
           <DialogDescription>
-            {managingRate ? `${managingRate.label} - Current: ${managingRate.value}` : 'Manage this rate'}
+            {isRunning ? "Adjust or change infusion rate" : "This infusion is currently stopped"}
           </DialogDescription>
         </DialogHeader>
+        
         <div className="grid gap-4 py-4">
-          {/* Conditional Stop/Start/Start New Actions */}
-          <div className="grid grid-cols-2 gap-2">
-            {/* Stop button - only visible for running infusions */}
-            {isRunning && (
+          {/* Rate Adjustment Section - First */}
+          <div className="grid gap-3">
+            <Label htmlFor="rate-input" className="text-sm font-medium">
+              {managingRate?.label ? `${managingRate.label.split(' ')[0]} Rate` : "Rate"}
+            </Label>
+            <div className="flex items-center gap-2">
               <Button
-                onClick={onRateStop}
                 variant="outline"
-                className="h-20 flex flex-col gap-2"
-                data-testid="button-rate-stop"
+                size="icon"
+                onClick={decrementRate}
+                data-testid="button-decrement-rate"
               >
-                <StopCircle className="w-6 h-6" />
-                <span className="text-sm">Stop</span>
+                <Minus className="w-4 h-4" />
               </Button>
-            )}
-            
-            {/* Start button - only visible for stopped infusions */}
-            {!isRunning && (
-              <Button
-                onClick={() => {
-                  const rate = getDefaultRate();
-                  if (rate) onRateStart(rate);
+              <Input
+                id="rate-input"
+                type="number"
+                inputMode="decimal"
+                className="text-center text-2xl font-bold h-14"
+                data-testid="input-rate-manage"
+                value={rateInput}
+                onChange={(e) => setRateInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSaveRate();
+                  }
                 }}
+                placeholder="0"
+              />
+              <Button
                 variant="outline"
-                className="h-20 flex flex-col gap-2"
-                data-testid="button-rate-start"
+                size="icon"
+                onClick={incrementRate}
+                data-testid="button-increment-rate"
               >
-                <PlayCircle className="w-6 h-6" />
-                <span className="text-sm">Start</span>
+                <Plus className="w-4 h-4" />
               </Button>
-            )}
-            
-            {/* Start New button - always visible */}
-            <Button
-              onClick={() => {
-                const rate = getDefaultRate();
-                if (rate) onRateStartNew(rate);
-              }}
-              variant="outline"
-              className="h-20 flex flex-col gap-2"
-              data-testid="button-rate-start-new"
-            >
-              <PlayCircle className="w-6 h-6" />
-              <span className="text-sm">Start New</span>
-            </Button>
-          </div>
-          
-          {/* Separate Change Rate Section */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
-                Change Rate
+              <span className="text-sm text-muted-foreground min-w-[80px]">
+                µg/kg/min
               </span>
             </div>
-          </div>
-          
-          {managingRate?.rateOptions && managingRate.rateOptions.length > 0 && (
-            <>
-              <div className="text-sm font-medium">Preset rates:</div>
-              <div className="grid grid-cols-3 gap-2">
-                {managingRate.rateOptions.map((rate, idx) => (
-                  <Button
-                    key={idx}
-                    onClick={() => onRateChange(rate)}
-                    variant="outline"
-                    className="h-12"
-                    data-testid={`button-change-rate-${rate}`}
-                  >
-                    {rate}
-                  </Button>
-                ))}
-              </div>
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">
-                    Or custom
-                  </span>
-                </div>
-              </div>
-            </>
-          )}
-          
-          <div className="grid gap-2">
-            <Label htmlFor="rate-manage-input">Custom Rate</Label>
-            <Input
-              id="rate-manage-input"
-              type="number"
-              inputMode="decimal"
-              data-testid="input-rate-manage"
-              value={rateManageInput}
-              onChange={(e) => setRateManageInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && rateManageInput.trim() && !isNaN(Number(rateManageInput)) && Number(rateManageInput) > 0) {
-                  onRateChange(rateManageInput.trim());
-                }
-              }}
-              placeholder="e.g., 10"
-            />
             <Button
-              onClick={() => onRateChange(rateManageInput.trim())}
-              disabled={!rateManageInput.trim() || isNaN(Number(rateManageInput)) || Number(rateManageInput) <= 0}
+              onClick={handleSaveRate}
+              disabled={!rateInput.trim() || isNaN(Number(rateInput)) || Number(rateInput) <= 0}
               className="w-full"
-              data-testid="button-change-rate-custom"
+              data-testid="button-save-rate"
             >
-              Change to {rateManageInput.trim() || "..."}
+              Save
+            </Button>
+          </div>
+
+          {/* Action Buttons - Second */}
+          <div className="grid gap-2 pt-2">
+            {isRunning && (
+              <Button
+                onClick={handleStopInfusion}
+                variant="default"
+                className="w-full"
+                data-testid="button-rate-stop"
+              >
+                <StopCircle className="w-4 h-4 mr-2" />
+                Stop Infusion
+              </Button>
+            )}
+            
+            <Button
+              onClick={handleStartNewInfusion}
+              variant="outline"
+              className="w-full"
+              data-testid="button-rate-start-new"
+            >
+              <PlayCircle className="w-4 h-4 mr-2" />
+              Start New Infusion
+            </Button>
+
+            <Button
+              onClick={handleClose}
+              variant="outline"
+              className="w-full"
+              data-testid="button-cancel"
+            >
+              Cancel
             </Button>
           </div>
         </div>
-        <DialogFooterWithTime
-          time={rateManageTime}
-          onTimeChange={onRateManageTimeChange}
-          showDelete={false}
-          onCancel={handleClose}
-          onSave={handleClose}
-          saveDisabled={false}
-          saveLabel="Close"
-        />
       </DialogContent>
     </Dialog>
   );
