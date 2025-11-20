@@ -512,6 +512,7 @@ export const surgeries = pgTable("surgeries", {
   plannedDate: timestamp("planned_date").notNull(),
   plannedSurgery: varchar("planned_surgery").notNull(),
   surgeon: varchar("surgeon"),
+  notes: text("notes"),
   
   // Actual execution
   actualStartTime: timestamp("actual_start_time"),
