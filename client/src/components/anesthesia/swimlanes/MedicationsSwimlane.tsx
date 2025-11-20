@@ -664,6 +664,7 @@ export function MedicationsSwimlane({
                       rateOptions,
                       sessionId: session.id, // Add session ID for mutations
                       itemId: lane.itemId, // Add item ID for creating new records
+                      isRunning: true, // Session is running (no endTime)
                     },
                     currentTime,
                     currentRate
@@ -1178,6 +1179,7 @@ export function MedicationsSwimlane({
                             rateOptions,
                             sessionId: session.id, // Add session ID for mutations
                             itemId: lane.itemId, // Add item ID for creating new records
+                            isRunning: true, // Session is running (no endTime)
                           },
                           time, // Use click time for proper forward-looking management
                           currentRate
@@ -1210,6 +1212,7 @@ export function MedicationsSwimlane({
                             rateOptions: undefined,
                             sessionId: session.id, // Add session ID for mutations
                             itemId: lane.itemId, // Add item ID for creating new records
+                            isRunning: true, // Session is running (no endTime)
                           },
                           time, // Use click time for proper forward-looking management
                           currentRate

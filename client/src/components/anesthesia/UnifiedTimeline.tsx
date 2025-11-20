@@ -1065,6 +1065,7 @@ export function UnifiedTimeline({
     rateOptions?: string[]; // from defaultDose if available
     sessionId?: string; // medication record ID for the running session
     itemId?: string; // item ID for creating new records
+    isRunning?: boolean; // whether the infusion is currently running
   } | null>(null);
   const [rateManageTime, setRateManageTime] = useState<number>(0);
   const [rateManageInput, setRateManageInput] = useState("");
@@ -6043,6 +6044,7 @@ export function UnifiedTimeline({
         onRateStart={handleRateStart}
         onRateStartNew={handleRateStartNew}
         onRateChange={handleRateChange}
+        isRunning={managingRate?.isRunning}
       />
 
       {/* Output Value Entry Dialog */}

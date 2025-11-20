@@ -25,6 +25,7 @@ interface RateManageDialogProps {
   onRateStart: (rate: string) => void;
   onRateStartNew: (rate: string) => void;
   onRateChange: (newRate: string) => void;
+  isRunning?: boolean;
 }
 
 export function RateManageDialog({
@@ -38,6 +39,7 @@ export function RateManageDialog({
   onRateStart,
   onRateStartNew,
   onRateChange,
+  isRunning: isRunningProp,
 }: RateManageDialogProps) {
   const [rateInput, setRateInput] = useState("");
 
@@ -55,8 +57,8 @@ export function RateManageDialog({
     setRateInput("");
   };
 
-  // Determine if infusion is running
-  const isRunning = managingRate && (() => {
+  // Use the prop if provided, otherwise calculate from infusionData (legacy behavior)
+  const isRunning = isRunningProp !== undefined ? isRunningProp : managingRate && (() => {
     const { swimlaneId } = managingRate;
     const existingData = infusionData[swimlaneId] || [];
     
