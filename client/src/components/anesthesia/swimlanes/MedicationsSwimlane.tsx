@@ -1100,6 +1100,7 @@ export function MedicationsSwimlane({
                         }));
                         
                         // Create initial rate infusion session (as array!)
+                        const tempId = crypto.randomUUID(); // Temporary ID for optimistic update
                         const newSegment: RateInfusionSegment = {
                           startTime: time,
                           rate: lane.defaultDose,
@@ -1108,9 +1109,11 @@ export function MedicationsSwimlane({
                         setRateInfusionSessions(prev => ({
                           ...prev,
                           [lane.id]: [{
+                            id: tempId, // Temporary ID, will be replaced by real ID from database
                             swimlaneId: lane.id,
                             label: lane.label.trim(),
-                            syringeQuantity: "50ml", // Default
+                            syringeQuantity: lane.defaultDose, // Use actual configured value, not hardcoded "50ml"
+                            startDose: lane.defaultDose, // Also set startDose to match
                             segments: [newSegment],
                             startTime: time,
                             state: 'running',
