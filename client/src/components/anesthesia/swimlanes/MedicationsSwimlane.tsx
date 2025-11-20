@@ -382,6 +382,7 @@ export function MedicationsSwimlane({
     freeFlowSessions,
     setInfusionData,
     setRateInfusionSessions,
+    setFreeFlowSessions,
   } = medicationState;
 
   // State for hover tooltips
@@ -946,8 +947,28 @@ export function MedicationsSwimlane({
                         
                         console.log('[FREE-FLOW-CLICK] Found item:', item.id, item.name);
                         
-                        // Create new free-flow infusion in database
-                        // React Query will automatically update the UI via cache invalidation
+                        // OPTIMISTIC UPDATE: Add session to UI immediately
+                        const tempId = crypto.randomUUID();
+                        const newSession: FreeFlowSession = {
+                          id: tempId,
+                          swimlaneId: lane.id,
+                          startTime: time,
+                          endTime: null,
+                          dose: lane.defaultDose,
+                          label: item.name,
+                        };
+                        
+                        // Update local state immediately
+                        const currentSessions = freeFlowSessions[lane.id] || [];
+                        setFreeFlowSessions({
+                          ...freeFlowSessions,
+                          [lane.id]: [...currentSessions, newSession],
+                        });
+                        
+                        console.log('[FREE-FLOW-CLICK] Optimistically added session to UI');
+                        
+                        // Create new free-flow infusion in database (background operation)
+                        // React Query will sync the real ID when mutation completes
                         createMedicationMutation.mutate({
                           anesthesiaRecordId,
                           itemId: item.id,
@@ -957,7 +978,7 @@ export function MedicationsSwimlane({
                           dose: lane.defaultDose,
                         });
                         
-                        console.log('[FREE-FLOW-CLICK] Free-flow infusion created');
+                        console.log('[FREE-FLOW-CLICK] Background mutation started');
                       } else {
                         // No default dose: show dose entry dialog
                         onFreeFlowDoseDialogOpen({
