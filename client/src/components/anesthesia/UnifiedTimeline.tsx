@@ -5318,9 +5318,35 @@ export function UnifiedTimeline({
           </AlertDialogHeader>
           <div className="flex flex-col gap-2 my-4">
             <Button
-              onClick={() => {
+              onClick={async () => {
                 if (!pendingFreeFlowStop) return;
                 const { session, clickTime } = pendingFreeFlowStop;
+                
+                // Find the medication record in the database that matches this session
+                const matchingMedication = data.medications?.find(med => {
+                  const medTime = new Date(med.timestamp).getTime();
+                  return med.type === 'infusion_start' && 
+                         med.rate === 'free' &&
+                         Math.abs(medTime - session.startTime) < 1000; // Within 1 second tolerance
+                });
+                
+                if (matchingMedication) {
+                  try {
+                    // Persist to database
+                    await updateMedication.mutateAsync({
+                      id: matchingMedication.id,
+                      endTimestamp: new Date(clickTime),
+                    });
+                  } catch (error) {
+                    console.error('[FREE-FLOW-STOP] Failed to persist:', error);
+                    toast({
+                      title: "Error",
+                      description: "Failed to stop infusion. Please try again.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                }
                 
                 // STOP action: Add endTime to current session (dashed line will stop at this point)
                 setFreeFlowSessions(prev => {
@@ -5343,8 +5369,6 @@ export function UnifiedTimeline({
                     [session.swimlaneId]: [...existingData, [clickTime, ""] as [number, string]].sort((a, b) => a[0] - b[0]),
                   };
                 });
-                
-                // TODO: Persist to database
                 
                 toast({
                   title: "Infusion stopped",
