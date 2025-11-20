@@ -5468,13 +5468,47 @@ export function UnifiedTimeline({
                   return;
                 }
                 
-                // 1. Stop the current infusion
+                // Optimistic update: Immediately update UI
+                setFreeFlowSessions(prev => {
+                  const sessions = prev[session.swimlaneId] || [];
+                  const updated = sessions.map(s => 
+                    s.id === session.id 
+                      ? { ...s, endTime: stopTime }
+                      : s
+                  );
+                  
+                  // Add new session with temporary ID
+                  const newSession: FreeFlowSession = {
+                    id: `temp-${Date.now()}`,
+                    swimlaneId: session.swimlaneId,
+                    startTime: newStartTime,
+                    dose: session.dose,
+                    label: session.label,
+                  };
+                  
+                  return {
+                    ...prev,
+                    [session.swimlaneId]: [...updated, newSession].sort((a, b) => a.startTime - b.startTime),
+                  };
+                });
+                
+                // Close dialog immediately
+                setShowFreeFlowStopDialog(false);
+                setPendingFreeFlowStop(null);
+                
+                // Show success message immediately
+                toast({
+                  title: "New infusion started",
+                  description: `${session.label} stopped and restarted with dose ${session.dose}`,
+                });
+                
+                // 1. Stop the current infusion (background)
                 updateMedication.mutate({
                   id: session.id,
                   endTimestamp: new Date(stopTime),
                 }, {
                   onSuccess: () => {
-                    // 2. Create new infusion after a gap
+                    // 2. Create new infusion after a gap (background)
                     createMedication.mutate({
                       anesthesiaRecordId,
                       itemId: item.id,
@@ -5482,19 +5516,9 @@ export function UnifiedTimeline({
                       type: 'infusion_start' as const,
                       rate: 'free',
                       dose: session.dose,
-                    }, {
-                      onSuccess: () => {
-                        toast({
-                          title: "New infusion started",
-                          description: `${session.label} stopped and restarted with dose ${session.dose}`,
-                        });
-                      },
                     });
                   },
                 });
-                
-                setShowFreeFlowStopDialog(false);
-                setPendingFreeFlowStop(null);
               }}
               variant="outline"
               data-testid="button-freeflow-start-new"
