@@ -161,20 +161,21 @@ const UnifiedInfusion = ({
         
         // Only render if within visible range
         if (segmentLeftPercent < 0 || segmentLeftPercent > 100) return null;
-        
+          
         return (
           <div
             key={`segment-marker-${index}`}
-            className="absolute flex flex-col items-center pointer-events-none"
+            className="absolute flex flex-row items-center gap-0.5 pointer-events-none"
             style={{
               left: `calc(200px + ((100% - 210px) * ${segmentLeftPercent} / 100))`,
-              top: `${yPosition + lineYOffset - 10}px`,
+              top: `${yPosition + lineYOffset}px`,
+              transform: 'translateY(-50%)', // Center on the line
               zIndex: 38,
             }}
             data-testid={`${testId}-segment-${index}`}
           >
-            <span className="text-xs font-bold" style={{ color: '#ef4444' }}>^</span>
-            <span className="text-[10px] font-semibold whitespace-nowrap" style={{ color: '#ef4444' }}>
+            <span className="text-xs font-bold leading-none" style={{ color: '#ef4444' }}>^</span>
+            <span className="text-[10px] font-semibold leading-none whitespace-nowrap" style={{ color: '#ef4444' }}>
               {segment.rate}
             </span>
           </div>
@@ -533,13 +534,17 @@ export function MedicationsSwimlane({
           const endTime = session.endTime || null; // null means still running
           const displayEndTime = endTime || visibleEnd; // For rendering, use visible end if running
           
-          let leftPercent = ((startTime - visibleStart) / visibleRange) * 100;
-          let widthPercent = ((displayEndTime - startTime) / visibleRange) * 100;
+          // Calculate positions as percentages first
+          const startPercent = ((startTime - visibleStart) / visibleRange) * 100;
+          const endPercent = ((displayEndTime - visibleStart) / visibleRange) * 100;
           
-          // Clip to visible range
-          if (leftPercent + widthPercent < 0 || leftPercent > 100) return null;
-          leftPercent = Math.max(0, leftPercent);
-          widthPercent = Math.min(100 - leftPercent, widthPercent);
+          // Skip if completely outside visible range
+          if (endPercent < 0 || startPercent > 100) return null;
+          
+          // Clip to visible range [0, 100]
+          const leftPercent = Math.max(0, startPercent);
+          const rightPercent = Math.min(100, endPercent);
+          const widthPercent = rightPercent - leftPercent;
           
           return (
             <UnifiedInfusion
@@ -624,13 +629,17 @@ export function MedicationsSwimlane({
           const endTime = session.endTime || null; // null means still running
           const displayEndTime = endTime || visibleEnd; // For rendering, use visible end if running
           
-          let leftPercent = ((startTime - visibleStart) / visibleRange) * 100;
-          let widthPercent = ((displayEndTime - startTime) / visibleRange) * 100;
+          // Calculate positions as percentages first
+          const startPercent = ((startTime - visibleStart) / visibleRange) * 100;
+          const endPercent = ((displayEndTime - visibleStart) / visibleRange) * 100;
           
-          // Clip to visible range
-          if (leftPercent + widthPercent < 0 || leftPercent > 100) return null;
-          leftPercent = Math.max(0, leftPercent);
-          widthPercent = Math.min(100 - leftPercent, widthPercent);
+          // Skip if completely outside visible range
+          if (endPercent < 0 || startPercent > 100) return null;
+          
+          // Clip to visible range [0, 100]
+          const leftPercent = Math.max(0, startPercent);
+          const rightPercent = Math.min(100, endPercent);
+          const widthPercent = rightPercent - leftPercent;
           
           return (
             <UnifiedInfusion
