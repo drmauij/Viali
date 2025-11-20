@@ -91,6 +91,7 @@ import {
   transformMedicationDoses,
   transformRateInfusions,
   transformFreeFlowInfusions,
+  transformInfusionMarkers,
 } from "@/services/timelineTransform";
 import { 
   VitalsSwimlane, 
@@ -643,17 +644,22 @@ export function UnifiedTimeline({
     // Transform and load free-flow infusion sessions
     const freeFlowSessionsData = transformFreeFlowInfusions(data.medications || [], itemToSwimlane, anesthesiaItems);
     
+    // Transform and load infusion markers (for both active and stopped infusions)
+    const infusionMarkersData = transformInfusionMarkers(data.medications || [], itemToSwimlane, anesthesiaItems);
+    
     // Reset medication data using hook
     console.log('[MED-SYNC] Calling resetMedicationData with:', {
       dosesCount: Object.keys(doses).length,
       rateSessionsCount: Object.keys(rateSessions).length,
       freeFlowSessionsCount: Object.keys(freeFlowSessionsData).length,
+      infusionMarkersCount: Object.keys(infusionMarkersData).length,
       freeFlowSessions: freeFlowSessionsData
     });
     resetMedicationData({
       doses,
       rateSessions,
       freeFlowSessions: freeFlowSessionsData,
+      infusions: infusionMarkersData,
     });
     
     console.log('[MED-SYNC] Medication state initialized');
@@ -3603,8 +3609,8 @@ export function UnifiedTimeline({
   };
 
   // Handle sheet stop
-  const handleSheetStop = () => {
-    if (!freeFlowSheetSession) return;
+  const handleSheetStop = async () => {
+    if (!freeFlowSheetSession || !anesthesiaRecordId) return;
     
     const { swimlaneId, label, startTime, dose } = freeFlowSheetSession;
     const stopTime = currentTime;
@@ -3612,6 +3618,34 @@ export function UnifiedTimeline({
     // Apply any edits first (if quantity or time was changed)
     const newDose = sheetDoseInput.trim() || dose;
     const newStartTime = sheetTimeInput || startTime;
+    
+    // Find the medication ID for this infusion start
+    const medications = data.medications || [];
+    const swimlaneParts = swimlaneId.split('-item-');
+    const adminGroupPart = swimlaneParts[0];
+    
+    // Get the item ID from the swimlane
+    const item = anesthesiaItems?.find(i => {
+      const expectedSwimlaneId = `${adminGroupPart}-item-${i.id}`;
+      return expectedSwimlaneId === swimlaneId;
+    });
+    
+    if (!item) {
+      console.error('[SHEET-STOP] Could not find item for swimlane:', swimlaneId);
+      return;
+    }
+    
+    // Find the medication record for this infusion start
+    const medicationRecord = medications.find(med => 
+      med.itemId === item.id && 
+      med.type === 'infusion_start' &&
+      new Date(med.timestamp).getTime() === (newStartTime || startTime)
+    );
+    
+    if (!medicationRecord) {
+      console.error('[SHEET-STOP] Could not find medication record for infusion');
+      return;
+    }
     
     // If edits were made, update the infusion data
     if (newDose !== dose || newStartTime !== startTime) {
@@ -3660,10 +3694,26 @@ export function UnifiedTimeline({
       };
     });
     
-    toast({
-      title: "Infusion stopped",
-      description: `${label} stopped`,
-    });
+    // Save to database - update the medication record with endTimestamp
+    try {
+      await updateMedication.mutateAsync({
+        id: medicationRecord.id,
+        endTimestamp: new Date(stopTime),
+      });
+      
+      toast({
+        title: "Infusion stopped",
+        description: `${label} stopped`,
+      });
+    } catch (error) {
+      console.error('[SHEET-STOP] Error saving stop:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save infusion stop",
+        variant: "destructive",
+      });
+      return;
+    }
     
     // Close sheet
     setShowFreeFlowSheet(false);
