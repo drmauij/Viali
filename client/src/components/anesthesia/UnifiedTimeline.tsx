@@ -5436,46 +5436,61 @@ export function UnifiedTimeline({
             </Button>
             <Button
               onClick={() => {
-                if (!pendingFreeFlowStop) return;
+                if (!pendingFreeFlowStop || !anesthesiaRecordId) return;
                 const { session, clickTime } = pendingFreeFlowStop;
                 
-                // START NEW action: Stop current + Start new with same dose
-                setFreeFlowSessions(prev => {
-                  const sessions = prev[session.swimlaneId] || [];
-                  const updated = sessions.map(s => 
-                    s.startTime === session.startTime 
-                      ? { ...s, endTime: clickTime }
-                      : s
-                  );
-                  
-                  // Add new session
-                  const newSession: FreeFlowSession = {
-                    swimlaneId: session.swimlaneId,
-                    startTime: clickTime,
-                    dose: session.dose,
-                    label: session.label,
-                  };
-                  
-                  return {
-                    ...prev,
-                    [session.swimlaneId]: [...updated, newSession].sort((a, b) => a.startTime - b.startTime),
-                  };
-                });
+                // START NEW action: Stop current + Start new with same dose after a 1-minute gap
+                const stopTime = clickTime;
+                const newStartTime = clickTime + 60000; // 1 minute gap
                 
-                // Add new tick marker
-                setInfusionData(prev => {
-                  const existingData = prev[session.swimlaneId] || [];
-                  return {
-                    ...prev,
-                    [session.swimlaneId]: [...existingData, [clickTime, session.dose] as [number, string]].sort((a, b) => a[0] - b[0]),
-                  };
-                });
+                // Extract item ID from swimlane ID
+                const groupMatch = session.swimlaneId.match(/admingroup-([a-f0-9-]+)-item-(\d+)/);
+                if (!groupMatch) {
+                  toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: "Unable to start new infusion",
+                  });
+                  return;
+                }
                 
-                // TODO: Persist to database
+                const groupId = groupMatch[1];
+                const itemIndex = parseInt(groupMatch[2], 10);
+                const groupItems = anesthesiaItems.filter(item => item.administrationGroup === groupId);
+                const item = groupItems[itemIndex];
                 
-                toast({
-                  title: "New infusion started",
-                  description: `${session.label} restarted with dose ${session.dose}`,
+                if (!item) {
+                  toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: "Item not found",
+                  });
+                  return;
+                }
+                
+                // 1. Stop the current infusion
+                updateMedication.mutate({
+                  id: session.id,
+                  endTimestamp: new Date(stopTime),
+                }, {
+                  onSuccess: () => {
+                    // 2. Create new infusion after a gap
+                    createMedication.mutate({
+                      anesthesiaRecordId,
+                      itemId: item.id,
+                      timestamp: new Date(newStartTime),
+                      type: 'infusion_start' as const,
+                      rate: 'free',
+                      dose: session.dose,
+                    }, {
+                      onSuccess: () => {
+                        toast({
+                          title: "New infusion started",
+                          description: `${session.label} stopped and restarted with dose ${session.dose}`,
+                        });
+                      },
+                    });
+                  },
                 });
                 
                 setShowFreeFlowStopDialog(false);
