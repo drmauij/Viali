@@ -557,6 +557,16 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
                   });
                 }
               }}
+              onCanvasClick={(roomId, time) => {
+                // Set default 3-hour duration for new surgeries
+                const endTime = new Date(time.getTime() + 3 * 60 * 60 * 1000);
+                setQuickCreateData({
+                  date: time,
+                  endDate: endTime,
+                  roomId: roomId,
+                });
+                setQuickCreateOpen(true);
+              }}
             />
           ) : (
             <DragAndDropCalendar

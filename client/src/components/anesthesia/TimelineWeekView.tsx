@@ -29,6 +29,7 @@ interface TimelineWeekViewProps {
   selectedDate: Date;
   onEventClick?: (surgeryId: string, patientId: string) => void;
   onEventDrop?: (surgeryId: string, newStart: Date, newEnd: Date, newRoomId: string) => void;
+  onCanvasClick?: (groupId: string, time: Date) => void;
 }
 
 export default function TimelineWeekView({
@@ -37,6 +38,7 @@ export default function TimelineWeekView({
   selectedDate,
   onEventClick,
   onEventDrop,
+  onCanvasClick,
 }: TimelineWeekViewProps) {
   // Track current state (room, times) to avoid race conditions
   const currentStateRef = useRef<Map<string, { roomId: string; start: Date; end: Date }>>(new Map());
@@ -199,6 +201,15 @@ export default function TimelineWeekView({
     onEventDrop(id, finalStart, finalEnd, roomId);
   };
 
+  const handleCanvasClick = (groupId: number | string, time: number) => {
+    if (!onCanvasClick) return;
+    
+    const roomId = String(groupId);
+    const clickedTime = new Date(time);
+    
+    onCanvasClick(roomId, clickedTime);
+  };
+
   if (!visibleTimeStart || !visibleTimeEnd) {
     return <div className="timeline-week-view">Loading...</div>;
   }
@@ -219,6 +230,7 @@ export default function TimelineWeekView({
           canChangeGroup={true}
           onItemMove={handleItemMove}
           onItemResize={handleItemResize}
+          onCanvasClick={handleCanvasClick}
           lineHeight={60}
           itemHeightRatio={0.8}
           minZoom={30 * 60 * 1000}
