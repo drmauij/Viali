@@ -1539,6 +1539,13 @@ export default function PatientDetail() {
                   </div>
                 </div>
 
+                {surgery.notes && (
+                  <div className="pt-2 border-t">
+                    <p className="text-muted-foreground text-sm mb-1">Notes</p>
+                    <p className="text-sm whitespace-pre-wrap" data-testid={`text-notes-${surgery.id}`}>{surgery.notes}</p>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-3 gap-3 pt-2">
                   <Button
                     variant="outline"
