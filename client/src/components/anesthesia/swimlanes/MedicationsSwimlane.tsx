@@ -9,53 +9,178 @@ import type {
 } from "@/hooks/useMedicationState";
 
 /**
- * InfusionLine Component - Horizontal line for infusions starting from vertical tick
+ * UnifiedInfusion Component - Complete infusion visualization with start tick, line, and optional end tick
  */
-type InfusionLineProps = {
+type UnifiedInfusionProps = {
   startTime: number;
   endTime: number | null;
+  startDose: string;
   isFreeFlow: boolean;
+  medicationName: string;
   onClick: () => void;
   leftPercent: number;
   widthPercent: number;
   yPosition: number;
   swimlaneHeight: number;
   testId: string;
+  formatTime: (time: number) => string;
+  isTouchDevice: boolean;
+  visibleStart: number;
+  visibleEnd: number;
 };
 
-const InfusionLine = ({
+const UnifiedInfusion = ({
   startTime,
   endTime,
+  startDose,
   isFreeFlow,
+  medicationName,
   onClick,
   leftPercent,
   widthPercent,
   yPosition,
   swimlaneHeight,
   testId,
-}: InfusionLineProps) => {
-  // Line starts 2px from the tick's bottom end
-  // Tick is 12px tall and attached to swimlane bottom
-  // So line should be positioned 2px from the swimlane bottom
+  formatTime,
+  isTouchDevice,
+  visibleStart,
+  visibleEnd,
+}: UnifiedInfusionProps) => {
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  
   const lineYOffset = swimlaneHeight - 2;
+  const visibleRange = visibleEnd - visibleStart;
+  
+  // Calculate end tick position if infusion is stopped
+  const endLeftPercent = endTime ? ((endTime - visibleStart) / visibleRange) * 100 : null;
+  const showEndTick = endTime !== null && endLeftPercent !== null && endLeftPercent >= 0 && endLeftPercent <= 100;
   
   return (
-    <div
-      className="absolute cursor-pointer hover:opacity-80 transition-opacity"
-      style={{
-        left: `calc(200px + ((100% - 210px) * ${leftPercent} / 100))`,
-        top: `${yPosition + lineYOffset}px`,
-        width: `calc((100% - 210px) * ${widthPercent} / 100)`,
-        height: '0',
-        borderTop: isFreeFlow ? '2px dashed #ef4444' : '2px solid #ef4444', // Red for both, dashed for free-flow
-        zIndex: 35, // Below tick marks (40) but above background
-      }}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-      data-testid={testId}
-    />
+    <>
+      {/* Start Tick */}
+      <div
+        className="absolute flex flex-col cursor-pointer hover:scale-110 transition-transform"
+        style={{
+          left: `calc(200px + ((100% - 210px) * ${leftPercent} / 100))`,
+          top: `${yPosition}px`,
+          height: `${swimlaneHeight}px`,
+          zIndex: 40,
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+        onMouseEnter={(e) => {
+          if (!isTouchDevice) {
+            setShowTooltip(true);
+            setTooltipPosition({ x: e.clientX, y: e.clientY });
+          }
+        }}
+        onMouseMove={(e) => {
+          if (!isTouchDevice) {
+            setTooltipPosition({ x: e.clientX, y: e.clientY });
+          }
+        }}
+        onMouseLeave={() => {
+          setShowTooltip(false);
+        }}
+        data-testid={`${testId}-start-tick`}
+      >
+        <span 
+          className="absolute text-base font-semibold leading-none"
+          style={{ 
+            color: isFreeFlow ? '#ef4444' : '#ef4444',
+            top: '50%',
+            transform: 'translateY(-50%)'
+          }}
+        >
+          {startDose}
+        </span>
+        <div
+          className="mt-auto"
+          style={{
+            width: '2px',
+            height: '12px',
+            backgroundColor: '#ef4444',
+          }}
+        />
+      </div>
+
+      {/* Horizontal Line */}
+      <div
+        className="absolute cursor-pointer hover:opacity-80 transition-opacity"
+        style={{
+          left: `calc(200px + ((100% - 210px) * ${leftPercent} / 100))`,
+          top: `${yPosition + lineYOffset}px`,
+          width: `calc((100% - 210px) * ${widthPercent} / 100)`,
+          height: '0',
+          borderTop: isFreeFlow ? '2px dashed #ef4444' : '2px solid #ef4444',
+          zIndex: 35,
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+        data-testid={`${testId}-line`}
+      />
+
+      {/* End Tick (only if infusion is stopped) */}
+      {showEndTick && endLeftPercent !== null && (
+        <div
+          className="absolute flex flex-col cursor-pointer hover:scale-110 transition-transform"
+          style={{
+            left: `calc(200px + ((100% - 210px) * ${endLeftPercent} / 100))`,
+            top: `${yPosition}px`,
+            height: `${swimlaneHeight}px`,
+            zIndex: 40,
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onClick();
+          }}
+          data-testid={`${testId}-end-tick`}
+        >
+          <div
+            className="mt-auto"
+            style={{
+              width: '2px',
+              height: '12px',
+              backgroundColor: '#ef4444',
+            }}
+          />
+        </div>
+      )}
+
+      {/* Tooltip */}
+      {showTooltip && !isTouchDevice && (
+        <div
+          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
+          style={{
+            left: tooltipPosition.x + 10,
+            top: tooltipPosition.y - 40,
+          }}
+        >
+          <div className="text-sm font-semibold text-primary">
+            {medicationName} {isFreeFlow ? '(Free-flow)' : '(Rate-controlled)'}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Start dose: {startDose}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Started: {formatTime(new Date(startTime))}
+          </div>
+          {endTime && (
+            <div className="text-xs text-muted-foreground">
+              Stopped: {formatTime(new Date(endTime))}
+            </div>
+          )}
+          <div className="text-xs text-muted-foreground italic mt-1">
+            Click to {endTime ? 'view' : 'manage'}
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

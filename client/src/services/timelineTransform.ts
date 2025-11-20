@@ -166,6 +166,7 @@ export function transformRateInfusions(
         swimlaneId,
         label: item.name,
         syringeQuantity: startRecord.dose || '50ml',
+        startDose: startRecord.dose || '50ml', // Add start dose for rendering
         segments,
         state,
         startTime,
