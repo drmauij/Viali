@@ -3,6 +3,7 @@ import { Droplet } from "lucide-react";
 import { useTimelineContext } from "../TimelineContext";
 import { useCreateMedication } from "@/hooks/useMedicationQuery";
 import { InfusionStartEditDialog } from "../dialogs/InfusionStartEditDialog";
+import { useToast } from "@/hooks/use-toast";
 import type {
   RateInfusionSegment,
   RateInfusionSession,
@@ -368,6 +369,9 @@ export function MedicationsSwimlane({
   // Wrapper to convert timestamp to Date for formatTime
   const formatTime = (timestamp: number) => originalFormatTime(new Date(timestamp));
 
+  // Toast for notifications
+  const { toast } = useToast();
+
   // Mutation for creating medications
   const createMedicationMutation = useCreateMedication(anesthesiaRecordId);
 
@@ -594,10 +598,24 @@ export function MedicationsSwimlane({
               visibleStart={visibleStart}
               visibleEnd={visibleEnd}
               onClick={() => {
-                // If infusion is stopped (has endTime), show resume dialog
+                // If infusion is stopped (has endTime), check if it's the last session before allowing resume
                 // If infusion is running (no endTime), show stop dialog
                 if (endTime) {
-                  onFreeFlowRestartDialogOpen(session, currentTime);
+                  // Check if there are any sessions after this one in the same swimlane
+                  const allSessionsInLane = lane.freeFlowSessions || [];
+                  const hasLaterSessions = allSessionsInLane.some(s => s.startTime > session.startTime);
+                  
+                  if (hasLaterSessions) {
+                    // Cannot resume a historical session - show informational toast
+                    toast({
+                      title: "Cannot resume",
+                      description: "You can only resume the most recent infusion session. This session has newer infusions after it.",
+                      variant: "default",
+                    });
+                  } else {
+                    // This is the last session - allow resume
+                    onFreeFlowRestartDialogOpen(session, currentTime);
+                  }
                 } else {
                   onFreeFlowStopDialogOpen(session, currentTime);
                 }
