@@ -6260,7 +6260,11 @@ If unable to parse any drugs, return:
         updates.endTimestamp = new Date(updates.endTimestamp);
       }
 
+      console.log('[MEDICATION-UPDATE] Updating medication:', { id, updates });
+
       const updatedMedication = await storage.updateAnesthesiaMedication(id, updates, userId);
+      
+      console.log('[MEDICATION-UPDATE] Updated result:', updatedMedication);
       
       res.json(updatedMedication);
     } catch (error) {

@@ -225,7 +225,12 @@ export function transformFreeFlowInfusions(
         r.type === 'infusion_stop' && new Date(r.timestamp).getTime() > startTime
       );
       
-      console.log('[FREE-FLOW-TRANSFORM] Stop check:', { hasEndTimestamp, hasStopRecord: !!stopRecord });
+      console.log('[FREE-FLOW-TRANSFORM] Stop check:', { 
+        hasEndTimestamp, 
+        endTimestampValue: startRec.endTimestamp,
+        hasStopRecord: !!stopRecord,
+        medicationId: startRec.id
+      });
       
       if (hasEndTimestamp || stopRecord) {
         console.log('[FREE-FLOW-TRANSFORM] Skipping - already stopped');

@@ -5332,11 +5332,19 @@ export function UnifiedTimeline({
                 
                 if (matchingMedication) {
                   try {
+                    console.log('[FREE-FLOW-STOP] Updating medication:', {
+                      id: matchingMedication.id,
+                      endTimestamp: new Date(clickTime),
+                      endTimestampISO: new Date(clickTime).toISOString(),
+                    });
+                    
                     // Persist to database
-                    await updateMedication.mutateAsync({
+                    const result = await updateMedication.mutateAsync({
                       id: matchingMedication.id,
                       endTimestamp: new Date(clickTime),
                     });
+                    
+                    console.log('[FREE-FLOW-STOP] Update result:', result);
                   } catch (error) {
                     console.error('[FREE-FLOW-STOP] Failed to persist:', error);
                     toast({
