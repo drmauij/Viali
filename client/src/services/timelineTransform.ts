@@ -58,26 +58,16 @@ export function transformMedicationDoses(
 ): { [swimlaneId: string]: Array<[number, string, string]> } {
   const doseData: { [swimlaneId: string]: Array<[number, string, string]> } = {};
   
+  // Only process true bolus medications - infusions are handled by separate transform functions
   medications
-    .filter(med => med.type === 'bolus' || med.type === 'infusion_start' || med.type === 'rate_change' || med.type === 'infusion_stop')
+    .filter(med => med.type === 'bolus')
     .forEach(med => {
       const swimlaneId = itemToSwimlane.get(med.itemId);
       if (!swimlaneId) return;
       
       const timestamp = new Date(med.timestamp).getTime();
       const id = med.id;
-      
-      // Format dose/rate based on type
-      let displayValue = '';
-      if (med.type === 'bolus') {
-        displayValue = med.dose || '?';
-      } else if (med.type === 'infusion_start') {
-        displayValue = med.dose || '?';
-      } else if (med.type === 'rate_change') {
-        displayValue = med.rate || '?';
-      } else if (med.type === 'infusion_stop') {
-        displayValue = 'Stop';
-      }
+      const displayValue = med.dose || '?';
       
       if (!doseData[swimlaneId]) {
         doseData[swimlaneId] = [];
