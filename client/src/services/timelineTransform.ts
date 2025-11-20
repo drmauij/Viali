@@ -217,19 +217,18 @@ export function transformFreeFlowInfusions(
         r.type === 'infusion_stop' && new Date(r.timestamp).getTime() > startTime
       );
       
-      console.log('[FREE-FLOW-TRANSFORM] Stop check:', { 
+      // Calculate endTime if infusion is stopped
+      const endTime = stopRecord 
+        ? new Date(stopRecord.timestamp).getTime() 
+        : (hasEndTimestamp ? new Date(startRec.endTimestamp).getTime() : null);
+      
+      console.log('[FREE-FLOW-TRANSFORM] Processing infusion:', { 
         hasEndTimestamp, 
         endTimestampValue: startRec.endTimestamp,
         hasStopRecord: !!stopRecord,
+        endTime,
         medicationId: startRec.id
       });
-      
-      // Only add to active sessions if NOT stopped
-      // Stopped infusions should NOT be in freeFlowSessions (they're historical)
-      if (hasEndTimestamp || stopRecord) {
-        console.log('[FREE-FLOW-TRANSFORM] Infusion is stopped - will be shown as historical markers only');
-        return;
-      }
       
       if (!sessions[swimlaneId]) {
         sessions[swimlaneId] = [];
@@ -241,8 +240,9 @@ export function transformFreeFlowInfusions(
         startTime,
         dose: startRec.dose || '?',
         label: item.name,
+        endTime, // null means still running, otherwise shows completed infusion
       };
-      console.log('[FREE-FLOW-TRANSFORM] Creating active free-flow session:', session);
+      console.log('[FREE-FLOW-TRANSFORM] Creating free-flow session:', session);
       sessions[swimlaneId].push(session);
     });
   });
