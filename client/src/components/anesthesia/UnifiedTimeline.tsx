@@ -992,6 +992,20 @@ export function UnifiedTimeline({
     clickTime: number; 
   } | null>(null);
   
+  // State for rate infusion stop/start-new dialog (running rate infusion clicked)
+  const [showRateStopDialog, setShowRateStopDialog] = useState(false);
+  const [pendingRateStop, setPendingRateStop] = useState<{ 
+    session: any; // RateInfusionSession type defined below
+    clickTime: number; 
+  } | null>(null);
+  
+  // State for rate infusion resume dialog (stopped rate infusion clicked)
+  const [showRateRestartDialog, setShowRateRestartDialog] = useState(false);
+  const [pendingRateRestart, setPendingRateRestart] = useState<{ 
+    previousSession: any; // RateInfusionSession type defined below
+    clickTime: number; 
+  } | null>(null);
+  
   // State for rate-based infusion sessions (map swimlaneId to active session info)
   type RateInfusionSegment = {
     startTime: number;
@@ -4989,6 +5003,14 @@ export function UnifiedTimeline({
           setPendingFreeFlowRestart({ previousSession, clickTime });
           setShowFreeFlowRestartDialog(true);
         }}
+        onRateStopDialogOpen={(session, clickTime) => {
+          setPendingRateStop({ session, clickTime });
+          setShowRateStopDialog(true);
+        }}
+        onRateRestartDialogOpen={(previousSession, clickTime) => {
+          setPendingRateRestart({ previousSession, clickTime });
+          setShowRateRestartDialog(true);
+        }}
         onFreeFlowSheetOpen={(session, doseInput, timeInput) => {
           setFreeFlowSheetSession(session);
           setSheetDoseInput(doseInput);
@@ -5563,6 +5585,191 @@ export function UnifiedTimeline({
               variant="default"
               className="w-full"
               data-testid="button-freeflow-resume"
+            >
+              <PlayCircle className="w-4 h-4 mr-2" />
+              Resume
+            </Button>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel">Cancel</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Rate Infusion Stop/Start-New Dialog (Running rate infusion clicked) */}
+      <AlertDialog open={showRateStopDialog} onOpenChange={setShowRateStopDialog}>
+        <AlertDialogContent data-testid="dialog-rate-stop">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pendingRateStop?.session.label}</AlertDialogTitle>
+            <AlertDialogDescription>
+              This rate infusion is currently running. Choose an action:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex flex-col gap-2 my-4">
+            <Button
+              onClick={() => {
+                if (!pendingRateStop) return;
+                const { session, clickTime } = pendingRateStop;
+                
+                // Optimistic update: Immediately update UI to set endTime
+                setRateInfusionSessions(prev => {
+                  const sessions = prev[session.swimlaneId] || [];
+                  return {
+                    ...prev,
+                    [session.swimlaneId]: sessions.map(s => 
+                      s.id === session.id 
+                        ? { ...s, endTime: clickTime, state: 'stopped' as const }
+                        : s
+                    ),
+                  };
+                });
+                
+                // Close dialog immediately
+                setShowRateStopDialog(false);
+                setPendingRateStop(null);
+                
+                // Show success message immediately
+                toast({
+                  title: "Rate infusion stopped",
+                  description: `${session.label} stopped at ${new Date(clickTime).toLocaleTimeString()}`,
+                });
+                
+                // Background: Persist to database (set the stop timestamp)
+                updateMedication.mutate({ 
+                  id: session.id,
+                  endTimestamp: new Date(clickTime),
+                });
+              }}
+              variant="destructive"
+              data-testid="button-rate-stop"
+            >
+              <StopCircle className="w-4 h-4 mr-2" />
+              Stop
+            </Button>
+            
+            <Button
+              onClick={() => {
+                if (!pendingRateStop || !anesthesiaRecordId) return;
+                const { session, clickTime } = pendingRateStop;
+                
+                // Calculate new start time (1 minute after stop time)
+                const newStartTime = clickTime + 60000;
+                
+                // Optimistic update: 1. Stop current session
+                setRateInfusionSessions(prev => {
+                  const sessions = prev[session.swimlaneId] || [];
+                  return {
+                    ...prev,
+                    [session.swimlaneId]: sessions.map(s => 
+                      s.id === session.id 
+                        ? { ...s, endTime: clickTime, state: 'stopped' as const }
+                        : s
+                    ),
+                  };
+                });
+                
+                // Close dialog immediately
+                setShowRateStopDialog(false);
+                setPendingRateStop(null);
+                
+                // Show success message immediately
+                toast({
+                  title: "New rate infusion started",
+                  description: `Stopped at ${new Date(clickTime).toLocaleTimeString()}, new infusion starts at ${new Date(newStartTime).toLocaleTimeString()}`,
+                });
+                
+                // Background: 1. Stop current (set the stop timestamp)
+                updateMedication.mutate({ 
+                  id: session.id,
+                  endTimestamp: new Date(clickTime),
+                }, {
+                  onSuccess: () => {
+                    // 2. Find the item for this session
+                    const groupMatch = session.swimlaneId.match(/admingroup-([a-f0-9-]+)-item-(\d+)/);
+                    if (!groupMatch) return;
+                    
+                    const groupId = groupMatch[1];
+                    const itemIndex = parseInt(groupMatch[2], 10);
+                    
+                    const groupItems = anesthesiaItems.filter(item => item.administrationGroup === groupId);
+                    const item = groupItems[itemIndex];
+                    if (!item) return;
+                    
+                    // 3. Get the last segment to continue with same rate
+                    const lastSegment = session.segments[session.segments.length - 1];
+                    
+                    // 4. Create new infusion after a gap (background)
+                    createMedication.mutate({
+                      anesthesiaRecordId,
+                      itemId: item.id,
+                      timestamp: new Date(newStartTime),
+                      type: 'infusion_start' as const,
+                      rate: lastSegment?.rate || '0',
+                      dose: session.syringeQuantity,
+                    });
+                  },
+                });
+              }}
+              variant="outline"
+              data-testid="button-rate-start-new"
+            >
+              <PlayCircle className="w-4 h-4 mr-2" />
+              Start New Infusion
+            </Button>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel">Cancel</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Rate Infusion Resume Dialog (Stopped rate infusion clicked) */}
+      <AlertDialog open={showRateRestartDialog} onOpenChange={setShowRateRestartDialog}>
+        <AlertDialogContent data-testid="dialog-rate-restart">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pendingRateRestart?.previousSession.label}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Resume the stopped rate infusion with rate: <span className="font-semibold">{pendingRateRestart?.previousSession.segments?.[pendingRateRestart.previousSession.segments.length - 1]?.rate || '?'} {pendingRateRestart?.previousSession.segments?.[0]?.rateUnit || ''}</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex flex-col gap-4 my-4">
+            <Button
+              onClick={() => {
+                if (!pendingRateRestart) return;
+                const { previousSession } = pendingRateRestart;
+                
+                // Optimistic update: Immediately update UI to remove endTime and set state to running
+                setRateInfusionSessions(prev => {
+                  const sessions = prev[previousSession.swimlaneId] || [];
+                  return {
+                    ...prev,
+                    [previousSession.swimlaneId]: sessions.map(s => 
+                      s.id === previousSession.id 
+                        ? { ...s, endTime: null, state: 'running' as const }
+                        : s
+                    ),
+                  };
+                });
+                
+                // Close dialog immediately
+                setShowRateRestartDialog(false);
+                setPendingRateRestart(null);
+                
+                // Show success message immediately
+                toast({
+                  title: "Rate infusion resumed",
+                  description: `${previousSession.label} continues at ${previousSession.segments?.[previousSession.segments.length - 1]?.rate || '?'} ${previousSession.segments?.[0]?.rateUnit || ''}`,
+                });
+                
+                // Background: Persist to database (clear the stop timestamp)
+                updateMedication.mutate({ 
+                  id: previousSession.id,
+                  endTimestamp: null as any,
+                });
+              }}
+              variant="default"
+              className="w-full"
+              data-testid="button-rate-resume"
             >
               <PlayCircle className="w-4 h-4 mr-2" />
               Resume

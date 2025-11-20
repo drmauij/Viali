@@ -319,6 +319,8 @@ export interface MedicationsSwimlaneProps {
   onFreeFlowSheetOpen: (session: FreeFlowSession & { clickMode?: 'label' | 'segment' }, doseInput: string, timeInput: number) => void;
   onFreeFlowStopDialogOpen: (session: FreeFlowSession, clickTime: number) => void;
   onFreeFlowRestartDialogOpen: (previousSession: FreeFlowSession, clickTime: number) => void;
+  onRateStopDialogOpen: (session: RateInfusionSession, clickTime: number) => void;
+  onRateRestartDialogOpen: (previousSession: RateInfusionSession, clickTime: number) => void;
   onRateSheetOpen: (session: { swimlaneId: string; label: string; clickMode: 'label' | 'segment'; rateUnit: string; defaultDose?: string }, rateInput: string, timeInput: number, quantityInput?: string) => void;
   onRateManageDialogOpen: (managing: { swimlaneId: string; time: number; value: string; index: number; label: string; rateOptions?: string[] }, time: number, input: string) => void;
   onRateSelectionDialogOpen: (pending: { swimlaneId: string; time: number; label: string; rateOptions: string[] }) => void;
@@ -346,6 +348,8 @@ export function MedicationsSwimlane({
   onFreeFlowSheetOpen,
   onFreeFlowStopDialogOpen,
   onFreeFlowRestartDialogOpen,
+  onRateStopDialogOpen,
+  onRateRestartDialogOpen,
   onRateSheetOpen,
   onRateManageDialogOpen,
   onRateSelectionDialogOpen,
