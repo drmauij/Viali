@@ -550,6 +550,8 @@ export function MedicationsSwimlane({
                       index: 0,
                       label: `${lane.label.trim()} (${rateUnit})`, // Include rate unit in label
                       rateOptions,
+                      sessionId: session.id, // Add session ID for mutations
+                      itemId: lane.itemId, // Add item ID for creating new records
                     },
                     currentTime,
                     currentRate
@@ -1035,6 +1037,8 @@ export function MedicationsSwimlane({
                               index: 0,
                               label: `${lane.label.trim()} (${rateUnit})`, // Include rate unit in label
                               rateOptions,
+                              sessionId: session.id, // Add session ID for mutations
+                              itemId: lane.itemId, // Add item ID for creating new records
                             },
                             time, // Use click time for proper forward-looking management
                             currentRate
@@ -1078,6 +1082,8 @@ export function MedicationsSwimlane({
                               index: 0,
                               label: `${lane.label.trim()} (${rateUnit})`, // Include rate unit in label
                               rateOptions: undefined,
+                              sessionId: session.id, // Add session ID for mutations
+                              itemId: lane.itemId, // Add item ID for creating new records
                             },
                             time, // Use click time for proper forward-looking management
                             currentRate

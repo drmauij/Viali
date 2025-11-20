@@ -1063,6 +1063,8 @@ export function UnifiedTimeline({
     index: number;
     label: string;
     rateOptions?: string[]; // from defaultDose if available
+    sessionId?: string; // medication record ID for the running session
+    itemId?: string; // item ID for creating new records
   } | null>(null);
   const [rateManageTime, setRateManageTime] = useState<number>(0);
   const [rateManageInput, setRateManageInput] = useState("");
@@ -4285,53 +4287,31 @@ export function UnifiedTimeline({
     setRateManageInput("");
   };
 
-  // Handle rate stop (from management dialog)
+  // Handle rate stop (update the infusion_start record's endTimestamp)
   const handleRateStop = () => {
-    if (!managingRate) return;
+    if (!managingRate || !anesthesiaRecordId) return;
     
-    const { swimlaneId, time: originalTime } = managingRate;
+    const { label, sessionId } = managingRate;
     const stopTime = rateManageTime;
     
-    // Find all rate changes after the current one
-    const existingData = infusionData[swimlaneId] || [];
-    const laterRates = existingData.filter(([t]) => t > originalTime);
-    
-    if (laterRates.length > 0) {
-      // There are later rates - just remove this one and let the next rate take over
-      setInfusionData(prev => {
-        const data = prev[swimlaneId] || [];
-        return {
-          ...prev,
-          [swimlaneId]: data.filter(([t]) => t !== originalTime),
-        };
+    if (!sessionId) {
+      toast({
+        title: "Error",
+        description: "Session not identified",
+        variant: "destructive",
       });
-    } else {
-      // No later rates - add a stop marker at the new time if different
-      if (stopTime > originalTime) {
-        setInfusionData(prev => {
-          const data = prev[swimlaneId] || [];
-          // Remove the current rate and add an empty marker to stop the line
-          const filtered = data.filter(([t]) => t !== originalTime);
-          return {
-            ...prev,
-            [swimlaneId]: [...filtered, [stopTime, ""] as [number, string]].sort((a, b) => a[0] - b[0]),
-          };
-        });
-      } else {
-        // Just remove the rate
-        setInfusionData(prev => {
-          const data = prev[swimlaneId] || [];
-          return {
-            ...prev,
-            [swimlaneId]: data.filter(([t]) => t !== originalTime),
-          };
-        });
-      }
+      return;
     }
     
+    // Update the infusion_start record with endTimestamp
+    updateMedication.mutate({
+      id: sessionId,
+      endTimestamp: new Date(stopTime),
+    });
+    
     toast({
-      title: "Rate stopped",
-      description: `${managingRate.label} stopped`,
+      title: "Infusion stopped",
+      description: `${label} stopped`,
     });
     
     // Reset dialog state
@@ -4341,28 +4321,48 @@ export function UnifiedTimeline({
     setRateManageInput("");
   };
 
-  // Handle start new rate (from management dialog)
+  // Handle start new rate (stop current and create new infusion_start)
   const handleRateStartNew = (newRate: string) => {
-    if (!managingRate) return;
+    if (!managingRate || !anesthesiaRecordId) return;
     
-    const { swimlaneId, label, time: oldTime } = managingRate;
+    const { swimlaneId, label, itemId, sessionId } = managingRate;
     const newTime = rateManageTime;
+    const stopTime = newTime - 60000; // Stop 1 minute before new start
     
-    // Add stop marker just before new rate, then add new rate
-    const stopTime = newTime - 1000; // 1 second before new start
+    if (!itemId) {
+      toast({
+        title: "Error",
+        description: "Medication item not identified",
+        variant: "destructive",
+      });
+      return;
+    }
     
-    setInfusionData(prev => {
-      const existingData = prev[swimlaneId] || [];
-      const withStop = [...existingData, [stopTime, ""] as [number, string]];
-      return {
-        ...prev,
-        [swimlaneId]: [...withStop, [newTime, newRate] as [number, string]].sort((a, b) => a[0] - b[0]),
-      };
+    // Get current session for syringe quantity
+    const sessions = rateInfusionSessions[swimlaneId];
+    const currentSession = sessions?.find(s => s.id === sessionId);
+    
+    // First, stop the current infusion if there is one
+    if (sessionId) {
+      updateMedication.mutate({
+        id: sessionId,
+        endTimestamp: new Date(stopTime),
+      });
+    }
+    
+    // Then create a new infusion_start record
+    createMedication.mutate({
+      anesthesiaRecordId,
+      itemId,
+      timestamp: new Date(newTime),
+      type: 'infusion_start',
+      rate: newRate,
+      dose: currentSession?.syringeQuantity || '50ml', // Use same syringe quantity or default
     });
     
     toast({
-      title: "New rate started",
-      description: `${label} set to ${newRate}`,
+      title: "New infusion started",
+      description: `${label} started at ${newRate}`,
     });
     
     // Reset dialog state
@@ -4372,22 +4372,29 @@ export function UnifiedTimeline({
     setRateManageInput("");
   };
 
-  // Handle change rate (update existing rate value)
+  // Handle change rate (create a new rate_change medication record)
   const handleRateChange = (newRate: string) => {
-    if (!managingRate) return;
+    if (!managingRate || !anesthesiaRecordId) return;
     
-    const { swimlaneId, time, label } = managingRate;
+    const { label, itemId } = managingRate;
+    const changeTime = rateManageTime; // Use the manage time, not original time
     
-    // Update the rate value at the same time
-    setInfusionData(prev => {
-      const existingData = prev[swimlaneId] || [];
-      const updated = existingData.map(([t, v]) => 
-        t === time ? [t, newRate] as [number, string] : [t, v] as [number, string]
-      );
-      return {
-        ...prev,
-        [swimlaneId]: updated,
-      };
+    if (!itemId) {
+      toast({
+        title: "Error",
+        description: "Medication item not identified",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Create a rate_change medication record
+    createMedication.mutate({
+      anesthesiaRecordId,
+      itemId,
+      timestamp: new Date(changeTime),
+      type: 'rate_change',
+      rate: newRate,
     });
     
     toast({
