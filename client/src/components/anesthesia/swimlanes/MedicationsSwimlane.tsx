@@ -879,20 +879,25 @@ export function MedicationsSwimlane({
                         return time >= sessionStart && time <= sessionEnd;
                       });
                       
-                      if (clickedSession && !clickedSession.endTime) {
-                        // SCENARIO 2: Clicked on RUNNING infusion area => Stop or Start New dialog
-                        console.log('[FREE-FLOW-CLICK] Scenario 2: Running infusion area clicked');
-                        onFreeFlowStopDialogOpen(clickedSession, time);
-                      } else {
-                        // SCENARIO 3: Clicked on STOPPED infusion area => Start or Start New dialog
-                        console.log('[FREE-FLOW-CLICK] Scenario 3: Stopped infusion area clicked');
-                        // Find the most recent stopped session for this swimlane
-                        const stoppedSession = sessions.filter(s => s.endTime).sort((a, b) => (b.endTime || 0) - (a.endTime || 0))[0];
-                        if (stoppedSession) {
-                          onFreeFlowRestartDialogOpen(stoppedSession, time);
+                      if (clickedSession) {
+                        if (!clickedSession.endTime) {
+                          // SCENARIO 2: Clicked on RUNNING infusion area => Stop dialog
+                          console.log('[FREE-FLOW-CLICK] Scenario 2: Running infusion area clicked');
+                          onFreeFlowStopDialogOpen(clickedSession, time);
+                        } else {
+                          // SCENARIO 3: Clicked on STOPPED infusion area => Restart dialog
+                          console.log('[FREE-FLOW-CLICK] Scenario 3: Stopped infusion area clicked');
+                          onFreeFlowRestartDialogOpen(clickedSession, time);
                         }
+                        return;
                       }
-                    } else {
+                      
+                      // No session clicked - fall through to create new infusion
+                      console.log('[FREE-FLOW-CLICK] Clicked in empty area, creating new infusion');
+                    }
+                    
+                    // SCENARIO 1: First click or click in empty area => Create new infusion
+                    {
                       // First click: check for default dose
                       if (lane.defaultDose) {
                         console.log('[FREE-FLOW-CLICK] Has default dose, creating session:', lane.defaultDose);
