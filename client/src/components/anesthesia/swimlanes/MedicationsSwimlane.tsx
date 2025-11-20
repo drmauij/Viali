@@ -165,19 +165,33 @@ const UnifiedInfusion = ({
         return (
           <div
             key={`segment-marker-${index}`}
-            className="absolute flex flex-row items-center gap-0.5 pointer-events-none"
+            className="absolute flex flex-col items-center pointer-events-none"
             style={{
               left: `calc(200px + ((100% - 210px) * ${segmentLeftPercent} / 100))`,
-              top: `${yPosition + lineYOffset}px`,
-              transform: 'translateY(-50%)', // Center on the line
+              top: `${yPosition}px`,
+              height: `${swimlaneHeight}px`,
               zIndex: 38,
             }}
             data-testid={`${testId}-segment-${index}`}
           >
-            <span className="text-xs font-bold leading-none" style={{ color: '#ef4444' }}>^</span>
-            <span className="text-[10px] font-semibold leading-none whitespace-nowrap" style={{ color: '#ef4444' }}>
+            <span 
+              className="absolute text-base font-semibold leading-none"
+              style={{ 
+                color: '#ef4444',
+                top: '50%',
+                transform: 'translateY(-50%)'
+              }}
+            >
               {segment.rate}
             </span>
+            <div
+              className="mt-auto"
+              style={{
+                width: '2px',
+                height: '8px',
+                backgroundColor: '#ef4444',
+              }}
+            />
           </div>
         );
       })}
