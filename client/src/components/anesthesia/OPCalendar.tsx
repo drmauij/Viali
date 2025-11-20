@@ -52,6 +52,8 @@ const DragAndDropCalendar = withDragAndDrop<CalendarEvent, CalendarResource>(
 const formats = {
   timeGutterFormat: 'HH:mm',
   eventTimeRangeFormat: () => '', // Hide time from events
+  selectRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
+    `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`,
   agendaTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
     `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`,
   dayHeaderFormat: 'dddd DD/MM/YYYY',
