@@ -357,19 +357,32 @@ export function MedicationsSwimlane({
                     id: id as string,
                   });
                 } else {
-                  // Rate-controlled infusion tick mark - open rate management
-                  const rateOptions = lane.defaultDose?.includes('-') 
-                    ? lane.defaultDose.split('-').map(v => v.trim()).filter(v => v)
-                    : undefined;
-                  
-                  onRateManageDialogOpen({
-                    swimlaneId: lane.id,
-                    time: timestamp,
-                    value: dose.toString(),
-                    index,
-                    label: lane.label.trim(),
-                    rateOptions,
-                  }, timestamp, dose.toString());
+                  // Infusion tick mark - check if free-flow or rate-controlled
+                  if (lane.rateUnit === 'free') {
+                    // Free-flow infusion - open free-flow sheet
+                    const sessions = freeFlowSessions[lane.id] || [];
+                    const session = sessions.find(s => s.startTime === timestamp) || {
+                      swimlaneId: lane.id,
+                      startTime: timestamp,
+                      dose: dose.toString(),
+                      label: lane.label.trim(),
+                    };
+                    onFreeFlowSheetOpen(session, dose.toString(), timestamp);
+                  } else {
+                    // Rate-controlled infusion tick mark - open rate management
+                    const rateOptions = lane.defaultDose?.includes('-') 
+                      ? lane.defaultDose.split('-').map(v => v.trim()).filter(v => v)
+                      : undefined;
+                    
+                    onRateManageDialogOpen({
+                      swimlaneId: lane.id,
+                      time: timestamp,
+                      value: dose.toString(),
+                      index,
+                      label: lane.label.trim(),
+                      rateOptions,
+                    }, timestamp, dose.toString());
+                  }
                 }
               }}
             />
@@ -715,41 +728,9 @@ export function MedicationsSwimlane({
                 );
                 
                 if (existingValueAtTime) {
-                  // Check if this is a rate-controlled infusion or free-flow
-                  if (lane.rateUnit === 'free') {
-                    // SCENARIO 1: Clicked on existing tick/value => Edit Dose dialog
-                    const [valueTime, value] = existingValueAtTime;
-                    
-                    // Find the session for this marker
-                    const sessions = freeFlowSessions[lane.id] || [];
-                    const session = sessions.find(s => s.startTime === valueTime) || {
-                      swimlaneId: lane.id,
-                      startTime: valueTime,
-                      dose: value.toString(),
-                      label: lane.label.trim(),
-                    };
-                    
-                    onFreeFlowSheetOpen(session, value.toString(), valueTime);
-                  } else {
-                    // For rate-controlled, open management dialog with stop/change/start new options
-                    const [valueTime, value] = existingValueAtTime;
-                    const valueIndex = existingValues.findIndex(([t, v]) => t === valueTime && v === value);
-                    
-                    // Parse rate options from defaultDose if it's a range
-                    let rateOptions: string[] | undefined;
-                    if (lane.defaultDose && lane.defaultDose.includes('-')) {
-                      rateOptions = lane.defaultDose.split('-').map(v => v.trim()).filter(v => v);
-                    }
-                    
-                    onRateManageDialogOpen({
-                      swimlaneId: lane.id,
-                      time: valueTime,
-                      value: value.toString(),
-                      index: valueIndex,
-                      label: lane.label.trim(),
-                      rateOptions,
-                    }, time, value.toString());
-                  }
+                  // Clicking on existing tick marks is handled by the tick mark's own onClick
+                  // This background handler should not interfere
+                  return;
                 } else {
                   // Check if this is a free-flow infusion (no rate)
                   if (lane.rateUnit === 'free') {
