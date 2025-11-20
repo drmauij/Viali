@@ -359,7 +359,7 @@ export function MedicationsSwimlane({
                 } else {
                   // Infusion tick mark - check if free-flow or rate-controlled
                   if (lane.rateUnit === 'free') {
-                    // Free-flow infusion - open free-flow sheet
+                    // Free-flow infusion - open free-flow sheet with 'label' click mode to allow editing
                     const sessions = freeFlowSessions[lane.id] || [];
                     const session = sessions.find(s => s.startTime === timestamp) || {
                       swimlaneId: lane.id,
@@ -367,7 +367,7 @@ export function MedicationsSwimlane({
                       dose: dose.toString(),
                       label: lane.label.trim(),
                     };
-                    onFreeFlowSheetOpen(session, dose.toString(), timestamp);
+                    onFreeFlowSheetOpen({ ...session, clickMode: 'label' }, dose.toString(), timestamp);
                   } else {
                     // Rate-controlled infusion tick mark - open rate management
                     const rateOptions = lane.defaultDose?.includes('-') 
