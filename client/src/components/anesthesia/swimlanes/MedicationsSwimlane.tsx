@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Droplet } from "lucide-react";
 import { useTimelineContext } from "../TimelineContext";
 import { useCreateMedication } from "@/hooks/useMedicationQuery";
+import { InfusionStartEditDialog } from "../dialogs/InfusionStartEditDialog";
 import type {
   RateInfusionSegment,
   RateInfusionSession,
@@ -17,7 +18,8 @@ type UnifiedInfusionProps = {
   startDose: string;
   isFreeFlow: boolean;
   medicationName: string;
-  onClick: () => void;
+  onClick: () => void; // Click on line - opens management sheet
+  onStartTickClick: () => void; // Click on start tick - opens edit dialog
   leftPercent: number;
   widthPercent: number;
   yPosition: number;
@@ -36,6 +38,7 @@ const UnifiedInfusion = ({
   isFreeFlow,
   medicationName,
   onClick,
+  onStartTickClick,
   leftPercent,
   widthPercent,
   yPosition,
@@ -69,7 +72,7 @@ const UnifiedInfusion = ({
         }}
         onClick={(e) => {
           e.stopPropagation();
-          onClick();
+          onStartTickClick();
         }}
         onMouseEnter={(e) => {
           if (!isTouchDevice) {
@@ -176,7 +179,7 @@ const UnifiedInfusion = ({
             </div>
           )}
           <div className="text-xs text-muted-foreground italic mt-1">
-            Click to {endTime ? 'view' : 'manage'}
+            Click start: edit | Click line: {endTime ? 'view' : 'manage'}
           </div>
         </div>
       )}
@@ -397,6 +400,17 @@ export function MedicationsSwimlane({
     swimlaneId: string;
     label: string;
   } | null>(null);
+  
+  // State for infusion start edit dialog
+  const [editingInfusionStart, setEditingInfusionStart] = useState<{
+    id: string;
+    swimlaneId: string;
+    time: number;
+    dose: string;
+    medicationName: string;
+    isFreeFlow: boolean;
+  } | null>(null);
+  const [showInfusionEditDialog, setShowInfusionEditDialog] = useState(false);
 
   // Helper: Get active rate session
   const getActiveSession = (swimlaneId: string): RateInfusionSession | null => {
@@ -525,6 +539,17 @@ export function MedicationsSwimlane({
                   session.syringeQuantity
                 );
               }}
+              onStartTickClick={() => {
+                setEditingInfusionStart({
+                  id: session.id,
+                  swimlaneId: lane.id,
+                  time: startTime,
+                  dose: session.startDose || session.syringeQuantity || '?',
+                  medicationName: lane.label.trim(),
+                  isFreeFlow: false,
+                });
+                setShowInfusionEditDialog(true);
+              }}
             />
           );
         }).filter(Boolean);
@@ -578,6 +603,17 @@ export function MedicationsSwimlane({
                   session.dose,
                   currentTime
                 );
+              }}
+              onStartTickClick={() => {
+                setEditingInfusionStart({
+                  id: session.id,
+                  swimlaneId: lane.id,
+                  time: startTime,
+                  dose: session.dose || '?',
+                  medicationName: lane.label.trim(),
+                  isFreeFlow: true,
+                });
+                setShowInfusionEditDialog(true);
               }}
             />
           );
@@ -1121,6 +1157,20 @@ export function MedicationsSwimlane({
           </div>
         );
       })()}
+      
+      {/* Infusion Start Edit Dialog */}
+      <InfusionStartEditDialog
+        open={showInfusionEditDialog}
+        onOpenChange={setShowInfusionEditDialog}
+        anesthesiaRecordId={anesthesiaRecordId}
+        editingInfusionStart={editingInfusionStart}
+        onInfusionUpdated={() => {
+          // Cache will be invalidated automatically by the mutation
+        }}
+        onInfusionDeleted={() => {
+          // Cache will be invalidated automatically by the mutation
+        }}
+      />
     </>
   );
 }

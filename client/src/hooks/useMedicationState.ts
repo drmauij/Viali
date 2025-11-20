@@ -9,6 +9,7 @@ export interface RateInfusionSegment {
 }
 
 export interface RateInfusionSession {
+  id: string; // Medication record ID for editing/deleting
   swimlaneId: string;
   label: string;
   syringeQuantity: string;
@@ -20,6 +21,7 @@ export interface RateInfusionSession {
 }
 
 export interface FreeFlowSession {
+  id: string; // Medication record ID for editing/deleting
   swimlaneId: string;
   startTime: number;
   dose: string;

@@ -153,6 +153,7 @@ export function transformRateInfusions(
         });
       
       sessions[swimlaneId].push({
+        id: startRecord.id, // Store medication record ID for editing/deleting
         swimlaneId,
         label: item.name,
         syringeQuantity: startRecord.dose || '50ml',
@@ -235,6 +236,7 @@ export function transformFreeFlowInfusions(
       }
       
       const session = {
+        id: startRec.id, // Store medication record ID for editing/deleting
         swimlaneId,
         startTime,
         dose: startRec.dose || '?',
