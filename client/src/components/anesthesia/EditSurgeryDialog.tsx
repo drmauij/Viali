@@ -187,7 +187,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   return (
     <>
       <Dialog open={!!surgeryId} onOpenChange={() => onClose()}>
-        <DialogContent className="max-w-md" data-testid="dialog-edit-surgery">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" data-testid="dialog-edit-surgery">
           <DialogHeader>
             <DialogTitle>Edit Surgery</DialogTitle>
           </DialogHeader>
