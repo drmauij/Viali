@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -25,6 +26,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const [plannedSurgery, setPlannedSurgery] = useState("");
   const [surgeryRoomId, setSurgeryRoomId] = useState("");
   const [surgeon, setSurgeon] = useState("");
+  const [notes, setNotes] = useState("");
 
   // Fetch surgery details
   const { data: surgery, isLoading } = useQuery<any>({
@@ -77,6 +79,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       setPlannedSurgery(surgery.plannedSurgery || "");
       setSurgeryRoomId(surgery.surgeryRoomId || "");
       setSurgeon(surgery.surgeon || "");
+      setNotes(surgery.notes || "");
     }
   }, [surgery]);
 
@@ -98,6 +101,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
         plannedSurgery,
         surgeryRoomId,
         surgeon: surgeon || null,
+        notes: notes || null,
       });
       return response.json();
     },
@@ -288,6 +292,19 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-notes">Notes <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                <Textarea
+                  id="edit-notes"
+                  placeholder="Enter notes about antibiotics, patient position, etc."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  data-testid="textarea-edit-notes"
+                  rows={3}
+                />
               </div>
 
               {/* Action Buttons */}
