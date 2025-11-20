@@ -6,7 +6,7 @@ import type { OutputData } from '@/hooks/useOutputState';
  * OutputSwimlane Component
  * 
  * Handles rendering and interactions for all output-related swimlanes including:
- * - Output parameter swimlanes (gastricTube, drainage, vomit, urine, blood, etc.)
+ * - Output parameter swimlanes (urine, blood, gastricTube, drainage, vomit)
  * - Interactive layers for adding/editing output values
  * - Hover tooltips showing output details
  * - Click handlers for editing output values
@@ -22,36 +22,33 @@ const FIFTEEN_MINUTES = 15 * 60 * 1000;
  * Output parameter info mapping
  */
 const OUTPUT_PARAM_MAP: { [index: number]: { key: keyof OutputData; label: string } } = {
-  0: { key: 'gastricTube', label: 'Gastric Tube' },
-  1: { key: 'drainage', label: 'Drainage' },
-  2: { key: 'vomit', label: 'Vomit' },
-  3: { key: 'urine', label: 'Urine' },
-  4: { key: 'blood', label: 'Blood' },
-  5: { key: 'bloodIrrigation', label: 'Blood and Irrigation' },
+  0: { key: 'urine', label: 'Urine' },
+  1: { key: 'blood', label: 'Blood' },
+  2: { key: 'gastricTube', label: 'Gastric Tube' },
+  3: { key: 'drainage', label: 'Drainage' },
+  4: { key: 'vomit', label: 'Vomit' },
 };
 
 /**
  * Label map for display
  */
 const LABEL_MAP: Record<string, string> = {
+  urine: 'Urine',
+  blood: 'Blood',
   gastricTube: 'Gastric Tube',
   drainage: 'Drainage',
   vomit: 'Vomit',
-  urine: 'Urine',
-  blood: 'Blood',
-  bloodIrrigation: 'Blood and Irrigation',
 };
 
 /**
  * Parameter index map (reverse of OUTPUT_PARAM_MAP)
  */
 const PARAM_INDEX_MAP: Record<string, number> = {
-  gastricTube: 0,
-  drainage: 1,
-  vomit: 2,
-  urine: 3,
-  blood: 4,
-  bloodIrrigation: 5,
+  urine: 0,
+  blood: 1,
+  gastricTube: 2,
+  drainage: 3,
+  vomit: 4,
 };
 
 interface OutputSwimlaneProps {

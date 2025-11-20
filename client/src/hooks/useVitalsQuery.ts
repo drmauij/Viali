@@ -28,12 +28,11 @@ export interface ClinicalSnapshotData {
   respiratoryRate?: VitalPointWithId[];
   minuteVolume?: VitalPointWithId[];
   fio2?: VitalPointWithId[];
+  urine?: VitalPointWithId[];
+  blood?: VitalPointWithId[];
   gastricTube?: VitalPointWithId[];
   drainage?: VitalPointWithId[];
   vomit?: VitalPointWithId[];
-  urine?: VitalPointWithId[];
-  blood?: VitalPointWithId[];
-  bloodIrrigation?: VitalPointWithId[];
 }
 
 export interface ClinicalSnapshot {

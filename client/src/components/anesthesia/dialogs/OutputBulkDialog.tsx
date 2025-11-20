@@ -25,12 +25,11 @@ export function OutputBulkDialog({
   onOutputBulkCreated,
 }: OutputBulkDialogProps) {
   const [bulkOutputParams, setBulkOutputParams] = useState({
+    urine: "",
+    blood: "",
     gastricTube: "",
     drainage: "",
     vomit: "",
-    urine: "",
-    blood: "",
-    bloodIrrigation: "",
   });
 
   const createOutput = useCreateOutput(anesthesiaRecordId || undefined);
@@ -38,12 +37,11 @@ export function OutputBulkDialog({
   useEffect(() => {
     if (!open) {
       setBulkOutputParams({
+        urine: "",
+        blood: "",
         gastricTube: "",
         drainage: "",
         vomit: "",
-        urine: "",
-        blood: "",
-        bloodIrrigation: "",
       });
     }
   }, [open]);
@@ -57,12 +55,11 @@ export function OutputBulkDialog({
     
     // Add all filled parameters using createOutput mutation
     const parameterMappings = [
+      { key: 'urine', paramKey: 'urine' as const },
+      { key: 'blood', paramKey: 'blood' as const },
       { key: 'gastricTube', paramKey: 'gastricTube' as const },
       { key: 'drainage', paramKey: 'drainage' as const },
       { key: 'vomit', paramKey: 'vomit' as const },
-      { key: 'urine', paramKey: 'urine' as const },
-      { key: 'blood', paramKey: 'blood' as const },
-      { key: 'bloodIrrigation', paramKey: 'bloodIrrigation' as const },
     ];
     
     parameterMappings.forEach(({ key, paramKey }) => {
@@ -100,6 +97,30 @@ export function OutputBulkDialog({
         <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
+              <Label htmlFor="bulk-urine">Urine (ml)</Label>
+              <Input
+                id="bulk-urine"
+                type="number"
+                step="1"
+                value={bulkOutputParams.urine}
+                onChange={(e) => setBulkOutputParams(prev => ({ ...prev, urine: e.target.value }))}
+                data-testid="input-bulk-urine"
+                placeholder="Optional"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="bulk-blood">Blood (ml)</Label>
+              <Input
+                id="bulk-blood"
+                type="number"
+                step="1"
+                value={bulkOutputParams.blood}
+                onChange={(e) => setBulkOutputParams(prev => ({ ...prev, blood: e.target.value }))}
+                data-testid="input-bulk-blood"
+                placeholder="Optional"
+              />
+            </div>
+            <div className="grid gap-2">
               <Label htmlFor="bulk-gastrictube">Gastric Tube (ml)</Label>
               <Input
                 id="bulk-gastrictube"
@@ -132,42 +153,6 @@ export function OutputBulkDialog({
                 value={bulkOutputParams.vomit}
                 onChange={(e) => setBulkOutputParams(prev => ({ ...prev, vomit: e.target.value }))}
                 data-testid="input-bulk-vomit"
-                placeholder="Optional"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="bulk-urine">Urine (ml)</Label>
-              <Input
-                id="bulk-urine"
-                type="number"
-                step="1"
-                value={bulkOutputParams.urine}
-                onChange={(e) => setBulkOutputParams(prev => ({ ...prev, urine: e.target.value }))}
-                data-testid="input-bulk-urine"
-                placeholder="Optional"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="bulk-blood">Blood (ml)</Label>
-              <Input
-                id="bulk-blood"
-                type="number"
-                step="1"
-                value={bulkOutputParams.blood}
-                onChange={(e) => setBulkOutputParams(prev => ({ ...prev, blood: e.target.value }))}
-                data-testid="input-bulk-blood"
-                placeholder="Optional"
-              />
-            </div>
-            <div className="grid gap-2 col-span-2">
-              <Label htmlFor="bulk-bloodirrigation">Blood and Irrigation in Suction (ml)</Label>
-              <Input
-                id="bulk-bloodirrigation"
-                type="number"
-                step="1"
-                value={bulkOutputParams.bloodIrrigation}
-                onChange={(e) => setBulkOutputParams(prev => ({ ...prev, bloodIrrigation: e.target.value }))}
-                data-testid="input-bulk-bloodirrigation"
                 placeholder="Optional"
               />
             </div>

@@ -27,12 +27,11 @@ export interface SaveVitalsPayload {
     respiratoryRate?: number;
     minuteVolume?: number;
     fio2?: number;
+    urine?: number;
+    blood?: number;
     gastricTube?: number;
     drainage?: number;
     vomit?: number;
-    urine?: number;
-    blood?: number;
-    bloodIrrigation?: number;
   };
 }
 

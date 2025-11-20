@@ -788,12 +788,11 @@ export function UnifiedTimeline({
     
     // Extract all output parameters
     const outputParams = {
+      urine: snapshotData?.urine || [],
+      blood: snapshotData?.blood || [],
       gastricTube: snapshotData?.gastricTube || [],
       drainage: snapshotData?.drainage || [],
       vomit: snapshotData?.vomit || [],
-      urine: snapshotData?.urine || [],
-      blood: snapshotData?.blood || [],
-      bloodIrrigation: snapshotData?.bloodIrrigation || [],
     };
     
     const totalPoints = Object.values(outputParams).reduce((sum, arr) => sum + arr.length, 0);
@@ -1459,12 +1458,11 @@ export function UnifiedTimeline({
 
   // Predefined output parameters list
   const outputParams = [
+    "Urine (ml)",
+    "Blood (ml)",
     "Gastric Tube (ml)",
     "Drainage (ml)",
     "Vomit (ml)",
-    "Urine (ml)",
-    "Blood (ml)",
-    "Blood and Irrigation in Suction (ml)",
   ];
 
   // Default swimlane configuration - can be overridden via props

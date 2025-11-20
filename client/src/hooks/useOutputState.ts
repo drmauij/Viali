@@ -3,12 +3,11 @@ import { useState } from 'react';
 export type OutputPoint = { id: string; timestamp: number; value: number };
 
 export interface OutputData {
+  urine: OutputPoint[];
+  blood: OutputPoint[];
   gastricTube: OutputPoint[];
   drainage: OutputPoint[];
   vomit: OutputPoint[];
-  urine: OutputPoint[];
-  blood: OutputPoint[];
-  bloodIrrigation: OutputPoint[];
 }
 
 export interface UseOutputStateReturn {
@@ -18,18 +17,17 @@ export interface UseOutputStateReturn {
 }
 
 const INITIAL_OUTPUT_DATA: OutputData = {
+  urine: [],
+  blood: [],
   gastricTube: [],
   drainage: [],
   vomit: [],
-  urine: [],
-  blood: [],
-  bloodIrrigation: [],
 };
 
 /**
  * Custom hook for managing output parameter state in UnifiedTimeline
  * 
- * Output parameters (gastricTube, drainage, vomit, urine, blood, etc.) are not
+ * Output parameters (urine, blood, gastricTube, drainage, vomit) are not
  * loaded from API data - they are only populated through user interactions via dialogs.
  * 
  * This hook provides:
@@ -43,12 +41,11 @@ export function useOutputState(): UseOutputStateReturn {
   const resetOutputData = () => {
     // Create fresh object to ensure React detects the change (avoid stale data)
     setOutputData({
+      urine: [],
+      blood: [],
       gastricTube: [],
       drainage: [],
       vomit: [],
-      urine: [],
-      blood: [],
-      bloodIrrigation: [],
     });
   };
 
