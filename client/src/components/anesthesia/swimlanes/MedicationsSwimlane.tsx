@@ -952,7 +952,7 @@ export function MedicationsSwimlane({
                           [lane.id]: [...(prev[lane.id] || []), [time, lane.defaultDose]].sort((a, b) => a[0] - b[0]),
                         }));
                         
-                        // Create initial rate infusion session
+                        // Create initial rate infusion session (as array!)
                         const newSegment: RateInfusionSegment = {
                           startTime: time,
                           rate: lane.defaultDose,
@@ -960,14 +960,14 @@ export function MedicationsSwimlane({
                         };
                         setRateInfusionSessions(prev => ({
                           ...prev,
-                          [lane.id]: {
+                          [lane.id]: [{
                             swimlaneId: lane.id,
                             label: lane.label.trim(),
                             syringeQuantity: "50ml", // Default
                             segments: [newSegment],
                             startTime: time,
                             state: 'running',
-                          },
+                          }],
                         }));
                         
                         // 🔥 FIX: Save to database
