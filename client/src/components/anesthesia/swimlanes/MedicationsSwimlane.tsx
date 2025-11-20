@@ -891,7 +891,8 @@ export function MedicationsSwimlane({
                       // Find if click is on a running infusion or a stopped area
                       const clickedSession = sessions.find(session => {
                         const sessionStart = session.startTime;
-                        const sessionEnd = session.endTime || currentTime;
+                        // For running infusions (no endTime), extend clickable area to infinity
+                        const sessionEnd = session.endTime || Infinity;
                         return time >= sessionStart && time <= sessionEnd;
                       });
                       
