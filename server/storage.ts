@@ -354,6 +354,18 @@ export interface IStorage {
   updateAnesthesiaStaff(id: string, staff: Partial<InsertAnesthesiaStaff>, userId: string): Promise<AnesthesiaStaff>;
   deleteAnesthesiaStaff(id: string, userId: string): Promise<void>;
   
+  // Anesthesia Installation operations
+  getAnesthesiaInstallations(anesthesiaRecordId: string): Promise<AnesthesiaInstallation[]>;
+  createAnesthesiaInstallation(installation: InsertAnesthesiaInstallation): Promise<AnesthesiaInstallation>;
+  updateAnesthesiaInstallation(id: string, updates: Partial<AnesthesiaInstallation>): Promise<AnesthesiaInstallation>;
+  deleteAnesthesiaInstallation(id: string): Promise<void>;
+  
+  // Anesthesia Technique Detail operations
+  getAnesthesiaTechniqueDetails(anesthesiaRecordId: string): Promise<AnesthesiaTechniqueDetail[]>;
+  getAnesthesiaTechniqueDetail(anesthesiaRecordId: string, technique: string): Promise<AnesthesiaTechniqueDetail | undefined>;
+  upsertAnesthesiaTechniqueDetail(detail: InsertAnesthesiaTechniqueDetail): Promise<AnesthesiaTechniqueDetail>;
+  deleteAnesthesiaTechniqueDetail(id: string): Promise<void>;
+  
   // Inventory Usage operations
   getInventoryUsage(anesthesiaRecordId: string): Promise<InventoryUsage[]>;
   calculateInventoryUsage(anesthesiaRecordId: string): Promise<InventoryUsage[]>;
