@@ -175,6 +175,7 @@ export default function PatientDetail() {
     plannedDate: "",
     surgeryRoomId: "",
     duration: 180, // Default 3 hours in minutes
+    notes: "",
   });
   const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
   const [editCase, setEditCase] = useState({
@@ -183,6 +184,7 @@ export default function PatientDetail() {
     plannedDate: "",
     surgeryRoomId: "",
     duration: 180,
+    notes: "",
   });
   const [deleteDialogSurgeryId, setDeleteDialogSurgeryId] = useState<string | null>(null);
   const [consentData, setConsentData] = useState({
@@ -326,7 +328,7 @@ export default function PatientDetail() {
         description: "The surgery has been successfully created.",
       });
       setIsCreateCaseOpen(false);
-      setNewCase({ plannedSurgery: "", surgeon: "", plannedDate: "", surgeryRoomId: "", duration: 180 });
+      setNewCase({ plannedSurgery: "", surgeon: "", plannedDate: "", surgeryRoomId: "", duration: 180, notes: "" });
     },
     onError: (error: any) => {
       toast({
@@ -662,6 +664,7 @@ export default function PatientDetail() {
       plannedDate: newCase.plannedDate,
       surgeryRoomId: newCase.surgeryRoomId || null,
       actualEndTime: endDate.toISOString(),
+      notes: newCase.notes || null,
     };
     
     console.log("Creating surgery with data:", surgeryData);
@@ -686,6 +689,7 @@ export default function PatientDetail() {
       plannedDate: formatDateTimeForInput(surgery.plannedDate),
       surgeryRoomId: surgery.surgeryRoomId || "",
       duration: duration,
+      notes: surgery.notes || "",
     });
   };
 
@@ -722,6 +726,7 @@ export default function PatientDetail() {
       plannedDate: editCase.plannedDate,
       surgeryRoomId: editCase.surgeryRoomId || null,
       actualEndTime: endDate.toISOString(),
+      notes: editCase.notes || null,
     };
 
     updateSurgeryMutation.mutate({ id: editingCaseId, data: updateData });
@@ -1269,6 +1274,17 @@ export default function PatientDetail() {
                   data-testid="input-duration"
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Enter notes about antibiotics, patient position, etc."
+                  value={newCase.notes}
+                  onChange={(e) => setNewCase({ ...newCase, notes: e.target.value })}
+                  data-testid="textarea-notes"
+                  rows={3}
+                />
+              </div>
               <Button 
                 onClick={handleCreateCase} 
                 className="w-full" 
@@ -1390,6 +1406,17 @@ export default function PatientDetail() {
                 value={editCase.duration}
                 onChange={(e) => setEditCase({ ...editCase, duration: parseInt(e.target.value) || 0 })}
                 data-testid="input-edit-duration"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-notes">Notes <span className="text-xs text-muted-foreground">(optional)</span></Label>
+              <Textarea
+                id="edit-notes"
+                placeholder="Enter notes about antibiotics, patient position, etc."
+                value={editCase.notes}
+                onChange={(e) => setEditCase({ ...editCase, notes: e.target.value })}
+                data-testid="textarea-edit-notes"
+                rows={3}
               />
             </div>
             <Button 
