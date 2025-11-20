@@ -985,13 +985,12 @@ export function UnifiedTimeline({
     clickTime: number; 
   } | null>(null);
   
-  // State for free-flow start/start-new dialog (scenario 3: stopped area clicked)
+  // State for free-flow resume dialog (scenario 3: stopped area clicked)
   const [showFreeFlowRestartDialog, setShowFreeFlowRestartDialog] = useState(false);
   const [pendingFreeFlowRestart, setPendingFreeFlowRestart] = useState<{ 
     previousSession: FreeFlowSession; 
     clickTime: number; 
   } | null>(null);
-  const [freeFlowRestartDoseInput, setFreeFlowRestartDoseInput] = useState("");
   
   // State for rate-based infusion sessions (map swimlaneId to active session info)
   type RateInfusionSegment = {
@@ -4988,7 +4987,6 @@ export function UnifiedTimeline({
         }}
         onFreeFlowRestartDialogOpen={(previousSession, clickTime) => {
           setPendingFreeFlowRestart({ previousSession, clickTime });
-          setFreeFlowRestartDoseInput(previousSession.dose); // Pre-fill with previous dose
           setShowFreeFlowRestartDialog(true);
         }}
         onFreeFlowSheetOpen={(session, doseInput, timeInput) => {
@@ -5496,19 +5494,16 @@ export function UnifiedTimeline({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Free-Flow Start/Start-New Dialog (Scenario 3: Stopped area clicked) */}
+      {/* Free-Flow Resume Dialog (Scenario 3: Stopped area clicked) */}
       <AlertDialog open={showFreeFlowRestartDialog} onOpenChange={setShowFreeFlowRestartDialog}>
         <AlertDialogContent data-testid="dialog-freeflow-restart">
           <AlertDialogHeader>
             <AlertDialogTitle>{pendingFreeFlowRestart?.previousSession.label}</AlertDialogTitle>
             <AlertDialogDescription>
-              Previous infusion was stopped. Choose an action:
+              Resume the stopped infusion with dose: <span className="font-semibold">{pendingFreeFlowRestart?.previousSession.dose}</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex flex-col gap-4 my-4">
-            <div className="text-sm text-muted-foreground">
-              Previous dose: <span className="font-semibold">{pendingFreeFlowRestart?.previousSession.dose}</span>
-            </div>
             <Button
               onClick={() => {
                 if (!pendingFreeFlowRestart) return;
@@ -5532,84 +5527,12 @@ export function UnifiedTimeline({
                 setPendingFreeFlowRestart(null);
               }}
               variant="default"
+              className="w-full"
               data-testid="button-freeflow-resume"
             >
               <PlayCircle className="w-4 h-4 mr-2" />
-              Resume (Dose: {pendingFreeFlowRestart?.previousSession.dose})
+              Resume
             </Button>
-            <div className="space-y-2">
-              <Label htmlFor="new-dose">Or start with new dose:</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="new-dose"
-                  type="number"
-                  inputMode="decimal"
-                  value={freeFlowRestartDoseInput}
-                  onChange={(e) => setFreeFlowRestartDoseInput(e.target.value)}
-                  placeholder="Enter new dose"
-                  data-testid="input-new-dose"
-                />
-                <Button
-                  onClick={() => {
-                    if (!pendingFreeFlowRestart || !freeFlowRestartDoseInput.trim()) return;
-                    const { previousSession, clickTime } = pendingFreeFlowRestart;
-                    
-                    // START NEW action: Create a new infusion with new dose
-                    // Extract item ID from swimlane ID
-                    const groupMatch = previousSession.swimlaneId.match(/admingroup-([a-f0-9-]+)-item-(\d+)/);
-                    if (!groupMatch || !anesthesiaRecordId) {
-                      toast({
-                        variant: "destructive",
-                        title: "Error",
-                        description: "Unable to start new infusion",
-                      });
-                      return;
-                    }
-                    
-                    const groupId = groupMatch[1];
-                    const itemIndex = parseInt(groupMatch[2], 10);
-                    const groupItems = anesthesiaItems.filter(item => item.administrationGroup === groupId);
-                    const item = groupItems[itemIndex];
-                    
-                    if (!item) {
-                      toast({
-                        variant: "destructive",
-                        title: "Error",
-                        description: "Item not found",
-                      });
-                      return;
-                    }
-                    
-                    // Create new infusion in database
-                    createMedication.mutate({
-                      anesthesiaRecordId,
-                      itemId: item.id,
-                      timestamp: new Date(clickTime),
-                      type: 'infusion_start' as const,
-                      rate: 'free',
-                      dose: freeFlowRestartDoseInput.trim(),
-                    }, {
-                      onSuccess: () => {
-                        toast({
-                          title: "New infusion started",
-                          description: `${previousSession.label} started with new dose ${freeFlowRestartDoseInput.trim()}`,
-                        });
-                      },
-                    });
-                    
-                    setShowFreeFlowRestartDialog(false);
-                    setPendingFreeFlowRestart(null);
-                    setFreeFlowRestartDoseInput("");
-                  }}
-                  variant="outline"
-                  disabled={!freeFlowRestartDoseInput.trim()}
-                  data-testid="button-freeflow-start-new-dose"
-                >
-                  <PlayCircle className="w-4 h-4 mr-2" />
-                  Start New
-                </Button>
-              </div>
-            </div>
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel data-testid="button-cancel">Cancel</AlertDialogCancel>
