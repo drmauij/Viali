@@ -7,7 +7,6 @@ import { InstallationsSection, GeneralAnesthesiaSection, SedationSection, Region
 import { 
   InstallationsSectionMockup,
   GeneralAnesthesiaSectionMockup,
-  SedationSectionMockup,
   CentralRegionalSectionMockup,
   PeripheralRegionalSectionMockup
 } from "@/components/anesthesia/AnesthesiaDocumentationMockup";
@@ -722,18 +721,6 @@ export default function Op() {
                     </AccordionTrigger>
                     <AccordionContent>
                       <GeneralAnesthesiaSectionMockup anesthesiaRecordId={anesthesiaRecord?.id} />
-                    </AccordionContent>
-                  </Card>
-                </AccordionItem>
-
-                {/* Sedation Section - MOCKUP */}
-                <AccordionItem value="sedation">
-                  <Card>
-                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-sedation">
-                      <CardTitle className="text-lg">Sedation <Badge variant="outline" className="ml-2">UI Mockup</Badge></CardTitle>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <SedationSectionMockup anesthesiaRecordId={anesthesiaRecord?.id} />
                     </AccordionContent>
                   </Card>
                 </AccordionItem>

@@ -337,6 +337,18 @@ export function GeneralAnesthesiaSectionMockup({ anesthesiaRecordId }: MockupSec
             />
             <span className="font-medium">Balanced/Gas</span>
           </label>
+          <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-muted/50">
+            <input 
+              type="radio" 
+              name="maintenance-type" 
+              value="sedation" 
+              checked={maintenanceType === "sedation"}
+              onChange={(e) => setMaintenanceType(e.target.value)}
+              className="h-4 w-4"
+              data-testid="radio-maintenance-sedation"
+            />
+            <span className="font-medium">Sedation</span>
+          </label>
         </div>
         <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-muted/50">
           <input 
