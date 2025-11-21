@@ -602,16 +602,16 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
   // Auto-save mutations
   const generalAutoSave = useAutoSaveMutation({
     mutationFn: async (data: any) => {
-      return apiRequest('POST', `/api/anesthesia/general/${anesthesiaRecordId}`, data);
+      return apiRequest('POST', `/api/anesthesia/${anesthesiaRecordId}/general-technique`, data);
     },
-    queryKey: [`/api/anesthesia/general/${anesthesiaRecordId}`],
+    queryKey: [`/api/anesthesia/${anesthesiaRecordId}/general-technique`],
   });
 
   const airwayAutoSave = useAutoSaveMutation({
     mutationFn: async (data: any) => {
-      return apiRequest('POST', `/api/anesthesia/airway/${anesthesiaRecordId}`, data);
+      return apiRequest('POST', `/api/anesthesia/${anesthesiaRecordId}/airway`, data);
     },
-    queryKey: [`/api/anesthesia/airway/${anesthesiaRecordId}`],
+    queryKey: [`/api/anesthesia/${anesthesiaRecordId}/airway`],
   });
 
   const [approach, setApproach] = useState<string>("");
