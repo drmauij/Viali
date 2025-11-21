@@ -1377,15 +1377,16 @@ const medicationTimeSchema = z.union([
   z.literal("Immediately"),
   z.literal("Contraindicated"),
   z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Must be HH:MM format"), // HH:MM time format
+  z.literal(""), // Allow empty string for unset custom time
 ]);
 
 export const updatePostOpDataSchema = z.object({
-  postOpDestination: z.string().optional(),
-  postOpNotes: z.string().optional(),
-  complications: z.string().optional(),
-  paracetamolTime: medicationTimeSchema.optional(),
-  nsarTime: medicationTimeSchema.optional(),
-  novalginTime: medicationTimeSchema.optional(),
+  postOpDestination: z.string().optional().nullable(),
+  postOpNotes: z.string().optional().nullable(),
+  complications: z.string().optional().nullable(),
+  paracetamolTime: medicationTimeSchema.optional().nullable(),
+  nsarTime: medicationTimeSchema.optional().nullable(),
+  novalginTime: medicationTimeSchema.optional().nullable(),
 });
 
 export const insertPreOpAssessmentSchema = createInsertSchema(preOpAssessments).omit({
