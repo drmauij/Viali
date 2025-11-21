@@ -804,9 +804,8 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
             </div>
             <div className="space-y-2">
               <Label>Size</Label>
-              <Input
-                type="text"
-                placeholder="e.g., 7.5"
+              <select
+                className="w-full border rounded-md p-2 bg-background"
                 value={size}
                 onChange={(e) => {
                   const nextSize = e.target.value;
@@ -820,16 +819,53 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                     notes: airwayNotes || null,
                   });
                 }}
-                data-testid="input-airway-size"
-              />
+                data-testid="select-airway-size"
+              >
+                <option value="">Select size</option>
+                {/* ETT, Spiral Tube, RAE Tube */}
+                {(airwayDevice === 'ett' || airwayDevice === 'spiral-tube' || airwayDevice === 'rae-tube') && (
+                  <>
+                    <option value="4.0">4.0 mm</option>
+                    <option value="4.5">4.5 mm</option>
+                    <option value="5.0">5.0 mm</option>
+                    <option value="5.5">5.5 mm</option>
+                    <option value="6.0">6.0 mm</option>
+                    <option value="6.5">6.5 mm</option>
+                    <option value="7.0">7.0 mm</option>
+                    <option value="7.5">7.5 mm</option>
+                    <option value="8.0">8.0 mm</option>
+                    <option value="8.5">8.5 mm</option>
+                    <option value="9.0">9.0 mm</option>
+                    <option value="9.5">9.5 mm</option>
+                    <option value="10.0">10.0 mm</option>
+                  </>
+                )}
+                {/* Double-Lumen Tubes */}
+                {(airwayDevice === 'dlt-left' || airwayDevice === 'dlt-right') && (
+                  <>
+                    <option value="35">35 Fr</option>
+                    <option value="37">37 Fr</option>
+                    <option value="39">39 Fr</option>
+                    <option value="41">41 Fr</option>
+                  </>
+                )}
+                {/* LMA or AuraGain */}
+                {(airwayDevice === 'lma' || airwayDevice === 'lma-auragain') && (
+                  <>
+                    <option value="3">Size 3</option>
+                    <option value="4">Size 4</option>
+                    <option value="5">Size 5</option>
+                    <option value="6">Size 6</option>
+                  </>
+                )}
+              </select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Depth (cm at teeth)</Label>
-              <Input
-                type="number"
-                placeholder="22"
+              <select
+                className="w-full border rounded-md p-2 bg-background"
                 value={depth}
                 onChange={(e) => {
                   const nextDepth = e.target.value;
@@ -843,14 +879,22 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                     notes: airwayNotes || null,
                   });
                 }}
-                data-testid="input-airway-depth"
-              />
+                data-testid="select-airway-depth"
+              >
+                <option value="">Select depth</option>
+                <option value="19">19 cm</option>
+                <option value="20">20 cm</option>
+                <option value="21">21 cm</option>
+                <option value="22">22 cm</option>
+                <option value="23">23 cm</option>
+                <option value="24">24 cm</option>
+                <option value="25">25 cm</option>
+              </select>
             </div>
             <div className="space-y-2">
               <Label>Cuff Pressure (cmH₂O)</Label>
-              <Input
-                type="number"
-                placeholder="20"
+              <select
+                className="w-full border rounded-md p-2 bg-background"
                 value={cuffPressure}
                 onChange={(e) => {
                   const nextCuffPressure = e.target.value;
@@ -864,8 +908,18 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                     notes: airwayNotes || null,
                   });
                 }}
-                data-testid="input-airway-cuff"
-              />
+                data-testid="select-airway-cuff"
+              >
+                <option value="">Select pressure</option>
+                <option value="15">15 cmH₂O</option>
+                <option value="20">20 cmH₂O (Recommended min)</option>
+                <option value="22">22 cmH₂O</option>
+                <option value="24">24 cmH₂O</option>
+                <option value="25">25 cmH₂O</option>
+                <option value="26">26 cmH₂O</option>
+                <option value="28">28 cmH₂O</option>
+                <option value="30">30 cmH₂O (Recommended max)</option>
+              </select>
             </div>
           </div>
           <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
