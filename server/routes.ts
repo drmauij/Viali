@@ -40,6 +40,9 @@ import {
   insertAnesthesiaPeripheralBlockSchema,
   insertInventoryUsageSchema,
   insertNoteSchema,
+  updateSignInDataSchema,
+  updateTimeOutDataSchema,
+  updateSignOutDataSchema,
   orderLines, 
   items, 
   stockLevels, 
@@ -5144,6 +5147,165 @@ If unable to parse any drugs, return:
     } catch (error) {
       console.error("Error updating time markers:", error);
       res.status(500).json({ message: "Failed to update time markers" });
+    }
+  });
+
+  // Update Sign In checklist data
+  app.patch('/api/anesthesia/records/:id/checklist/sign-in', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      const record = await storage.getAnesthesiaRecordById(id);
+      
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      // Verify user has access
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Cannot update closed or amended records
+      if (record.caseStatus === 'closed' || record.caseStatus === 'amended') {
+        return res.status(400).json({ message: "Cannot update closed or amended records. Use amend endpoint instead." });
+      }
+
+      // Validate request body
+      const validated = updateSignInDataSchema.parse(req.body);
+
+      // Add timestamp and user ID
+      const signInData = {
+        ...validated,
+        completedAt: Date.now(),
+        completedBy: userId,
+      };
+
+      // Update sign in data
+      const updatedRecord = await storage.updateAnesthesiaRecord(id, { signInData });
+      
+      res.json(updatedRecord);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      console.error("Error updating sign in checklist:", error);
+      res.status(500).json({ message: "Failed to update sign in checklist" });
+    }
+  });
+
+  // Update Time Out checklist data
+  app.patch('/api/anesthesia/records/:id/checklist/time-out', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      const record = await storage.getAnesthesiaRecordById(id);
+      
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      // Verify user has access
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Cannot update closed or amended records
+      if (record.caseStatus === 'closed' || record.caseStatus === 'amended') {
+        return res.status(400).json({ message: "Cannot update closed or amended records. Use amend endpoint instead." });
+      }
+
+      // Validate request body
+      const validated = updateTimeOutDataSchema.parse(req.body);
+
+      // Add timestamp and user ID
+      const timeOutData = {
+        ...validated,
+        completedAt: Date.now(),
+        completedBy: userId,
+      };
+
+      // Update time out data
+      const updatedRecord = await storage.updateAnesthesiaRecord(id, { timeOutData });
+      
+      res.json(updatedRecord);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      console.error("Error updating time out checklist:", error);
+      res.status(500).json({ message: "Failed to update time out checklist" });
+    }
+  });
+
+  // Update Sign Out checklist data
+  app.patch('/api/anesthesia/records/:id/checklist/sign-out', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      const record = await storage.getAnesthesiaRecordById(id);
+      
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      // Verify user has access
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Cannot update closed or amended records
+      if (record.caseStatus === 'closed' || record.caseStatus === 'amended') {
+        return res.status(400).json({ message: "Cannot update closed or amended records. Use amend endpoint instead." });
+      }
+
+      // Validate request body
+      const validated = updateSignOutDataSchema.parse(req.body);
+
+      // Add timestamp and user ID
+      const signOutData = {
+        ...validated,
+        completedAt: Date.now(),
+        completedBy: userId,
+      };
+
+      // Update sign out data
+      const updatedRecord = await storage.updateAnesthesiaRecord(id, { signOutData });
+      
+      res.json(updatedRecord);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      console.error("Error updating sign out checklist:", error);
+      res.status(500).json({ message: "Failed to update sign out checklist" });
     }
   });
 

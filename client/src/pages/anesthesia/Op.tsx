@@ -8,6 +8,11 @@ import {
   NeuraxialAnesthesiaSection,
   PeripheralBlocksSection
 } from "@/components/anesthesia/AnesthesiaDocumentation";
+import {
+  useUpdateSignInChecklist,
+  useUpdateTimeOutChecklist,
+  useUpdateSignOutChecklist
+} from "@/lib/anesthesiaDocumentation";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -155,6 +160,11 @@ export default function Op() {
     queryKey: [`/api/anesthesia/settings/${activeHospital?.id}`],
     enabled: !!activeHospital?.id,
   });
+
+  // Checklist mutations
+  const updateSignIn = useUpdateSignInChecklist(anesthesiaRecord?.id || "", surgeryId || "");
+  const updateTimeOut = useUpdateTimeOutChecklist(anesthesiaRecord?.id || "", surgeryId || "");
+  const updateSignOut = useUpdateSignOutChecklist(anesthesiaRecord?.id || "", surgeryId || "");
 
   // Fetch vitals snapshots (requires recordId)
   const { data: vitalsData = [], isLoading: isVitalsLoading } = useQuery({
@@ -444,32 +454,38 @@ export default function Op() {
   useEffect(() => {
     if (!anesthesiaRecord) return;
     
-    if (anesthesiaRecord.signInChecklist) {
-      setSignInChecklist(anesthesiaRecord.signInChecklist);
+    if (anesthesiaRecord.signInData) {
+      if (anesthesiaRecord.signInData.checklist) {
+        setSignInChecklist(anesthesiaRecord.signInData.checklist);
+      }
+      if (anesthesiaRecord.signInData.notes) {
+        setSignInNotes(anesthesiaRecord.signInData.notes);
+      }
+      if (anesthesiaRecord.signInData.signature) {
+        setSignInSignature(anesthesiaRecord.signInData.signature);
+      }
     }
-    if (anesthesiaRecord.signInNotes) {
-      setSignInNotes(anesthesiaRecord.signInNotes);
+    if (anesthesiaRecord.timeOutData) {
+      if (anesthesiaRecord.timeOutData.checklist) {
+        setTimeOutChecklist(anesthesiaRecord.timeOutData.checklist);
+      }
+      if (anesthesiaRecord.timeOutData.notes) {
+        setTimeOutNotes(anesthesiaRecord.timeOutData.notes);
+      }
+      if (anesthesiaRecord.timeOutData.signature) {
+        setTimeOutSignature(anesthesiaRecord.timeOutData.signature);
+      }
     }
-    if (anesthesiaRecord.signInSignature) {
-      setSignInSignature(anesthesiaRecord.signInSignature);
-    }
-    if (anesthesiaRecord.timeOutChecklist) {
-      setTimeOutChecklist(anesthesiaRecord.timeOutChecklist);
-    }
-    if (anesthesiaRecord.timeOutNotes) {
-      setTimeOutNotes(anesthesiaRecord.timeOutNotes);
-    }
-    if (anesthesiaRecord.timeOutSignature) {
-      setTimeOutSignature(anesthesiaRecord.timeOutSignature);
-    }
-    if (anesthesiaRecord.signOutChecklist) {
-      setSignOutChecklist(anesthesiaRecord.signOutChecklist);
-    }
-    if (anesthesiaRecord.signOutNotes) {
-      setSignOutNotes(anesthesiaRecord.signOutNotes);
-    }
-    if (anesthesiaRecord.signOutSignature) {
-      setSignOutSignature(anesthesiaRecord.signOutSignature);
+    if (anesthesiaRecord.signOutData) {
+      if (anesthesiaRecord.signOutData.checklist) {
+        setSignOutChecklist(anesthesiaRecord.signOutData.checklist);
+      }
+      if (anesthesiaRecord.signOutData.notes) {
+        setSignOutNotes(anesthesiaRecord.signOutData.notes);
+      }
+      if (anesthesiaRecord.signOutData.signature) {
+        setSignOutSignature(anesthesiaRecord.signOutData.signature);
+      }
     }
   }, [anesthesiaRecord]);
 
@@ -479,6 +495,91 @@ export default function Op() {
       ...prev,
       [itemId]: Math.max(0, (prev[itemId] || 0) + delta),
     }));
+  };
+
+  // Checklist save handlers
+  const handleSaveSignIn = async () => {
+    if (!anesthesiaRecord?.id) {
+      toast({
+        title: "Error",
+        description: "Anesthesia record not available",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      await updateSignIn.mutateAsync({
+        checklist: signInChecklist,
+        notes: signInNotes,
+        signature: signInSignature,
+      });
+      toast({
+        title: "Success",
+        description: "Sign In checklist saved successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save Sign In checklist",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSaveTimeOut = async () => {
+    if (!anesthesiaRecord?.id) {
+      toast({
+        title: "Error",
+        description: "Anesthesia record not available",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      await updateTimeOut.mutateAsync({
+        checklist: timeOutChecklist,
+        notes: timeOutNotes,
+        signature: timeOutSignature,
+      });
+      toast({
+        title: "Success",
+        description: "Time Out checklist saved successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save Time Out checklist",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSaveSignOut = async () => {
+    if (!anesthesiaRecord?.id) {
+      toast({
+        title: "Error",
+        description: "Anesthesia record not available",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      await updateSignOut.mutateAsync({
+        checklist: signOutChecklist,
+        notes: signOutNotes,
+        signature: signOutSignature,
+      });
+      toast({
+        title: "Success",
+        description: "Sign Out checklist saved successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save Sign Out checklist",
+        variant: "destructive",
+      });
+    }
   };
 
   // Handle dialog close and navigation
@@ -907,6 +1008,23 @@ export default function Op() {
                           className="border border-input rounded-md"
                         />
                       </div>
+                      <div className="pt-4">
+                        <Button 
+                          onClick={handleSaveSignIn} 
+                          disabled={updateSignIn.isPending || !anesthesiaRecord?.id}
+                          className="w-full"
+                          data-testid="button-save-signin"
+                        >
+                          {updateSignIn.isPending ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            "Save Sign In"
+                          )}
+                        </Button>
+                      </div>
                     </>
                   ) : (
                     <p className="text-sm text-muted-foreground">No checklist items configured. Please configure WHO checklist items in Anesthesia Settings.</p>
@@ -969,6 +1087,23 @@ export default function Op() {
                           className="border border-input rounded-md"
                         />
                       </div>
+                      <div className="pt-4">
+                        <Button 
+                          onClick={handleSaveTimeOut} 
+                          disabled={updateTimeOut.isPending || !anesthesiaRecord?.id}
+                          className="w-full"
+                          data-testid="button-save-timeout"
+                        >
+                          {updateTimeOut.isPending ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            "Save Time Out"
+                          )}
+                        </Button>
+                      </div>
                     </>
                   ) : (
                     <p className="text-sm text-muted-foreground">No checklist items configured. Please configure WHO checklist items in Anesthesia Settings.</p>
@@ -1030,6 +1165,23 @@ export default function Op() {
                           onChange={setSignOutSignature}
                           className="border border-input rounded-md"
                         />
+                      </div>
+                      <div className="pt-4">
+                        <Button 
+                          onClick={handleSaveSignOut} 
+                          disabled={updateSignOut.isPending || !anesthesiaRecord?.id}
+                          className="w-full"
+                          data-testid="button-save-signout"
+                        >
+                          {updateSignOut.isPending ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            "Save Sign Out"
+                          )}
+                        </Button>
                       </div>
                     </>
                   ) : (

@@ -213,3 +213,44 @@ export function useDeletePeripheralBlock(recordId: string) {
     },
   });
 }
+
+// ==================== CHECKLISTS ====================
+
+interface ChecklistPhaseData {
+  checklist?: Record<string, boolean>;
+  notes?: string;
+  signature?: string;
+}
+
+export function useUpdateSignInChecklist(recordId: string, surgeryId: string) {
+  return useMutation({
+    mutationFn: async (data: ChecklistPhaseData) => {
+      return await apiRequest("PATCH", `/api/anesthesia/records/${recordId}/checklist/sign-in`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+    },
+  });
+}
+
+export function useUpdateTimeOutChecklist(recordId: string, surgeryId: string) {
+  return useMutation({
+    mutationFn: async (data: ChecklistPhaseData) => {
+      return await apiRequest("PATCH", `/api/anesthesia/records/${recordId}/checklist/time-out`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+    },
+  });
+}
+
+export function useUpdateSignOutChecklist(recordId: string, surgeryId: string) {
+  return useMutation({
+    mutationFn: async (data: ChecklistPhaseData) => {
+      return await apiRequest("PATCH", `/api/anesthesia/records/${recordId}/checklist/sign-out`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+    },
+  });
+}

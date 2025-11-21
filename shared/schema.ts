@@ -556,9 +556,27 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
   closedBy: varchar("closed_by").references(() => users.id),
   
   // WHO Checklists (stored as JSONB for flexibility)
-  signInChecklist: jsonb("sign_in_checklist").$type<Record<string, boolean>>(),
-  timeOutChecklist: jsonb("time_out_checklist").$type<Record<string, boolean>>(),
-  signOutChecklist: jsonb("sign_out_checklist").$type<Record<string, boolean>>(),
+  signInData: jsonb("sign_in_data").$type<{
+    checklist?: Record<string, boolean>;
+    notes?: string;
+    signature?: string;
+    completedAt?: number; // timestamp in milliseconds
+    completedBy?: string; // userId
+  }>(),
+  timeOutData: jsonb("time_out_data").$type<{
+    checklist?: Record<string, boolean>;
+    notes?: string;
+    signature?: string;
+    completedAt?: number;
+    completedBy?: string;
+  }>(),
+  signOutData: jsonb("sign_out_data").$type<{
+    checklist?: Record<string, boolean>;
+    notes?: string;
+    signature?: string;
+    completedAt?: number;
+    completedBy?: string;
+  }>(),
   
   // Time markers (A1, E, X1, I, L, B1, O1, O2, B2, X2, X, A2, P)
   timeMarkers: jsonb("time_markers").$type<Array<{
@@ -1323,6 +1341,19 @@ export const insertAnesthesiaRecordSchema = createInsertSchema(anesthesiaRecords
   createdAt: true,
   updatedAt: true,
 });
+
+// Checklist phase data validation schema (client input - no audit fields)
+export const checklistPhaseDataSchema = z.object({
+  checklist: z.record(z.boolean()).optional(),
+  notes: z.string().optional(),
+  signature: z.string().optional(),
+});
+
+// Update schemas for each checklist phase (used in PATCH endpoints)
+// Note: completedAt and completedBy are added server-side only
+export const updateSignInDataSchema = checklistPhaseDataSchema;
+export const updateTimeOutDataSchema = checklistPhaseDataSchema;
+export const updateSignOutDataSchema = checklistPhaseDataSchema;
 
 export const insertPreOpAssessmentSchema = createInsertSchema(preOpAssessments).omit({
   id: true,
