@@ -18,10 +18,13 @@ interface MockupSectionProps {
 // INSTALLATIONS SECTION
 // ============================================================================
 export function InstallationsSectionMockup({ anesthesiaRecordId }: MockupSectionProps) {
-  const [pvEntries, setPvEntries] = useState([{ id: 1 }]);
+  const [pvEntries, setPvEntries] = useState([{ id: 1, isPreExisting: false }]);
   const [hasArterial, setHasArterial] = useState(false);
+  const [arterialIsPreExisting, setArterialIsPreExisting] = useState(false);
   const [hasCVC, setHasCVC] = useState(false);
+  const [cvcIsPreExisting, setCvcIsPreExisting] = useState(false);
   const [hasBladderCath, setHasBladderCath] = useState(false);
+  const [bladderIsPreExisting, setBladderIsPreExisting] = useState(false);
 
   return (
     <CardContent className="space-y-6 pt-0">
@@ -84,6 +87,20 @@ export function InstallationsSectionMockup({ anesthesiaRecordId }: MockupSection
               <Label>Number of Attempts</Label>
               <Input type="number" defaultValue={1} data-testid={`input-pv-attempts-${index + 1}`} />
             </div>
+            <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
+              <input 
+                type="checkbox" 
+                checked={entry.isPreExisting || false}
+                onChange={(e) => {
+                  const newEntries = [...pvEntries];
+                  newEntries[index].isPreExisting = e.target.checked;
+                  setPvEntries(newEntries);
+                }}
+                className="h-4 w-4"
+                data-testid={`checkbox-pv-preexisting-${index + 1}`}
+              />
+              <span className="text-sm font-medium">Pre-existing Installation</span>
+            </label>
             <div className="space-y-2">
               <Label>Notes</Label>
               <Textarea rows={2} placeholder="Additional notes..." data-testid={`textarea-pv-notes-${index + 1}`} />
@@ -149,6 +166,16 @@ export function InstallationsSectionMockup({ anesthesiaRecordId }: MockupSection
                 </select>
               </div>
             </div>
+            <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
+              <input 
+                type="checkbox" 
+                checked={arterialIsPreExisting}
+                onChange={(e) => setArterialIsPreExisting(e.target.checked)}
+                className="h-4 w-4"
+                data-testid="checkbox-arterial-preexisting"
+              />
+              <span className="text-sm font-medium">Pre-existing Installation</span>
+            </label>
             <div className="space-y-2">
               <Label>Notes</Label>
               <Textarea rows={2} placeholder="Additional notes..." data-testid="textarea-arterial-notes" />
@@ -218,6 +245,16 @@ export function InstallationsSectionMockup({ anesthesiaRecordId }: MockupSection
                 </select>
               </div>
             </div>
+            <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
+              <input 
+                type="checkbox" 
+                checked={cvcIsPreExisting}
+                onChange={(e) => setCvcIsPreExisting(e.target.checked)}
+                className="h-4 w-4"
+                data-testid="checkbox-cvc-preexisting"
+              />
+              <span className="text-sm font-medium">Pre-existing Installation</span>
+            </label>
             <div className="space-y-2">
               <Label>Notes</Label>
               <Textarea rows={2} placeholder="Additional notes..." data-testid="textarea-cvc-notes" />
@@ -273,6 +310,16 @@ export function InstallationsSectionMockup({ anesthesiaRecordId }: MockupSection
                 </select>
               </div>
             </div>
+            <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
+              <input 
+                type="checkbox" 
+                checked={bladderIsPreExisting}
+                onChange={(e) => setBladderIsPreExisting(e.target.checked)}
+                className="h-4 w-4"
+                data-testid="checkbox-bladder-preexisting"
+              />
+              <span className="text-sm font-medium">Pre-existing Installation</span>
+            </label>
             <div className="space-y-2">
               <Label>Notes</Label>
               <Textarea rows={2} placeholder="Additional notes..." data-testid="textarea-bladder-notes" />
