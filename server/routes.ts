@@ -7498,19 +7498,27 @@ If unable to parse any drugs, return:
     }
   });
 
-  // Update inventory usage
-  app.patch('/api/anesthesia/inventory/:id', isAuthenticated, async (req: any, res) => {
+  // Set manual override for inventory usage
+  app.patch('/api/anesthesia/inventory/:id/override', isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
+      const { overrideQty, overrideReason } = req.body;
 
-      const inventoryList = await storage.getInventoryUsage(id);
-      
-      if (!inventoryList || inventoryList.length === 0) {
-        return res.status(404).json({ message: "Inventory usage not found" });
+      if (typeof overrideQty !== 'number' || overrideQty < 0) {
+        return res.status(400).json({ message: "Invalid override quantity" });
       }
 
-      const inventory = inventoryList[0];
+      if (!overrideReason || typeof overrideReason !== 'string') {
+        return res.status(400).json({ message: "Override reason is required" });
+      }
+
+      // Get inventory usage to verify access
+      const inventory = await storage.getInventoryUsageById(id);
+      
+      if (!inventory) {
+        return res.status(404).json({ message: "Inventory usage not found" });
+      }
 
       // Verify user has access
       const record = await storage.getAnesthesiaRecordById(inventory.anesthesiaRecordId);
@@ -7530,12 +7538,57 @@ If unable to parse any drugs, return:
         return res.status(403).json({ message: "Access denied" });
       }
 
-      const updatedInventory = await storage.updateInventoryUsage(id, req.body);
+      const updatedInventory = await storage.updateInventoryUsage(
+        id,
+        overrideQty,
+        overrideReason,
+        userId
+      );
       
       res.json(updatedInventory);
     } catch (error) {
-      console.error("Error updating inventory usage:", error);
-      res.status(500).json({ message: "Failed to update inventory usage" });
+      console.error("Error setting inventory override:", error);
+      res.status(500).json({ message: "Failed to set inventory override" });
+    }
+  });
+
+  // Clear manual override for inventory usage
+  app.delete('/api/anesthesia/inventory/:id/override', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      // Get inventory usage to verify access
+      const inventory = await storage.getInventoryUsageById(id);
+      
+      if (!inventory) {
+        return res.status(404).json({ message: "Inventory usage not found" });
+      }
+
+      // Verify user has access
+      const record = await storage.getAnesthesiaRecordById(inventory.anesthesiaRecordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updatedInventory = await storage.clearInventoryOverride(id);
+      
+      res.json(updatedInventory);
+    } catch (error) {
+      console.error("Error clearing inventory override:", error);
+      res.status(500).json({ message: "Failed to clear inventory override" });
     }
   });
 

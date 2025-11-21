@@ -3136,6 +3136,14 @@ export class DatabaseStorage implements IStorage {
     return usage;
   }
 
+  async getInventoryUsageById(id: string): Promise<InventoryUsage | null> {
+    const [usage] = await db
+      .select()
+      .from(inventoryUsage)
+      .where(eq(inventoryUsage.id, id));
+    return usage || null;
+  }
+
   async calculateInventoryUsage(anesthesiaRecordId: string): Promise<InventoryUsage[]> {
     // Get all medications for this anesthesia record
     const medications = await db
