@@ -1060,7 +1060,6 @@ export default function Op() {
                               >
                                 <div className="flex-1">
                                   <p className="font-medium text-sm">{item.name}</p>
-                                  <p className="text-xs text-muted-foreground">{item.unit}</p>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <Button
