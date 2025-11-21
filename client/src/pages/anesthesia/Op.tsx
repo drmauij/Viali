@@ -30,6 +30,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useAutoSaveMutation } from "@/hooks/useAutoSaveMutation";
 import { Minus, Folder, Package, Loader2 } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { formatDate } from "@/lib/dateUtils";
@@ -229,6 +230,13 @@ export default function Op() {
       setCave(preOpAssessment.cave || "");
     }
   }, [preOpAssessment]);
+
+  // Sync Post-Op data from anesthesia record
+  useEffect(() => {
+    if (anesthesiaRecord?.postOpData) {
+      setPostOpData(anesthesiaRecord.postOpData);
+    }
+  }, [anesthesiaRecord?.postOpData]);
   
   const handleOpenAllergiesDialog = () => {
     setTempAllergies(allergies);
@@ -376,6 +384,26 @@ export default function Op() {
   const [signOutChecklist, setSignOutChecklist] = useState<Record<string, boolean>>({});
   const [signOutNotes, setSignOutNotes] = useState("");
   const [signOutSignature, setSignOutSignature] = useState("");
+
+  // Post-Operative Information state
+  type MedicationTime = "Immediately" | "Contraindicated" | string;
+  const [postOpData, setPostOpData] = useState<{
+    analgesiaPlan?: string;
+    monitoringPlan?: string;
+    paracetamolTime?: MedicationTime;
+    nsarTime?: MedicationTime;
+    novalginTime?: MedicationTime;
+  }>({});
+
+  // Auto-save mutation for Post-Op data
+  const postOpAutoSave = useAutoSaveMutation({
+    mutationFn: async (data: typeof postOpData) => {
+      if (!anesthesiaRecord?.id) throw new Error("No anesthesia record");
+      return apiRequest('PATCH', `/api/anesthesia/records/${anesthesiaRecord.id}/postop`, data);
+    },
+    queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
+    debounceMs: 500,
+  });
 
   // Fetch items for inventory tracking - filtered by current unit
   const { data: items = [] } = useQuery<any[]>({
@@ -1195,42 +1223,253 @@ export default function Op() {
           {/* Post-op Tab */}
           <TabsContent value="postop" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0" data-testid="tab-content-postop">
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Post-Operative Information</CardTitle>
+                {postOpAutoSave.status !== 'idle' && (
+                  <Badge variant={
+                    postOpAutoSave.status === 'saving' ? 'secondary' :
+                    postOpAutoSave.status === 'saved' ? 'default' : 'destructive'
+                  } data-testid="badge-postop-status">
+                    {postOpAutoSave.status === 'saving' && 'Saving...'}
+                    {postOpAutoSave.status === 'saved' && 'Saved'}
+                    {postOpAutoSave.status === 'error' && 'Error saving'}
+                  </Badge>
+                )}
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
+                {/* Analgesia Plan */}
                 <div className="space-y-2">
-                  <Label>Destination</Label>
-                  <Select value={opData.postOpDestination}>
-                    <SelectTrigger data-testid="select-postop-destination">
-                      <SelectValue placeholder="Select destination" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pacu">PACU</SelectItem>
-                      <SelectItem value="icu">ICU</SelectItem>
-                      <SelectItem value="ward">Ward</SelectItem>
-                      <SelectItem value="home">Home</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Post-Operative Notes</Label>
+                  <Label htmlFor="analgesia-plan">Analgesia Plan</Label>
                   <Textarea
-                    rows={4}
-                    placeholder="Enter post-operative notes..."
-                    value={opData.postOpNotes}
-                    data-testid="textarea-postop-notes"
+                    id="analgesia-plan"
+                    rows={3}
+                    placeholder="Enter analgesia plan..."
+                    value={postOpData.analgesiaPlan || ""}
+                    onChange={(e) => {
+                      const updated = { ...postOpData, analgesiaPlan: e.target.value };
+                      setPostOpData(updated);
+                      postOpAutoSave.mutate(updated);
+                    }}
+                    disabled={!anesthesiaRecord?.id}
+                    data-testid="textarea-analgesia-plan"
                   />
                 </div>
 
+                {/* Medication Timing Fields */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium">Medication Timing</h4>
+                  
+                  {/* Paracetamol */}
+                  <div className="space-y-2">
+                    <Label>Paracetamol</Label>
+                    <div className="flex gap-4 flex-wrap">
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          name="paracetamol"
+                          value="Immediately"
+                          checked={postOpData.paracetamolTime === "Immediately"}
+                          onChange={(e) => {
+                            const updated = { ...postOpData, paracetamolTime: e.target.value };
+                            setPostOpData(updated);
+                            postOpAutoSave.mutate(updated);
+                          }}
+                          disabled={!anesthesiaRecord?.id}
+                          data-testid="radio-paracetamol-immediately"
+                        />
+                        <span className="text-sm">Immediately</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          name="paracetamol"
+                          value="Contraindicated"
+                          checked={postOpData.paracetamolTime === "Contraindicated"}
+                          onChange={(e) => {
+                            const updated = { ...postOpData, paracetamolTime: e.target.value };
+                            setPostOpData(updated);
+                            postOpAutoSave.mutate(updated);
+                          }}
+                          disabled={!anesthesiaRecord?.id}
+                          data-testid="radio-paracetamol-contraindicated"
+                        />
+                        <span className="text-sm">Contraindicated</span>
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <label className="flex items-center space-x-2">
+                          <input
+                            type="radio"
+                            name="paracetamol"
+                            value="custom"
+                            checked={postOpData.paracetamolTime !== "Immediately" && postOpData.paracetamolTime !== "Contraindicated" && !!postOpData.paracetamolTime}
+                            onChange={() => {}}
+                            disabled={!anesthesiaRecord?.id}
+                            data-testid="radio-paracetamol-custom"
+                          />
+                          <span className="text-sm">At:</span>
+                        </label>
+                        <Input
+                          type="time"
+                          className="w-32"
+                          value={postOpData.paracetamolTime !== "Immediately" && postOpData.paracetamolTime !== "Contraindicated" ? (postOpData.paracetamolTime || "") : ""}
+                          onChange={(e) => {
+                            const updated = { ...postOpData, paracetamolTime: e.target.value };
+                            setPostOpData(updated);
+                            postOpAutoSave.mutate(updated);
+                          }}
+                          disabled={!anesthesiaRecord?.id}
+                          data-testid="input-paracetamol-time"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* NSAR */}
+                  <div className="space-y-2">
+                    <Label>NSAR</Label>
+                    <div className="flex gap-4 flex-wrap">
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          name="nsar"
+                          value="Immediately"
+                          checked={postOpData.nsarTime === "Immediately"}
+                          onChange={(e) => {
+                            const updated = { ...postOpData, nsarTime: e.target.value };
+                            setPostOpData(updated);
+                            postOpAutoSave.mutate(updated);
+                          }}
+                          disabled={!anesthesiaRecord?.id}
+                          data-testid="radio-nsar-immediately"
+                        />
+                        <span className="text-sm">Immediately</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          name="nsar"
+                          value="Contraindicated"
+                          checked={postOpData.nsarTime === "Contraindicated"}
+                          onChange={(e) => {
+                            const updated = { ...postOpData, nsarTime: e.target.value };
+                            setPostOpData(updated);
+                            postOpAutoSave.mutate(updated);
+                          }}
+                          disabled={!anesthesiaRecord?.id}
+                          data-testid="radio-nsar-contraindicated"
+                        />
+                        <span className="text-sm">Contraindicated</span>
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <label className="flex items-center space-x-2">
+                          <input
+                            type="radio"
+                            name="nsar"
+                            value="custom"
+                            checked={postOpData.nsarTime !== "Immediately" && postOpData.nsarTime !== "Contraindicated" && !!postOpData.nsarTime}
+                            onChange={() => {}}
+                            disabled={!anesthesiaRecord?.id}
+                            data-testid="radio-nsar-custom"
+                          />
+                          <span className="text-sm">At:</span>
+                        </label>
+                        <Input
+                          type="time"
+                          className="w-32"
+                          value={postOpData.nsarTime !== "Immediately" && postOpData.nsarTime !== "Contraindicated" ? (postOpData.nsarTime || "") : ""}
+                          onChange={(e) => {
+                            const updated = { ...postOpData, nsarTime: e.target.value };
+                            setPostOpData(updated);
+                            postOpAutoSave.mutate(updated);
+                          }}
+                          disabled={!anesthesiaRecord?.id}
+                          data-testid="input-nsar-time"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Novalgin */}
+                  <div className="space-y-2">
+                    <Label>Novalgin</Label>
+                    <div className="flex gap-4 flex-wrap">
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          name="novalgin"
+                          value="Immediately"
+                          checked={postOpData.novalginTime === "Immediately"}
+                          onChange={(e) => {
+                            const updated = { ...postOpData, novalginTime: e.target.value };
+                            setPostOpData(updated);
+                            postOpAutoSave.mutate(updated);
+                          }}
+                          disabled={!anesthesiaRecord?.id}
+                          data-testid="radio-novalgin-immediately"
+                        />
+                        <span className="text-sm">Immediately</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          name="novalgin"
+                          value="Contraindicated"
+                          checked={postOpData.novalginTime === "Contraindicated"}
+                          onChange={(e) => {
+                            const updated = { ...postOpData, novalginTime: e.target.value };
+                            setPostOpData(updated);
+                            postOpAutoSave.mutate(updated);
+                          }}
+                          disabled={!anesthesiaRecord?.id}
+                          data-testid="radio-novalgin-contraindicated"
+                        />
+                        <span className="text-sm">Contraindicated</span>
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <label className="flex items-center space-x-2">
+                          <input
+                            type="radio"
+                            name="novalgin"
+                            value="custom"
+                            checked={postOpData.novalginTime !== "Immediately" && postOpData.novalginTime !== "Contraindicated" && !!postOpData.novalginTime}
+                            onChange={() => {}}
+                            disabled={!anesthesiaRecord?.id}
+                            data-testid="radio-novalgin-custom"
+                          />
+                          <span className="text-sm">At:</span>
+                        </label>
+                        <Input
+                          type="time"
+                          className="w-32"
+                          value={postOpData.novalginTime !== "Immediately" && postOpData.novalginTime !== "Contraindicated" ? (postOpData.novalginTime || "") : ""}
+                          onChange={(e) => {
+                            const updated = { ...postOpData, novalginTime: e.target.value };
+                            setPostOpData(updated);
+                            postOpAutoSave.mutate(updated);
+                          }}
+                          disabled={!anesthesiaRecord?.id}
+                          data-testid="input-novalgin-time"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Monitoring Plan */}
                 <div className="space-y-2">
-                  <Label>Complications</Label>
+                  <Label htmlFor="monitoring-plan">Monitoring Plan</Label>
                   <Textarea
+                    id="monitoring-plan"
                     rows={3}
-                    placeholder="Document any complications..."
-                    value={opData.complications}
-                    data-testid="textarea-postop-complications"
+                    placeholder="Enter post-operative monitoring plan..."
+                    value={postOpData.monitoringPlan || ""}
+                    onChange={(e) => {
+                      const updated = { ...postOpData, monitoringPlan: e.target.value };
+                      setPostOpData(updated);
+                      postOpAutoSave.mutate(updated);
+                    }}
+                    disabled={!anesthesiaRecord?.id}
+                    data-testid="textarea-monitoring-plan"
                   />
                 </div>
               </CardContent>
