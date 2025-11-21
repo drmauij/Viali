@@ -1522,25 +1522,64 @@ export const insertAnesthesiaTechniqueDetailSchema = createInsertSchema(anesthes
   updatedAt: true,
 });
 
-export const insertAnesthesiaAirwayManagementSchema = createInsertSchema(anesthesiaAirwayManagement).omit({
+export const insertAnesthesiaAirwayManagementSchema = createInsertSchema(anesthesiaAirwayManagement, {
+  // All fields are optional except anesthesiaRecordId which comes from URL params
+  airwayDevice: z.string().optional().nullable(),
+  size: z.string().optional().nullable(),
+  depth: z.number().optional().nullable(),
+  cuffPressure: z.number().optional().nullable(),
+  intubationPreExisting: z.boolean().optional(),
+  notes: z.string().optional().nullable(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertAnesthesiaGeneralTechniqueSchema = createInsertSchema(anesthesiaGeneralTechnique).omit({
+export const insertAnesthesiaGeneralTechniqueSchema = createInsertSchema(anesthesiaGeneralTechnique, {
+  // All fields are optional
+  approach: z.enum(["tiva", "tci", "balanced-gas", "sedation"]).optional().nullable(),
+  rsi: z.boolean().optional(),
+  sedationLevel: z.string().optional().nullable(),
+  airwaySupport: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertAnesthesiaNeuraxialBlockSchema = createInsertSchema(anesthesiaNeuraxialBlocks).omit({
+export const insertAnesthesiaNeuraxialBlockSchema = createInsertSchema(anesthesiaNeuraxialBlocks, {
+  // blockType is required, others are optional
+  blockType: z.enum(["spinal", "epidural", "cse", "caudal"]),
+  level: z.string().optional().nullable(),
+  approach: z.string().optional().nullable(),
+  needleGauge: z.string().optional().nullable(),
+  testDose: z.string().optional().nullable(),
+  attempts: z.number().optional().nullable(),
+  sensoryLevel: z.string().optional().nullable(),
+  catheterPresent: z.boolean().optional(),
+  catheterDepth: z.string().optional().nullable(),
+  guidanceTechnique: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertAnesthesiaPeripheralBlockSchema = createInsertSchema(anesthesiaPeripheralBlocks).omit({
+export const insertAnesthesiaPeripheralBlockSchema = createInsertSchema(anesthesiaPeripheralBlocks, {
+  // blockType is required, others are optional
+  blockType: z.string(),
+  laterality: z.enum(["left", "right", "bilateral"]).optional().nullable(),
+  guidanceTechnique: z.string().optional().nullable(),
+  needleType: z.string().optional().nullable(),
+  catheterPlaced: z.boolean().optional(),
+  attempts: z.number().optional().nullable(),
+  sensoryAssessment: z.string().optional().nullable(),
+  motorAssessment: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,

@@ -38,6 +38,14 @@ interface SectionProps {
 // INSTALLATIONS SECTION
 // ============================================================================
 export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
+  if (!anesthesiaRecordId) {
+    return (
+      <CardContent className="py-8 text-center text-muted-foreground">
+        No anesthesia record available
+      </CardContent>
+    );
+  }
+
   const { toast } = useToast();
   const { data: installations = [], isLoading } = useInstallations(anesthesiaRecordId);
   const createMutation = useCreateInstallation(anesthesiaRecordId);
@@ -51,7 +59,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
 
   const handleCreate = (category: "peripheral" | "arterial" | "central" | "bladder") => {
     createMutation.mutate(
-      { anesthesiaRecordId, category, attempts: 1, notes: null, location: null, isPreExisting: false, metadata: {} },
+      { category, attempts: 1, notes: null, location: null, isPreExisting: false, metadata: {} },
       {
         onSuccess: () => {
           toast({ title: "Installation added successfully" });
@@ -529,6 +537,14 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
 // GENERAL ANESTHESIA SECTION
 // ============================================================================
 export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
+  if (!anesthesiaRecordId) {
+    return (
+      <CardContent className="py-8 text-center text-muted-foreground">
+        No anesthesia record available
+      </CardContent>
+    );
+  }
+
   const { toast } = useToast();
   const { data: generalTechnique, isLoading: isLoadingGeneral } = useGeneralTechnique(anesthesiaRecordId);
   const { data: airwayManagement, isLoading: isLoadingAirway } = useAirwayManagement(anesthesiaRecordId);
@@ -775,6 +791,14 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
 // NEURAXIAL ANESTHESIA SECTION
 // ============================================================================
 export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
+  if (!anesthesiaRecordId) {
+    return (
+      <CardContent className="py-8 text-center text-muted-foreground">
+        No anesthesia record available
+      </CardContent>
+    );
+  }
+
   const { toast } = useToast();
   const { data: blocks = [], isLoading } = useNeuraxialBlocks(anesthesiaRecordId);
   const createMutation = useCreateNeuraxialBlock(anesthesiaRecordId);
@@ -1010,6 +1034,14 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
 // PERIPHERAL BLOCKS SECTION
 // ============================================================================
 export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
+  if (!anesthesiaRecordId) {
+    return (
+      <CardContent className="py-8 text-center text-muted-foreground">
+        No anesthesia record available
+      </CardContent>
+    );
+  }
+
   const { toast } = useToast();
   const { data: blocks = [], isLoading } = usePeripheralBlocks(anesthesiaRecordId);
   const createMutation = useCreatePeripheralBlock(anesthesiaRecordId);

@@ -6869,9 +6869,11 @@ If unable to parse any drugs, return:
   // Update installation
   app.patch('/api/anesthesia/installations/:id', isAuthenticated, async (req: any, res) => {
     try {
-      const updated = await storage.updateAnesthesiaInstallation(req.params.id, req.body);
+      const validated = insertAnesthesiaInstallationSchema.partial().parse(req.body);
+      const updated = await storage.updateAnesthesiaInstallation(req.params.id, validated);
       res.json(updated);
     } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Invalid data", errors: error.errors });
       console.error("Error updating installation:", error);
       res.status(500).json({ message: "Failed to update installation" });
     }
@@ -7094,15 +7096,17 @@ If unable to parse any drugs, return:
     try {
       const { recordId, id } = req.params;
       const userId = req.user.id;
+      const validated = insertAnesthesiaNeuraxialBlockSchema.partial().parse(req.body);
       const record = await storage.getAnesthesiaRecordById(recordId);
       if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
       const surgery = await storage.getSurgery(record.surgeryId);
       if (!surgery) return res.status(404).json({ message: "Surgery not found" });
       const hospitals = await storage.getUserHospitals(userId);
       if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
-      const block = await storage.updateNeuraxialBlock(id, req.body);
+      const block = await storage.updateNeuraxialBlock(id, validated);
       res.json(block);
     } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Invalid data", errors: error.errors });
       console.error("Error updating neuraxial block:", error);
       res.status(500).json({ message: "Failed to update neuraxial block" });
     }
@@ -7173,15 +7177,17 @@ If unable to parse any drugs, return:
     try {
       const { recordId, id } = req.params;
       const userId = req.user.id;
+      const validated = insertAnesthesiaPeripheralBlockSchema.partial().parse(req.body);
       const record = await storage.getAnesthesiaRecordById(recordId);
       if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
       const surgery = await storage.getSurgery(record.surgeryId);
       if (!surgery) return res.status(404).json({ message: "Surgery not found" });
       const hospitals = await storage.getUserHospitals(userId);
       if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
-      const block = await storage.updatePeripheralBlock(id, req.body);
+      const block = await storage.updatePeripheralBlock(id, validated);
       res.json(block);
     } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Invalid data", errors: error.errors });
       console.error("Error updating peripheral block:", error);
       res.status(500).json({ message: "Failed to update peripheral block" });
     }
