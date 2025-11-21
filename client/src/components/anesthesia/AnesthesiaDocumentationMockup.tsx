@@ -722,7 +722,15 @@ export function NeuraxialSectionMockup({ anesthesiaRecordId }: MockupSectionProp
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Needle Gauge</Label>
-                    <Input placeholder="e.g., 25G" data-testid="input-spinal-gauge" />
+                    <select className="w-full border rounded-md p-2 bg-background" data-testid="select-spinal-gauge">
+                      <option value="">Select gauge</option>
+                      <option value="22G">22G</option>
+                      <option value="24G">24G</option>
+                      <option value="25G">25G (Pencil Point)</option>
+                      <option value="26G">26G</option>
+                      <option value="27G">27G (Pencil Point)</option>
+                      <option value="29G">29G</option>
+                    </select>
                   </div>
                   <div className="space-y-2">
                     <Label>Test Dose</Label>
@@ -789,7 +797,13 @@ export function NeuraxialSectionMockup({ anesthesiaRecordId }: MockupSectionProp
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Needle Gauge</Label>
-                    <Input placeholder="e.g., 18G Tuohy" data-testid="input-epidural-gauge" />
+                    <select className="w-full border rounded-md p-2 bg-background" data-testid="select-epidural-gauge">
+                      <option value="">Select gauge</option>
+                      <option value="16G">16G Tuohy</option>
+                      <option value="17G">17G Tuohy</option>
+                      <option value="18G">18G Tuohy</option>
+                      <option value="20G">20G Tuohy</option>
+                    </select>
                   </div>
                   <div className="space-y-2">
                     <Label>Catheter Depth (cm)</Label>
@@ -906,7 +920,13 @@ export function NeuraxialSectionMockup({ anesthesiaRecordId }: MockupSectionProp
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Needle Gauge</Label>
-                    <Input placeholder="e.g., 22G" data-testid="input-caudal-gauge" />
+                    <select className="w-full border rounded-md p-2 bg-background" data-testid="select-caudal-gauge">
+                      <option value="">Select gauge</option>
+                      <option value="18G">18G</option>
+                      <option value="20G">20G</option>
+                      <option value="22G">22G</option>
+                      <option value="23G">23G</option>
+                    </select>
                   </div>
                   <div className="space-y-2">
                     <Label>Depth (cm)</Label>
