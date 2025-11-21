@@ -294,52 +294,60 @@ export function InstallationsSectionMockup({ anesthesiaRecordId }: MockupSection
 export function GeneralAnesthesiaSectionMockup({ anesthesiaRecordId }: MockupSectionProps) {
   const [isDifficultAirway, setIsDifficultAirway] = useState(false);
   const [maintenanceType, setMaintenanceType] = useState<string>("");
+  const [isRSI, setIsRSI] = useState(false);
 
   return (
     <CardContent className="space-y-6 pt-0">
-      {/* Anesthesia Maintenance Type */}
+      {/* Maintenance Type Options */}
       <div className="space-y-3">
-        <Label className="text-base font-semibold">Anesthesia Maintenance</Label>
-        <div className="border rounded-lg p-4 space-y-3">
-          <div className="space-y-3">
-            <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-muted/50">
-              <input 
-                type="radio" 
-                name="maintenance-type" 
-                value="tiva" 
-                checked={maintenanceType === "tiva"}
-                onChange={(e) => setMaintenanceType(e.target.value)}
-                className="h-4 w-4"
-                data-testid="radio-maintenance-tiva"
-              />
-              <span className="font-medium">TIVA</span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-muted/50">
-              <input 
-                type="radio" 
-                name="maintenance-type" 
-                value="tci" 
-                checked={maintenanceType === "tci"}
-                onChange={(e) => setMaintenanceType(e.target.value)}
-                className="h-4 w-4"
-                data-testid="radio-maintenance-tci"
-              />
-              <span className="font-medium">TCI (Target Controlled Infusion)</span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-muted/50">
-              <input 
-                type="radio" 
-                name="maintenance-type" 
-                value="balanced-gas" 
-                checked={maintenanceType === "balanced-gas"}
-                onChange={(e) => setMaintenanceType(e.target.value)}
-                className="h-4 w-4"
-                data-testid="radio-maintenance-balanced-gas"
-              />
-              <span className="font-medium">Balanced/Gas</span>
-            </label>
-          </div>
+        <div className="space-y-2">
+          <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-muted/50">
+            <input 
+              type="radio" 
+              name="maintenance-type" 
+              value="tiva" 
+              checked={maintenanceType === "tiva"}
+              onChange={(e) => setMaintenanceType(e.target.value)}
+              className="h-4 w-4"
+              data-testid="radio-maintenance-tiva"
+            />
+            <span className="font-medium">TIVA</span>
+          </label>
+          <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-muted/50">
+            <input 
+              type="radio" 
+              name="maintenance-type" 
+              value="tci" 
+              checked={maintenanceType === "tci"}
+              onChange={(e) => setMaintenanceType(e.target.value)}
+              className="h-4 w-4"
+              data-testid="radio-maintenance-tci"
+            />
+            <span className="font-medium">TCI (Target Controlled Infusion)</span>
+          </label>
+          <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-muted/50">
+            <input 
+              type="radio" 
+              name="maintenance-type" 
+              value="balanced-gas" 
+              checked={maintenanceType === "balanced-gas"}
+              onChange={(e) => setMaintenanceType(e.target.value)}
+              className="h-4 w-4"
+              data-testid="radio-maintenance-balanced-gas"
+            />
+            <span className="font-medium">Balanced/Gas</span>
+          </label>
         </div>
+        <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-muted/50">
+          <input 
+            type="checkbox" 
+            checked={isRSI}
+            onChange={(e) => setIsRSI(e.target.checked)}
+            className="h-4 w-4"
+            data-testid="checkbox-rsi"
+          />
+          <span className="font-medium">RSI (Rapid Sequence Intubation)</span>
+        </label>
       </div>
 
       {/* Airway Management */}
