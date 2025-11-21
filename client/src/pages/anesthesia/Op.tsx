@@ -8,6 +8,13 @@ import {
   NeuraxialAnesthesiaSection,
   PeripheralBlocksSection
 } from "@/components/anesthesia/AnesthesiaDocumentation";
+import {
+  useInstallations,
+  useGeneralTechnique,
+  useAirwayManagement,
+  useNeuraxialBlocks,
+  usePeripheralBlocks,
+} from "@/lib/anesthesiaDocumentation";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -55,7 +62,9 @@ import {
   MessageSquare,
   ChevronDown,
   Droplet,
-  Download
+  Download,
+  CheckCircle,
+  MinusCircle
 } from "lucide-react";
 
 export default function Op() {
@@ -215,6 +224,13 @@ export default function Op() {
     queryKey: [`/api/admin/${activeHospital?.id}/users`],
     enabled: !!activeHospital?.id,
   });
+
+  // Fetch anesthesia documentation data for status badges
+  const { data: installationsData = [] } = useInstallations(anesthesiaRecord?.id || "");
+  const { data: generalTechniqueData } = useGeneralTechnique(anesthesiaRecord?.id || "");
+  const { data: airwayManagementData } = useAirwayManagement(anesthesiaRecord?.id || "");
+  const { data: neuraxialBlocksData = [] } = useNeuraxialBlocks(anesthesiaRecord?.id || "");
+  const { data: peripheralBlocksData = [] } = usePeripheralBlocks(anesthesiaRecord?.id || "");
 
   // If surgery not found or error, redirect back
   useEffect(() => {
@@ -773,7 +789,20 @@ export default function Op() {
                 <AccordionItem value="installations">
                   <Card>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-installations">
-                      <CardTitle className="text-lg">Installations</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg">Installations</CardTitle>
+                        {installationsData.length > 0 ? (
+                          <Badge variant="default" className="ml-2 gap-1" data-testid="badge-installations-status">
+                            <CheckCircle className="h-3 w-3" />
+                            {installationsData.length} {installationsData.length === 1 ? 'entry' : 'entries'}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="ml-2 gap-1" data-testid="badge-installations-status">
+                            <MinusCircle className="h-3 w-3" />
+                            No data
+                          </Badge>
+                        )}
+                      </div>
                     </AccordionTrigger>
                     <AccordionContent>
                       <InstallationsSection anesthesiaRecordId={anesthesiaRecord?.id || ''} />
@@ -785,7 +814,20 @@ export default function Op() {
                 <AccordionItem value="general-anesthesia">
                   <Card>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-general-anesthesia">
-                      <CardTitle className="text-lg">General Anesthesia</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg">General Anesthesia</CardTitle>
+                        {(generalTechniqueData || airwayManagementData) ? (
+                          <Badge variant="default" className="ml-2 gap-1" data-testid="badge-general-status">
+                            <CheckCircle className="h-3 w-3" />
+                            Configured
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="ml-2 gap-1" data-testid="badge-general-status">
+                            <MinusCircle className="h-3 w-3" />
+                            No data
+                          </Badge>
+                        )}
+                      </div>
                     </AccordionTrigger>
                     <AccordionContent>
                       <GeneralAnesthesiaSection anesthesiaRecordId={anesthesiaRecord?.id || ''} />
@@ -797,7 +839,20 @@ export default function Op() {
                 <AccordionItem value="neuraxial-anesthesia">
                   <Card>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-neuraxial">
-                      <CardTitle className="text-lg">Neuraxial Anesthesia</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg">Neuraxial Anesthesia</CardTitle>
+                        {neuraxialBlocksData.length > 0 ? (
+                          <Badge variant="default" className="ml-2 gap-1" data-testid="badge-neuraxial-status">
+                            <CheckCircle className="h-3 w-3" />
+                            {neuraxialBlocksData.length} {neuraxialBlocksData.length === 1 ? 'block' : 'blocks'}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="ml-2 gap-1" data-testid="badge-neuraxial-status">
+                            <MinusCircle className="h-3 w-3" />
+                            No data
+                          </Badge>
+                        )}
+                      </div>
                     </AccordionTrigger>
                     <AccordionContent>
                       <NeuraxialAnesthesiaSection anesthesiaRecordId={anesthesiaRecord?.id || ''} />
@@ -809,7 +864,20 @@ export default function Op() {
                 <AccordionItem value="peripheral-regional-anesthesia">
                   <Card>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-peripheral-regional">
-                      <CardTitle className="text-lg">Peripheral Regional Anesthesia</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg">Peripheral Regional Anesthesia</CardTitle>
+                        {peripheralBlocksData.length > 0 ? (
+                          <Badge variant="default" className="ml-2 gap-1" data-testid="badge-peripheral-status">
+                            <CheckCircle className="h-3 w-3" />
+                            {peripheralBlocksData.length} {peripheralBlocksData.length === 1 ? 'block' : 'blocks'}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="ml-2 gap-1" data-testid="badge-peripheral-status">
+                            <MinusCircle className="h-3 w-3" />
+                            No data
+                          </Badge>
+                        )}
+                      </div>
                     </AccordionTrigger>
                     <AccordionContent>
                       <PeripheralBlocksSection anesthesiaRecordId={anesthesiaRecord?.id || ''} />
