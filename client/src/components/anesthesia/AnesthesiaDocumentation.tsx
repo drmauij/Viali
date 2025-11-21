@@ -4,105 +4,99 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Plus, X, Loader2 } from "lucide-react";
+import { Plus, X, Download, Printer, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import {
+  useInstallations,
+  useCreateInstallation,
+  useUpdateInstallation,
+  useDeleteInstallation,
+  useGeneralTechnique,
+  useUpsertGeneralTechnique,
+  useDeleteGeneralTechnique,
+  useAirwayManagement,
+  useUpsertAirwayManagement,
+  useDeleteAirwayManagement,
+  useNeuraxialBlocks,
+  useCreateNeuraxialBlock,
+  useUpdateNeuraxialBlock,
+  useDeleteNeuraxialBlock,
+  usePeripheralBlocks,
+  useCreatePeripheralBlock,
+  useUpdatePeripheralBlock,
+  useDeletePeripheralBlock,
+} from "@/lib/anesthesiaDocumentation";
+import type { AnesthesiaInstallation, InsertAnesthesiaInstallation } from "@shared/schema";
 
-interface InstallationsSectionProps {
-  anesthesiaRecordId: string | undefined;
+interface SectionProps {
+  anesthesiaRecordId: string;
 }
 
-export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectionProps) {
+// ============================================================================
+// INSTALLATIONS SECTION
+// ============================================================================
+export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
   const { toast } = useToast();
+  const { data: installations = [], isLoading } = useInstallations(anesthesiaRecordId);
+  const createMutation = useCreateInstallation(anesthesiaRecordId);
+  const updateMutation = useUpdateInstallation(anesthesiaRecordId);
+  const deleteMutation = useDeleteInstallation(anesthesiaRecordId);
 
-  const { data: installations = [], isLoading } = useQuery<any[]>({
-    queryKey: [`/api/anesthesia/installations/${anesthesiaRecordId}`],
-    enabled: !!anesthesiaRecordId,
-  });
+  const peripheralInstallations = installations.filter(i => i.category === "peripheral");
+  const arterialInstallations = installations.filter(i => i.category === "arterial");
+  const centralInstallations = installations.filter(i => i.category === "central");
+  const bladderInstallations = installations.filter(i => i.category === "bladder");
 
-  const createMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/anesthesia/installations", data);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/installations/${anesthesiaRecordId}`] });
-      toast({ title: "Installation added" });
-    },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to add installation", variant: "destructive" });
-    },
-  });
+  const handleCreate = (category: "peripheral" | "arterial" | "central" | "bladder") => {
+    createMutation.mutate(
+      { anesthesiaRecordId, category, attempts: 1, notes: null, location: null, isPreExisting: false, metadata: {} },
+      {
+        onSuccess: () => {
+          toast({ title: "Installation added successfully" });
+        },
+        onError: () => {
+          toast({ title: "Error", description: "Failed to add installation", variant: "destructive" });
+        },
+      }
+    );
+  };
 
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, ...data }: any) => {
-      const response = await apiRequest("PATCH", `/api/anesthesia/installations/${id}`, data);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/installations/${anesthesiaRecordId}`] });
-    },
-  });
+  const handleUpdate = (id: string, data: Partial<InsertAnesthesiaInstallation>) => {
+    updateMutation.mutate({ id, data });
+  };
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/anesthesia/installations/${id}`, {});
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/installations/${anesthesiaRecordId}`] });
-      toast({ title: "Installation removed" });
-    },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to remove installation", variant: "destructive" });
-    },
-  });
-
-  const pvAccessInstallations = installations.filter(i => i.type === "peripheral_venous");
-  const arterialInstallations = installations.filter(i => i.type === "arterial");
-  const cvcInstallations = installations.filter(i => i.type === "central_venous");
-  const airwayInstallations = installations.filter(i => i.type === "airway");
-
-  const handleAddInstallation = (type: string) => {
-    if (!anesthesiaRecordId) return;
-    createMutation.mutate({
-      anesthesiaRecordId,
-      type,
-      location: null,
-      gauge: null,
-      attempts: 1,
-      notes: null,
+  const handleDelete = (id: string) => {
+    deleteMutation.mutate(id, {
+      onSuccess: () => {
+        toast({ title: "Installation removed" });
+      },
+      onError: () => {
+        toast({ title: "Error", description: "Failed to remove installation", variant: "destructive" });
+      },
     });
-  };
-
-  const handleUpdateInstallation = (id: string, field: string, value: any) => {
-    updateMutation.mutate({ id, [field]: value });
-  };
-
-  const handleDeleteInstallation = (id: string) => {
-    deleteMutation.mutate(id);
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-8">
+      <CardContent className="flex items-center justify-center py-8">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
+      </CardContent>
     );
   }
 
   return (
     <CardContent className="space-y-6 pt-0">
-      {/* Peripheral Access */}
+      {/* Peripheral Venous Access */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <Label className="text-base font-semibold">Peripheral Venous Access</Label>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handleAddInstallation("peripheral_venous")}
+            onClick={() => handleCreate("peripheral")}
+            disabled={createMutation.isPending}
             data-testid="button-add-pv-access"
           >
             <Plus className="h-4 w-4 mr-1" />
@@ -110,7 +104,7 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
           </Button>
         </div>
 
-        {pvAccessInstallations.map((inst, index) => (
+        {peripheralInstallations.map((inst, index) => (
           <div key={inst.id} className="border rounded-lg p-4 space-y-3 bg-slate-50 dark:bg-slate-900">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Entry #{index + 1}</span>
@@ -118,7 +112,8 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0"
-                onClick={() => handleDeleteInstallation(inst.id)}
+                onClick={() => handleDelete(inst.id)}
+                disabled={deleteMutation.isPending}
                 data-testid={`button-remove-pv-${index + 1}`}
               >
                 <X className="h-4 w-4" />
@@ -130,7 +125,7 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
                 <select
                   className="w-full border rounded-md p-2 bg-background"
                   value={inst.location || ""}
-                  onChange={(e) => handleUpdateInstallation(inst.id, "location", e.target.value)}
+                  onChange={(e) => handleUpdate(inst.id, { location: e.target.value })}
                   data-testid={`select-pv-location-${index + 1}`}
                 >
                   <option value="">Select location</option>
@@ -140,18 +135,14 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
                   <option value="left-forearm">Left Forearm</option>
                   <option value="right-ac-fossa">Right Antecubital Fossa</option>
                   <option value="left-ac-fossa">Left Antecubital Fossa</option>
-                  <option value="right-wrist">Right Wrist</option>
-                  <option value="left-wrist">Left Wrist</option>
-                  <option value="right-foot">Right Foot</option>
-                  <option value="left-foot">Left Foot</option>
                 </select>
               </div>
               <div className="space-y-2">
                 <Label>Gauge</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
-                  value={inst.gauge || ""}
-                  onChange={(e) => handleUpdateInstallation(inst.id, "gauge", e.target.value)}
+                  value={inst.metadata?.gauge || ""}
+                  onChange={(e) => handleUpdate(inst.id, { metadata: { ...inst.metadata, gauge: e.target.value } })}
                   data-testid={`select-pv-gauge-${index + 1}`}
                 >
                   <option value="">Select gauge</option>
@@ -169,28 +160,32 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
               <Input
                 type="number"
                 value={inst.attempts || 1}
-                onChange={(e) => handleUpdateInstallation(inst.id, "attempts", parseInt(e.target.value))}
+                onChange={(e) => handleUpdate(inst.id, { attempts: parseInt(e.target.value) || 1 })}
                 data-testid={`input-pv-attempts-${index + 1}`}
               />
             </div>
+            <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
+              <input
+                type="checkbox"
+                checked={inst.isPreExisting || false}
+                onChange={(e) => handleUpdate(inst.id, { isPreExisting: e.target.checked })}
+                className="h-4 w-4"
+                data-testid={`checkbox-pv-preexisting-${index + 1}`}
+              />
+              <span className="text-sm font-medium">Pre-existing Installation</span>
+            </label>
             <div className="space-y-2">
               <Label>Notes</Label>
               <Textarea
                 rows={2}
                 value={inst.notes || ""}
-                onChange={(e) => handleUpdateInstallation(inst.id, "notes", e.target.value)}
+                onChange={(e) => handleUpdate(inst.id, { notes: e.target.value })}
                 placeholder="Additional notes..."
                 data-testid={`textarea-pv-notes-${index + 1}`}
               />
             </div>
           </div>
         ))}
-
-        {pvAccessInstallations.length === 0 && (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            No entries yet. Click "Add Entry" to document peripheral venous access.
-          </p>
-        )}
       </div>
 
       {/* Arterial Line */}
@@ -201,7 +196,8 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handleAddInstallation("arterial")}
+              onClick={() => handleCreate("arterial")}
+              disabled={createMutation.isPending}
               data-testid="button-add-arterial"
             >
               <Plus className="h-4 w-4 mr-1" />
@@ -218,7 +214,8 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0"
-                onClick={() => handleDeleteInstallation(inst.id)}
+                onClick={() => handleDelete(inst.id)}
+                disabled={deleteMutation.isPending}
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -229,7 +226,7 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
                 <select
                   className="w-full border rounded-md p-2 bg-background"
                   value={inst.location || ""}
-                  onChange={(e) => handleUpdateInstallation(inst.id, "location", e.target.value)}
+                  onChange={(e) => handleUpdate(inst.id, { location: e.target.value })}
                   data-testid="select-arterial-location"
                 >
                   <option value="">Select location</option>
@@ -244,8 +241,8 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
                 <Label>Gauge</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
-                  value={inst.gauge || ""}
-                  onChange={(e) => handleUpdateInstallation(inst.id, "gauge", e.target.value)}
+                  value={inst.metadata?.gauge || ""}
+                  onChange={(e) => handleUpdate(inst.id, { metadata: { ...inst.metadata, gauge: e.target.value } })}
                   data-testid="select-arterial-gauge"
                 >
                   <option value="">Select gauge</option>
@@ -261,7 +258,7 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
                 <Input
                   type="number"
                   value={inst.attempts || 1}
-                  onChange={(e) => handleUpdateInstallation(inst.id, "attempts", parseInt(e.target.value))}
+                  onChange={(e) => handleUpdate(inst.id, { attempts: parseInt(e.target.value) || 1 })}
                   data-testid="input-arterial-attempts"
                 />
               </div>
@@ -269,10 +266,8 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
                 <Label>Technique</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
-                  value={inst.details?.technique || ""}
-                  onChange={(e) =>
-                    handleUpdateInstallation(inst.id, "details", { ...inst.details, technique: e.target.value })
-                  }
+                  value={inst.metadata?.technique || ""}
+                  onChange={(e) => handleUpdate(inst.id, { metadata: { ...inst.metadata, technique: e.target.value } })}
                   data-testid="select-arterial-technique"
                 >
                   <option value="">Select technique</option>
@@ -282,12 +277,22 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
                 </select>
               </div>
             </div>
+            <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
+              <input
+                type="checkbox"
+                checked={inst.isPreExisting || false}
+                onChange={(e) => handleUpdate(inst.id, { isPreExisting: e.target.checked })}
+                className="h-4 w-4"
+                data-testid="checkbox-arterial-preexisting"
+              />
+              <span className="text-sm font-medium">Pre-existing Installation</span>
+            </label>
             <div className="space-y-2">
               <Label>Notes</Label>
               <Textarea
                 rows={2}
                 value={inst.notes || ""}
-                onChange={(e) => handleUpdateInstallation(inst.id, "notes", e.target.value)}
+                onChange={(e) => handleUpdate(inst.id, { notes: e.target.value })}
                 placeholder="Additional notes..."
                 data-testid="textarea-arterial-notes"
               />
@@ -302,15 +307,16 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
         )}
       </div>
 
-      {/* Central Line */}
+      {/* Central Venous Catheter */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <Label className="text-base font-semibold">Central Venous Catheter</Label>
-          {cvcInstallations.length === 0 && (
+          {centralInstallations.length === 0 && (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handleAddInstallation("central_venous")}
+              onClick={() => handleCreate("central")}
+              disabled={createMutation.isPending}
               data-testid="button-add-cvc"
             >
               <Plus className="h-4 w-4 mr-1" />
@@ -319,7 +325,7 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
           )}
         </div>
 
-        {cvcInstallations.map((inst) => (
+        {centralInstallations.map((inst) => (
           <div key={inst.id} className="border rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Central Venous Catheter</span>
@@ -327,7 +333,8 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0"
-                onClick={() => handleDeleteInstallation(inst.id)}
+                onClick={() => handleDelete(inst.id)}
+                disabled={deleteMutation.isPending}
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -338,7 +345,7 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
                 <select
                   className="w-full border rounded-md p-2 bg-background"
                   value={inst.location || ""}
-                  onChange={(e) => handleUpdateInstallation(inst.id, "location", e.target.value)}
+                  onChange={(e) => handleUpdate(inst.id, { location: e.target.value })}
                   data-testid="select-cvc-location"
                 >
                   <option value="">Select location</option>
@@ -353,10 +360,8 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
                 <Label>Lumens</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
-                  value={inst.details?.lumens || ""}
-                  onChange={(e) =>
-                    handleUpdateInstallation(inst.id, "details", { ...inst.details, lumens: e.target.value })
-                  }
+                  value={inst.metadata?.lumens || ""}
+                  onChange={(e) => handleUpdate(inst.id, { metadata: { ...inst.metadata, lumens: parseInt(e.target.value) || undefined } })}
                   data-testid="select-cvc-lumens"
                 >
                   <option value="">Select lumens</option>
@@ -372,11 +377,9 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
                 <Label>Depth (cm)</Label>
                 <Input
                   type="number"
-                  value={inst.details?.depth || ""}
-                  onChange={(e) =>
-                    handleUpdateInstallation(inst.id, "details", { ...inst.details, depth: e.target.value })
-                  }
                   placeholder="16"
+                  value={inst.metadata?.depth || ""}
+                  onChange={(e) => handleUpdate(inst.id, { metadata: { ...inst.metadata, depth: parseInt(e.target.value) || undefined } })}
                   data-testid="input-cvc-depth"
                 />
               </div>
@@ -384,10 +387,8 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
                 <Label>Technique</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
-                  value={inst.details?.technique || ""}
-                  onChange={(e) =>
-                    handleUpdateInstallation(inst.id, "details", { ...inst.details, technique: e.target.value })
-                  }
+                  value={inst.metadata?.cvcTechnique || ""}
+                  onChange={(e) => handleUpdate(inst.id, { metadata: { ...inst.metadata, cvcTechnique: e.target.value } })}
                   data-testid="select-cvc-technique"
                 >
                   <option value="">Select technique</option>
@@ -396,12 +397,22 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
                 </select>
               </div>
             </div>
+            <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
+              <input
+                type="checkbox"
+                checked={inst.isPreExisting || false}
+                onChange={(e) => handleUpdate(inst.id, { isPreExisting: e.target.checked })}
+                className="h-4 w-4"
+                data-testid="checkbox-cvc-preexisting"
+              />
+              <span className="text-sm font-medium">Pre-existing Installation</span>
+            </label>
             <div className="space-y-2">
               <Label>Notes</Label>
               <Textarea
                 rows={2}
                 value={inst.notes || ""}
-                onChange={(e) => handleUpdateInstallation(inst.id, "notes", e.target.value)}
+                onChange={(e) => handleUpdate(inst.id, { notes: e.target.value })}
                 placeholder="Additional notes..."
                 data-testid="textarea-cvc-notes"
               />
@@ -409,23 +420,24 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
           </div>
         ))}
 
-        {cvcInstallations.length === 0 && (
+        {centralInstallations.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
             No CVC documented. Click "Add" to document central venous catheter placement.
           </p>
         )}
       </div>
 
-      {/* Airway */}
+      {/* Bladder Catheter */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label className="text-base font-semibold">Airway Management</Label>
-          {airwayInstallations.length === 0 && (
+          <Label className="text-base font-semibold">Bladder Catheter</Label>
+          {bladderInstallations.length === 0 && (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => handleAddInstallation("airway")}
-              data-testid="button-add-airway"
+              onClick={() => handleCreate("bladder")}
+              disabled={createMutation.isPending}
+              data-testid="button-add-bladder"
             >
               <Plus className="h-4 w-4 mr-1" />
               Add
@@ -433,92 +445,79 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
           )}
         </div>
 
-        {airwayInstallations.map((inst) => (
+        {bladderInstallations.map((inst) => (
           <div key={inst.id} className="border rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Airway Management</span>
+              <span className="text-sm font-medium">Bladder Catheter</span>
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0"
-                onClick={() => handleDeleteInstallation(inst.id)}
+                onClick={() => handleDelete(inst.id)}
+                disabled={deleteMutation.isPending}
               >
                 <X className="h-4 w-4" />
               </Button>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Device</Label>
+                <Label>Type</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
-                  value={inst.details?.device || ""}
-                  onChange={(e) =>
-                    handleUpdateInstallation(inst.id, "details", { ...inst.details, device: e.target.value })
-                  }
-                  data-testid="select-airway-device"
+                  value={inst.metadata?.bladderType || ""}
+                  onChange={(e) => handleUpdate(inst.id, { metadata: { ...inst.metadata, bladderType: e.target.value } })}
+                  data-testid="select-bladder-type"
                 >
-                  <option value="">Select device</option>
-                  <option value="ett">Endotracheal Tube</option>
-                  <option value="lma">Laryngeal Mask Airway</option>
-                  <option value="facemask">Face Mask</option>
-                  <option value="tracheostomy">Tracheostomy</option>
+                  <option value="">Select type</option>
+                  <option value="foley">Foley (Transurethral)</option>
+                  <option value="suprapubic">Suprapubic</option>
+                  <option value="three-way">Three-way Foley</option>
                 </select>
               </div>
               <div className="space-y-2">
-                <Label>Size</Label>
-                <Input
-                  type="text"
-                  value={inst.details?.size || ""}
-                  onChange={(e) =>
-                    handleUpdateInstallation(inst.id, "details", { ...inst.details, size: e.target.value })
-                  }
-                  placeholder="e.g., 7.5"
-                  data-testid="input-airway-size"
-                />
+                <Label>Size (French/Charrière)</Label>
+                <select
+                  className="w-full border rounded-md p-2 bg-background"
+                  value={inst.metadata?.bladderSize || ""}
+                  onChange={(e) => handleUpdate(inst.id, { metadata: { ...inst.metadata, bladderSize: e.target.value } })}
+                  data-testid="select-bladder-size"
+                >
+                  <option value="">Select size</option>
+                  <option value="12">12 Fr</option>
+                  <option value="14">14 Fr</option>
+                  <option value="16">16 Fr</option>
+                  <option value="18">18 Fr</option>
+                  <option value="20">20 Fr</option>
+                  <option value="22">22 Fr</option>
+                </select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Depth (cm at teeth)</Label>
-                <Input
-                  type="number"
-                  value={inst.details?.depth || ""}
-                  onChange={(e) =>
-                    handleUpdateInstallation(inst.id, "details", { ...inst.details, depth: e.target.value })
-                  }
-                  placeholder="22"
-                  data-testid="input-airway-depth"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Cuff Pressure (cmH₂O)</Label>
-                <Input
-                  type="number"
-                  value={inst.details?.cuffPressure || ""}
-                  onChange={(e) =>
-                    handleUpdateInstallation(inst.id, "details", { ...inst.details, cuffPressure: e.target.value })
-                  }
-                  placeholder="20"
-                  data-testid="input-airway-cuff"
-                />
-              </div>
-            </div>
+            <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
+              <input
+                type="checkbox"
+                checked={inst.isPreExisting || false}
+                onChange={(e) => handleUpdate(inst.id, { isPreExisting: e.target.checked })}
+                className="h-4 w-4"
+                data-testid="checkbox-bladder-preexisting"
+              />
+              <span className="text-sm font-medium">Pre-existing Installation</span>
+            </label>
             <div className="space-y-2">
               <Label>Notes</Label>
               <Textarea
                 rows={2}
                 value={inst.notes || ""}
-                onChange={(e) => handleUpdateInstallation(inst.id, "notes", e.target.value)}
+                onChange={(e) => handleUpdate(inst.id, { notes: e.target.value })}
                 placeholder="Additional notes..."
-                data-testid="textarea-airway-notes"
+                data-testid="textarea-bladder-notes"
               />
             </div>
           </div>
         ))}
 
-        {airwayInstallations.length === 0 && (
+        {bladderInstallations.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            No airway device documented. Click "Add" to document airway management.
+            No bladder catheter documented. Click "Add" to document bladder catheter placement.
           </p>
         )}
       </div>
@@ -526,645 +525,778 @@ export function InstallationsSection({ anesthesiaRecordId }: InstallationsSectio
   );
 }
 
-interface TechniqueSectionProps {
-  anesthesiaRecordId: string | undefined;
-  technique: "general" | "sedation" | "regional_spinal" | "regional_epidural" | "regional_peripheral";
-  title: string;
-}
-
-function TechniqueSection({ anesthesiaRecordId, technique, title }: TechniqueSectionProps) {
+// ============================================================================
+// GENERAL ANESTHESIA SECTION
+// ============================================================================
+export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
   const { toast } = useToast();
-  const [localDetails, setLocalDetails] = useState<any>({});
+  const { data: generalTechnique, isLoading: isLoadingGeneral } = useGeneralTechnique(anesthesiaRecordId);
+  const { data: airwayManagement, isLoading: isLoadingAirway } = useAirwayManagement(anesthesiaRecordId);
+  const upsertGeneralMutation = useUpsertGeneralTechnique(anesthesiaRecordId);
+  const upsertAirwayMutation = useUpsertAirwayManagement(anesthesiaRecordId);
 
-  const { data: techniqueDetails = [] } = useQuery<any[]>({
-    queryKey: [`/api/anesthesia/technique-details/${anesthesiaRecordId}`],
-    enabled: !!anesthesiaRecordId,
-  });
+  const [approach, setApproach] = useState<string>("");
+  const [rsi, setRsi] = useState(false);
+  const [airwayDevice, setAirwayDevice] = useState("");
+  const [size, setSize] = useState("");
+  const [depth, setDepth] = useState("");
+  const [cuffPressure, setCuffPressure] = useState("");
+  const [intubationPreExisting, setIntubationPreExisting] = useState(false);
+  const [airwayNotes, setAirwayNotes] = useState("");
 
-  const detail = techniqueDetails.find((d) => d.technique === technique);
-
-  const upsertMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/anesthesia/technique-details", data);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/technique-details/${anesthesiaRecordId}`] });
-      toast({ title: "Details saved" });
-    },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to save details", variant: "destructive" });
-    },
-  });
-
-  const handleSave = () => {
-    if (!anesthesiaRecordId) return;
-    upsertMutation.mutate({
-      anesthesiaRecordId,
-      technique,
-      details: localDetails,
-    });
-  };
-
-  const handleFieldChange = (field: string, value: any) => {
-    setLocalDetails((prev: any) => ({ ...prev, [field]: value }));
-  };
-
-  // Initialize local details from database
   useEffect(() => {
-    if (detail?.details) {
-      setLocalDetails(detail.details);
+    if (generalTechnique) {
+      setApproach(generalTechnique.approach || "");
+      setRsi(generalTechnique.rsi || false);
     }
-  }, [detail]);
+  }, [generalTechnique]);
 
-  const renderFields = () => {
-    switch (technique) {
-      case "general":
-        return (
-          <>
-            <div className="space-y-2">
-              <Label>Induction Agent</Label>
-              <Input
-                value={localDetails.inductionAgent || ""}
-                onChange={(e) => handleFieldChange("inductionAgent", e.target.value)}
-                placeholder="e.g., Propofol"
-                data-testid="input-induction-agent"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Induction Dose</Label>
-              <Input
-                value={localDetails.inductionDose || ""}
-                onChange={(e) => handleFieldChange("inductionDose", e.target.value)}
-                placeholder="e.g., 200mg"
-                data-testid="input-induction-dose"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Muscle Relaxant</Label>
-              <Input
-                value={localDetails.muscleRelaxant || ""}
-                onChange={(e) => handleFieldChange("muscleRelaxant", e.target.value)}
-                placeholder="e.g., Rocuronium"
-                data-testid="input-muscle-relaxant"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Relaxant Dose</Label>
-              <Input
-                value={localDetails.relaxantDose || ""}
-                onChange={(e) => handleFieldChange("relaxantDose", e.target.value)}
-                placeholder="e.g., 50mg"
-                data-testid="input-relaxant-dose"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Maintenance Technique</Label>
-              <select
-                className="w-full border rounded-md p-2 bg-background"
-                value={localDetails.maintenanceTechnique || ""}
-                onChange={(e) => handleFieldChange("maintenanceTechnique", e.target.value)}
-                data-testid="select-maintenance-technique"
-              >
-                <option value="">Select technique</option>
-                <option value="inhalational">Inhalational</option>
-                <option value="tiva">TIVA (Total Intravenous Anesthesia)</option>
-                <option value="balanced">Balanced</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Volatile Agent (if applicable)</Label>
-              <Input
-                value={localDetails.volatileAgent || ""}
-                onChange={(e) => handleFieldChange("volatileAgent", e.target.value)}
-                placeholder="e.g., Sevoflurane"
-                data-testid="input-volatile-agent"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Reversal Agent</Label>
-              <Input
-                value={localDetails.reversalAgent || ""}
-                onChange={(e) => handleFieldChange("reversalAgent", e.target.value)}
-                placeholder="e.g., Sugammadex"
-                data-testid="input-reversal-agent"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Reversal Dose</Label>
-              <Input
-                value={localDetails.reversalDose || ""}
-                onChange={(e) => handleFieldChange("reversalDose", e.target.value)}
-                placeholder="e.g., 200mg"
-                data-testid="input-reversal-dose"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea
-                rows={3}
-                value={localDetails.notes || ""}
-                onChange={(e) => handleFieldChange("notes", e.target.value)}
-                placeholder="Additional notes..."
-                data-testid="textarea-general-notes"
-              />
-            </div>
-          </>
-        );
-
-      case "sedation":
-        return (
-          <>
-            <div className="space-y-2">
-              <Label>Sedation Level</Label>
-              <select
-                className="w-full border rounded-md p-2 bg-background"
-                value={localDetails.sedationLevel || ""}
-                onChange={(e) => handleFieldChange("sedationLevel", e.target.value)}
-                data-testid="select-sedation-level"
-              >
-                <option value="">Select level</option>
-                <option value="minimal">Minimal (Anxiolysis)</option>
-                <option value="moderate">Moderate (Conscious Sedation)</option>
-                <option value="deep">Deep Sedation</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Primary Agent</Label>
-              <Input
-                value={localDetails.primaryAgent || ""}
-                onChange={(e) => handleFieldChange("primaryAgent", e.target.value)}
-                placeholder="e.g., Midazolam"
-                data-testid="input-sedation-agent"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Primary Agent Dose</Label>
-              <Input
-                value={localDetails.primaryAgentDose || ""}
-                onChange={(e) => handleFieldChange("primaryAgentDose", e.target.value)}
-                placeholder="e.g., 3mg"
-                data-testid="input-sedation-dose"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Analgesic Agent</Label>
-              <Input
-                value={localDetails.analgesicAgent || ""}
-                onChange={(e) => handleFieldChange("analgesicAgent", e.target.value)}
-                placeholder="e.g., Fentanyl"
-                data-testid="input-analgesic-agent"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Analgesic Dose</Label>
-              <Input
-                value={localDetails.analgesicDose || ""}
-                onChange={(e) => handleFieldChange("analgesicDose", e.target.value)}
-                placeholder="e.g., 100μg"
-                data-testid="input-analgesic-dose"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Monitoring</Label>
-              <Textarea
-                rows={2}
-                value={localDetails.monitoring || ""}
-                onChange={(e) => handleFieldChange("monitoring", e.target.value)}
-                placeholder="e.g., Continuous pulse oximetry, capnography"
-                data-testid="textarea-sedation-monitoring"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea
-                rows={3}
-                value={localDetails.notes || ""}
-                onChange={(e) => handleFieldChange("notes", e.target.value)}
-                placeholder="Additional notes..."
-                data-testid="textarea-sedation-notes"
-              />
-            </div>
-          </>
-        );
-
-      case "regional_spinal":
-        return (
-          <>
-            <div className="space-y-2">
-              <Label>Level (Interspace)</Label>
-              <Input
-                value={localDetails.level || ""}
-                onChange={(e) => handleFieldChange("level", e.target.value)}
-                placeholder="e.g., L3-L4"
-                data-testid="input-spinal-level"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Approach</Label>
-              <select
-                className="w-full border rounded-md p-2 bg-background"
-                value={localDetails.approach || ""}
-                onChange={(e) => handleFieldChange("approach", e.target.value)}
-                data-testid="select-spinal-approach"
-              >
-                <option value="">Select approach</option>
-                <option value="midline">Midline</option>
-                <option value="paramedian">Paramedian</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Needle Gauge</Label>
-              <Input
-                value={localDetails.needleGauge || ""}
-                onChange={(e) => handleFieldChange("needleGauge", e.target.value)}
-                placeholder="e.g., 25G"
-                data-testid="input-spinal-gauge"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Local Anesthetic</Label>
-              <Input
-                value={localDetails.localAnesthetic || ""}
-                onChange={(e) => handleFieldChange("localAnesthetic", e.target.value)}
-                placeholder="e.g., Bupivacaine 0.5% hyperbaric"
-                data-testid="input-spinal-anesthetic"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Dose (mg)</Label>
-              <Input
-                value={localDetails.dose || ""}
-                onChange={(e) => handleFieldChange("dose", e.target.value)}
-                placeholder="e.g., 15mg"
-                data-testid="input-spinal-dose"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Adjuvants</Label>
-              <Input
-                value={localDetails.adjuvants || ""}
-                onChange={(e) => handleFieldChange("adjuvants", e.target.value)}
-                placeholder="e.g., Fentanyl 25μg, Morphine 0.1mg"
-                data-testid="input-spinal-adjuvants"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Number of Attempts</Label>
-              <Input
-                type="number"
-                value={localDetails.attempts || 1}
-                onChange={(e) => handleFieldChange("attempts", parseInt(e.target.value))}
-                data-testid="input-spinal-attempts"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Sensory Level Achieved</Label>
-              <Input
-                value={localDetails.sensoryLevel || ""}
-                onChange={(e) => handleFieldChange("sensoryLevel", e.target.value)}
-                placeholder="e.g., T4"
-                data-testid="input-spinal-sensory"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea
-                rows={3}
-                value={localDetails.notes || ""}
-                onChange={(e) => handleFieldChange("notes", e.target.value)}
-                placeholder="Additional notes..."
-                data-testid="textarea-spinal-notes"
-              />
-            </div>
-          </>
-        );
-
-      case "regional_epidural":
-        return (
-          <>
-            <div className="space-y-2">
-              <Label>Level (Interspace)</Label>
-              <Input
-                value={localDetails.level || ""}
-                onChange={(e) => handleFieldChange("level", e.target.value)}
-                placeholder="e.g., L2-L3"
-                data-testid="input-epidural-level"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Approach</Label>
-              <select
-                className="w-full border rounded-md p-2 bg-background"
-                value={localDetails.approach || ""}
-                onChange={(e) => handleFieldChange("approach", e.target.value)}
-                data-testid="select-epidural-approach"
-              >
-                <option value="">Select approach</option>
-                <option value="midline">Midline</option>
-                <option value="paramedian">Paramedian</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Needle Gauge</Label>
-              <Input
-                value={localDetails.needleGauge || ""}
-                onChange={(e) => handleFieldChange("needleGauge", e.target.value)}
-                placeholder="e.g., 18G Tuohy"
-                data-testid="input-epidural-gauge"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Catheter Depth (cm)</Label>
-              <Input
-                value={localDetails.catheterDepth || ""}
-                onChange={(e) => handleFieldChange("catheterDepth", e.target.value)}
-                placeholder="e.g., 10cm at skin"
-                data-testid="input-epidural-depth"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Test Dose</Label>
-              <Input
-                value={localDetails.testDose || ""}
-                onChange={(e) => handleFieldChange("testDose", e.target.value)}
-                placeholder="e.g., Lidocaine 3ml with epinephrine"
-                data-testid="input-epidural-test-dose"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Loading Dose</Label>
-              <Input
-                value={localDetails.loadingDose || ""}
-                onChange={(e) => handleFieldChange("loadingDose", e.target.value)}
-                placeholder="e.g., Bupivacaine 0.25% 12ml"
-                data-testid="input-epidural-loading"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Infusion Rate</Label>
-              <Input
-                value={localDetails.infusionRate || ""}
-                onChange={(e) => handleFieldChange("infusionRate", e.target.value)}
-                placeholder="e.g., 8ml/h"
-                data-testid="input-epidural-rate"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Number of Attempts</Label>
-              <Input
-                type="number"
-                value={localDetails.attempts || 1}
-                onChange={(e) => handleFieldChange("attempts", parseInt(e.target.value))}
-                data-testid="input-epidural-attempts"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Sensory Level Achieved</Label>
-              <Input
-                value={localDetails.sensoryLevel || ""}
-                onChange={(e) => handleFieldChange("sensoryLevel", e.target.value)}
-                placeholder="e.g., T8"
-                data-testid="input-epidural-sensory"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea
-                rows={3}
-                value={localDetails.notes || ""}
-                onChange={(e) => handleFieldChange("notes", e.target.value)}
-                placeholder="Additional notes..."
-                data-testid="textarea-epidural-notes"
-              />
-            </div>
-          </>
-        );
-
-      case "regional_peripheral":
-        return (
-          <>
-            <div className="space-y-2">
-              <Label>Block Type</Label>
-              <Input
-                value={localDetails.blockType || ""}
-                onChange={(e) => handleFieldChange("blockType", e.target.value)}
-                placeholder="e.g., Interscalene, Femoral, Popliteal"
-                data-testid="input-peripheral-type"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Laterality</Label>
-              <select
-                className="w-full border rounded-md p-2 bg-background"
-                value={localDetails.laterality || ""}
-                onChange={(e) => handleFieldChange("laterality", e.target.value)}
-                data-testid="select-peripheral-laterality"
-              >
-                <option value="">Select side</option>
-                <option value="left">Left</option>
-                <option value="right">Right</option>
-                <option value="bilateral">Bilateral</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Guidance Technique</Label>
-              <select
-                className="w-full border rounded-md p-2 bg-background"
-                value={localDetails.guidanceTechnique || ""}
-                onChange={(e) => handleFieldChange("guidanceTechnique", e.target.value)}
-                data-testid="select-peripheral-guidance"
-              >
-                <option value="">Select guidance</option>
-                <option value="ultrasound">Ultrasound</option>
-                <option value="nerve-stimulator">Nerve Stimulator</option>
-                <option value="both">Both</option>
-                <option value="landmark">Landmark</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Needle Type</Label>
-              <Input
-                value={localDetails.needleType || ""}
-                onChange={(e) => handleFieldChange("needleType", e.target.value)}
-                placeholder="e.g., 22G 50mm stimulating needle"
-                data-testid="input-peripheral-needle"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Local Anesthetic</Label>
-              <Input
-                value={localDetails.localAnesthetic || ""}
-                onChange={(e) => handleFieldChange("localAnesthetic", e.target.value)}
-                placeholder="e.g., Ropivacaine 0.5%"
-                data-testid="input-peripheral-anesthetic"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Volume (ml)</Label>
-              <Input
-                value={localDetails.volume || ""}
-                onChange={(e) => handleFieldChange("volume", e.target.value)}
-                placeholder="e.g., 30ml"
-                data-testid="input-peripheral-volume"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Adjuvants</Label>
-              <Input
-                value={localDetails.adjuvants || ""}
-                onChange={(e) => handleFieldChange("adjuvants", e.target.value)}
-                placeholder="e.g., Dexamethasone 4mg"
-                data-testid="input-peripheral-adjuvants"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Catheter Placed</Label>
-              <select
-                className="w-full border rounded-md p-2 bg-background"
-                value={localDetails.catheterPlaced || ""}
-                onChange={(e) => handleFieldChange("catheterPlaced", e.target.value)}
-                data-testid="select-peripheral-catheter"
-              >
-                <option value="">Select option</option>
-                <option value="yes">Yes</option>
-                <option value="no">No</option>
-              </select>
-            </div>
-            {localDetails.catheterPlaced === "yes" && (
-              <div className="space-y-2">
-                <Label>Catheter Infusion Details</Label>
-                <Input
-                  value={localDetails.catheterInfusion || ""}
-                  onChange={(e) => handleFieldChange("catheterInfusion", e.target.value)}
-                  placeholder="e.g., Ropivacaine 0.2% at 8ml/h"
-                  data-testid="input-peripheral-infusion"
-                />
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label>Number of Attempts</Label>
-              <Input
-                type="number"
-                value={localDetails.attempts || 1}
-                onChange={(e) => handleFieldChange("attempts", parseInt(e.target.value))}
-                data-testid="input-peripheral-attempts"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Sensory Block Assessment</Label>
-              <Textarea
-                rows={2}
-                value={localDetails.sensoryAssessment || ""}
-                onChange={(e) => handleFieldChange("sensoryAssessment", e.target.value)}
-                placeholder="e.g., Complete sensory blockade C5-T1"
-                data-testid="textarea-peripheral-sensory"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Motor Block Assessment</Label>
-              <Textarea
-                rows={2}
-                value={localDetails.motorAssessment || ""}
-                onChange={(e) => handleFieldChange("motorAssessment", e.target.value)}
-                placeholder="e.g., Modified Bromage scale 2"
-                data-testid="textarea-peripheral-motor"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea
-                rows={3}
-                value={localDetails.notes || ""}
-                onChange={(e) => handleFieldChange("notes", e.target.value)}
-                placeholder="Additional notes..."
-                data-testid="textarea-peripheral-notes"
-              />
-            </div>
-          </>
-        );
-
-      default:
-        return null;
+  useEffect(() => {
+    if (airwayManagement) {
+      setAirwayDevice(airwayManagement.airwayDevice || "");
+      setSize(airwayManagement.size || "");
+      setDepth(airwayManagement.depth?.toString() || "");
+      setCuffPressure(airwayManagement.cuffPressure?.toString() || "");
+      setIntubationPreExisting(airwayManagement.intubationPreExisting || false);
+      setAirwayNotes(airwayManagement.notes || "");
     }
+  }, [airwayManagement]);
+
+  const handleSaveGeneral = () => {
+    upsertGeneralMutation.mutate(
+      {
+        anesthesiaRecordId,
+        approach: approach as "tiva" | "tci" | "balanced-gas" | "sedation" | null,
+        rsi,
+        sedationLevel: null,
+        airwaySupport: null,
+        notes: null,
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "General technique saved" });
+        },
+        onError: () => {
+          toast({ title: "Error", description: "Failed to save general technique", variant: "destructive" });
+        },
+      }
+    );
   };
+
+  const handleSaveAirway = () => {
+    upsertAirwayMutation.mutate(
+      {
+        anesthesiaRecordId,
+        airwayDevice: airwayDevice || null,
+        size: size || null,
+        depth: depth ? parseInt(depth) : null,
+        cuffPressure: cuffPressure ? parseInt(cuffPressure) : null,
+        intubationPreExisting,
+        notes: airwayNotes || null,
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "Airway management saved" });
+        },
+        onError: () => {
+          toast({ title: "Error", description: "Failed to save airway management", variant: "destructive" });
+        },
+      }
+    );
+  };
+
+  if (isLoadingGeneral || isLoadingAirway) {
+    return (
+      <CardContent className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </CardContent>
+    );
+  }
 
   return (
-    <CardContent className="space-y-4 pt-0">
-      {renderFields()}
-      <div className="flex justify-end pt-4">
-        <Button
-          onClick={handleSave}
-          disabled={upsertMutation.isPending}
-          data-testid={`button-save-${technique}`}
-        >
-          {upsertMutation.isPending ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            "Save Details"
-          )}
+    <CardContent className="space-y-6 pt-0">
+      {/* Maintenance Type Options */}
+      <div className="space-y-3">
+        <div className="space-y-2">
+          <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-muted/50">
+            <input
+              type="radio"
+              name="maintenance-type"
+              value="tiva"
+              checked={approach === "tiva"}
+              onChange={(e) => setApproach(e.target.value)}
+              className="h-4 w-4"
+              data-testid="radio-maintenance-tiva"
+            />
+            <span className="font-medium">TIVA</span>
+          </label>
+          <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-muted/50">
+            <input
+              type="radio"
+              name="maintenance-type"
+              value="tci"
+              checked={approach === "tci"}
+              onChange={(e) => setApproach(e.target.value)}
+              className="h-4 w-4"
+              data-testid="radio-maintenance-tci"
+            />
+            <span className="font-medium">TCI (Target Controlled Infusion)</span>
+          </label>
+          <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-muted/50">
+            <input
+              type="radio"
+              name="maintenance-type"
+              value="balanced-gas"
+              checked={approach === "balanced-gas"}
+              onChange={(e) => setApproach(e.target.value)}
+              className="h-4 w-4"
+              data-testid="radio-maintenance-balanced-gas"
+            />
+            <span className="font-medium">Balanced/Gas</span>
+          </label>
+          <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-muted/50">
+            <input
+              type="radio"
+              name="maintenance-type"
+              value="sedation"
+              checked={approach === "sedation"}
+              onChange={(e) => setApproach(e.target.value)}
+              className="h-4 w-4"
+              data-testid="radio-maintenance-sedation"
+            />
+            <span className="font-medium">Sedation</span>
+          </label>
+        </div>
+        <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-muted/50">
+          <input
+            type="checkbox"
+            checked={rsi}
+            onChange={(e) => setRsi(e.target.checked)}
+            className="h-4 w-4"
+            data-testid="checkbox-rsi"
+          />
+          <span className="font-medium">RSI (Rapid Sequence Intubation)</span>
+        </label>
+        <Button onClick={handleSaveGeneral} disabled={upsertGeneralMutation.isPending} size="sm">
+          {upsertGeneralMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          Save General Technique
         </Button>
+      </div>
+
+      {/* Airway Management */}
+      <div className="space-y-3">
+        <Label className="text-base font-semibold">Airway Management</Label>
+        <div className="border rounded-lg p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Device</Label>
+              <select
+                className="w-full border rounded-md p-2 bg-background"
+                value={airwayDevice}
+                onChange={(e) => setAirwayDevice(e.target.value)}
+                data-testid="select-airway-device"
+              >
+                <option value="">Select device</option>
+                <option value="ett">Endotracheal Tube (Straight)</option>
+                <option value="spiral-tube">Spiral Tube (Flexometallic)</option>
+                <option value="rae-tube">RAE Tube (Right-Angle)</option>
+                <option value="dlt-left">Double-Lumen Tube - Left</option>
+                <option value="dlt-right">Double-Lumen Tube - Right</option>
+                <option value="lma">Laryngeal Mask Airway (Classic)</option>
+                <option value="lma-auragain">Laryngeal Mask AuraGain</option>
+                <option value="facemask">Face Mask</option>
+                <option value="tracheostomy">Tracheostomy</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Size</Label>
+              <Input
+                type="text"
+                placeholder="e.g., 7.5"
+                value={size}
+                onChange={(e) => setSize(e.target.value)}
+                data-testid="input-airway-size"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Depth (cm at teeth)</Label>
+              <Input
+                type="number"
+                placeholder="22"
+                value={depth}
+                onChange={(e) => setDepth(e.target.value)}
+                data-testid="input-airway-depth"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Cuff Pressure (cmH₂O)</Label>
+              <Input
+                type="number"
+                placeholder="20"
+                value={cuffPressure}
+                onChange={(e) => setCuffPressure(e.target.value)}
+                data-testid="input-airway-cuff"
+              />
+            </div>
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
+            <input
+              type="checkbox"
+              checked={intubationPreExisting}
+              onChange={(e) => setIntubationPreExisting(e.target.checked)}
+              className="h-4 w-4"
+              data-testid="checkbox-preexisting-intubation"
+            />
+            <span className="text-sm font-medium">Pre-existing Intubation</span>
+          </label>
+          <div className="space-y-2">
+            <Label>Notes</Label>
+            <Textarea
+              rows={2}
+              placeholder="Additional notes..."
+              value={airwayNotes}
+              onChange={(e) => setAirwayNotes(e.target.value)}
+              data-testid="textarea-airway-notes"
+            />
+          </div>
+          <Button onClick={handleSaveAirway} disabled={upsertAirwayMutation.isPending} size="sm">
+            {upsertAirwayMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Save Airway Management
+          </Button>
+        </div>
       </div>
     </CardContent>
   );
 }
 
-export function GeneralAnesthesiaSection({ anesthesiaRecordId }: { anesthesiaRecordId: string | undefined }) {
-  return <TechniqueSection anesthesiaRecordId={anesthesiaRecordId} technique="general" title="General Anesthesia" />;
-}
+// ============================================================================
+// NEURAXIAL ANESTHESIA SECTION
+// ============================================================================
+export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
+  const { toast } = useToast();
+  const { data: blocks = [], isLoading } = useNeuraxialBlocks(anesthesiaRecordId);
+  const createMutation = useCreateNeuraxialBlock(anesthesiaRecordId);
+  const updateMutation = useUpdateNeuraxialBlock(anesthesiaRecordId);
+  const deleteMutation = useDeleteNeuraxialBlock(anesthesiaRecordId);
 
-export function SedationSection({ anesthesiaRecordId }: { anesthesiaRecordId: string | undefined }) {
-  return <TechniqueSection anesthesiaRecordId={anesthesiaRecordId} technique="sedation" title="Sedation" />;
-}
+  const spinalBlocks = blocks.filter(b => b.blockType === "spinal");
+  const epiduralBlocks = blocks.filter(b => b.blockType === "epidural");
+  const cseBlocks = blocks.filter(b => b.blockType === "cse");
+  const caudalBlocks = blocks.filter(b => b.blockType === "caudal");
 
-export function RegionalAnesthesiaSection({ anesthesiaRecordId }: { anesthesiaRecordId: string | undefined }) {
+  const handleCreate = (blockType: "spinal" | "epidural" | "cse" | "caudal") => {
+    createMutation.mutate(
+      {
+        anesthesiaRecordId,
+        blockType,
+        level: null,
+        approach: null,
+        needleGauge: null,
+        testDose: null,
+        attempts: 1,
+        sensoryLevel: null,
+        catheterPresent: false,
+        catheterDepth: null,
+        guidanceTechnique: null,
+        notes: null,
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "Block added successfully" });
+        },
+        onError: () => {
+          toast({ title: "Error", description: "Failed to add block", variant: "destructive" });
+        },
+      }
+    );
+  };
+
+  const handleUpdate = (id: string, data: any) => {
+    updateMutation.mutate({ id, data });
+  };
+
+  const handleDelete = (id: string) => {
+    deleteMutation.mutate(id, {
+      onSuccess: () => {
+        toast({ title: "Block removed" });
+      },
+      onError: () => {
+        toast({ title: "Error", description: "Failed to remove block", variant: "destructive" });
+      },
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <CardContent className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </CardContent>
+    );
+  }
+
+  const renderBlockForm = (block: any, index: number, blockType: string) => (
+    <Card key={block.id} className="border-2">
+      <CardContent className="pt-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium capitalize">{blockType} #{index + 1}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => handleDelete(block.id)}
+            disabled={deleteMutation.isPending}
+            data-testid={`button-remove-${blockType}-${index + 1}`}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Level</Label>
+            <Input
+              placeholder="e.g., L3-L4"
+              value={block.level || ""}
+              onChange={(e) => handleUpdate(block.id, { level: e.target.value })}
+              data-testid={`input-${blockType}-level-${index + 1}`}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Needle Gauge</Label>
+            <Input
+              placeholder="e.g., 25G Pencil Point"
+              value={block.needleGauge || ""}
+              onChange={(e) => handleUpdate(block.id, { needleGauge: e.target.value })}
+              data-testid={`input-${blockType}-needle-${index + 1}`}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Attempts</Label>
+            <Input
+              type="number"
+              value={block.attempts || 1}
+              onChange={(e) => handleUpdate(block.id, { attempts: parseInt(e.target.value) || 1 })}
+              data-testid={`input-${blockType}-attempts-${index + 1}`}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Sensory Level</Label>
+            <Input
+              placeholder="e.g., T4"
+              value={block.sensoryLevel || ""}
+              onChange={(e) => handleUpdate(block.id, { sensoryLevel: e.target.value })}
+              data-testid={`input-${blockType}-sensory-${index + 1}`}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Notes</Label>
+          <Textarea
+            rows={2}
+            placeholder="Additional notes..."
+            value={block.notes || ""}
+            onChange={(e) => handleUpdate(block.id, { notes: e.target.value })}
+            data-testid={`textarea-${blockType}-notes-${index + 1}`}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <CardContent className="space-y-6 pt-0">
-      <Accordion type="multiple" className="space-y-4">
-        <AccordionItem value="spinal">
-          <Card>
-            <AccordionTrigger className="px-4 py-3 hover:no-underline" data-testid="accordion-spinal">
-              <span className="text-base font-semibold">Spinal Anesthesia</span>
-            </AccordionTrigger>
-            <AccordionContent>
-              <TechniqueSection anesthesiaRecordId={anesthesiaRecordId} technique="regional_spinal" title="Spinal" />
-            </AccordionContent>
-          </Card>
+      {/* Spinal */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-base font-semibold">Spinal Anesthesia</Label>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleCreate("spinal")}
+            disabled={createMutation.isPending}
+            data-testid="button-add-spinal"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Add Spinal
+          </Button>
+        </div>
+        {spinalBlocks.map((block, idx) => renderBlockForm(block, idx, "spinal"))}
+        {spinalBlocks.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            No spinal blocks documented. Click "Add Spinal" to document.
+          </p>
+        )}
+      </div>
+
+      {/* Epidural */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-base font-semibold">Epidural Anesthesia</Label>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleCreate("epidural")}
+            disabled={createMutation.isPending}
+            data-testid="button-add-epidural"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Add Epidural
+          </Button>
+        </div>
+        {epiduralBlocks.map((block, idx) => renderBlockForm(block, idx, "epidural"))}
+        {epiduralBlocks.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            No epidural blocks documented. Click "Add Epidural" to document.
+          </p>
+        )}
+      </div>
+
+      {/* CSE */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-base font-semibold">Combined Spinal-Epidural (CSE)</Label>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleCreate("cse")}
+            disabled={createMutation.isPending}
+            data-testid="button-add-cse"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Add CSE
+          </Button>
+        </div>
+        {cseBlocks.map((block, idx) => renderBlockForm(block, idx, "cse"))}
+        {cseBlocks.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            No CSE blocks documented. Click "Add CSE" to document.
+          </p>
+        )}
+      </div>
+
+      {/* Caudal */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-base font-semibold">Caudal Anesthesia</Label>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleCreate("caudal")}
+            disabled={createMutation.isPending}
+            data-testid="button-add-caudal"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Add Caudal
+          </Button>
+        </div>
+        {caudalBlocks.map((block, idx) => renderBlockForm(block, idx, "caudal"))}
+        {caudalBlocks.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            No caudal blocks documented. Click "Add Caudal" to document.
+          </p>
+        )}
+      </div>
+    </CardContent>
+  );
+}
+
+// ============================================================================
+// PERIPHERAL BLOCKS SECTION
+// ============================================================================
+export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
+  const { toast } = useToast();
+  const { data: blocks = [], isLoading } = usePeripheralBlocks(anesthesiaRecordId);
+  const createMutation = useCreatePeripheralBlock(anesthesiaRecordId);
+  const updateMutation = useUpdatePeripheralBlock(anesthesiaRecordId);
+  const deleteMutation = useDeletePeripheralBlock(anesthesiaRecordId);
+
+  const handleCreate = () => {
+    createMutation.mutate(
+      {
+        anesthesiaRecordId,
+        blockType: "",
+        laterality: null,
+        guidanceTechnique: null,
+        needleType: null,
+        catheterPlaced: false,
+        attempts: 1,
+        sensoryAssessment: null,
+        motorAssessment: null,
+        notes: null,
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "Block added successfully" });
+        },
+        onError: () => {
+          toast({ title: "Error", description: "Failed to add block", variant: "destructive" });
+        },
+      }
+    );
+  };
+
+  const handleUpdate = (id: string, data: any) => {
+    updateMutation.mutate({ id, data });
+  };
+
+  const handleDelete = (id: string) => {
+    deleteMutation.mutate(id, {
+      onSuccess: () => {
+        toast({ title: "Block removed" });
+      },
+      onError: () => {
+        toast({ title: "Error", description: "Failed to remove block", variant: "destructive" });
+      },
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <CardContent className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </CardContent>
+    );
+  }
+
+  return (
+    <CardContent className="space-y-6 pt-0">
+      <div className="flex items-center justify-between">
+        <Label className="text-base font-semibold">Peripheral Nerve Blocks</Label>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleCreate}
+          disabled={createMutation.isPending}
+          data-testid="button-add-peripheral-block"
+        >
+          <Plus className="h-4 w-4 mr-1" />
+          Add Block
+        </Button>
+      </div>
+
+      {blocks.map((block, index) => (
+        <Card key={block.id} className="border-2">
+          <CardContent className="pt-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Block #{index + 1}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => handleDelete(block.id)}
+                disabled={deleteMutation.isPending}
+                data-testid={`button-remove-block-${index + 1}`}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Block Type</Label>
+                <select
+                  className="w-full border rounded-md p-2 bg-background"
+                  value={block.blockType}
+                  onChange={(e) => handleUpdate(block.id, { blockType: e.target.value })}
+                  data-testid={`select-block-type-${index + 1}`}
+                >
+                  <option value="">Select block type</option>
+                  <optgroup label="Upper Extremity">
+                    <option value="interscalene">Interscalene</option>
+                    <option value="supraclavicular">Supraclavicular</option>
+                    <option value="infraclavicular">Infraclavicular</option>
+                    <option value="axillary">Axillary</option>
+                    <option value="radial">Radial Nerve</option>
+                    <option value="median">Median Nerve</option>
+                    <option value="ulnar">Ulnar Nerve</option>
+                  </optgroup>
+                  <optgroup label="Lower Extremity">
+                    <option value="femoral">Femoral</option>
+                    <option value="sciatic">Sciatic</option>
+                    <option value="popliteal">Popliteal</option>
+                    <option value="adductor-canal">Adductor Canal</option>
+                    <option value="saphenous">Saphenous</option>
+                    <option value="ankle-block">Ankle Block</option>
+                  </optgroup>
+                  <optgroup label="Truncal">
+                    <option value="tap">Transversus Abdominis Plane (TAP)</option>
+                    <option value="ql">Quadratus Lumborum (QL)</option>
+                    <option value="pecs">Pectoral (PECS)</option>
+                    <option value="serratus">Serratus Anterior</option>
+                    <option value="erector-spinae">Erector Spinae Plane (ESP)</option>
+                    <option value="intercostal">Intercostal</option>
+                    <option value="paravertebral">Paravertebral</option>
+                  </optgroup>
+                  <optgroup label="Other">
+                    <option value="superficial-cervical">Superficial Cervical Plexus</option>
+                    <option value="deep-cervical">Deep Cervical Plexus</option>
+                    <option value="stellate-ganglion">Stellate Ganglion</option>
+                    <option value="other">Other</option>
+                  </optgroup>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Laterality</Label>
+                <select
+                  className="w-full border rounded-md p-2 bg-background"
+                  value={block.laterality || ""}
+                  onChange={(e) => handleUpdate(block.id, { laterality: e.target.value })}
+                  data-testid={`select-laterality-${index + 1}`}
+                >
+                  <option value="">Select side</option>
+                  <option value="left">Left</option>
+                  <option value="right">Right</option>
+                  <option value="bilateral">Bilateral</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Guidance Technique</Label>
+                <select
+                  className="w-full border rounded-md p-2 bg-background"
+                  value={block.guidanceTechnique || ""}
+                  onChange={(e) => handleUpdate(block.id, { guidanceTechnique: e.target.value })}
+                  data-testid={`select-guidance-${index + 1}`}
+                >
+                  <option value="">Select guidance</option>
+                  <option value="ultrasound">Ultrasound</option>
+                  <option value="nerve-stimulator">Nerve Stimulator</option>
+                  <option value="both">Both</option>
+                  <option value="landmark">Landmark</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Needle Type</Label>
+                <Input
+                  placeholder="e.g., 22G 50mm stimulating needle"
+                  value={block.needleType || ""}
+                  onChange={(e) => handleUpdate(block.id, { needleType: e.target.value })}
+                  data-testid={`input-needle-type-${index + 1}`}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Catheter Placed</Label>
+                <select
+                  className="w-full border rounded-md p-2 bg-background"
+                  value={block.catheterPlaced ? "yes" : "no"}
+                  onChange={(e) => handleUpdate(block.id, { catheterPlaced: e.target.value === "yes" })}
+                  data-testid={`select-catheter-${index + 1}`}
+                >
+                  <option value="">Select option</option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Number of Attempts</Label>
+                <Input
+                  type="number"
+                  value={block.attempts || 1}
+                  onChange={(e) => handleUpdate(block.id, { attempts: parseInt(e.target.value) || 1 })}
+                  data-testid={`input-attempts-${index + 1}`}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Sensory Block Assessment</Label>
+              <Textarea
+                rows={2}
+                placeholder="e.g., Complete sensory blockade C5-T1"
+                value={block.sensoryAssessment || ""}
+                onChange={(e) => handleUpdate(block.id, { sensoryAssessment: e.target.value })}
+                data-testid={`textarea-sensory-${index + 1}`}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Motor Block Assessment</Label>
+              <Textarea
+                rows={2}
+                placeholder="e.g., Modified Bromage scale 2"
+                value={block.motorAssessment || ""}
+                onChange={(e) => handleUpdate(block.id, { motorAssessment: e.target.value })}
+                data-testid={`textarea-motor-${index + 1}`}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea
+                rows={2}
+                placeholder="Additional notes..."
+                value={block.notes || ""}
+                onChange={(e) => handleUpdate(block.id, { notes: e.target.value })}
+                data-testid={`textarea-notes-${index + 1}`}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+
+      {blocks.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-8">
+          No peripheral nerve blocks documented. Click "Add Block" to document a block.
+        </p>
+      )}
+    </CardContent>
+  );
+}
+
+// ============================================================================
+// MAIN DOCUMENTATION COMPONENT WITH ACCORDION
+// ============================================================================
+export default function AnesthesiaDocumentation({ anesthesiaRecordId }: { anesthesiaRecordId: string }) {
+  return (
+    <Card className="w-full">
+      <Accordion type="multiple" defaultValue={["installations", "general", "neuraxial", "peripheral"]} className="w-full">
+        <AccordionItem value="installations">
+          <AccordionTrigger className="px-6 hover:no-underline">
+            <CardTitle className="text-xl">Installations</CardTitle>
+          </AccordionTrigger>
+          <AccordionContent>
+            <InstallationsSection anesthesiaRecordId={anesthesiaRecordId} />
+          </AccordionContent>
         </AccordionItem>
 
-        <AccordionItem value="epidural">
-          <Card>
-            <AccordionTrigger className="px-4 py-3 hover:no-underline" data-testid="accordion-epidural">
-              <span className="text-base font-semibold">Epidural Anesthesia</span>
-            </AccordionTrigger>
-            <AccordionContent>
-              <TechniqueSection
-                anesthesiaRecordId={anesthesiaRecordId}
-                technique="regional_epidural"
-                title="Epidural"
-              />
-            </AccordionContent>
-          </Card>
+        <AccordionItem value="general">
+          <AccordionTrigger className="px-6 hover:no-underline">
+            <CardTitle className="text-xl">General Anesthesia</CardTitle>
+          </AccordionTrigger>
+          <AccordionContent>
+            <GeneralAnesthesiaSection anesthesiaRecordId={anesthesiaRecordId} />
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem value="neuraxial">
+          <AccordionTrigger className="px-6 hover:no-underline">
+            <CardTitle className="text-xl">Neuraxial Anesthesia</CardTitle>
+          </AccordionTrigger>
+          <AccordionContent>
+            <NeuraxialAnesthesiaSection anesthesiaRecordId={anesthesiaRecordId} />
+          </AccordionContent>
         </AccordionItem>
 
         <AccordionItem value="peripheral">
-          <Card>
-            <AccordionTrigger className="px-4 py-3 hover:no-underline" data-testid="accordion-peripheral">
-              <span className="text-base font-semibold">Peripheral Nerve Block</span>
-            </AccordionTrigger>
-            <AccordionContent>
-              <TechniqueSection
-                anesthesiaRecordId={anesthesiaRecordId}
-                technique="regional_peripheral"
-                title="Peripheral"
-              />
-            </AccordionContent>
-          </Card>
+          <AccordionTrigger className="px-6 hover:no-underline">
+            <CardTitle className="text-xl">Peripheral Nerve Blocks</CardTitle>
+          </AccordionTrigger>
+          <AccordionContent>
+            <PeripheralBlocksSection anesthesiaRecordId={anesthesiaRecordId} />
+          </AccordionContent>
         </AccordionItem>
       </Accordion>
-    </CardContent>
+    </Card>
   );
 }

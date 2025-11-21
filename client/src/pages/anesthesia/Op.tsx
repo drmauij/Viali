@@ -2,14 +2,12 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { UnifiedTimeline, type UnifiedTimelineData, type TimelineVitals, type TimelineEvent, type VitalPoint } from "@/components/anesthesia/UnifiedTimeline";
 import { PreOpOverview } from "@/components/anesthesia/PreOpOverview";
-import { InstallationsSection, GeneralAnesthesiaSection, SedationSection, RegionalAnesthesiaSection } from "@/components/anesthesia/AnesthesiaDocumentation";
-// MOCKUP IMPORTS - For UI review only
 import { 
-  InstallationsSectionMockup,
-  GeneralAnesthesiaSectionMockup,
-  NeuraxialSectionMockup,
-  PeripheralRegionalSectionMockup
-} from "@/components/anesthesia/AnesthesiaDocumentationMockup";
+  InstallationsSection,
+  GeneralAnesthesiaSection,
+  NeuraxialAnesthesiaSection,
+  PeripheralBlocksSection
+} from "@/components/anesthesia/AnesthesiaDocumentation";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -701,50 +699,50 @@ export default function Op() {
               </div>
             ) : (
               <Accordion type="multiple" className="space-y-4 w-full">
-                {/* Installations Section - MOCKUP */}
+                {/* Installations Section */}
                 <AccordionItem value="installations">
                   <Card>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-installations">
-                      <CardTitle className="text-lg">Installations <Badge variant="outline" className="ml-2">UI Mockup</Badge></CardTitle>
+                      <CardTitle className="text-lg">Installations</CardTitle>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <InstallationsSectionMockup anesthesiaRecordId={anesthesiaRecord?.id} />
+                      <InstallationsSection anesthesiaRecordId={anesthesiaRecord?.id || ''} />
                     </AccordionContent>
                   </Card>
                 </AccordionItem>
 
-                {/* General Anesthesia Section - MOCKUP */}
+                {/* General Anesthesia Section */}
                 <AccordionItem value="general-anesthesia">
                   <Card>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-general-anesthesia">
-                      <CardTitle className="text-lg">General Anesthesia <Badge variant="outline" className="ml-2">UI Mockup</Badge></CardTitle>
+                      <CardTitle className="text-lg">General Anesthesia</CardTitle>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <GeneralAnesthesiaSectionMockup anesthesiaRecordId={anesthesiaRecord?.id} />
+                      <GeneralAnesthesiaSection anesthesiaRecordId={anesthesiaRecord?.id || ''} />
                     </AccordionContent>
                   </Card>
                 </AccordionItem>
 
-                {/* Neuraxial Anesthesia Section - MOCKUP */}
+                {/* Neuraxial Anesthesia Section */}
                 <AccordionItem value="neuraxial-anesthesia">
                   <Card>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-neuraxial">
-                      <CardTitle className="text-lg">Neuraxial Anesthesia <Badge variant="outline" className="ml-2">UI Mockup</Badge></CardTitle>
+                      <CardTitle className="text-lg">Neuraxial Anesthesia</CardTitle>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <NeuraxialSectionMockup anesthesiaRecordId={anesthesiaRecord?.id} />
+                      <NeuraxialAnesthesiaSection anesthesiaRecordId={anesthesiaRecord?.id || ''} />
                     </AccordionContent>
                   </Card>
                 </AccordionItem>
 
-                {/* Peripheral Regional Anesthesia Section - MOCKUP */}
+                {/* Peripheral Regional Anesthesia Section */}
                 <AccordionItem value="peripheral-regional-anesthesia">
                   <Card>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-peripheral-regional">
-                      <CardTitle className="text-lg">Peripheral Regional Anesthesia <Badge variant="outline" className="ml-2">UI Mockup</Badge></CardTitle>
+                      <CardTitle className="text-lg">Peripheral Regional Anesthesia</CardTitle>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <PeripheralRegionalSectionMockup anesthesiaRecordId={anesthesiaRecord?.id} />
+                      <PeripheralBlocksSection anesthesiaRecordId={anesthesiaRecord?.id || ''} />
                     </AccordionContent>
                   </Card>
                 </AccordionItem>
