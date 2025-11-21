@@ -1733,6 +1733,18 @@ export default function Items() {
     return [...organizedItems.rootItems, ...organizedItems.folderGroups.flatMap(g => g.items)];
   }, [organizedItems]);
 
+  // Auto-expand folders containing search results
+  useEffect(() => {
+    if (searchTerm) {
+      // When searching, expand all folders that have matching items
+      const foldersWithResults = organizedItems.folderGroups
+        .filter(group => group.items.length > 0)
+        .map(group => group.folder.id);
+      
+      setExpandedFolders(new Set(foldersWithResults));
+    }
+  }, [searchTerm, organizedItems.folderGroups]);
+
   const getFilterCounts = () => {
     return {
       all: items.length,
