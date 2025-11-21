@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { SignatureCanvas } from "@/components/ui/signature-canvas";
+import SignaturePad from "@/components/SignaturePad";
 import { Loader2, Save, CheckCircle2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -68,6 +68,8 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
   const { toast } = useToast();
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [doctorSignatureModalOpen, setDoctorSignatureModalOpen] = useState(false);
+  const [patientSignatureModalOpen, setPatientSignatureModalOpen] = useState(false);
 
   const { data: assessment, isLoading } = useQuery<PreOpAssessment>({
     queryKey: [`/api/anesthesia/preop/surgery/${surgeryId}`],
@@ -847,21 +849,38 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 />
               </div>
               
-              {!isCompleted && (
-                <SignatureCanvas
-                  label="Doctor Signature"
-                  value={form.watch("doctorSignature") || ""}
-                  onChange={(signature) => form.setValue("doctorSignature", signature)}
-                />
-              )}
-              {isCompleted && form.watch("doctorSignature") && (
-                <div className="space-y-2">
-                  <Label>Doctor Signature</Label>
-                  <div className="border rounded-md p-2 bg-muted">
-                    <img src={form.watch("doctorSignature") || ""} alt="Doctor signature" className="max-h-32" />
+              <div className="space-y-2">
+                <Label>Doctor Signature</Label>
+                {form.watch("doctorSignature") ? (
+                  <div className="space-y-2">
+                    <div className="border rounded-md p-2 bg-muted">
+                      <img src={form.watch("doctorSignature") || ""} alt="Doctor signature" className="max-h-32" />
+                    </div>
+                    {!isCompleted && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDoctorSignatureModalOpen(true)}
+                        data-testid="button-change-doctor-signature"
+                      >
+                        Change Signature
+                      </Button>
+                    )}
                   </div>
-                </div>
-              )}
+                ) : (
+                  !isCompleted && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setDoctorSignatureModalOpen(true)}
+                      data-testid="button-add-doctor-signature"
+                    >
+                      Add Doctor Signature
+                    </Button>
+                  )
+                )}
+              </div>
 
               <div className="space-y-2">
                 <div className="flex items-center space-x-2">
@@ -901,27 +920,66 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                     />
                   </div>
 
-                  {!isCompleted && (
-                    <SignatureCanvas
-                      label="Patient Signature"
-                      value={form.watch("patientSignature") || ""}
-                      onChange={(signature) => form.setValue("patientSignature", signature)}
-                    />
-                  )}
-                  {isCompleted && form.watch("patientSignature") && (
-                    <div className="space-y-2">
-                      <Label>Patient Signature</Label>
-                      <div className="border rounded-md p-2 bg-muted">
-                        <img src={form.watch("patientSignature") || ""} alt="Patient signature" className="max-h-32" />
+                  <div className="space-y-2">
+                    <Label>Patient Signature</Label>
+                    {form.watch("patientSignature") ? (
+                      <div className="space-y-2">
+                        <div className="border rounded-md p-2 bg-muted">
+                          <img src={form.watch("patientSignature") || ""} alt="Patient signature" className="max-h-32" />
+                        </div>
+                        {!isCompleted && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPatientSignatureModalOpen(true)}
+                            data-testid="button-change-patient-signature"
+                          >
+                            Change Signature
+                          </Button>
+                        )}
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      !isCompleted && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setPatientSignatureModalOpen(true)}
+                          data-testid="button-add-patient-signature"
+                        >
+                          Add Patient Signature
+                        </Button>
+                      )
+                    )}
+                  </div>
                 </>
               )}
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* Doctor Signature Modal */}
+      <SignaturePad
+        isOpen={doctorSignatureModalOpen}
+        onClose={() => setDoctorSignatureModalOpen(false)}
+        onSave={(signature) => {
+          form.setValue("doctorSignature", signature);
+          setDoctorSignatureModalOpen(false);
+        }}
+        title="Doctor Signature"
+      />
+
+      {/* Patient Signature Modal */}
+      <SignaturePad
+        isOpen={patientSignatureModalOpen}
+        onClose={() => setPatientSignatureModalOpen(false)}
+        onSave={(signature) => {
+          form.setValue("patientSignature", signature);
+          setPatientSignatureModalOpen(false);
+        }}
+        title="Patient Signature"
+      />
     </div>
   );
 }
