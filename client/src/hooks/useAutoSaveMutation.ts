@@ -7,127 +7,106 @@ export type AutoSaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 interface UseAutoSaveMutationOptions<TData, TVariables> {
   mutationFn: (variables: TVariables) => Promise<TData>;
   queryKey: unknown[];
-  debounceMs?: number;
   onSuccess?: (data: TData) => void;
   onError?: (error: Error) => void;
 }
 
 /**
- * Simple, proven auto-save pattern using debounced value + useEffect.
- * Based on React community best practices for 2025.
+ * Immediate auto-save mutation hook with request serialization.
+ * Queues rapid edits and ensures only the latest value is saved.
  */
 export function useAutoSaveMutation<TData = unknown, TVariables = unknown>({
   mutationFn,
   queryKey,
-  debounceMs = 500,
   onSuccess,
   onError,
 }: UseAutoSaveMutationOptions<TData, TVariables>) {
   const [status, setStatus] = useState<AutoSaveStatus>('idle');
-  const [pendingData, setPendingData] = useState<TVariables | null>(null);
-  const [debouncedData, setDebouncedData] = useState<TVariables | null>(null);
-  const isFirstRender = useRef(true);
+  const queuedDataRef = useRef<TVariables | null>(null);
+  const isInFlightRef = useRef(false);
   const savedTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
 
-  // Debounce the pending data
-  useEffect(() => {
-    if (pendingData === null) return;
-
-    const timer = setTimeout(() => {
-      setDebouncedData(pendingData);
-    }, debounceMs);
-
-    return () => clearTimeout(timer);
-  }, [pendingData, debounceMs]);
-
-  // Underlying mutation
   const mutation = useMutation({
     mutationFn,
+    onMutate: () => {
+      // Clear any existing saved status timer
+      if (savedTimerRef.current) {
+        clearTimeout(savedTimerRef.current);
+        savedTimerRef.current = null;
+      }
+      
+      isInFlightRef.current = true;
+      
+      if (isMountedRef.current) {
+        setStatus('saving');
+      }
+    },
     onSuccess: (data) => {
+      isInFlightRef.current = false;
+      
+      if (!isMountedRef.current) return;
+      
+      // Check if there's a queued request
+      const queued = queuedDataRef.current;
+      if (queued !== null) {
+        // Process queued request
+        queuedDataRef.current = null;
+        mutation.mutate(queued);
+        return;
+      }
+      
+      // No queued request - show saved
       setStatus('saved');
       queryClient.invalidateQueries({ queryKey });
       onSuccess?.(data);
       
       // Auto-reset to idle after 2 seconds
       savedTimerRef.current = setTimeout(() => {
-        setStatus('idle');
+        if (isMountedRef.current) {
+          setStatus('idle');
+        }
       }, 2000);
     },
     onError: (error: Error) => {
+      isInFlightRef.current = false;
+      queuedDataRef.current = null;
+      
+      if (!isMountedRef.current) return;
+      
       setStatus('error');
       onError?.(error);
       console.error('Auto-save error:', error);
     },
   });
 
-  // Trigger mutation when debounced data changes
+  // Cleanup on unmount
   useEffect(() => {
-    // Skip initial mount to avoid double-saves in Strict Mode
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-
-    if (debouncedData === null) return;
-
-    let isCurrent = true;
-
-    const save = async () => {
-      setStatus('saving');
-      try {
-        await mutation.mutateAsync(debouncedData);
-      } catch (error) {
-        // Error handled in mutation onError
-      }
-      
-      // Clear pending if this is still the current effect
-      if (isCurrent) {
-        setPendingData(null);
-      }
-    };
-
-    save();
-
+    isMountedRef.current = true;
     return () => {
-      isCurrent = false;
-    };
-  }, [debouncedData, mutation]);
-
-  // Cleanup saved timer on unmount
-  useEffect(() => {
-    return () => {
+      isMountedRef.current = false;
       if (savedTimerRef.current) {
         clearTimeout(savedTimerRef.current);
       }
     };
   }, []);
 
-  // Public mutate function
+  // Public mutate function with queuing
   const mutate = (variables: TVariables) => {
-    // Clear saved status timer
-    if (savedTimerRef.current) {
-      clearTimeout(savedTimerRef.current);
-      savedTimerRef.current = null;
+    // If a mutation is in flight, queue this request
+    if (isInFlightRef.current) {
+      queuedDataRef.current = variables;
+      return;
     }
-
-    setPendingData(variables);
-  };
-
-  // Cancel pending saves
-  const cancel = () => {
-    setPendingData(null);
-    setDebouncedData(null);
-    if (savedTimerRef.current) {
-      clearTimeout(savedTimerRef.current);
-      savedTimerRef.current = null;
-    }
-    setStatus('idle');
+    
+    // Otherwise, execute immediately
+    queuedDataRef.current = null;
+    mutation.mutate(variables);
   };
 
   return {
     mutate,
     status,
-    cancel,
     isError: mutation.isError,
     error: mutation.error,
   };
