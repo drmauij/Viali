@@ -26,7 +26,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SignatureCanvas } from "@/components/ui/signature-canvas";
+import SignaturePad from "@/components/SignaturePad";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -416,6 +416,11 @@ export default function Op() {
   const [signOutChecklist, setSignOutChecklist] = useState<Record<string, boolean>>({});
   const [signOutNotes, setSignOutNotes] = useState("");
   const [signOutSignature, setSignOutSignature] = useState("");
+
+  // Modal state for signature pads
+  const [showSignInSigPad, setShowSignInSigPad] = useState(false);
+  const [showTimeOutSigPad, setShowTimeOutSigPad] = useState(false);
+  const [showSignOutSigPad, setShowSignOutSigPad] = useState(false);
 
   // Post-Operative Information state
   type MedicationTime = "Immediately" | "Contraindicated" | string;
@@ -1063,18 +1068,40 @@ export default function Op() {
                       </div>
                       <div className="pt-2 space-y-2">
                         <Label htmlFor="signin-signature">Signature</Label>
-                        <SignatureCanvas
-                          value={signInSignature}
-                          onChange={(signature) => {
-                            setSignInSignature(signature);
-                            signInAutoSave.mutate({
-                              checklist: signInChecklist,
-                              notes: signInNotes,
-                              signature: signature,
-                            });
-                          }}
-                          className="border border-input rounded-md"
-                        />
+                        <div className="space-y-2">
+                          {signInSignature ? (
+                            <div className="relative border rounded-md p-2">
+                              <img src={signInSignature} alt="Signature" className="max-h-24" />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="absolute top-1 right-1"
+                                onClick={() => {
+                                  setSignInSignature('');
+                                  signInAutoSave.mutate({
+                                    checklist: signInChecklist,
+                                    notes: signInNotes,
+                                    signature: '',
+                                  });
+                                }}
+                                data-testid="button-clear-signin-signature"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full"
+                              onClick={() => setShowSignInSigPad(true)}
+                              data-testid="button-add-signin-signature"
+                            >
+                              Add Signature
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </>
                   ) : (
@@ -1156,18 +1183,40 @@ export default function Op() {
                       </div>
                       <div className="pt-2 space-y-2">
                         <Label htmlFor="timeout-signature">Signature</Label>
-                        <SignatureCanvas
-                          value={timeOutSignature}
-                          onChange={(signature) => {
-                            setTimeOutSignature(signature);
-                            timeOutAutoSave.mutate({
-                              checklist: timeOutChecklist,
-                              notes: timeOutNotes,
-                              signature: signature,
-                            });
-                          }}
-                          className="border border-input rounded-md"
-                        />
+                        <div className="space-y-2">
+                          {timeOutSignature ? (
+                            <div className="relative border rounded-md p-2">
+                              <img src={timeOutSignature} alt="Signature" className="max-h-24" />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="absolute top-1 right-1"
+                                onClick={() => {
+                                  setTimeOutSignature('');
+                                  timeOutAutoSave.mutate({
+                                    checklist: timeOutChecklist,
+                                    notes: timeOutNotes,
+                                    signature: '',
+                                  });
+                                }}
+                                data-testid="button-clear-timeout-signature"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full"
+                              onClick={() => setShowTimeOutSigPad(true)}
+                              data-testid="button-add-timeout-signature"
+                            >
+                              Add Signature
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </>
                   ) : (
@@ -1249,18 +1298,40 @@ export default function Op() {
                       </div>
                       <div className="pt-2 space-y-2">
                         <Label htmlFor="signout-signature">Signature</Label>
-                        <SignatureCanvas
-                          value={signOutSignature}
-                          onChange={(signature) => {
-                            setSignOutSignature(signature);
-                            signOutAutoSave.mutate({
-                              checklist: signOutChecklist,
-                              notes: signOutNotes,
-                              signature: signature,
-                            });
-                          }}
-                          className="border border-input rounded-md"
-                        />
+                        <div className="space-y-2">
+                          {signOutSignature ? (
+                            <div className="relative border rounded-md p-2">
+                              <img src={signOutSignature} alt="Signature" className="max-h-24" />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="absolute top-1 right-1"
+                                onClick={() => {
+                                  setSignOutSignature('');
+                                  signOutAutoSave.mutate({
+                                    checklist: signOutChecklist,
+                                    notes: signOutNotes,
+                                    signature: '',
+                                  });
+                                }}
+                                data-testid="button-clear-signout-signature"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full"
+                              onClick={() => setShowSignOutSigPad(true)}
+                              data-testid="button-add-signout-signature"
+                            >
+                              Add Signature
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </>
                   ) : (
@@ -1604,6 +1675,49 @@ export default function Op() {
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* SignaturePad Modals */}
+    <SignaturePad
+      isOpen={showSignInSigPad}
+      onClose={() => setShowSignInSigPad(false)}
+      onSave={(signature) => {
+        setSignInSignature(signature);
+        signInAutoSave.mutate({
+          checklist: signInChecklist,
+          notes: signInNotes,
+          signature: signature,
+        });
+      }}
+      title="Sign In Signature"
+    />
+
+    <SignaturePad
+      isOpen={showTimeOutSigPad}
+      onClose={() => setShowTimeOutSigPad(false)}
+      onSave={(signature) => {
+        setTimeOutSignature(signature);
+        timeOutAutoSave.mutate({
+          checklist: timeOutChecklist,
+          notes: timeOutNotes,
+          signature: signature,
+        });
+      }}
+      title="Time Out Signature"
+    />
+
+    <SignaturePad
+      isOpen={showSignOutSigPad}
+      onClose={() => setShowSignOutSigPad(false)}
+      onSave={(signature) => {
+        setSignOutSignature(signature);
+        signOutAutoSave.mutate({
+          checklist: signOutChecklist,
+          notes: signOutNotes,
+          signature: signature,
+        });
+      }}
+      title="Sign Out Signature"
+    />
     </>
   );
 }
