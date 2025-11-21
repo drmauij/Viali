@@ -1053,7 +1053,7 @@ export default function Op() {
                                 key={item.id}
                                 className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
                                   isUsed 
-                                    ? 'bg-primary/10 border border-primary/20 hover:bg-primary/15 dark:bg-primary/20 dark:border-primary/30 dark:hover:bg-primary/25' 
+                                    ? 'bg-amber-500/20 hover:bg-amber-500/30 dark:bg-amber-400/25 dark:hover:bg-amber-400/35' 
                                     : 'bg-muted/50 hover:bg-muted'
                                 }`}
                                 data-testid={`inventory-item-${item.id}`}
