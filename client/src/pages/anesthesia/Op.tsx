@@ -388,8 +388,9 @@ export default function Op() {
   // Post-Operative Information state
   type MedicationTime = "Immediately" | "Contraindicated" | string;
   const [postOpData, setPostOpData] = useState<{
-    analgesiaPlan?: string;
-    monitoringPlan?: string;
+    postOpDestination?: string;
+    postOpNotes?: string;
+    complications?: string;
     paracetamolTime?: MedicationTime;
     nsarTime?: MedicationTime;
     novalginTime?: MedicationTime;
@@ -1245,21 +1246,63 @@ export default function Op() {
                 )}
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Analgesia Plan */}
+                {/* Destination */}
                 <div className="space-y-2">
-                  <Label htmlFor="analgesia-plan">Analgesia Plan</Label>
-                  <Textarea
-                    id="analgesia-plan"
-                    rows={3}
-                    placeholder="Enter analgesia plan..."
-                    value={postOpData.analgesiaPlan || ""}
-                    onChange={(e) => {
-                      const updated = { ...postOpData, analgesiaPlan: e.target.value };
+                  <Label htmlFor="postop-destination">Destination</Label>
+                  <Select 
+                    value={postOpData.postOpDestination || ""} 
+                    onValueChange={(value) => {
+                      const updated = { ...postOpData, postOpDestination: value };
                       setPostOpData(updated);
                       postOpAutoSave.mutate(updated);
                     }}
                     disabled={!anesthesiaRecord?.id}
-                    data-testid="textarea-analgesia-plan"
+                  >
+                    <SelectTrigger data-testid="select-postop-destination">
+                      <SelectValue placeholder="Select destination" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pacu">PACU</SelectItem>
+                      <SelectItem value="icu">ICU</SelectItem>
+                      <SelectItem value="ward">Ward</SelectItem>
+                      <SelectItem value="home">Home</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Post-Operative Notes */}
+                <div className="space-y-2">
+                  <Label htmlFor="postop-notes">Post-Operative Notes</Label>
+                  <Textarea
+                    id="postop-notes"
+                    rows={4}
+                    placeholder="Enter post-operative notes..."
+                    value={postOpData.postOpNotes || ""}
+                    onChange={(e) => {
+                      const updated = { ...postOpData, postOpNotes: e.target.value };
+                      setPostOpData(updated);
+                      postOpAutoSave.mutate(updated);
+                    }}
+                    disabled={!anesthesiaRecord?.id}
+                    data-testid="textarea-postop-notes"
+                  />
+                </div>
+
+                {/* Complications */}
+                <div className="space-y-2">
+                  <Label htmlFor="complications">Complications</Label>
+                  <Textarea
+                    id="complications"
+                    rows={3}
+                    placeholder="Document any complications..."
+                    value={postOpData.complications || ""}
+                    onChange={(e) => {
+                      const updated = { ...postOpData, complications: e.target.value };
+                      setPostOpData(updated);
+                      postOpAutoSave.mutate(updated);
+                    }}
+                    disabled={!anesthesiaRecord?.id}
+                    data-testid="textarea-postop-complications"
                   />
                 </div>
 
@@ -1461,24 +1504,6 @@ export default function Op() {
                       </div>
                     </div>
                   </div>
-                </div>
-
-                {/* Monitoring Plan */}
-                <div className="space-y-2">
-                  <Label htmlFor="monitoring-plan">Monitoring Plan</Label>
-                  <Textarea
-                    id="monitoring-plan"
-                    rows={3}
-                    placeholder="Enter post-operative monitoring plan..."
-                    value={postOpData.monitoringPlan || ""}
-                    onChange={(e) => {
-                      const updated = { ...postOpData, monitoringPlan: e.target.value };
-                      setPostOpData(updated);
-                      postOpAutoSave.mutate(updated);
-                    }}
-                    disabled={!anesthesiaRecord?.id}
-                    data-testid="textarea-monitoring-plan"
-                  />
                 </div>
               </CardContent>
             </Card>

@@ -580,8 +580,9 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
   
   // Post-Operative Information
   postOpData: jsonb("post_op_data").$type<{
-    analgesiaPlan?: string;
-    monitoringPlan?: string;
+    postOpDestination?: string; // PACU, ICU, Ward, Home
+    postOpNotes?: string;
+    complications?: string;
     paracetamolTime?: "Immediately" | "Contraindicated" | string; // HH:MM format for time value
     nsarTime?: "Immediately" | "Contraindicated" | string;
     novalginTime?: "Immediately" | "Contraindicated" | string;
@@ -1372,8 +1373,9 @@ const medicationTimeSchema = z.union([
 ]);
 
 export const updatePostOpDataSchema = z.object({
-  analgesiaPlan: z.string().optional(),
-  monitoringPlan: z.string().optional(),
+  postOpDestination: z.string().optional(),
+  postOpNotes: z.string().optional(),
+  complications: z.string().optional(),
   paracetamolTime: medicationTimeSchema.optional(),
   nsarTime: medicationTimeSchema.optional(),
   novalginTime: medicationTimeSchema.optional(),

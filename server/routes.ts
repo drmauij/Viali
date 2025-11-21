@@ -5342,8 +5342,14 @@ If unable to parse any drugs, return:
       // Validate request body
       const validated = updatePostOpDataSchema.parse(req.body);
 
+      // Merge with existing post-op data to preserve all fields
+      const mergedPostOpData = {
+        ...(record.postOpData ?? {}),
+        ...validated,
+      };
+
       // Update post-op data (no audit trail needed for post-op info)
-      const updatedRecord = await storage.updateAnesthesiaRecord(id, { postOpData: validated });
+      const updatedRecord = await storage.updateAnesthesiaRecord(id, { postOpData: mergedPostOpData });
       
       res.json(updatedRecord);
     } catch (error) {
