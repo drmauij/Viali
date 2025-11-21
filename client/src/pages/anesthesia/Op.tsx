@@ -402,7 +402,6 @@ export default function Op() {
       return apiRequest('PATCH', `/api/anesthesia/records/${anesthesiaRecord.id}/postop`, data);
     },
     queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
-    debounceMs: 500,
   });
 
   // Fetch items for inventory tracking - filtered by current unit
@@ -514,6 +513,15 @@ export default function Op() {
       if (anesthesiaRecord.signOutData.signature) {
         setSignOutSignature(anesthesiaRecord.signOutData.signature);
       }
+    }
+  }, [anesthesiaRecord]);
+
+  // Initialize Post-Op data from anesthesia record
+  useEffect(() => {
+    if (!anesthesiaRecord) return;
+    
+    if (anesthesiaRecord.post_op_data) {
+      setPostOpData(anesthesiaRecord.post_op_data);
     }
   }, [anesthesiaRecord]);
 
