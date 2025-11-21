@@ -581,7 +581,6 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
   const handleSaveGeneral = () => {
     upsertGeneralMutation.mutate(
       {
-        anesthesiaRecordId,
         approach: approach as "tiva" | "tci" | "balanced-gas" | "sedation" | null,
         rsi,
         sedationLevel: null,
@@ -602,7 +601,6 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
   const handleSaveAirway = () => {
     upsertAirwayMutation.mutate(
       {
-        anesthesiaRecordId,
         airwayDevice: airwayDevice || null,
         size: size || null,
         depth: depth ? parseInt(depth) : null,
@@ -813,7 +811,6 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
   const handleCreate = (blockType: "spinal" | "epidural" | "cse" | "caudal") => {
     createMutation.mutate(
       {
-        anesthesiaRecordId,
         blockType,
         level: null,
         approach: null,
@@ -1051,7 +1048,6 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
   const handleCreate = () => {
     createMutation.mutate(
       {
-        anesthesiaRecordId,
         blockType: "",
         laterality: null,
         guidanceTechnique: null,
