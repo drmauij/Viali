@@ -35,6 +35,10 @@ import {
   anesthesiaStaff,
   anesthesiaInstallations,
   anesthesiaTechniqueDetails,
+  anesthesiaAirwayManagement,
+  anesthesiaGeneralTechnique,
+  anesthesiaNeuraxialBlocks,
+  anesthesiaPeripheralBlocks,
   inventoryUsage,
   auditTrail,
   type User,
@@ -98,6 +102,14 @@ import {
   type InsertAnesthesiaInstallation,
   type AnesthesiaTechniqueDetail,
   type InsertAnesthesiaTechniqueDetail,
+  type AnesthesiaAirwayManagement,
+  type InsertAnesthesiaAirwayManagement,
+  type AnesthesiaGeneralTechnique,
+  type InsertAnesthesiaGeneralTechnique,
+  type AnesthesiaNeuraxialBlock,
+  type InsertAnesthesiaNeuraxialBlock,
+  type AnesthesiaPeripheralBlock,
+  type InsertAnesthesiaPeripheralBlock,
   type InventoryUsage,
   type InsertInventoryUsage,
   type AuditTrail,
@@ -371,6 +383,28 @@ export interface IStorage {
   getAnesthesiaTechniqueDetail(anesthesiaRecordId: string, technique: string): Promise<AnesthesiaTechniqueDetail | undefined>;
   upsertAnesthesiaTechniqueDetail(detail: InsertAnesthesiaTechniqueDetail): Promise<AnesthesiaTechniqueDetail>;
   deleteAnesthesiaTechniqueDetail(id: string): Promise<void>;
+  
+  // Anesthesia Airway Management operations
+  getAirwayManagement(anesthesiaRecordId: string): Promise<AnesthesiaAirwayManagement | undefined>;
+  upsertAirwayManagement(airway: InsertAnesthesiaAirwayManagement): Promise<AnesthesiaAirwayManagement>;
+  deleteAirwayManagement(anesthesiaRecordId: string): Promise<void>;
+  
+  // Anesthesia General Technique operations
+  getGeneralTechnique(anesthesiaRecordId: string): Promise<AnesthesiaGeneralTechnique | undefined>;
+  upsertGeneralTechnique(technique: InsertAnesthesiaGeneralTechnique): Promise<AnesthesiaGeneralTechnique>;
+  deleteGeneralTechnique(anesthesiaRecordId: string): Promise<void>;
+  
+  // Anesthesia Neuraxial Blocks operations
+  getNeuraxialBlocks(anesthesiaRecordId: string): Promise<AnesthesiaNeuraxialBlock[]>;
+  createNeuraxialBlock(block: InsertAnesthesiaNeuraxialBlock): Promise<AnesthesiaNeuraxialBlock>;
+  updateNeuraxialBlock(id: string, updates: Partial<AnesthesiaNeuraxialBlock>): Promise<AnesthesiaNeuraxialBlock>;
+  deleteNeuraxialBlock(id: string): Promise<void>;
+  
+  // Anesthesia Peripheral Blocks operations
+  getPeripheralBlocks(anesthesiaRecordId: string): Promise<AnesthesiaPeripheralBlock[]>;
+  createPeripheralBlock(block: InsertAnesthesiaPeripheralBlock): Promise<AnesthesiaPeripheralBlock>;
+  updatePeripheralBlock(id: string, updates: Partial<AnesthesiaPeripheralBlock>): Promise<AnesthesiaPeripheralBlock>;
+  deletePeripheralBlock(id: string): Promise<void>;
   
   // Inventory Usage operations
   getInventoryUsage(anesthesiaRecordId: string): Promise<InventoryUsage[]>;
@@ -2970,6 +3004,127 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAnesthesiaTechniqueDetail(id: string): Promise<void> {
     await db.delete(anesthesiaTechniqueDetails).where(eq(anesthesiaTechniqueDetails.id, id));
+  }
+
+  // Anesthesia Airway Management operations
+  async getAirwayManagement(anesthesiaRecordId: string): Promise<AnesthesiaAirwayManagement | undefined> {
+    const [airway] = await db
+      .select()
+      .from(anesthesiaAirwayManagement)
+      .where(eq(anesthesiaAirwayManagement.anesthesiaRecordId, anesthesiaRecordId));
+    return airway;
+  }
+
+  async upsertAirwayManagement(airway: InsertAnesthesiaAirwayManagement): Promise<AnesthesiaAirwayManagement> {
+    const [upserted] = await db
+      .insert(anesthesiaAirwayManagement)
+      .values(airway)
+      .onConflictDoUpdate({
+        target: anesthesiaAirwayManagement.anesthesiaRecordId,
+        set: {
+          airwayDevice: airway.airwayDevice,
+          size: airway.size,
+          depth: airway.depth,
+          cuffPressure: airway.cuffPressure,
+          intubationPreExisting: airway.intubationPreExisting,
+          notes: airway.notes,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return upserted;
+  }
+
+  async deleteAirwayManagement(anesthesiaRecordId: string): Promise<void> {
+    await db.delete(anesthesiaAirwayManagement).where(eq(anesthesiaAirwayManagement.anesthesiaRecordId, anesthesiaRecordId));
+  }
+
+  // Anesthesia General Technique operations
+  async getGeneralTechnique(anesthesiaRecordId: string): Promise<AnesthesiaGeneralTechnique | undefined> {
+    const [technique] = await db
+      .select()
+      .from(anesthesiaGeneralTechnique)
+      .where(eq(anesthesiaGeneralTechnique.anesthesiaRecordId, anesthesiaRecordId));
+    return technique;
+  }
+
+  async upsertGeneralTechnique(technique: InsertAnesthesiaGeneralTechnique): Promise<AnesthesiaGeneralTechnique> {
+    const [upserted] = await db
+      .insert(anesthesiaGeneralTechnique)
+      .values(technique)
+      .onConflictDoUpdate({
+        target: anesthesiaGeneralTechnique.anesthesiaRecordId,
+        set: {
+          approach: technique.approach,
+          rsi: technique.rsi,
+          sedationLevel: technique.sedationLevel,
+          airwaySupport: technique.airwaySupport,
+          notes: technique.notes,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return upserted;
+  }
+
+  async deleteGeneralTechnique(anesthesiaRecordId: string): Promise<void> {
+    await db.delete(anesthesiaGeneralTechnique).where(eq(anesthesiaGeneralTechnique.anesthesiaRecordId, anesthesiaRecordId));
+  }
+
+  // Anesthesia Neuraxial Blocks operations
+  async getNeuraxialBlocks(anesthesiaRecordId: string): Promise<AnesthesiaNeuraxialBlock[]> {
+    const blocks = await db
+      .select()
+      .from(anesthesiaNeuraxialBlocks)
+      .where(eq(anesthesiaNeuraxialBlocks.anesthesiaRecordId, anesthesiaRecordId))
+      .orderBy(anesthesiaNeuraxialBlocks.createdAt);
+    return blocks;
+  }
+
+  async createNeuraxialBlock(block: InsertAnesthesiaNeuraxialBlock): Promise<AnesthesiaNeuraxialBlock> {
+    const [created] = await db.insert(anesthesiaNeuraxialBlocks).values(block).returning();
+    return created;
+  }
+
+  async updateNeuraxialBlock(id: string, updates: Partial<AnesthesiaNeuraxialBlock>): Promise<AnesthesiaNeuraxialBlock> {
+    const [updated] = await db
+      .update(anesthesiaNeuraxialBlocks)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(anesthesiaNeuraxialBlocks.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteNeuraxialBlock(id: string): Promise<void> {
+    await db.delete(anesthesiaNeuraxialBlocks).where(eq(anesthesiaNeuraxialBlocks.id, id));
+  }
+
+  // Anesthesia Peripheral Blocks operations
+  async getPeripheralBlocks(anesthesiaRecordId: string): Promise<AnesthesiaPeripheralBlock[]> {
+    const blocks = await db
+      .select()
+      .from(anesthesiaPeripheralBlocks)
+      .where(eq(anesthesiaPeripheralBlocks.anesthesiaRecordId, anesthesiaRecordId))
+      .orderBy(anesthesiaPeripheralBlocks.createdAt);
+    return blocks;
+  }
+
+  async createPeripheralBlock(block: InsertAnesthesiaPeripheralBlock): Promise<AnesthesiaPeripheralBlock> {
+    const [created] = await db.insert(anesthesiaPeripheralBlocks).values(block).returning();
+    return created;
+  }
+
+  async updatePeripheralBlock(id: string, updates: Partial<AnesthesiaPeripheralBlock>): Promise<AnesthesiaPeripheralBlock> {
+    const [updated] = await db
+      .update(anesthesiaPeripheralBlocks)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(anesthesiaPeripheralBlocks.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deletePeripheralBlock(id: string): Promise<void> {
+    await db.delete(anesthesiaPeripheralBlocks).where(eq(anesthesiaPeripheralBlocks.id, id));
   }
 
   // Inventory Usage operations

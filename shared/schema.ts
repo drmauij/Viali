@@ -591,12 +591,13 @@ export const anesthesiaInstallations = pgTable("anesthesia_installations", {
   anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: "cascade" }),
   
   // Type of installation
-  category: varchar("category", { enum: ["peripheral", "arterial", "central"] }).notNull(),
+  category: varchar("category", { enum: ["peripheral", "arterial", "central", "bladder"] }).notNull(),
   
   // Common fields
   location: varchar("location"), // e.g., "right-hand", "radial-left", "right-ijv"
   attempts: integer("attempts"),
   notes: text("notes"),
+  isPreExisting: boolean("is_pre_existing").default(false), // Track pre-existing installations
   
   // Category-specific data stored as JSONB for flexibility
   metadata: jsonb("metadata").$type<{
@@ -612,6 +613,10 @@ export const anesthesiaInstallations = pgTable("anesthesia_installations", {
     cvcTechnique?: string; // "landmark", "ultrasound"
     ekgProof?: boolean;
     rxControl?: boolean;
+    
+    // Bladder catheter
+    bladderType?: string; // "foley", "suprapubic", "three-way"
+    bladderSize?: string; // "12", "14", "16", "18", "20", "22"
   }>(),
   
   placementTime: timestamp("placement_time"),
@@ -684,6 +689,86 @@ export const anesthesiaTechniqueDetails = pgTable("anesthesia_technique_details"
 }, (table) => [
   index("idx_technique_details_record").on(table.anesthesiaRecordId),
   index("idx_technique_details_technique").on(table.technique),
+]);
+
+// Anesthesia Airway Management - Dedicated table for airway device details
+export const anesthesiaAirwayManagement = pgTable("anesthesia_airway_management", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().unique().references(() => anesthesiaRecords.id, { onDelete: "cascade" }),
+  
+  airwayDevice: varchar("airway_device"), // "ett", "spiral-tube", "rae-tube", "dlt-left", "dlt-right", "lma", etc.
+  size: varchar("size"), // e.g., "7.5"
+  depth: integer("depth"), // cm at teeth
+  cuffPressure: integer("cuff_pressure"), // cmH2O
+  intubationPreExisting: boolean("intubation_pre_existing").default(false),
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_airway_management_record").on(table.anesthesiaRecordId),
+]);
+
+// Anesthesia General Technique - Dedicated table for general anesthesia approach
+export const anesthesiaGeneralTechnique = pgTable("anesthesia_general_technique", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().unique().references(() => anesthesiaRecords.id, { onDelete: "cascade" }),
+  
+  approach: varchar("approach", { enum: ["tiva", "tci", "balanced-gas", "sedation"] }),
+  rsi: boolean("rsi").default(false), // Rapid Sequence Intubation
+  sedationLevel: varchar("sedation_level"), // "minimal", "moderate", "deep"
+  airwaySupport: varchar("airway_support"), // "none", "nasal-cannula", "face-mask", etc.
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_general_technique_record").on(table.anesthesiaRecordId),
+]);
+
+// Anesthesia Neuraxial Blocks - Spinal, Epidural, CSE, Caudal
+export const anesthesiaNeuraxialBlocks = pgTable("anesthesia_neuraxial_blocks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: "cascade" }),
+  
+  blockType: varchar("block_type", { enum: ["spinal", "epidural", "cse", "caudal"] }).notNull(),
+  level: varchar("level"), // e.g., "L3-L4", "T10-T11"
+  approach: varchar("approach"), // "midline", "paramedian", "needle-through-needle"
+  needleGauge: varchar("needle_gauge"), // "22G", "25G Pencil Point", etc.
+  testDose: varchar("test_dose"), // e.g., "Lidocaine 3ml"
+  attempts: integer("attempts"),
+  sensoryLevel: varchar("sensory_level"), // e.g., "T4", "T8"
+  catheterPresent: boolean("catheter_present").default(false),
+  catheterDepth: varchar("catheter_depth"), // e.g., "10cm at skin"
+  guidanceTechnique: varchar("guidance_technique"), // "landmark", "ultrasound"
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_neuraxial_blocks_record").on(table.anesthesiaRecordId),
+  index("idx_neuraxial_blocks_type").on(table.blockType),
+]);
+
+// Anesthesia Peripheral Blocks - Regional nerve blocks
+export const anesthesiaPeripheralBlocks = pgTable("anesthesia_peripheral_blocks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: "cascade" }),
+  
+  blockType: varchar("block_type").notNull(), // "interscalene", "supraclavicular", "axillary", "femoral", "sciatic", etc.
+  laterality: varchar("laterality", { enum: ["left", "right", "bilateral"] }),
+  guidanceTechnique: varchar("guidance_technique"), // "ultrasound", "nerve-stimulator", "landmark"
+  needleType: varchar("needle_type"), // "50mm stimuplex", "80mm echogenic"
+  catheterPlaced: boolean("catheter_placed").default(false),
+  attempts: integer("attempts"),
+  sensoryAssessment: text("sensory_assessment"), // Free text description
+  motorAssessment: text("motor_assessment"), // Free text description
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_peripheral_blocks_record").on(table.anesthesiaRecordId),
 ]);
 
 // Pre-Op Assessments
@@ -1437,6 +1522,30 @@ export const insertAnesthesiaTechniqueDetailSchema = createInsertSchema(anesthes
   updatedAt: true,
 });
 
+export const insertAnesthesiaAirwayManagementSchema = createInsertSchema(anesthesiaAirwayManagement).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAnesthesiaGeneralTechniqueSchema = createInsertSchema(anesthesiaGeneralTechnique).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAnesthesiaNeuraxialBlockSchema = createInsertSchema(anesthesiaNeuraxialBlocks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAnesthesiaPeripheralBlockSchema = createInsertSchema(anesthesiaPeripheralBlocks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertInventoryUsageSchema = createInsertSchema(inventoryUsage).omit({
   id: true,
   createdAt: true,
@@ -1525,6 +1634,14 @@ export type AnesthesiaInstallation = typeof anesthesiaInstallations.$inferSelect
 export type InsertAnesthesiaInstallation = z.infer<typeof insertAnesthesiaInstallationSchema>;
 export type AnesthesiaTechniqueDetail = typeof anesthesiaTechniqueDetails.$inferSelect;
 export type InsertAnesthesiaTechniqueDetail = z.infer<typeof insertAnesthesiaTechniqueDetailSchema>;
+export type AnesthesiaAirwayManagement = typeof anesthesiaAirwayManagement.$inferSelect;
+export type InsertAnesthesiaAirwayManagement = z.infer<typeof insertAnesthesiaAirwayManagementSchema>;
+export type AnesthesiaGeneralTechnique = typeof anesthesiaGeneralTechnique.$inferSelect;
+export type InsertAnesthesiaGeneralTechnique = z.infer<typeof insertAnesthesiaGeneralTechniqueSchema>;
+export type AnesthesiaNeuraxialBlock = typeof anesthesiaNeuraxialBlocks.$inferSelect;
+export type InsertAnesthesiaNeuraxialBlock = z.infer<typeof insertAnesthesiaNeuraxialBlockSchema>;
+export type AnesthesiaPeripheralBlock = typeof anesthesiaPeripheralBlocks.$inferSelect;
+export type InsertAnesthesiaPeripheralBlock = z.infer<typeof insertAnesthesiaPeripheralBlockSchema>;
 export type InventoryUsage = typeof inventoryUsage.$inferSelect;
 export type InsertInventoryUsage = z.infer<typeof insertInventoryUsageSchema>;
 export type AuditTrail = typeof auditTrail.$inferSelect;

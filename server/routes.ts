@@ -34,6 +34,10 @@ import {
   insertAnesthesiaStaffSchema,
   insertAnesthesiaInstallationSchema,
   insertAnesthesiaTechniqueDetailSchema,
+  insertAnesthesiaAirwayManagementSchema,
+  insertAnesthesiaGeneralTechniqueSchema,
+  insertAnesthesiaNeuraxialBlockSchema,
+  insertAnesthesiaPeripheralBlockSchema,
   insertInventoryUsageSchema,
   insertNoteSchema,
   orderLines, 
@@ -6921,6 +6925,284 @@ If unable to parse any drugs, return:
       if (error instanceof z.ZodError) return res.status(400).json({ message: "Invalid data", errors: error.errors });
       console.error("Error upserting technique detail:", error);
       res.status(500).json({ message: "Failed to upsert technique detail" });
+    }
+  });
+
+  // Airway Management Routes
+
+  // Get airway management for a record
+  app.get('/api/anesthesia/:recordId/airway', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId } = req.params;
+      const userId = req.user.id;
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) return res.status(404).json({ message: "Surgery not found" });
+      const hospitals = await storage.getUserHospitals(userId);
+      if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
+      const airway = await storage.getAirwayManagement(recordId);
+      res.json(airway);
+    } catch (error) {
+      console.error("Error fetching airway management:", error);
+      res.status(500).json({ message: "Failed to fetch airway management" });
+    }
+  });
+
+  // Create/update airway management (upsert)
+  app.post('/api/anesthesia/:recordId/airway', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId } = req.params;
+      const validated = insertAnesthesiaAirwayManagementSchema.parse({ ...req.body, anesthesiaRecordId: recordId });
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) return res.status(404).json({ message: "Surgery not found" });
+      const hospitals = await storage.getUserHospitals(req.user.id);
+      if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
+      const airway = await storage.upsertAirwayManagement(validated);
+      res.json(airway);
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      console.error("Error upserting airway management:", error);
+      res.status(500).json({ message: "Failed to upsert airway management" });
+    }
+  });
+
+  // Delete airway management
+  app.delete('/api/anesthesia/:recordId/airway', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId } = req.params;
+      const userId = req.user.id;
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) return res.status(404).json({ message: "Surgery not found" });
+      const hospitals = await storage.getUserHospitals(userId);
+      if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
+      await storage.deleteAirwayManagement(recordId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting airway management:", error);
+      res.status(500).json({ message: "Failed to delete airway management" });
+    }
+  });
+
+  // General Technique Routes
+
+  // Get general technique for a record
+  app.get('/api/anesthesia/:recordId/general-technique', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId } = req.params;
+      const userId = req.user.id;
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) return res.status(404).json({ message: "Surgery not found" });
+      const hospitals = await storage.getUserHospitals(userId);
+      if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
+      const technique = await storage.getGeneralTechnique(recordId);
+      res.json(technique);
+    } catch (error) {
+      console.error("Error fetching general technique:", error);
+      res.status(500).json({ message: "Failed to fetch general technique" });
+    }
+  });
+
+  // Create/update general technique (upsert)
+  app.post('/api/anesthesia/:recordId/general-technique', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId } = req.params;
+      const validated = insertAnesthesiaGeneralTechniqueSchema.parse({ ...req.body, anesthesiaRecordId: recordId });
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) return res.status(404).json({ message: "Surgery not found" });
+      const hospitals = await storage.getUserHospitals(req.user.id);
+      if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
+      const technique = await storage.upsertGeneralTechnique(validated);
+      res.json(technique);
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      console.error("Error upserting general technique:", error);
+      res.status(500).json({ message: "Failed to upsert general technique" });
+    }
+  });
+
+  // Delete general technique
+  app.delete('/api/anesthesia/:recordId/general-technique', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId } = req.params;
+      const userId = req.user.id;
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) return res.status(404).json({ message: "Surgery not found" });
+      const hospitals = await storage.getUserHospitals(userId);
+      if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
+      await storage.deleteGeneralTechnique(recordId);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting general technique:", error);
+      res.status(500).json({ message: "Failed to delete general technique" });
+    }
+  });
+
+  // Neuraxial Blocks Routes
+
+  // Get all neuraxial blocks for a record
+  app.get('/api/anesthesia/:recordId/neuraxial-blocks', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId } = req.params;
+      const userId = req.user.id;
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) return res.status(404).json({ message: "Surgery not found" });
+      const hospitals = await storage.getUserHospitals(userId);
+      if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
+      const blocks = await storage.getNeuraxialBlocks(recordId);
+      res.json(blocks);
+    } catch (error) {
+      console.error("Error fetching neuraxial blocks:", error);
+      res.status(500).json({ message: "Failed to fetch neuraxial blocks" });
+    }
+  });
+
+  // Create neuraxial block
+  app.post('/api/anesthesia/:recordId/neuraxial-blocks', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId } = req.params;
+      const validated = insertAnesthesiaNeuraxialBlockSchema.parse({ ...req.body, anesthesiaRecordId: recordId });
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) return res.status(404).json({ message: "Surgery not found" });
+      const hospitals = await storage.getUserHospitals(req.user.id);
+      if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
+      const block = await storage.createNeuraxialBlock(validated);
+      res.json(block);
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      console.error("Error creating neuraxial block:", error);
+      res.status(500).json({ message: "Failed to create neuraxial block" });
+    }
+  });
+
+  // Update neuraxial block
+  app.patch('/api/anesthesia/:recordId/neuraxial-blocks/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId, id } = req.params;
+      const userId = req.user.id;
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) return res.status(404).json({ message: "Surgery not found" });
+      const hospitals = await storage.getUserHospitals(userId);
+      if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
+      const block = await storage.updateNeuraxialBlock(id, req.body);
+      res.json(block);
+    } catch (error) {
+      console.error("Error updating neuraxial block:", error);
+      res.status(500).json({ message: "Failed to update neuraxial block" });
+    }
+  });
+
+  // Delete neuraxial block
+  app.delete('/api/anesthesia/:recordId/neuraxial-blocks/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId, id } = req.params;
+      const userId = req.user.id;
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) return res.status(404).json({ message: "Surgery not found" });
+      const hospitals = await storage.getUserHospitals(userId);
+      if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
+      await storage.deleteNeuraxialBlock(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting neuraxial block:", error);
+      res.status(500).json({ message: "Failed to delete neuraxial block" });
+    }
+  });
+
+  // Peripheral Blocks Routes
+
+  // Get all peripheral blocks for a record
+  app.get('/api/anesthesia/:recordId/peripheral-blocks', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId } = req.params;
+      const userId = req.user.id;
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) return res.status(404).json({ message: "Surgery not found" });
+      const hospitals = await storage.getUserHospitals(userId);
+      if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
+      const blocks = await storage.getPeripheralBlocks(recordId);
+      res.json(blocks);
+    } catch (error) {
+      console.error("Error fetching peripheral blocks:", error);
+      res.status(500).json({ message: "Failed to fetch peripheral blocks" });
+    }
+  });
+
+  // Create peripheral block
+  app.post('/api/anesthesia/:recordId/peripheral-blocks', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId } = req.params;
+      const validated = insertAnesthesiaPeripheralBlockSchema.parse({ ...req.body, anesthesiaRecordId: recordId });
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) return res.status(404).json({ message: "Surgery not found" });
+      const hospitals = await storage.getUserHospitals(req.user.id);
+      if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
+      const block = await storage.createPeripheralBlock(validated);
+      res.json(block);
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      console.error("Error creating peripheral block:", error);
+      res.status(500).json({ message: "Failed to create peripheral block" });
+    }
+  });
+
+  // Update peripheral block
+  app.patch('/api/anesthesia/:recordId/peripheral-blocks/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId, id } = req.params;
+      const userId = req.user.id;
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) return res.status(404).json({ message: "Surgery not found" });
+      const hospitals = await storage.getUserHospitals(userId);
+      if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
+      const block = await storage.updatePeripheralBlock(id, req.body);
+      res.json(block);
+    } catch (error) {
+      console.error("Error updating peripheral block:", error);
+      res.status(500).json({ message: "Failed to update peripheral block" });
+    }
+  });
+
+  // Delete peripheral block
+  app.delete('/api/anesthesia/:recordId/peripheral-blocks/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId, id } = req.params;
+      const userId = req.user.id;
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) return res.status(404).json({ message: "Surgery not found" });
+      const hospitals = await storage.getUserHospitals(userId);
+      if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
+      await storage.deletePeripheralBlock(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting peripheral block:", error);
+      res.status(500).json({ message: "Failed to delete peripheral block" });
     }
   });
 
