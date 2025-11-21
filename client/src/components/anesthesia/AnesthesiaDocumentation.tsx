@@ -987,6 +987,11 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
   const createMutation = useCreateNeuraxialBlock(anesthesiaRecordId);
   const deleteMutation = useDeleteNeuraxialBlock(anesthesiaRecordId);
 
+  // Debug: Log blocks data
+  useEffect(() => {
+    console.log('[NEURAXIAL] Blocks data changed:', { blocks, count: blocks.length });
+  }, [blocks]);
+
   // Maintain local state for each block to avoid stale data
   const [localBlockState, setLocalBlockState] = useState<Record<string, any>>({});
 
@@ -1265,6 +1270,11 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
   const { data: blocks = [], isLoading } = usePeripheralBlocks(anesthesiaRecordId);
   const createMutation = useCreatePeripheralBlock(anesthesiaRecordId);
   const deleteMutation = useDeletePeripheralBlock(anesthesiaRecordId);
+
+  // Debug: Log blocks data
+  useEffect(() => {
+    console.log('[PERIPHERAL] Blocks data changed:', { blocks, count: blocks.length });
+  }, [blocks]);
 
   // Maintain local state for each block to avoid stale data
   const [localPeripheralState, setLocalPeripheralState] = useState<Record<string, any>>({});

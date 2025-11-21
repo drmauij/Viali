@@ -7278,6 +7278,7 @@ If unable to parse any drugs, return:
       const hospitals = await storage.getUserHospitals(userId);
       if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
       const blocks = await storage.getNeuraxialBlocks(recordId);
+      console.log('[NEURAXIAL-GET] Fetched blocks:', { recordId, count: blocks.length, blocks });
       res.json(blocks);
     } catch (error) {
       console.error("Error fetching neuraxial blocks:", error);
@@ -7359,6 +7360,7 @@ If unable to parse any drugs, return:
       const hospitals = await storage.getUserHospitals(userId);
       if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
       const blocks = await storage.getPeripheralBlocks(recordId);
+      console.log('[PERIPHERAL-GET] Fetched blocks:', { recordId, count: blocks.length, blocks });
       res.json(blocks);
     } catch (error) {
       console.error("Error fetching peripheral blocks:", error);
