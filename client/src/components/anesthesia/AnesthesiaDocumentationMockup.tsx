@@ -292,7 +292,6 @@ export function InstallationsSectionMockup({ anesthesiaRecordId }: MockupSection
 // GENERAL ANESTHESIA SECTION
 // ============================================================================
 export function GeneralAnesthesiaSectionMockup({ anesthesiaRecordId }: MockupSectionProps) {
-  const [hasAirway, setHasAirway] = useState(false);
   const [isDifficultAirway, setIsDifficultAirway] = useState(false);
   const [maintenanceType, setMaintenanceType] = useState<string>("");
 
@@ -345,60 +344,39 @@ export function GeneralAnesthesiaSectionMockup({ anesthesiaRecordId }: MockupSec
 
       {/* Airway Management */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <Label className="text-base font-semibold">Airway Management</Label>
-          {!hasAirway && (
-            <Button variant="outline" size="sm" onClick={() => setHasAirway(true)} data-testid="button-add-airway">
-              <Plus className="h-4 w-4 mr-1" />
-              Add
-            </Button>
-          )}
-        </div>
-
-        {hasAirway ? (
-          <div className="border rounded-lg p-4 space-y-3 bg-blue-50/50 dark:bg-blue-950/20">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Airway Device</span>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setHasAirway(false)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Device</Label>
-                <select className="w-full border rounded-md p-2 bg-background" data-testid="select-airway-device">
-                  <option value="">Select device</option>
-                  <option value="ett">Endotracheal Tube</option>
-                  <option value="lma">Laryngeal Mask Airway</option>
-                  <option value="facemask">Face Mask</option>
-                  <option value="tracheostomy">Tracheostomy</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label>Size</Label>
-                <Input type="text" placeholder="e.g., 7.5" data-testid="input-airway-size" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Depth (cm at teeth)</Label>
-                <Input type="number" placeholder="22" data-testid="input-airway-depth" />
-              </div>
-              <div className="space-y-2">
-                <Label>Cuff Pressure (cmH₂O)</Label>
-                <Input type="number" placeholder="20" data-testid="input-airway-cuff" />
-              </div>
+        <Label className="text-base font-semibold">Airway Management</Label>
+        <div className="border rounded-lg p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Device</Label>
+              <select className="w-full border rounded-md p-2 bg-background" data-testid="select-airway-device">
+                <option value="">Select device</option>
+                <option value="ett">Endotracheal Tube</option>
+                <option value="lma">Laryngeal Mask Airway</option>
+                <option value="facemask">Face Mask</option>
+                <option value="tracheostomy">Tracheostomy</option>
+              </select>
             </div>
             <div className="space-y-2">
-              <Label>Notes</Label>
-              <Textarea rows={2} placeholder="Additional notes..." data-testid="textarea-airway-notes" />
+              <Label>Size</Label>
+              <Input type="text" placeholder="e.g., 7.5" data-testid="input-airway-size" />
             </div>
           </div>
-        ) : (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            No airway device documented. Click "Add" to document airway management.
-          </p>
-        )}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Depth (cm at teeth)</Label>
+              <Input type="number" placeholder="22" data-testid="input-airway-depth" />
+            </div>
+            <div className="space-y-2">
+              <Label>Cuff Pressure (cmH₂O)</Label>
+              <Input type="number" placeholder="20" data-testid="input-airway-cuff" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Notes</Label>
+            <Textarea rows={2} placeholder="Additional notes..." data-testid="textarea-airway-notes" />
+          </div>
+        </div>
       </div>
 
       {/* Intubation Technique */}
