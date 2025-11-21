@@ -8,11 +8,6 @@ import {
   NeuraxialAnesthesiaSection,
   PeripheralBlocksSection
 } from "@/components/anesthesia/AnesthesiaDocumentation";
-import {
-  useUpdateSignInChecklist,
-  useUpdateTimeOutChecklist,
-  useUpdateSignOutChecklist
-} from "@/lib/anesthesiaDocumentation";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -163,9 +158,30 @@ export default function Op() {
   });
 
   // Checklist mutations
-  const updateSignIn = useUpdateSignInChecklist(anesthesiaRecord?.id || "", surgeryId || "");
-  const updateTimeOut = useUpdateTimeOutChecklist(anesthesiaRecord?.id || "", surgeryId || "");
-  const updateSignOut = useUpdateSignOutChecklist(anesthesiaRecord?.id || "", surgeryId || "");
+  // Auto-save mutations for WHO Checklists
+  const signInAutoSave = useAutoSaveMutation({
+    mutationFn: async (data: { checklist: Record<string, boolean>; notes: string; signature: string }) => {
+      if (!anesthesiaRecord?.id) throw new Error("No anesthesia record");
+      return apiRequest('PATCH', `/api/anesthesia/records/${anesthesiaRecord.id}/signin`, data);
+    },
+    queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
+  });
+
+  const timeOutAutoSave = useAutoSaveMutation({
+    mutationFn: async (data: { checklist: Record<string, boolean>; notes: string; signature: string }) => {
+      if (!anesthesiaRecord?.id) throw new Error("No anesthesia record");
+      return apiRequest('PATCH', `/api/anesthesia/records/${anesthesiaRecord.id}/timeout`, data);
+    },
+    queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
+  });
+
+  const signOutAutoSave = useAutoSaveMutation({
+    mutationFn: async (data: { checklist: Record<string, boolean>; notes: string; signature: string }) => {
+      if (!anesthesiaRecord?.id) throw new Error("No anesthesia record");
+      return apiRequest('PATCH', `/api/anesthesia/records/${anesthesiaRecord.id}/signout`, data);
+    },
+    queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
+  });
 
   // Fetch vitals snapshots (requires recordId)
   const { data: vitalsData = [], isLoading: isVitalsLoading } = useQuery({
@@ -534,90 +550,6 @@ export default function Op() {
     }));
   };
 
-  // Checklist save handlers
-  const handleSaveSignIn = async () => {
-    if (!anesthesiaRecord?.id) {
-      toast({
-        title: "Error",
-        description: "Anesthesia record not available",
-        variant: "destructive",
-      });
-      return;
-    }
-    try {
-      await updateSignIn.mutateAsync({
-        checklist: signInChecklist,
-        notes: signInNotes,
-        signature: signInSignature,
-      });
-      toast({
-        title: "Success",
-        description: "Sign In checklist saved successfully",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save Sign In checklist",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleSaveTimeOut = async () => {
-    if (!anesthesiaRecord?.id) {
-      toast({
-        title: "Error",
-        description: "Anesthesia record not available",
-        variant: "destructive",
-      });
-      return;
-    }
-    try {
-      await updateTimeOut.mutateAsync({
-        checklist: timeOutChecklist,
-        notes: timeOutNotes,
-        signature: timeOutSignature,
-      });
-      toast({
-        title: "Success",
-        description: "Time Out checklist saved successfully",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save Time Out checklist",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleSaveSignOut = async () => {
-    if (!anesthesiaRecord?.id) {
-      toast({
-        title: "Error",
-        description: "Anesthesia record not available",
-        variant: "destructive",
-      });
-      return;
-    }
-    try {
-      await updateSignOut.mutateAsync({
-        checklist: signOutChecklist,
-        notes: signOutNotes,
-        signature: signOutSignature,
-      });
-      toast({
-        title: "Success",
-        description: "Sign Out checklist saved successfully",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to save Sign Out checklist",
-        variant: "destructive",
-      });
-    }
-  };
 
   // Handle dialog close and navigation
   const handleDialogChange = (open: boolean) => {
@@ -992,11 +924,21 @@ export default function Op() {
             <div className="space-y-4">
               {/* Sign In */}
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <ClipboardList className="h-5 w-5" />
                     Sign In (Before Induction)
                   </CardTitle>
+                  {signInAutoSave.status !== 'idle' && (
+                    <Badge variant={
+                      signInAutoSave.status === 'saving' ? 'secondary' :
+                      signInAutoSave.status === 'saved' ? 'default' : 'destructive'
+                    } data-testid="badge-signin-status">
+                      {signInAutoSave.status === 'saving' && 'Saving...'}
+                      {signInAutoSave.status === 'saved' && 'Saved'}
+                      {signInAutoSave.status === 'error' && 'Error saving'}
+                    </Badge>
+                  )}
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {anesthesiaSettings?.checklistItems?.signIn && anesthesiaSettings.checklistItems.signIn.length > 0 ? (
@@ -1010,10 +952,16 @@ export default function Op() {
                               id={`signin-${index}`}
                               checked={isChecked}
                               onCheckedChange={(checked) => {
-                                setSignInChecklist(prev => ({
-                                  ...prev,
+                                const nextChecklist = {
+                                  ...signInChecklist,
                                   [itemKey]: checked === true
-                                }));
+                                };
+                                setSignInChecklist(nextChecklist);
+                                signInAutoSave.mutate({
+                                  checklist: nextChecklist,
+                                  notes: signInNotes,
+                                  signature: signInSignature,
+                                });
                               }}
                               data-testid={`checkbox-signin-${index}`}
                             />
@@ -1032,7 +980,15 @@ export default function Op() {
                           id="signin-notes"
                           placeholder="Add any additional notes or observations..."
                           value={signInNotes}
-                          onChange={(e) => setSignInNotes(e.target.value)}
+                          onChange={(e) => {
+                            const nextNotes = e.target.value;
+                            setSignInNotes(nextNotes);
+                            signInAutoSave.mutate({
+                              checklist: signInChecklist,
+                              notes: nextNotes,
+                              signature: signInSignature,
+                            });
+                          }}
                           rows={3}
                           data-testid="textarea-signin-notes"
                         />
@@ -1041,26 +997,16 @@ export default function Op() {
                         <Label htmlFor="signin-signature">Signature</Label>
                         <SignatureCanvas
                           value={signInSignature}
-                          onChange={setSignInSignature}
+                          onChange={(signature) => {
+                            setSignInSignature(signature);
+                            signInAutoSave.mutate({
+                              checklist: signInChecklist,
+                              notes: signInNotes,
+                              signature: signature,
+                            });
+                          }}
                           className="border border-input rounded-md"
                         />
-                      </div>
-                      <div className="pt-4">
-                        <Button 
-                          onClick={handleSaveSignIn} 
-                          disabled={updateSignIn.isPending || !anesthesiaRecord?.id}
-                          className="w-full"
-                          data-testid="button-save-signin"
-                        >
-                          {updateSignIn.isPending ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Saving...
-                            </>
-                          ) : (
-                            "Save Sign In"
-                          )}
-                        </Button>
                       </div>
                     </>
                   ) : (
@@ -1071,11 +1017,21 @@ export default function Op() {
 
               {/* Time Out */}
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <Clock className="h-5 w-5" />
                     Time Out (Before Incision)
                   </CardTitle>
+                  {timeOutAutoSave.status !== 'idle' && (
+                    <Badge variant={
+                      timeOutAutoSave.status === 'saving' ? 'secondary' :
+                      timeOutAutoSave.status === 'saved' ? 'default' : 'destructive'
+                    } data-testid="badge-timeout-status">
+                      {timeOutAutoSave.status === 'saving' && 'Saving...'}
+                      {timeOutAutoSave.status === 'saved' && 'Saved'}
+                      {timeOutAutoSave.status === 'error' && 'Error saving'}
+                    </Badge>
+                  )}
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {anesthesiaSettings?.checklistItems?.timeOut && anesthesiaSettings.checklistItems.timeOut.length > 0 ? (
@@ -1089,10 +1045,16 @@ export default function Op() {
                               id={`timeout-${index}`}
                               checked={isChecked}
                               onCheckedChange={(checked) => {
-                                setTimeOutChecklist(prev => ({
-                                  ...prev,
+                                const nextChecklist = {
+                                  ...timeOutChecklist,
                                   [itemKey]: checked === true
-                                }));
+                                };
+                                setTimeOutChecklist(nextChecklist);
+                                timeOutAutoSave.mutate({
+                                  checklist: nextChecklist,
+                                  notes: timeOutNotes,
+                                  signature: timeOutSignature,
+                                });
                               }}
                               data-testid={`checkbox-timeout-${index}`}
                             />
@@ -1111,7 +1073,15 @@ export default function Op() {
                           id="timeout-notes"
                           placeholder="Add any additional notes or observations..."
                           value={timeOutNotes}
-                          onChange={(e) => setTimeOutNotes(e.target.value)}
+                          onChange={(e) => {
+                            const nextNotes = e.target.value;
+                            setTimeOutNotes(nextNotes);
+                            timeOutAutoSave.mutate({
+                              checklist: timeOutChecklist,
+                              notes: nextNotes,
+                              signature: timeOutSignature,
+                            });
+                          }}
                           rows={3}
                           data-testid="textarea-timeout-notes"
                         />
@@ -1120,26 +1090,16 @@ export default function Op() {
                         <Label htmlFor="timeout-signature">Signature</Label>
                         <SignatureCanvas
                           value={timeOutSignature}
-                          onChange={setTimeOutSignature}
+                          onChange={(signature) => {
+                            setTimeOutSignature(signature);
+                            timeOutAutoSave.mutate({
+                              checklist: timeOutChecklist,
+                              notes: timeOutNotes,
+                              signature: signature,
+                            });
+                          }}
                           className="border border-input rounded-md"
                         />
-                      </div>
-                      <div className="pt-4">
-                        <Button 
-                          onClick={handleSaveTimeOut} 
-                          disabled={updateTimeOut.isPending || !anesthesiaRecord?.id}
-                          className="w-full"
-                          data-testid="button-save-timeout"
-                        >
-                          {updateTimeOut.isPending ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Saving...
-                            </>
-                          ) : (
-                            "Save Time Out"
-                          )}
-                        </Button>
                       </div>
                     </>
                   ) : (
@@ -1150,11 +1110,21 @@ export default function Op() {
 
               {/* Sign Out */}
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <FileCheck className="h-5 w-5" />
                     Sign Out (Before Patient Leaves OR)
                   </CardTitle>
+                  {signOutAutoSave.status !== 'idle' && (
+                    <Badge variant={
+                      signOutAutoSave.status === 'saving' ? 'secondary' :
+                      signOutAutoSave.status === 'saved' ? 'default' : 'destructive'
+                    } data-testid="badge-signout-status">
+                      {signOutAutoSave.status === 'saving' && 'Saving...'}
+                      {signOutAutoSave.status === 'saved' && 'Saved'}
+                      {signOutAutoSave.status === 'error' && 'Error saving'}
+                    </Badge>
+                  )}
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {anesthesiaSettings?.checklistItems?.signOut && anesthesiaSettings.checklistItems.signOut.length > 0 ? (
@@ -1168,10 +1138,16 @@ export default function Op() {
                               id={`signout-${index}`}
                               checked={isChecked}
                               onCheckedChange={(checked) => {
-                                setSignOutChecklist(prev => ({
-                                  ...prev,
+                                const nextChecklist = {
+                                  ...signOutChecklist,
                                   [itemKey]: checked === true
-                                }));
+                                };
+                                setSignOutChecklist(nextChecklist);
+                                signOutAutoSave.mutate({
+                                  checklist: nextChecklist,
+                                  notes: signOutNotes,
+                                  signature: signOutSignature,
+                                });
                               }}
                               data-testid={`checkbox-signout-${index}`}
                             />
@@ -1190,7 +1166,15 @@ export default function Op() {
                           id="signout-notes"
                           placeholder="Add any additional notes or observations..."
                           value={signOutNotes}
-                          onChange={(e) => setSignOutNotes(e.target.value)}
+                          onChange={(e) => {
+                            const nextNotes = e.target.value;
+                            setSignOutNotes(nextNotes);
+                            signOutAutoSave.mutate({
+                              checklist: signOutChecklist,
+                              notes: nextNotes,
+                              signature: signOutSignature,
+                            });
+                          }}
                           rows={3}
                           data-testid="textarea-signout-notes"
                         />
@@ -1199,26 +1183,16 @@ export default function Op() {
                         <Label htmlFor="signout-signature">Signature</Label>
                         <SignatureCanvas
                           value={signOutSignature}
-                          onChange={setSignOutSignature}
+                          onChange={(signature) => {
+                            setSignOutSignature(signature);
+                            signOutAutoSave.mutate({
+                              checklist: signOutChecklist,
+                              notes: signOutNotes,
+                              signature: signature,
+                            });
+                          }}
                           className="border border-input rounded-md"
                         />
-                      </div>
-                      <div className="pt-4">
-                        <Button 
-                          onClick={handleSaveSignOut} 
-                          disabled={updateSignOut.isPending || !anesthesiaRecord?.id}
-                          className="w-full"
-                          data-testid="button-save-signout"
-                        >
-                          {updateSignOut.isPending ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Saving...
-                            </>
-                          ) : (
-                            "Save Sign Out"
-                          )}
-                        </Button>
                       </div>
                     </>
                   ) : (
