@@ -8,6 +8,8 @@ import { Plus, X, Download, Printer, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useAutoSaveMutation } from "@/hooks/useAutoSaveMutation";
+import { apiRequest } from "@/lib/queryClient";
 import {
   useInstallations,
   useCreateInstallation,
@@ -548,8 +550,21 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
   const { toast } = useToast();
   const { data: generalTechnique, isLoading: isLoadingGeneral } = useGeneralTechnique(anesthesiaRecordId);
   const { data: airwayManagement, isLoading: isLoadingAirway } = useAirwayManagement(anesthesiaRecordId);
-  const upsertGeneralMutation = useUpsertGeneralTechnique(anesthesiaRecordId);
-  const upsertAirwayMutation = useUpsertAirwayManagement(anesthesiaRecordId);
+  
+  // Auto-save mutations
+  const generalAutoSave = useAutoSaveMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest('POST', `/api/anesthesia/general/${anesthesiaRecordId}`, data);
+    },
+    queryKey: [`/api/anesthesia/general/${anesthesiaRecordId}`],
+  });
+
+  const airwayAutoSave = useAutoSaveMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest('POST', `/api/anesthesia/airway/${anesthesiaRecordId}`, data);
+    },
+    queryKey: [`/api/anesthesia/airway/${anesthesiaRecordId}`],
+  });
 
   const [approach, setApproach] = useState<string>("");
   const [rsi, setRsi] = useState(false);
@@ -578,46 +593,6 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
     }
   }, [airwayManagement]);
 
-  const handleSaveGeneral = () => {
-    upsertGeneralMutation.mutate(
-      {
-        approach: approach as "tiva" | "tci" | "balanced-gas" | "sedation" | null,
-        rsi,
-        sedationLevel: null,
-        airwaySupport: null,
-        notes: null,
-      },
-      {
-        onSuccess: () => {
-          toast({ title: "General technique saved" });
-        },
-        onError: () => {
-          toast({ title: "Error", description: "Failed to save general technique", variant: "destructive" });
-        },
-      }
-    );
-  };
-
-  const handleSaveAirway = () => {
-    upsertAirwayMutation.mutate(
-      {
-        airwayDevice: airwayDevice || null,
-        size: size || null,
-        depth: depth ? parseInt(depth) : null,
-        cuffPressure: cuffPressure ? parseInt(cuffPressure) : null,
-        intubationPreExisting,
-        notes: airwayNotes || null,
-      },
-      {
-        onSuccess: () => {
-          toast({ title: "Airway management saved" });
-        },
-        onError: () => {
-          toast({ title: "Error", description: "Failed to save airway management", variant: "destructive" });
-        },
-      }
-    );
-  };
 
   if (isLoadingGeneral || isLoadingAirway) {
     return (
@@ -638,7 +613,17 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
               name="maintenance-type"
               value="tiva"
               checked={approach === "tiva"}
-              onChange={(e) => setApproach(e.target.value)}
+              onChange={(e) => {
+                const nextApproach = e.target.value;
+                setApproach(nextApproach);
+                generalAutoSave.mutate({
+                  approach: nextApproach as "tiva" | "tci" | "balanced-gas" | "sedation" | null,
+                  rsi,
+                  sedationLevel: null,
+                  airwaySupport: null,
+                  notes: null,
+                });
+              }}
               className="h-4 w-4"
               data-testid="radio-maintenance-tiva"
             />
@@ -650,7 +635,17 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
               name="maintenance-type"
               value="tci"
               checked={approach === "tci"}
-              onChange={(e) => setApproach(e.target.value)}
+              onChange={(e) => {
+                const nextApproach = e.target.value;
+                setApproach(nextApproach);
+                generalAutoSave.mutate({
+                  approach: nextApproach as "tiva" | "tci" | "balanced-gas" | "sedation" | null,
+                  rsi,
+                  sedationLevel: null,
+                  airwaySupport: null,
+                  notes: null,
+                });
+              }}
               className="h-4 w-4"
               data-testid="radio-maintenance-tci"
             />
@@ -662,7 +657,17 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
               name="maintenance-type"
               value="balanced-gas"
               checked={approach === "balanced-gas"}
-              onChange={(e) => setApproach(e.target.value)}
+              onChange={(e) => {
+                const nextApproach = e.target.value;
+                setApproach(nextApproach);
+                generalAutoSave.mutate({
+                  approach: nextApproach as "tiva" | "tci" | "balanced-gas" | "sedation" | null,
+                  rsi,
+                  sedationLevel: null,
+                  airwaySupport: null,
+                  notes: null,
+                });
+              }}
               className="h-4 w-4"
               data-testid="radio-maintenance-balanced-gas"
             />
@@ -674,7 +679,17 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
               name="maintenance-type"
               value="sedation"
               checked={approach === "sedation"}
-              onChange={(e) => setApproach(e.target.value)}
+              onChange={(e) => {
+                const nextApproach = e.target.value;
+                setApproach(nextApproach);
+                generalAutoSave.mutate({
+                  approach: nextApproach as "tiva" | "tci" | "balanced-gas" | "sedation" | null,
+                  rsi,
+                  sedationLevel: null,
+                  airwaySupport: null,
+                  notes: null,
+                });
+              }}
               className="h-4 w-4"
               data-testid="radio-maintenance-sedation"
             />
@@ -685,16 +700,22 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
           <input
             type="checkbox"
             checked={rsi}
-            onChange={(e) => setRsi(e.target.checked)}
+            onChange={(e) => {
+              const nextRsi = e.target.checked;
+              setRsi(nextRsi);
+              generalAutoSave.mutate({
+                approach: approach as "tiva" | "tci" | "balanced-gas" | "sedation" | null,
+                rsi: nextRsi,
+                sedationLevel: null,
+                airwaySupport: null,
+                notes: null,
+              });
+            }}
             className="h-4 w-4"
             data-testid="checkbox-rsi"
           />
           <span className="font-medium">RSI (Rapid Sequence Intubation)</span>
         </label>
-        <Button onClick={handleSaveGeneral} disabled={upsertGeneralMutation.isPending} size="sm">
-          {upsertGeneralMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-          Save General Technique
-        </Button>
       </div>
 
       {/* Airway Management */}
@@ -707,7 +728,18 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
               <select
                 className="w-full border rounded-md p-2 bg-background"
                 value={airwayDevice}
-                onChange={(e) => setAirwayDevice(e.target.value)}
+                onChange={(e) => {
+                  const nextDevice = e.target.value;
+                  setAirwayDevice(nextDevice);
+                  airwayAutoSave.mutate({
+                    airwayDevice: nextDevice || null,
+                    size: size || null,
+                    depth: depth ? parseInt(depth) : null,
+                    cuffPressure: cuffPressure ? parseInt(cuffPressure) : null,
+                    intubationPreExisting,
+                    notes: airwayNotes || null,
+                  });
+                }}
                 data-testid="select-airway-device"
               >
                 <option value="">Select device</option>
@@ -728,7 +760,18 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                 type="text"
                 placeholder="e.g., 7.5"
                 value={size}
-                onChange={(e) => setSize(e.target.value)}
+                onChange={(e) => {
+                  const nextSize = e.target.value;
+                  setSize(nextSize);
+                  airwayAutoSave.mutate({
+                    airwayDevice: airwayDevice || null,
+                    size: nextSize || null,
+                    depth: depth ? parseInt(depth) : null,
+                    cuffPressure: cuffPressure ? parseInt(cuffPressure) : null,
+                    intubationPreExisting,
+                    notes: airwayNotes || null,
+                  });
+                }}
                 data-testid="input-airway-size"
               />
             </div>
@@ -740,7 +783,18 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                 type="number"
                 placeholder="22"
                 value={depth}
-                onChange={(e) => setDepth(e.target.value)}
+                onChange={(e) => {
+                  const nextDepth = e.target.value;
+                  setDepth(nextDepth);
+                  airwayAutoSave.mutate({
+                    airwayDevice: airwayDevice || null,
+                    size: size || null,
+                    depth: nextDepth ? parseInt(nextDepth) : null,
+                    cuffPressure: cuffPressure ? parseInt(cuffPressure) : null,
+                    intubationPreExisting,
+                    notes: airwayNotes || null,
+                  });
+                }}
                 data-testid="input-airway-depth"
               />
             </div>
@@ -750,7 +804,18 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                 type="number"
                 placeholder="20"
                 value={cuffPressure}
-                onChange={(e) => setCuffPressure(e.target.value)}
+                onChange={(e) => {
+                  const nextCuffPressure = e.target.value;
+                  setCuffPressure(nextCuffPressure);
+                  airwayAutoSave.mutate({
+                    airwayDevice: airwayDevice || null,
+                    size: size || null,
+                    depth: depth ? parseInt(depth) : null,
+                    cuffPressure: nextCuffPressure ? parseInt(nextCuffPressure) : null,
+                    intubationPreExisting,
+                    notes: airwayNotes || null,
+                  });
+                }}
                 data-testid="input-airway-cuff"
               />
             </div>
@@ -759,7 +824,18 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
             <input
               type="checkbox"
               checked={intubationPreExisting}
-              onChange={(e) => setIntubationPreExisting(e.target.checked)}
+              onChange={(e) => {
+                const nextPreExisting = e.target.checked;
+                setIntubationPreExisting(nextPreExisting);
+                airwayAutoSave.mutate({
+                  airwayDevice: airwayDevice || null,
+                  size: size || null,
+                  depth: depth ? parseInt(depth) : null,
+                  cuffPressure: cuffPressure ? parseInt(cuffPressure) : null,
+                  intubationPreExisting: nextPreExisting,
+                  notes: airwayNotes || null,
+                });
+              }}
               className="h-4 w-4"
               data-testid="checkbox-preexisting-intubation"
             />
@@ -771,14 +847,21 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
               rows={2}
               placeholder="Additional notes..."
               value={airwayNotes}
-              onChange={(e) => setAirwayNotes(e.target.value)}
+              onChange={(e) => {
+                const nextNotes = e.target.value;
+                setAirwayNotes(nextNotes);
+                airwayAutoSave.mutate({
+                  airwayDevice: airwayDevice || null,
+                  size: size || null,
+                  depth: depth ? parseInt(depth) : null,
+                  cuffPressure: cuffPressure ? parseInt(cuffPressure) : null,
+                  intubationPreExisting,
+                  notes: nextNotes || null,
+                });
+              }}
               data-testid="textarea-airway-notes"
             />
           </div>
-          <Button onClick={handleSaveAirway} disabled={upsertAirwayMutation.isPending} size="sm">
-            {upsertAirwayMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Save Airway Management
-          </Button>
         </div>
       </div>
     </CardContent>
