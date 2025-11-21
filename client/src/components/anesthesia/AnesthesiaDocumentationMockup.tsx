@@ -784,6 +784,14 @@ export function NeuraxialSectionMockup({ anesthesiaRecordId }: MockupSectionProp
                     <Input placeholder="e.g., T8" data-testid="input-epidural-sensory" />
                   </div>
                 </div>
+                <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
+                  <input 
+                    type="checkbox" 
+                    className="h-4 w-4"
+                    data-testid="checkbox-epidural-catheter-present"
+                  />
+                  <span className="text-sm font-medium">Indwelling Catheter Already in Place</span>
+                </label>
                 <div className="space-y-2">
                   <Label>Notes</Label>
                   <Textarea rows={3} placeholder="Additional notes..." data-testid="textarea-epidural-notes" />
@@ -828,6 +836,14 @@ export function NeuraxialSectionMockup({ anesthesiaRecordId }: MockupSectionProp
                     <Input placeholder="e.g., T6" data-testid="input-cse-sensory" />
                   </div>
                 </div>
+                <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
+                  <input 
+                    type="checkbox" 
+                    className="h-4 w-4"
+                    data-testid="checkbox-cse-catheter-present"
+                  />
+                  <span className="text-sm font-medium">Indwelling Catheter Already in Place</span>
+                </label>
                 <div className="space-y-2">
                   <Label>Notes</Label>
                   <Textarea rows={3} placeholder="Additional notes..." data-testid="textarea-cse-notes" />
@@ -884,55 +900,6 @@ export function NeuraxialSectionMockup({ anesthesiaRecordId }: MockupSectionProp
           </Card>
         </AccordionItem>
 
-        {/* Zusatz: Indwelling Catheter */}
-        <AccordionItem value="indwelling-catheter">
-          <Card>
-            <AccordionTrigger className="px-4 py-3 hover:no-underline" data-testid="accordion-indwelling-catheter">
-              <span className="text-base font-semibold">Indwelling Catheter</span>
-            </AccordionTrigger>
-            <AccordionContent>
-              <CardContent className="space-y-4 pt-0">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Type</Label>
-                    <select className="w-full border rounded-md p-2 bg-background" data-testid="select-catheter-type">
-                      <option value="">Select type</option>
-                      <option value="epidural">Epidural</option>
-                      <option value="subarachnoid">Subarachnoid</option>
-                      <option value="peripheral">Peripheral</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Catheter Size (Fr)</Label>
-                    <Input placeholder="e.g., 19" data-testid="input-catheter-size" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Depth at Skin (cm)</Label>
-                    <Input placeholder="e.g., 12" data-testid="input-catheter-depth-skin" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Threading Resistance</Label>
-                    <select className="w-full border rounded-md p-2 bg-background" data-testid="select-threading-resistance">
-                      <option value="">Select resistance</option>
-                      <option value="easy">Easy</option>
-                      <option value="moderate">Moderate</option>
-                      <option value="difficult">Difficult</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Notes</Label>
-                  <Textarea rows={3} placeholder="Additional notes..." data-testid="textarea-catheter-notes" />
-                </div>
-                <div className="flex justify-end pt-4">
-                  <Button data-testid="button-save-catheter">Save Details</Button>
-                </div>
-              </CardContent>
-            </AccordionContent>
-          </Card>
-        </AccordionItem>
       </Accordion>
     </CardContent>
   );
