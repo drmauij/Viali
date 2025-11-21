@@ -8,6 +8,7 @@ import {
   NeuraxialAnesthesiaSection,
   PeripheralBlocksSection
 } from "@/components/anesthesia/AnesthesiaDocumentation";
+import { InventoryUsageTab } from "@/components/anesthesia/InventoryUsageTab";
 import {
   useInstallations,
   useGeneralTechnique,
@@ -906,90 +907,7 @@ export default function Op() {
 
           {/* Inventory Tab */}
           <TabsContent value="inventory" className="flex-1 overflow-y-auto px-6 pb-6 mt-0" data-testid="tab-content-inventory">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Medication & Supply Usage</h3>
-                <Badge variant="outline" className="text-xs">
-                  Auto-tracked from timeline
-                </Badge>
-              </div>
-
-              {Object.keys(groupedItems).length === 0 ? (
-                <Card>
-                  <CardContent className="py-12 text-center">
-                    <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                    <p className="text-muted-foreground">No inventory items available</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Accordion type="multiple" className="space-y-2 w-full" defaultValue={foldersWithUsedItems}>
-                  {Object.keys(groupedItems).map((folderId) => (
-                    <AccordionItem key={folderId} value={folderId}>
-                      <Card>
-                        <AccordionTrigger className="px-4 py-3 hover:no-underline" data-testid={`accordion-folder-${folderId}`}>
-                          <div className="flex items-center gap-2">
-                            <Folder className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">{getFolderName(folderId)}</span>
-                            <Badge variant="secondary" className="ml-2 text-xs">
-                              {groupedItems[folderId].length}
-                            </Badge>
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent>
-                          <CardContent className="pt-0 space-y-2">
-                            {groupedItems[folderId].map((item: any) => {
-                              const isUsed = (inventoryQuantities[item.id] || 0) > 0;
-                              return <div
-                                key={item.id}
-                                className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
-                                  isUsed 
-                                    ? 'bg-amber-500/20 hover:bg-amber-500/30 dark:bg-amber-400/25 dark:hover:bg-amber-400/35' 
-                                    : 'bg-muted/50 hover:bg-muted'
-                                }`}
-                                data-testid={`inventory-item-${item.id}`}
-                              >
-                                <div className="flex-1">
-                                  <p className="font-medium text-sm">{item.name}</p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 w-8 p-0"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleQuantityChange(item.id, -1);
-                                    }}
-                                    data-testid={`button-decrease-${item.id}`}
-                                  >
-                                    <Minus className="h-4 w-4" />
-                                  </Button>
-                                  <span className="w-12 text-center font-semibold" data-testid={`quantity-${item.id}`}>
-                                    {inventoryQuantities[item.id] || 0}
-                                  </span>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 w-8 p-0"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleQuantityChange(item.id, 1);
-                                    }}
-                                    data-testid={`button-increase-${item.id}`}
-                                  >
-                                    <Plus className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            })}
-                          </CardContent>
-                        </AccordionContent>
-                      </Card>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              )}
-            </div>
+            <InventoryUsageTab anesthesiaRecordId={anesthesiaRecord?.id || ''} />
           </TabsContent>
 
           {/* Checklists Tab */}
