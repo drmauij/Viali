@@ -5309,6 +5309,52 @@ If unable to parse any drugs, return:
     }
   });
 
+  // Update Post-Operative Information data
+  app.patch('/api/anesthesia/records/:id/postop', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      const record = await storage.getAnesthesiaRecordById(id);
+      
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      // Verify user has access
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Cannot update closed or amended records
+      if (record.caseStatus === 'closed' || record.caseStatus === 'amended') {
+        return res.status(400).json({ message: "Cannot update closed or amended records. Use amend endpoint instead." });
+      }
+
+      // Validate request body
+      const validated = updatePostOpDataSchema.parse(req.body);
+
+      // Update post-op data (no audit trail needed for post-op info)
+      const updatedRecord = await storage.updateAnesthesiaRecord(id, { postOpData: validated });
+      
+      res.json(updatedRecord);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      console.error("Error updating post-op data:", error);
+      res.status(500).json({ message: "Failed to update post-op data" });
+    }
+  });
+
   // Close anesthesia record
   app.post('/api/anesthesia/records/:id/close', isAuthenticated, async (req: any, res) => {
     try {

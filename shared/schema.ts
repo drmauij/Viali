@@ -578,6 +578,15 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
     completedBy?: string;
   }>(),
   
+  // Post-Operative Information
+  postOpData: jsonb("post_op_data").$type<{
+    analgesiaPlan?: string;
+    monitoringPlan?: string;
+    paracetamolTime?: "Immediately" | "Contraindicated" | string; // HH:MM format for time value
+    nsarTime?: "Immediately" | "Contraindicated" | string;
+    novalginTime?: "Immediately" | "Contraindicated" | string;
+  }>(),
+  
   // Time markers (A1, E, X1, I, L, B1, O1, O2, B2, X2, X, A2, P)
   timeMarkers: jsonb("time_markers").$type<Array<{
     id: string;
@@ -1354,6 +1363,21 @@ export const checklistPhaseDataSchema = z.object({
 export const updateSignInDataSchema = checklistPhaseDataSchema;
 export const updateTimeOutDataSchema = checklistPhaseDataSchema;
 export const updateSignOutDataSchema = checklistPhaseDataSchema;
+
+// Post-Operative Information validation schema (client input)
+const medicationTimeSchema = z.union([
+  z.literal("Immediately"),
+  z.literal("Contraindicated"),
+  z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Must be HH:MM format"), // HH:MM time format
+]);
+
+export const updatePostOpDataSchema = z.object({
+  analgesiaPlan: z.string().optional(),
+  monitoringPlan: z.string().optional(),
+  paracetamolTime: medicationTimeSchema.optional(),
+  nsarTime: medicationTimeSchema.optional(),
+  novalginTime: medicationTimeSchema.optional(),
+});
 
 export const insertPreOpAssessmentSchema = createInsertSchema(preOpAssessments).omit({
   id: true,
