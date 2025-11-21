@@ -731,6 +731,13 @@ export const anesthesiaAirwayManagement = pgTable("anesthesia_airway_management"
   intubationPreExisting: boolean("intubation_pre_existing").default(false),
   notes: text("notes"),
   
+  // Laryngoscopy details (for intubated patients)
+  laryngoscopeType: varchar("laryngoscope_type"), // "macintosh", "miller", "mccoy", "video", "glidescope", "airtraq", etc.
+  laryngoscopeBlade: varchar("laryngoscope_blade"), // "1", "2", "3", "4", "5"
+  intubationAttempts: integer("intubation_attempts"), // Number of attempts
+  difficultAirway: boolean("difficult_airway").default(false), // Flag for difficult airway
+  cormackLehane: varchar("cormack_lehane"), // "I", "IIa", "IIb", "III", "IV" - view during laryngoscopy
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -1587,6 +1594,11 @@ export const insertAnesthesiaAirwayManagementSchema = createInsertSchema(anesthe
   cuffPressure: z.number().optional().nullable(),
   intubationPreExisting: z.boolean().optional(),
   notes: z.string().optional().nullable(),
+  laryngoscopeType: z.string().optional().nullable(),
+  laryngoscopeBlade: z.string().optional().nullable(),
+  intubationAttempts: z.number().optional().nullable(),
+  difficultAirway: z.boolean().optional(),
+  cormackLehane: z.string().optional().nullable(),
 }).omit({
   id: true,
   createdAt: true,

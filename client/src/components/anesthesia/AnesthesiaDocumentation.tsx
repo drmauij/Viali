@@ -622,6 +622,11 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
   const [cuffPressure, setCuffPressure] = useState("");
   const [intubationPreExisting, setIntubationPreExisting] = useState(false);
   const [airwayNotes, setAirwayNotes] = useState("");
+  const [laryngoscopeType, setLaryngoscopeType] = useState("");
+  const [laryngoscopeBlade, setLaryngoscopeBlade] = useState("");
+  const [intubationAttempts, setIntubationAttempts] = useState("");
+  const [difficultAirway, setDifficultAirway] = useState(false);
+  const [cormackLehane, setCormackLehane] = useState("");
 
   useEffect(() => {
     if (generalTechnique) {
@@ -638,9 +643,31 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
       setCuffPressure(airwayManagement.cuffPressure?.toString() || "");
       setIntubationPreExisting(airwayManagement.intubationPreExisting || false);
       setAirwayNotes(airwayManagement.notes || "");
+      setLaryngoscopeType(airwayManagement.laryngoscopeType || "");
+      setLaryngoscopeBlade(airwayManagement.laryngoscopeBlade || "");
+      setIntubationAttempts(airwayManagement.intubationAttempts?.toString() || "");
+      setDifficultAirway(airwayManagement.difficultAirway || false);
+      setCormackLehane(airwayManagement.cormackLehane || "");
     }
   }, [airwayManagement]);
 
+  // Helper to build airway save payload with optional overrides
+  const buildAirwaySavePayload = (overrides: any = {}) => ({
+    airwayDevice: overrides.airwayDevice !== undefined ? overrides.airwayDevice : (airwayDevice || null),
+    size: overrides.size !== undefined ? overrides.size : (size || null),
+    depth: overrides.depth !== undefined ? overrides.depth : (depth ? parseInt(depth) : null),
+    cuffPressure: overrides.cuffPressure !== undefined ? overrides.cuffPressure : (cuffPressure ? parseInt(cuffPressure) : null),
+    intubationPreExisting: overrides.intubationPreExisting !== undefined ? overrides.intubationPreExisting : intubationPreExisting,
+    notes: overrides.notes !== undefined ? overrides.notes : (airwayNotes || null),
+    laryngoscopeType: overrides.laryngoscopeType !== undefined ? overrides.laryngoscopeType : (laryngoscopeType || null),
+    laryngoscopeBlade: overrides.laryngoscopeBlade !== undefined ? overrides.laryngoscopeBlade : (laryngoscopeBlade || null),
+    intubationAttempts: overrides.intubationAttempts !== undefined ? overrides.intubationAttempts : (intubationAttempts ? parseInt(intubationAttempts) : null),
+    difficultAirway: overrides.difficultAirway !== undefined ? overrides.difficultAirway : difficultAirway,
+    cormackLehane: overrides.cormackLehane !== undefined ? overrides.cormackLehane : (cormackLehane || null),
+  });
+
+  // Check if device requires laryngoscopy documentation
+  const isIntubated = ['ett', 'spiral-tube', 'rae-tube', 'dlt-left', 'dlt-right'].includes(airwayDevice);
 
   if (isLoadingGeneral || isLoadingAirway) {
     return (
@@ -779,14 +806,7 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                 onChange={(e) => {
                   const nextDevice = e.target.value;
                   setAirwayDevice(nextDevice);
-                  airwayAutoSave.mutate({
-                    airwayDevice: nextDevice || null,
-                    size: size || null,
-                    depth: depth ? parseInt(depth) : null,
-                    cuffPressure: cuffPressure ? parseInt(cuffPressure) : null,
-                    intubationPreExisting,
-                    notes: airwayNotes || null,
-                  });
+                  airwayAutoSave.mutate(buildAirwaySavePayload({ airwayDevice: nextDevice || null }));
                 }}
                 data-testid="select-airway-device"
               >
@@ -922,6 +942,113 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
               </select>
             </div>
           </div>
+
+          {/* Laryngoscopy Documentation - Only for intubated patients */}
+          {isIntubated && (
+            <>
+              <div className="pt-3 border-t">
+                <Label className="text-sm font-semibold mb-3 block">Laryngoscopy Details</Label>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Laryngoscope Type</Label>
+                    <select
+                      className="w-full border rounded-md p-2 bg-background"
+                      value={laryngoscopeType}
+                      onChange={(e) => {
+                        const nextType = e.target.value;
+                        setLaryngoscopeType(nextType);
+                        airwayAutoSave.mutate(buildAirwaySavePayload({ laryngoscopeType: nextType || null }));
+                      }}
+                      data-testid="select-laryngoscope-type"
+                    >
+                      <option value="">Select type</option>
+                      <option value="macintosh">Macintosh (Curved)</option>
+                      <option value="miller">Miller (Straight)</option>
+                      <option value="mccoy">McCoy (Articulating)</option>
+                      <option value="video">Video Laryngoscope</option>
+                      <option value="glidescope">GlideScope</option>
+                      <option value="airtraq">Airtraq</option>
+                      <option value="cmac">C-MAC</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Blade Size</Label>
+                    <select
+                      className="w-full border rounded-md p-2 bg-background"
+                      value={laryngoscopeBlade}
+                      onChange={(e) => {
+                        const nextBlade = e.target.value;
+                        setLaryngoscopeBlade(nextBlade);
+                        airwayAutoSave.mutate(buildAirwaySavePayload({ laryngoscopeBlade: nextBlade || null }));
+                      }}
+                      data-testid="select-laryngoscope-blade"
+                    >
+                      <option value="">Select blade</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Intubation Attempts</Label>
+                    <select
+                      className="w-full border rounded-md p-2 bg-background"
+                      value={intubationAttempts}
+                      onChange={(e) => {
+                        const nextAttempts = e.target.value;
+                        setIntubationAttempts(nextAttempts);
+                        airwayAutoSave.mutate(buildAirwaySavePayload({ intubationAttempts: nextAttempts ? parseInt(nextAttempts) : null }));
+                      }}
+                      data-testid="select-intubation-attempts"
+                    >
+                      <option value="">Select</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4+</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Cormack-Lehane Grade</Label>
+                    <select
+                      className="w-full border rounded-md p-2 bg-background"
+                      value={cormackLehane}
+                      onChange={(e) => {
+                        const nextGrade = e.target.value;
+                        setCormackLehane(nextGrade);
+                        airwayAutoSave.mutate(buildAirwaySavePayload({ cormackLehane: nextGrade || null }));
+                      }}
+                      data-testid="select-cormack-lehane"
+                    >
+                      <option value="">Select grade</option>
+                      <option value="I">I - Full view of glottis</option>
+                      <option value="IIa">IIa - Partial view of glottis</option>
+                      <option value="IIb">IIb - Only arytenoids visible</option>
+                      <option value="III">III - Only epiglottis visible</option>
+                      <option value="IV">IV - No glottic structures visible</option>
+                    </select>
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50 mt-3">
+                  <input
+                    type="checkbox"
+                    checked={difficultAirway}
+                    onChange={(e) => {
+                      const nextDifficult = e.target.checked;
+                      setDifficultAirway(nextDifficult);
+                      airwayAutoSave.mutate(buildAirwaySavePayload({ difficultAirway: nextDifficult }));
+                    }}
+                    className="h-4 w-4"
+                    data-testid="checkbox-difficult-airway"
+                  />
+                  <span className="text-sm font-medium text-destructive">Difficult Airway</span>
+                </label>
+              </div>
+            </>
+          )}
+
           <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
             <input
               type="checkbox"
