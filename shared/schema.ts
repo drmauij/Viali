@@ -1058,15 +1058,21 @@ export const inventoryUsage = pgTable("inventory_usage", {
   anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: 'cascade' }),
   itemId: varchar("item_id").notNull().references(() => items.id),
   
-  quantityUsed: integer("quantity_used").notNull(),
-  autoComputed: boolean("auto_computed").default(true), // True if calculated from medication records
-  manualOverride: boolean("manual_override").default(false), // True if manually adjusted
+  // Auto-calculated quantity based on dose administration
+  calculatedQty: decimal("calculated_qty", { precision: 10, scale: 2 }).notNull().default('0'),
+  
+  // Manual override fields
+  overrideQty: decimal("override_qty", { precision: 10, scale: 2 }),
+  overrideReason: text("override_reason"),
+  overriddenBy: varchar("overridden_by").references(() => users.id),
+  overriddenAt: timestamp("overridden_at"),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_inventory_usage_record").on(table.anesthesiaRecordId),
   index("idx_inventory_usage_item").on(table.itemId),
+  unique("idx_inventory_usage_unique").on(table.anesthesiaRecordId, table.itemId),
 ]);
 
 // Audit Trail (Immutable log of all changes for compliance)

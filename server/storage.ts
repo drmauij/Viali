@@ -3143,36 +3143,67 @@ export class DatabaseStorage implements IStorage {
       .from(anesthesiaMedications)
       .where(eq(anesthesiaMedications.anesthesiaRecordId, anesthesiaRecordId));
 
-    // Group by itemId and count occurrences
+    // Get item details to access ampule content for calculations
+    const itemIds = [...new Set(medications.map(m => m.itemId))];
+    const itemsData = await db
+      .select()
+      .from(items)
+      .where(sql`${items.id} IN (${sql.join(itemIds.map(id => sql`${id}`), sql`, `)})`);
+    
+    const itemsMap = new Map(itemsData.map(item => [item.id, item]));
+
+    // Calculate quantity used per item based on administration type
     const usageMap = new Map<string, number>();
     
     for (const med of medications) {
-      const currentCount = usageMap.get(med.itemId) || 0;
-      usageMap.set(med.itemId, currentCount + 1);
+      const item = itemsMap.get(med.itemId);
+      if (!item) continue;
+
+      const currentQty = usageMap.get(med.itemId) || 0;
+      let calculatedQty = 0;
+
+      // Parse ampule content (e.g., "10 ml" -> 10)
+      const ampuleContent = parseFloat(item.ampuleTotalContent || '1');
+
+      if (med.type === 'bolus') {
+        // Bolus: ceil(dose / ampule content) + 1 for safety margin
+        const dose = parseFloat(med.dose || '0');
+        calculatedQty = Math.ceil(dose / ampuleContent) + 1;
+      } else if (med.type === 'infusion' && med.infusionType === 'freeFlow') {
+        // Free-flow: use dose amount directly (dose is already in ampules)
+        calculatedQty = parseFloat(med.dose || '0');
+      } else if (med.type === 'infusion' && med.infusionType === 'rate') {
+        // Rate-controlled: ceil(rate × duration / ampule content)
+        const rate = parseFloat(med.rate || '0');
+        const startTime = med.timestamp ? new Date(med.timestamp).getTime() : 0;
+        const endTime = med.endTime ? new Date(med.endTime).getTime() : Date.now();
+        const durationHours = (endTime - startTime) / (1000 * 60 * 60);
+        
+        calculatedQty = Math.ceil((rate * durationHours) / ampuleContent);
+      }
+
+      usageMap.set(med.itemId, currentQty + calculatedQty);
     }
 
     // Upsert inventory usage records
     const usageRecords: InventoryUsage[] = [];
     
-    for (const [itemId, quantityUsed] of Array.from(usageMap.entries())) {
+    for (const [itemId, calculatedQty] of Array.from(usageMap.entries())) {
       const [upserted] = await db
         .insert(inventoryUsage)
         .values({
           anesthesiaRecordId,
           itemId,
-          quantityUsed,
-          autoComputed: true,
-          manualOverride: false,
+          calculatedQty: calculatedQty.toFixed(2),
         })
         .onConflictDoUpdate({
           target: [inventoryUsage.anesthesiaRecordId, inventoryUsage.itemId],
           set: {
-            quantityUsed,
-            autoComputed: true,
+            calculatedQty: calculatedQty.toFixed(2),
             updatedAt: new Date(),
           },
-          // Only update if not manually overridden
-          where: sql`${inventoryUsage.manualOverride} = false`,
+          // Only update if not manually overridden (overrideQty is null)
+          where: sql`${inventoryUsage.overrideQty} IS NULL`,
         })
         .returning();
       
@@ -3184,12 +3215,34 @@ export class DatabaseStorage implements IStorage {
     return usageRecords;
   }
 
-  async updateInventoryUsage(id: string, quantityUsed: number): Promise<InventoryUsage> {
+  async updateInventoryUsage(
+    id: string,
+    overrideQty: number,
+    overrideReason: string,
+    overriddenBy: string
+  ): Promise<InventoryUsage> {
     const [updated] = await db
       .update(inventoryUsage)
       .set({
-        quantityUsed,
-        manualOverride: true,
+        overrideQty: overrideQty.toFixed(2),
+        overrideReason,
+        overriddenBy,
+        overriddenAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(inventoryUsage.id, id))
+      .returning();
+    return updated;
+  }
+
+  async clearInventoryOverride(id: string): Promise<InventoryUsage> {
+    const [updated] = await db
+      .update(inventoryUsage)
+      .set({
+        overrideQty: null,
+        overrideReason: null,
+        overriddenBy: null,
+        overriddenAt: null,
         updatedAt: new Date(),
       })
       .where(eq(inventoryUsage.id, id))
