@@ -35,7 +35,7 @@ export function InstallationsSectionMockup({ anesthesiaRecordId }: MockupSection
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setPvEntries([...pvEntries, { id: pvEntries.length + 1 }])}
+            onClick={() => setPvEntries([...pvEntries, { id: pvEntries.length + 1, isPreExisting: false }])}
             data-testid="button-add-pv-access"
           >
             <Plus className="h-4 w-4 mr-1" />
@@ -695,7 +695,20 @@ export function NeuraxialSectionMockup({ anesthesiaRecordId }: MockupSectionProp
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Level (Interspace)</Label>
-                    <Input placeholder="e.g., L3-L4" data-testid="input-spinal-level" />
+                    <select className="w-full border rounded-md p-2 bg-background" data-testid="select-spinal-level">
+                      <option value="">Select level</option>
+                      <option value="T7-T8">T7-T8</option>
+                      <option value="T8-T9">T8-T9</option>
+                      <option value="T9-T10">T9-T10</option>
+                      <option value="T10-T11">T10-T11</option>
+                      <option value="T11-T12">T11-T12</option>
+                      <option value="T12-L1">T12-L1</option>
+                      <option value="L1-L2">L1-L2</option>
+                      <option value="L2-L3">L2-L3</option>
+                      <option value="L3-L4">L3-L4</option>
+                      <option value="L4-L5">L4-L5</option>
+                      <option value="L5-S1">L5-S1</option>
+                    </select>
                   </div>
                   <div className="space-y-2">
                     <Label>Approach</Label>
@@ -749,7 +762,20 @@ export function NeuraxialSectionMockup({ anesthesiaRecordId }: MockupSectionProp
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Level (Interspace)</Label>
-                    <Input placeholder="e.g., L2-L3" data-testid="input-epidural-level" />
+                    <select className="w-full border rounded-md p-2 bg-background" data-testid="select-epidural-level">
+                      <option value="">Select level</option>
+                      <option value="T7-T8">T7-T8</option>
+                      <option value="T8-T9">T8-T9</option>
+                      <option value="T9-T10">T9-T10</option>
+                      <option value="T10-T11">T10-T11</option>
+                      <option value="T11-T12">T11-T12</option>
+                      <option value="T12-L1">T12-L1</option>
+                      <option value="L1-L2">L1-L2</option>
+                      <option value="L2-L3">L2-L3</option>
+                      <option value="L3-L4">L3-L4</option>
+                      <option value="L4-L5">L4-L5</option>
+                      <option value="L5-S1">L5-S1</option>
+                    </select>
                   </div>
                   <div className="space-y-2">
                     <Label>Approach</Label>
@@ -815,7 +841,20 @@ export function NeuraxialSectionMockup({ anesthesiaRecordId }: MockupSectionProp
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Level (Interspace)</Label>
-                    <Input placeholder="e.g., L3-L4" data-testid="input-cse-level" />
+                    <select className="w-full border rounded-md p-2 bg-background" data-testid="select-cse-level">
+                      <option value="">Select level</option>
+                      <option value="T7-T8">T7-T8</option>
+                      <option value="T8-T9">T8-T9</option>
+                      <option value="T9-T10">T9-T10</option>
+                      <option value="T10-T11">T10-T11</option>
+                      <option value="T11-T12">T11-T12</option>
+                      <option value="T12-L1">T12-L1</option>
+                      <option value="L1-L2">L1-L2</option>
+                      <option value="L2-L3">L2-L3</option>
+                      <option value="L3-L4">L3-L4</option>
+                      <option value="L4-L5">L4-L5</option>
+                      <option value="L5-S1">L5-S1</option>
+                    </select>
                   </div>
                   <div className="space-y-2">
                     <Label>Approach</Label>
@@ -945,7 +984,41 @@ export function PeripheralRegionalSectionMockup({ anesthesiaRecordId }: MockupSe
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Block Type</Label>
-                <Input placeholder="e.g., Interscalene, Femoral, Popliteal" data-testid={`input-block-type-${index + 1}`} />
+                <select className="w-full border rounded-md p-2 bg-background" data-testid={`select-block-type-${index + 1}`}>
+                  <option value="">Select block type</option>
+                  <optgroup label="Upper Extremity">
+                    <option value="interscalene">Interscalene</option>
+                    <option value="supraclavicular">Supraclavicular</option>
+                    <option value="infraclavicular">Infraclavicular</option>
+                    <option value="axillary">Axillary</option>
+                    <option value="radial">Radial Nerve</option>
+                    <option value="median">Median Nerve</option>
+                    <option value="ulnar">Ulnar Nerve</option>
+                  </optgroup>
+                  <optgroup label="Lower Extremity">
+                    <option value="femoral">Femoral</option>
+                    <option value="sciatic">Sciatic</option>
+                    <option value="popliteal">Popliteal</option>
+                    <option value="adductor-canal">Adductor Canal</option>
+                    <option value="saphenous">Saphenous</option>
+                    <option value="ankle-block">Ankle Block</option>
+                  </optgroup>
+                  <optgroup label="Truncal">
+                    <option value="tap">Transversus Abdominis Plane (TAP)</option>
+                    <option value="ql">Quadratus Lumborum (QL)</option>
+                    <option value="pecs">Pectoral (PECS)</option>
+                    <option value="serratus">Serratus Anterior</option>
+                    <option value="erector-spinae">Erector Spinae Plane (ESP)</option>
+                    <option value="intercostal">Intercostal</option>
+                    <option value="paravertebral">Paravertebral</option>
+                  </optgroup>
+                  <optgroup label="Other">
+                    <option value="superficial-cervical">Superficial Cervical Plexus</option>
+                    <option value="deep-cervical">Deep Cervical Plexus</option>
+                    <option value="stellate-ganglion">Stellate Ganglion</option>
+                    <option value="other">Other</option>
+                  </optgroup>
+                </select>
               </div>
               <div className="space-y-2">
                 <Label>Laterality</Label>
