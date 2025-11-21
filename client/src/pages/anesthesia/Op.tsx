@@ -410,6 +410,22 @@ export default function Op() {
     return folder?.name || 'Unknown Folder';
   };
 
+  // Calculate folders containing used items to auto-expand them
+  const foldersWithUsedItems = useMemo(() => {
+    const folderIds: string[] = [];
+    
+    Object.keys(groupedItems).forEach(folderId => {
+      const hasUsedItems = groupedItems[folderId].some((item: any) => 
+        (inventoryQuantities[item.id] || 0) > 0
+      );
+      if (hasUsedItems) {
+        folderIds.push(folderId);
+      }
+    });
+    
+    return folderIds;
+  }, [groupedItems, inventoryQuantities]);
+
   // Initialize quantities from medication data only once
   useEffect(() => {
     if (!medicationsData || Object.keys(inventoryQuantities).length > 0) return;
@@ -1016,7 +1032,7 @@ export default function Op() {
                   </CardContent>
                 </Card>
               ) : (
-                <Accordion type="multiple" className="space-y-2 w-full">
+                <Accordion type="multiple" className="space-y-2 w-full" defaultValue={foldersWithUsedItems}>
                   {Object.keys(groupedItems).map((folderId) => (
                     <AccordionItem key={folderId} value={folderId}>
                       <Card>
@@ -1031,10 +1047,15 @@ export default function Op() {
                         </AccordionTrigger>
                         <AccordionContent>
                           <CardContent className="pt-0 space-y-2">
-                            {groupedItems[folderId].map((item: any) => (
-                              <div
+                            {groupedItems[folderId].map((item: any) => {
+                              const isUsed = (inventoryQuantities[item.id] || 0) > 0;
+                              return <div
                                 key={item.id}
-                                className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                                className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                                  isUsed 
+                                    ? 'bg-primary/10 border border-primary/20 hover:bg-primary/15 dark:bg-primary/20 dark:border-primary/30 dark:hover:bg-primary/25' 
+                                    : 'bg-muted/50 hover:bg-muted'
+                                }`}
                                 data-testid={`inventory-item-${item.id}`}
                               >
                                 <div className="flex-1">
@@ -1071,7 +1092,7 @@ export default function Op() {
                                   </Button>
                                 </div>
                               </div>
-                            ))}
+                            })}
                           </CardContent>
                         </AccordionContent>
                       </Card>
