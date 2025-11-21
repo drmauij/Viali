@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, X, Download, Printer, Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAutoSaveMutation } from "@/hooks/useAutoSaveMutation";
@@ -13,21 +13,14 @@ import { apiRequest } from "@/lib/queryClient";
 import {
   useInstallations,
   useCreateInstallation,
-  useUpdateInstallation,
   useDeleteInstallation,
   useGeneralTechnique,
-  useUpsertGeneralTechnique,
-  useDeleteGeneralTechnique,
   useAirwayManagement,
-  useUpsertAirwayManagement,
-  useDeleteAirwayManagement,
   useNeuraxialBlocks,
   useCreateNeuraxialBlock,
-  useUpdateNeuraxialBlock,
   useDeleteNeuraxialBlock,
   usePeripheralBlocks,
   useCreatePeripheralBlock,
-  useUpdatePeripheralBlock,
   useDeletePeripheralBlock,
 } from "@/lib/anesthesiaDocumentation";
 import type { AnesthesiaInstallation, InsertAnesthesiaInstallation } from "@shared/schema";
@@ -51,8 +44,32 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
   const { toast } = useToast();
   const { data: installations = [], isLoading } = useInstallations(anesthesiaRecordId);
   const createMutation = useCreateInstallation(anesthesiaRecordId);
-  const updateMutation = useUpdateInstallation(anesthesiaRecordId);
   const deleteMutation = useDeleteInstallation(anesthesiaRecordId);
+  
+  // Maintain local state for each installation to avoid stale data
+  const [localState, setLocalState] = useState<Record<string, any>>({});
+
+  // Sync local state from server data
+  useEffect(() => {
+    const newState: Record<string, any> = {};
+    installations.forEach(inst => {
+      newState[inst.id] = inst;
+    });
+    setLocalState(newState);
+  }, [installations]);
+
+  // Get current state (local or from server)
+  const getCurrentState = useCallback((id: string) => {
+    return localState[id] || installations.find(i => i.id === id);
+  }, [localState, installations]);
+
+  // Auto-save mutation for installations
+  const installationAutoSave = useAutoSaveMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return apiRequest('PATCH', `/api/anesthesia/installations/${id}`, data);
+    },
+    queryKey: [`/api/anesthesia/installations/${anesthesiaRecordId}`],
+  });
 
   const peripheralInstallations = installations.filter(i => i.category === "peripheral");
   const arterialInstallations = installations.filter(i => i.category === "arterial");
@@ -73,8 +90,27 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
     );
   };
 
-  const handleUpdate = (id: string, data: Partial<InsertAnesthesiaInstallation>) => {
-    updateMutation.mutate({ id, data });
+  const handleUpdate = (id: string, updates: any) => {
+    const current = getCurrentState(id);
+    if (!current) return;
+    
+    // Deep merge metadata if it's being updated
+    let mergedUpdates = updates;
+    if (updates.metadata) {
+      mergedUpdates = {
+        ...updates,
+        metadata: { ...current.metadata, ...updates.metadata }
+      };
+    }
+    
+    // Compute fresh merged state
+    const nextState = { ...current, ...mergedUpdates };
+    
+    // Update local state immediately for optimistic UI
+    setLocalState(prev => ({ ...prev, [id]: nextState }));
+    
+    // Trigger auto-save with the merged updates
+    installationAutoSave.mutate({ id, data: mergedUpdates });
   };
 
   const handleDelete = (id: string) => {
@@ -114,7 +150,9 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
           </Button>
         </div>
 
-        {peripheralInstallations.map((inst, index) => (
+        {peripheralInstallations.map((inst, index) => {
+          const current = getCurrentState(inst.id) || inst;
+          return (
           <div key={inst.id} className="border rounded-lg p-4 space-y-3 bg-slate-50 dark:bg-slate-900">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Entry #{index + 1}</span>
@@ -134,7 +172,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 <Label>Location</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
-                  value={inst.location || ""}
+                  value={current.location || ""}
                   onChange={(e) => handleUpdate(inst.id, { location: e.target.value })}
                   data-testid={`select-pv-location-${index + 1}`}
                 >
@@ -151,8 +189,8 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 <Label>Gauge</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
-                  value={inst.metadata?.gauge || ""}
-                  onChange={(e) => handleUpdate(inst.id, { metadata: { ...inst.metadata, gauge: e.target.value } })}
+                  value={current.metadata?.gauge || ""}
+                  onChange={(e) => handleUpdate(inst.id, { metadata: { gauge: e.target.value } })}
                   data-testid={`select-pv-gauge-${index + 1}`}
                 >
                   <option value="">Select gauge</option>
@@ -169,7 +207,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
               <Label>Number of Attempts</Label>
               <Input
                 type="number"
-                value={inst.attempts || 1}
+                value={current.attempts || 1}
                 onChange={(e) => handleUpdate(inst.id, { attempts: parseInt(e.target.value) || 1 })}
                 data-testid={`input-pv-attempts-${index + 1}`}
               />
@@ -177,7 +215,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
             <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
               <input
                 type="checkbox"
-                checked={inst.isPreExisting || false}
+                checked={current.isPreExisting || false}
                 onChange={(e) => handleUpdate(inst.id, { isPreExisting: e.target.checked })}
                 className="h-4 w-4"
                 data-testid={`checkbox-pv-preexisting-${index + 1}`}
@@ -188,14 +226,15 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
               <Label>Notes</Label>
               <Textarea
                 rows={2}
-                value={inst.notes || ""}
+                value={current.notes || ""}
                 onChange={(e) => handleUpdate(inst.id, { notes: e.target.value })}
                 placeholder="Additional notes..."
                 data-testid={`textarea-pv-notes-${index + 1}`}
               />
             </div>
           </div>
-        ))}
+        );
+        })}
       </div>
 
       {/* Arterial Line */}
@@ -216,7 +255,9 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
           )}
         </div>
 
-        {arterialInstallations.map((inst) => (
+        {arterialInstallations.map((inst) => {
+          const current = getCurrentState(inst.id) || inst;
+          return (
           <div key={inst.id} className="border rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Arterial Line</span>
@@ -235,7 +276,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 <Label>Location</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
-                  value={inst.location || ""}
+                  value={current.location || ""}
                   onChange={(e) => handleUpdate(inst.id, { location: e.target.value })}
                   data-testid="select-arterial-location"
                 >
@@ -251,8 +292,8 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 <Label>Gauge</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
-                  value={inst.metadata?.gauge || ""}
-                  onChange={(e) => handleUpdate(inst.id, { metadata: { ...inst.metadata, gauge: e.target.value } })}
+                  value={current.metadata?.gauge || ""}
+                  onChange={(e) => handleUpdate(inst.id, { metadata: { gauge: e.target.value } })}
                   data-testid="select-arterial-gauge"
                 >
                   <option value="">Select gauge</option>
@@ -267,7 +308,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 <Label>Number of Attempts</Label>
                 <Input
                   type="number"
-                  value={inst.attempts || 1}
+                  value={current.attempts || 1}
                   onChange={(e) => handleUpdate(inst.id, { attempts: parseInt(e.target.value) || 1 })}
                   data-testid="input-arterial-attempts"
                 />
@@ -276,8 +317,8 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 <Label>Technique</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
-                  value={inst.metadata?.technique || ""}
-                  onChange={(e) => handleUpdate(inst.id, { metadata: { ...inst.metadata, technique: e.target.value } })}
+                  value={current.metadata?.technique || ""}
+                  onChange={(e) => handleUpdate(inst.id, { metadata: { technique: e.target.value } })}
                   data-testid="select-arterial-technique"
                 >
                   <option value="">Select technique</option>
@@ -290,7 +331,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
             <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
               <input
                 type="checkbox"
-                checked={inst.isPreExisting || false}
+                checked={current.isPreExisting || false}
                 onChange={(e) => handleUpdate(inst.id, { isPreExisting: e.target.checked })}
                 className="h-4 w-4"
                 data-testid="checkbox-arterial-preexisting"
@@ -301,14 +342,15 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
               <Label>Notes</Label>
               <Textarea
                 rows={2}
-                value={inst.notes || ""}
+                value={current.notes || ""}
                 onChange={(e) => handleUpdate(inst.id, { notes: e.target.value })}
                 placeholder="Additional notes..."
                 data-testid="textarea-arterial-notes"
               />
             </div>
           </div>
-        ))}
+        );
+        })}
 
         {arterialInstallations.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
@@ -335,7 +377,9 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
           )}
         </div>
 
-        {centralInstallations.map((inst) => (
+        {centralInstallations.map((inst) => {
+          const current = getCurrentState(inst.id) || inst;
+          return (
           <div key={inst.id} className="border rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Central Venous Catheter</span>
@@ -354,7 +398,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 <Label>Location</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
-                  value={inst.location || ""}
+                  value={current.location || ""}
                   onChange={(e) => handleUpdate(inst.id, { location: e.target.value })}
                   data-testid="select-cvc-location"
                 >
@@ -370,8 +414,8 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 <Label>Lumens</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
-                  value={inst.metadata?.lumens || ""}
-                  onChange={(e) => handleUpdate(inst.id, { metadata: { ...inst.metadata, lumens: parseInt(e.target.value) || undefined } })}
+                  value={current.metadata?.lumens || ""}
+                  onChange={(e) => handleUpdate(inst.id, { metadata: { lumens: parseInt(e.target.value) || undefined } })}
                   data-testid="select-cvc-lumens"
                 >
                   <option value="">Select lumens</option>
@@ -388,8 +432,8 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 <Input
                   type="number"
                   placeholder="16"
-                  value={inst.metadata?.depth || ""}
-                  onChange={(e) => handleUpdate(inst.id, { metadata: { ...inst.metadata, depth: parseInt(e.target.value) || undefined } })}
+                  value={current.metadata?.depth || ""}
+                  onChange={(e) => handleUpdate(inst.id, { metadata: { depth: parseInt(e.target.value) || undefined } })}
                   data-testid="input-cvc-depth"
                 />
               </div>
@@ -397,8 +441,8 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 <Label>Technique</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
-                  value={inst.metadata?.cvcTechnique || ""}
-                  onChange={(e) => handleUpdate(inst.id, { metadata: { ...inst.metadata, cvcTechnique: e.target.value } })}
+                  value={current.metadata?.cvcTechnique || ""}
+                  onChange={(e) => handleUpdate(inst.id, { metadata: { cvcTechnique: e.target.value } })}
                   data-testid="select-cvc-technique"
                 >
                   <option value="">Select technique</option>
@@ -410,7 +454,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
             <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
               <input
                 type="checkbox"
-                checked={inst.isPreExisting || false}
+                checked={current.isPreExisting || false}
                 onChange={(e) => handleUpdate(inst.id, { isPreExisting: e.target.checked })}
                 className="h-4 w-4"
                 data-testid="checkbox-cvc-preexisting"
@@ -421,14 +465,15 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
               <Label>Notes</Label>
               <Textarea
                 rows={2}
-                value={inst.notes || ""}
+                value={current.notes || ""}
                 onChange={(e) => handleUpdate(inst.id, { notes: e.target.value })}
                 placeholder="Additional notes..."
                 data-testid="textarea-cvc-notes"
               />
             </div>
           </div>
-        ))}
+        );
+        })}
 
         {centralInstallations.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
@@ -455,7 +500,9 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
           )}
         </div>
 
-        {bladderInstallations.map((inst) => (
+        {bladderInstallations.map((inst) => {
+          const current = getCurrentState(inst.id) || inst;
+          return (
           <div key={inst.id} className="border rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Bladder Catheter</span>
@@ -474,8 +521,8 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 <Label>Type</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
-                  value={inst.metadata?.bladderType || ""}
-                  onChange={(e) => handleUpdate(inst.id, { metadata: { ...inst.metadata, bladderType: e.target.value } })}
+                  value={current.metadata?.bladderType || ""}
+                  onChange={(e) => handleUpdate(inst.id, { metadata: { bladderType: e.target.value } })}
                   data-testid="select-bladder-type"
                 >
                   <option value="">Select type</option>
@@ -488,8 +535,8 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 <Label>Size (French/Charrière)</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
-                  value={inst.metadata?.bladderSize || ""}
-                  onChange={(e) => handleUpdate(inst.id, { metadata: { ...inst.metadata, bladderSize: e.target.value } })}
+                  value={current.metadata?.bladderSize || ""}
+                  onChange={(e) => handleUpdate(inst.id, { metadata: { bladderSize: e.target.value } })}
                   data-testid="select-bladder-size"
                 >
                   <option value="">Select size</option>
@@ -505,7 +552,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
             <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
               <input
                 type="checkbox"
-                checked={inst.isPreExisting || false}
+                checked={current.isPreExisting || false}
                 onChange={(e) => handleUpdate(inst.id, { isPreExisting: e.target.checked })}
                 className="h-4 w-4"
                 data-testid="checkbox-bladder-preexisting"
@@ -516,14 +563,15 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
               <Label>Notes</Label>
               <Textarea
                 rows={2}
-                value={inst.notes || ""}
+                value={current.notes || ""}
                 onChange={(e) => handleUpdate(inst.id, { notes: e.target.value })}
                 placeholder="Additional notes..."
                 data-testid="textarea-bladder-notes"
               />
             </div>
           </div>
-        ))}
+        );
+        })}
 
         {bladderInstallations.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
@@ -883,8 +931,32 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
   const { toast } = useToast();
   const { data: blocks = [], isLoading } = useNeuraxialBlocks(anesthesiaRecordId);
   const createMutation = useCreateNeuraxialBlock(anesthesiaRecordId);
-  const updateMutation = useUpdateNeuraxialBlock(anesthesiaRecordId);
   const deleteMutation = useDeleteNeuraxialBlock(anesthesiaRecordId);
+
+  // Maintain local state for each block to avoid stale data
+  const [localBlockState, setLocalBlockState] = useState<Record<string, any>>({});
+
+  // Sync local state from server data
+  useEffect(() => {
+    const newState: Record<string, any> = {};
+    blocks.forEach(block => {
+      newState[block.id] = block;
+    });
+    setLocalBlockState(newState);
+  }, [blocks]);
+
+  // Get current block state (local or from server)
+  const getCurrentBlockState = useCallback((id: string) => {
+    return localBlockState[id] || blocks.find(b => b.id === id);
+  }, [localBlockState, blocks]);
+
+  // Auto-save mutation for neuraxial blocks
+  const blockAutoSave = useAutoSaveMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return apiRequest('PATCH', `/api/anesthesia/${anesthesiaRecordId}/neuraxial-blocks/${id}`, data);
+    },
+    queryKey: [`/api/anesthesia/${anesthesiaRecordId}/neuraxial-blocks`],
+  });
 
   const spinalBlocks = blocks.filter(b => b.blockType === "spinal");
   const epiduralBlocks = blocks.filter(b => b.blockType === "epidural");
@@ -917,8 +989,18 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
     );
   };
 
-  const handleUpdate = (id: string, data: any) => {
-    updateMutation.mutate({ id, data });
+  const handleUpdate = (id: string, updates: any) => {
+    const current = getCurrentBlockState(id);
+    if (!current) return;
+    
+    // Compute fresh merged state
+    const nextState = { ...current, ...updates };
+    
+    // Update local state immediately for optimistic UI
+    setLocalBlockState(prev => ({ ...prev, [id]: nextState }));
+    
+    // Trigger auto-save
+    blockAutoSave.mutate({ id, data: updates });
   };
 
   const handleDelete = (id: string) => {
@@ -940,7 +1022,9 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
     );
   }
 
-  const renderBlockForm = (block: any, index: number, blockType: string) => (
+  const renderBlockForm = (block: any, index: number, blockType: string) => {
+    const current = getCurrentBlockState(block.id) || block;
+    return (
     <Card key={block.id} className="border-2">
       <CardContent className="pt-4 space-y-4">
         <div className="flex items-center justify-between">
@@ -962,7 +1046,7 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
             <Label>Level</Label>
             <Input
               placeholder="e.g., L3-L4"
-              value={block.level || ""}
+              value={current.level || ""}
               onChange={(e) => handleUpdate(block.id, { level: e.target.value })}
               data-testid={`input-${blockType}-level-${index + 1}`}
             />
@@ -971,7 +1055,7 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
             <Label>Needle Gauge</Label>
             <Input
               placeholder="e.g., 25G Pencil Point"
-              value={block.needleGauge || ""}
+              value={current.needleGauge || ""}
               onChange={(e) => handleUpdate(block.id, { needleGauge: e.target.value })}
               data-testid={`input-${blockType}-needle-${index + 1}`}
             />
@@ -983,7 +1067,7 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
             <Label>Attempts</Label>
             <Input
               type="number"
-              value={block.attempts || 1}
+              value={current.attempts || 1}
               onChange={(e) => handleUpdate(block.id, { attempts: parseInt(e.target.value) || 1 })}
               data-testid={`input-${blockType}-attempts-${index + 1}`}
             />
@@ -992,7 +1076,7 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
             <Label>Sensory Level</Label>
             <Input
               placeholder="e.g., T4"
-              value={block.sensoryLevel || ""}
+              value={current.sensoryLevel || ""}
               onChange={(e) => handleUpdate(block.id, { sensoryLevel: e.target.value })}
               data-testid={`input-${blockType}-sensory-${index + 1}`}
             />
@@ -1004,7 +1088,7 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
           <Textarea
             rows={2}
             placeholder="Additional notes..."
-            value={block.notes || ""}
+            value={current.notes || ""}
             onChange={(e) => handleUpdate(block.id, { notes: e.target.value })}
             data-testid={`textarea-${blockType}-notes-${index + 1}`}
           />
@@ -1012,6 +1096,7 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
       </CardContent>
     </Card>
   );
+  };
 
   return (
     <CardContent className="space-y-6 pt-0">
@@ -1125,8 +1210,32 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
   const { toast } = useToast();
   const { data: blocks = [], isLoading } = usePeripheralBlocks(anesthesiaRecordId);
   const createMutation = useCreatePeripheralBlock(anesthesiaRecordId);
-  const updateMutation = useUpdatePeripheralBlock(anesthesiaRecordId);
   const deleteMutation = useDeletePeripheralBlock(anesthesiaRecordId);
+
+  // Maintain local state for each block to avoid stale data
+  const [localPeripheralState, setLocalPeripheralState] = useState<Record<string, any>>({});
+
+  // Sync local state from server data
+  useEffect(() => {
+    const newState: Record<string, any> = {};
+    blocks.forEach(block => {
+      newState[block.id] = block;
+    });
+    setLocalPeripheralState(newState);
+  }, [blocks]);
+
+  // Get current block state (local or from server)
+  const getCurrentPeripheralState = useCallback((id: string) => {
+    return localPeripheralState[id] || blocks.find(b => b.id === id);
+  }, [localPeripheralState, blocks]);
+
+  // Auto-save mutation for peripheral blocks
+  const peripheralAutoSave = useAutoSaveMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return apiRequest('PATCH', `/api/anesthesia/${anesthesiaRecordId}/peripheral-blocks/${id}`, data);
+    },
+    queryKey: [`/api/anesthesia/${anesthesiaRecordId}/peripheral-blocks`],
+  });
 
   const handleCreate = () => {
     createMutation.mutate(
@@ -1152,8 +1261,18 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
     );
   };
 
-  const handleUpdate = (id: string, data: any) => {
-    updateMutation.mutate({ id, data });
+  const handleUpdate = (id: string, updates: any) => {
+    const current = getCurrentPeripheralState(id);
+    if (!current) return;
+    
+    // Compute fresh merged state
+    const nextState = { ...current, ...updates };
+    
+    // Update local state immediately for optimistic UI
+    setLocalPeripheralState(prev => ({ ...prev, [id]: nextState }));
+    
+    // Trigger auto-save
+    peripheralAutoSave.mutate({ id, data: updates });
   };
 
   const handleDelete = (id: string) => {
@@ -1191,7 +1310,9 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
         </Button>
       </div>
 
-      {blocks.map((block, index) => (
+      {blocks.map((block, index) => {
+        const current = getCurrentPeripheralState(block.id) || block;
+        return (
         <Card key={block.id} className="border-2">
           <CardContent className="pt-4 space-y-4">
             <div className="flex items-center justify-between">
@@ -1213,7 +1334,7 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
                 <Label>Block Type</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
-                  value={block.blockType}
+                  value={current.blockType}
                   onChange={(e) => handleUpdate(block.id, { blockType: e.target.value })}
                   data-testid={`select-block-type-${index + 1}`}
                 >
@@ -1256,7 +1377,7 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
                 <Label>Laterality</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
-                  value={block.laterality || ""}
+                  value={current.laterality || ""}
                   onChange={(e) => handleUpdate(block.id, { laterality: e.target.value })}
                   data-testid={`select-laterality-${index + 1}`}
                 >
@@ -1273,7 +1394,7 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
                 <Label>Guidance Technique</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
-                  value={block.guidanceTechnique || ""}
+                  value={current.guidanceTechnique || ""}
                   onChange={(e) => handleUpdate(block.id, { guidanceTechnique: e.target.value })}
                   data-testid={`select-guidance-${index + 1}`}
                 >
@@ -1288,7 +1409,7 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
                 <Label>Needle Type</Label>
                 <Input
                   placeholder="e.g., 22G 50mm stimulating needle"
-                  value={block.needleType || ""}
+                  value={current.needleType || ""}
                   onChange={(e) => handleUpdate(block.id, { needleType: e.target.value })}
                   data-testid={`input-needle-type-${index + 1}`}
                 />
@@ -1300,7 +1421,7 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
                 <Label>Catheter Placed</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
-                  value={block.catheterPlaced ? "yes" : "no"}
+                  value={current.catheterPlaced ? "yes" : "no"}
                   onChange={(e) => handleUpdate(block.id, { catheterPlaced: e.target.value === "yes" })}
                   data-testid={`select-catheter-${index + 1}`}
                 >
@@ -1313,7 +1434,7 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
                 <Label>Number of Attempts</Label>
                 <Input
                   type="number"
-                  value={block.attempts || 1}
+                  value={current.attempts || 1}
                   onChange={(e) => handleUpdate(block.id, { attempts: parseInt(e.target.value) || 1 })}
                   data-testid={`input-attempts-${index + 1}`}
                 />
@@ -1325,7 +1446,7 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
               <Textarea
                 rows={2}
                 placeholder="e.g., Complete sensory blockade C5-T1"
-                value={block.sensoryAssessment || ""}
+                value={current.sensoryAssessment || ""}
                 onChange={(e) => handleUpdate(block.id, { sensoryAssessment: e.target.value })}
                 data-testid={`textarea-sensory-${index + 1}`}
               />
@@ -1336,7 +1457,7 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
               <Textarea
                 rows={2}
                 placeholder="e.g., Modified Bromage scale 2"
-                value={block.motorAssessment || ""}
+                value={current.motorAssessment || ""}
                 onChange={(e) => handleUpdate(block.id, { motorAssessment: e.target.value })}
                 data-testid={`textarea-motor-${index + 1}`}
               />
@@ -1347,14 +1468,15 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
               <Textarea
                 rows={2}
                 placeholder="Additional notes..."
-                value={block.notes || ""}
+                value={current.notes || ""}
                 onChange={(e) => handleUpdate(block.id, { notes: e.target.value })}
                 data-testid={`textarea-notes-${index + 1}`}
               />
             </div>
           </CardContent>
         </Card>
-      ))}
+      );
+      })}
 
       {blocks.length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-8">
