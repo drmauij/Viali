@@ -342,6 +342,7 @@ export function GeneralAnesthesiaSectionMockup({ anesthesiaRecordId }: MockupSec
   const [isDifficultAirway, setIsDifficultAirway] = useState(false);
   const [maintenanceType, setMaintenanceType] = useState<string>("");
   const [isRSI, setIsRSI] = useState(false);
+  const [isPreExistingIntubation, setIsPreExistingIntubation] = useState(false);
 
   return (
     <CardContent className="space-y-6 pt-0">
@@ -418,8 +419,13 @@ export function GeneralAnesthesiaSectionMockup({ anesthesiaRecordId }: MockupSec
               <Label>Device</Label>
               <select className="w-full border rounded-md p-2 bg-background" data-testid="select-airway-device">
                 <option value="">Select device</option>
-                <option value="ett">Endotracheal Tube</option>
-                <option value="lma">Laryngeal Mask Airway</option>
+                <option value="ett">Endotracheal Tube (Straight)</option>
+                <option value="spiral-tube">Spiral Tube (Flexometallic)</option>
+                <option value="rae-tube">RAE Tube (Right-Angle)</option>
+                <option value="dlt-left">Double-Lumen Tube - Left</option>
+                <option value="dlt-right">Double-Lumen Tube - Right</option>
+                <option value="lma">Laryngeal Mask Airway (Classic)</option>
+                <option value="lma-auragain">Laryngeal Mask AuraGain</option>
                 <option value="facemask">Face Mask</option>
                 <option value="tracheostomy">Tracheostomy</option>
               </select>
@@ -439,6 +445,16 @@ export function GeneralAnesthesiaSectionMockup({ anesthesiaRecordId }: MockupSec
               <Input type="number" placeholder="20" data-testid="input-airway-cuff" />
             </div>
           </div>
+          <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
+            <input 
+              type="checkbox" 
+              checked={isPreExistingIntubation}
+              onChange={(e) => setIsPreExistingIntubation(e.target.checked)}
+              className="h-4 w-4"
+              data-testid="checkbox-preexisting-intubation"
+            />
+            <span className="text-sm font-medium">Pre-existing Intubation</span>
+          </label>
           <div className="space-y-2">
             <Label>Notes</Label>
             <Textarea rows={2} placeholder="Additional notes..." data-testid="textarea-airway-notes" />
