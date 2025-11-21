@@ -7,7 +7,7 @@ import { InstallationsSection, GeneralAnesthesiaSection, SedationSection, Region
 import { 
   InstallationsSectionMockup,
   GeneralAnesthesiaSectionMockup,
-  CentralRegionalSectionMockup,
+  NeuraxialSectionMockup,
   PeripheralRegionalSectionMockup
 } from "@/components/anesthesia/AnesthesiaDocumentationMockup";
 import { Button } from "@/components/ui/button";
@@ -725,14 +725,14 @@ export default function Op() {
                   </Card>
                 </AccordionItem>
 
-                {/* Central Regional Anesthesia Section - MOCKUP */}
-                <AccordionItem value="central-regional-anesthesia">
+                {/* Neuraxial Anesthesia Section - MOCKUP */}
+                <AccordionItem value="neuraxial-anesthesia">
                   <Card>
-                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-central-regional">
-                      <CardTitle className="text-lg">Central Regional Anesthesia <Badge variant="outline" className="ml-2">UI Mockup</Badge></CardTitle>
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-neuraxial">
+                      <CardTitle className="text-lg">Neuraxial Anesthesia <Badge variant="outline" className="ml-2">UI Mockup</Badge></CardTitle>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <CentralRegionalSectionMockup anesthesiaRecordId={anesthesiaRecord?.id} />
+                      <NeuraxialSectionMockup anesthesiaRecordId={anesthesiaRecord?.id} />
                     </AccordionContent>
                   </Card>
                 </AccordionItem>

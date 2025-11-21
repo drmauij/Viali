@@ -615,9 +615,9 @@ export function SedationSectionMockup({ anesthesiaRecordId }: MockupSectionProps
 }
 
 // ============================================================================
-// CENTRAL REGIONAL ANESTHESIA SECTION
+// NEURAXIAL ANESTHESIA SECTION
 // ============================================================================
-export function CentralRegionalSectionMockup({ anesthesiaRecordId }: MockupSectionProps) {
+export function NeuraxialSectionMockup({ anesthesiaRecordId }: MockupSectionProps) {
   return (
     <CardContent className="space-y-6 pt-0">
       <Accordion type="multiple" className="space-y-4">
@@ -727,6 +727,144 @@ export function CentralRegionalSectionMockup({ anesthesiaRecordId }: MockupSecti
                 </div>
                 <div className="flex justify-end pt-4">
                   <Button data-testid="button-save-epidural">Save Details</Button>
+                </div>
+              </CardContent>
+            </AccordionContent>
+          </Card>
+        </AccordionItem>
+
+        {/* Zusatz: Combined Spinal-Epidural (CSE) */}
+        <AccordionItem value="cse">
+          <Card>
+            <AccordionTrigger className="px-4 py-3 hover:no-underline" data-testid="accordion-cse">
+              <span className="text-base font-semibold">Combined Spinal-Epidural (CSE)</span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <CardContent className="space-y-4 pt-0">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Level (Interspace)</Label>
+                    <Input placeholder="e.g., L3-L4" data-testid="input-cse-level" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Approach</Label>
+                    <select className="w-full border rounded-md p-2 bg-background" data-testid="select-cse-approach">
+                      <option value="">Select approach</option>
+                      <option value="needle-through-needle">Needle-through-Needle</option>
+                      <option value="separate-spaces">Separate Spaces</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Number of Attempts</Label>
+                    <Input type="number" defaultValue={1} data-testid="input-cse-attempts" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Sensory Level Achieved</Label>
+                    <Input placeholder="e.g., T6" data-testid="input-cse-sensory" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Notes</Label>
+                  <Textarea rows={3} placeholder="Additional notes..." data-testid="textarea-cse-notes" />
+                </div>
+                <div className="flex justify-end pt-4">
+                  <Button data-testid="button-save-cse">Save Details</Button>
+                </div>
+              </CardContent>
+            </AccordionContent>
+          </Card>
+        </AccordionItem>
+
+        {/* Zusatz: Caudal Block */}
+        <AccordionItem value="caudal">
+          <Card>
+            <AccordionTrigger className="px-4 py-3 hover:no-underline" data-testid="accordion-caudal">
+              <span className="text-base font-semibold">Caudal Block</span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <CardContent className="space-y-4 pt-0">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Needle Gauge</Label>
+                    <Input placeholder="e.g., 22G" data-testid="input-caudal-gauge" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Depth (cm)</Label>
+                    <Input placeholder="e.g., 2-3" data-testid="input-caudal-depth" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Number of Attempts</Label>
+                    <Input type="number" defaultValue={1} data-testid="input-caudal-attempts" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Guidance Technique</Label>
+                    <select className="w-full border rounded-md p-2 bg-background" data-testid="select-caudal-guidance">
+                      <option value="">Select technique</option>
+                      <option value="landmark">Landmark</option>
+                      <option value="ultrasound">Ultrasound</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Notes</Label>
+                  <Textarea rows={3} placeholder="Additional notes..." data-testid="textarea-caudal-notes" />
+                </div>
+                <div className="flex justify-end pt-4">
+                  <Button data-testid="button-save-caudal">Save Details</Button>
+                </div>
+              </CardContent>
+            </AccordionContent>
+          </Card>
+        </AccordionItem>
+
+        {/* Zusatz: Indwelling Catheter */}
+        <AccordionItem value="indwelling-catheter">
+          <Card>
+            <AccordionTrigger className="px-4 py-3 hover:no-underline" data-testid="accordion-indwelling-catheter">
+              <span className="text-base font-semibold">Indwelling Catheter</span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <CardContent className="space-y-4 pt-0">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Type</Label>
+                    <select className="w-full border rounded-md p-2 bg-background" data-testid="select-catheter-type">
+                      <option value="">Select type</option>
+                      <option value="epidural">Epidural</option>
+                      <option value="subarachnoid">Subarachnoid</option>
+                      <option value="peripheral">Peripheral</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Catheter Size (Fr)</Label>
+                    <Input placeholder="e.g., 19" data-testid="input-catheter-size" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Depth at Skin (cm)</Label>
+                    <Input placeholder="e.g., 12" data-testid="input-catheter-depth-skin" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Threading Resistance</Label>
+                    <select className="w-full border rounded-md p-2 bg-background" data-testid="select-threading-resistance">
+                      <option value="">Select resistance</option>
+                      <option value="easy">Easy</option>
+                      <option value="moderate">Moderate</option>
+                      <option value="difficult">Difficult</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Notes</Label>
+                  <Textarea rows={3} placeholder="Additional notes..." data-testid="textarea-catheter-notes" />
+                </div>
+                <div className="flex justify-end pt-4">
+                  <Button data-testid="button-save-catheter">Save Details</Button>
                 </div>
               </CardContent>
             </AccordionContent>
