@@ -604,14 +604,14 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
     mutationFn: async (data: any) => {
       return apiRequest('POST', `/api/anesthesia/${anesthesiaRecordId}/general-technique`, data);
     },
-    queryKey: ["/api/anesthesia", anesthesiaRecordId, "general-technique"],
+    queryKey: [`/api/anesthesia/${anesthesiaRecordId}/general-technique`],
   });
 
   const airwayAutoSave = useAutoSaveMutation({
     mutationFn: async (data: any) => {
       return apiRequest('POST', `/api/anesthesia/${anesthesiaRecordId}/airway`, data);
     },
-    queryKey: ["/api/anesthesia", anesthesiaRecordId, "airway"],
+    queryKey: [`/api/anesthesia/${anesthesiaRecordId}/airway`],
   });
 
   const [approach, setApproach] = useState<string>("");
@@ -1014,7 +1014,7 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
       return apiRequest('PATCH', `/api/anesthesia/${anesthesiaRecordId}/neuraxial-blocks/${id}`, data);
     },
-    queryKey: ["/api/anesthesia", anesthesiaRecordId, "neuraxial-blocks"],
+    queryKey: [`/api/anesthesia/${anesthesiaRecordId}/neuraxial-blocks`],
   });
 
   const spinalBlocks = blocks.filter(b => b.blockType === "spinal");
@@ -1298,7 +1298,7 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
       return apiRequest('PATCH', `/api/anesthesia/${anesthesiaRecordId}/peripheral-blocks/${id}`, data);
     },
-    queryKey: ["/api/anesthesia", anesthesiaRecordId, "peripheral-blocks"],
+    queryKey: [`/api/anesthesia/${anesthesiaRecordId}/peripheral-blocks`],
   });
 
   const handleCreate = () => {

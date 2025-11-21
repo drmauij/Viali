@@ -66,7 +66,7 @@ export function useDeleteInstallation(recordId: string) {
 
 export function useAirwayManagement(recordId: string) {
   return useQuery<AnesthesiaAirwayManagement | null>({
-    queryKey: ["/api/anesthesia", recordId, "airway"],
+    queryKey: [`/api/anesthesia/${recordId}/airway`],
     enabled: !!recordId,
   });
 }
@@ -78,7 +78,7 @@ export function useUpsertAirwayManagement(recordId: string) {
       return await apiRequest("POST", `/api/anesthesia/${recordId}/airway`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/anesthesia", recordId, "airway"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/${recordId}/airway`] });
     },
   });
 }
@@ -89,7 +89,7 @@ export function useDeleteAirwayManagement(recordId: string) {
       return await apiRequest("DELETE", `/api/anesthesia/${recordId}/airway`, undefined);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/anesthesia", recordId, "airway"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/${recordId}/airway`] });
     },
   });
 }
@@ -98,7 +98,7 @@ export function useDeleteAirwayManagement(recordId: string) {
 
 export function useGeneralTechnique(recordId: string) {
   return useQuery<AnesthesiaGeneralTechnique | null>({
-    queryKey: ["/api/anesthesia", recordId, "general-technique"],
+    queryKey: [`/api/anesthesia/${recordId}/general-technique`],
     enabled: !!recordId,
   });
 }
@@ -110,7 +110,7 @@ export function useUpsertGeneralTechnique(recordId: string) {
       return await apiRequest("POST", `/api/anesthesia/${recordId}/general-technique`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/anesthesia", recordId, "general-technique"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/${recordId}/general-technique`] });
     },
   });
 }
@@ -121,7 +121,7 @@ export function useDeleteGeneralTechnique(recordId: string) {
       return await apiRequest("DELETE", `/api/anesthesia/${recordId}/general-technique`, undefined);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/anesthesia", recordId, "general-technique"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/${recordId}/general-technique`] });
     },
   });
 }
@@ -130,7 +130,7 @@ export function useDeleteGeneralTechnique(recordId: string) {
 
 export function useNeuraxialBlocks(recordId: string) {
   return useQuery<AnesthesiaNeuraxialBlock[] | undefined>({
-    queryKey: ["/api/anesthesia", recordId, "neuraxial-blocks"],
+    queryKey: [`/api/anesthesia/${recordId}/neuraxial-blocks`],
     enabled: !!recordId,
   });
 }
@@ -142,7 +142,7 @@ export function useCreateNeuraxialBlock(recordId: string) {
       return await apiRequest("POST", `/api/anesthesia/${recordId}/neuraxial-blocks`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/anesthesia", recordId, "neuraxial-blocks"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/${recordId}/neuraxial-blocks`] });
     },
   });
 }
@@ -154,7 +154,7 @@ export function useUpdateNeuraxialBlock(recordId: string) {
       return await apiRequest("PATCH", `/api/anesthesia/${recordId}/neuraxial-blocks/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/anesthesia", recordId, "neuraxial-blocks"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/${recordId}/neuraxial-blocks`] });
     },
   });
 }
@@ -165,7 +165,7 @@ export function useDeleteNeuraxialBlock(recordId: string) {
       return await apiRequest("DELETE", `/api/anesthesia/${recordId}/neuraxial-blocks/${id}`, undefined);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/anesthesia", recordId, "neuraxial-blocks"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/${recordId}/neuraxial-blocks`] });
     },
   });
 }
@@ -174,7 +174,7 @@ export function useDeleteNeuraxialBlock(recordId: string) {
 
 export function usePeripheralBlocks(recordId: string) {
   return useQuery<AnesthesiaPeripheralBlock[] | undefined>({
-    queryKey: ["/api/anesthesia", recordId, "peripheral-blocks"],
+    queryKey: [`/api/anesthesia/${recordId}/peripheral-blocks`],
     enabled: !!recordId,
   });
 }
@@ -186,7 +186,7 @@ export function useCreatePeripheralBlock(recordId: string) {
       return await apiRequest("POST", `/api/anesthesia/${recordId}/peripheral-blocks`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/anesthesia", recordId, "peripheral-blocks"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/${recordId}/peripheral-blocks`] });
     },
   });
 }
@@ -198,7 +198,7 @@ export function useUpdatePeripheralBlock(recordId: string) {
       return await apiRequest("PATCH", `/api/anesthesia/${recordId}/peripheral-blocks/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/anesthesia", recordId, "peripheral-blocks"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/${recordId}/peripheral-blocks`] });
     },
   });
 }
@@ -209,7 +209,7 @@ export function useDeletePeripheralBlock(recordId: string) {
       return await apiRequest("DELETE", `/api/anesthesia/${recordId}/peripheral-blocks/${id}`, undefined);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/anesthesia", recordId, "peripheral-blocks"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/${recordId}/peripheral-blocks`] });
     },
   });
 }
