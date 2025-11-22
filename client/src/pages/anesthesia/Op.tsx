@@ -34,7 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useAutoSaveMutation } from "@/hooks/useAutoSaveMutation";
-import { Minus, Folder, Package, Loader2 } from "lucide-react";
+import { Minus, Folder, Package, Loader2, MapPin, FileText, AlertTriangle, Pill } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { formatDate } from "@/lib/dateUtils";
 import {
@@ -847,27 +847,143 @@ export default function Op() {
 
           {/* PACU Documentation Tab - Only visible in PACU mode */}
           {isPacuMode && (
-            <TabsContent value="pacu" className="flex-1 overflow-y-auto px-6 pb-6 mt-0" data-testid="tab-content-pacu">
+            <TabsContent value="pacu" className="flex-1 overflow-y-auto px-6 pb-6 mt-0 space-y-4" data-testid="tab-content-pacu">
+              {/* Post-Operative Information */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <BedDouble className="h-5 w-5 text-blue-500" />
-                    PACU Documentation
+                    <MapPin className="h-5 w-5" />
+                    Post-Operative Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Destination */}
+                  {postOpData?.postOpDestination && (
+                    <div>
+                      <h4 className="text-sm font-medium mb-2">Destination</h4>
+                      <Badge className={
+                        postOpData.postOpDestination === 'pacu' ? 'bg-blue-500 text-white' :
+                        postOpData.postOpDestination === 'icu' ? 'bg-red-500 text-white' :
+                        postOpData.postOpDestination === 'ward' ? 'bg-green-500 text-white' :
+                        postOpData.postOpDestination === 'home' ? 'bg-gray-500 text-white' :
+                        'bg-gray-500 text-white'
+                      }>
+                        {postOpData.postOpDestination.toUpperCase()}
+                      </Badge>
+                    </div>
+                  )}
+
+                  {/* Post-Op Notes */}
+                  {postOpData?.postOpNotes && (
+                    <>
+                      <Separator />
+                      <div>
+                        <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          Post-Operative Notes
+                        </h4>
+                        <p className="text-sm whitespace-pre-wrap bg-muted/30 p-3 rounded-md" data-testid="text-pacu-postop-notes">
+                          {postOpData.postOpNotes}
+                        </p>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Complications */}
+                  {postOpData?.complications && (
+                    <>
+                      <Separator />
+                      <div>
+                        <h4 className="text-sm font-medium mb-2 flex items-center gap-2 text-red-600">
+                          <AlertTriangle className="h-4 w-4" />
+                          Complications
+                        </h4>
+                        <p className="text-sm whitespace-pre-wrap bg-red-50 p-3 rounded-md border border-red-200" data-testid="text-pacu-complications">
+                          {postOpData.complications}
+                        </p>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Empty state */}
+                  {!postOpData?.postOpDestination && !postOpData?.postOpNotes && !postOpData?.complications && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No post-operative information recorded yet.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Medication Schedule */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Pill className="h-5 w-5" />
+                    Medication Schedule
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <div className="bg-blue-100 dark:bg-blue-900/30 rounded-full p-4 mb-4">
-                      <ClipboardList className="h-12 w-12 text-blue-500" />
+                  <div className="space-y-3">
+                    {/* Paracetamol */}
+                    <div className="flex items-center justify-between py-2">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium text-sm">Paracetamol</span>
+                      </div>
+                      <div data-testid="text-pacu-paracetamol-time">
+                        {!postOpData?.paracetamolTime ? (
+                          <span className="text-muted-foreground text-sm">Not specified</span>
+                        ) : postOpData.paracetamolTime === "Immediately" ? (
+                          <Badge variant="outline" className="bg-green-50">Immediately</Badge>
+                        ) : postOpData.paracetamolTime === "Contraindicated" ? (
+                          <Badge variant="outline" className="bg-red-50">Contraindicated</Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-blue-50">{postOpData.paracetamolTime}</Badge>
+                        )}
+                      </div>
                     </div>
-                    <h3 className="text-lg font-semibold mb-2">PACU Documentation</h3>
-                    <p className="text-muted-foreground max-w-md mb-4">
-                      PACU-specific documentation features including Aldrete scoring, discharge criteria, 
-                      and post-anesthesia care notes will be available here.
-                    </p>
-                    <Badge variant="secondary" className="mt-2">
-                      Coming Soon
-                    </Badge>
+
+                    <Separator />
+
+                    {/* NSAR */}
+                    <div className="flex items-center justify-between py-2">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium text-sm">NSAR</span>
+                      </div>
+                      <div data-testid="text-pacu-nsar-time">
+                        {!postOpData?.nsarTime ? (
+                          <span className="text-muted-foreground text-sm">Not specified</span>
+                        ) : postOpData.nsarTime === "Immediately" ? (
+                          <Badge variant="outline" className="bg-green-50">Immediately</Badge>
+                        ) : postOpData.nsarTime === "Contraindicated" ? (
+                          <Badge variant="outline" className="bg-red-50">Contraindicated</Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-blue-50">{postOpData.nsarTime}</Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    {/* Novalgin */}
+                    <div className="flex items-center justify-between py-2">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium text-sm">Novalgin</span>
+                      </div>
+                      <div data-testid="text-pacu-novalgin-time">
+                        {!postOpData?.novalginTime ? (
+                          <span className="text-muted-foreground text-sm">Not specified</span>
+                        ) : postOpData.novalginTime === "Immediately" ? (
+                          <Badge variant="outline" className="bg-green-50">Immediately</Badge>
+                        ) : postOpData.novalginTime === "Contraindicated" ? (
+                          <Badge variant="outline" className="bg-red-50">Contraindicated</Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-blue-50">{postOpData.novalginTime}</Badge>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
