@@ -686,6 +686,27 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
             <input
               type="radio"
               name="maintenance-type"
+              value=""
+              checked={!approach}
+              onChange={(e) => {
+                setApproach("");
+                generalAutoSave.mutate({
+                  approach: null,
+                  rsi,
+                  sedationLevel: null,
+                  airwaySupport: null,
+                  notes: null,
+                });
+              }}
+              className="h-4 w-4"
+              data-testid="radio-maintenance-none"
+            />
+            <span className="font-medium text-muted-foreground">None</span>
+          </label>
+          <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-muted/50">
+            <input
+              type="radio"
+              name="maintenance-type"
               value="tiva"
               checked={approach === "tiva"}
               onChange={(e) => {
@@ -830,14 +851,7 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                 onChange={(e) => {
                   const nextSize = e.target.value;
                   setSize(nextSize);
-                  airwayAutoSave.mutate({
-                    airwayDevice: airwayDevice || null,
-                    size: nextSize || null,
-                    depth: depth ? parseInt(depth) : null,
-                    cuffPressure: cuffPressure ? parseInt(cuffPressure) : null,
-                    intubationPreExisting,
-                    notes: airwayNotes || null,
-                  });
+                  airwayAutoSave.mutate(buildAirwaySavePayload({ size: nextSize || null }));
                 }}
                 data-testid="select-airway-size"
               >
@@ -890,14 +904,7 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                 onChange={(e) => {
                   const nextDepth = e.target.value;
                   setDepth(nextDepth);
-                  airwayAutoSave.mutate({
-                    airwayDevice: airwayDevice || null,
-                    size: size || null,
-                    depth: nextDepth ? parseInt(nextDepth) : null,
-                    cuffPressure: cuffPressure ? parseInt(cuffPressure) : null,
-                    intubationPreExisting,
-                    notes: airwayNotes || null,
-                  });
+                  airwayAutoSave.mutate(buildAirwaySavePayload({ depth: nextDepth ? parseInt(nextDepth) : null }));
                 }}
                 data-testid="select-airway-depth"
               >
@@ -919,14 +926,7 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                 onChange={(e) => {
                   const nextCuffPressure = e.target.value;
                   setCuffPressure(nextCuffPressure);
-                  airwayAutoSave.mutate({
-                    airwayDevice: airwayDevice || null,
-                    size: size || null,
-                    depth: depth ? parseInt(depth) : null,
-                    cuffPressure: nextCuffPressure ? parseInt(nextCuffPressure) : null,
-                    intubationPreExisting,
-                    notes: airwayNotes || null,
-                  });
+                  airwayAutoSave.mutate(buildAirwaySavePayload({ cuffPressure: nextCuffPressure ? parseInt(nextCuffPressure) : null }));
                 }}
                 data-testid="select-airway-cuff"
               >
