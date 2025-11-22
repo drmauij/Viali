@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +33,7 @@ interface FolderType {
 }
 
 export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
 
@@ -88,9 +90,9 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
 
   // Get folder name
   const getFolderName = (folderId: string) => {
-    if (folderId === 'uncategorized') return 'Uncategorized';
+    if (folderId === 'uncategorized') return t('anesthesia.op.uncategorized');
     const folder = folders.find(f => f.id === folderId);
-    return folder?.name || 'Uncategorized';
+    return folder?.name || t('anesthesia.op.uncategorized');
   };
 
   // Get final quantity for an item
@@ -178,7 +180,7 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
       <Card>
         <CardContent className="py-12 text-center">
           <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-          <p className="text-muted-foreground">Create an anesthesia record first</p>
+          <p className="text-muted-foreground">{t('anesthesia.op.createRecordFirst')}</p>
         </CardContent>
       </Card>
     );
@@ -187,9 +189,9 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">Medication & Supply Usage</h3>
+        <h3 className="text-lg font-semibold">{t('anesthesia.op.medicationSupplyUsage')}</h3>
         <Badge variant="outline" className="text-xs">
-          Auto-calculated from timeline
+          {t('anesthesia.op.autoCalculatedFromTimeline')}
         </Badge>
       </div>
 
@@ -197,7 +199,7 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
         <Card>
           <CardContent className="py-12 text-center">
             <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <p className="text-muted-foreground">No inventory items available</p>
+            <p className="text-muted-foreground">{t('anesthesia.op.noInventoryItems')}</p>
           </CardContent>
         </Card>
       ) : (
@@ -236,7 +238,7 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
                             <p className="font-medium text-sm">{item.name}</p>
                             {autoCalc > 0 && (
                               <span className="text-xs text-muted-foreground">
-                                (calc: {Math.round(autoCalc)})
+                                ({t('anesthesia.op.calc')}: {Math.round(autoCalc)})
                               </span>
                             )}
                           </div>

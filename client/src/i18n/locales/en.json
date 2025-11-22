@@ -825,7 +825,13 @@
       "errorLoadingPatient": "Error loading patient data",
       "errorFetchingPatient": "Unable to fetch patient information",
       "errorCreatingRecord": "Error checking/creating anesthesia record:",
-      "errorFailedToCreate": "Failed to create anesthesia record. Please refresh the page."
+      "errorFailedToCreate": "Failed to create anesthesia record. Please refresh the page.",
+      "medicationSupplyUsage": "Medication & Supply Usage",
+      "autoCalculatedFromTimeline": "Auto-calculated from timeline",
+      "uncategorized": "Uncategorized",
+      "noInventoryItems": "No inventory items available",
+      "createRecordFirst": "Create an anesthesia record first",
+      "calc": "calc"
     },
     "pdf": {
       "documentTitle": "COMPLETE ANESTHESIA RECORD",

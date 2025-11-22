@@ -825,7 +825,13 @@
       "errorLoadingPatient": "Fehler beim Laden der Patientendaten",
       "errorFetchingPatient": "Patienteninformationen konnten nicht abgerufen werden",
       "errorCreatingRecord": "Fehler beim Prüfen/Erstellen der Anästhesieaufzeichnung:",
-      "errorFailedToCreate": "Anästhesieaufzeichnung konnte nicht erstellt werden. Bitte aktualisieren Sie die Seite."
+      "errorFailedToCreate": "Anästhesieaufzeichnung konnte nicht erstellt werden. Bitte aktualisieren Sie die Seite.",
+      "medicationSupplyUsage": "Medikamenten- und Verbrauchsmaterial",
+      "autoCalculatedFromTimeline": "Automatisch aus Zeitachse berechnet",
+      "uncategorized": "Ohne Kategorie",
+      "noInventoryItems": "Keine Inventarartikel verfügbar",
+      "createRecordFirst": "Erstellen Sie zuerst einen Anästhesieprotokoll",
+      "calc": "ber"
     },
     "pdf": {
       "documentTitle": "VOLLSTÄNDIGES ANÄSTHESIEPROTOKOLL",
