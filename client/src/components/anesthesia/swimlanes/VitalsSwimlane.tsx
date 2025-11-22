@@ -151,15 +151,35 @@ export function VitalsSwimlane({
     
     const yPercent = clickY / rect.height;
     
+    console.log('[FIND-NEARBY] Starting search:', {
+      clickTime: new Date(clickTime).toLocaleTimeString(),
+      clickY,
+      yPercent,
+      rectHeight: rect.height,
+      hrPointsLength: hrDataPoints.length,
+      bpSysLength: bpDataPoints.sys.length,
+    });
+    
     // Check HR points
     for (let i = 0; i < hrDataPoints.length; i++) {
       const [time, value] = hrDataPoints[i];
-      if (Math.abs(time - clickTime) <= TIME_THRESHOLD) {
-        const expectedYPercent = 1 - (value / 240); // HR uses 0-240 scale
-        const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
-        if (pixelDiff <= PIXEL_THRESHOLD) {
-          return { type: 'hr' as const, index: i, time, value };
-        }
+      const timeDiff = Math.abs(time - clickTime);
+      const expectedYPercent = 1 - (value / 240); // HR uses 0-240 scale
+      const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
+      
+      console.log(`[FIND-NEARBY] HR point ${i}:`, {
+        pointTime: new Date(time).toLocaleTimeString(),
+        value,
+        timeDiff,
+        timeMatch: timeDiff <= TIME_THRESHOLD,
+        expectedYPercent,
+        pixelDiff,
+        pixelMatch: pixelDiff <= PIXEL_THRESHOLD,
+      });
+      
+      if (timeDiff <= TIME_THRESHOLD && pixelDiff <= PIXEL_THRESHOLD) {
+        console.log('[FIND-NEARBY] Found HR match!');
+        return { type: 'hr' as const, index: i, time, value };
       }
     }
     
