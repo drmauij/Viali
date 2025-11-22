@@ -4,6 +4,8 @@ import { setupVite, serveStatic, log } from "./vite";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { sql } from "drizzle-orm";
 import { db, pool } from "./db";
+import { startAutoStopService } from "./services/autoStopInfusions";
+import { storage } from "./storage";
 
 const app = express();
 
@@ -188,6 +190,9 @@ app.use((req, res, next) => {
       reusePort: true,
     }, () => {
       log(`serving on port ${port}`);
+      
+      // Start auto-stop service for infusions
+      startAutoStopService(storage);
     });
 
     // Handle server errors
