@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Package, Loader2, Edit, X, AlertCircle } from "lucide-react";
+import { Package, Loader2, Edit, X, AlertCircle, Minus, Plus, RotateCcw } from "lucide-react";
 
 interface InventoryUsageTabProps {
   anesthesiaRecordId: string;
@@ -175,10 +175,9 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
                   <thead>
                     <tr className="border-b">
                       <th className="text-left py-2 px-3 font-medium text-sm">Item</th>
-                      <th className="text-right py-2 px-3 font-medium text-sm">Calculated</th>
-                      <th className="text-right py-2 px-3 font-medium text-sm">Override</th>
-                      <th className="text-right py-2 px-3 font-medium text-sm">Final Qty</th>
-                      <th className="text-right py-2 px-3 font-medium text-sm">Actions</th>
+                      <th className="text-right py-2 px-3 font-medium text-sm">Auto-Calc</th>
+                      <th className="text-center py-2 px-3 font-medium text-sm">Adjust Quantity</th>
+                      <th className="text-right py-2 px-3 font-medium text-sm">Final</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -186,6 +185,18 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
                       const finalQty = usage.overrideQty !== null ? usage.overrideQty : usage.calculatedQty;
                       const hasOverride = usage.overrideQty !== null;
                       
+                      const handleQuickAdjust = (delta: number) => {
+                        const newQty = Math.max(0, finalQty + delta);
+                        setOverrideQty(newQty.toString());
+                        setSelectedUsage(usage);
+                        // Auto-submit with default reason
+                        overrideMutation.mutate({
+                          id: usage.id,
+                          overrideQty: newQty,
+                          overrideReason: delta > 0 ? "Additional usage" : "Reduced usage",
+                        });
+                      };
+
                       return (
                         <tr 
                           key={usage.id} 
@@ -193,52 +204,52 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
                           data-testid={`inventory-usage-${usage.itemId}`}
                         >
                           <td className="py-3 px-3">
-                            <div>
-                              <p className="font-medium text-sm">{usage.itemName}</p>
-                              {hasOverride && usage.overrideReason && (
-                                <p className="text-xs text-muted-foreground mt-1 italic">
-                                  {usage.overrideReason}
-                                </p>
-                              )}
-                            </div>
+                            <p className="font-medium text-sm">{usage.itemName}</p>
                           </td>
-                          <td className="text-right py-3 px-3 text-sm" data-testid={`calculated-${usage.itemId}`}>
+                          <td className="text-right py-3 px-3 text-sm text-muted-foreground" data-testid={`calculated-${usage.itemId}`}>
                             {usage.calculatedQty}
                           </td>
-                          <td className="text-right py-3 px-3 text-sm" data-testid={`override-${usage.itemId}`}>
-                            {hasOverride ? (
-                              <Badge variant="secondary" className="text-xs">
-                                {usage.overrideQty}
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td className="text-right py-3 px-3 font-semibold text-sm" data-testid={`final-qty-${usage.itemId}`}>
-                            {finalQty}
+                          <td className="py-3 px-3">
+                            <div className="flex items-center justify-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => handleQuickAdjust(-1)}
+                                disabled={overrideMutation.isPending}
+                                data-testid={`button-decrease-${usage.itemId}`}
+                              >
+                                <Minus className="h-4 w-4" />
+                              </Button>
+                              <span className="w-12 text-center font-semibold" data-testid={`quantity-${usage.itemId}`}>
+                                {finalQty}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => handleQuickAdjust(+1)}
+                                disabled={overrideMutation.isPending}
+                                data-testid={`button-increase-${usage.itemId}`}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </td>
                           <td className="text-right py-3 px-3">
-                            <div className="flex items-center justify-end gap-2">
+                            {hasOverride && (
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleOpenOverrideDialog(usage)}
-                                data-testid={`button-edit-${usage.itemId}`}
+                                className="h-8 w-8 p-0"
+                                onClick={() => handleClearOverride(usage.id)}
+                                disabled={clearOverrideMutation.isPending}
+                                title="Reset to calculated value"
+                                data-testid={`button-reset-${usage.itemId}`}
                               >
-                                <Edit className="h-4 w-4" />
+                                <RotateCcw className="h-4 w-4" />
                               </Button>
-                              {hasOverride && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleClearOverride(usage.id)}
-                                  disabled={clearOverrideMutation.isPending}
-                                  data-testid={`button-clear-${usage.itemId}`}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
+                            )}
                           </td>
                         </tr>
                       );
