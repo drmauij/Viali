@@ -4855,7 +4855,18 @@ If unable to parse any drugs, return:
 
       const surgeries = await storage.getSurgeries(hospitalId, filters);
       
-      res.json(surgeries);
+      // Enrich surgeries with time markers from anesthesia records
+      const enrichedSurgeries = await Promise.all(
+        surgeries.map(async (surgery) => {
+          const anesthesiaRecord = await storage.getAnesthesiaRecord(surgery.id);
+          return {
+            ...surgery,
+            timeMarkers: anesthesiaRecord?.timeMarkers || null,
+          };
+        })
+      );
+      
+      res.json(enrichedSurgeries);
     } catch (error) {
       console.error("Error fetching surgeries:", error);
       res.status(500).json({ message: "Failed to fetch surgeries" });

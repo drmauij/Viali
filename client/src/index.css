@@ -734,6 +734,54 @@
   cursor: pointer;
 }
 
+.timeline-item-running {
+  background-color: hsl(0, 84%, 60%);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.timeline-item-running:hover {
+  background-color: hsl(0, 84%, 55%);
+  transform: scale(1.02);
+}
+
+.timeline-item-suture {
+  background-color: hsl(38, 92%, 50%);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.timeline-item-suture:hover {
+  background-color: hsl(38, 92%, 45%);
+  transform: scale(1.02);
+}
+
+.timeline-item-completed {
+  background-color: hsl(158, 64%, 52%);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.timeline-item-completed:hover {
+  background-color: hsl(158, 64%, 47%);
+  transform: scale(1.02);
+}
+
 /* Dark mode for timeline */
 [data-theme="dark"] .react-calendar-timeline .rct-header-root {
   background-color: hsl(215, 28%, 12%);

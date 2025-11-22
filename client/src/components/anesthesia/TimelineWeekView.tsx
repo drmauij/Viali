@@ -119,6 +119,26 @@ export default function TimelineWeekView({
         ? new Date(surgery.actualEndTime)
         : new Date(plannedDate.getTime() + 3 * 60 * 60 * 1000); // Default 3 hours
       
+      // Determine status class based on time markers
+      let statusClass = 'timeline-item-active'; // default blue
+      
+      if (surgery.status === "cancelled") {
+        statusClass = 'timeline-item-cancelled';
+      } else if (surgery.timeMarkers) {
+        const hasA2 = surgery.timeMarkers.find((m: any) => m.code === 'A2' && m.time !== null);
+        const hasX2 = surgery.timeMarkers.find((m: any) => m.code === 'X2' && m.time !== null);
+        const hasO2 = surgery.timeMarkers.find((m: any) => m.code === 'O2' && m.time !== null);
+        const hasO1 = surgery.timeMarkers.find((m: any) => m.code === 'O1' && m.time !== null);
+        
+        if (hasA2 || hasX2) {
+          statusClass = 'timeline-item-completed'; // green
+        } else if (hasO2) {
+          statusClass = 'timeline-item-suture'; // yellow
+        } else if (hasO1) {
+          statusClass = 'timeline-item-running'; // red
+        }
+      }
+      
       return {
         id: surgery.id,
         group: surgery.surgeryRoomId || surgeryRooms[0]?.id || "unassigned",
@@ -126,7 +146,7 @@ export default function TimelineWeekView({
         start_time: moment(plannedDate).valueOf(),
         end_time: moment(endTime).valueOf(),
         itemProps: {
-          className: surgery.status === "cancelled" ? 'timeline-item-cancelled' : 'timeline-item-active',
+          className: statusClass,
           onDoubleClick: () => onEventClick?.(surgery.id, surgery.patientId),
           'data-testid': `timeline-event-${surgery.id}`,
         },

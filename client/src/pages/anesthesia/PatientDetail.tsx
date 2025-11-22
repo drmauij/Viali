@@ -1581,9 +1581,10 @@ export default function PatientDetail() {
                     variant="outline"
                     className="h-auto py-4 flex-col gap-2"
                     onClick={() => setLocation(`/anesthesia/cases/${surgery.id}/pacu`)}
+                    disabled={!(surgery as any).timeMarkers?.find((m: any) => m.code === 'A2' && m.time !== null)}
                     data-testid={`button-pacu-${surgery.id}`}
                   >
-                    <BedDouble className="h-10 w-10 text-primary" />
+                    <BedDouble className={`h-10 w-10 ${(surgery as any).timeMarkers?.find((m: any) => m.code === 'A2' && m.time !== null) ? 'text-primary' : 'text-muted-foreground'}`} />
                     <span className="text-sm font-medium">PACU</span>
                   </Button>
                 </div>

@@ -32,6 +32,12 @@ interface CalendarEvent {
   patientName: string;
   patientBirthday: string;
   isCancelled: boolean;
+  timeMarkers?: Array<{
+    id: string;
+    code: string;
+    label: string;
+    time: number | null;
+  }> | null;
 }
 
 type CalendarResource = {
@@ -189,6 +195,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         patientName,
         patientBirthday,
         isCancelled,
+        timeMarkers: surgery.timeMarkers || null,
       };
     });
   }, [surgeries, allPatients, surgeryRooms]);
@@ -279,9 +286,38 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
 
   // Custom event style getter
   const eventStyleGetter: EventPropGetter<CalendarEvent> = useCallback((event: CalendarEvent) => {
+    let backgroundColor = '#3b82f6'; // Default blue
+    let borderColor = '#2563eb';
+    
+    // If cancelled, use gray
+    if (event.isCancelled) {
+      backgroundColor = '#9ca3af';
+      borderColor = '#6b7280';
+    } else if (event.timeMarkers) {
+      // Check time markers for surgery status
+      const hasA2 = event.timeMarkers.find(m => m.code === 'A2' && m.time !== null);
+      const hasX2 = event.timeMarkers.find(m => m.code === 'X2' && m.time !== null);
+      const hasO2 = event.timeMarkers.find(m => m.code === 'O2' && m.time !== null);
+      const hasO1 = event.timeMarkers.find(m => m.code === 'O1' && m.time !== null);
+      
+      if (hasA2 || hasX2) {
+        // Completed - green
+        backgroundColor = '#10b981'; // emerald-500
+        borderColor = '#059669'; // emerald-600
+      } else if (hasO2) {
+        // Suture phase - yellow/amber
+        backgroundColor = '#f59e0b'; // amber-500
+        borderColor = '#d97706'; // amber-600
+      } else if (hasO1) {
+        // Surgery running - red
+        backgroundColor = '#ef4444'; // red-500
+        borderColor = '#dc2626'; // red-600
+      }
+    }
+    
     const style: any = {
-      backgroundColor: event.isCancelled ? '#9ca3af' : '#3b82f6',
-      borderColor: event.isCancelled ? '#6b7280' : '#2563eb',
+      backgroundColor,
+      borderColor,
       color: '#ffffff',
       borderRadius: '4px',
       opacity: event.isCancelled ? 0.7 : 1,
