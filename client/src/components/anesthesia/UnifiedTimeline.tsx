@@ -4926,7 +4926,26 @@ export function UnifiedTimeline({
                 // For Times swimlane, show next timepoint button and times icon
                 <div className="flex items-center justify-between gap-1 flex-1">
                   <button
-                    onClick={() => setBulkEditDialogOpen(true)}
+                    onClick={() => {
+                      const nextMarkerIndex = timeMarkers.findIndex(m => m.time === null);
+                      if (nextMarkerIndex !== -1) {
+                        const updatedMarkers = [...timeMarkers];
+                        updatedMarkers[nextMarkerIndex] = {
+                          ...updatedMarkers[nextMarkerIndex],
+                          time: currentTime,
+                        };
+                        setTimeMarkers(updatedMarkers);
+                        
+                        // Save to database
+                        if (anesthesiaRecordId && saveTimeMarkersMutation) {
+                          console.log('[TIME_MARKERS] Quick add button - triggering save mutation');
+                          saveTimeMarkersMutation.mutate({
+                            anesthesiaRecordId,
+                            timeMarkers: updatedMarkers,
+                          });
+                        }
+                      }
+                    }}
                     className="flex items-center gap-1 text-left bg-muted/50 text-muted-foreground px-2 py-1 rounded text-xs hover:bg-muted transition-colors pointer-events-auto truncate flex-1 max-w-[140px]"
                     data-testid="button-next-timepoint"
                     title={(() => {
@@ -4939,15 +4958,7 @@ export function UnifiedTimeline({
                       if (nextMarker) {
                         return (
                           <>
-                            <div
-                              className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0"
-                              style={{
-                                backgroundColor: nextMarker.bgColor,
-                                color: nextMarker.color,
-                              }}
-                            >
-                              {nextMarker.code}
-                            </div>
+                            <ChevronRight className="w-4 h-4 shrink-0" />
                             <span className="truncate text-[11px]">{nextMarker.label}</span>
                           </>
                         );
