@@ -3305,7 +3305,7 @@ export class DatabaseStorage implements IStorage {
       })
       .from(items)
       .leftJoin(medicationConfigs, eq(items.id, medicationConfigs.itemId))
-      .where(sql`${items.id} IN (${sql.join(itemIds.map(id => sql`${id}`), sql`, `)})`);
+      .where(inArray(items.id, itemIds));
     
     const itemsMap = new Map(itemsWithConfigs.map(item => [item.id, item]));
     
