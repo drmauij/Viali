@@ -66,6 +66,7 @@ interface ExportData {
   anesthesiaItems?: AnesthesiaItem[];
   staffMembers?: StaffMember[];
   positions?: PositionEntry[];
+  timeMarkers?: TimeMarker[];
 }
 
 // Helper to format time from milliseconds to HH:MM (24-hour format)
@@ -105,6 +106,439 @@ function checkPageBreak(doc: jsPDF, currentY: number, spaceNeeded: number = 80):
     return 20;
   }
   return currentY;
+}
+
+// Helper to draw a timeline chart with multiple data series
+function drawTimelineChart(
+  doc: jsPDF,
+  title: string,
+  dataSeries: Array<{
+    name: string;
+    data: Array<{ time: number; value: number }>;
+    color: [number, number, number];
+  }>,
+  yPos: number,
+  options: {
+    yLabel?: string;
+    min?: number;
+    max?: number;
+    height?: number;
+  }
+): number {
+  const chartHeight = options.height || 60;
+  const chartWidth = 170;
+  const chartX = 20;
+  const chartY = yPos;
+
+  // Draw title
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text(title, chartX, chartY);
+  
+  const plotY = chartY + 10;
+  const plotHeight = chartHeight - 20;
+  const plotWidth = chartWidth;
+
+  // Check if we have any data
+  const hasData = dataSeries.some(series => series.data.length > 0);
+  if (!hasData) {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "italic");
+    doc.text("No data available", chartX + 5, plotY + plotHeight / 2);
+    return chartY + chartHeight + 5;
+  }
+
+  // Find global min/max time and values
+  let allTimes: number[] = [];
+  let allValues: number[] = [];
+  dataSeries.forEach(series => {
+    series.data.forEach(point => {
+      allTimes.push(point.time);
+      allValues.push(point.value);
+    });
+  });
+
+  if (allTimes.length === 0) {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "italic");
+    doc.text("No data available", chartX + 5, plotY + plotHeight / 2);
+    return chartY + chartHeight + 5;
+  }
+
+  const minTime = Math.min(...allTimes);
+  const maxTime = Math.max(...allTimes);
+  const minValue = options.min !== undefined ? options.min : Math.floor(Math.min(...allValues) * 0.9);
+  const maxValue = options.max !== undefined ? options.max : Math.ceil(Math.max(...allValues) * 1.1);
+
+  // Draw chart border
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.5);
+  doc.rect(chartX, plotY, plotWidth, plotHeight);
+
+  // Draw grid lines (horizontal)
+  doc.setDrawColor(240, 240, 240);
+  doc.setLineWidth(0.2);
+  for (let i = 1; i < 5; i++) {
+    const y = plotY + (plotHeight / 5) * i;
+    doc.line(chartX, y, chartX + plotWidth, y);
+  }
+
+  // Draw Y-axis labels
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 100, 100);
+  for (let i = 0; i <= 5; i++) {
+    const value = maxValue - ((maxValue - minValue) / 5) * i;
+    const y = plotY + (plotHeight / 5) * i;
+    doc.text(value.toFixed(0), chartX - 10, y + 2, { align: "right" });
+  }
+
+  // Y-axis label
+  if (options.yLabel) {
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text(options.yLabel, chartX - 15, plotY + plotHeight / 2, {
+      angle: 90,
+      align: "center",
+    });
+  }
+
+  // Draw X-axis time labels
+  const numXLabels = 5;
+  for (let i = 0; i <= numXLabels; i++) {
+    const time = minTime + ((maxTime - minTime) / numXLabels) * i;
+    const x = chartX + (plotWidth / numXLabels) * i;
+    doc.setFontSize(7);
+    doc.text(formatTimeFrom24h(time), x, plotY + plotHeight + 5, { align: "center" });
+  }
+
+  // Plot data series
+  dataSeries.forEach(series => {
+    if (series.data.length === 0) return;
+
+    doc.setDrawColor(...series.color);
+    doc.setLineWidth(0.8);
+
+    const sortedData = [...series.data].sort((a, b) => a.time - b.time);
+
+    for (let i = 0; i < sortedData.length - 1; i++) {
+      const p1 = sortedData[i];
+      const p2 = sortedData[i + 1];
+
+      const x1 = chartX + ((p1.time - minTime) / (maxTime - minTime)) * plotWidth;
+      const y1 = plotY + plotHeight - ((p1.value - minValue) / (maxValue - minValue)) * plotHeight;
+      const x2 = chartX + ((p2.time - minTime) / (maxTime - minTime)) * plotWidth;
+      const y2 = plotY + plotHeight - ((p2.value - minValue) / (maxValue - minValue)) * plotHeight;
+
+      doc.line(x1, y1, x2, y2);
+    }
+
+    // Draw points
+    sortedData.forEach(point => {
+      const x = chartX + ((point.time - minTime) / (maxTime - minTime)) * plotWidth;
+      const y = plotY + plotHeight - ((point.value - minValue) / (maxValue - minValue)) * plotHeight;
+      doc.setFillColor(...series.color);
+      doc.circle(x, y, 0.5, "F");
+    });
+  });
+
+  // Draw legend
+  let legendX = chartX;
+  const legendY = plotY + plotHeight + 10;
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  dataSeries.forEach((series, idx) => {
+    doc.setFillColor(...series.color);
+    doc.rect(legendX, legendY - 2, 3, 3, "F");
+    doc.setTextColor(0, 0, 0);
+    doc.text(series.name, legendX + 5, legendY);
+    legendX += doc.getTextWidth(series.name) + 15;
+  });
+
+  doc.setTextColor(0, 0, 0);
+  return chartY + chartHeight + 5;
+}
+
+// Helper to draw medication timeline swimlanes
+function drawMedicationTimeline(
+  doc: jsPDF,
+  title: string,
+  medications: MedicationAdministration[],
+  anesthesiaItems: AnesthesiaItem[],
+  yPos: number
+): number {
+  const chartHeight = 60;
+  const chartWidth = 170;
+  const chartX = 20;
+  const chartY = yPos;
+
+  // Draw title
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text(title, chartX, chartY);
+
+  if (!medications || medications.length === 0) {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "italic");
+    doc.text("No medications administered", chartX + 5, chartY + 15);
+    return chartY + 25;
+  }
+
+  const plotY = chartY + 10;
+  const itemMap = new Map(anesthesiaItems.map(item => [item.id, item]));
+
+  // Group medications by item
+  const medsByItem = new Map<string, MedicationAdministration[]>();
+  medications.forEach(med => {
+    const meds = medsByItem.get(med.itemId) || [];
+    meds.push(med);
+    medsByItem.set(med.itemId, meds);
+  });
+
+  // Get time range
+  const allTimes = medications.map(m => new Date(m.timestamp).getTime());
+  const minTime = Math.min(...allTimes);
+  const maxTime = Math.max(...allTimes);
+
+  // Draw swimlanes
+  let currentY = plotY;
+  const laneHeight = 8;
+  const maxLanes = Math.min(medsByItem.size, 6); // Limit to 6 lanes to fit in chart
+
+  let laneIndex = 0;
+  for (const [itemId, meds] of Array.from(medsByItem.entries())) {
+    if (laneIndex >= maxLanes) break;
+
+    const item = itemMap.get(itemId);
+    const itemName = item?.name || "Unknown";
+
+    // Draw lane background
+    doc.setFillColor(laneIndex % 2 === 0 ? 250 : 245, 250, 250);
+    doc.rect(chartX, currentY, chartWidth, laneHeight, "F");
+
+    // Draw item name
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(50, 50, 50);
+    const truncatedName = itemName.length > 20 ? itemName.substring(0, 17) + "..." : itemName;
+    doc.text(truncatedName, chartX + 2, currentY + 5);
+
+    // Draw medication events
+    meds.forEach((med: MedicationAdministration) => {
+      const medTime = new Date(med.timestamp).getTime();
+      const x = chartX + 40 + ((medTime - minTime) / (maxTime - minTime)) * (chartWidth - 45);
+
+      if (med.type === "bolus") {
+        // Draw bolus as vertical bar
+        doc.setFillColor(59, 130, 246);
+        doc.rect(x - 0.5, currentY + 1, 1, laneHeight - 2, "F");
+        // Add dose label
+        doc.setFontSize(6);
+        doc.setTextColor(0, 0, 0);
+        doc.text(med.dose, x + 1, currentY + 4);
+      } else if (med.type === "infusion_start") {
+        // Draw infusion as horizontal bar
+        const endMed = meds.find((m: MedicationAdministration) => m.type === "infusion_stop" && new Date(m.timestamp).getTime() > medTime);
+        const endTime = endMed ? new Date(endMed.timestamp).getTime() : maxTime;
+        const endX = chartX + 40 + ((endTime - minTime) / (maxTime - minTime)) * (chartWidth - 45);
+
+        doc.setFillColor(16, 185, 129);
+        doc.rect(x, currentY + 2, endX - x, laneHeight - 4, "F");
+        // Add rate label
+        doc.setFontSize(6);
+        doc.setTextColor(255, 255, 255);
+        const rateText = med.rate === "free" ? "Free" : med.rate || "";
+        doc.text(rateText, x + 2, currentY + 5);
+      }
+    });
+
+    currentY += laneHeight;
+    laneIndex++;
+  }
+
+  // Draw time axis
+  doc.setFontSize(7);
+  doc.setTextColor(100, 100, 100);
+  const numLabels = 4;
+  for (let i = 0; i <= numLabels; i++) {
+    const time = minTime + ((maxTime - minTime) / numLabels) * i;
+    const x = chartX + 40 + ((chartWidth - 45) / numLabels) * i;
+    doc.text(formatTimeFrom24h(time), x, currentY + 5, { align: "center" });
+  }
+
+  doc.setTextColor(0, 0, 0);
+  return currentY + 10;
+}
+
+// Helper to draw output/fluid balance chart
+function drawOutputChart(
+  doc: jsPDF,
+  title: string,
+  outputData: any,
+  yPos: number
+): number {
+  const chartHeight = 50;
+  const chartWidth = 170;
+  const chartX = 20;
+  const chartY = yPos;
+
+  // Draw title
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text(title, chartX, chartY);
+
+  const plotY = chartY + 10;
+
+  // Collect all output types
+  const outputTypes = [
+    { key: "urine", label: "Urine", color: [251, 191, 36] as [number, number, number] },
+    { key: "drainage", label: "Drainage", color: [239, 68, 68] as [number, number, number] },
+    { key: "gastricTube", label: "Gastric", color: [34, 197, 94] as [number, number, number] },
+    { key: "blood", label: "Blood", color: [220, 38, 38] as [number, number, number] },
+  ];
+
+  // Check if we have any data
+  const hasData = outputTypes.some(type => outputData[type.key] && outputData[type.key].length > 0);
+  
+  if (!hasData) {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "italic");
+    doc.text("No output data available", chartX + 5, plotY + 10);
+    return chartY + 25;
+  }
+
+  // Calculate totals for each type
+  const totals: { label: string; value: number; color: [number, number, number] }[] = [];
+  outputTypes.forEach(type => {
+    const data = outputData[type.key] || [];
+    if (data.length > 0) {
+      const total = data.reduce((sum: number, point: any) => sum + (point.value || 0), 0);
+      if (total > 0) {
+        totals.push({ label: type.label, value: total, color: type.color });
+      }
+    }
+  });
+
+  if (totals.length === 0) {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "italic");
+    doc.text("No output data available", chartX + 5, plotY + 10);
+    return chartY + 25;
+  }
+
+  // Draw bar chart
+  const maxValue = Math.max(...totals.map(t => t.value));
+  const barHeight = 15;
+  const maxBarWidth = chartWidth - 60;
+
+  totals.forEach((item, idx) => {
+    const barY = plotY + idx * (barHeight + 5);
+    const barWidth = (item.value / maxValue) * maxBarWidth;
+
+    // Draw bar
+    doc.setFillColor(...item.color);
+    doc.rect(chartX + 50, barY, barWidth, barHeight, "F");
+
+    // Draw label
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(0, 0, 0);
+    doc.text(item.label, chartX, barY + 10);
+
+    // Draw value
+    doc.text(`${item.value.toFixed(0)} ml`, chartX + 55 + barWidth, barY + 10);
+  });
+
+  doc.setTextColor(0, 0, 0);
+  return chartY + totals.length * (barHeight + 5) + 15;
+}
+
+// Helper to draw rhythm timeline
+function drawRhythmTimeline(
+  doc: jsPDF,
+  title: string,
+  rhythmData: Array<{ id: string; timestamp: string; value: string }>,
+  yPos: number
+): number {
+  const chartHeight = 30;
+  const chartWidth = 170;
+  const chartX = 20;
+  const chartY = yPos;
+
+  // Draw title
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text(title, chartX, chartY);
+
+  if (!rhythmData || rhythmData.length === 0) {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "italic");
+    doc.text("No rhythm changes recorded", chartX + 5, chartY + 15);
+    return chartY + 25;
+  }
+
+  const plotY = chartY + 10;
+  const laneHeight = 15;
+
+  // Sort by timestamp
+  const sortedData = [...rhythmData].sort((a, b) => 
+    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+
+  // Get time range
+  const times = sortedData.map(r => new Date(r.timestamp).getTime());
+  const minTime = Math.min(...times);
+  const maxTime = Math.max(...times);
+
+  // Draw timeline background
+  doc.setFillColor(250, 250, 250);
+  doc.rect(chartX, plotY, chartWidth, laneHeight, "F");
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.5);
+  doc.rect(chartX, plotY, chartWidth, laneHeight);
+
+  // Draw rhythm segments
+  sortedData.forEach((rhythm, idx) => {
+    const startTime = new Date(rhythm.timestamp).getTime();
+    const endTime = idx < sortedData.length - 1 
+      ? new Date(sortedData[idx + 1].timestamp).getTime() 
+      : maxTime;
+
+    const x1 = chartX + ((startTime - minTime) / (maxTime - minTime)) * chartWidth;
+    const x2 = chartX + ((endTime - minTime) / (maxTime - minTime)) * chartWidth;
+
+    // Color code by rhythm
+    const rhythmColors: { [key: string]: [number, number, number] } = {
+      "Sinus": [34, 197, 94],
+      "AF": [239, 68, 68],
+      "SVT": [251, 146, 60],
+      "VT": [220, 38, 38],
+    };
+    const color = rhythmColors[rhythm.value] || [100, 100, 100];
+    
+    doc.setFillColor(...color);
+    doc.rect(x1, plotY + 2, x2 - x1, laneHeight - 4, "F");
+
+    // Add label if segment is wide enough
+    if (x2 - x1 > 15) {
+      doc.setFontSize(7);
+      doc.setTextColor(255, 255, 255);
+      doc.text(rhythm.value, x1 + 2, plotY + 9);
+    }
+  });
+
+  // Draw time labels
+  doc.setFontSize(7);
+  doc.setTextColor(100, 100, 100);
+  const numLabels = 4;
+  for (let i = 0; i <= numLabels; i++) {
+    const time = minTime + ((maxTime - minTime) / numLabels) * i;
+    const x = chartX + (chartWidth / numLabels) * i;
+    doc.text(formatTimeFrom24h(time), x, plotY + laneHeight + 5, { align: "center" });
+  }
+
+  doc.setTextColor(0, 0, 0);
+  return chartY + chartHeight + 5;
 }
 
 export function generateAnesthesiaRecordPDF(data: ExportData) {
@@ -498,6 +932,121 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     }
 
     yPos += 5;
+
+    // ==================== VISUAL CHARTS: VITALS TIMELINE ====================
+    yPos = checkPageBreak(doc, yPos, 90);
+
+    const hrData = (snapshotData.hr || []).map((p: any) => ({
+      time: new Date(p.timestamp).getTime(),
+      value: p.value
+    }));
+    const bpSysData = (snapshotData.bp || []).map((p: any) => ({
+      time: new Date(p.timestamp).getTime(),
+      value: p.sys
+    }));
+    const bpDiaData = (snapshotData.bp || []).map((p: any) => ({
+      time: new Date(p.timestamp).getTime(),
+      value: p.dia
+    }));
+    const spo2Data = (snapshotData.spo2 || []).map((p: any) => ({
+      time: new Date(p.timestamp).getTime(),
+      value: p.value
+    }));
+    const tempData = (snapshotData.temp || []).map((p: any) => ({
+      time: new Date(p.timestamp).getTime(),
+      value: p.value
+    }));
+
+    // Draw Vitals Chart
+    yPos = drawTimelineChart(
+      doc,
+      "VITAL SIGNS TIMELINE",
+      [
+        { name: "HR (bpm)", data: hrData, color: [59, 130, 246] },
+        { name: "BP Sys", data: bpSysData, color: [220, 38, 38] },
+        { name: "BP Dia", data: bpDiaData, color: [239, 68, 68] },
+        { name: "SpO2 (%)", data: spo2Data, color: [34, 197, 94] },
+        { name: "Temp (°C)", data: tempData, color: [251, 146, 60] },
+      ],
+      yPos,
+      { yLabel: "Value", height: 80 }
+    );
+
+    // ==================== VISUAL CHARTS: MEDICATIONS TIMELINE ====================
+    if (data.medications && data.medications.length > 0) {
+      yPos = checkPageBreak(doc, yPos, 80);
+      yPos = drawMedicationTimeline(
+        doc,
+        "MEDICATIONS & INFUSIONS TIMELINE",
+        data.medications,
+        data.anesthesiaItems || [],
+        yPos
+      );
+    }
+
+    // ==================== VISUAL CHARTS: VENTILATION PARAMETERS ====================
+    yPos = checkPageBreak(doc, yPos, 90);
+
+    const pipData = (snapshotData.pip || []).map((p: any) => ({
+      time: new Date(p.timestamp).getTime(),
+      value: p.value
+    }));
+    const peepData = (snapshotData.peep || []).map((p: any) => ({
+      time: new Date(p.timestamp).getTime(),
+      value: p.value
+    }));
+    const tidalVolumeData = (snapshotData.tidalVolume || []).map((p: any) => ({
+      time: new Date(p.timestamp).getTime(),
+      value: p.value
+    }));
+    const respRateData = (snapshotData.respiratoryRate || []).map((p: any) => ({
+      time: new Date(p.timestamp).getTime(),
+      value: p.value
+    }));
+    const fio2Data = (snapshotData.fio2 || []).map((p: any) => ({
+      time: new Date(p.timestamp).getTime(),
+      value: p.value
+    }));
+    const etco2Data = (snapshotData.etco2 || []).map((p: any) => ({
+      time: new Date(p.timestamp).getTime(),
+      value: p.value
+    }));
+
+    // Draw Ventilation Parameters Chart
+    yPos = drawTimelineChart(
+      doc,
+      "VENTILATION PARAMETERS",
+      [
+        { name: "PIP (cmH2O)", data: pipData, color: [59, 130, 246] },
+        { name: "PEEP (cmH2O)", data: peepData, color: [16, 185, 129] },
+        { name: "TV (ml)", data: tidalVolumeData, color: [251, 146, 60] },
+        { name: "RR (/min)", data: respRateData, color: [139, 92, 246] },
+        { name: "FiO2 (%)", data: fio2Data, color: [236, 72, 153] },
+        { name: "EtCO2 (mmHg)", data: etco2Data, color: [234, 179, 8] },
+      ],
+      yPos,
+      { yLabel: "Value", height: 80 }
+    );
+
+    // ==================== VISUAL CHARTS: FLUID BALANCE & OUTPUT ====================
+    yPos = checkPageBreak(doc, yPos, 70);
+    yPos = drawOutputChart(
+      doc,
+      "FLUID BALANCE & OUTPUT",
+      snapshotData,
+      yPos
+    );
+
+    // ==================== VISUAL CHARTS: HEART RHYTHM ====================
+    if (snapshotData.heartRhythm && snapshotData.heartRhythm.length > 0) {
+      yPos = checkPageBreak(doc, yPos, 50);
+      yPos = drawRhythmTimeline(
+        doc,
+        "HEART RHYTHM",
+        snapshotData.heartRhythm,
+        yPos
+      );
+    }
   }
 
   // ==================== POST-OPERATIVE INFORMATION ====================

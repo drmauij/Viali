@@ -753,6 +753,7 @@ export default function Op() {
         anesthesiaItems: anesthesiaItems || [],
         staffMembers: staffMembers || [],
         positions: positions || [],
+        timeMarkers: (anesthesiaRecord?.timeMarkers as any[]) || [],
       });
 
       toast({
