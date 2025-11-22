@@ -1640,23 +1640,23 @@ export default function PatientDetail() {
                 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
-                    <p className="text-muted-foreground">Surgery</p>
+                    <p className="text-muted-foreground">{t('anesthesia.patientDetail.surgery')}</p>
                     <p className="font-medium">{surgery.plannedSurgery}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Surgeon</p>
-                    <p className="font-medium">{surgery.surgeon || 'Not assigned'}</p>
+                    <p className="text-muted-foreground">{t('anesthesia.patientDetail.surgeon')}</p>
+                    <p className="font-medium">{surgery.surgeon || t('anesthesia.patientDetail.notAssigned')}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Room</p>
+                    <p className="text-muted-foreground">{t('anesthesia.patientDetail.room')}</p>
                     <p className="font-medium">
                       {surgery.surgeryRoomId 
                         ? surgeryRooms.find(r => r.id === surgery.surgeryRoomId)?.name || surgery.surgeryRoomId
-                        : 'Not assigned'}
+                        : t('anesthesia.patientDetail.notAssigned')}
                     </p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Planned Date</p>
+                    <p className="text-muted-foreground">{t('anesthesia.patientDetail.plannedDate')}</p>
                     <p className="font-medium flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
                       {formatDate(surgery.plannedDate)}
@@ -1689,7 +1689,7 @@ export default function PatientDetail() {
                     data-testid={`button-preop-${surgery.id}`}
                   >
                     <ClipboardList className="h-10 w-10 text-primary" />
-                    <span className="text-sm font-medium">Pre-OP</span>
+                    <span className="text-sm font-medium">{t('anesthesia.patientDetail.preOp')}</span>
                   </Button>
                   
                   <Button
@@ -1699,7 +1699,7 @@ export default function PatientDetail() {
                     data-testid={`button-op-${surgery.id}`}
                   >
                     <Activity className="h-10 w-10 text-primary" />
-                    <span className="text-sm font-medium">OP</span>
+                    <span className="text-sm font-medium">{t('anesthesia.patientDetail.op')}</span>
                   </Button>
                   
                   <Button
@@ -1710,7 +1710,7 @@ export default function PatientDetail() {
                     data-testid={`button-pacu-${surgery.id}`}
                   >
                     <BedDouble className={`h-10 w-10 ${(surgery as any).timeMarkers?.find((m: any) => m.code === 'A2' && m.time !== null) ? 'text-primary' : 'text-muted-foreground'}`} />
-                    <span className="text-sm font-medium">PACU</span>
+                    <span className="text-sm font-medium">{t('anesthesia.patientDetail.pacu')}</span>
                   </Button>
                 </div>
               </CardContent>
