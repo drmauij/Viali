@@ -5007,7 +5007,6 @@ export function UnifiedTimeline({
                   data-testid="button-toggle-events-panel"
                   title="View Events & Times"
                 >
-                  <MessageSquareText className="w-4 h-4 text-foreground/70 shrink-0" />
                   <span className={`${labelClass} text-black dark:text-white`}>
                     {lane.label}
                   </span>
