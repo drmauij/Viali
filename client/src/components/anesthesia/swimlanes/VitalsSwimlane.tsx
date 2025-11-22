@@ -308,21 +308,23 @@ export function VitalsSwimlane({
     }
   };
 
-  // Render interactive overlay
-  if (!activeToolMode) return null;
+  // Determine cursor style based on tool mode
+  const getCursorStyle = () => {
+    if (activeToolMode === 'edit') {
+      return selectedPoint ? 'cursor-grabbing' : 'cursor-pointer';
+    } else if (activeToolMode) {
+      return 'cursor-crosshair';
+    } else {
+      return 'cursor-pointer'; // No tool mode - bulk entry
+    }
+  };
 
   return (
     <>
-      {/* Interactive layer for vitals entry - only active when tool mode is selected */}
+      {/* Interactive layer for vitals entry */}
       <div
         data-vitals-overlay="true"
-        className={`absolute z-30 ${
-          activeToolMode === 'edit' 
-            ? (selectedPoint ? 'cursor-grabbing' : 'cursor-pointer') 
-            : activeToolMode 
-              ? 'cursor-crosshair' 
-              : 'cursor-pointer'
-        }`}
+        className={`absolute z-30 ${getCursorStyle()}`}
         style={{
           left: '200px',
           right: '10px',
