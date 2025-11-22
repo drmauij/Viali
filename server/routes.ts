@@ -7659,6 +7659,55 @@ If unable to parse any drugs, return:
     }
   });
 
+  // Create or update manual inventory usage
+  app.post('/api/anesthesia/inventory/:recordId/manual', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId } = req.params;
+      const userId = req.user.id;
+      const { itemId, qty, reason } = req.body;
+
+      if (!itemId || typeof itemId !== 'string') {
+        return res.status(400).json({ message: "Item ID is required" });
+      }
+
+      if (typeof qty !== 'number' || qty < 0) {
+        return res.status(400).json({ message: "Invalid quantity" });
+      }
+
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      // Verify user has access
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const created = await storage.createManualInventoryUsage(
+        recordId,
+        itemId,
+        qty,
+        reason || "Manual adjustment",
+        userId
+      );
+      
+      res.json(created);
+    } catch (error) {
+      console.error("Error creating manual inventory usage:", error);
+      res.status(500).json({ message: "Failed to create manual inventory usage" });
+    }
+  });
+
   // Set manual override for inventory usage
   app.patch('/api/anesthesia/inventory/:id/override', isAuthenticated, async (req: any, res) => {
     try {

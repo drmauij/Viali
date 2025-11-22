@@ -3379,6 +3379,38 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
+  async createManualInventoryUsage(
+    anesthesiaRecordId: string,
+    itemId: string,
+    qty: number,
+    reason: string,
+    userId: string
+  ): Promise<InventoryUsage> {
+    const [created] = await db
+      .insert(inventoryUsage)
+      .values({
+        anesthesiaRecordId,
+        itemId,
+        calculatedQty: '0',
+        overrideQty: qty.toFixed(2),
+        overrideReason: reason,
+        overriddenBy: userId,
+        overriddenAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [inventoryUsage.anesthesiaRecordId, inventoryUsage.itemId],
+        set: {
+          overrideQty: qty.toFixed(2),
+          overrideReason: reason,
+          overriddenBy: userId,
+          overriddenAt: new Date(),
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return created;
+  }
+
   // Audit Trail operations
   async getAuditTrail(recordType: string, recordId: string): Promise<AuditTrail[]> {
     const trail = await db
