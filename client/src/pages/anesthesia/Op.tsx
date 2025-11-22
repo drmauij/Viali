@@ -838,23 +838,12 @@ export default function Op() {
         <p className="sr-only" id="op-dialog-description">{isPacuMode ? 'Post-anesthesia care unit monitoring system' : 'Professional anesthesia monitoring system for tracking vitals, medications, and clinical events during surgery'}</p>
         {/* Fixed Patient Info Header */}
         <div className="shrink-0 bg-background relative">
-          {/* PACU Mode Header Banner */}
-          {isPacuMode && (
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <BedDouble className="h-5 w-5" />
-                {t('anesthesia.op.pacuMonitor').toUpperCase()}
-              </h3>
-            </div>
-          )}
-          
           {/* Action Buttons - Fixed top-right */}
           <div className="absolute right-2 top-2 md:right-4 md:top-4 z-10 flex gap-2">
             <Button
               variant="ghost"
               size="icon"
               onClick={handleDownloadPDF}
-              className={isPacuMode ? 'text-white hover:bg-white/20' : ''}
               data-testid="button-download-pdf"
               title={t('anesthesia.op.downloadCompleteRecordPDF')}
             >
@@ -864,14 +853,13 @@ export default function Op() {
               variant="ghost"
               size="icon"
               onClick={handleClose}
-              className={isPacuMode ? 'text-white hover:bg-white/20' : ''}
               data-testid="button-close-op"
             >
               <X className="h-5 w-5" />
             </Button>
           </div>
 
-          <div className={`px-4 md:px-6 ${isPacuMode ? 'py-3' : 'py-3 pr-12 md:pr-14'}`}>
+          <div className="px-4 md:px-6 py-3 pr-12 md:pr-14">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4 md:flex-wrap">
               {/* Patient Name & Icon */}
               <div className="flex items-center gap-3">
