@@ -4897,12 +4897,14 @@ export function UnifiedTimeline({
           const isVentParent = lane.id === "ventilation";
           const isOutputParent = lane.id === "output";
           const isStaffParent = lane.id === "staff";
+          const isOthersParent = lane.id === "others";
           const isVentChild = lane.id.startsWith("ventilation-");
           const isOutputChild = lane.id.startsWith("output-");
           const isStaffChild = lane.id.startsWith("staff-");
+          const isOthersChild = lane.id === "bis" || lane.id === "tof";
           
           // Only the main parent swimlanes are collapsible
-          const isCollapsibleParent = isMedParent || isVentParent || isOutputParent || isStaffParent;
+          const isCollapsibleParent = isMedParent || isVentParent || isOutputParent || isStaffParent || isOthersParent;
           
           // Determine styling based on hierarchyLevel field
           let labelClass = "";
@@ -4912,7 +4914,7 @@ export function UnifiedTimeline({
           } else if (swimlaneConfig?.hierarchyLevel === 'group') {
             // Level 2: Administration group headers (non-collapsible, bold, smaller)
             labelClass = "text-xs font-semibold";
-          } else if (swimlaneConfig?.hierarchyLevel === 'item' || isVentChild || isOutputChild || isStaffChild) {
+          } else if (swimlaneConfig?.hierarchyLevel === 'item' || isVentChild || isOutputChild || isStaffChild || isOthersChild) {
             // Level 3: Individual items (non-collapsible, not bold, smaller)
             labelClass = "text-xs";
           } else {
