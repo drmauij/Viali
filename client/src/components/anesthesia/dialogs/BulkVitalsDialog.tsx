@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
-import { useAddVitalPoint } from "@/hooks/useVitalsQuery";
+import { useAddVitalPoint, useAddBPPoint } from "@/hooks/useVitalsQuery";
 import { useToast } from "@/hooks/use-toast";
 
 interface BulkVitalsDialogProps {
@@ -34,6 +34,7 @@ export function BulkVitalsDialog({
   const oxygenRef = useRef<HTMLInputElement>(null);
 
   const addVitalPointMutation = useAddVitalPoint(anesthesiaRecordId || undefined);
+  const addBPPointMutation = useAddBPPoint(anesthesiaRecordId || undefined);
 
   // Update time when initialTime changes
   useEffect(() => {
@@ -74,21 +75,21 @@ export function BulkVitalsDialog({
     const timestamp = new Date(currentTime).toISOString();
     const vitalsToAdd: Array<{ vitalType: string; value: number }> = [];
 
-    // Collect all non-empty vitals
-    if (systolic.trim()) {
-      const sysValue = parseFloat(systolic.trim());
-      if (!isNaN(sysValue)) {
-        vitalsToAdd.push({ vitalType: 'sys', value: sysValue });
-      }
+    // Parse blood pressure values
+    const sysValue = systolic.trim() ? parseFloat(systolic.trim()) : null;
+    const diaValue = diastolic.trim() ? parseFloat(diastolic.trim()) : null;
+
+    // Validate BP - both or neither must be provided
+    if ((sysValue !== null && diaValue === null) || (sysValue === null && diaValue !== null)) {
+      toast({
+        title: "Incomplete Blood Pressure",
+        description: "Please enter both systolic and diastolic values, or leave both empty",
+        variant: "destructive",
+      });
+      return;
     }
 
-    if (diastolic.trim()) {
-      const diaValue = parseFloat(diastolic.trim());
-      if (!isNaN(diaValue)) {
-        vitalsToAdd.push({ vitalType: 'dia', value: diaValue });
-      }
-    }
-
+    // Collect other vitals
     if (heartRate.trim()) {
       const hrValue = parseFloat(heartRate.trim());
       if (!isNaN(hrValue)) {
@@ -103,7 +104,8 @@ export function BulkVitalsDialog({
       }
     }
 
-    if (vitalsToAdd.length === 0) {
+    // Check if at least one value is entered
+    if (vitalsToAdd.length === 0 && sysValue === null && diaValue === null) {
       toast({
         title: "No Values Entered",
         description: "Please enter at least one vital sign value",
@@ -114,6 +116,16 @@ export function BulkVitalsDialog({
 
     // Save all vitals sequentially
     try {
+      // Save blood pressure if both values provided
+      if (sysValue !== null && diaValue !== null && !isNaN(sysValue) && !isNaN(diaValue)) {
+        await addBPPointMutation.mutateAsync({
+          timestamp,
+          sys: sysValue,
+          dia: diaValue,
+        });
+      }
+
+      // Save other vitals
       for (const vital of vitalsToAdd) {
         await addVitalPointMutation.mutateAsync({
           vitalType: vital.vitalType,
@@ -122,9 +134,13 @@ export function BulkVitalsDialog({
         });
       }
 
+      // Count total vitals added (BP counts as 1, plus individual vitals)
+      const bpAdded = (sysValue !== null && diaValue !== null && !isNaN(sysValue) && !isNaN(diaValue)) ? 1 : 0;
+      const totalAdded = bpAdded + vitalsToAdd.length;
+
       toast({
         title: "Vitals Added",
-        description: `Successfully added ${vitalsToAdd.length} vital sign${vitalsToAdd.length > 1 ? 's' : ''}`,
+        description: `Successfully added ${totalAdded} vital sign${totalAdded > 1 ? 's' : ''}`,
       });
 
       onVitalsCreated?.();
