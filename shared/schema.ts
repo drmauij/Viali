@@ -744,6 +744,43 @@ export const anesthesiaAirwayManagement = pgTable("anesthesia_airway_management"
   index("idx_airway_management_record").on(table.anesthesiaRecordId),
 ]);
 
+// Difficult Airway Reports - DAS-compliant documentation for difficult airway encounters
+export const difficultAirwayReports = pgTable("difficult_airway_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  airwayManagementId: varchar("airway_management_id").notNull().unique().references(() => anesthesiaAirwayManagement.id, { onDelete: "cascade" }),
+  
+  // DAS Documentation Fields
+  description: text("description").notNull(), // What made the airway difficult
+  techniquesAttempted: jsonb("techniques_attempted").$type<Array<{
+    technique: string;
+    outcome: "success" | "failure" | "partial";
+    notes?: string;
+  }>>().notNull(), // Structured list of attempts
+  finalTechnique: text("final_technique").notNull(), // What ultimately worked
+  equipmentUsed: text("equipment_used"), // List of equipment
+  complications: text("complications"), // Any complications observed
+  recommendations: text("recommendations"), // Advice for future anesthetics
+  
+  // Patient communication tracking
+  patientInformed: boolean("patient_informed").default(false),
+  patientInformedAt: timestamp("patient_informed_at"),
+  patientInformedBy: varchar("patient_informed_by"),
+  letterSentToPatient: boolean("letter_sent_to_patient").default(false),
+  letterSentAt: timestamp("letter_sent_at"),
+  patientEmail: varchar("patient_email"),
+  gpNotified: boolean("gp_notified").default(false),
+  gpNotifiedAt: timestamp("gp_notified_at"),
+  gpEmail: varchar("gp_email"),
+  
+  // Metadata
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_difficult_airway_reports_airway").on(table.airwayManagementId),
+  index("idx_difficult_airway_reports_created_by").on(table.createdBy),
+]);
+
 // Anesthesia General Technique - Dedicated table for general anesthesia approach
 export const anesthesiaGeneralTechnique = pgTable("anesthesia_general_technique", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1645,6 +1682,32 @@ export const insertAnesthesiaAirwayManagementSchema = createInsertSchema(anesthe
   updatedAt: true,
 });
 
+export const insertDifficultAirwayReportSchema = createInsertSchema(difficultAirwayReports, {
+  description: z.string().min(1, "Description is required"),
+  techniquesAttempted: z.array(z.object({
+    technique: z.string(),
+    outcome: z.enum(["success", "failure", "partial"]),
+    notes: z.string().optional(),
+  })).min(1, "At least one technique must be documented"),
+  finalTechnique: z.string().min(1, "Final technique is required"),
+  equipmentUsed: z.string().optional().nullable(),
+  complications: z.string().optional().nullable(),
+  recommendations: z.string().optional().nullable(),
+  patientInformed: z.boolean().optional(),
+  patientInformedAt: z.coerce.date().optional().nullable(),
+  patientInformedBy: z.string().optional().nullable(),
+  letterSentToPatient: z.boolean().optional(),
+  letterSentAt: z.coerce.date().optional().nullable(),
+  patientEmail: z.string().email().optional().nullable(),
+  gpNotified: z.boolean().optional(),
+  gpNotifiedAt: z.coerce.date().optional().nullable(),
+  gpEmail: z.string().email().optional().nullable(),
+}).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertAnesthesiaGeneralTechniqueSchema = createInsertSchema(anesthesiaGeneralTechnique, {
   // All fields are optional
   approach: z.enum(["tiva", "tci", "balanced-gas", "sedation"]).optional().nullable(),
@@ -1784,6 +1847,8 @@ export type AnesthesiaTechniqueDetail = typeof anesthesiaTechniqueDetails.$infer
 export type InsertAnesthesiaTechniqueDetail = z.infer<typeof insertAnesthesiaTechniqueDetailSchema>;
 export type AnesthesiaAirwayManagement = typeof anesthesiaAirwayManagement.$inferSelect;
 export type InsertAnesthesiaAirwayManagement = z.infer<typeof insertAnesthesiaAirwayManagementSchema>;
+export type DifficultAirwayReport = typeof difficultAirwayReports.$inferSelect;
+export type InsertDifficultAirwayReport = z.infer<typeof insertDifficultAirwayReportSchema>;
 export type AnesthesiaGeneralTechnique = typeof anesthesiaGeneralTechnique.$inferSelect;
 export type InsertAnesthesiaGeneralTechnique = z.infer<typeof insertAnesthesiaGeneralTechniqueSchema>;
 export type AnesthesiaNeuraxialBlock = typeof anesthesiaNeuraxialBlocks.$inferSelect;
