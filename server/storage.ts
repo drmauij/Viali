@@ -372,13 +372,6 @@ export interface IStorage {
   updateAnesthesiaMedication(id: string, updates: Partial<AnesthesiaMedication>): Promise<AnesthesiaMedication>;
   deleteAnesthesiaMedication(id: string, userId: string): Promise<void>;
   getRunningRateControlledInfusions(): Promise<(AnesthesiaMedication & { patientWeight?: number })[]>;
-  createAutoStopNotification(notification: {
-    anesthesiaRecordId: string;
-    medicationId: string;
-    itemName: string;
-    stoppedAt: string;
-    reason: string;
-  }): Promise<void>;
   
   // Anesthesia Event operations
   getAnesthesiaEvents(anesthesiaRecordId: string): Promise<AnesthesiaEvent[]>;
@@ -2972,27 +2965,6 @@ export class DatabaseStorage implements IStorage {
       ...row.medication,
       patientWeight: row.patientWeight || undefined,
     }));
-  }
-
-  async createAutoStopNotification(notification: {
-    anesthesiaRecordId: string;
-    medicationId: string;
-    itemName: string;
-    stoppedAt: string;
-    reason: string;
-  }): Promise<void> {
-    // Store as a note attached to the anesthesia record
-    await db.insert(notes).values({
-      anesthesiaRecordId: notification.anesthesiaRecordId,
-      content: JSON.stringify({
-        type: 'auto_stop',
-        medicationId: notification.medicationId,
-        itemName: notification.itemName,
-        stoppedAt: notification.stoppedAt,
-        reason: notification.reason,
-      }),
-      category: 'system',
-    });
   }
 
   // Anesthesia Event operations

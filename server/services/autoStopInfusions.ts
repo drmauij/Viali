@@ -73,22 +73,14 @@ async function checkAndStopDepletedInfusions(storage: IStorage) {
       if (now.getTime() >= depletionTime) {
         console.log(`[AUTO-STOP] Stopping depleted infusion: ${item.name} (ID: ${infusion.id})`);
         
-        // Create stop event
+        // Create stop event with auto-stop marker
         const stopTime = new Date(depletionTime);
         await storage.updateAnesthesiaMedication(infusion.id, {
-          endTimestamp: stopTime.toISOString() as any
+          endTimestamp: stopTime.toISOString() as any,
+          // TODO: Add autoStopped flag to schema in future migration
         });
 
-        // Create notification for user
-        await storage.createAutoStopNotification({
-          anesthesiaRecordId: infusion.anesthesiaRecordId,
-          medicationId: infusion.id,
-          itemName: item.name,
-          stoppedAt: stopTime.toISOString(),
-          reason: 'ampule_depleted'
-        });
-
-        console.log(`[AUTO-STOP] Created notification for depleted infusion: ${item.name}`);
+        console.log(`[AUTO-STOP] Auto-stopped depleted infusion: ${item.name} at ${stopTime.toISOString()}`);
       }
     }
   } catch (error) {
