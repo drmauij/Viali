@@ -118,6 +118,7 @@ import {
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, lte, gte, or, ilike, isNull } from "drizzle-orm";
+import { calculateInventoryForMedication, calculateRateControlledAmpules } from "./services/inventoryCalculations";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -3272,46 +3273,147 @@ export class DatabaseStorage implements IStorage {
       .from(anesthesiaMedications)
       .where(eq(anesthesiaMedications.anesthesiaRecordId, anesthesiaRecordId));
 
-    // Get item details to access ampule content for calculations
-    const itemIds = [...new Set(medications.map(m => m.itemId))];
-    const itemsData = await db
+    // Get anesthesia record to access patient weight
+    const [anesthesiaRecord] = await db
       .select()
+      .from(anesthesiaRecords)
+      .where(eq(anesthesiaRecords.id, anesthesiaRecordId));
+    
+    const patientWeight = anesthesiaRecord?.weight ? parseFloat(anesthesiaRecord.weight) : undefined;
+
+    // Get item details and medication configs
+    const itemIds = [...new Set(medications.map(m => m.itemId))];
+    if (itemIds.length === 0) {
+      return [];
+    }
+
+    const itemsWithConfigs = await db
+      .select({
+        id: items.id,
+        rateUnit: medicationConfigs.rateUnit,
+        ampuleTotalContent: medicationConfigs.ampuleTotalContent,
+        administrationUnit: medicationConfigs.administrationUnit,
+      })
       .from(items)
+      .leftJoin(medicationConfigs, eq(items.id, medicationConfigs.itemId))
       .where(sql`${items.id} IN (${sql.join(itemIds.map(id => sql`${id}`), sql`, `)})`);
     
-    const itemsMap = new Map(itemsData.map(item => [item.id, item]));
+    const itemsMap = new Map(itemsWithConfigs.map(item => [item.id, item]));
+
+    // Group medications by itemId and type for proper pairing
+    const medsByItem = new Map<string, any[]>();
+    medications.forEach(med => {
+      if (!medsByItem.has(med.itemId)) {
+        medsByItem.set(med.itemId, []);
+      }
+      medsByItem.get(med.itemId)!.push(med);
+    });
 
     // Calculate quantity used per item based on administration type
     const usageMap = new Map<string, number>();
     
-    for (const med of medications) {
-      const item = itemsMap.get(med.itemId);
+    for (const [itemId, meds] of medsByItem.entries()) {
+      const item = itemsMap.get(itemId);
       if (!item) continue;
 
-      const currentQty = usageMap.get(med.itemId) || 0;
-      let calculatedQty = 0;
+      const isBolus = !item.rateUnit || item.rateUnit === null;
+      const isFreeFlow = item.rateUnit === 'free';
+      const isRateControlled = item.rateUnit && item.rateUnit !== 'free';
 
-      // Parse ampule content (e.g., "10 ml" -> 10)
-      const ampuleContent = parseFloat(item.ampuleTotalContent || '1');
+      let totalQty = 0;
 
-      if (med.type === 'bolus') {
-        // Bolus: ceil(dose / ampule content) + 1 for safety margin
-        const dose = parseFloat(med.dose || '0');
-        calculatedQty = Math.ceil(dose / ampuleContent) + 1;
-      } else if (med.type === 'infusion' && med.infusionType === 'freeFlow') {
-        // Free-flow: use dose amount directly (dose is already in ampules)
-        calculatedQty = parseFloat(med.dose || '0');
-      } else if (med.type === 'infusion' && med.infusionType === 'rate') {
-        // Rate-controlled: ceil(rate × duration / ampule content)
-        const rate = parseFloat(med.rate || '0');
-        const startTime = med.timestamp ? new Date(med.timestamp).getTime() : 0;
-        const endTime = med.endTime ? new Date(med.endTime).getTime() : Date.now();
-        const durationHours = (endTime - startTime) / (1000 * 60 * 60);
-        
-        calculatedQty = Math.ceil((rate * durationHours) / ampuleContent);
+      if (isBolus) {
+        for (const med of meds.filter(m => m.type === 'bolus')) {
+          totalQty += calculateInventoryForMedication(
+            { type: med.type, dose: med.dose, rate: med.rate, timestamp: med.timestamp, endTimestamp: med.endTimestamp, itemId: med.itemId },
+            item,
+            patientWeight
+          );
+        }
+      } else if (isFreeFlow) {
+        const startEvents = meds.filter(m => m.type === 'infusion_start');
+        totalQty = startEvents.length;
+      } else if (isRateControlled) {
+        const startEvents = meds.filter(m => m.type === 'infusion_start').sort((a, b) => 
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+        const stopEvents = meds.filter(m => m.type === 'infusion_stop').sort((a, b) => 
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+        const rateChangeEvents = meds.filter(m => m.type === 'rate_change').sort((a, b) => 
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+
+        for (const startEvent of startEvents) {
+          const startTime = new Date(startEvent.timestamp);
+          
+          let endTime: Date | null = startEvent.endTimestamp ? new Date(startEvent.endTimestamp) : null;
+          
+          if (!endTime) {
+            const stopEvent = stopEvents.find(s => 
+              new Date(s.timestamp).getTime() > startTime.getTime()
+            );
+            if (stopEvent) {
+              endTime = new Date(stopEvent.timestamp);
+            }
+          }
+
+          if (!endTime) continue;
+          
+          const relevantRateChanges = rateChangeEvents.filter(rc => {
+            const rcTime = new Date(rc.timestamp).getTime();
+            return rcTime > startTime.getTime() && rcTime < endTime!.getTime();
+          });
+          
+          if (relevantRateChanges.length === 0) {
+            totalQty += calculateRateControlledAmpules(
+              startEvent.rate,
+              item.rateUnit,
+              startEvent.timestamp,
+              endTime,
+              item.ampuleTotalContent,
+              patientWeight
+            );
+          } else {
+            const segments: Array<{ rate: string; start: Date; end: Date }> = [];
+            
+            let segmentStart = startTime;
+            let currentRate = startEvent.rate || '0';
+            
+            for (const rateChange of relevantRateChanges) {
+              const rateChangeTime = new Date(rateChange.timestamp);
+              segments.push({
+                rate: currentRate,
+                start: segmentStart,
+                end: rateChangeTime
+              });
+              segmentStart = rateChangeTime;
+              currentRate = rateChange.rate || '0';
+            }
+            
+            segments.push({
+              rate: currentRate,
+              start: segmentStart,
+              end: endTime
+            });
+            
+            for (const segment of segments) {
+              totalQty += calculateRateControlledAmpules(
+                segment.rate,
+                item.rateUnit,
+                segment.start,
+                segment.end,
+                item.ampuleTotalContent,
+                patientWeight
+              );
+            }
+          }
+        }
       }
 
-      usageMap.set(med.itemId, currentQty + calculatedQty);
+      if (totalQty > 0) {
+        usageMap.set(itemId, totalQty);
+      }
     }
 
     // Upsert inventory usage records
