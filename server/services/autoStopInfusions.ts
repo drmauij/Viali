@@ -1,7 +1,37 @@
-import { calculateDepletionTime } from './inventoryCalculations';
+import { calculateDepletionTime, normalizeRateUnit } from './inventoryCalculations';
 import type { IStorage } from '../storage';
 
 let intervalId: NodeJS.Timeout | null = null;
+
+// Helper function to check if a rate unit requires patient weight
+// Uses the shared normalization function from inventoryCalculations
+function isWeightBasedDosing(rateUnit: string | null | undefined): boolean {
+  if (!rateUnit) return false;
+  const normalized = normalizeRateUnit(rateUnit);
+  
+  // Check for all weight-based unit patterns that the calculation functions support
+  return (
+    // µg/kg/min variants
+    normalized.includes('µg/kg/min') || 
+    normalized.includes('ug/kg/min') || 
+    normalized.includes('mcg/kg/min') ||
+    
+    // µg/kg/h and µg/kg/hr variants
+    normalized.includes('µg/kg/h') || 
+    normalized.includes('ug/kg/h') || 
+    normalized.includes('mcg/kg/h') || 
+    normalized.includes('µg/kg/hr') || 
+    normalized.includes('ug/kg/hr') || 
+    normalized.includes('mcg/kg/hr') ||
+    
+    // mg/kg/min variant
+    normalized.includes('mg/kg/min') ||
+    
+    // mg/kg/h and mg/kg/hr variants
+    normalized.includes('mg/kg/h') || 
+    normalized.includes('mg/kg/hr')
+  );
+}
 
 export function startAutoStopService(storage: IStorage) {
   if (intervalId) {
@@ -37,8 +67,6 @@ async function checkAndStopDepletedInfusions(storage: IStorage) {
       return; // No running infusions
     }
 
-    console.log(`[AUTO-STOP] Checking ${runningInfusions.length} running infusions`);
-
     for (const infusion of runningInfusions) {
       // Get item details
       const item = await storage.getItem(infusion.itemId);
@@ -54,12 +82,24 @@ async function checkAndStopDepletedInfusions(storage: IStorage) {
         continue; // Skip non-rate-controlled items
       }
 
+      // Get patient weight if needed for body-weight-based dosing
+      // Note: calculateDepletionTime now handles rate unit normalization internally
+      let patientWeight: number | undefined = undefined;
+      if (isWeightBasedDosing(config.rateUnit)) {
+        const record = await storage.getAnesthesiaRecordById(infusion.anesthesiaRecordId);
+        if (record && record.surgeryId) {
+          const preOpAssessment = await storage.getPreOpAssessment(record.surgeryId);
+          patientWeight = preOpAssessment?.weight ? parseFloat(preOpAssessment.weight) : undefined;
+        }
+      }
+
       // Calculate depletion time in milliseconds
+      // The rate unit is passed as-is; calculateDepletionTime handles normalization internally
       const depletionTimeMs = calculateDepletionTime(
         infusion.rate,
         config.rateUnit,
         config.ampuleTotalContent,
-        infusion.patientWeight
+        patientWeight
       );
 
       if (!depletionTimeMs) {
@@ -74,9 +114,10 @@ async function checkAndStopDepletedInfusions(storage: IStorage) {
         console.log(`[AUTO-STOP] Stopping depleted infusion: ${item.name} (ID: ${infusion.id})`);
         
         // Create stop event with auto-stop marker
+        // Convert to ISO string to match schema expectations (endTimestamp is stored as text)
         const stopTime = new Date(depletionTime);
         await storage.updateAnesthesiaMedication(infusion.id, {
-          endTimestamp: stopTime.toISOString() as any,
+          endTimestamp: stopTime.toISOString(),
           // TODO: Add autoStopped flag to schema in future migration
         });
 

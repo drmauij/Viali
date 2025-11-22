@@ -371,7 +371,7 @@ export interface IStorage {
   createAnesthesiaMedication(medication: InsertAnesthesiaMedication): Promise<AnesthesiaMedication>;
   updateAnesthesiaMedication(id: string, updates: Partial<AnesthesiaMedication>): Promise<AnesthesiaMedication>;
   deleteAnesthesiaMedication(id: string, userId: string): Promise<void>;
-  getRunningRateControlledInfusions(): Promise<(AnesthesiaMedication & { patientWeight?: number })[]>;
+  getRunningRateControlledInfusions(): Promise<AnesthesiaMedication[]>;
   
   // Anesthesia Event operations
   getAnesthesiaEvents(anesthesiaRecordId: string): Promise<AnesthesiaEvent[]>;
@@ -2944,16 +2944,11 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async getRunningRateControlledInfusions(): Promise<(AnesthesiaMedication & { patientWeight?: number })[]> {
+  async getRunningRateControlledInfusions(): Promise<AnesthesiaMedication[]> {
     // Find all infusion_start records without endTimestamp
     const runningInfusions = await db
-      .select({
-        medication: anesthesiaMedications,
-        patientWeight: patients.weight,
-      })
+      .select()
       .from(anesthesiaMedications)
-      .leftJoin(anesthesiaRecords, eq(anesthesiaMedications.anesthesiaRecordId, anesthesiaRecords.id))
-      .leftJoin(patients, eq(anesthesiaRecords.patientId, patients.id))
       .where(
         and(
           eq(anesthesiaMedications.type, 'infusion_start'),
@@ -2961,10 +2956,7 @@ export class DatabaseStorage implements IStorage {
         )
       );
 
-    return runningInfusions.map(row => ({
-      ...row.medication,
-      patientWeight: row.patientWeight || undefined,
-    }));
+    return runningInfusions;
   }
 
   // Anesthesia Event operations
@@ -3442,13 +3434,21 @@ export class DatabaseStorage implements IStorage {
       .from(anesthesiaMedications)
       .where(eq(anesthesiaMedications.anesthesiaRecordId, anesthesiaRecordId));
 
-    // Get anesthesia record to access patient weight
+    // Get anesthesia record and surgery to access patient weight from preOpAssessment
     const [anesthesiaRecord] = await db
       .select()
       .from(anesthesiaRecords)
       .where(eq(anesthesiaRecords.id, anesthesiaRecordId));
     
-    const patientWeight = anesthesiaRecord?.weight ? parseFloat(anesthesiaRecord.weight) : undefined;
+    let patientWeight: number | undefined = undefined;
+    if (anesthesiaRecord?.surgeryId) {
+      const [preOpAssessment] = await db
+        .select()
+        .from(preOpAssessments)
+        .where(eq(preOpAssessments.surgeryId, anesthesiaRecord.surgeryId));
+      
+      patientWeight = preOpAssessment?.weight ? parseFloat(preOpAssessment.weight) : undefined;
+    }
 
     // Get item details and medication configs
     const itemIds = [...new Set(medications.map(m => m.itemId))];
