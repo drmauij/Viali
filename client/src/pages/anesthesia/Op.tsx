@@ -66,18 +66,21 @@ import {
   Download,
   CheckCircle,
   MinusCircle,
-  MessageSquareText
+  MessageSquareText,
+  BedDouble
 } from "lucide-react";
 
 export default function Op() {
   const params = useParams<{ id: string }>();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(true);
   const [openEventsPanel, setOpenEventsPanel] = useState(false);
   const activeHospital = useActiveHospital();
   const { toast } = useToast();
   const hasAttemptedCreate = useRef(false);
 
+  // Determine mode based on route (PACU mode if URL contains /pacu)
+  const isPacuMode = location.includes('/pacu');
 
   // Get surgeryId from params
   const surgeryId = params.id;
@@ -285,9 +288,43 @@ export default function Op() {
     setIsAllergiesDialogOpen(false);
   };
 
+  // Extract A2 timestamp (Anesthesia Presence End) for PACU mode filtering
+  const a2Timestamp = useMemo(() => {
+    if (!isPacuMode || !anesthesiaRecord?.timeMarkers) return null;
+    const markers = anesthesiaRecord.timeMarkers as any[];
+    const a2Marker = markers.find((m: any) => m.code === 'A2');
+    // Ensure we return a number
+    return a2Marker?.time ? Number(a2Marker.time) : null;
+  }, [isPacuMode, anesthesiaRecord?.timeMarkers]);
+
+  // Filter vitals snapshots for PACU mode (only show vitals after A2 timestamp)
+  const filteredVitalsData = useMemo(() => {
+    if (!isPacuMode || !a2Timestamp || !vitalsData) return vitalsData;
+    
+    // Filter vitals snapshots array to only include those recorded after A2 timestamp
+    return vitalsData.filter((snapshot: any) => {
+      const snapshotTime = new Date(snapshot.timestamp).getTime();
+      return snapshotTime > a2Timestamp;
+    });
+  }, [isPacuMode, a2Timestamp, vitalsData]);
+
+  // Filter medications data for PACU mode (only show medications after A2 timestamp)
+  const filteredMedicationsData = useMemo(() => {
+    if (!isPacuMode || !a2Timestamp || !medicationsData) return medicationsData;
+    
+    return medicationsData.filter((med: any) => {
+      const medTime = new Date(med.timestamp).getTime();
+      return medTime > a2Timestamp;
+    });
+  }, [isPacuMode, a2Timestamp, medicationsData]);
+
   // Transform vitals data for timeline
   const timelineData = useMemo((): UnifiedTimelineData => {
-    if (!vitalsData || vitalsData.length === 0) {
+    // Use filtered data in PACU mode, regular data in OP mode
+    const dataToUse = isPacuMode ? filteredVitalsData : vitalsData;
+    const medsToUse = isPacuMode ? filteredMedicationsData : medicationsData;
+    
+    if (!dataToUse || dataToUse.length === 0) {
       const now = new Date().getTime();
       const sixHoursAgo = now - 6 * 60 * 60 * 1000;
       const sixHoursFuture = now + 6 * 60 * 60 * 1000;
@@ -302,7 +339,7 @@ export default function Op() {
           spo2: [],
         },
         events: [],
-        medications: medicationsData || [],
+        medications: medsToUse || [],
         apiEvents: eventsData || [],
       };
     }
@@ -315,7 +352,7 @@ export default function Op() {
       spo2: [],
     };
 
-    vitalsData.forEach((snapshot: any) => {
+    dataToUse.forEach((snapshot: any) => {
       const timestamp = new Date(snapshot.timestamp).getTime();
       const data = snapshot.data || {};
 
@@ -341,7 +378,7 @@ export default function Op() {
     }));
 
     // Calculate time range
-    const timestamps = vitalsData.map((s: any) => new Date(s.timestamp).getTime());
+    const timestamps = dataToUse.map((s: any) => new Date(s.timestamp).getTime());
     const minTime = timestamps.length > 0 ? Math.min(...timestamps) : new Date().getTime() - 6 * 60 * 60 * 1000;
     const maxTime = timestamps.length > 0 ? Math.max(...timestamps) : new Date().getTime() + 6 * 60 * 60 * 1000;
 
@@ -355,10 +392,10 @@ export default function Op() {
       endTime: Math.max(calculatedEndTime, futureExtension), // At least 6 hours into the future
       vitals,
       events,
-      medications: medicationsData || [],
+      medications: medsToUse || [],
       apiEvents: eventsData || [],
     };
-  }, [vitalsData, eventsData, medicationsData]);
+  }, [vitalsData, eventsData, medicationsData, isPacuMode, filteredVitalsData, filteredMedicationsData]);
 
   // OP State
   const [opData, setOpData] = useState({
@@ -637,22 +674,32 @@ export default function Op() {
     <>
     <Dialog open={isOpen} onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col [&>button]:hidden" aria-describedby="op-dialog-description">
-        <h2 className="sr-only" id="op-dialog-title">Intraoperative Monitoring - Patient {surgery.patientId}</h2>
-        <p className="sr-only" id="op-dialog-description">Professional anesthesia monitoring system for tracking vitals, medications, and clinical events during surgery</p>
+        <h2 className="sr-only" id="op-dialog-title">{isPacuMode ? 'PACU Monitor' : 'Intraoperative Monitoring'} - Patient {surgery.patientId}</h2>
+        <p className="sr-only" id="op-dialog-description">{isPacuMode ? 'Post-anesthesia care unit monitoring system' : 'Professional anesthesia monitoring system for tracking vitals, medications, and clinical events during surgery'}</p>
         {/* Fixed Patient Info Header */}
         <div className="shrink-0 bg-background relative">
+          {/* PACU Mode Header Banner */}
+          {isPacuMode && (
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <BedDouble className="h-5 w-5" />
+                PACU MONITOR
+              </h3>
+            </div>
+          )}
+          
           {/* Close Button - Fixed top-right */}
           <Button
             variant="ghost"
             size="icon"
             onClick={handleClose}
-            className="absolute right-2 top-2 md:right-4 md:top-4 z-10"
+            className={`absolute right-2 top-2 md:right-4 md:top-4 z-10 ${isPacuMode ? 'text-white hover:bg-white/20' : ''}`}
             data-testid="button-close-op"
           >
             <X className="h-5 w-5" />
           </Button>
 
-          <div className="px-4 md:px-6 py-3 pr-12 md:pr-14">
+          <div className={`px-4 md:px-6 ${isPacuMode ? 'py-3' : 'py-3 pr-12 md:pr-14'}`}>
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4 md:flex-wrap">
               {/* Patient Name & Icon */}
               <div className="flex items-center gap-3">
@@ -736,21 +783,32 @@ export default function Op() {
                   <TabsTrigger value="vitals" data-testid="tab-vitals" className="text-xs sm:text-sm whitespace-nowrap">
                     Vitals
                   </TabsTrigger>
-                  <TabsTrigger value="anesthesia" data-testid="tab-anesthesia" className="text-xs sm:text-sm whitespace-nowrap">
-                    Anesthesia
-                  </TabsTrigger>
+                  {isPacuMode && (
+                    <TabsTrigger value="pacu" data-testid="tab-pacu" className="text-xs sm:text-sm whitespace-nowrap">
+                      PACU
+                    </TabsTrigger>
+                  )}
+                  {!isPacuMode && (
+                    <TabsTrigger value="anesthesia" data-testid="tab-anesthesia" className="text-xs sm:text-sm whitespace-nowrap">
+                      Anesthesia
+                    </TabsTrigger>
+                  )}
                   <TabsTrigger value="preop" data-testid="tab-preop" className="text-xs sm:text-sm whitespace-nowrap">
                     Pre-Op
                   </TabsTrigger>
                   <TabsTrigger value="inventory" data-testid="tab-inventory" className="text-xs sm:text-sm whitespace-nowrap">
                     Inventory
                   </TabsTrigger>
-                  <TabsTrigger value="checklists" data-testid="tab-checklists" className="text-xs sm:text-sm whitespace-nowrap">
-                    Checklists
-                  </TabsTrigger>
-                  <TabsTrigger value="postop" data-testid="tab-postop" className="text-xs sm:text-sm whitespace-nowrap">
-                    Post-op
-                  </TabsTrigger>
+                  {!isPacuMode && (
+                    <>
+                      <TabsTrigger value="checklists" data-testid="tab-checklists" className="text-xs sm:text-sm whitespace-nowrap">
+                        Checklists
+                      </TabsTrigger>
+                      <TabsTrigger value="postop" data-testid="tab-postop" className="text-xs sm:text-sm whitespace-nowrap">
+                        Post-op
+                      </TabsTrigger>
+                    </>
+                  )}
                 </TabsList>
               </div>
               <Button 
@@ -787,8 +845,38 @@ export default function Op() {
             </div>
           </TabsContent>
 
+          {/* PACU Documentation Tab - Only visible in PACU mode */}
+          {isPacuMode && (
+            <TabsContent value="pacu" className="flex-1 overflow-y-auto px-6 pb-6 mt-0" data-testid="tab-content-pacu">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BedDouble className="h-5 w-5 text-blue-500" />
+                    PACU Documentation
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <div className="bg-blue-100 dark:bg-blue-900/30 rounded-full p-4 mb-4">
+                      <ClipboardList className="h-12 w-12 text-blue-500" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">PACU Documentation</h3>
+                    <p className="text-muted-foreground max-w-md mb-4">
+                      PACU-specific documentation features including Aldrete scoring, discharge criteria, 
+                      and post-anesthesia care notes will be available here.
+                    </p>
+                    <Badge variant="secondary" className="mt-2">
+                      Coming Soon
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+
           {/* Anesthesia Documentation Tab */}
-          <TabsContent value="anesthesia" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0">
+          {!isPacuMode && (
+            <TabsContent value="anesthesia" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0">
             {isRecordLoading ? (
               <div className="flex items-center justify-center h-64">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -897,6 +985,7 @@ export default function Op() {
               </Accordion>
             )}
           </TabsContent>
+          )}
 
           {/* Pre-Op Tab */}
           <TabsContent value="preop" className="flex-1 overflow-y-auto px-6 pb-6 mt-0" data-testid="tab-content-preop">
@@ -914,8 +1003,9 @@ export default function Op() {
             <InventoryUsageTab anesthesiaRecordId={anesthesiaRecord?.id || ''} />
           </TabsContent>
 
-          {/* Checklists Tab */}
-          <TabsContent value="checklists" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0" data-testid="tab-content-checklists">
+          {/* Checklists Tab - Only shown in OP mode */}
+          {!isPacuMode && (
+            <TabsContent value="checklists" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0" data-testid="tab-content-checklists">
             <div className="space-y-4">
               {/* Sign In */}
               <Card>
@@ -1263,9 +1353,11 @@ export default function Op() {
               </Card>
             </div>
           </TabsContent>
+          )}
 
-          {/* Post-op Tab */}
-          <TabsContent value="postop" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0" data-testid="tab-content-postop">
+          {/* Post-op Tab - Only shown in OP mode */}
+          {!isPacuMode && (
+            <TabsContent value="postop" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0" data-testid="tab-content-postop">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Post-Operative Information</CardTitle>
@@ -1543,6 +1635,7 @@ export default function Op() {
               </CardContent>
             </Card>
           </TabsContent>
+          )}
         </Tabs>
       </DialogContent>
     </Dialog>

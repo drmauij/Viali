@@ -130,7 +130,7 @@ function Router() {
             <Route path="/anesthesia/op/:id" component={Op} />
             <Route path="/anesthesia/cases/:id/op" component={Op} />
             <Route path="/anesthesia/pacu" component={Pacu} />
-            <Route path="/anesthesia/cases/:id/pacu" component={CasePacu} />
+            <Route path="/anesthesia/cases/:id/pacu" component={Op} />
             <Route path="/anesthesia/reports" component={AnesthesiaReports} />
             <Route path="/anesthesia/settings" component={AnesthesiaSettings} />
             {/* Admin Module */}
