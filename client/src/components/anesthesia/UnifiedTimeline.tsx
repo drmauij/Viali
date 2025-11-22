@@ -240,6 +240,8 @@ export function UnifiedTimeline({
   patientWeight, // Patient weight in kg for default ventilation calculations
   anesthesiaRecordId, // Anesthesia record ID for auto-saving vitals
   anesthesiaRecord, // Full anesthesia record for loading saved data (time markers, etc.)
+  openEventsPanel, // External trigger to open events panel
+  onEventsPanelChange, // Callback when events panel state changes
 }: {
   data: UnifiedTimelineData;
   height?: number;
@@ -248,6 +250,8 @@ export function UnifiedTimeline({
   patientWeight?: number;
   anesthesiaRecordId?: string;
   anesthesiaRecord?: any;
+  openEventsPanel?: boolean;
+  onEventsPanelChange?: (open: boolean) => void;
 }) {
   const chartRef = useRef<any>(null);
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
@@ -1193,6 +1197,18 @@ export function UnifiedTimeline({
 
   // State for Events/Times sliding panel
   const [showEventsTimesPanel, setShowEventsTimesPanel] = useState(false);
+  
+  // Watch for external trigger to open events panel
+  useEffect(() => {
+    if (openEventsPanel !== undefined && openEventsPanel !== showEventsTimesPanel) {
+      setShowEventsTimesPanel(openEventsPanel);
+    }
+  }, [openEventsPanel]);
+  
+  // Notify parent when events panel state changes
+  useEffect(() => {
+    onEventsPanelChange?.(showEventsTimesPanel);
+  }, [showEventsTimesPanel]);
 
   // UI state for time markers (data managed by useEventState hook)
   const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);

@@ -65,13 +65,15 @@ import {
   Droplet,
   Download,
   CheckCircle,
-  MinusCircle
+  MinusCircle,
+  MessageSquareText
 } from "lucide-react";
 
 export default function Op() {
   const params = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(true);
+  const [openEventsPanel, setOpenEventsPanel] = useState(false);
   const activeHospital = useActiveHospital();
   const { toast } = useToast();
   const hasAttemptedCreate = useRef(false);
@@ -755,11 +757,11 @@ export default function Op() {
                 variant="outline" 
                 size="sm"
                 className="flex items-center gap-1 sm:gap-2 shrink-0"
-                data-testid="button-download-pdf"
-                onClick={() => console.log("Downloading OP PDF for surgery:", surgeryId)}
+                data-testid="button-toggle-events"
+                onClick={() => setOpenEventsPanel(true)}
               >
-                <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">PDF</span>
+                <MessageSquareText className="h-4 w-4" />
+                <span className="hidden sm:inline">Events</span>
               </Button>
             </div>
           </div>
@@ -778,6 +780,8 @@ export default function Op() {
                   patientWeight={patientWeight}
                   anesthesiaRecordId={anesthesiaRecord?.id}
                   anesthesiaRecord={anesthesiaRecord}
+                  openEventsPanel={openEventsPanel}
+                  onEventsPanelChange={setOpenEventsPanel}
                 />
               )}
             </div>
