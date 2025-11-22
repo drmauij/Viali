@@ -64,6 +64,34 @@
       "when": 1763282983000,
       "tag": "0008_rename_vitals_to_clinical_snapshots",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1763366400000,
+      "tag": "0009_vitals_redesign",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1763673600000,
+      "tag": "0010_anesthesia_documentation_redesign",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1763759580000,
+      "tag": "0011_add_laryngoscope_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1763846700000,
+      "tag": "0012_remove_allergies_from_preop",
+      "breakpoints": true
     }
   ]
 }
