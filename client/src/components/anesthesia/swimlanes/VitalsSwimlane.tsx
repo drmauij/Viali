@@ -281,7 +281,7 @@ export function VitalsSwimlane({
         return;
       }
 
-      clickInfo = { x: e.clientX, y: e.clientY, value, time: clickTime };
+      clickInfo = { x: e.clientX, y: e.clientY, value, time: snappedClickTime };
     }
 
     if (!clickInfo) {
