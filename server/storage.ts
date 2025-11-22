@@ -305,6 +305,17 @@ export interface IStorage {
   updateAnesthesiaRecord(id: string, updates: Partial<AnesthesiaRecord>): Promise<AnesthesiaRecord>;
   closeAnesthesiaRecord(id: string, closedBy: string): Promise<AnesthesiaRecord>;
   amendAnesthesiaRecord(id: string, updates: Partial<AnesthesiaRecord>, reason: string, userId: string): Promise<AnesthesiaRecord>;
+  getPacuPatients(hospitalId: string): Promise<Array<{
+    anesthesiaRecordId: string;
+    surgeryId: string;
+    patientId: string;
+    patientName: string;
+    patientNumber: string;
+    age: number;
+    procedure: string;
+    anesthesiaPresenceEndTime: number;
+    postOpDestination: string | null;
+  }>>;
   
   // Pre-Op Assessment operations
   getPreOpAssessments(hospitalId: string): Promise<Array<any>>;
@@ -1882,6 +1893,90 @@ export class DatabaseStorage implements IStorage {
     });
 
     return updated;
+  }
+
+  async getPacuPatients(hospitalId: string): Promise<Array<{
+    anesthesiaRecordId: string;
+    surgeryId: string;
+    patientId: string;
+    patientName: string;
+    patientNumber: string;
+    age: number;
+    procedure: string;
+    anesthesiaPresenceEndTime: number;
+    postOpDestination: string | null;
+  }>> {
+    const results = await db
+      .select({
+        anesthesiaRecord: anesthesiaRecords,
+        surgery: surgeries,
+        patient: patients,
+      })
+      .from(anesthesiaRecords)
+      .innerJoin(surgeries, eq(anesthesiaRecords.surgeryId, surgeries.id))
+      .innerJoin(patients, eq(surgeries.patientId, patients.id))
+      .where(and(
+        eq(surgeries.hospitalId, hospitalId),
+        sql`${anesthesiaRecords.timeMarkers} @> '[{"code": "A2"}]'::jsonb`
+      ))
+      .orderBy(desc(anesthesiaRecords.updatedAt));
+
+    return results
+      .map(row => {
+        const timeMarkers = row.anesthesiaRecord.timeMarkers as any[] || [];
+        const a2Marker = timeMarkers.find((m: any) => m.code === 'A2');
+        
+        // Validate and normalize A2 marker time value
+        if (!a2Marker || a2Marker.time == null) {
+          return null;
+        }
+
+        // Handle numeric timestamps, numeric strings, and ISO date strings
+        let timeValue: number;
+        if (typeof a2Marker.time === 'number') {
+          timeValue = a2Marker.time;
+        } else if (typeof a2Marker.time === 'string') {
+          // Try parsing as numeric string first (e.g., "1699991234000")
+          const numericValue = Number(a2Marker.time);
+          if (!isNaN(numericValue) && numericValue > 0) {
+            timeValue = numericValue;
+          } else {
+            // Try parsing as ISO date string
+            timeValue = new Date(a2Marker.time).getTime();
+          }
+        } else {
+          return null;
+        }
+
+        // Ensure valid timestamp
+        if (isNaN(timeValue) || timeValue <= 0) {
+          return null;
+        }
+
+        // Calculate age, handle null birthday gracefully
+        let age = 0;
+        if (row.patient.birthday) {
+          const birthDate = new Date(row.patient.birthday);
+          if (!isNaN(birthDate.getTime())) {
+            age = Math.floor((Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+          }
+        }
+
+        const postOpData = row.anesthesiaRecord.postOpData as any;
+        
+        return {
+          anesthesiaRecordId: row.anesthesiaRecord.id,
+          surgeryId: row.surgery.id,
+          patientId: row.patient.id,
+          patientName: `${row.patient.firstName} ${row.patient.surname}`,
+          patientNumber: row.patient.patientNumber || '',  // Ensure non-null for frontend
+          age,
+          procedure: row.surgery.plannedSurgery,
+          anesthesiaPresenceEndTime: timeValue,
+          postOpDestination: postOpData?.postOpDestination || null,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
   }
 
   // Pre-Op Assessment operations

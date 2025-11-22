@@ -1,103 +1,71 @@
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
-import { Search, BedDouble, Clock, TrendingUp, AlertCircle } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Search, BedDouble, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatTime } from "@/lib/dateUtils";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useLocation } from "wouter";
 
-// Mock data for patients in PACU (Post-Anesthesia Care Unit)
-const mockPacuPatients = [
-  {
-    id: "1",
-    patientName: "Sarah Johnson",
-    mrn: "MRN-11111",
-    age: 56,
-    procedure: "Mastectomy",
-    bed: "PACU-1",
-    admittedAt: "2024-01-15T10:45:00",
-    aldretteScore: 9,
-    painLevel: 3,
-    status: "stable",
-    nurse: "RN Davis",
-  },
-  {
-    id: "2",
-    patientName: "Michael Brown",
-    mrn: "MRN-22222",
-    age: 71,
-    procedure: "Knee Arthroscopy",
-    bed: "PACU-3",
-    admittedAt: "2024-01-15T11:15:00",
-    aldretteScore: 10,
-    painLevel: 2,
-    status: "ready-for-discharge",
-    nurse: "RN Martinez",
-  },
-  {
-    id: "3",
-    patientName: "Emily Davis",
-    mrn: "MRN-33333",
-    age: 42,
-    procedure: "Appendectomy",
-    bed: "PACU-5",
-    admittedAt: "2024-01-15T11:30:00",
-    aldretteScore: 7,
-    painLevel: 5,
-    status: "monitoring",
-    nurse: "RN Thompson",
-  },
-];
+type PacuPatient = {
+  anesthesiaRecordId: string;
+  surgeryId: string;
+  patientId: string;
+  patientName: string;
+  patientNumber: string;
+  age: number;
+  procedure: string;
+  anesthesiaPresenceEndTime: number;
+  postOpDestination: string | null;
+};
 
 export default function Pacu() {
-  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
+  const activeHospital = useActiveHospital();
+  const [, setLocation] = useLocation();
 
-  const filteredPatients = mockPacuPatients.filter(
+  const { data: pacuPatients = [], isLoading } = useQuery<PacuPatient[]>({
+    queryKey: [`/api/anesthesia/pacu/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id,
+  });
+
+  const filteredPatients = pacuPatients.filter(
     (patient) =>
       patient.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      patient.mrn.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      patient.procedure.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      patient.bed.toLowerCase().includes(searchQuery.toLowerCase())
+      patient.patientNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      patient.procedure.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "ready-for-discharge":
-        return "bg-green-500";
-      case "stable":
-        return "bg-blue-500";
-      case "monitoring":
-        return "bg-yellow-500";
-      case "critical":
-        return "bg-red-500";
-      default:
-        return "bg-gray-500";
-    }
+  const formatTime = (timestamp: number) => {
+    return new Date(timestamp).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "ready-for-discharge":
-        return "Ready for Discharge";
-      case "stable":
-        return "Stable";
-      case "monitoring":
-        return "Monitoring";
-      case "critical":
-        return "Critical";
-      default:
-        return status;
-    }
-  };
-
-  const getTimeInPacu = (admittedAt: string) => {
-    const admitted = new Date(admittedAt);
+  const getTimeInPacu = (timestamp: number) => {
+    const admitted = new Date(timestamp);
     const now = new Date();
     const diffMinutes = Math.floor((now.getTime() - admitted.getTime()) / (1000 * 60));
     const hours = Math.floor(diffMinutes / 60);
     const minutes = diffMinutes % 60;
     return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+  };
+
+  const getDestinationBadge = (destination: string | null) => {
+    if (!destination) return null;
+    const label = destination.toUpperCase();
+    const colors: Record<string, string> = {
+      pacu: "bg-blue-500",
+      icu: "bg-red-500",
+      ward: "bg-green-500",
+      home: "bg-gray-500",
+    };
+    return (
+      <Badge className={colors[destination] || "bg-gray-500"}>
+        {label}
+      </Badge>
+    );
   };
 
   return (
@@ -120,7 +88,11 @@ export default function Pacu() {
       </div>
 
       <div className="space-y-4">
-        {filteredPatients.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        ) : filteredPatients.length === 0 ? (
           <div className="text-center py-12">
             <BedDouble className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
             <p className="text-muted-foreground">No patients in PACU</p>
@@ -128,53 +100,34 @@ export default function Pacu() {
         ) : (
           filteredPatients.map((patient) => (
             <Card
-              key={patient.id}
+              key={patient.surgeryId}
               className="p-4 cursor-pointer hover:bg-accent/50 transition-colors"
-              data-testid={`card-pacu-${patient.id}`}
+              onClick={() => setLocation(`/anesthesia/cases/${patient.surgeryId}/pacu`)}
+              data-testid={`card-pacu-${patient.surgeryId}`}
             >
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <h3 className="font-semibold text-lg" data-testid={`text-patient-name-${patient.id}`}>
+                  <h3 className="font-semibold text-lg" data-testid={`text-patient-name-${patient.surgeryId}`}>
                     {patient.patientName}
                   </h3>
-                  <p className="text-sm text-muted-foreground" data-testid={`text-mrn-${patient.id}`}>
-                    {patient.mrn} • Age {patient.age}
+                  <p className="text-sm text-muted-foreground" data-testid={`text-mrn-${patient.surgeryId}`}>
+                    {patient.patientNumber} • Age {patient.age}
                   </p>
                 </div>
-                <Badge className={getStatusColor(patient.status)} data-testid={`badge-status-${patient.id}`}>
-                  {getStatusLabel(patient.status)}
-                </Badge>
+                {getDestinationBadge(patient.postOpDestination)}
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center text-sm">
-                    <BedDouble className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <span data-testid={`text-procedure-${patient.id}`}>{patient.procedure}</span>
-                  </div>
-                  <Badge variant="outline" data-testid={`badge-bed-${patient.id}`}>{patient.bed}</Badge>
+                <div className="flex items-center text-sm">
+                  <BedDouble className="h-4 w-4 mr-2 text-muted-foreground" />
+                  <span data-testid={`text-procedure-${patient.surgeryId}`}>{patient.procedure}</span>
                 </div>
                 
                 <div className="flex items-center text-sm text-muted-foreground">
                   <Clock className="h-4 w-4 mr-2" />
                   <span>
-                    Admitted: {formatTime(patient.admittedAt)} • Time in PACU: {getTimeInPacu(patient.admittedAt)}
+                    Anesthesia End: {formatTime(patient.anesthesiaPresenceEndTime)} • Time in PACU: {getTimeInPacu(patient.anesthesiaPresenceEndTime)}
                   </span>
-                </div>
-
-                <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center">
-                    <TrendingUp className="h-4 w-4 mr-1 text-muted-foreground" />
-                    <span>Aldrette: {patient.aldretteScore}/10</span>
-                  </div>
-                  <div className="flex items-center">
-                    <AlertCircle className="h-4 w-4 mr-1 text-muted-foreground" />
-                    <span>Pain: {patient.painLevel}/10</span>
-                  </div>
-                </div>
-
-                <div className="text-sm text-muted-foreground">
-                  Nurse: {patient.nurse}
                 </div>
               </div>
             </Card>

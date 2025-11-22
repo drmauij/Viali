@@ -5461,6 +5461,29 @@ If unable to parse any drugs, return:
     }
   });
 
+  // Get PACU patients (cases with Anesthesia Presence End set)
+  app.get('/api/anesthesia/pacu/:hospitalId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const userId = req.user.id;
+
+      // Verify user has access to this hospital
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const pacuPatients = await storage.getPacuPatients(hospitalId);
+      
+      res.json(pacuPatients);
+    } catch (error) {
+      console.error("Error fetching PACU patients:", error);
+      res.status(500).json({ message: "Failed to fetch PACU patients" });
+    }
+  });
+
   // 5. Pre-Op Assessments
 
   // Get all pre-op assessments for a hospital (planned, draft, completed)
