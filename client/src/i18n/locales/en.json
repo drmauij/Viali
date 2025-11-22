@@ -835,7 +835,8 @@
       "uncategorized": "Uncategorized",
       "noInventoryItems": "No inventory items available",
       "createRecordFirst": "Create an anesthesia record first",
-      "calc": "calc"
+      "calc": "calc",
+      "running": "running"
     },
     "pdf": {
       "documentTitle": "COMPLETE ANESTHESIA RECORD",
