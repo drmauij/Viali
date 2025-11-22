@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Loader2, Check, ChevronsUpDown, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface QuickCreateSurgeryDialogProps {
   open: boolean;
@@ -32,6 +33,7 @@ export default function QuickCreateSurgeryDialog({
   initialRoomId,
   surgeryRooms,
 }: QuickCreateSurgeryDialogProps) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [patientSearchOpen, setPatientSearchOpen] = useState(false);
   const [showNewPatientForm, setShowNewPatientForm] = useState(false);
@@ -172,14 +174,14 @@ export default function QuickCreateSurgeryDialog({
       setSelectedPatientId(newPatient.id);
       setShowNewPatientForm(false);
       toast({
-        title: "Patient Created",
-        description: "New patient has been created successfully.",
+        title: t('anesthesia.quickSchedule.patientCreated'),
+        description: t('anesthesia.quickSchedule.patientCreatedDescription'),
       });
     },
     onError: () => {
       toast({
-        title: "Creation Failed",
-        description: "Failed to create patient. Please try again.",
+        title: t('anesthesia.quickSchedule.creationFailed'),
+        description: t('anesthesia.quickSchedule.creationFailedDescription'),
         variant: "destructive",
       });
     },
@@ -200,16 +202,16 @@ export default function QuickCreateSurgeryDialog({
         }
       });
       toast({
-        title: "Surgery Scheduled",
-        description: "Surgery has been successfully scheduled.",
+        title: t('anesthesia.quickSchedule.surgeryScheduled'),
+        description: t('anesthesia.quickSchedule.surgeryScheduledDescription'),
       });
       onOpenChange(false);
       resetForm();
     },
     onError: () => {
       toast({
-        title: "Scheduling Failed",
-        description: "Failed to schedule surgery. Please try again.",
+        title: t('anesthesia.quickSchedule.schedulingFailed'),
+        description: t('anesthesia.quickSchedule.schedulingFailedDescription'),
         variant: "destructive",
       });
     },
@@ -235,8 +237,8 @@ export default function QuickCreateSurgeryDialog({
   const handleCreatePatient = () => {
     if (!newPatientFirstName.trim() || !newPatientSurname.trim() || !newPatientDOB) {
       toast({
-        title: "Missing Information",
-        description: "Please fill in all required patient fields.",
+        title: t('anesthesia.quickSchedule.missingInformation'),
+        description: t('anesthesia.quickSchedule.missingPatientFields'),
         variant: "destructive",
       });
       return;
@@ -255,8 +257,8 @@ export default function QuickCreateSurgeryDialog({
   const handleCreateSurgery = () => {
     if (!selectedPatientId || !surgeryRoomId || !plannedSurgery.trim()) {
       toast({
-        title: "Missing Information",
-        description: "Please select a patient, room, and enter surgery details.",
+        title: t('anesthesia.quickSchedule.missingInformation'),
+        description: t('anesthesia.quickSchedule.missingFields'),
         variant: "destructive",
       });
       return;
@@ -265,8 +267,8 @@ export default function QuickCreateSurgeryDialog({
     // Validate duration
     if (!duration || duration <= 0) {
       toast({
-        title: "Invalid Duration",
-        description: "Duration must be greater than 0 minutes.",
+        title: t('anesthesia.quickSchedule.invalidDuration'),
+        description: t('anesthesia.quickSchedule.invalidDurationDescription'),
         variant: "destructive",
       });
       return;
@@ -303,13 +305,13 @@ export default function QuickCreateSurgeryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-testid="dialog-quick-create-surgery">
         <DialogHeader>
-          <DialogTitle>Quick Schedule Surgery</DialogTitle>
+          <DialogTitle>{t('anesthesia.quickSchedule.title')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           {/* Patient Selection */}
           <div className="space-y-2">
-            <Label>Patient *</Label>
+            <Label>{t('anesthesia.quickSchedule.patient')} *</Label>
             {!showNewPatientForm ? (
               <div className="flex gap-2">
                 <Popover open={patientSearchOpen} onOpenChange={setPatientSearchOpen}>
@@ -323,15 +325,15 @@ export default function QuickCreateSurgeryDialog({
                     >
                       {selectedPatient
                         ? `${selectedPatient.surname}, ${selectedPatient.firstName}`
-                        : "Select patient..."}
+                        : t('anesthesia.quickSchedule.selectPatient')}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[400px] p-0">
                     <Command>
-                      <CommandInput placeholder="Search patients..." />
+                      <CommandInput placeholder={t('anesthesia.quickSchedule.searchPatients')} />
                       <CommandList>
-                        <CommandEmpty>No patients found.</CommandEmpty>
+                        <CommandEmpty>{t('anesthesia.quickSchedule.noPatientsFound')}</CommandEmpty>
                         <CommandGroup>
                           {patients.map((patient) => (
                             <CommandItem
@@ -369,19 +371,19 @@ export default function QuickCreateSurgeryDialog({
             ) : (
               <div className="border rounded-md p-4 space-y-3">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-medium">New Patient</h4>
+                  <h4 className="text-sm font-medium">{t('anesthesia.quickSchedule.newPatient')}</h4>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setShowNewPatientForm(false)}
                     data-testid="button-cancel-new-patient"
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </Button>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label htmlFor="new-patient-firstname">First Name *</Label>
+                    <Label htmlFor="new-patient-firstname">{t('anesthesia.quickSchedule.firstName')} *</Label>
                     <Input
                       id="new-patient-firstname"
                       value={newPatientFirstName}
@@ -390,7 +392,7 @@ export default function QuickCreateSurgeryDialog({
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="new-patient-surname">Surname *</Label>
+                    <Label htmlFor="new-patient-surname">{t('anesthesia.quickSchedule.surname')} *</Label>
                     <Input
                       id="new-patient-surname"
                       value={newPatientSurname}
@@ -399,11 +401,11 @@ export default function QuickCreateSurgeryDialog({
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="new-patient-dob">Date of Birth *</Label>
+                    <Label htmlFor="new-patient-dob">{t('anesthesia.quickSchedule.dateOfBirth')} *</Label>
                     <Input
                       id="new-patient-dob"
                       type="text"
-                      placeholder="15.03.95 or 15.03.1995"
+                      placeholder={t('anesthesia.quickSchedule.dobPlaceholder')}
                       value={birthdayInput}
                       onChange={handleBirthdayChange}
                       data-testid="input-new-patient-dob"
@@ -416,24 +418,24 @@ export default function QuickCreateSurgeryDialog({
                     )}
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="new-patient-gender">Gender</Label>
+                    <Label htmlFor="new-patient-gender">{t('anesthesia.quickSchedule.gender')}</Label>
                     <Select value={newPatientGender} onValueChange={setNewPatientGender}>
                       <SelectTrigger id="new-patient-gender" data-testid="select-new-patient-gender">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="m">Male</SelectItem>
-                        <SelectItem value="f">Female</SelectItem>
-                        <SelectItem value="o">Other</SelectItem>
+                        <SelectItem value="m">{t('anesthesia.quickSchedule.male')}</SelectItem>
+                        <SelectItem value="f">{t('anesthesia.quickSchedule.female')}</SelectItem>
+                        <SelectItem value="o">{t('anesthesia.quickSchedule.other')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-1 col-span-2">
-                    <Label htmlFor="new-patient-phone">Phone</Label>
+                    <Label htmlFor="new-patient-phone">{t('anesthesia.quickSchedule.phone')}</Label>
                     <Input
                       id="new-patient-phone"
                       type="tel"
-                      placeholder="+1 234 567 8900"
+                      placeholder={t('anesthesia.quickSchedule.phonePlaceholder')}
                       value={newPatientPhone}
                       onChange={(e) => setNewPatientPhone(e.target.value)}
                       data-testid="input-new-patient-phone"
@@ -447,7 +449,7 @@ export default function QuickCreateSurgeryDialog({
                   data-testid="button-create-patient"
                 >
                   {createPatientMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Create Patient
+                  {t('anesthesia.quickSchedule.createPatient')}
                 </Button>
               </div>
             )}
@@ -455,10 +457,10 @@ export default function QuickCreateSurgeryDialog({
 
           {/* Surgery Room */}
           <div className="space-y-2">
-            <Label htmlFor="surgery-room">Surgery Room *</Label>
+            <Label htmlFor="surgery-room">{t('anesthesia.quickSchedule.surgeryRoom')} *</Label>
             <Select value={surgeryRoomId} onValueChange={setSurgeryRoomId}>
               <SelectTrigger id="surgery-room" data-testid="select-surgery-room">
-                <SelectValue placeholder="Select room..." />
+                <SelectValue placeholder={t('anesthesia.quickSchedule.selectRoom')} />
               </SelectTrigger>
               <SelectContent>
                 {surgeryRooms.map((room) => (
@@ -473,7 +475,7 @@ export default function QuickCreateSurgeryDialog({
           {/* Planned Date & Time */}
           <div className="grid gap-3" style={{ gridTemplateColumns: '5fr 3fr' }}>
             <div className="space-y-2">
-              <Label htmlFor="planned-date">Start Time *</Label>
+              <Label htmlFor="planned-date">{t('anesthesia.quickSchedule.startTime')} *</Label>
               <Input
                 id="planned-date"
                 type="datetime-local"
@@ -483,7 +485,7 @@ export default function QuickCreateSurgeryDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="duration">Duration (minutes) *</Label>
+              <Label htmlFor="duration">{t('anesthesia.quickSchedule.duration')} *</Label>
               <Input
                 id="duration"
                 type="number"
@@ -497,10 +499,10 @@ export default function QuickCreateSurgeryDialog({
 
           {/* Planned Surgery */}
           <div className="space-y-2">
-            <Label htmlFor="planned-surgery">Planned Surgery *</Label>
+            <Label htmlFor="planned-surgery">{t('anesthesia.quickSchedule.plannedSurgery')} *</Label>
             <Input
               id="planned-surgery"
-              placeholder="e.g., Laparoscopic cholecystectomy"
+              placeholder={t('anesthesia.quickSchedule.plannedSurgeryPlaceholder')}
               value={plannedSurgery}
               onChange={(e) => setPlannedSurgery(e.target.value)}
               data-testid="input-planned-surgery"
@@ -509,26 +511,26 @@ export default function QuickCreateSurgeryDialog({
 
           {/* Surgeon */}
           <div className="space-y-2">
-            <Label htmlFor="surgeon">Surgeon <span className="text-xs text-muted-foreground">(optional)</span></Label>
+            <Label htmlFor="surgeon">{t('anesthesia.quickSchedule.surgeon')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.surgeonOptional')})</span></Label>
             <Select 
               value={surgeon || "none"} 
               onValueChange={(value) => setSurgeon(value === "none" ? "" : value)}
               disabled={isLoadingSurgeons}
             >
               <SelectTrigger id="surgeon" data-testid="select-surgeon">
-                <SelectValue placeholder={isLoadingSurgeons ? "Loading surgeons..." : "Select surgeon (optional)"} />
+                <SelectValue placeholder={isLoadingSurgeons ? t('anesthesia.quickSchedule.loadingSurgeons') : t('anesthesia.quickSchedule.selectSurgeon')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">
-                  <span className="text-muted-foreground italic">No surgeon selected</span>
+                  <span className="text-muted-foreground italic">{t('anesthesia.quickSchedule.noSurgeonSelected')}</span>
                 </SelectItem>
                 {isLoadingSurgeons ? (
                   <SelectItem value="loading" disabled>
-                    Loading surgeons...
+                    {t('anesthesia.quickSchedule.loadingSurgeons')}
                   </SelectItem>
                 ) : surgeons.length === 0 ? (
                   <SelectItem value="no-surgeons" disabled>
-                    No surgeons available
+                    {t('anesthesia.quickSchedule.noSurgeonsAvailable')}
                   </SelectItem>
                 ) : (
                   surgeons.map((surgeon) => (
@@ -543,10 +545,10 @@ export default function QuickCreateSurgeryDialog({
 
           {/* Notes */}
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes <span className="text-xs text-muted-foreground">(optional)</span></Label>
+            <Label htmlFor="notes">{t('anesthesia.quickSchedule.notes')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.notesOptional')})</span></Label>
             <Textarea
               id="notes"
-              placeholder="Enter notes about antibiotics, patient position, etc."
+              placeholder={t('anesthesia.quickSchedule.notesPlaceholder')}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               data-testid="textarea-notes"
@@ -564,7 +566,7 @@ export default function QuickCreateSurgeryDialog({
             }}
             data-testid="button-cancel-surgery"
           >
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleCreateSurgery}
@@ -572,7 +574,7 @@ export default function QuickCreateSurgeryDialog({
             data-testid="button-schedule-surgery"
           >
             {createSurgeryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Schedule Surgery
+            {t('anesthesia.quickSchedule.scheduleSurgery')}
           </Button>
         </div>
       </DialogContent>
