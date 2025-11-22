@@ -316,7 +316,13 @@ export function VitalsSwimlane({
       {/* Interactive layer for vitals entry - only active when tool mode is selected */}
       <div
         data-vitals-overlay="true"
-        className={`absolute z-30 ${activeToolMode === 'edit' ? (selectedPoint ? 'cursor-grabbing' : 'cursor-pointer') : 'cursor-crosshair'}`}
+        className={`absolute z-30 ${
+          activeToolMode === 'edit' 
+            ? (selectedPoint ? 'cursor-grabbing' : 'cursor-pointer') 
+            : activeToolMode 
+              ? 'cursor-crosshair' 
+              : 'cursor-pointer'
+        }`}
         style={{
           left: '200px',
           right: '10px',
