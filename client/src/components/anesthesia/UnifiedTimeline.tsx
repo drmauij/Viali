@@ -32,6 +32,7 @@ import { FreeFlowDoseDialog } from "./dialogs/FreeFlowDoseDialog";
 import { FreeFlowManageDialog } from "./dialogs/FreeFlowManageDialog";
 import { RateSelectionDialog } from "./dialogs/RateSelectionDialog";
 import { RateManageDialog } from "./dialogs/RateManageDialog";
+import { ManualVitalsDialog } from "./dialogs/ManualVitalsDialog";
 import { DialogFooterWithTime } from "./DialogFooterWithTime";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -105,6 +106,7 @@ import { OutputSwimlane } from "./swimlanes/OutputSwimlane";
 import { PositionSwimlane } from "./swimlanes/PositionSwimlane";
 import { StaffSwimlane } from "./swimlanes/StaffSwimlane";
 import { HeartRhythmSwimlane } from "./swimlanes/HeartRhythmSwimlane";
+import { EventsTimesPanel } from "./EventsTimesPanel";
 
 /**
  * UnifiedTimeline - Refactored for robustness and flexibility
@@ -1122,6 +1124,13 @@ export function UnifiedTimeline({
   } | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
+  // State for manual vitals entry dialog
+  const [showManualVitalsDialog, setShowManualVitalsDialog] = useState(false);
+  const [manualVitalsTime, setManualVitalsTime] = useState<number>(Date.now());
+
+  // State for Events/Times sliding panel
+  const [showEventsTimesPanel, setShowEventsTimesPanel] = useState(false);
+
   // UI state for time markers (data managed by useEventState hook)
   const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
   const [editingTimeMarker, setEditingTimeMarker] = useState<{
@@ -1764,6 +1773,55 @@ export function UnifiedTimeline({
     setEditingValue(null);
   };
 
+  // Handle saving manual vitals entry
+  const handleManualVitalsSave = (data: {
+    hr?: number;
+    sys?: number;
+    dia?: number;
+    spo2?: number;
+    time: number;
+  }) => {
+    if (!anesthesiaRecordId) return;
+
+    const timestamp = new Date(data.time);
+
+    // Save HR if provided
+    if (data.hr !== undefined) {
+      addVitalPointMutation.mutate({
+        anesthesiaRecordId,
+        vitalType: 'hr',
+        timestamp,
+        value: data.hr,
+      });
+    }
+
+    // Save SpO2 if provided
+    if (data.spo2 !== undefined) {
+      addVitalPointMutation.mutate({
+        anesthesiaRecordId,
+        vitalType: 'spo2',
+        timestamp,
+        value: data.spo2,
+      });
+    }
+
+    // Save BP if either sys or dia is provided
+    if (data.sys !== undefined || data.dia !== undefined) {
+      addBPPointMutation.mutate({
+        anesthesiaRecordId,
+        timestamp,
+        sys: data.sys,
+        dia: data.dia,
+      });
+    }
+
+    toast({
+      title: "Vitals added",
+      description: "Manual vital signs have been recorded",
+      duration: 2000,
+    });
+  };
+
   // Handle clicking on Zeiten swimlane to place next time marker or edit existing
   const handleZeitenClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -1999,14 +2057,17 @@ export function UnifiedTimeline({
   }, [activeSwimlanes]);
 
 
-  // Add click handler for editing data points
+  // Add click handler for editing data points and manual entry
   useEffect(() => {
     const chart = chartRef.current?.getEchartsInstance();
     if (!chart) return;
 
     const handleChartClick = (params: any) => {
-      // Only handle clicks on scatter/custom data points, not when actively placing new values
-      if (params.componentType === 'series' && (params.seriesType === 'scatter' || params.seriesType === 'custom') && !activeToolMode) {
+      // Don't handle clicks when actively placing new values
+      if (activeToolMode) return;
+
+      // Handle clicks on scatter/custom data points
+      if (params.componentType === 'series' && (params.seriesType === 'scatter' || params.seriesType === 'custom')) {
         const [timestamp, value] = params.data;
         const seriesName = params.seriesName;
         
@@ -2047,6 +2108,13 @@ export function UnifiedTimeline({
           setEditingValue({ type, time: timestamp, value, index, originalTime: timestamp, pointId });
           setEditDialogOpen(true);
         }
+      } 
+      // Handle clicks on empty areas of vitals chart for manual entry
+      else if (params.componentType === 'xAxis' || params.componentType === 'yAxis' || !params.componentType) {
+        // Calculate clicked time based on mouse position
+        const clickedTime = params.value || currentTime;
+        setManualVitalsTime(clickedTime);
+        setShowManualVitalsDialog(true);
       }
     };
 
@@ -2054,7 +2122,7 @@ export function UnifiedTimeline({
     return () => {
       chart.off('click', handleChartClick);
     };
-  }, [chartRef, activeToolMode, hrDataPoints, bpDataPoints, spo2DataPoints, clinicalSnapshot]);
+  }, [chartRef, activeToolMode, hrDataPoints, bpDataPoints, spo2DataPoints, clinicalSnapshot, currentTime]);
 
   // Update zoom state when zoom changes
   useEffect(() => {
@@ -4777,29 +4845,57 @@ export function UnifiedTimeline({
               }}
             >
               {isZeitenLane ? (
-                // For Times swimlane, make entire label area clickable
-                <button
-                  onClick={() => setBulkEditDialogOpen(true)}
-                  className="flex items-center justify-between gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1 pointer-events-auto"
-                  data-testid="button-edit-anesthesia-times"
-                  title="Edit Anesthesia Times"
-                >
-                  <span className={`${labelClass} text-black dark:text-white`}>
-                    {lane.label}
-                  </span>
-                  <Clock className="w-4 h-4 text-foreground/70 group-hover:text-foreground shrink-0" />
-                </button>
+                // For Times swimlane, show next timepoint button and times icon
+                <div className="flex items-center justify-between gap-1 flex-1">
+                  <button
+                    onClick={() => setBulkEditDialogOpen(true)}
+                    className="flex items-center gap-1 text-left bg-muted/50 text-muted-foreground px-2 py-1 rounded text-xs hover:bg-muted transition-colors pointer-events-auto truncate flex-1 max-w-[140px]"
+                    data-testid="button-next-timepoint"
+                    title={(() => {
+                      const nextMarker = timeMarkers.find(m => m.time === null);
+                      return nextMarker ? `Next: ${nextMarker.label}` : 'All times set';
+                    })()}
+                  >
+                    {(() => {
+                      const nextMarker = timeMarkers.find(m => m.time === null);
+                      if (nextMarker) {
+                        return (
+                          <>
+                            <div
+                              className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0"
+                              style={{
+                                backgroundColor: nextMarker.bgColor,
+                                color: nextMarker.color,
+                              }}
+                            >
+                              {nextMarker.code}
+                            </div>
+                            <span className="truncate text-[11px]">{nextMarker.label}</span>
+                          </>
+                        );
+                      } else {
+                        return <span className="text-[11px]">All times set</span>;
+                      }
+                    })()}
+                  </button>
+                  <button
+                    onClick={() => setBulkEditDialogOpen(true)}
+                    className="hover:bg-background/10 transition-colors rounded p-0.5 pointer-events-auto"
+                    data-testid="button-edit-anesthesia-times"
+                    title="Edit Anesthesia Times"
+                  >
+                    <Clock className="w-4 h-4 text-foreground/70 group-hover:text-foreground shrink-0" />
+                  </button>
+                </div>
               ) : isEreignisseLane ? (
-                // For Events swimlane, make entire label area clickable to add new event
+                // For Events swimlane, make entire label area clickable to toggle panel
                 <button
-                  onClick={() => {
-                    setPendingEvent({ time: currentTime });
-                    setShowEventDialog(true);
-                  }}
+                  onClick={() => setShowEventsTimesPanel(true)}
                   className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1 pointer-events-auto"
-                  data-testid="button-add-event"
-                  title="Add Event"
+                  data-testid="button-toggle-events-panel"
+                  title="View Events & Times"
                 >
+                  <MessageSquareText className="w-4 h-4 text-foreground/70 shrink-0" />
                   <span className={`${labelClass} text-black dark:text-white`}>
                     {lane.label}
                   </span>
@@ -6086,6 +6182,14 @@ export function UnifiedTimeline({
         </DialogContent>
       </Dialog>
 
+      {/* Manual Vitals Entry Dialog */}
+      <ManualVitalsDialog
+        open={showManualVitalsDialog}
+        onOpenChange={setShowManualVitalsDialog}
+        initialTime={manualVitalsTime}
+        onSave={handleManualVitalsSave}
+      />
+
       {/* Bulk Edit Anesthesia Times Dialog */}
       <Dialog open={bulkEditDialogOpen} onOpenChange={setBulkEditDialogOpen}>
         <DialogContent className="sm:max-w-[600px]" data-testid="dialog-bulk-edit-times">
@@ -6621,6 +6725,25 @@ export function UnifiedTimeline({
           </div>
         </div>
       )}
+
+      {/* Events & Times Sliding Panel */}
+      <EventsTimesPanel
+        open={showEventsTimesPanel}
+        onClose={() => setShowEventsTimesPanel(false)}
+        events={eventComments}
+        timeMarkers={timeMarkers}
+        onEventClick={(event) => {
+          setEditingEvent(event);
+          setEventEditTime(event.time);
+          setShowEventDialog(true);
+          setShowEventsTimesPanel(false);
+        }}
+        onTimeMarkerClick={(marker, index) => {
+          setEditingTimeMarker({ index, marker });
+          setTimeMarkerEditDialogOpen(true);
+          setShowEventsTimesPanel(false);
+        }}
+      />
     </div>
     </TimelineContextProvider>
   );

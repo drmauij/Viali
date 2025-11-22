@@ -2,8 +2,26 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
 import { useCreateEvent, useUpdateEvent, useDeleteEvent } from "@/hooks/useEventsQuery";
+import { Clock, Wind, Droplet, RotateCcw, CheckCircle2, Eye, ShieldCheck, Users, Syringe, Stethoscope, BedDouble, AlertCircle } from "lucide-react";
+
+// Common events with icons
+const COMMON_EVENTS = [
+  { label: "Team Timeout", icon: Users },
+  { label: "Intubation", icon: Wind },
+  { label: "Extubation", icon: RotateCcw },
+  { label: "Warm Touch", icon: Droplet },
+  { label: "Position Verified", icon: CheckCircle2 },
+  { label: "Eye Protection", icon: Eye },
+  { label: "Regional Block", icon: Syringe },
+  { label: "Urinary Catheter", icon: AlertCircle },
+  { label: "Arterial Line", icon: Stethoscope },
+  { label: "Central Line", icon: Stethoscope },
+  { label: "Patient Positioned", icon: BedDouble },
+  { label: "Safety Checklist", icon: ShieldCheck },
+];
 
 interface EventToEdit {
   id: string;
@@ -109,16 +127,42 @@ export function EventDialog({
     setEventTextInput("");
   };
 
+  const handleQuickEvent = (eventLabel: string) => {
+    setEventTextInput(eventLabel);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]" data-testid="dialog-event-comment">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto" data-testid="dialog-event-comment">
         <DialogHeader>
           <DialogTitle>{editingEvent ? "Edit Event" : "Add Event"}</DialogTitle>
           <DialogDescription>
-            {editingEvent ? "Edit or delete the event comment" : "Add an event to the timeline"}
+            {editingEvent ? "Edit or delete the event comment" : "Quick select a common event or enter custom text"}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
+          {!editingEvent && (
+            <div className="grid gap-2">
+              <Label>Common Events</Label>
+              <div className="grid grid-cols-2 gap-2 max-h-[240px] overflow-y-auto p-1">
+                {COMMON_EVENTS.map((event) => {
+                  const IconComponent = event.icon;
+                  return (
+                    <Button
+                      key={event.label}
+                      variant="outline"
+                      className="justify-start h-auto py-2 px-3"
+                      onClick={() => handleQuickEvent(event.label)}
+                      data-testid={`button-quick-event-${event.label.toLowerCase().replace(/\s+/g, '-')}`}
+                    >
+                      <IconComponent className="w-4 h-4 mr-2 shrink-0" />
+                      <span className="text-sm">{event.label}</span>
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <div className="grid gap-2">
             <Label htmlFor="event-text">Event Comment</Label>
             <Textarea
@@ -128,7 +172,7 @@ export function EventDialog({
               onChange={(e) => setEventTextInput(e.target.value)}
               placeholder="Enter event description..."
               rows={4}
-              autoFocus
+              autoFocus={!!editingEvent}
             />
           </div>
         </div>
