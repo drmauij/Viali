@@ -147,7 +147,7 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
   });
 
   const handleQuantityChange = (itemId: string, delta: number) => {
-    const currentQty = getFinalQty(itemId);
+    const currentQty = Math.round(getFinalQty(itemId));
     const newQty = Math.max(0, currentQty + delta);
     overrideMutation.mutate({ itemId, qty: newQty });
   };
@@ -234,7 +234,7 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
                             <p className="font-medium text-sm">{item.name}</p>
                             {autoCalc > 0 && (
                               <span className="text-xs text-muted-foreground">
-                                (calc: {Math.floor(autoCalc)})
+                                (calc: {Math.round(autoCalc)})
                               </span>
                             )}
                           </div>
@@ -254,7 +254,7 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
                               <Minus className="h-4 w-4" />
                             </Button>
                             <span className="w-12 text-center font-semibold" data-testid={`quantity-${item.id}`}>
-                              {Math.floor(finalQty)}
+                              {Math.round(finalQty)}
                             </span>
                             <Button
                               variant="outline"
