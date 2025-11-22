@@ -241,13 +241,25 @@ export function VitalsSwimlane({
       // Use raw click time for hit-testing to avoid missing existing points
       const nearbyPoint = findNearbyVitalPoint(rawClickTime, y, rect);
       
+      console.log('[VITALS-CLICK] No tool mode active:', {
+        rawClickTime,
+        snappedClickTime,
+        nearbyPoint,
+        hrPointsCount: hrDataPoints.length,
+        bpSysCount: bpDataPoints.sys.length,
+        bpDiaCount: bpDataPoints.dia.length,
+        spo2Count: spo2DataPoints.length,
+      });
+      
       if (nearbyPoint) {
         // Clicking on existing point - open edit dialog
+        console.log('[VITALS-CLICK] Found nearby point, calling onVitalPointEdit:', nearbyPoint);
         setIsProcessingClick(false);
         onVitalPointEdit?.(nearbyPoint.type, nearbyPoint.index, nearbyPoint.time, nearbyPoint.value);
         return;
       } else {
         // Clicking on empty space - open bulk vitals dialog with snapped time
+        console.log('[VITALS-CLICK] No nearby point found, opening bulk dialog');
         setIsProcessingClick(false);
         onBulkVitalsOpen?.(snappedClickTime);
         return;
