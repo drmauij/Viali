@@ -88,7 +88,7 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
   const getFolderName = (folderId: string) => {
     if (folderId === 'uncategorized') return 'Uncategorized';
     const folder = folders.find(f => f.id === folderId);
-    return folder?.name || 'Unknown Folder';
+    return folder?.name || 'Uncategorized';
   };
 
   // Get final quantity for an item
@@ -234,7 +234,7 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
                             <p className="font-medium text-sm">{item.name}</p>
                             {autoCalc > 0 && (
                               <span className="text-xs text-muted-foreground">
-                                (calc: {autoCalc})
+                                (calc: {Math.floor(autoCalc)})
                               </span>
                             )}
                           </div>
@@ -254,7 +254,7 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
                               <Minus className="h-4 w-4" />
                             </Button>
                             <span className="w-12 text-center font-semibold" data-testid={`quantity-${item.id}`}>
-                              {finalQty}
+                              {Math.floor(finalQty)}
                             </span>
                             <Button
                               variant="outline"
@@ -270,22 +270,20 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
                             >
                               <Plus className="h-4 w-4" />
                             </Button>
-                            {hasOverride && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 ml-1"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleReset(item.id);
-                                }}
-                                disabled={clearOverrideMutation.isPending}
-                                title="Reset to calculated value"
-                                data-testid={`button-reset-${item.id}`}
-                              >
-                                <RotateCcw className="h-4 w-4" />
-                              </Button>
-                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 ml-1"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleReset(item.id);
+                              }}
+                              disabled={!hasOverride || clearOverrideMutation.isPending}
+                              title={hasOverride ? "Reset to calculated value" : "No manual override"}
+                              data-testid={`button-reset-${item.id}`}
+                            >
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
                       );
