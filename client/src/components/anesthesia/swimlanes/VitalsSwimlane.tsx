@@ -23,6 +23,7 @@ interface VitalsSwimlaneProps {
   VITALS_TOP: number;
   VITALS_HEIGHT: number;
   isTouchDevice: boolean;
+  onBulkVitalsOpen?: (time: number) => void;
 }
 
 export function VitalsSwimlane({
@@ -30,6 +31,7 @@ export function VitalsSwimlane({
   VITALS_TOP,
   VITALS_HEIGHT,
   isTouchDevice,
+  onBulkVitalsOpen,
 }: VitalsSwimlaneProps) {
   const {
     vitalsState,
@@ -148,21 +150,38 @@ export function VitalsSwimlane({
 
     setIsProcessingClick(true);
 
+    // Calculate click time from position
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    
+    const visibleStart = currentZoomStart ?? data.startTime;
+    const visibleEnd = currentZoomEnd ?? data.endTime;
+    const visibleRange = visibleEnd - visibleStart;
+    
+    const xPercent = x / rect.width;
+    let clickTime = visibleStart + (xPercent * visibleRange);
+    clickTime = Math.round(clickTime / currentVitalsSnapInterval) * currentVitalsSnapInterval;
+
+    // Validate that click time is within editable boundaries
+    const editableStartBoundary = currentTime - TEN_MINUTES;
+    const editableEndBoundary = currentTime + TEN_MINUTES;
+
+    if (clickTime < editableStartBoundary || clickTime > editableEndBoundary) {
+      setIsProcessingClick(false);
+      return;
+    }
+
+    // If no tool mode is active, open bulk vitals dialog
+    if (!activeToolMode) {
+      setIsProcessingClick(false);
+      onBulkVitalsOpen?.(clickTime);
+      return;
+    }
+
     // On touch devices, calculate value directly from click position
     let clickInfo = hoverInfo;
     if (isTouchDevice) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-
-      const visibleStart = currentZoomStart ?? data.startTime;
-      const visibleEnd = currentZoomEnd ?? data.endTime;
-      const visibleRange = visibleEnd - visibleStart;
-
-      const xPercent = x / rect.width;
-      let time = visibleStart + (xPercent * visibleRange);
-      time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
-
       const yPercent = y / rect.height;
       let value: number;
 
@@ -180,19 +199,10 @@ export function VitalsSwimlane({
         return;
       }
 
-      clickInfo = { x: e.clientX, y: e.clientY, value, time };
+      clickInfo = { x: e.clientX, y: e.clientY, value, time: clickTime };
     }
 
     if (!clickInfo) {
-      setIsProcessingClick(false);
-      return;
-    }
-
-    // Validate that click time is within editable boundaries
-    const editableStartBoundary = currentTime - TEN_MINUTES;
-    const editableEndBoundary = currentTime + TEN_MINUTES;
-
-    if (clickInfo.time < editableStartBoundary || clickInfo.time > editableEndBoundary) {
       setIsProcessingClick(false);
       return;
     }

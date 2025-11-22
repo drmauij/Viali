@@ -35,6 +35,7 @@ import { FreeFlowManageDialog } from "./dialogs/FreeFlowManageDialog";
 import { RateSelectionDialog } from "./dialogs/RateSelectionDialog";
 import { RateManageDialog } from "./dialogs/RateManageDialog";
 import { ManualVitalsDialog } from "./dialogs/ManualVitalsDialog";
+import { BulkVitalsDialog } from "./dialogs/BulkVitalsDialog";
 import { DialogFooterWithTime } from "./DialogFooterWithTime";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -1120,6 +1121,10 @@ export function UnifiedTimeline({
     rateOptions: string[]; // parsed from defaultDose like "6-12-16"
   } | null>(null);
   const [customRateInput, setCustomRateInput] = useState("");
+  
+  // State for bulk vitals entry dialog (click on vitals chart without tool mode)
+  const [showBulkVitalsDialog, setShowBulkVitalsDialog] = useState(false);
+  const [bulkVitalsTime, setBulkVitalsTime] = useState<number>(0);
   
   // State for rate-controlled infusion management dialog (edit/stop/change existing rate)
   const [showRateManageDialog, setShowRateManageDialog] = useState(false);
@@ -5123,6 +5128,10 @@ export function UnifiedTimeline({
         VITALS_TOP={VITALS_TOP_POS}
         VITALS_HEIGHT={VITALS_HEIGHT}
         isTouchDevice={isTouchDevice}
+        onBulkVitalsOpen={(time) => {
+          setBulkVitalsTime(time);
+          setShowBulkVitalsDialog(true);
+        }}
       />
 
       {/* EventsSwimlane Component - Interactive layers and rendering for events and time markers */}
@@ -6888,6 +6897,17 @@ export function UnifiedTimeline({
         }}
         onOutputDeleted={() => {
           setEditingOutputValue(null);
+        }}
+      />
+
+      {/* Bulk Vitals Entry Dialog */}
+      <BulkVitalsDialog
+        open={showBulkVitalsDialog}
+        onOpenChange={setShowBulkVitalsDialog}
+        anesthesiaRecordId={anesthesiaRecordId}
+        initialTime={bulkVitalsTime}
+        onVitalsCreated={() => {
+          setShowBulkVitalsDialog(false);
         }}
       />
 
