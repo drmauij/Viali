@@ -292,13 +292,20 @@ export default function Op() {
   const [tempAllergies, setTempAllergies] = useState("");
   const [tempCave, setTempCave] = useState("");
 
-  // Update allergies and cave when preOp data is loaded
+  // Update allergies from patient table and CAVE from preOp assessment
   useEffect(() => {
+    // Allergies come from patient table (single source of truth)
+    if (patient) {
+      const patientAllergies = (patient as any).allergies?.join(", ") || "";
+      const otherAllergies = (patient as any).otherAllergies || "";
+      const combinedAllergies = [patientAllergies, otherAllergies].filter(Boolean).join(", ");
+      setAllergies(combinedAllergies);
+    }
+    // CAVE comes from preOp assessment
     if (preOpAssessment) {
-      setAllergies(preOpAssessment.allergies?.join(", ") || "");
       setCave(preOpAssessment.cave || "");
     }
-  }, [preOpAssessment]);
+  }, [patient, preOpAssessment]);
 
   // Sync Post-Op data from anesthesia record
   useEffect(() => {

@@ -852,9 +852,7 @@ export const preOpAssessments = pgTable("preop_assessments", {
   height: varchar("height"),
   weight: varchar("weight"),
   
-  // Allergies & CAVE (also in header, but stored for record)
-  allergies: text("allergies").array(),
-  allergiesOther: text("allergies_other"),
+  // CAVE notes (allergies now managed exclusively in patients table)
   cave: text("cave"),
   
   // Classification

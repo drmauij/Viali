@@ -757,6 +757,16 @@ export default function PatientDetail() {
       status: markAsCompleted ? "completed" : ((overrideData.doctorSignature || assessmentData.doctorSignature) ? "completed" : "draft"),
     };
 
+    // Save allergies to patient table (single source of truth)
+    if (patient) {
+      await apiRequest("PATCH", `/api/patients/${patient.id}`, {
+        allergies: assessmentData.allergies,
+        otherAllergies: assessmentData.allergiesOther,
+      });
+      // Invalidate patient query to refresh allergies in UI
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${patient.id}`] });
+    }
+
     if (existingAssessment) {
       // Update existing assessment
       updatePreOpMutation.mutate(data);
