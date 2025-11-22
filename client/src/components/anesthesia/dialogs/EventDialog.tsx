@@ -5,22 +5,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
 import { useCreateEvent, useUpdateEvent, useDeleteEvent } from "@/hooks/useEventsQuery";
-import { Clock, Wind, Droplet, RotateCcw, CheckCircle2, Eye, ShieldCheck, Users, Syringe, Stethoscope, BedDouble, AlertCircle } from "lucide-react";
+import { Clock, ArrowDown, ArrowUp, Sun, Eye, Users } from "lucide-react";
 
 // Common events with icons
 const COMMON_EVENTS = [
   { label: "Team Timeout", icon: Users },
-  { label: "Intubation", icon: Wind },
-  { label: "Extubation", icon: RotateCcw },
-  { label: "Warm Touch", icon: Droplet },
-  { label: "Position Verified", icon: CheckCircle2 },
+  { label: "Intubation", icon: ArrowDown },
+  { label: "Extubation", icon: ArrowUp },
   { label: "Eye Protection", icon: Eye },
-  { label: "Regional Block", icon: Syringe },
-  { label: "Urinary Catheter", icon: AlertCircle },
-  { label: "Arterial Line", icon: Stethoscope },
-  { label: "Central Line", icon: Stethoscope },
-  { label: "Patient Positioned", icon: BedDouble },
-  { label: "Safety Checklist", icon: ShieldCheck },
+  { label: "Warm Touch", icon: Sun },
 ];
 
 interface EventToEdit {
