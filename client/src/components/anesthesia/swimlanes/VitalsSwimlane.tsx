@@ -143,7 +143,67 @@ export function VitalsSwimlane({
   };
 
   /**
-   * Handle click to add vital point
+   * Find if clicking on an existing vital point
+   */
+  const findVitalPointAtClick = (clickTime: number, clickY: number, rect: DOMRect) => {
+    const TIME_THRESHOLD = 30000; // 30 seconds tolerance
+    const PIXEL_THRESHOLD = 20; // 20 pixels vertical tolerance
+    
+    const yPercent = clickY / rect.height;
+    
+    // Check HR points
+    for (let i = 0; i < hrDataPoints.length; i++) {
+      const [time, value] = hrDataPoints[i];
+      if (Math.abs(time - clickTime) <= TIME_THRESHOLD) {
+        const expectedYPercent = 1 - (value / 240); // HR scale 0-240
+        const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
+        if (pixelDiff <= PIXEL_THRESHOLD) {
+          return { type: 'hr' as const, index: i, time, value };
+        }
+      }
+    }
+    
+    // Check systolic BP points
+    for (let i = 0; i < bpDataPoints.sys.length; i++) {
+      const [time, value] = bpDataPoints.sys[i];
+      if (Math.abs(time - clickTime) <= TIME_THRESHOLD) {
+        const expectedYPercent = 1 - (value / 240); // BP scale 0-240
+        const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
+        if (pixelDiff <= PIXEL_THRESHOLD) {
+          return { type: 'sys' as const, index: i, time, value };
+        }
+      }
+    }
+    
+    // Check diastolic BP points
+    for (let i = 0; i < bpDataPoints.dia.length; i++) {
+      const [time, value] = bpDataPoints.dia[i];
+      if (Math.abs(time - clickTime) <= TIME_THRESHOLD) {
+        const expectedYPercent = 1 - (value / 240); // BP scale 0-240
+        const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
+        if (pixelDiff <= PIXEL_THRESHOLD) {
+          return { type: 'dia' as const, index: i, time, value };
+        }
+      }
+    }
+    
+    // Check SpO2 points (scale 45-105)
+    for (let i = 0; i < spo2DataPoints.length; i++) {
+      const [time, value] = spo2DataPoints[i];
+      if (Math.abs(time - clickTime) <= TIME_THRESHOLD) {
+        const expectedYPercent = 1 - ((value - 45) / (105 - 45)); // SpO2 scale 45-105
+        const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
+        if (pixelDiff <= PIXEL_THRESHOLD) {
+          return { type: 'spo2' as const, index: i, time, value };
+        }
+      }
+    }
+    
+    return null;
+  };
+
+  /**
+   * Handle click to add vital point or edit existing
    */
   const handleVitalsClick = (e: React.MouseEvent) => {
     if (isProcessingClick || activeToolMode === 'edit') {
@@ -176,11 +236,21 @@ export function VitalsSwimlane({
       return;
     }
 
-    // If no tool mode is active, open ManualVitalsDialog for single-value entry
+    // If no tool mode is active, check if clicking on existing point
     if (!activeToolMode) {
-      setIsProcessingClick(false);
-      onVitalPointEdit?.(null, 0, snappedClickTime, 0);
-      return;
+      const existingPoint = findVitalPointAtClick(rawClickTime, y, rect);
+      
+      if (existingPoint) {
+        // Clicking on existing point → Open single edit dialog
+        setIsProcessingClick(false);
+        onVitalPointEdit?.(existingPoint.type, existingPoint.index, existingPoint.time, existingPoint.value);
+        return;
+      } else {
+        // Clicking on empty space → Open bulk entry dialog
+        setIsProcessingClick(false);
+        onVitalPointEdit?.(null, 0, snappedClickTime, 0);
+        return;
+      }
     }
 
     // On touch devices, calculate value directly from click position
