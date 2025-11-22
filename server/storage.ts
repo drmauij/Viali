@@ -3334,79 +3334,97 @@ export class DatabaseStorage implements IStorage {
         const startEvents = meds.filter(m => m.type === 'infusion_start');
         totalQty = startEvents.length;
       } else if (isRateControlled) {
-        const startEvents = meds.filter(m => m.type === 'infusion_start').sort((a, b) => 
+        const allEvents = meds.sort((a, b) => 
           new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
         );
-        const stopEvents = meds.filter(m => m.type === 'infusion_stop').sort((a, b) => 
-          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-        );
-        const rateChangeEvents = meds.filter(m => m.type === 'rate_change').sort((a, b) => 
-          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-        );
-
-        for (const startEvent of startEvents) {
-          const startTime = new Date(startEvent.timestamp);
+        
+        type PendingSession = {
+          start: { timestamp: Date; rate: string };
+          rateChanges: Array<{ timestamp: Date; rate: string }>;
+        };
+        
+        type InfusionSession = {
+          start: { timestamp: Date; rate: string };
+          stop: Date;
+          rateChanges: Array<{ timestamp: Date; rate: string }>;
+        };
+        
+        const sessions: InfusionSession[] = [];
+        const sessionQueue: PendingSession[] = [];
+        
+        for (const event of allEvents) {
+          const eventTime = new Date(event.timestamp);
           
-          let endTime: Date | null = startEvent.endTimestamp ? new Date(startEvent.endTimestamp) : null;
-          
-          if (!endTime) {
-            const stopEvent = stopEvents.find(s => 
-              new Date(s.timestamp).getTime() > startTime.getTime()
+          if (event.type === 'infusion_start') {
+            sessionQueue.push({
+              start: { timestamp: eventTime, rate: event.rate || '0' },
+              rateChanges: []
+            });
+          } else if (event.type === 'rate_change') {
+            if (sessionQueue.length > 0) {
+              const latestSession = sessionQueue[sessionQueue.length - 1];
+              if (eventTime.getTime() > latestSession.start.timestamp.getTime()) {
+                latestSession.rateChanges.push({ 
+                  timestamp: eventTime, 
+                  rate: event.rate || '0' 
+                });
+              }
+            }
+          } else if (event.type === 'infusion_stop') {
+            const matchingSessionIndex = sessionQueue.findIndex(
+              pending => eventTime.getTime() > pending.start.timestamp.getTime()
             );
-            if (stopEvent) {
-              endTime = new Date(stopEvent.timestamp);
+            if (matchingSessionIndex !== -1) {
+              const pendingSession = sessionQueue.splice(matchingSessionIndex, 1)[0];
+              sessions.push({
+                start: pendingSession.start,
+                stop: eventTime,
+                rateChanges: pendingSession.rateChanges
+              });
             }
           }
-
-          if (!endTime) continue;
+        }
+        
+        for (const session of sessions) {
+          type Segment = { rate: string; start: Date; end: Date };
+          const segments: Segment[] = [];
           
-          const relevantRateChanges = rateChangeEvents.filter(rc => {
-            const rcTime = new Date(rc.timestamp).getTime();
-            return rcTime > startTime.getTime() && rcTime < endTime!.getTime();
-          });
-          
-          if (relevantRateChanges.length === 0) {
-            totalQty += calculateRateControlledAmpules(
-              startEvent.rate,
-              item.rateUnit,
-              startEvent.timestamp,
-              endTime,
-              item.ampuleTotalContent,
-              patientWeight
-            );
+          if (session.rateChanges.length === 0) {
+            segments.push({
+              rate: session.start.rate,
+              start: session.start.timestamp,
+              end: session.stop
+            });
           } else {
-            const segments: Array<{ rate: string; start: Date; end: Date }> = [];
+            let segmentStart = session.start.timestamp;
+            let currentRate = session.start.rate;
             
-            let segmentStart = startTime;
-            let currentRate = startEvent.rate || '0';
-            
-            for (const rateChange of relevantRateChanges) {
-              const rateChangeTime = new Date(rateChange.timestamp);
+            for (const rateChange of session.rateChanges) {
               segments.push({
                 rate: currentRate,
-                start: segmentStart,
-                end: rateChangeTime
+                start: new Date(segmentStart.getTime()),
+                end: new Date(rateChange.timestamp.getTime())
               });
-              segmentStart = rateChangeTime;
-              currentRate = rateChange.rate || '0';
+              segmentStart = rateChange.timestamp;
+              currentRate = rateChange.rate;
             }
             
             segments.push({
               rate: currentRate,
-              start: segmentStart,
-              end: endTime
+              start: new Date(segmentStart.getTime()),
+              end: new Date(session.stop.getTime())
             });
-            
-            for (const segment of segments) {
-              totalQty += calculateRateControlledAmpules(
-                segment.rate,
-                item.rateUnit,
-                segment.start,
-                segment.end,
-                item.ampuleTotalContent,
-                patientWeight
-              );
-            }
+          }
+          
+          for (const segment of segments) {
+            totalQty += calculateRateControlledAmpules(
+              segment.rate,
+              item.rateUnit,
+              segment.start,
+              segment.end,
+              item.ampuleTotalContent,
+              patientWeight
+            );
           }
         }
       }
