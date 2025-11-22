@@ -1658,20 +1658,11 @@ export default function PatientDetail() {
           
           <Tabs defaultValue="assessment" className="flex-1 flex flex-col min-h-0">
             <div className="px-6 shrink-0">
-              <div className="flex items-center gap-4 mb-4">
-                <TabsList className="grid flex-1 grid-cols-2">
+              <div className="mb-4">
+                <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="assessment" data-testid="tab-assessment">Pre-OP Assessment</TabsTrigger>
                   <TabsTrigger value="consent" data-testid="tab-consent">Informed Consent</TabsTrigger>
                 </TabsList>
-                <Button 
-                  variant="outline" 
-                  className="flex items-center gap-2 shrink-0"
-                  onClick={() => console.log("Downloading Pre-OP PDF for case:", selectedCaseId)}
-                  data-testid="button-download-preop-pdf"
-                >
-                  <Download className="h-4 w-4" />
-                  <span className="hidden sm:inline">Download PDF</span>
-                </Button>
               </div>
             </div>
             
