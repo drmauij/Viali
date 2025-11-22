@@ -1487,13 +1487,21 @@ export default function Op() {
                           <span className="text-sm">At:</span>
                         </label>
                         <Input
-                          type="time"
+                          type="text"
                           className="w-32"
+                          placeholder="HH:MM"
+                          pattern="^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
                           value={postOpData.paracetamolTime !== "Immediately" && postOpData.paracetamolTime !== "Contraindicated" ? (postOpData.paracetamolTime || "") : ""}
                           onChange={(e) => {
-                            const updated = { ...postOpData, paracetamolTime: e.target.value };
-                            setPostOpData(updated);
-                            postOpAutoSave.mutate(updated);
+                            const value = e.target.value;
+                            const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
+                            if (value === "" || timeRegex.test(value)) {
+                              const updated = { ...postOpData, paracetamolTime: value };
+                              setPostOpData(updated);
+                              postOpAutoSave.mutate(updated);
+                            } else {
+                              setPostOpData({ ...postOpData, paracetamolTime: value });
+                            }
                           }}
                           disabled={!anesthesiaRecord?.id}
                           data-testid="input-paracetamol-time"
@@ -1552,13 +1560,21 @@ export default function Op() {
                           <span className="text-sm">At:</span>
                         </label>
                         <Input
-                          type="time"
+                          type="text"
                           className="w-32"
+                          placeholder="HH:MM"
+                          pattern="^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
                           value={postOpData.nsarTime !== "Immediately" && postOpData.nsarTime !== "Contraindicated" ? (postOpData.nsarTime || "") : ""}
                           onChange={(e) => {
-                            const updated = { ...postOpData, nsarTime: e.target.value };
-                            setPostOpData(updated);
-                            postOpAutoSave.mutate(updated);
+                            const value = e.target.value;
+                            const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
+                            if (value === "" || timeRegex.test(value)) {
+                              const updated = { ...postOpData, nsarTime: value };
+                              setPostOpData(updated);
+                              postOpAutoSave.mutate(updated);
+                            } else {
+                              setPostOpData({ ...postOpData, nsarTime: value });
+                            }
                           }}
                           disabled={!anesthesiaRecord?.id}
                           data-testid="input-nsar-time"
@@ -1617,13 +1633,21 @@ export default function Op() {
                           <span className="text-sm">At:</span>
                         </label>
                         <Input
-                          type="time"
+                          type="text"
                           className="w-32"
+                          placeholder="HH:MM"
+                          pattern="^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
                           value={postOpData.novalginTime !== "Immediately" && postOpData.novalginTime !== "Contraindicated" ? (postOpData.novalginTime || "") : ""}
                           onChange={(e) => {
-                            const updated = { ...postOpData, novalginTime: e.target.value };
-                            setPostOpData(updated);
-                            postOpAutoSave.mutate(updated);
+                            const value = e.target.value;
+                            const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
+                            if (value === "" || timeRegex.test(value)) {
+                              const updated = { ...postOpData, novalginTime: value };
+                              setPostOpData(updated);
+                              postOpAutoSave.mutate(updated);
+                            } else {
+                              setPostOpData({ ...postOpData, novalginTime: value });
+                            }
                           }}
                           disabled={!anesthesiaRecord?.id}
                           data-testid="input-novalgin-time"
