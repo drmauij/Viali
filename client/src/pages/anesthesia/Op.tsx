@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useLocation } from "wouter";
+import { useTranslation } from 'react-i18next';
 import { UnifiedTimeline, type UnifiedTimelineData, type TimelineVitals, type TimelineEvent, type VitalPoint } from "@/components/anesthesia/UnifiedTimeline";
 import { PreOpOverview } from "@/components/anesthesia/PreOpOverview";
 import { 
@@ -73,6 +74,7 @@ import {
 } from "lucide-react";
 
 export default function Op() {
+  const { t } = useTranslation();
   const params = useParams<{ id: string }>();
   const [location, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(true);
@@ -138,7 +140,7 @@ export default function Op() {
         hasAttemptedCreate.current = false;
         console.error("Error checking/creating anesthesia record:", error);
         toast({
-          title: "Error",
+          title: t('anesthesia.op.error'),
           description: error.message || "Failed to create anesthesia record. Please refresh the page.",
           variant: "destructive",
         });
@@ -164,12 +166,12 @@ export default function Op() {
   useEffect(() => {
     if (patientError) {
       toast({
-        title: "Error loading patient data",
-        description: "Unable to fetch patient information",
+        title: t('anesthesia.op.error'),
+        description: t('anesthesia.op.errorFetchingPatient'),
         variant: "destructive",
       });
     }
-  }, [patientError, toast]);
+  }, [patientError, toast, t]);
 
   // Fetch anesthesia settings for WHO checklists
   const { data: anesthesiaSettings } = useQuery({
@@ -645,8 +647,8 @@ export default function Op() {
   const handleDownloadPDF = () => {
     if (!patient || !surgery) {
       toast({
-        title: "Cannot generate PDF",
-        description: "Missing patient or surgery data",
+        title: t('anesthesia.op.pdfCannotGenerate'),
+        description: t('anesthesia.op.pdfMissingData'),
         variant: "destructive",
       });
       return;
@@ -655,8 +657,8 @@ export default function Op() {
     // Check if hospital and anesthesia record are loaded (required for all queries)
     if (!activeHospital) {
       toast({
-        title: "Cannot generate PDF",
-        description: "Hospital not selected. Please select a hospital first.",
+        title: t('anesthesia.op.pdfCannotGenerate'),
+        description: t('anesthesia.op.pdfHospitalNotSelected'),
         variant: "destructive",
       });
       return;
@@ -664,7 +666,7 @@ export default function Op() {
 
     if (isRecordLoading || !anesthesiaRecord) {
       toast({
-        title: "Please Wait",
+        title: t('anesthesia.op.pdfWait'),
         description: "Loading anesthesia record. Please try again in a moment.",
         variant: "default",
       });
@@ -676,7 +678,7 @@ export default function Op() {
         isAnesthesiaItemsLoading || isClinicalSnapshotLoading || 
         isStaffLoading || isPositionsLoading) {
       toast({
-        title: "Please Wait",
+        title: t('anesthesia.op.pdfWait'),
         description: "Loading data for PDF export. Please try again in a moment.",
         variant: "default",
       });
@@ -695,7 +697,7 @@ export default function Op() {
 
     if (incompleteQueries.length > 0) {
       toast({
-        title: "Please Wait",
+        title: t('anesthesia.op.pdfWait'),
         description: `Initializing data for PDF export: ${incompleteQueries.join(", ")}. Please try again in a moment.`,
         variant: "default",
       });
@@ -706,7 +708,7 @@ export default function Op() {
     // Anesthesia items are critical for medication name resolution
     if (!anesthesiaItems || anesthesiaItems.length === 0) {
       toast({
-        title: "Cannot generate PDF",
+        title: t('anesthesia.op.pdfCannotGenerate'),
         description: "No medication definitions available. Please ensure the hospital's anesthesia inventory is configured.",
         variant: "destructive",
       });
@@ -722,7 +724,7 @@ export default function Op() {
 
     if (criticalErrors.length > 0) {
       toast({
-        title: "Cannot generate PDF",
+        title: t('anesthesia.op.pdfCannotGenerate'),
         description: `Failed to load: ${criticalErrors.join(", ")}. Please refresh and try again.`,
         variant: "destructive",
       });
@@ -754,7 +756,7 @@ export default function Op() {
       });
 
       toast({
-        title: "PDF Generated",
+        title: t('anesthesia.op.pdfGenerated'),
         description: hasMinorErrors 
           ? "PDF generated with some data unavailable (check console)" 
           : "Complete anesthesia record has been downloaded",
@@ -815,7 +817,7 @@ export default function Op() {
         <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col items-center justify-center [&>button]:hidden">
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="text-lg font-medium">Loading anesthesia record...</p>
+            <p className="text-lg font-medium">{t('anesthesia.op.loading')}</p>
           </div>
         </DialogContent>
       </Dialog>
@@ -831,7 +833,7 @@ export default function Op() {
     <>
     <Dialog open={isOpen} onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col [&>button]:hidden" aria-describedby="op-dialog-description">
-        <h2 className="sr-only" id="op-dialog-title">{isPacuMode ? 'PACU Monitor' : 'Intraoperative Monitoring'} - Patient {surgery.patientId}</h2>
+        <h2 className="sr-only" id="op-dialog-title">{isPacuMode ? t('anesthesia.op.pacuMonitor') : t('anesthesia.op.intraoperativeMonitoring')} - {t('anesthesia.op.patient')} {surgery.patientId}</h2>
         <p className="sr-only" id="op-dialog-description">{isPacuMode ? 'Post-anesthesia care unit monitoring system' : 'Professional anesthesia monitoring system for tracking vitals, medications, and clinical events during surgery'}</p>
         {/* Fixed Patient Info Header */}
         <div className="shrink-0 bg-background relative">
@@ -840,7 +842,7 @@ export default function Op() {
             <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3">
               <h3 className="text-lg font-bold flex items-center gap-2">
                 <BedDouble className="h-5 w-5" />
-                PACU MONITOR
+                {t('anesthesia.op.pacuMonitor').toUpperCase()}
               </h3>
             </div>
           )}
@@ -853,7 +855,7 @@ export default function Op() {
               onClick={handleDownloadPDF}
               className={isPacuMode ? 'text-white hover:bg-white/20' : ''}
               data-testid="button-download-pdf"
-              title="Download Complete Record PDF"
+              title={t('anesthesia.op.downloadCompleteRecordPDF')}
             >
               <Download className="h-5 w-5" />
             </Button>
@@ -880,19 +882,19 @@ export default function Op() {
                   <div className="flex items-center gap-3 md:gap-4 flex-wrap">
                     {patient?.birthday && (
                       <p className="text-xs md:text-sm text-muted-foreground">
-                        {formatDate(patient.birthday)}{patientAge !== null && ` • ${patientAge} y/o`}
+                        {formatDate(patient.birthday)}{patientAge !== null && ` • ${patientAge} ${t('anesthesia.op.yearsOld')}`}
                       </p>
                     )}
                     {preOpAssessment && (
                       <div className="flex items-center gap-3 font-semibold text-sm">
                         {preOpAssessment.height && (
                           <>
-                            <span className="text-foreground">{preOpAssessment.height} cm</span>
+                            <span className="text-foreground">{preOpAssessment.height} {t('anesthesia.op.cm')}</span>
                             <span className="text-muted-foreground">•</span>
                           </>
                         )}
                         {preOpAssessment.weight && (
-                          <span className="text-foreground">{preOpAssessment.weight} kg</span>
+                          <span className="text-foreground">{preOpAssessment.weight} {t('anesthesia.op.kg')}</span>
                         )}
                       </div>
                     )}
@@ -902,7 +904,7 @@ export default function Op() {
 
               {/* Surgery Info */}
               <div className="px-3 py-2 bg-primary/10 border border-primary/30 rounded-lg">
-                <p className="text-xs font-medium text-primary/70">PROCEDURE</p>
+                <p className="text-xs font-medium text-primary/70">{t('anesthesia.op.procedure').toUpperCase()}</p>
                 <p className="font-semibold text-sm text-primary">{surgery.plannedSurgery}</p>
                 {surgery.surgeon && (
                   <p className="text-xs text-muted-foreground mt-0.5">
@@ -922,7 +924,7 @@ export default function Op() {
                   <div className="flex gap-4 flex-wrap flex-1">
                     {allergies && (
                       <div className="flex-1 min-w-[120px]">
-                        <p className="text-xs font-medium text-amber-700 dark:text-amber-300">ALLERGIES</p>
+                        <p className="text-xs font-medium text-amber-700 dark:text-amber-300">{t('anesthesia.op.allergies').toUpperCase()}</p>
                         <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
                           {isPreOpLoading ? <Skeleton className="h-4 w-20" /> : allergies}
                         </p>
@@ -930,7 +932,7 @@ export default function Op() {
                     )}
                     {cave && (
                       <div className="flex-1 min-w-[120px]">
-                        <p className="text-xs font-medium text-amber-700 dark:text-amber-300">CAVE</p>
+                        <p className="text-xs font-medium text-amber-700 dark:text-amber-300">{t('anesthesia.op.cave').toUpperCase()}</p>
                         <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
                           {isPreOpLoading ? <Skeleton className="h-4 w-20" /> : cave}
                         </p>
@@ -950,31 +952,31 @@ export default function Op() {
               <div className="flex-1 overflow-x-auto">
                 <TabsList className="inline-flex w-auto min-w-full">
                   <TabsTrigger value="vitals" data-testid="tab-vitals" className="text-xs sm:text-sm whitespace-nowrap">
-                    Vitals
+                    {t('anesthesia.op.vitals')}
                   </TabsTrigger>
                   {isPacuMode && (
                     <TabsTrigger value="pacu" data-testid="tab-pacu" className="text-xs sm:text-sm whitespace-nowrap">
-                      PACU
+                      {t('anesthesia.op.pacu')}
                     </TabsTrigger>
                   )}
                   {!isPacuMode && (
                     <TabsTrigger value="anesthesia" data-testid="tab-anesthesia" className="text-xs sm:text-sm whitespace-nowrap">
-                      Anesthesia
+                      {t('anesthesia.op.anesthesia')}
                     </TabsTrigger>
                   )}
                   <TabsTrigger value="preop" data-testid="tab-preop" className="text-xs sm:text-sm whitespace-nowrap">
-                    Pre-Op
+                    {t('anesthesia.op.preOp')}
                   </TabsTrigger>
                   <TabsTrigger value="inventory" data-testid="tab-inventory" className="text-xs sm:text-sm whitespace-nowrap">
-                    Inventory
+                    {t('anesthesia.op.inventory')}
                   </TabsTrigger>
                   {!isPacuMode && (
                     <>
                       <TabsTrigger value="checklists" data-testid="tab-checklists" className="text-xs sm:text-sm whitespace-nowrap">
-                        Checklists
+                        {t('anesthesia.op.checklists')}
                       </TabsTrigger>
                       <TabsTrigger value="postop" data-testid="tab-postop" className="text-xs sm:text-sm whitespace-nowrap">
-                        Post-op
+                        {t('anesthesia.op.postOp')}
                       </TabsTrigger>
                     </>
                   )}
@@ -991,7 +993,7 @@ export default function Op() {
                 }}
               >
                 <MessageSquareText className="h-4 w-4" />
-                <span className="hidden sm:inline">Events</span>
+                <span className="hidden sm:inline">{t('anesthesia.op.events')}</span>
               </Button>
             </div>
           </div>
@@ -1025,14 +1027,14 @@ export default function Op() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <MapPin className="h-5 w-5" />
-                    Post-Operative Information
+                    {t('anesthesia.op.postOperativeInformation')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* Destination */}
                   {postOpData?.postOpDestination && (
                     <div>
-                      <h4 className="text-sm font-medium mb-2">Destination</h4>
+                      <h4 className="text-sm font-medium mb-2">{t('anesthesia.op.destination')}</h4>
                       <Badge className={
                         postOpData.postOpDestination === 'pacu' ? 'bg-blue-500 text-white' :
                         postOpData.postOpDestination === 'icu' ? 'bg-red-500 text-white' :
@@ -1052,7 +1054,7 @@ export default function Op() {
                       <div>
                         <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
                           <FileText className="h-4 w-4" />
-                          Post-Operative Notes
+                          {t('anesthesia.op.postOperativeNotes')}
                         </h4>
                         <p className="text-sm whitespace-pre-wrap bg-muted/30 p-3 rounded-md" data-testid="text-pacu-postop-notes">
                           {postOpData.postOpNotes}
@@ -1068,7 +1070,7 @@ export default function Op() {
                       <div>
                         <h4 className="text-sm font-medium mb-2 flex items-center gap-2 text-red-600">
                           <AlertTriangle className="h-4 w-4" />
-                          Complications
+                          {t('anesthesia.op.complications')}
                         </h4>
                         <p className="text-sm whitespace-pre-wrap bg-red-50 p-3 rounded-md border border-red-200" data-testid="text-pacu-complications">
                           {postOpData.complications}
@@ -1091,7 +1093,7 @@ export default function Op() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Pill className="h-5 w-5" />
-                    Medication Schedule
+                    {t('anesthesia.op.medicationSchedule')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -1104,11 +1106,11 @@ export default function Op() {
                       </div>
                       <div data-testid="text-pacu-paracetamol-time">
                         {!postOpData?.paracetamolTime ? (
-                          <span className="text-muted-foreground text-sm">Not specified</span>
+                          <span className="text-muted-foreground text-sm">{t('anesthesia.op.notSpecified')}</span>
                         ) : postOpData.paracetamolTime === "Immediately" ? (
-                          <Badge variant="outline" className="bg-green-50 dark:bg-green-900/30 text-green-900 dark:text-green-100">Immediately</Badge>
+                          <Badge variant="outline" className="bg-green-50 dark:bg-green-900/30 text-green-900 dark:text-green-100">{t('anesthesia.op.immediately')}</Badge>
                         ) : postOpData.paracetamolTime === "Contraindicated" ? (
-                          <Badge variant="outline" className="bg-red-50 dark:bg-red-900/30 text-red-900 dark:text-red-100">Contraindicated</Badge>
+                          <Badge variant="outline" className="bg-red-50 dark:bg-red-900/30 text-red-900 dark:text-red-100">{t('anesthesia.op.contraindicated')}</Badge>
                         ) : (
                           <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100">{postOpData.paracetamolTime}</Badge>
                         )}
@@ -1125,11 +1127,11 @@ export default function Op() {
                       </div>
                       <div data-testid="text-pacu-nsar-time">
                         {!postOpData?.nsarTime ? (
-                          <span className="text-muted-foreground text-sm">Not specified</span>
+                          <span className="text-muted-foreground text-sm">{t('anesthesia.op.notSpecified')}</span>
                         ) : postOpData.nsarTime === "Immediately" ? (
-                          <Badge variant="outline" className="bg-green-50 dark:bg-green-900/30 text-green-900 dark:text-green-100">Immediately</Badge>
+                          <Badge variant="outline" className="bg-green-50 dark:bg-green-900/30 text-green-900 dark:text-green-100">{t('anesthesia.op.immediately')}</Badge>
                         ) : postOpData.nsarTime === "Contraindicated" ? (
-                          <Badge variant="outline" className="bg-red-50 dark:bg-red-900/30 text-red-900 dark:text-red-100">Contraindicated</Badge>
+                          <Badge variant="outline" className="bg-red-50 dark:bg-red-900/30 text-red-900 dark:text-red-100">{t('anesthesia.op.contraindicated')}</Badge>
                         ) : (
                           <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100">{postOpData.nsarTime}</Badge>
                         )}
@@ -1146,11 +1148,11 @@ export default function Op() {
                       </div>
                       <div data-testid="text-pacu-novalgin-time">
                         {!postOpData?.novalginTime ? (
-                          <span className="text-muted-foreground text-sm">Not specified</span>
+                          <span className="text-muted-foreground text-sm">{t('anesthesia.op.notSpecified')}</span>
                         ) : postOpData.novalginTime === "Immediately" ? (
-                          <Badge variant="outline" className="bg-green-50 dark:bg-green-900/30 text-green-900 dark:text-green-100">Immediately</Badge>
+                          <Badge variant="outline" className="bg-green-50 dark:bg-green-900/30 text-green-900 dark:text-green-100">{t('anesthesia.op.immediately')}</Badge>
                         ) : postOpData.novalginTime === "Contraindicated" ? (
-                          <Badge variant="outline" className="bg-red-50 dark:bg-red-900/30 text-red-900 dark:text-red-100">Contraindicated</Badge>
+                          <Badge variant="outline" className="bg-red-50 dark:bg-red-900/30 text-red-900 dark:text-red-100">{t('anesthesia.op.contraindicated')}</Badge>
                         ) : (
                           <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100">{postOpData.novalginTime}</Badge>
                         )}
@@ -1176,16 +1178,16 @@ export default function Op() {
                   <Card>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-installations">
                       <div className="flex items-center gap-2">
-                        <CardTitle className="text-lg">Installations</CardTitle>
+                        <CardTitle className="text-lg">{t('anesthesia.op.installations')}</CardTitle>
                         {installationsData.length > 0 ? (
                           <Badge variant="default" className="ml-2 gap-1" data-testid="badge-installations-status">
                             <CheckCircle className="h-3 w-3" />
-                            {installationsData.length} {installationsData.length === 1 ? 'entry' : 'entries'}
+                            {installationsData.length} {installationsData.length === 1 ? t('anesthesia.op.entry') : t('anesthesia.op.entries')}
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="ml-2 gap-1" data-testid="badge-installations-status">
                             <MinusCircle className="h-3 w-3" />
-                            No data
+                            {t('anesthesia.op.noData')}
                           </Badge>
                         )}
                       </div>
@@ -1201,16 +1203,16 @@ export default function Op() {
                   <Card>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-general-anesthesia">
                       <div className="flex items-center gap-2">
-                        <CardTitle className="text-lg">General Anesthesia</CardTitle>
+                        <CardTitle className="text-lg">{t('anesthesia.op.generalAnesthesia')}</CardTitle>
                         {(generalTechniqueData || airwayManagementData) ? (
                           <Badge variant="default" className="ml-2 gap-1" data-testid="badge-general-status">
                             <CheckCircle className="h-3 w-3" />
-                            Configured
+                            {t('anesthesia.op.configured')}
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="ml-2 gap-1" data-testid="badge-general-status">
                             <MinusCircle className="h-3 w-3" />
-                            No data
+                            {t('anesthesia.op.noData')}
                           </Badge>
                         )}
                       </div>
@@ -1226,16 +1228,16 @@ export default function Op() {
                   <Card>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-neuraxial">
                       <div className="flex items-center gap-2">
-                        <CardTitle className="text-lg">Neuraxial Anesthesia</CardTitle>
+                        <CardTitle className="text-lg">{t('anesthesia.op.neuraxialAnesthesia')}</CardTitle>
                         {neuraxialBlocksData.length > 0 ? (
                           <Badge variant="default" className="ml-2 gap-1" data-testid="badge-neuraxial-status">
                             <CheckCircle className="h-3 w-3" />
-                            {neuraxialBlocksData.length} {neuraxialBlocksData.length === 1 ? 'block' : 'blocks'}
+                            {neuraxialBlocksData.length} {neuraxialBlocksData.length === 1 ? t('anesthesia.op.block') : t('anesthesia.op.blocks')}
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="ml-2 gap-1" data-testid="badge-neuraxial-status">
                             <MinusCircle className="h-3 w-3" />
-                            No data
+                            {t('anesthesia.op.noData')}
                           </Badge>
                         )}
                       </div>
@@ -1251,16 +1253,16 @@ export default function Op() {
                   <Card>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-peripheral-regional">
                       <div className="flex items-center gap-2">
-                        <CardTitle className="text-lg">Peripheral Regional Anesthesia</CardTitle>
+                        <CardTitle className="text-lg">{t('anesthesia.op.peripheralRegionalAnesthesia')}</CardTitle>
                         {peripheralBlocksData.length > 0 ? (
                           <Badge variant="default" className="ml-2 gap-1" data-testid="badge-peripheral-status">
                             <CheckCircle className="h-3 w-3" />
-                            {peripheralBlocksData.length} {peripheralBlocksData.length === 1 ? 'block' : 'blocks'}
+                            {peripheralBlocksData.length} {peripheralBlocksData.length === 1 ? t('anesthesia.op.block') : t('anesthesia.op.blocks')}
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="ml-2 gap-1" data-testid="badge-peripheral-status">
                             <MinusCircle className="h-3 w-3" />
-                            No data
+                            {t('anesthesia.op.noData')}
                           </Badge>
                         )}
                       </div>
@@ -1300,16 +1302,16 @@ export default function Op() {
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <ClipboardList className="h-5 w-5" />
-                    Sign In (Before Induction)
+                    {t('anesthesia.op.signIn')}
                   </CardTitle>
                   {signInAutoSave.status !== 'idle' && (
                     <Badge variant={
                       signInAutoSave.status === 'saving' ? 'secondary' :
                       signInAutoSave.status === 'saved' ? 'default' : 'destructive'
                     } data-testid="badge-signin-status">
-                      {signInAutoSave.status === 'saving' && 'Saving...'}
-                      {signInAutoSave.status === 'saved' && 'Saved'}
-                      {signInAutoSave.status === 'error' && 'Error saving'}
+                      {signInAutoSave.status === 'saving' && t('anesthesia.op.saving')}
+                      {signInAutoSave.status === 'saved' && t('anesthesia.op.saved')}
+                      {signInAutoSave.status === 'error' && t('anesthesia.op.errorSaving')}
                     </Badge>
                   )}
                 </CardHeader>
@@ -1348,7 +1350,7 @@ export default function Op() {
                         );
                       })}
                       <div className="pt-2 space-y-2">
-                        <Label htmlFor="signin-notes">Additional Notes</Label>
+                        <Label htmlFor="signin-notes">{t('anesthesia.op.additionalNotes')}</Label>
                         <Textarea
                           id="signin-notes"
                           placeholder="Add any additional notes or observations..."
@@ -1367,7 +1369,7 @@ export default function Op() {
                         />
                       </div>
                       <div className="pt-2 space-y-2">
-                        <Label htmlFor="signin-signature">Signature</Label>
+                        <Label htmlFor="signin-signature">{t('anesthesia.op.signature')}</Label>
                         <div className="space-y-2">
                           {signInSignature ? (
                             <div className="relative border rounded-md p-2">
@@ -1398,14 +1400,14 @@ export default function Op() {
                               onClick={() => setShowSignInSigPad(true)}
                               data-testid="button-add-signin-signature"
                             >
-                              Add Signature
+                              {t('anesthesia.op.addSignature')}
                             </Button>
                           )}
                         </div>
                       </div>
                     </>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No checklist items configured. Please configure WHO checklist items in Anesthesia Settings.</p>
+                    <p className="text-sm text-muted-foreground">{t('anesthesia.op.noChecklistItemsConfigured')}</p>
                   )}
                 </CardContent>
               </Card>
@@ -1415,16 +1417,16 @@ export default function Op() {
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <Clock className="h-5 w-5" />
-                    Time Out (Before Incision)
+                    {t('anesthesia.op.timeOut')}
                   </CardTitle>
                   {timeOutAutoSave.status !== 'idle' && (
                     <Badge variant={
                       timeOutAutoSave.status === 'saving' ? 'secondary' :
                       timeOutAutoSave.status === 'saved' ? 'default' : 'destructive'
                     } data-testid="badge-timeout-status">
-                      {timeOutAutoSave.status === 'saving' && 'Saving...'}
-                      {timeOutAutoSave.status === 'saved' && 'Saved'}
-                      {timeOutAutoSave.status === 'error' && 'Error saving'}
+                      {timeOutAutoSave.status === 'saving' && t('anesthesia.op.saving')}
+                      {timeOutAutoSave.status === 'saved' && t('anesthesia.op.saved')}
+                      {timeOutAutoSave.status === 'error' && t('anesthesia.op.errorSaving')}
                     </Badge>
                   )}
                 </CardHeader>
@@ -1463,7 +1465,7 @@ export default function Op() {
                         );
                       })}
                       <div className="pt-2 space-y-2">
-                        <Label htmlFor="timeout-notes">Additional Notes</Label>
+                        <Label htmlFor="timeout-notes">{t('anesthesia.op.additionalNotes')}</Label>
                         <Textarea
                           id="timeout-notes"
                           placeholder="Add any additional notes or observations..."
@@ -1482,7 +1484,7 @@ export default function Op() {
                         />
                       </div>
                       <div className="pt-2 space-y-2">
-                        <Label htmlFor="timeout-signature">Signature</Label>
+                        <Label htmlFor="timeout-signature">{t('anesthesia.op.signature')}</Label>
                         <div className="space-y-2">
                           {timeOutSignature ? (
                             <div className="relative border rounded-md p-2">
@@ -1513,14 +1515,14 @@ export default function Op() {
                               onClick={() => setShowTimeOutSigPad(true)}
                               data-testid="button-add-timeout-signature"
                             >
-                              Add Signature
+                              {t('anesthesia.op.addSignature')}
                             </Button>
                           )}
                         </div>
                       </div>
                     </>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No checklist items configured. Please configure WHO checklist items in Anesthesia Settings.</p>
+                    <p className="text-sm text-muted-foreground">{t('anesthesia.op.noChecklistItemsConfigured')}</p>
                   )}
                 </CardContent>
               </Card>
@@ -1530,16 +1532,16 @@ export default function Op() {
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <FileCheck className="h-5 w-5" />
-                    Sign Out (Before Patient Leaves OR)
+                    {t('anesthesia.op.signOut')}
                   </CardTitle>
                   {signOutAutoSave.status !== 'idle' && (
                     <Badge variant={
                       signOutAutoSave.status === 'saving' ? 'secondary' :
                       signOutAutoSave.status === 'saved' ? 'default' : 'destructive'
                     } data-testid="badge-signout-status">
-                      {signOutAutoSave.status === 'saving' && 'Saving...'}
-                      {signOutAutoSave.status === 'saved' && 'Saved'}
-                      {signOutAutoSave.status === 'error' && 'Error saving'}
+                      {signOutAutoSave.status === 'saving' && t('anesthesia.op.saving')}
+                      {signOutAutoSave.status === 'saved' && t('anesthesia.op.saved')}
+                      {signOutAutoSave.status === 'error' && t('anesthesia.op.errorSaving')}
                     </Badge>
                   )}
                 </CardHeader>
@@ -1578,7 +1580,7 @@ export default function Op() {
                         );
                       })}
                       <div className="pt-2 space-y-2">
-                        <Label htmlFor="signout-notes">Additional Notes</Label>
+                        <Label htmlFor="signout-notes">{t('anesthesia.op.additionalNotes')}</Label>
                         <Textarea
                           id="signout-notes"
                           placeholder="Add any additional notes or observations..."
@@ -1597,7 +1599,7 @@ export default function Op() {
                         />
                       </div>
                       <div className="pt-2 space-y-2">
-                        <Label htmlFor="signout-signature">Signature</Label>
+                        <Label htmlFor="signout-signature">{t('anesthesia.op.signature')}</Label>
                         <div className="space-y-2">
                           {signOutSignature ? (
                             <div className="relative border rounded-md p-2">
@@ -1628,14 +1630,14 @@ export default function Op() {
                               onClick={() => setShowSignOutSigPad(true)}
                               data-testid="button-add-signout-signature"
                             >
-                              Add Signature
+                              {t('anesthesia.op.addSignature')}
                             </Button>
                           )}
                         </div>
                       </div>
                     </>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No checklist items configured. Please configure WHO checklist items in Anesthesia Settings.</p>
+                    <p className="text-sm text-muted-foreground">{t('anesthesia.op.noChecklistItemsConfigured')}</p>
                   )}
                 </CardContent>
               </Card>
@@ -1648,22 +1650,22 @@ export default function Op() {
             <TabsContent value="postop" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0" data-testid="tab-content-postop">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Post-Operative Information</CardTitle>
+                <CardTitle>{t('anesthesia.op.postOperativeInformation')}</CardTitle>
                 {postOpAutoSave.status !== 'idle' && (
                   <Badge variant={
                     postOpAutoSave.status === 'saving' ? 'secondary' :
                     postOpAutoSave.status === 'saved' ? 'default' : 'destructive'
                   } data-testid="badge-postop-status">
-                    {postOpAutoSave.status === 'saving' && 'Saving...'}
-                    {postOpAutoSave.status === 'saved' && 'Saved'}
-                    {postOpAutoSave.status === 'error' && 'Error saving'}
+                    {postOpAutoSave.status === 'saving' && t('anesthesia.op.saving')}
+                    {postOpAutoSave.status === 'saved' && t('anesthesia.op.saved')}
+                    {postOpAutoSave.status === 'error' && t('anesthesia.op.errorSaving')}
                   </Badge>
                 )}
               </CardHeader>
               <CardContent className="space-y-6">
                 {/* Destination */}
                 <div className="space-y-2">
-                  <Label htmlFor="postop-destination">Destination</Label>
+                  <Label htmlFor="postop-destination">{t('anesthesia.op.destination')}</Label>
                   <Select 
                     value={postOpData.postOpDestination || ""} 
                     onValueChange={(value) => {
@@ -1674,20 +1676,20 @@ export default function Op() {
                     disabled={!anesthesiaRecord?.id}
                   >
                     <SelectTrigger data-testid="select-postop-destination">
-                      <SelectValue placeholder="Select destination" />
+                      <SelectValue placeholder={t('anesthesia.op.selectDestination')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pacu">PACU</SelectItem>
-                      <SelectItem value="icu">ICU</SelectItem>
-                      <SelectItem value="ward">Ward</SelectItem>
-                      <SelectItem value="home">Home</SelectItem>
+                      <SelectItem value="pacu">{t('anesthesia.op.destinationPacu')}</SelectItem>
+                      <SelectItem value="icu">{t('anesthesia.op.destinationIcu')}</SelectItem>
+                      <SelectItem value="ward">{t('anesthesia.op.destinationWard')}</SelectItem>
+                      <SelectItem value="home">{t('anesthesia.op.destinationHome')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 {/* Post-Operative Notes */}
                 <div className="space-y-2">
-                  <Label htmlFor="postop-notes">Post-Operative Notes</Label>
+                  <Label htmlFor="postop-notes">{t('anesthesia.op.postOperativeNotes')}</Label>
                   <Textarea
                     id="postop-notes"
                     rows={4}
@@ -1705,7 +1707,7 @@ export default function Op() {
 
                 {/* Complications */}
                 <div className="space-y-2">
-                  <Label htmlFor="complications">Complications</Label>
+                  <Label htmlFor="complications">{t('anesthesia.op.complications')}</Label>
                   <Textarea
                     id="complications"
                     rows={3}
@@ -1743,7 +1745,7 @@ export default function Op() {
                           disabled={!anesthesiaRecord?.id}
                           data-testid="radio-paracetamol-immediately"
                         />
-                        <span className="text-sm">Immediately</span>
+                        <span className="text-sm">{t('anesthesia.op.immediately')}</span>
                       </label>
                       <label className="flex items-center space-x-2">
                         <input
@@ -1759,7 +1761,7 @@ export default function Op() {
                           disabled={!anesthesiaRecord?.id}
                           data-testid="radio-paracetamol-contraindicated"
                         />
-                        <span className="text-sm">Contraindicated</span>
+                        <span className="text-sm">{t('anesthesia.op.contraindicated')}</span>
                       </label>
                       <div className="flex items-center space-x-2">
                         <label className="flex items-center space-x-2">
@@ -1772,12 +1774,12 @@ export default function Op() {
                             disabled={!anesthesiaRecord?.id}
                             data-testid="radio-paracetamol-custom"
                           />
-                          <span className="text-sm">At:</span>
+                          <span className="text-sm">{t('anesthesia.op.at')}</span>
                         </label>
                         <Input
                           type="text"
                           className="w-32"
-                          placeholder="HH:MM"
+                          placeholder={t('anesthesia.op.hhMM')}
                           pattern="^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
                           value={postOpData.paracetamolTime !== "Immediately" && postOpData.paracetamolTime !== "Contraindicated" ? (postOpData.paracetamolTime || "") : ""}
                           onChange={(e) => {
@@ -1816,7 +1818,7 @@ export default function Op() {
                           disabled={!anesthesiaRecord?.id}
                           data-testid="radio-nsar-immediately"
                         />
-                        <span className="text-sm">Immediately</span>
+                        <span className="text-sm">{t('anesthesia.op.immediately')}</span>
                       </label>
                       <label className="flex items-center space-x-2">
                         <input
@@ -1832,7 +1834,7 @@ export default function Op() {
                           disabled={!anesthesiaRecord?.id}
                           data-testid="radio-nsar-contraindicated"
                         />
-                        <span className="text-sm">Contraindicated</span>
+                        <span className="text-sm">{t('anesthesia.op.contraindicated')}</span>
                       </label>
                       <div className="flex items-center space-x-2">
                         <label className="flex items-center space-x-2">
@@ -1845,12 +1847,12 @@ export default function Op() {
                             disabled={!anesthesiaRecord?.id}
                             data-testid="radio-nsar-custom"
                           />
-                          <span className="text-sm">At:</span>
+                          <span className="text-sm">{t('anesthesia.op.at')}</span>
                         </label>
                         <Input
                           type="text"
                           className="w-32"
-                          placeholder="HH:MM"
+                          placeholder={t('anesthesia.op.hhMM')}
                           pattern="^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
                           value={postOpData.nsarTime !== "Immediately" && postOpData.nsarTime !== "Contraindicated" ? (postOpData.nsarTime || "") : ""}
                           onChange={(e) => {
@@ -1889,7 +1891,7 @@ export default function Op() {
                           disabled={!anesthesiaRecord?.id}
                           data-testid="radio-novalgin-immediately"
                         />
-                        <span className="text-sm">Immediately</span>
+                        <span className="text-sm">{t('anesthesia.op.immediately')}</span>
                       </label>
                       <label className="flex items-center space-x-2">
                         <input
@@ -1905,7 +1907,7 @@ export default function Op() {
                           disabled={!anesthesiaRecord?.id}
                           data-testid="radio-novalgin-contraindicated"
                         />
-                        <span className="text-sm">Contraindicated</span>
+                        <span className="text-sm">{t('anesthesia.op.contraindicated')}</span>
                       </label>
                       <div className="flex items-center space-x-2">
                         <label className="flex items-center space-x-2">
@@ -1918,12 +1920,12 @@ export default function Op() {
                             disabled={!anesthesiaRecord?.id}
                             data-testid="radio-novalgin-custom"
                           />
-                          <span className="text-sm">At:</span>
+                          <span className="text-sm">{t('anesthesia.op.at')}</span>
                         </label>
                         <Input
                           type="text"
                           className="w-32"
-                          placeholder="HH:MM"
+                          placeholder={t('anesthesia.op.hhMM')}
                           pattern="^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
                           value={postOpData.novalginTime !== "Immediately" && postOpData.novalginTime !== "Contraindicated" ? (postOpData.novalginTime || "") : ""}
                           onChange={(e) => {
@@ -1957,15 +1959,15 @@ export default function Op() {
       <DialogContent className="sm:max-w-[500px]">
         <div className="space-y-4">
           <div>
-            <h3 className="text-lg font-semibold mb-4">Edit Allergies & CAVE</h3>
+            <h3 className="text-lg font-semibold mb-4">{t('anesthesia.op.editAllergiesCave')}</h3>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="allergies">Allergies</Label>
+            <Label htmlFor="allergies">{t('anesthesia.op.allergies')}</Label>
             <Textarea
               id="allergies"
               rows={3}
-              placeholder="Enter allergies (comma separated)"
+              placeholder={t('anesthesia.op.enterAllergies')}
               value={tempAllergies}
               onChange={(e) => setTempAllergies(e.target.value)}
               data-testid="textarea-edit-allergies"
@@ -1973,11 +1975,11 @@ export default function Op() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="cave">CAVE (Contraindications)</Label>
+            <Label htmlFor="cave">{t('anesthesia.op.cave')}</Label>
             <Textarea
               id="cave"
               rows={3}
-              placeholder="Enter contraindications and precautions"
+              placeholder={t('anesthesia.op.enterContraindications')}
               value={tempCave}
               onChange={(e) => setTempCave(e.target.value)}
               data-testid="textarea-edit-cave"
@@ -1990,13 +1992,13 @@ export default function Op() {
               onClick={() => setIsAllergiesDialogOpen(false)}
               data-testid="button-cancel-allergies"
             >
-              Cancel
+              {t('anesthesia.op.cancel')}
             </Button>
             <Button
               onClick={handleSaveAllergies}
               data-testid="button-save-allergies"
             >
-              Save
+              {t('anesthesia.op.save')}
             </Button>
           </div>
         </div>
