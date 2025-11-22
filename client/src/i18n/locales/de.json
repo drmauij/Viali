@@ -565,5 +565,42 @@
   },
   "camera": {
     "errorAccessing": "Kamerazugriff nicht möglich. Bitte überprüfen Sie die Berechtigungen."
+  },
+  "anesthesia": {
+    "patients": {
+      "title": "Patienten",
+      "subtitle": "Patienten-Stammdaten",
+      "search": "Patienten suchen...",
+      "createPatient": "Patient erstellen",
+      "editPatient": "Patient bearbeiten",
+      "surname": "Nachname",
+      "surnameRequired": "Nachname ist erforderlich",
+      "surnamePlaceholder": "Müller",
+      "firstname": "Vorname",
+      "firstnamePlaceholder": "Max",
+      "dateOfBirth": "Geburtsdatum",
+      "sex": "Geschlecht",
+      "selectSex": "Geschlecht auswählen",
+      "male": "Männlich",
+      "female": "Weiblich",
+      "other": "Divers",
+      "medicalRecordNumber": "Patientennummer",
+      "mrnPlaceholder": "PN-12345",
+      "phone": "Telefon",
+      "phonePlaceholder": "+49 123 456 7890",
+      "notes": "Notizen",
+      "notesPlaceholder": "Zusätzliche Patientennotizen...",
+      "creating": "Wird erstellt...",
+      "updating": "Wird aktualisiert...",
+      "create": "Erstellen",
+      "patientCreatedSuccess": "Patient erfolgreich erstellt",
+      "patientUpdatedSuccess": "Patient erfolgreich aktualisiert",
+      "failedToCreatePatient": "Patient konnte nicht erstellt werden",
+      "failedToUpdatePatient": "Patient konnte nicht aktualisiert werden",
+      "noHospitalSelected": "Kein Krankenhaus ausgewählt",
+      "selectHospitalToView": "Bitte wählen Sie ein Krankenhaus aus, um Patienten anzuzeigen",
+      "noPatients": "Keine Patienten gefunden",
+      "createFirstPatient": "Erstellen Sie Ihren ersten Patienten, um zu beginnen"
+    }
   }
 }

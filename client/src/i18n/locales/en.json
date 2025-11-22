@@ -565,5 +565,42 @@
   },
   "camera": {
     "errorAccessing": "Unable to access camera. Please check permissions."
+  },
+  "anesthesia": {
+    "patients": {
+      "title": "Patients",
+      "subtitle": "Patient master list",
+      "search": "Search patients...",
+      "createPatient": "Create Patient",
+      "editPatient": "Edit Patient",
+      "surname": "Surname",
+      "surnameRequired": "Surname is required",
+      "surnamePlaceholder": "Rossi",
+      "firstname": "First name",
+      "firstnamePlaceholder": "Mario",
+      "dateOfBirth": "Date of Birth",
+      "sex": "Sex",
+      "selectSex": "Select sex",
+      "male": "Male",
+      "female": "Female",
+      "other": "Other",
+      "medicalRecordNumber": "Medical Record Number",
+      "mrnPlaceholder": "MRN-12345",
+      "phone": "Phone",
+      "phonePlaceholder": "+39 123 456 7890",
+      "notes": "Notes",
+      "notesPlaceholder": "Additional patient notes...",
+      "creating": "Creating...",
+      "updating": "Updating...",
+      "create": "Create",
+      "patientCreatedSuccess": "Patient created successfully",
+      "patientUpdatedSuccess": "Patient updated successfully",
+      "failedToCreatePatient": "Failed to create patient",
+      "failedToUpdatePatient": "Failed to update patient",
+      "noHospitalSelected": "No Hospital Selected",
+      "selectHospitalToView": "Please select a hospital to view patients",
+      "noPatients": "No Patients Found",
+      "createFirstPatient": "Create your first patient to get started"
+    }
   }
 }

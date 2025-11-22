@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -18,6 +19,7 @@ import { formatDate } from "@/lib/dateUtils";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 
 export default function Patients() {
+  const { t } = useTranslation();
   const [, setLocation] = useLocation();
   const activeHospital = useActiveHospital();
   const { toast } = useToast();
@@ -111,7 +113,7 @@ export default function Patients() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/patients?hospitalId=${activeHospital?.id}`] });
       toast({
-        title: "Patient created",
+        title: t('anesthesia.patients.patientCreatedSuccess'),
         description: "Patient has been created successfully",
       });
       setIsCreateDialogOpen(false);
@@ -131,7 +133,7 @@ export default function Patients() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to create patient",
+        description: error.message || t('anesthesia.patients.failedToCreatePatient'),
         variant: "destructive",
       });
     },
@@ -211,9 +213,9 @@ export default function Patients() {
     <div className="container mx-auto p-4 pb-20">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Patients</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{t('anesthesia.patients.title')}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Patient master list
+            {t('anesthesia.patients.subtitle')}
           </p>
         </div>
         
@@ -221,30 +223,30 @@ export default function Patients() {
           <DialogTrigger asChild>
             <Button className="gap-2" data-testid="button-create-patient">
               <UserPlus className="h-4 w-4" />
-              New Patient
+              {t('anesthesia.patients.createPatient')}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Create New Patient</DialogTitle>
+              <DialogTitle>{t('anesthesia.patients.createPatient')}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label htmlFor="surname">Surname *</Label>
+                  <Label htmlFor="surname">{t('anesthesia.patients.surname')}</Label>
                   <Input
                     id="surname"
-                    placeholder="Rossi"
+                    placeholder={t('anesthesia.patients.surnamePlaceholder')}
                     value={newPatient.surname}
                     onChange={(e) => setNewPatient({ ...newPatient, surname: e.target.value })}
                     data-testid="input-surname"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name *</Label>
+                  <Label htmlFor="firstName">{t('anesthesia.patients.firstname')}</Label>
                   <Input
                     id="firstName"
-                    placeholder="Maria"
+                    placeholder={t('anesthesia.patients.firstnamePlaceholder')}
                     value={newPatient.firstName}
                     onChange={(e) => setNewPatient({ ...newPatient, firstName: e.target.value })}
                     data-testid="input-first-name"
@@ -254,7 +256,7 @@ export default function Patients() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label htmlFor="birthday">Birthday *</Label>
+                  <Label htmlFor="birthday">{t('anesthesia.patients.dateOfBirth')}</Label>
                   <Input
                     id="birthday"
                     type="text"
@@ -271,14 +273,14 @@ export default function Patients() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="sex">Sex *</Label>
+                  <Label htmlFor="sex">{t('anesthesia.patients.sex')}</Label>
                   <Select value={newPatient.sex} onValueChange={(value) => setNewPatient({ ...newPatient, sex: value })}>
                     <SelectTrigger data-testid="select-sex">
-                      <SelectValue placeholder="Select sex" />
+                      <SelectValue placeholder={t('anesthesia.patients.selectSex')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="M">M</SelectItem>
-                      <SelectItem value="F">F</SelectItem>
+                      <SelectItem value="M">{t('anesthesia.patients.male')}</SelectItem>
+                      <SelectItem value="F">{t('anesthesia.patients.female')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -297,7 +299,7 @@ export default function Patients() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone">Telephone Number</Label>
+                <Label htmlFor="phone">{t('anesthesia.patients.phone')}</Label>
                 <Input
                   id="phone"
                   type="tel"
@@ -339,7 +341,7 @@ export default function Patients() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="internalNotes">Internal Notes</Label>
+                <Label htmlFor="internalNotes">{t('anesthesia.patients.notes')}</Label>
                 <Textarea
                   id="internalNotes"
                   placeholder="Additional notes..."
@@ -363,10 +365,10 @@ export default function Patients() {
                 {createPatientMutation.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Creating...
+                    {t('anesthesia.patients.creating')}
                   </>
                 ) : (
-                  "Create Patient"
+                  t('anesthesia.patients.create')
                 )}
               </Button>
             </div>
@@ -379,7 +381,7 @@ export default function Patients() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by name, patient ID or birthday..."
+              placeholder={t('anesthesia.patients.search')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -439,9 +441,9 @@ export default function Patients() {
           {filteredPatients.length === 0 && (
             <div className="text-center py-12">
               <UserPlus className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No patients found</h3>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('anesthesia.patients.noPatients')}</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                {searchQuery ? "Try adjusting your search" : "Create your first patient to get started"}
+                {searchQuery ? "Try adjusting your search" : t('anesthesia.patients.createFirstPatient')}
               </p>
             </div>
           )}
