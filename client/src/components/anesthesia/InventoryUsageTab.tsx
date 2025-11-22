@@ -75,14 +75,16 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
   const groupedItems = useMemo(() => {
     const groups: Record<string, Item[]> = {};
     items.forEach(item => {
-      const folderId = item.folderId || 'uncategorized';
+      // Check if folderId exists in the folders list
+      const folderExists = item.folderId && folders.some(f => f.id === item.folderId);
+      const folderId = folderExists ? item.folderId : 'uncategorized';
       if (!groups[folderId]) {
         groups[folderId] = [];
       }
       groups[folderId].push(item);
     });
     return groups;
-  }, [items]);
+  }, [items, folders]);
 
   // Get folder name
   const getFolderName = (folderId: string) => {
