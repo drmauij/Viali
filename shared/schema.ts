@@ -929,6 +929,13 @@ export type RhythmPointWithId = {
   value: string; // String value (e.g., "Sinus", "Atrial Fib")
 };
 
+export type TOFPointWithId = {
+  id: string;
+  timestamp: string;
+  value: string; // Fraction value (e.g., "0/4", "1/4", "2/4", "3/4", "4/4")
+  percentage?: number; // Optional T4/T1 ratio percentage
+};
+
 // Clinical Snapshots (Vitals, Ventilation, and Output parameters stored as JSONB for efficiency)
 // NEW: Each anesthesia record has ONE snapshot row containing all points as arrays
 export const clinicalSnapshots = pgTable("clinical_snapshots", {
@@ -961,6 +968,9 @@ export const clinicalSnapshots = pgTable("clinical_snapshots", {
     urine677?: VitalPointWithId[];
     blood?: VitalPointWithId[];
     bloodIrrigation?: VitalPointWithId[];
+    // Others (BIS, TOF)
+    bis?: VitalPointWithId[];
+    tof?: TOFPointWithId[];
   }>().default(sql`'{}'::jsonb`).notNull(),
   
   createdAt: timestamp("created_at").defaultNow(),
@@ -1453,7 +1463,7 @@ export const insertVitalsSnapshotSchema = insertClinicalSnapshotSchema;
 // Schemas for individual point operations
 export const addVitalPointSchema = z.object({
   anesthesiaRecordId: z.string(),
-  vitalType: z.enum(['hr', 'spo2', 'temp', 'etco2', 'pip', 'peep', 'tidalVolume', 'respiratoryRate', 'minuteVolume', 'fio2', 'gastricTube', 'drainage', 'vomit', 'urine', 'urine677', 'blood', 'bloodIrrigation']),
+  vitalType: z.enum(['hr', 'spo2', 'temp', 'etco2', 'pip', 'peep', 'tidalVolume', 'respiratoryRate', 'minuteVolume', 'fio2', 'gastricTube', 'drainage', 'vomit', 'urine', 'urine677', 'blood', 'bloodIrrigation', 'bis']),
   timestamp: z.string(),
   value: z.number(),
 });
@@ -1490,6 +1500,25 @@ export const updateRhythmPointSchema = z.object({
   pointId: z.string(),
   value: z.string().optional(),
   timestamp: z.string().optional(),
+});
+
+export const addTOFPointSchema = z.object({
+  anesthesiaRecordId: z.string(),
+  timestamp: z.string(),
+  value: z.enum(['0/4', '1/4', '2/4', '3/4', '4/4']),
+  percentage: z.number().optional(), // Optional T4/T1 ratio percentage
+});
+
+export const updateTOFPointSchema = z.object({
+  pointId: z.string(),
+  value: z.enum(['0/4', '1/4', '2/4', '3/4', '4/4']).optional(),
+  percentage: z.number().optional(),
+  timestamp: z.string().optional(),
+});
+
+export const deleteTOFPointSchema = z.object({
+  anesthesiaRecordId: z.string(),
+  pointId: z.string(),
 });
 
 export const addBulkVentilationSchema = z.object({

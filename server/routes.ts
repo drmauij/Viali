@@ -22,6 +22,9 @@ import {
   deleteVitalPointSchema,
   addRhythmPointSchema,
   updateRhythmPointSchema,
+  addTOFPointSchema,
+  updateTOFPointSchema,
+  deleteTOFPointSchema,
   addVentilationModePointSchema,
   updateVentilationModePointSchema,
   addBulkVentilationSchema,
@@ -6030,6 +6033,163 @@ If unable to parse any drugs, return:
     } catch (error) {
       console.error("Error deleting rhythm point:", error);
       res.status(500).json({ message: "Failed to delete rhythm point" });
+    }
+  });
+
+  // TOF (Train of Four) endpoints
+  
+  // Add a TOF point
+  app.post('/api/anesthesia/tof', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const validatedData = addTOFPointSchema.parse(req.body);
+
+      // Verify record exists and user has access
+      const record = await storage.getAnesthesiaRecordById(validatedData.anesthesiaRecordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updatedSnapshot = await storage.addTOFPoint(
+        validatedData.anesthesiaRecordId,
+        validatedData.timestamp,
+        validatedData.value,
+        validatedData.percentage
+      );
+      
+      res.status(201).json(updatedSnapshot);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error adding TOF point:", error);
+      res.status(500).json({ message: "Failed to add TOF point" });
+    }
+  });
+
+  // Update a TOF point by ID
+  app.patch('/api/anesthesia/tof/:pointId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { pointId } = req.params;
+      const userId = req.user.id;
+      
+      const validatedData = updateTOFPointSchema.parse({
+        pointId,
+        ...req.body
+      });
+
+      // Get the clinical snapshot to verify access
+      const allSnapshots = await db.select().from(clinicalSnapshots);
+      let snapshot = null;
+      
+      for (const s of allSnapshots) {
+        const tof = (s.data as any).tof || [];
+        if (tof.some((p: any) => p.id === pointId)) {
+          snapshot = s;
+          break;
+        }
+      }
+      
+      if (!snapshot) {
+        return res.status(404).json({ message: "TOF point not found" });
+      }
+
+      // Verify record exists and user has access
+      const record = await storage.getAnesthesiaRecordById(snapshot.anesthesiaRecordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updatedSnapshot = await storage.updateTOFPoint(pointId, validatedData);
+      
+      if (!updatedSnapshot) {
+        return res.status(404).json({ message: "TOF point not found" });
+      }
+
+      res.json(updatedSnapshot);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error updating TOF point:", error);
+      res.status(500).json({ message: "Failed to update TOF point" });
+    }
+  });
+
+  // Delete a TOF point by ID
+  app.delete('/api/anesthesia/tof/:pointId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { pointId } = req.params;
+      const userId = req.user.id;
+
+      // Get the clinical snapshot to verify access
+      const allSnapshots = await db.select().from(clinicalSnapshots);
+      let snapshot = null;
+      
+      for (const s of allSnapshots) {
+        const tof = (s.data as any).tof || [];
+        if (tof.some((p: any) => p.id === pointId)) {
+          snapshot = s;
+          break;
+        }
+      }
+      
+      if (!snapshot) {
+        return res.status(404).json({ message: "TOF point not found" });
+      }
+
+      // Verify record exists and user has access
+      const record = await storage.getAnesthesiaRecordById(snapshot.anesthesiaRecordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const updatedSnapshot = await storage.deleteTOFPoint(pointId);
+      
+      if (!updatedSnapshot) {
+        return res.status(404).json({ message: "TOF point not found" });
+      }
+
+      res.json(updatedSnapshot);
+    } catch (error) {
+      console.error("Error deleting TOF point:", error);
+      res.status(500).json({ message: "Failed to delete TOF point" });
     }
   });
 

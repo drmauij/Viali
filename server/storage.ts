@@ -319,6 +319,9 @@ export interface IStorage {
   addRhythmPoint(anesthesiaRecordId: string, timestamp: string, value: string): Promise<ClinicalSnapshot>;
   updateRhythmPoint(pointId: string, updates: { value?: string; timestamp?: string }): Promise<ClinicalSnapshot | null>;
   deleteRhythmPoint(pointId: string): Promise<ClinicalSnapshot | null>;
+  addTOFPoint(anesthesiaRecordId: string, timestamp: string, value: string, percentage?: number): Promise<ClinicalSnapshot>;
+  updateTOFPoint(pointId: string, updates: { value?: string; percentage?: number; timestamp?: string }): Promise<ClinicalSnapshot | null>;
+  deleteTOFPoint(pointId: string): Promise<ClinicalSnapshot | null>;
   
   // Ventilation Mode operations
   addVentilationModePoint(anesthesiaRecordId: string, timestamp: string, value: string): Promise<ClinicalSnapshot>;
@@ -2247,6 +2250,124 @@ export class DatabaseStorage implements IStorage {
         const updatedData = {
           ...data,
           heartRhythm: filteredPoints,
+        };
+        
+        const [updated] = await db
+          .update(clinicalSnapshots)
+          .set({ 
+            data: updatedData,
+            updatedAt: new Date(),
+          })
+          .where(eq(clinicalSnapshots.id, snapshot.id))
+          .returning();
+        
+        return updated;
+      }
+    }
+    
+    return null; // Point not found
+  }
+
+  /**
+   * Add a TOF point (Train of Four value with optional percentage)
+   */
+  async addTOFPoint(
+    anesthesiaRecordId: string,
+    timestamp: string,
+    value: string,
+    percentage?: number
+  ): Promise<ClinicalSnapshot> {
+    const snapshot = await this.getClinicalSnapshot(anesthesiaRecordId);
+    
+    const newPoint: any = {
+      id: randomUUID(),
+      timestamp,
+      value,
+    };
+    
+    if (percentage !== undefined) {
+      newPoint.percentage = percentage;
+    }
+    
+    const currentTOF = (snapshot.data as any).tof || [];
+    const updatedData = {
+      ...snapshot.data,
+      tof: [...currentTOF, newPoint].sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
+    };
+    
+    const [updated] = await db
+      .update(clinicalSnapshots)
+      .set({ 
+        data: updatedData,
+        updatedAt: new Date(),
+      })
+      .where(eq(clinicalSnapshots.anesthesiaRecordId, anesthesiaRecordId))
+      .returning();
+    
+    return updated;
+  }
+
+  /**
+   * Update a TOF point by ID
+   */
+  async updateTOFPoint(
+    pointId: string,
+    updates: { value?: string; percentage?: number; timestamp?: string }
+  ): Promise<ClinicalSnapshot | null> {
+    // Find which snapshot contains this point
+    const allSnapshots = await db.select().from(clinicalSnapshots);
+    
+    for (const snapshot of allSnapshots) {
+      const data = snapshot.data as any;
+      const tof = data.tof || [];
+      
+      const pointIndex = tof.findIndex((p: any) => p.id === pointId);
+      if (pointIndex !== -1) {
+        const updatedPoints = [...tof];
+        updatedPoints[pointIndex] = {
+          ...updatedPoints[pointIndex],
+          ...updates,
+        };
+        // Re-sort after update
+        updatedPoints.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+        
+        const updatedData = {
+          ...data,
+          tof: updatedPoints,
+        };
+        
+        const [updated] = await db
+          .update(clinicalSnapshots)
+          .set({ 
+            data: updatedData,
+            updatedAt: new Date(),
+          })
+          .where(eq(clinicalSnapshots.id, snapshot.id))
+          .returning();
+        
+        return updated;
+      }
+    }
+    
+    return null; // Point not found
+  }
+
+  /**
+   * Delete a TOF point by ID
+   */
+  async deleteTOFPoint(pointId: string): Promise<ClinicalSnapshot | null> {
+    // Find which snapshot contains this point
+    const allSnapshots = await db.select().from(clinicalSnapshots);
+    
+    for (const snapshot of allSnapshots) {
+      const data = snapshot.data as any;
+      const tof = data.tof || [];
+      
+      const filteredPoints = tof.filter((p: any) => p.id !== pointId);
+      if (filteredPoints.length < tof.length) {
+        const updatedData = {
+          ...data,
+          tof: filteredPoints,
         };
         
         const [updated] = await db
