@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { FileText, ClipboardList, Activity, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useTranslation } from "react-i18next";
 
 interface SurgerySummaryDialogProps {
   open: boolean;
@@ -22,6 +23,7 @@ export default function SurgerySummaryDialog({
   onOpenPreOp,
   onOpenAnesthesia,
 }: SurgerySummaryDialogProps) {
+  const { t } = useTranslation();
   const activeHospital = useActiveHospital();
 
   const { data: surgery } = useQuery<any>({
@@ -105,7 +107,7 @@ export default function SurgerySummaryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
         <DialogHeader className="sticky top-0 z-10 bg-background border-b px-6 py-4">
-          <DialogTitle>Surgery Summary</DialogTitle>
+          <DialogTitle>{t('anesthesia.surgerySummary.title')}</DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
@@ -113,22 +115,22 @@ export default function SurgerySummaryDialog({
           <div className="bg-muted/50 p-4 rounded-lg space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <div className="text-xs font-medium text-muted-foreground mb-1">Name</div>
+                <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.name')}</div>
                 <div className="font-medium">{patientName}</div>
               </div>
               <div>
-                <div className="text-xs font-medium text-muted-foreground mb-1">Birthday</div>
+                <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.birthday')}</div>
                 <div className="font-medium">{patientBirthday}</div>
               </div>
               {patient.patientNumber && (
                 <div>
-                  <div className="text-xs font-medium text-muted-foreground mb-1">Patient ID</div>
+                  <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.patientId')}</div>
                   <div className="font-medium">{patient.patientNumber}</div>
                 </div>
               )}
               {patient.sex && (
                 <div>
-                  <div className="text-xs font-medium text-muted-foreground mb-1">Sex</div>
+                  <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.sex')}</div>
                   <div className="font-medium">{patient.sex}</div>
                 </div>
               )}
@@ -139,7 +141,7 @@ export default function SurgerySummaryDialog({
               <div className="pt-2 border-t border-border/50">
                 {patient.allergies && patient.allergies.length > 0 && (
                   <div className="mb-2">
-                    <span className="text-xs font-medium text-muted-foreground">Allergies:</span>
+                    <span className="text-xs font-medium text-muted-foreground">{t('anesthesia.surgerySummary.allergies')}</span>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {patient.allergies.map((allergy: string) => (
                         <span 
@@ -155,7 +157,7 @@ export default function SurgerySummaryDialog({
                 )}
                 {patient.otherAllergies && (
                   <div>
-                    <span className="text-xs font-medium text-muted-foreground">Other Allergies:</span>
+                    <span className="text-xs font-medium text-muted-foreground">{t('anesthesia.surgerySummary.otherAllergies')}</span>
                     <p className="text-sm mt-0.5" data-testid="text-summary-other-allergies">{patient.otherAllergies}</p>
                   </div>
                 )}
@@ -178,7 +180,7 @@ export default function SurgerySummaryDialog({
                       <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold mb-2">Surgery Data</div>
+                      <div className="font-semibold mb-2">{t('anesthesia.surgerySummary.surgeryData')}</div>
                       <div className="text-sm">
                         {[
                           surgery.plannedSurgery || 'Not specified',
@@ -191,7 +193,7 @@ export default function SurgerySummaryDialog({
                       </div>
                       {surgery.notes && (
                         <div className="text-sm mt-2 pt-2 border-t border-border/50">
-                          <span className="text-xs font-medium text-muted-foreground">Notes:</span>
+                          <span className="text-xs font-medium text-muted-foreground">{t('anesthesia.surgerySummary.notes')}</span>
                           <p className="text-sm mt-0.5 whitespace-pre-wrap" data-testid="text-summary-notes">{surgery.notes}</p>
                         </div>
                       )}
@@ -215,14 +217,14 @@ export default function SurgerySummaryDialog({
                       <ClipboardList className="h-5 w-5 text-green-600 dark:text-green-400" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold mb-2">Pre-OP Assessment</div>
+                      <div className="font-semibold mb-2">{t('anesthesia.surgerySummary.preOpAssessment')}</div>
                       {isLoadingPreOp ? (
                         <div className="text-sm text-muted-foreground">
-                          Loading...
+                          {t('anesthesia.surgerySummary.loading')}
                         </div>
                       ) : isRealError ? (
                         <div className="text-sm text-destructive">
-                          Error loading assessment data
+                          {t('anesthesia.surgerySummary.errorLoading')}
                         </div>
                       ) : hasPreOpData ? (
                         <div className="text-sm">
@@ -313,7 +315,7 @@ export default function SurgerySummaryDialog({
                         </div>
                       ) : (
                         <div className="text-sm text-muted-foreground">
-                          Not yet completed
+                          {t('anesthesia.surgerySummary.notYetCompleted')}
                         </div>
                       )}
                     </div>
@@ -336,9 +338,9 @@ export default function SurgerySummaryDialog({
                       <Activity className="h-5 w-5 text-red-600 dark:text-red-400" />
                     </div>
                     <div>
-                      <div className="font-semibold">Anesthesia Record</div>
+                      <div className="font-semibold">{t('anesthesia.surgerySummary.anesthesiaRecord')}</div>
                       <div className="text-sm text-muted-foreground">
-                        View and manage operative anesthesia monitoring
+                        {t('anesthesia.surgerySummary.viewManage')}
                       </div>
                     </div>
                   </div>
@@ -356,7 +358,7 @@ export default function SurgerySummaryDialog({
             onClick={() => onOpenChange(false)}
             data-testid="button-cancel-summary"
           >
-            Cancel
+            {t('anesthesia.preop.cancel')}
           </Button>
         </div>
       </DialogContent>

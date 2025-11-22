@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAutoSaveMutation } from "@/hooks/useAutoSaveMutation";
 import { apiRequest } from "@/lib/queryClient";
+import { useTranslation } from "react-i18next";
 import {
   useInstallations,
   useCreateInstallation,
@@ -35,10 +36,12 @@ interface SectionProps {
 // INSTALLATIONS SECTION
 // ============================================================================
 export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
+  const { t } = useTranslation();
+  
   if (!anesthesiaRecordId) {
     return (
       <CardContent className="py-8 text-center text-muted-foreground">
-        No anesthesia record available
+        {t('anesthesia.documentation.noRecord')}
       </CardContent>
     );
   }
@@ -83,10 +86,10 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
       { category, attempts: 1, notes: null, location: null, isPreExisting: false, metadata: {} },
       {
         onSuccess: () => {
-          toast({ title: "Installation added successfully" });
+          toast({ title: t('anesthesia.documentation.installationAdded') });
         },
         onError: () => {
-          toast({ title: "Error", description: "Failed to add installation", variant: "destructive" });
+          toast({ title: t('anesthesia.op.error'), description: t('anesthesia.documentation.installationAddError'), variant: "destructive" });
         },
       }
     );
@@ -118,10 +121,10 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
   const handleDelete = (id: string) => {
     deleteMutation.mutate(id, {
       onSuccess: () => {
-        toast({ title: "Installation removed" });
+        toast({ title: t('anesthesia.documentation.installationRemoved') });
       },
       onError: () => {
-        toast({ title: "Error", description: "Failed to remove installation", variant: "destructive" });
+        toast({ title: t('anesthesia.op.error'), description: t('anesthesia.documentation.installationRemoveError'), variant: "destructive" });
       },
     });
   };
@@ -139,7 +142,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
       {/* Peripheral Venous Access */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label className="text-base font-semibold">Peripheral Venous Access</Label>
+          <Label className="text-base font-semibold">{t('anesthesia.documentation.peripheralVenousAccess')}</Label>
           <Button
             variant="outline"
             size="sm"
@@ -148,7 +151,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
             data-testid="button-add-pv-access"
           >
             <Plus className="h-4 w-4 mr-1" />
-            Add Entry
+            {t('anesthesia.documentation.addEntry')}
           </Button>
         </div>
 
@@ -157,7 +160,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
           return (
           <div key={inst.id} className="border rounded-lg p-4 space-y-3 bg-slate-50 dark:bg-slate-900">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Entry #{index + 1}</span>
+              <span className="text-sm font-medium">{t('anesthesia.documentation.entry')} #{index + 1}</span>
               <Button
                 variant="ghost"
                 size="sm"
@@ -171,14 +174,14 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Location</Label>
+                <Label>{t('anesthesia.documentation.location')}</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
                   value={current.location || ""}
                   onChange={(e) => handleUpdate(inst.id, { location: e.target.value })}
                   data-testid={`select-pv-location-${index + 1}`}
                 >
-                  <option value="">Select location</option>
+                  <option value="">{t('anesthesia.documentation.selectLocation')}</option>
                   <option value="right-hand">Right Hand (Dorsum)</option>
                   <option value="left-hand">Left Hand (Dorsum)</option>
                   <option value="right-forearm">Right Forearm</option>
@@ -188,14 +191,14 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 </select>
               </div>
               <div className="space-y-2">
-                <Label>Gauge</Label>
+                <Label>{t('anesthesia.documentation.gauge')}</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
                   value={current.metadata?.gauge || ""}
                   onChange={(e) => handleUpdate(inst.id, { metadata: { gauge: e.target.value } })}
                   data-testid={`select-pv-gauge-${index + 1}`}
                 >
-                  <option value="">Select gauge</option>
+                  <option value="">{t('anesthesia.documentation.selectGauge')}</option>
                   <option value="14G">14G (Orange)</option>
                   <option value="16G">16G (Gray)</option>
                   <option value="18G">18G (Green)</option>
@@ -206,7 +209,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Number of Attempts</Label>
+              <Label>{t('anesthesia.documentation.numberOfAttempts')}</Label>
               <Input
                 type="number"
                 value={current.attempts || 1}
@@ -222,15 +225,15 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 className="h-4 w-4"
                 data-testid={`checkbox-pv-preexisting-${index + 1}`}
               />
-              <span className="text-sm font-medium">Pre-existing Installation</span>
+              <span className="text-sm font-medium">{t('anesthesia.documentation.preExistingInstallation')}</span>
             </label>
             <div className="space-y-2">
-              <Label>Notes</Label>
+              <Label>{t('anesthesia.documentation.notes')}</Label>
               <Textarea
                 rows={2}
                 value={current.notes || ""}
                 onChange={(e) => handleUpdate(inst.id, { notes: e.target.value })}
-                placeholder="Additional notes..."
+                placeholder={t('anesthesia.documentation.additionalNotes')}
                 data-testid={`textarea-pv-notes-${index + 1}`}
               />
             </div>
@@ -242,7 +245,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
       {/* Arterial Line */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label className="text-base font-semibold">Arterial Line</Label>
+          <Label className="text-base font-semibold">{t('anesthesia.documentation.arterialLine')}</Label>
           {arterialInstallations.length === 0 && (
             <Button
               variant="outline"
@@ -252,7 +255,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
               data-testid="button-add-arterial"
             >
               <Plus className="h-4 w-4 mr-1" />
-              Add
+              {t('anesthesia.documentation.add')}
             </Button>
           )}
         </div>
@@ -262,7 +265,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
           return (
           <div key={inst.id} className="border rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Arterial Line</span>
+              <span className="text-sm font-medium">{t('anesthesia.documentation.arterialLine')}</span>
               <Button
                 variant="ghost"
                 size="sm"
@@ -275,14 +278,14 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Location</Label>
+                <Label>{t('anesthesia.documentation.location')}</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
                   value={current.location || ""}
                   onChange={(e) => handleUpdate(inst.id, { location: e.target.value })}
                   data-testid="select-arterial-location"
                 >
-                  <option value="">Select location</option>
+                  <option value="">{t('anesthesia.documentation.selectLocation')}</option>
                   <option value="radial-left">Radial - Left</option>
                   <option value="radial-right">Radial - Right</option>
                   <option value="femoral-left">Femoral - Left</option>
@@ -291,14 +294,14 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 </select>
               </div>
               <div className="space-y-2">
-                <Label>Gauge</Label>
+                <Label>{t('anesthesia.documentation.gauge')}</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
                   value={current.metadata?.gauge || ""}
                   onChange={(e) => handleUpdate(inst.id, { metadata: { gauge: e.target.value } })}
                   data-testid="select-arterial-gauge"
                 >
-                  <option value="">Select gauge</option>
+                  <option value="">{t('anesthesia.documentation.selectGauge')}</option>
                   <option value="18G">18G</option>
                   <option value="20G">20G</option>
                   <option value="22G">22G</option>
@@ -307,7 +310,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Number of Attempts</Label>
+                <Label>{t('anesthesia.documentation.numberOfAttempts')}</Label>
                 <Input
                   type="number"
                   value={current.attempts || 1}
@@ -316,14 +319,14 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Technique</Label>
+                <Label>{t('anesthesia.documentation.technique')}</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
                   value={current.metadata?.technique || ""}
                   onChange={(e) => handleUpdate(inst.id, { metadata: { technique: e.target.value } })}
                   data-testid="select-arterial-technique"
                 >
-                  <option value="">Select technique</option>
+                  <option value="">{t('anesthesia.documentation.selectTechnique')}</option>
                   <option value="direct">Direct (Seldinger)</option>
                   <option value="transfixion">Transfixion</option>
                   <option value="ultrasound">Ultrasound-guided</option>
@@ -338,15 +341,15 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 className="h-4 w-4"
                 data-testid="checkbox-arterial-preexisting"
               />
-              <span className="text-sm font-medium">Pre-existing Installation</span>
+              <span className="text-sm font-medium">{t('anesthesia.documentation.preExistingInstallation')}</span>
             </label>
             <div className="space-y-2">
-              <Label>Notes</Label>
+              <Label>{t('anesthesia.documentation.notes')}</Label>
               <Textarea
                 rows={2}
                 value={current.notes || ""}
                 onChange={(e) => handleUpdate(inst.id, { notes: e.target.value })}
-                placeholder="Additional notes..."
+                placeholder={t('anesthesia.documentation.additionalNotes')}
                 data-testid="textarea-arterial-notes"
               />
             </div>
@@ -356,7 +359,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
 
         {arterialInstallations.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            No arterial line documented. Click "Add" to document arterial line placement.
+            {t('anesthesia.documentation.noArterialLineDocumented')}
           </p>
         )}
       </div>
@@ -364,7 +367,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
       {/* Central Venous Catheter */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label className="text-base font-semibold">Central Venous Catheter</Label>
+          <Label className="text-base font-semibold">{t('anesthesia.documentation.centralVenousCatheter')}</Label>
           {centralInstallations.length === 0 && (
             <Button
               variant="outline"
@@ -374,7 +377,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
               data-testid="button-add-cvc"
             >
               <Plus className="h-4 w-4 mr-1" />
-              Add
+              {t('anesthesia.documentation.add')}
             </Button>
           )}
         </div>
@@ -384,7 +387,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
           return (
           <div key={inst.id} className="border rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Central Venous Catheter</span>
+              <span className="text-sm font-medium">{t('anesthesia.documentation.centralVenousCatheter')}</span>
               <Button
                 variant="ghost"
                 size="sm"
@@ -397,14 +400,14 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Location</Label>
+                <Label>{t('anesthesia.documentation.location')}</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
                   value={current.location || ""}
                   onChange={(e) => handleUpdate(inst.id, { location: e.target.value })}
                   data-testid="select-cvc-location"
                 >
-                  <option value="">Select location</option>
+                  <option value="">{t('anesthesia.documentation.selectLocation')}</option>
                   <option value="right-ijv">Right Internal Jugular</option>
                   <option value="left-ijv">Left Internal Jugular</option>
                   <option value="right-subclavian">Right Subclavian</option>
@@ -413,14 +416,14 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 </select>
               </div>
               <div className="space-y-2">
-                <Label>Lumens</Label>
+                <Label>{t('anesthesia.documentation.lumens')}</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
                   value={current.metadata?.lumens || ""}
                   onChange={(e) => handleUpdate(inst.id, { metadata: { lumens: parseInt(e.target.value) || undefined } })}
                   data-testid="select-cvc-lumens"
                 >
-                  <option value="">Select lumens</option>
+                  <option value="">{t('anesthesia.documentation.selectLumens')}</option>
                   <option value="1">Single</option>
                   <option value="2">Double</option>
                   <option value="3">Triple</option>
@@ -430,7 +433,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Depth (cm)</Label>
+                <Label>{t('anesthesia.documentation.depthCm')}</Label>
                 <Input
                   type="number"
                   placeholder="16"
@@ -440,14 +443,14 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Technique</Label>
+                <Label>{t('anesthesia.documentation.technique')}</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
                   value={current.metadata?.cvcTechnique || ""}
                   onChange={(e) => handleUpdate(inst.id, { metadata: { cvcTechnique: e.target.value } })}
                   data-testid="select-cvc-technique"
                 >
-                  <option value="">Select technique</option>
+                  <option value="">{t('anesthesia.documentation.selectTechnique')}</option>
                   <option value="landmark">Landmark</option>
                   <option value="ultrasound">Ultrasound-guided</option>
                 </select>
@@ -461,15 +464,15 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 className="h-4 w-4"
                 data-testid="checkbox-cvc-preexisting"
               />
-              <span className="text-sm font-medium">Pre-existing Installation</span>
+              <span className="text-sm font-medium">{t('anesthesia.documentation.preExistingInstallation')}</span>
             </label>
             <div className="space-y-2">
-              <Label>Notes</Label>
+              <Label>{t('anesthesia.documentation.notes')}</Label>
               <Textarea
                 rows={2}
                 value={current.notes || ""}
                 onChange={(e) => handleUpdate(inst.id, { notes: e.target.value })}
-                placeholder="Additional notes..."
+                placeholder={t('anesthesia.documentation.additionalNotes')}
                 data-testid="textarea-cvc-notes"
               />
             </div>
@@ -479,7 +482,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
 
         {centralInstallations.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            No CVC documented. Click "Add" to document central venous catheter placement.
+            {t('anesthesia.documentation.noCvcDocumented')}
           </p>
         )}
       </div>
@@ -487,7 +490,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
       {/* Bladder Catheter */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label className="text-base font-semibold">Bladder Catheter</Label>
+          <Label className="text-base font-semibold">{t('anesthesia.documentation.bladderCatheter')}</Label>
           {bladderInstallations.length === 0 && (
             <Button
               variant="outline"
@@ -497,7 +500,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
               data-testid="button-add-bladder"
             >
               <Plus className="h-4 w-4 mr-1" />
-              Add
+              {t('anesthesia.documentation.add')}
             </Button>
           )}
         </div>
@@ -507,7 +510,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
           return (
           <div key={inst.id} className="border rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Bladder Catheter</span>
+              <span className="text-sm font-medium">{t('anesthesia.documentation.bladderCatheter')}</span>
               <Button
                 variant="ghost"
                 size="sm"
@@ -520,28 +523,28 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Type</Label>
+                <Label>{t('anesthesia.documentation.type')}</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
                   value={current.metadata?.bladderType || ""}
                   onChange={(e) => handleUpdate(inst.id, { metadata: { bladderType: e.target.value } })}
                   data-testid="select-bladder-type"
                 >
-                  <option value="">Select type</option>
+                  <option value="">{t('anesthesia.documentation.selectType')}</option>
                   <option value="foley">Foley (Transurethral)</option>
                   <option value="suprapubic">Suprapubic</option>
                   <option value="three-way">Three-way Foley</option>
                 </select>
               </div>
               <div className="space-y-2">
-                <Label>Size (French/Charrière)</Label>
+                <Label>{t('anesthesia.documentation.size')}</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
                   value={current.metadata?.bladderSize || ""}
                   onChange={(e) => handleUpdate(inst.id, { metadata: { bladderSize: e.target.value } })}
                   data-testid="select-bladder-size"
                 >
-                  <option value="">Select size</option>
+                  <option value="">{t('anesthesia.documentation.select')}</option>
                   <option value="12">12 Fr</option>
                   <option value="14">14 Fr</option>
                   <option value="16">16 Fr</option>
@@ -559,15 +562,15 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 className="h-4 w-4"
                 data-testid="checkbox-bladder-preexisting"
               />
-              <span className="text-sm font-medium">Pre-existing Installation</span>
+              <span className="text-sm font-medium">{t('anesthesia.documentation.preExistingInstallation')}</span>
             </label>
             <div className="space-y-2">
-              <Label>Notes</Label>
+              <Label>{t('anesthesia.documentation.notes')}</Label>
               <Textarea
                 rows={2}
                 value={current.notes || ""}
                 onChange={(e) => handleUpdate(inst.id, { notes: e.target.value })}
-                placeholder="Additional notes..."
+                placeholder={t('anesthesia.documentation.additionalNotes')}
                 data-testid="textarea-bladder-notes"
               />
             </div>
@@ -577,7 +580,7 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
 
         {bladderInstallations.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            No bladder catheter documented. Click "Add" to document bladder catheter placement.
+            {t('anesthesia.documentation.noCvcDocumented')}
           </p>
         )}
       </div>
@@ -589,10 +592,12 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
 // GENERAL ANESTHESIA SECTION
 // ============================================================================
 export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
+  const { t } = useTranslation();
+  
   if (!anesthesiaRecordId) {
     return (
       <CardContent className="py-8 text-center text-muted-foreground">
-        No anesthesia record available
+        {t('anesthesia.documentation.noRecord')}
       </CardContent>
     );
   }
@@ -812,17 +817,17 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
             className="h-4 w-4"
             data-testid="checkbox-rsi"
           />
-          <span className="font-medium">RSI (Rapid Sequence Intubation)</span>
+          <span className="font-medium">{t('anesthesia.documentation.rsi')}</span>
         </label>
       </div>
 
       {/* Airway Management */}
       <div className="space-y-3">
-        <Label className="text-base font-semibold">Airway Management</Label>
+        <Label className="text-base font-semibold">{t('anesthesia.documentation.airwayManagement')}</Label>
         <div className="border rounded-lg p-4 space-y-3">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Device</Label>
+              <Label>{t('anesthesia.documentation.device')}</Label>
               <select
                 className="w-full border rounded-md p-2 bg-background"
                 value={airwayDevice}
@@ -833,7 +838,7 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                 }}
                 data-testid="select-airway-device"
               >
-                <option value="">Select device</option>
+                <option value="">{t('anesthesia.documentation.selectDevice')}</option>
                 <option value="ett">Endotracheal Tube (Straight)</option>
                 <option value="spiral-tube">Spiral Tube (Flexometallic)</option>
                 <option value="rae-tube">RAE Tube (Right-Angle)</option>
@@ -846,7 +851,7 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
               </select>
             </div>
             <div className="space-y-2">
-              <Label>Size</Label>
+              <Label>{t('anesthesia.documentation.size')}</Label>
               <select
                 className="w-full border rounded-md p-2 bg-background"
                 value={size}
@@ -857,7 +862,7 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                 }}
                 data-testid="select-airway-size"
               >
-                <option value="">Select size</option>
+                <option value="">{t('anesthesia.documentation.selectSize')}</option>
                 {/* ETT, Spiral Tube, RAE Tube */}
                 {(airwayDevice === 'ett' || airwayDevice === 'spiral-tube' || airwayDevice === 'rae-tube') && (
                   <>
@@ -899,7 +904,7 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Depth (cm at teeth)</Label>
+              <Label>{t('anesthesia.documentation.depth')}</Label>
               <select
                 className="w-full border rounded-md p-2 bg-background"
                 value={depth}
@@ -910,7 +915,7 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                 }}
                 data-testid="select-airway-depth"
               >
-                <option value="">Select depth</option>
+                <option value="">{t('anesthesia.documentation.selectDepth')}</option>
                 <option value="19">19 cm</option>
                 <option value="20">20 cm</option>
                 <option value="21">21 cm</option>
@@ -921,7 +926,7 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
               </select>
             </div>
             <div className="space-y-2">
-              <Label>Cuff Pressure (cmH₂O)</Label>
+              <Label>{t('anesthesia.documentation.cuffPressure')}</Label>
               <select
                 className="w-full border rounded-md p-2 bg-background"
                 value={cuffPressure}
@@ -932,15 +937,15 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                 }}
                 data-testid="select-airway-cuff"
               >
-                <option value="">Select pressure</option>
+                <option value="">{t('anesthesia.documentation.selectPressure')}</option>
                 <option value="15">15 cmH₂O</option>
-                <option value="20">20 cmH₂O (Recommended min)</option>
+                <option value="20">20 cmH₂O ({t('anesthesia.documentation.recommendedMin')})</option>
                 <option value="22">22 cmH₂O</option>
                 <option value="24">24 cmH₂O</option>
                 <option value="25">25 cmH₂O</option>
                 <option value="26">26 cmH₂O</option>
                 <option value="28">28 cmH₂O</option>
-                <option value="30">30 cmH₂O (Recommended max)</option>
+                <option value="30">30 cmH₂O ({t('anesthesia.documentation.recommendedMax')})</option>
               </select>
             </div>
           </div>
@@ -949,10 +954,10 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
           {isIntubated && (
             <>
               <div className="pt-3 border-t">
-                <Label className="text-sm font-semibold mb-3 block">Laryngoscopy Details</Label>
+                <Label className="text-sm font-semibold mb-3 block">{t('anesthesia.documentation.laryngoscopyDetails')}</Label>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Laryngoscope Type</Label>
+                    <Label>{t('anesthesia.documentation.laryngoscopeType')}</Label>
                     <select
                       className="w-full border rounded-md p-2 bg-background"
                       value={laryngoscopeType}
@@ -963,7 +968,7 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                       }}
                       data-testid="select-laryngoscope-type"
                     >
-                      <option value="">Select type</option>
+                      <option value="">{t('anesthesia.documentation.selectType')}</option>
                       <option value="macintosh">Macintosh (Curved)</option>
                       <option value="miller">Miller (Straight)</option>
                       <option value="mccoy">McCoy (Articulating)</option>
@@ -974,7 +979,7 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Blade Size</Label>
+                    <Label>{t('anesthesia.documentation.bladeSize')}</Label>
                     <select
                       className="w-full border rounded-md p-2 bg-background"
                       value={laryngoscopeBlade}
@@ -985,7 +990,7 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                       }}
                       data-testid="select-laryngoscope-blade"
                     >
-                      <option value="">Select blade</option>
+                      <option value="">{t('anesthesia.documentation.selectBlade')}</option>
                       <option value="1">1</option>
                       <option value="2">2</option>
                       <option value="3">3</option>
@@ -994,7 +999,7 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Intubation Attempts</Label>
+                    <Label>{t('anesthesia.documentation.intubationAttempts')}</Label>
                     <select
                       className="w-full border rounded-md p-2 bg-background"
                       value={intubationAttempts}
@@ -1005,7 +1010,7 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                       }}
                       data-testid="select-intubation-attempts"
                     >
-                      <option value="">Select</option>
+                      <option value="">{t('anesthesia.documentation.selectAttempts')}</option>
                       <option value="1">1</option>
                       <option value="2">2</option>
                       <option value="3">3</option>
@@ -1013,7 +1018,7 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Cormack-Lehane Grade</Label>
+                    <Label>{t('anesthesia.documentation.cormackLehane')}</Label>
                     <select
                       className="w-full border rounded-md p-2 bg-background"
                       value={cormackLehane}
@@ -1024,7 +1029,7 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                       }}
                       data-testid="select-cormack-lehane"
                     >
-                      <option value="">Select grade</option>
+                      <option value="">{t('anesthesia.documentation.selectGrade')}</option>
                       <option value="I">I - Full view of glottis</option>
                       <option value="IIa">IIa - Partial view of glottis</option>
                       <option value="IIb">IIb - Only arytenoids visible</option>
@@ -1074,13 +1079,13 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
               className="h-4 w-4"
               data-testid="checkbox-preexisting-intubation"
             />
-            <span className="text-sm font-medium">Pre-existing Intubation</span>
+            <span className="text-sm font-medium">{t('anesthesia.documentation.preExistingIntubation')}</span>
           </label>
           <div className="space-y-2">
-            <Label>Notes</Label>
+            <Label>{t('anesthesia.documentation.notes')}</Label>
             <Textarea
               rows={2}
-              placeholder="Additional notes..."
+              placeholder={t('anesthesia.documentation.additionalNotes')}
               value={airwayNotes}
               onChange={(e) => {
                 const nextNotes = e.target.value;
@@ -1107,10 +1112,12 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
 // NEURAXIAL ANESTHESIA SECTION
 // ============================================================================
 export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
+  const { t } = useTranslation();
+  
   if (!anesthesiaRecordId) {
     return (
       <CardContent className="py-8 text-center text-muted-foreground">
-        No anesthesia record available
+        {t('anesthesia.documentation.noRecord')}
       </CardContent>
     );
   }
@@ -1172,10 +1179,10 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
       },
       {
         onSuccess: () => {
-          toast({ title: "Block added successfully" });
+          toast({ title: t('anesthesia.documentation.blockAdded') });
         },
         onError: () => {
-          toast({ title: "Error", description: "Failed to add block", variant: "destructive" });
+          toast({ title: t('anesthesia.op.error'), description: t('anesthesia.documentation.blockAddError'), variant: "destructive" });
         },
       }
     );
@@ -1198,10 +1205,10 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
   const handleDelete = (id: string) => {
     deleteMutation.mutate(id, {
       onSuccess: () => {
-        toast({ title: "Block removed" });
+        toast({ title: t('anesthesia.documentation.blockRemoved') });
       },
       onError: () => {
-        toast({ title: "Error", description: "Failed to remove block", variant: "destructive" });
+        toast({ title: t('anesthesia.op.error'), description: t('anesthesia.documentation.blockRemoveError'), variant: "destructive" });
       },
     });
   };
@@ -1235,7 +1242,7 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Level</Label>
+            <Label>{t('anesthesia.documentation.level')}</Label>
             <Input
               placeholder="e.g., L3-L4"
               value={current.level || ""}
@@ -1244,7 +1251,7 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
             />
           </div>
           <div className="space-y-2">
-            <Label>Needle Gauge</Label>
+            <Label>{t('anesthesia.documentation.needleGauge')}</Label>
             <Input
               placeholder="e.g., 25G Pencil Point"
               value={current.needleGauge || ""}
@@ -1256,7 +1263,7 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Attempts</Label>
+            <Label>{t('anesthesia.documentation.numberOfAttempts')}</Label>
             <Input
               type="number"
               value={current.attempts || 1}
@@ -1265,7 +1272,7 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
             />
           </div>
           <div className="space-y-2">
-            <Label>Sensory Level</Label>
+            <Label>{t('anesthesia.documentation.sensoryLevel')}</Label>
             <Input
               placeholder="e.g., T4"
               value={current.sensoryLevel || ""}
@@ -1276,10 +1283,10 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
         </div>
 
         <div className="space-y-2">
-          <Label>Notes</Label>
+          <Label>{t('anesthesia.documentation.notes')}</Label>
           <Textarea
             rows={2}
-            placeholder="Additional notes..."
+            placeholder={t('anesthesia.documentation.additionalNotes')}
             value={current.notes || ""}
             onChange={(e) => handleUpdate(block.id, { notes: e.target.value })}
             data-testid={`textarea-${blockType}-notes-${index + 1}`}
@@ -1295,7 +1302,7 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
       {/* Spinal */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label className="text-base font-semibold">Spinal Anesthesia</Label>
+          <Label className="text-base font-semibold">{t('anesthesia.documentation.spinal')}</Label>
           <Button
             variant="outline"
             size="sm"
@@ -1304,13 +1311,13 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
             data-testid="button-add-spinal"
           >
             <Plus className="h-4 w-4 mr-1" />
-            Add Spinal
+            {t('anesthesia.documentation.addSpinal')}
           </Button>
         </div>
         {spinalBlocks.map((block, idx) => renderBlockForm(block, idx, "spinal"))}
         {spinalBlocks.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            No spinal blocks documented. Click "Add Spinal" to document.
+            {t('anesthesia.documentation.noSpinalDocumented')}
           </p>
         )}
       </div>
@@ -1318,7 +1325,7 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
       {/* Epidural */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label className="text-base font-semibold">Epidural Anesthesia</Label>
+          <Label className="text-base font-semibold">{t('anesthesia.documentation.epidural')}</Label>
           <Button
             variant="outline"
             size="sm"
@@ -1327,13 +1334,13 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
             data-testid="button-add-epidural"
           >
             <Plus className="h-4 w-4 mr-1" />
-            Add Epidural
+            {t('anesthesia.documentation.addEpidural')}
           </Button>
         </div>
         {epiduralBlocks.map((block, idx) => renderBlockForm(block, idx, "epidural"))}
         {epiduralBlocks.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            No epidural blocks documented. Click "Add Epidural" to document.
+            {t('anesthesia.documentation.noEpiduralDocumented')}
           </p>
         )}
       </div>
@@ -1341,7 +1348,7 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
       {/* CSE */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label className="text-base font-semibold">Combined Spinal-Epidural (CSE)</Label>
+          <Label className="text-base font-semibold">{t('anesthesia.documentation.cse')}</Label>
           <Button
             variant="outline"
             size="sm"
@@ -1350,13 +1357,13 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
             data-testid="button-add-cse"
           >
             <Plus className="h-4 w-4 mr-1" />
-            Add CSE
+            {t('anesthesia.documentation.addCse')}
           </Button>
         </div>
         {cseBlocks.map((block, idx) => renderBlockForm(block, idx, "cse"))}
         {cseBlocks.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            No CSE blocks documented. Click "Add CSE" to document.
+            {t('anesthesia.documentation.noCseDocumented')}
           </p>
         )}
       </div>
@@ -1364,7 +1371,7 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
       {/* Caudal */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label className="text-base font-semibold">Caudal Anesthesia</Label>
+          <Label className="text-base font-semibold">{t('anesthesia.documentation.caudal')}</Label>
           <Button
             variant="outline"
             size="sm"
@@ -1373,13 +1380,13 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
             data-testid="button-add-caudal"
           >
             <Plus className="h-4 w-4 mr-1" />
-            Add Caudal
+            {t('anesthesia.documentation.addCaudal')}
           </Button>
         </div>
         {caudalBlocks.map((block, idx) => renderBlockForm(block, idx, "caudal"))}
         {caudalBlocks.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-4">
-            No caudal blocks documented. Click "Add Caudal" to document.
+            {t('anesthesia.documentation.noCaudalDocumented')}
           </p>
         )}
       </div>
@@ -1391,10 +1398,12 @@ export function NeuraxialAnesthesiaSection({ anesthesiaRecordId }: SectionProps)
 // PERIPHERAL BLOCKS SECTION
 // ============================================================================
 export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
+  const { t } = useTranslation();
+  
   if (!anesthesiaRecordId) {
     return (
       <CardContent className="py-8 text-center text-muted-foreground">
-        No anesthesia record available
+        {t('anesthesia.documentation.noRecord')}
       </CardContent>
     );
   }
@@ -1449,10 +1458,10 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
       },
       {
         onSuccess: () => {
-          toast({ title: "Block added successfully" });
+          toast({ title: t('anesthesia.documentation.blockAdded') });
         },
         onError: () => {
-          toast({ title: "Error", description: "Failed to add block", variant: "destructive" });
+          toast({ title: t('anesthesia.op.error'), description: t('anesthesia.documentation.blockAddError'), variant: "destructive" });
         },
       }
     );
@@ -1475,10 +1484,10 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
   const handleDelete = (id: string) => {
     deleteMutation.mutate(id, {
       onSuccess: () => {
-        toast({ title: "Block removed" });
+        toast({ title: t('anesthesia.documentation.blockRemoved') });
       },
       onError: () => {
-        toast({ title: "Error", description: "Failed to remove block", variant: "destructive" });
+        toast({ title: t('anesthesia.op.error'), description: t('anesthesia.documentation.blockRemoveError'), variant: "destructive" });
       },
     });
   };
@@ -1494,7 +1503,7 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
   return (
     <CardContent className="space-y-6 pt-0">
       <div className="flex items-center justify-between">
-        <Label className="text-base font-semibold">Peripheral Nerve Blocks</Label>
+        <Label className="text-base font-semibold">{t('anesthesia.documentation.peripheralNerveBlocks')}</Label>
         <Button
           variant="outline"
           size="sm"
@@ -1503,7 +1512,7 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
           data-testid="button-add-peripheral-block"
         >
           <Plus className="h-4 w-4 mr-1" />
-          Add Block
+          {t('anesthesia.documentation.addBlock')}
         </Button>
       </div>
 
@@ -1513,7 +1522,7 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
         <Card key={block.id} className="border-2">
           <CardContent className="pt-4 space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Block #{index + 1}</span>
+              <span className="text-sm font-medium">{t('anesthesia.documentation.block')} #{index + 1}</span>
               <Button
                 variant="ghost"
                 size="sm"
@@ -1528,7 +1537,7 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Block Type</Label>
+                <Label>{t('anesthesia.documentation.blockType')}</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
                   value={current.blockType}
@@ -1571,14 +1580,14 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
                 </select>
               </div>
               <div className="space-y-2">
-                <Label>Laterality</Label>
+                <Label>{t('anesthesia.documentation.laterality')}</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
                   value={current.laterality || ""}
                   onChange={(e) => handleUpdate(block.id, { laterality: e.target.value })}
                   data-testid={`select-laterality-${index + 1}`}
                 >
-                  <option value="">Select side</option>
+                  <option value="">{t('anesthesia.documentation.selectSide')}</option>
                   <option value="left">Left</option>
                   <option value="right">Right</option>
                   <option value="bilateral">Bilateral</option>
@@ -1588,14 +1597,14 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Guidance Technique</Label>
+                <Label>{t('anesthesia.documentation.guidanceTechnique')}</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
                   value={current.guidanceTechnique || ""}
                   onChange={(e) => handleUpdate(block.id, { guidanceTechnique: e.target.value })}
                   data-testid={`select-guidance-${index + 1}`}
                 >
-                  <option value="">Select guidance</option>
+                  <option value="">{t('anesthesia.documentation.selectGuidance')}</option>
                   <option value="ultrasound">Ultrasound</option>
                   <option value="nerve-stimulator">Nerve Stimulator</option>
                   <option value="both">Both</option>
@@ -1603,7 +1612,7 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
                 </select>
               </div>
               <div className="space-y-2">
-                <Label>Needle Type</Label>
+                <Label>{t('anesthesia.documentation.needleType')}</Label>
                 <Input
                   placeholder="e.g., 22G 50mm stimulating needle"
                   value={current.needleType || ""}
@@ -1615,20 +1624,20 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Catheter Placed</Label>
+                <Label>{t('anesthesia.documentation.catheterPlaced')}</Label>
                 <select
                   className="w-full border rounded-md p-2 bg-background"
                   value={current.catheterPlaced ? "yes" : "no"}
                   onChange={(e) => handleUpdate(block.id, { catheterPlaced: e.target.value === "yes" })}
                   data-testid={`select-catheter-${index + 1}`}
                 >
-                  <option value="">Select option</option>
+                  <option value="">{t('anesthesia.documentation.selectOption')}</option>
                   <option value="yes">Yes</option>
                   <option value="no">No</option>
                 </select>
               </div>
               <div className="space-y-2">
-                <Label>Number of Attempts</Label>
+                <Label>{t('anesthesia.documentation.numberOfAttempts')}</Label>
                 <Input
                   type="number"
                   value={current.attempts || 1}
@@ -1639,7 +1648,7 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>Sensory Block Assessment</Label>
+              <Label>{t('anesthesia.documentation.sensoryBlockAssessment')}</Label>
               <Textarea
                 rows={2}
                 placeholder="e.g., Complete sensory blockade C5-T1"
@@ -1650,7 +1659,7 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>Motor Block Assessment</Label>
+              <Label>{t('anesthesia.documentation.motorBlockAssessment')}</Label>
               <Textarea
                 rows={2}
                 placeholder="e.g., Modified Bromage scale 2"
@@ -1661,10 +1670,10 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>Notes</Label>
+              <Label>{t('anesthesia.documentation.notes')}</Label>
               <Textarea
                 rows={2}
-                placeholder="Additional notes..."
+                placeholder={t('anesthesia.documentation.additionalNotes')}
                 value={current.notes || ""}
                 onChange={(e) => handleUpdate(block.id, { notes: e.target.value })}
                 data-testid={`textarea-notes-${index + 1}`}
@@ -1677,7 +1686,7 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
 
       {blocks.length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-8">
-          No peripheral nerve blocks documented. Click "Add Block" to document a block.
+          {t('anesthesia.documentation.noPeripheralBlocksDocumented')}
         </p>
       )}
     </CardContent>
