@@ -3335,6 +3335,7 @@ export class DatabaseStorage implements IStorage {
         totalQty = startEvents.length;
       } else if (isRateControlled) {
         const sessionMap = new Map<string, Array<typeof meds[0]>>();
+        const legacyEvents: Array<typeof meds[0]> = [];
         
         for (const med of meds) {
           if (med.infusionSessionId) {
@@ -3342,6 +3343,8 @@ export class DatabaseStorage implements IStorage {
               sessionMap.set(med.infusionSessionId, []);
             }
             sessionMap.get(med.infusionSessionId)!.push(med);
+          } else {
+            legacyEvents.push(med);
           }
         }
         
@@ -3374,6 +3377,52 @@ export class DatabaseStorage implements IStorage {
               stop: new Date(stopEvent.timestamp),
               rateChanges
             });
+          }
+        }
+        
+        if (legacyEvents.length > 0) {
+          const sortedLegacy = legacyEvents.sort((a, b) => 
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
+          
+          const startEvents = sortedLegacy.filter(e => e.type === 'infusion_start');
+          const stopEvents = sortedLegacy.filter(e => e.type === 'infusion_stop');
+          const rateChangeEvents = sortedLegacy.filter(e => e.type === 'rate_change');
+          
+          const usedStops = new Set<typeof stopEvents[0]>();
+          const usedRateChanges = new Set<typeof rateChangeEvents[0]>();
+          
+          for (const startEvent of startEvents) {
+            const startTime = new Date(startEvent.timestamp);
+            
+            const stopEvent = stopEvents.find(s => 
+              !usedStops.has(s) && new Date(s.timestamp).getTime() > startTime.getTime()
+            );
+            
+            if (stopEvent) {
+              const stopTime = new Date(stopEvent.timestamp);
+              usedStops.add(stopEvent);
+              
+              const relevantRateChanges = rateChangeEvents
+                .filter(rc => {
+                  if (usedRateChanges.has(rc)) return false;
+                  const rcTime = new Date(rc.timestamp).getTime();
+                  return rcTime > startTime.getTime() && rcTime < stopTime.getTime();
+                })
+                .map(e => {
+                  usedRateChanges.add(e);
+                  return { 
+                    timestamp: new Date(e.timestamp), 
+                    rate: e.rate || '0' 
+                  };
+                });
+              
+              sessions.push({
+                start: { timestamp: startTime, rate: startEvent.rate || '0' },
+                stop: stopTime,
+                rateChanges: relevantRateChanges
+              });
+            }
           }
         }
         
