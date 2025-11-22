@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useLocation } from "wouter";
+import { useTranslation } from "react-i18next";
 
 type PacuPatient = {
   anesthesiaRecordId: string;
@@ -20,6 +21,7 @@ type PacuPatient = {
 };
 
 export default function Pacu() {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const activeHospital = useActiveHospital();
   const [, setLocation] = useLocation();
@@ -72,15 +74,15 @@ export default function Pacu() {
   return (
     <div className="pb-20 px-4 pt-4">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">Post-Anesthesia Care Unit</h1>
-        <p className="text-muted-foreground">Patients in recovery</p>
+        <h1 className="text-2xl font-bold mb-2">{t('anesthesia.pacu.title')}</h1>
+        <p className="text-muted-foreground">{t('anesthesia.pacu.subtitle')}</p>
       </div>
 
       <div className="relative mb-6">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           type="text"
-          placeholder="Search patients, bed, or procedure..."
+          placeholder={t('anesthesia.pacu.search')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-10"
@@ -91,12 +93,12 @@ export default function Pacu() {
       <div className="space-y-4">
         {isLoading ? (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">Loading...</p>
+            <p className="text-muted-foreground">{t('common.loading')}</p>
           </div>
         ) : filteredPatients.length === 0 ? (
           <div className="text-center py-12">
             <BedDouble className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-            <p className="text-muted-foreground">No patients in PACU</p>
+            <p className="text-muted-foreground">{t('anesthesia.pacu.noPatientsInPacu')}</p>
           </div>
         ) : (
           filteredPatients.map((patient) => (
@@ -112,7 +114,7 @@ export default function Pacu() {
                     {patient.patientName}
                   </h3>
                   <p className="text-sm text-muted-foreground" data-testid={`text-mrn-${patient.surgeryId}`}>
-                    {patient.patientNumber} • Age {patient.age}
+                    {patient.patientNumber} • {t('anesthesia.pacu.age')} {patient.age}
                   </p>
                 </div>
                 {getDestinationBadge(patient.postOpDestination)}
@@ -127,7 +129,7 @@ export default function Pacu() {
                 <div className="flex items-center text-sm text-muted-foreground">
                   <Clock className="h-4 w-4 mr-2" />
                   <span>
-                    Anesthesia End: {formatTime(patient.anesthesiaPresenceEndTime)} • Time in PACU: {getTimeInPacu(patient.anesthesiaPresenceEndTime)}
+                    {t('anesthesia.pacu.anesthesiaEnd')} {formatTime(patient.anesthesiaPresenceEndTime)} • {t('anesthesia.pacu.timeInPacu')} {getTimeInPacu(patient.anesthesiaPresenceEndTime)}
                   </span>
                 </div>
               </div>

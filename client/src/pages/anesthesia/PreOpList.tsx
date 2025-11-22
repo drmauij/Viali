@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,7 @@ import { formatDate } from "@/lib/dateUtils";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 
 export default function PreOpList() {
+  const { t } = useTranslation();
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "planned" | "draft" | "completed">("all");
@@ -61,17 +63,17 @@ export default function PreOpList() {
       case 'planned':
         return <Badge variant="outline" className="bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700">
           <CalendarPlus className="h-3 w-3 mr-1" />
-          Planned
+          {t('anesthesia.preop.status.planned')}
         </Badge>;
       case 'draft':
         return <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700">
           <FileEdit className="h-3 w-3 mr-1" />
-          In Progress
+          {t('anesthesia.preop.status.draft')}
         </Badge>;
       case 'completed':
         return <Badge variant="outline" className="bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700">
           <FileCheck className="h-3 w-3 mr-1" />
-          Completed
+          {t('anesthesia.preop.status.completed')}
         </Badge>;
       default:
         return null;
@@ -92,9 +94,9 @@ export default function PreOpList() {
     <div className="container mx-auto px-4 py-6 pb-24">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">Pre-Operative Assessments</h1>
+        <h1 className="text-2xl font-bold mb-2">{t('anesthesia.preop.title')}</h1>
         <p className="text-sm text-muted-foreground">
-          View and manage all pre-operative patient assessments
+          {t('anesthesia.preop.subtitle')}
         </p>
       </div>
 
@@ -102,19 +104,19 @@ export default function PreOpList() {
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="mb-6">
         <TabsList className="grid grid-cols-4 w-full">
           <TabsTrigger value="all" data-testid="tab-all">
-            All ({filteredAssessments.length})
+            {t('anesthesia.preop.tabAll')} ({filteredAssessments.length})
           </TabsTrigger>
           <TabsTrigger value="planned" data-testid="tab-planned">
             <CalendarPlus className="h-4 w-4 mr-1" />
-            Planned ({groupedByStatus.planned.length})
+            {t('anesthesia.preop.tabPlanned')} ({groupedByStatus.planned.length})
           </TabsTrigger>
           <TabsTrigger value="draft" data-testid="tab-draft">
             <FileEdit className="h-4 w-4 mr-1" />
-            In Progress ({groupedByStatus.draft.length})
+            {t('anesthesia.preop.tabInProgress')} ({groupedByStatus.draft.length})
           </TabsTrigger>
           <TabsTrigger value="completed" data-testid="tab-completed">
             <FileCheck className="h-4 w-4 mr-1" />
-            Completed ({groupedByStatus.completed.length})
+            {t('anesthesia.preop.tabCompleted')} ({groupedByStatus.completed.length})
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -124,7 +126,7 @@ export default function PreOpList() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by patient, surgery, or surgeon..."
+            placeholder={t('anesthesia.preop.search')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -140,7 +142,7 @@ export default function PreOpList() {
             <CardContent className="py-12 text-center">
               <ClipboardList className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
               <p className="text-muted-foreground">
-                {searchTerm ? "No cases match your search" : "No pre-operative assessments"}
+                {searchTerm ? t('anesthesia.preop.noMatchingCases') : t('anesthesia.preop.noAssessments')}
               </p>
             </CardContent>
           </Card>
@@ -167,16 +169,16 @@ export default function PreOpList() {
                       )}
                       <div>
                         <h3 className="font-semibold text-lg" data-testid={`text-patient-name-${surgery.id}`}>
-                          {surgery.patientName || "Unknown Patient"}
+                          {surgery.patientName || t('anesthesia.preop.unknownPatient')}
                         </h3>
                         <p className="text-sm text-muted-foreground">
                           {surgery.patientBirthday ? (
                             <>
                               {formatDate(surgery.patientBirthday)}
-                              {age !== null && ` (${age} years)`}
+                              {age !== null && ` (${age} ${t('anesthesia.preop.years')})`}
                             </>
                           ) : (
-                            "Birthday not recorded"
+                            t('anesthesia.preop.birthdayNotRecorded')
                           )}
                         </p>
                       </div>
@@ -186,7 +188,7 @@ export default function PreOpList() {
                     <div className="ml-9 space-y-1">
                       <div className="flex items-center gap-2 text-sm">
                         <ClipboardList className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{surgery.procedureName || "Procedure not specified"}</span>
+                        <span className="font-medium">{surgery.procedureName || t('anesthesia.preop.procedureNotSpecified')}</span>
                       </div>
                       {surgery.surgeon && (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">

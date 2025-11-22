@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
@@ -64,6 +65,7 @@ type Item = {
 };
 
 export default function AnesthesiaSettings() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const activeHospital = useActiveHospital();
   const { toast } = useToast();
@@ -148,15 +150,15 @@ export default function AnesthesiaSettings() {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/items/${activeHospital?.id}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`] });
       toast({
-        title: "Configuration updated",
-        description: "Anesthesia item configuration has been saved",
+        title: t('anesthesia.settings.configurationUpdated'),
+        description: t('anesthesia.settings.configurationUpdatedDescription'),
       });
     },
     onError: (error: any) => {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to update configuration",
+        title: t('common.error'),
+        description: error.message || t('anesthesia.settings.failedToUpdateConfiguration'),
       });
     },
   });
@@ -172,8 +174,8 @@ export default function AnesthesiaSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/medication-groups/${activeHospital?.id}`] });
       toast({
-        title: "Group created",
-        description: "Medication group has been added",
+        title: t('anesthesia.settings.groupCreated'),
+        description: t('anesthesia.settings.medicationGroupAdded'),
       });
     },
   });
@@ -186,8 +188,8 @@ export default function AnesthesiaSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/medication-groups/${activeHospital?.id}`] });
       toast({
-        title: "Group deleted",
-        description: "Medication group has been removed",
+        title: t('anesthesia.settings.groupDeleted'),
+        description: t('anesthesia.settings.medicationGroupRemoved'),
       });
     },
   });
@@ -203,8 +205,8 @@ export default function AnesthesiaSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/administration-groups/${activeHospital?.id}`] });
       toast({
-        title: "Group created",
-        description: "Administration group has been added",
+        title: t('anesthesia.settings.groupCreated'),
+        description: t('anesthesia.settings.administrationGroupAdded'),
       });
     },
   });
@@ -217,8 +219,8 @@ export default function AnesthesiaSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/administration-groups/${activeHospital?.id}`] });
       toast({
-        title: "Group updated",
-        description: "Administration group has been updated",
+        title: t('anesthesia.settings.groupUpdated'),
+        description: t('anesthesia.settings.administrationGroupUpdated'),
       });
       setGroupDialogOpen(false);
       setEditingGroup(null);
@@ -234,8 +236,8 @@ export default function AnesthesiaSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/administration-groups/${activeHospital?.id}`] });
       toast({
-        title: "Group deleted",
-        description: "Administration group has been removed",
+        title: t('anesthesia.settings.groupDeleted'),
+        description: t('anesthesia.settings.administrationGroupRemoved'),
       });
     },
   });
@@ -257,7 +259,7 @@ export default function AnesthesiaSettings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/surgery-rooms/${activeHospital?.id}`] });
-      toast({ title: "Room created", description: "Surgery room has been added" });
+      toast({ title: t('anesthesia.settings.roomCreated'), description: t('anesthesia.settings.surgeryRoomAdded') });
       setRoomDialogOpen(false);
       setRoomFormName('');
     },
@@ -269,7 +271,7 @@ export default function AnesthesiaSettings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/surgery-rooms/${activeHospital?.id}`] });
-      toast({ title: "Room updated", description: "Surgery room has been updated" });
+      toast({ title: t('anesthesia.settings.roomUpdated'), description: t('anesthesia.settings.surgeryRoomUpdated') });
       setRoomDialogOpen(false);
       setEditingRoom(null);
       setRoomFormName('');
@@ -282,7 +284,7 @@ export default function AnesthesiaSettings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/surgery-rooms/${activeHospital?.id}`] });
-      toast({ title: "Room deleted", description: "Surgery room has been removed" });
+      toast({ title: t('anesthesia.settings.roomDeleted'), description: t('anesthesia.settings.surgeryRoomRemoved') });
     },
   });
 
@@ -303,15 +305,15 @@ export default function AnesthesiaSettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/settings/${activeHospital?.id}`] });
       toast({
-        title: "Settings updated",
-        description: "Anesthesia settings have been updated",
+        title: t('anesthesia.settings.settingsUpdated'),
+        description: t('anesthesia.settings.anesthesiaSettingsUpdated'),
       });
     },
     onError: (error: any) => {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to update settings",
+        title: t('common.error'),
+        description: error.message || t('anesthesia.settings.failedToUpdateSettings'),
       });
     },
   });
@@ -578,10 +580,9 @@ export default function AnesthesiaSettings() {
       <div className="p-6">
         <div className="bg-card border border-border rounded-lg p-8 text-center">
           <i className="fas fa-syringe text-4xl text-muted-foreground mb-4"></i>
-          <h3 className="text-lg font-semibold text-foreground mb-2">Anesthesia Module Not Configured</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-2">{t('anesthesia.settings.moduleNotConfigured')}</h3>
           <p className="text-muted-foreground mb-4">
-            Your unit is not configured for the anesthesia module.
-            Please contact your hospital admin to enable this module for your unit.
+            {t('anesthesia.settings.moduleNotConfiguredMessage')}
           </p>
         </div>
       </div>
@@ -591,30 +592,29 @@ export default function AnesthesiaSettings() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold mb-2">Anesthesia Settings</h1>
+        <h1 className="text-2xl font-bold mb-2">{t('anesthesia.settings.title')}</h1>
         <p className="text-muted-foreground">
-          Configure anesthesia module settings including items, groups, and surgery rooms.
+          {t('anesthesia.settings.subtitle')}
         </p>
       </div>
 
       <Tabs defaultValue="items" className="w-full">
         <div className="w-full overflow-x-auto mb-6 -mx-4 px-4 md:mx-0 md:px-0">
           <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:grid-cols-7">
-            <TabsTrigger value="items" data-testid="tab-items" className="flex-shrink-0">Items</TabsTrigger>
-            <TabsTrigger value="groups" data-testid="tab-groups" className="flex-shrink-0">Groups</TabsTrigger>
-            <TabsTrigger value="rooms" data-testid="tab-rooms" className="flex-shrink-0">Rooms</TabsTrigger>
-            <TabsTrigger value="allergies" data-testid="tab-allergies" className="flex-shrink-0">Allergies</TabsTrigger>
-            <TabsTrigger value="medications" data-testid="tab-medications" className="flex-shrink-0">Medications</TabsTrigger>
-            <TabsTrigger value="illnesses" data-testid="tab-illnesses" className="flex-shrink-0">Medical History</TabsTrigger>
-            <TabsTrigger value="checklists" data-testid="tab-checklists" className="flex-shrink-0">Checklists</TabsTrigger>
+            <TabsTrigger value="items" data-testid="tab-items" className="flex-shrink-0">{t('anesthesia.settings.items')}</TabsTrigger>
+            <TabsTrigger value="groups" data-testid="tab-groups" className="flex-shrink-0">{t('anesthesia.settings.groups')}</TabsTrigger>
+            <TabsTrigger value="rooms" data-testid="tab-rooms" className="flex-shrink-0">{t('anesthesia.settings.rooms')}</TabsTrigger>
+            <TabsTrigger value="allergies" data-testid="tab-allergies" className="flex-shrink-0">{t('anesthesia.settings.allergies')}</TabsTrigger>
+            <TabsTrigger value="medications" data-testid="tab-medications" className="flex-shrink-0">{t('anesthesia.settings.medications')}</TabsTrigger>
+            <TabsTrigger value="illnesses" data-testid="tab-illnesses" className="flex-shrink-0">{t('anesthesia.settings.medicalHistory')}</TabsTrigger>
+            <TabsTrigger value="checklists" data-testid="tab-checklists" className="flex-shrink-0">{t('anesthesia.settings.checklists')}</TabsTrigger>
           </TabsList>
         </div>
 
         <TabsContent value="items" className="space-y-4">
           <div className="mb-4">
             <p className="text-sm text-muted-foreground">
-              Configure which inventory items should appear in anesthesia records. Click an item in the
-              right panel to configure medication/infusion details.
+              {t('anesthesia.settings.itemsDescription')}
             </p>
           </div>
 
@@ -629,9 +629,9 @@ export default function AnesthesiaSettings() {
         <TabsContent value="groups" className="space-y-4">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-lg font-medium">Administration Groups</h3>
+              <h3 className="text-lg font-medium">{t('anesthesia.settings.administrationGroups')}</h3>
               <p className="text-sm text-muted-foreground">
-                Manage groups for organizing medications in anesthesia charts. Use up/down buttons to reorder.
+                {t('anesthesia.settings.administrationGroupsDescription')}
               </p>
             </div>
             <Button
@@ -643,13 +643,13 @@ export default function AnesthesiaSettings() {
               data-testid="button-add-group"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Add Group
+              {t('anesthesia.settings.addGroup')}
             </Button>
           </div>
 
           {administrationGroups.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No groups yet. Click "Add Group" to create one.
+              {t('anesthesia.settings.noGroupsYet')}
             </div>
           ) : (
             <div className="border rounded-lg">
@@ -711,9 +711,9 @@ export default function AnesthesiaSettings() {
         <TabsContent value="rooms" className="space-y-4">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-lg font-medium">Surgery Rooms</h3>
+              <h3 className="text-lg font-medium">{t('anesthesia.settings.surgeryRooms')}</h3>
               <p className="text-sm text-muted-foreground">
-                Manage operating rooms for the anesthesia module. Use up/down buttons to reorder.
+                {t('anesthesia.settings.surgeryRoomsDescription')}
               </p>
             </div>
             <Button
@@ -725,13 +725,13 @@ export default function AnesthesiaSettings() {
               data-testid="button-add-room"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Add Room
+              {t('anesthesia.settings.addRoom')}
             </Button>
           </div>
 
           {surgeryRooms.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No surgery rooms yet. Click "Add Room" to create one.
+              {t('anesthesia.settings.noRoomsYet')}
             </div>
           ) : (
             <div className="border rounded-lg">
@@ -792,9 +792,9 @@ export default function AnesthesiaSettings() {
 
         <TabsContent value="allergies" className="space-y-4">
           <div className="mb-4">
-            <h3 className="text-lg font-medium">Common Allergies</h3>
+            <h3 className="text-lg font-medium">{t('anesthesia.settings.commonAllergies')}</h3>
             <p className="text-sm text-muted-foreground">
-              Manage the list of common allergies available in patient records and pre-op assessments.
+              {t('anesthesia.settings.commonAllergiesDescription')}
             </p>
           </div>
 
@@ -802,20 +802,20 @@ export default function AnesthesiaSettings() {
             <Input
               value={newItemInput}
               onChange={(e) => setNewItemInput(e.target.value)}
-              placeholder="Add new allergy..."
+              placeholder={t('anesthesia.settings.addNewAllergy')}
               onKeyPress={(e) => e.key === 'Enter' && addAllergy()}
               data-testid="input-new-allergy"
             />
             <Button onClick={addAllergy} data-testid="button-add-allergy">
               <Plus className="h-4 w-4 mr-2" />
-              Add
+              {t('common.save').replace('Save', 'Add')}
             </Button>
           </div>
 
           <div className="border rounded-lg">
             {(anesthesiaSettings?.allergyList || []).length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                No allergies configured. Add one above.
+                {t('anesthesia.settings.noAllergiesConfigured')}
               </div>
             ) : (
               (anesthesiaSettings?.allergyList || []).map((allergy) => (
@@ -841,15 +841,15 @@ export default function AnesthesiaSettings() {
 
         <TabsContent value="medications" className="space-y-4">
           <div className="mb-4">
-            <h3 className="text-lg font-medium">Medication Lists</h3>
+            <h3 className="text-lg font-medium">{t('anesthesia.settings.medicationLists')}</h3>
             <p className="text-sm text-muted-foreground">
-              Manage medication lists used in pre-operative assessments.
+              {t('anesthesia.settings.medicationListsDescription')}
             </p>
           </div>
 
           <div className="space-y-6">
             <div>
-              <h4 className="font-medium mb-3">Anticoagulation Medications</h4>
+              <h4 className="font-medium mb-3">{t('anesthesia.settings.anticoagulationMedications')}</h4>
               <div className="flex gap-2 mb-3">
                 <Input
                   value={editingCategory === 'anticoagulation' ? newItemInput : ''}
@@ -857,13 +857,13 @@ export default function AnesthesiaSettings() {
                     setEditingCategory('anticoagulation');
                     setNewItemInput(e.target.value);
                   }}
-                  placeholder="Add anticoagulation medication..."
+                  placeholder={t('anesthesia.settings.addAnticoagulationMedication')}
                   onKeyPress={(e) => e.key === 'Enter' && addMedication('anticoagulation')}
                   data-testid="input-new-anticoagulation"
                 />
                 <Button onClick={() => addMedication('anticoagulation')} data-testid="button-add-anticoagulation">
                   <Plus className="h-4 w-4 mr-2" />
-                  Add
+                  {t('common.save').replace('Save', 'Add')}
                 </Button>
               </div>
               <div className="border rounded-lg">
@@ -888,7 +888,7 @@ export default function AnesthesiaSettings() {
             </div>
 
             <div>
-              <h4 className="font-medium mb-3">General Medications</h4>
+              <h4 className="font-medium mb-3">{t('anesthesia.settings.generalMedications')}</h4>
               <div className="flex gap-2 mb-3">
                 <Input
                   value={editingCategory === 'general' ? newItemInput : ''}
@@ -896,13 +896,13 @@ export default function AnesthesiaSettings() {
                     setEditingCategory('general');
                     setNewItemInput(e.target.value);
                   }}
-                  placeholder="Add general medication..."
+                  placeholder={t('anesthesia.settings.addGeneralMedication')}
                   onKeyPress={(e) => e.key === 'Enter' && addMedication('general')}
                   data-testid="input-new-general-med"
                 />
                 <Button onClick={() => addMedication('general')} data-testid="button-add-general-med">
                   <Plus className="h-4 w-4 mr-2" />
-                  Add
+                  {t('common.save').replace('Save', 'Add')}
                 </Button>
               </div>
               <div className="border rounded-lg">
@@ -930,25 +930,25 @@ export default function AnesthesiaSettings() {
 
         <TabsContent value="illnesses" className="space-y-4">
           <div className="mb-4">
-            <h3 className="text-lg font-medium">Medical History Lists</h3>
+            <h3 className="text-lg font-medium">{t('anesthesia.settings.medicalHistoryLists')}</h3>
             <p className="text-sm text-muted-foreground">
-              Manage illness options organized by body system for pre-operative assessments.
+              {t('anesthesia.settings.medicalHistoryListsDescription')}
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[
-              { key: 'cardiovascular', label: 'Cardiovascular' },
-              { key: 'pulmonary', label: 'Pulmonary' },
-              { key: 'gastrointestinal', label: 'Gastrointestinal' },
-              { key: 'kidney', label: 'Kidney' },
-              { key: 'metabolic', label: 'Metabolic' },
-              { key: 'neurological', label: 'Neurological' },
-              { key: 'psychiatric', label: 'Psychiatric' },
-              { key: 'skeletal', label: 'Skeletal' },
-              { key: 'woman', label: 'Gynecology' },
-              { key: 'noxen', label: 'Substance Use' },
-              { key: 'children', label: 'Pediatric' },
+              { key: 'cardiovascular', label: t('anesthesia.settings.cardiovascular') },
+              { key: 'pulmonary', label: t('anesthesia.settings.pulmonary') },
+              { key: 'gastrointestinal', label: t('anesthesia.settings.gastrointestinal') },
+              { key: 'kidney', label: t('anesthesia.settings.kidney') },
+              { key: 'metabolic', label: t('anesthesia.settings.metabolic') },
+              { key: 'neurological', label: t('anesthesia.settings.neurological') },
+              { key: 'psychiatric', label: t('anesthesia.settings.psychiatric') },
+              { key: 'skeletal', label: t('anesthesia.settings.skeletal') },
+              { key: 'woman', label: t('anesthesia.settings.gynecology') },
+              { key: 'noxen', label: t('anesthesia.settings.substanceUse') },
+              { key: 'children', label: t('anesthesia.settings.pediatric') },
             ].map(({ key, label }) => (
               <div key={key} className="border rounded-lg p-4">
                 <h4 className="font-medium mb-3">{label}</h4>
@@ -959,7 +959,7 @@ export default function AnesthesiaSettings() {
                       setEditingCategory(key);
                       setNewItemInput(e.target.value);
                     }}
-                    placeholder={`Add condition (e.g., Hypertension, COPD)`}
+                    placeholder={t('anesthesia.settings.addConditionPlaceholder')}
                     onKeyPress={(e) => e.key === 'Enter' && addIllness(key)}
                     className="flex-1"
                     data-testid={`input-new-illness-${key}`}
@@ -995,17 +995,17 @@ export default function AnesthesiaSettings() {
 
         <TabsContent value="checklists" className="space-y-4">
           <div className="mb-4">
-            <h3 className="text-lg font-medium">WHO Surgical Safety Checklists</h3>
+            <h3 className="text-lg font-medium">{t('anesthesia.settings.whoSurgicalSafetyChecklists')}</h3>
             <p className="text-sm text-muted-foreground">
-              Manage checklist items for the three phases of surgical procedures.
+              {t('anesthesia.settings.whoChecklistsDescription')}
             </p>
           </div>
 
           <div className="space-y-6">
             {[
-              { key: 'signIn' as const, label: 'Sign In (Before Induction)' },
-              { key: 'timeOut' as const, label: 'Time Out (Before Incision)' },
-              { key: 'signOut' as const, label: 'Sign Out (Before Patient Leaves OR)' },
+              { key: 'signIn' as const, label: t('anesthesia.settings.signInBeforeInduction') },
+              { key: 'timeOut' as const, label: t('anesthesia.settings.timeOutBeforeIncision') },
+              { key: 'signOut' as const, label: t('anesthesia.settings.signOutBeforePatientLeavesOR') },
             ].map(({ key, label }) => (
               <div key={key} className="border rounded-lg p-4">
                 <h4 className="font-medium mb-3">{label}</h4>
@@ -1016,13 +1016,13 @@ export default function AnesthesiaSettings() {
                       setEditingCategory(key);
                       setNewItemInput(e.target.value);
                     }}
-                    placeholder="Add checklist item..."
+                    placeholder={t('anesthesia.settings.addChecklistItem')}
                     onKeyPress={(e) => e.key === 'Enter' && addChecklistItem(key)}
                     data-testid={`input-new-checklist-${key}`}
                   />
                   <Button onClick={() => addChecklistItem(key)} data-testid={`button-add-checklist-${key}`}>
                     <Plus className="h-4 w-4 mr-2" />
-                    Add
+                    {t('common.save').replace('Save', 'Add')}
                   </Button>
                 </div>
                 <div className="space-y-1">
@@ -1056,33 +1056,33 @@ export default function AnesthesiaSettings() {
         <DialogContent data-testid="dialog-anesthesia-config" className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              Configure Medication/Infusion
+              {t('anesthesia.settings.configureMedicationInfusion')}
             </DialogTitle>
           </DialogHeader>
 
           <Tabs defaultValue="config" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="config">Configuration</TabsTrigger>
-              <TabsTrigger value="groups">Groups</TabsTrigger>
+              <TabsTrigger value="config">{t('anesthesia.settings.configuration')}</TabsTrigger>
+              <TabsTrigger value="groups">{t('anesthesia.settings.groups')}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="config" className="mt-4">
               <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
             {/* Item Name */}
             <div>
-              <Label htmlFor="item-name">Item Name</Label>
+              <Label htmlFor="item-name">{t('anesthesia.settings.itemName')}</Label>
               <Input
                 id="item-name"
                 value={itemName}
                 onChange={(e) => setItemName(e.target.value)}
                 data-testid="input-item-name"
-                placeholder="Enter item name"
+                placeholder={t('anesthesia.settings.enterItemName')}
               />
             </div>
 
             {/* Anesthesia Type */}
             <div>
-              <Label htmlFor="anesthesia-type">Item Type</Label>
+              <Label htmlFor="anesthesia-type">{t('anesthesia.settings.itemType')}</Label>
               <Select
                 value={anesthesiaType}
                 onValueChange={(value) => setAnesthesiaType(value as 'medication' | 'infusion')}
@@ -1091,45 +1091,45 @@ export default function AnesthesiaSettings() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="medication">Medication</SelectItem>
-                  <SelectItem value="infusion">Infusion</SelectItem>
+                  <SelectItem value="medication">{t('anesthesia.settings.medication')}</SelectItem>
+                  <SelectItem value="infusion">{t('anesthesia.settings.infusion')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Ampule/Bag Content - for both medications and infusions */}
             <div>
-              <Label htmlFor="ampule-content">Ampule/Bag Content</Label>
+              <Label htmlFor="ampule-content">{t('anesthesia.settings.ampuleBagContent')}</Label>
               <Input
                 id="ampule-content"
-                placeholder="e.g., 50 mg, 1000 ml, 0.1 mg"
+                placeholder={t('anesthesia.settings.ampuleBagContentPlaceholder')}
                 value={ampuleContent}
                 onChange={(e) => setAmpuleContent(e.target.value)}
                 data-testid="input-ampule-content"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Enter the total amount per ampule or bag (e.g., 50 mg for Rocuronium, 1000 ml for Ringerfundin)
+                {t('anesthesia.settings.ampuleBagContentHelp')}
               </p>
             </div>
 
             {/* Default Dose */}
             <div>
-              <Label htmlFor="default-dose">Default Dose</Label>
+              <Label htmlFor="default-dose">{t('anesthesia.settings.defaultDose')}</Label>
               <Input
                 id="default-dose"
                 value={defaultDose}
                 onChange={(e) => setDefaultDose(e.target.value)}
                 data-testid="input-default-dose"
-                placeholder="e.g., 2, 0.1, or range like 25-35-50"
+                placeholder={t('anesthesia.settings.defaultDosePlaceholder')}
               />
             </div>
 
             {/* Administration Route - for both medications and infusions */}
             <div>
-              <Label htmlFor="route">Administration Route</Label>
+              <Label htmlFor="route">{t('anesthesia.settings.administrationRoute')}</Label>
               <Input
                 id="route"
-                placeholder="e.g., i.v., i.m., s.c."
+                placeholder={t('anesthesia.settings.administrationRoutePlaceholder')}
                 value={administrationRoute}
                 onChange={(e) => setAdministrationRoute(e.target.value)}
                 data-testid="input-route"
@@ -1139,16 +1139,16 @@ export default function AnesthesiaSettings() {
             {/* Medication Fields */}
             {anesthesiaType === 'medication' && (
               <div>
-                <Label htmlFor="admin-unit">Administration Unit</Label>
+                <Label htmlFor="admin-unit">{t('anesthesia.settings.administrationUnit')}</Label>
                 <Select value={administrationUnit} onValueChange={setAdministrationUnit}>
                   <SelectTrigger id="admin-unit" data-testid="select-admin-unit">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="μg">μg (micrograms)</SelectItem>
-                    <SelectItem value="mg">mg (milligrams)</SelectItem>
-                    <SelectItem value="g">g (grams)</SelectItem>
-                    <SelectItem value="ml">ml (milliliters)</SelectItem>
+                    <SelectItem value="μg">{t('anesthesia.settings.micrograms')}</SelectItem>
+                    <SelectItem value="mg">{t('anesthesia.settings.milligrams')}</SelectItem>
+                    <SelectItem value="g">{t('anesthesia.settings.grams')}</SelectItem>
+                    <SelectItem value="ml">{t('anesthesia.settings.milliliters')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1165,17 +1165,16 @@ export default function AnesthesiaSettings() {
                     data-testid="checkbox-rate-controlled"
                   />
                   <Label htmlFor="rate-controlled" className="cursor-pointer">
-                    Rate-controlled infusion
+                    {t('anesthesia.settings.rateControlledInfusion')}
                   </Label>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Rate-controlled infusions show rate changes with vertical ticks. 
-                  Free-flow infusions (e.g., Ringer) show as dashed lines.
+                  {t('anesthesia.settings.rateControlledInfusionHelp')}
                 </p>
 
                 {isRateControlled && (
                   <div>
-                    <Label htmlFor="rate-unit">Rate Unit</Label>
+                    <Label htmlFor="rate-unit">{t('anesthesia.settings.rateUnit')}</Label>
                     <Select value={rateUnit} onValueChange={setRateUnit}>
                       <SelectTrigger id="rate-unit" data-testid="select-rate-unit">
                         <SelectValue />
@@ -1198,7 +1197,7 @@ export default function AnesthesiaSettings() {
             {/* Medication Group */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="medication-group">Medication Group</Label>
+                <Label htmlFor="medication-group">{t('anesthesia.settings.medicationGroup')}</Label>
                 <Button
                   type="button"
                   variant="ghost"
@@ -1208,13 +1207,13 @@ export default function AnesthesiaSettings() {
                   className="h-6 text-xs"
                 >
                   <Plus className="h-3 w-3 mr-1" />
-                  Add
+                  {t('common.save').replace('Save', 'Add')}
                 </Button>
               </div>
               {showNewGroupInput && (
                 <div className="flex items-center gap-2">
                   <Input
-                    placeholder="New group name"
+                    placeholder={t('anesthesia.settings.newGroupName')}
                     value={newGroupName}
                     onChange={(e) => setNewGroupName(e.target.value)}
                     onKeyDown={(e) => {
@@ -1244,7 +1243,7 @@ export default function AnesthesiaSettings() {
                     disabled={!newGroupName.trim()}
                     data-testid="button-save-new-group"
                   >
-                    Save
+                    {t('common.save')}
                   </Button>
                 </div>
               )}
@@ -1254,7 +1253,7 @@ export default function AnesthesiaSettings() {
                   onValueChange={(value) => setMedicationGroup(value || '')}
                 >
                   <SelectTrigger id="medication-group" data-testid="select-medication-group" className="flex-1">
-                    <SelectValue placeholder="Select a group" />
+                    <SelectValue placeholder={t('anesthesia.settings.selectAGroup')} />
                   </SelectTrigger>
                   <SelectContent>
                     {medicationGroups.map((group) => (
@@ -1287,7 +1286,7 @@ export default function AnesthesiaSettings() {
             {/* Administration Group */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="administration-group">Administration Group</Label>
+                <Label htmlFor="administration-group">{t('anesthesia.settings.administrationGroup')}</Label>
                 <Button
                   type="button"
                   variant="ghost"
@@ -1297,13 +1296,13 @@ export default function AnesthesiaSettings() {
                   className="h-6 text-xs"
                 >
                   <Plus className="h-3 w-3 mr-1" />
-                  Add
+                  {t('common.save').replace('Save', 'Add')}
                 </Button>
               </div>
               {showNewAdminGroupInput && (
                 <div className="flex items-center gap-2">
                   <Input
-                    placeholder="New group name"
+                    placeholder={t('anesthesia.settings.newGroupName')}
                     value={newAdminGroupName}
                     onChange={(e) => setNewAdminGroupName(e.target.value)}
                     onKeyDown={(e) => {
@@ -1333,7 +1332,7 @@ export default function AnesthesiaSettings() {
                     disabled={!newAdminGroupName.trim()}
                     data-testid="button-save-new-admin-group"
                   >
-                    Save
+                    {t('common.save')}
                   </Button>
                 </div>
               )}
@@ -1343,7 +1342,7 @@ export default function AnesthesiaSettings() {
                   onValueChange={(value) => setAdministrationGroup(value || '')}
                 >
                   <SelectTrigger id="administration-group" data-testid="select-administration-group" className="flex-1">
-                    <SelectValue placeholder="Select a group" />
+                    <SelectValue placeholder={t('anesthesia.settings.selectAGroup')} />
                   </SelectTrigger>
                   <SelectContent>
                     {administrationGroups.map((group) => (
@@ -1382,7 +1381,7 @@ export default function AnesthesiaSettings() {
               onClick={() => setConfigDialogOpen(false)}
               data-testid="button-cancel-config"
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleConfigSave}
@@ -1392,10 +1391,10 @@ export default function AnesthesiaSettings() {
               {updateConfigMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
+                  {t('anesthesia.settings.saving')}
                 </>
               ) : (
-                "Save Configuration"
+                t('anesthesia.settings.saveConfiguration')
               )}
             </Button>
           </DialogFooter>
@@ -1406,23 +1405,23 @@ export default function AnesthesiaSettings() {
       <Dialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen}>
         <DialogContent data-testid="dialog-group-form">
           <DialogHeader>
-            <DialogTitle>{editingGroup ? 'Edit Group' : 'Add Group'}</DialogTitle>
+            <DialogTitle>{editingGroup ? t('anesthesia.settings.editGroup') : t('anesthesia.settings.addGroup')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="group-name">Group Name</Label>
+              <Label htmlFor="group-name">{t('anesthesia.settings.groupName')}</Label>
               <Input
                 id="group-name"
                 value={groupFormName}
                 onChange={(e) => setGroupFormName(e.target.value)}
-                placeholder="Enter group name"
+                placeholder={t('anesthesia.settings.enterGroupName')}
                 data-testid="input-group-name"
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setGroupDialogOpen(false)} data-testid="button-cancel-group">
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={() => {
@@ -1438,8 +1437,8 @@ export default function AnesthesiaSettings() {
               data-testid="button-save-group"
             >
               {editingGroup 
-                ? (updateAdminGroupMutation.isPending ? 'Updating...' : 'Update') 
-                : (createAdminGroupMutation.isPending ? 'Creating...' : 'Create')
+                ? (updateAdminGroupMutation.isPending ? t('anesthesia.settings.updating') : t('anesthesia.settings.update')) 
+                : (createAdminGroupMutation.isPending ? t('anesthesia.settings.creating') : t('anesthesia.settings.create'))
               }
             </Button>
           </DialogFooter>
@@ -1450,23 +1449,23 @@ export default function AnesthesiaSettings() {
       <Dialog open={roomDialogOpen} onOpenChange={setRoomDialogOpen}>
         <DialogContent data-testid="dialog-room-form">
           <DialogHeader>
-            <DialogTitle>{editingRoom ? 'Edit Surgery Room' : 'Add Surgery Room'}</DialogTitle>
+            <DialogTitle>{editingRoom ? t('anesthesia.settings.editSurgeryRoom') : t('anesthesia.settings.addSurgeryRoom')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="room-name">Room Name</Label>
+              <Label htmlFor="room-name">{t('anesthesia.settings.roomName')}</Label>
               <Input
                 id="room-name"
                 value={roomFormName}
                 onChange={(e) => setRoomFormName(e.target.value)}
-                placeholder="Enter room name (e.g., OR 1, OR 2)"
+                placeholder={t('anesthesia.settings.enterRoomName')}
                 data-testid="input-room-name"
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRoomDialogOpen(false)} data-testid="button-cancel-room">
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={() => {
@@ -1481,7 +1480,7 @@ export default function AnesthesiaSettings() {
               disabled={!roomFormName.trim() || (editingRoom ? updateRoomMutation.isPending : createRoomMutation.isPending)}
               data-testid="button-save-room"
             >
-              {editingRoom ? updateRoomMutation.isPending ? 'Updating...' : 'Update' : createRoomMutation.isPending ? 'Creating...' : 'Create'}
+              {editingRoom ? updateRoomMutation.isPending ? t('anesthesia.settings.updating') : t('anesthesia.settings.update') : createRoomMutation.isPending ? t('anesthesia.settings.creating') : t('anesthesia.settings.create')}
             </Button>
           </DialogFooter>
         </DialogContent>
