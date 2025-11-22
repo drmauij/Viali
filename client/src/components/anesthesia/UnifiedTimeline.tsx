@@ -5140,29 +5140,20 @@ export function UnifiedTimeline({
           setShowBulkVitalsDialog(true);
         }}
         onVitalPointEdit={(type, index, time, value) => {
-          console.log('[UNIFIED-TIMELINE] onVitalPointEdit called:', { type, index, time, value });
-          
-          // Find all vitals at this timestamp for editing
+          // Open ManualVitalsDialog for single-value entry/editing
+          // Find all vitals at this timestamp for pre-filling
           const hrAtTime = hrDataPoints.find(pt => Math.abs(pt[0] - time) < 1000)?.[1];
           const sysAtTime = bpDataPoints.sys.find(pt => Math.abs(pt[0] - time) < 1000)?.[1];
           const diaAtTime = bpDataPoints.dia.find(pt => Math.abs(pt[0] - time) < 1000)?.[1];
           const spo2AtTime = spo2DataPoints.find(pt => Math.abs(pt[0] - time) < 1000)?.[1];
           
-          const initialVals = {
+          setManualVitalsTime(time);
+          setManualVitalsInitialValues({
             hr: hrAtTime,
             sys: sysAtTime,
             dia: diaAtTime,
             spo2: spo2AtTime,
-          };
-          
-          console.log('[UNIFIED-TIMELINE] Setting manual vitals dialog:', {
-            time,
-            initialVals,
-            willShowDialog: true,
           });
-          
-          setManualVitalsTime(time);
-          setManualVitalsInitialValues(initialVals);
           setShowManualVitalsDialog(true);
         }}
       />

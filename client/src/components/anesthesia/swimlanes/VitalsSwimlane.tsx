@@ -143,86 +143,6 @@ export function VitalsSwimlane({
   };
 
   /**
-   * Find if there's a vital point near the click position
-   */
-  const findNearbyVitalPoint = (clickTime: number, clickY: number, rect: DOMRect) => {
-    const TIME_THRESHOLD = 30000; // 30 seconds tolerance in milliseconds
-    const PIXEL_THRESHOLD = 15; // 15 pixels tolerance for Y position
-    
-    const yPercent = clickY / rect.height;
-    
-    console.log('[FIND-NEARBY] Starting search:', {
-      clickTime: new Date(clickTime).toLocaleTimeString(),
-      clickY,
-      yPercent,
-      rectHeight: rect.height,
-      hrPointsLength: hrDataPoints.length,
-      bpSysLength: bpDataPoints.sys.length,
-    });
-    
-    // Check HR points
-    for (let i = 0; i < hrDataPoints.length; i++) {
-      const [time, value] = hrDataPoints[i];
-      const timeDiff = Math.abs(time - clickTime);
-      const expectedYPercent = 1 - (value / 240); // HR uses 0-240 scale
-      const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
-      
-      console.log(`[FIND-NEARBY] HR point ${i}:`, {
-        pointTime: new Date(time).toLocaleTimeString(),
-        value,
-        timeDiff,
-        timeMatch: timeDiff <= TIME_THRESHOLD,
-        expectedYPercent,
-        pixelDiff,
-        pixelMatch: pixelDiff <= PIXEL_THRESHOLD,
-      });
-      
-      if (timeDiff <= TIME_THRESHOLD && pixelDiff <= PIXEL_THRESHOLD) {
-        console.log('[FIND-NEARBY] Found HR match!');
-        return { type: 'hr' as const, index: i, time, value };
-      }
-    }
-    
-    // Check systolic BP points
-    for (let i = 0; i < bpDataPoints.sys.length; i++) {
-      const [time, value] = bpDataPoints.sys[i];
-      if (Math.abs(time - clickTime) <= TIME_THRESHOLD) {
-        const expectedYPercent = 1 - (value / 240); // BP uses 0-240 scale
-        const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
-        if (pixelDiff <= PIXEL_THRESHOLD) {
-          return { type: 'bp-sys' as const, index: i, time, value };
-        }
-      }
-    }
-    
-    // Check diastolic BP points
-    for (let i = 0; i < bpDataPoints.dia.length; i++) {
-      const [time, value] = bpDataPoints.dia[i];
-      if (Math.abs(time - clickTime) <= TIME_THRESHOLD) {
-        const expectedYPercent = 1 - (value / 240); // BP uses 0-240 scale
-        const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
-        if (pixelDiff <= PIXEL_THRESHOLD) {
-          return { type: 'bp-dia' as const, index: i, time, value };
-        }
-      }
-    }
-    
-    // Check SpO2 points (uses different scale: 45-105)
-    for (let i = 0; i < spo2DataPoints.length; i++) {
-      const [time, value] = spo2DataPoints[i];
-      if (Math.abs(time - clickTime) <= TIME_THRESHOLD) {
-        const expectedYPercent = 1 - ((value - 45) / (105 - 45)); // SpO2 uses 45-105 scale
-        const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
-        if (pixelDiff <= PIXEL_THRESHOLD) {
-          return { type: 'spo2' as const, index: i, time, value };
-        }
-      }
-    }
-    
-    return null;
-  };
-
-  /**
    * Handle click to add vital point
    */
   const handleVitalsClick = (e: React.MouseEvent) => {
@@ -256,34 +176,11 @@ export function VitalsSwimlane({
       return;
     }
 
-    // If no tool mode is active, check if clicking on existing point or empty space
+    // If no tool mode is active, open ManualVitalsDialog for single-value entry
     if (!activeToolMode) {
-      // Use raw click time for hit-testing to avoid missing existing points
-      const nearbyPoint = findNearbyVitalPoint(rawClickTime, y, rect);
-      
-      console.log('[VITALS-CLICK] No tool mode active:', {
-        rawClickTime,
-        snappedClickTime,
-        nearbyPoint,
-        hrPointsCount: hrDataPoints.length,
-        bpSysCount: bpDataPoints.sys.length,
-        bpDiaCount: bpDataPoints.dia.length,
-        spo2Count: spo2DataPoints.length,
-      });
-      
-      if (nearbyPoint) {
-        // Clicking on existing point - open edit dialog
-        console.log('[VITALS-CLICK] Found nearby point, calling onVitalPointEdit:', nearbyPoint);
-        setIsProcessingClick(false);
-        onVitalPointEdit?.(nearbyPoint.type, nearbyPoint.index, nearbyPoint.time, nearbyPoint.value);
-        return;
-      } else {
-        // Clicking on empty space - open bulk vitals dialog with snapped time
-        console.log('[VITALS-CLICK] No nearby point found, opening bulk dialog');
-        setIsProcessingClick(false);
-        onBulkVitalsOpen?.(snappedClickTime);
-        return;
-      }
+      setIsProcessingClick(false);
+      onVitalPointEdit?.(null, 0, snappedClickTime, 0);
+      return;
     }
 
     // On touch devices, calculate value directly from click position
