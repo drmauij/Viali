@@ -38,6 +38,7 @@ import {
   insertAnesthesiaInstallationSchema,
   insertAnesthesiaTechniqueDetailSchema,
   insertAnesthesiaAirwayManagementSchema,
+  insertDifficultAirwayReportSchema,
   insertAnesthesiaGeneralTechniqueSchema,
   insertAnesthesiaNeuraxialBlockSchema,
   insertAnesthesiaPeripheralBlockSchema,
@@ -66,7 +67,8 @@ import {
   anesthesiaEvents,
   anesthesiaPositions,
   anesthesiaStaff,
-  preOpAssessments
+  preOpAssessments,
+  anesthesiaAirwayManagement
 } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, inArray, sql, asc, desc } from "drizzle-orm";
@@ -7373,6 +7375,66 @@ If unable to parse any drugs, return:
     } catch (error) {
       console.error("Error deleting airway management:", error);
       res.status(500).json({ message: "Failed to delete airway management" });
+    }
+  });
+
+  // Difficult Airway Report Routes
+  
+  // Get difficult airway report by airway management ID
+  app.get('/api/airway/:airwayId/difficult-airway-report', isAuthenticated, async (req: any, res) => {
+    try {
+      const { airwayId } = req.params;
+      const userId = req.user.id;
+      
+      // Get the airway management record first
+      const airway = await db.select().from(anesthesiaAirwayManagement).where(eq(anesthesiaAirwayManagement.id, airwayId)).limit(1);
+      if (!airway[0]) return res.status(404).json({ message: "Airway management not found" });
+      
+      // Check access
+      const record = await storage.getAnesthesiaRecordById(airway[0].anesthesiaRecordId);
+      if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) return res.status(404).json({ message: "Surgery not found" });
+      const hospitals = await storage.getUserHospitals(userId);
+      if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
+      
+      const report = await storage.getDifficultAirwayReport(airwayId);
+      res.json(report || null);
+    } catch (error) {
+      console.error("Error fetching difficult airway report:", error);
+      res.status(500).json({ message: "Failed to fetch difficult airway report" });
+    }
+  });
+  
+  // Create/update difficult airway report (upsert)
+  app.post('/api/airway/:airwayId/difficult-airway-report', isAuthenticated, async (req: any, res) => {
+    try {
+      const { airwayId } = req.params;
+      const userId = req.user.id;
+      
+      // Get the airway management record first
+      const airway = await db.select().from(anesthesiaAirwayManagement).where(eq(anesthesiaAirwayManagement.id, airwayId)).limit(1);
+      if (!airway[0]) return res.status(404).json({ message: "Airway management not found" });
+      
+      // Check access
+      const record = await storage.getAnesthesiaRecordById(airway[0].anesthesiaRecordId);
+      if (!record) return res.status(404).json({ message: "Anesthesia record not found" });
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) return res.status(404).json({ message: "Surgery not found" });
+      const hospitals = await storage.getUserHospitals(userId);
+      if (!hospitals.some(h => h.id === surgery.hospitalId)) return res.status(403).json({ message: "Access denied" });
+      
+      const validated = insertDifficultAirwayReportSchema.parse({ 
+        ...req.body, 
+        airwayManagementId: airwayId,
+        createdBy: userId 
+      });
+      const report = await storage.upsertDifficultAirwayReport(validated);
+      res.json(report);
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      console.error("Error upserting difficult airway report:", error);
+      res.status(500).json({ message: "Failed to upsert difficult airway report" });
     }
   });
 

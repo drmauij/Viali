@@ -36,6 +36,7 @@ import {
   anesthesiaInstallations,
   anesthesiaTechniqueDetails,
   anesthesiaAirwayManagement,
+  difficultAirwayReports,
   anesthesiaGeneralTechnique,
   anesthesiaNeuraxialBlocks,
   anesthesiaPeripheralBlocks,
@@ -104,6 +105,8 @@ import {
   type InsertAnesthesiaTechniqueDetail,
   type AnesthesiaAirwayManagement,
   type InsertAnesthesiaAirwayManagement,
+  type DifficultAirwayReport,
+  type InsertDifficultAirwayReport,
   type AnesthesiaGeneralTechnique,
   type InsertAnesthesiaGeneralTechnique,
   type AnesthesiaNeuraxialBlock,
@@ -392,6 +395,11 @@ export interface IStorage {
   getAirwayManagement(anesthesiaRecordId: string): Promise<AnesthesiaAirwayManagement | undefined>;
   upsertAirwayManagement(airway: InsertAnesthesiaAirwayManagement): Promise<AnesthesiaAirwayManagement>;
   deleteAirwayManagement(anesthesiaRecordId: string): Promise<void>;
+  
+  // Difficult Airway Report operations
+  getDifficultAirwayReport(airwayManagementId: string): Promise<DifficultAirwayReport | undefined>;
+  upsertDifficultAirwayReport(report: InsertDifficultAirwayReport): Promise<DifficultAirwayReport>;
+  deleteDifficultAirwayReport(airwayManagementId: string): Promise<void>;
   
   // Anesthesia General Technique operations
   getGeneralTechnique(anesthesiaRecordId: string): Promise<AnesthesiaGeneralTechnique | undefined>;
@@ -3159,6 +3167,48 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAirwayManagement(anesthesiaRecordId: string): Promise<void> {
     await db.delete(anesthesiaAirwayManagement).where(eq(anesthesiaAirwayManagement.anesthesiaRecordId, anesthesiaRecordId));
+  }
+
+  // Difficult Airway Report operations
+  async getDifficultAirwayReport(airwayManagementId: string): Promise<DifficultAirwayReport | undefined> {
+    const [report] = await db
+      .select()
+      .from(difficultAirwayReports)
+      .where(eq(difficultAirwayReports.airwayManagementId, airwayManagementId));
+    return report;
+  }
+
+  async upsertDifficultAirwayReport(report: InsertDifficultAirwayReport): Promise<DifficultAirwayReport> {
+    const [upserted] = await db
+      .insert(difficultAirwayReports)
+      .values(report)
+      .onConflictDoUpdate({
+        target: difficultAirwayReports.airwayManagementId,
+        set: {
+          description: report.description,
+          techniquesAttempted: report.techniquesAttempted,
+          finalTechnique: report.finalTechnique,
+          equipmentUsed: report.equipmentUsed,
+          complications: report.complications,
+          recommendations: report.recommendations,
+          patientInformed: report.patientInformed,
+          patientInformedAt: report.patientInformedAt,
+          patientInformedBy: report.patientInformedBy,
+          letterSentToPatient: report.letterSentToPatient,
+          letterSentAt: report.letterSentAt,
+          patientEmail: report.patientEmail,
+          gpNotified: report.gpNotified,
+          gpNotifiedAt: report.gpNotifiedAt,
+          gpEmail: report.gpEmail,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return upserted;
+  }
+
+  async deleteDifficultAirwayReport(airwayManagementId: string): Promise<void> {
+    await db.delete(difficultAirwayReports).where(eq(difficultAirwayReports.airwayManagementId, airwayManagementId));
   }
 
   // Anesthesia General Technique operations
