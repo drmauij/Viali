@@ -1002,6 +1002,9 @@ export const anesthesiaMedications = pgTable("anesthesia_medications", {
   rate: varchar("rate"), // e.g., "5 ml/hr", "0.1 μg/kg/min"
   endTimestamp: timestamp("end_timestamp", { withTimezone: true }), // When infusion stopped
   
+  // Session tracking for infusions
+  infusionSessionId: varchar("infusion_session_id"), // UUID to group related start/stop/rate_change events
+  
   // User tracking
   administeredBy: varchar("administered_by").references(() => users.id),
   
@@ -1011,6 +1014,7 @@ export const anesthesiaMedications = pgTable("anesthesia_medications", {
   index("idx_anesthesia_medications_item").on(table.itemId),
   index("idx_anesthesia_medications_timestamp").on(table.timestamp),
   index("idx_anesthesia_medications_type").on(table.type),
+  index("idx_anesthesia_medications_session").on(table.infusionSessionId),
 ]);
 
 // Anesthesia Events (Timeline markers)

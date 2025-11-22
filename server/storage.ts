@@ -3334,14 +3334,16 @@ export class DatabaseStorage implements IStorage {
         const startEvents = meds.filter(m => m.type === 'infusion_start');
         totalQty = startEvents.length;
       } else if (isRateControlled) {
-        const allEvents = meds.sort((a, b) => 
-          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-        );
+        const sessionMap = new Map<string, Array<typeof meds[0]>>();
         
-        type PendingSession = {
-          start: { timestamp: Date; rate: string };
-          rateChanges: Array<{ timestamp: Date; rate: string }>;
-        };
+        for (const med of meds) {
+          if (med.infusionSessionId) {
+            if (!sessionMap.has(med.infusionSessionId)) {
+              sessionMap.set(med.infusionSessionId, []);
+            }
+            sessionMap.get(med.infusionSessionId)!.push(med);
+          }
+        }
         
         type InfusionSession = {
           start: { timestamp: Date; rate: string };
@@ -3350,38 +3352,28 @@ export class DatabaseStorage implements IStorage {
         };
         
         const sessions: InfusionSession[] = [];
-        const sessionQueue: PendingSession[] = [];
         
-        for (const event of allEvents) {
-          const eventTime = new Date(event.timestamp);
+        for (const [sessionId, events] of sessionMap.entries()) {
+          const sortedEvents = events.sort((a, b) => 
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
           
-          if (event.type === 'infusion_start') {
-            sessionQueue.push({
-              start: { timestamp: eventTime, rate: event.rate || '0' },
-              rateChanges: []
+          const startEvent = sortedEvents.find(e => e.type === 'infusion_start');
+          const stopEvent = sortedEvents.find(e => e.type === 'infusion_stop');
+          
+          if (startEvent && stopEvent) {
+            const rateChanges = sortedEvents
+              .filter(e => e.type === 'rate_change')
+              .map(e => ({ 
+                timestamp: new Date(e.timestamp), 
+                rate: e.rate || '0' 
+              }));
+            
+            sessions.push({
+              start: { timestamp: new Date(startEvent.timestamp), rate: startEvent.rate || '0' },
+              stop: new Date(stopEvent.timestamp),
+              rateChanges
             });
-          } else if (event.type === 'rate_change') {
-            if (sessionQueue.length > 0) {
-              const latestSession = sessionQueue[sessionQueue.length - 1];
-              if (eventTime.getTime() > latestSession.start.timestamp.getTime()) {
-                latestSession.rateChanges.push({ 
-                  timestamp: eventTime, 
-                  rate: event.rate || '0' 
-                });
-              }
-            }
-          } else if (event.type === 'infusion_stop') {
-            const matchingSessionIndex = sessionQueue.findIndex(
-              pending => eventTime.getTime() > pending.start.timestamp.getTime()
-            );
-            if (matchingSessionIndex !== -1) {
-              const pendingSession = sessionQueue.splice(matchingSessionIndex, 1)[0];
-              sessions.push({
-                start: pendingSession.start,
-                stop: eventTime,
-                rateChanges: pendingSession.rateChanges
-              });
-            }
           }
         }
         
