@@ -16,6 +16,13 @@ export interface BPPointWithId {
   mean?: number;
 }
 
+export interface TOFPointWithId {
+  id: string;
+  timestamp: string;
+  value: string; // Fraction value (e.g., "0/4", "1/4", "2/4", "3/4", "4/4")
+  percentage?: number; // Optional T4/T1 ratio percentage
+}
+
 export interface ClinicalSnapshotData {
   hr?: VitalPointWithId[];
   bp?: BPPointWithId[];
@@ -33,6 +40,8 @@ export interface ClinicalSnapshotData {
   gastricTube?: VitalPointWithId[];
   drainage?: VitalPointWithId[];
   vomit?: VitalPointWithId[];
+  bis?: VitalPointWithId[];
+  tof?: TOFPointWithId[];
 }
 
 export interface ClinicalSnapshot {
@@ -368,6 +377,197 @@ export function useDeleteVitalPoint(anesthesiaRecordId: string | undefined) {
               break;
             }
           }
+        }
+
+        queryClient.setQueryData<ClinicalSnapshot>(
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+          {
+            ...previousSnapshot,
+            data: updatedData,
+          }
+        );
+      }
+
+      return { previousSnapshot };
+    },
+    onError: (err, pointId, context) => {
+      if (context?.previousSnapshot) {
+        queryClient.setQueryData(
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+          context.previousSnapshot
+        );
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+      });
+    },
+  });
+}
+
+// Hook to add a TOF point
+export function useAddTOFPoint(anesthesiaRecordId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      timestamp: string;
+      value: string;
+      percentage?: number;
+    }) => {
+      return await apiRequest(
+        'POST',
+        `/api/anesthesia/tof`,
+        { anesthesiaRecordId, ...data }
+      );
+    },
+    onMutate: async (newPoint) => {
+      await queryClient.cancelQueries({
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+      });
+
+      const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
+        `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
+      ]);
+
+      if (previousSnapshot) {
+        const optimisticId = `temp-${Date.now()}-${Math.random()}`;
+        const newTOFPoint: TOFPointWithId = {
+          id: optimisticId,
+          timestamp: newPoint.timestamp,
+          value: newPoint.value,
+          percentage: newPoint.percentage,
+        };
+
+        queryClient.setQueryData<ClinicalSnapshot>(
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+          {
+            ...previousSnapshot,
+            data: {
+              ...previousSnapshot.data,
+              tof: [
+                ...(previousSnapshot.data.tof || []),
+                newTOFPoint,
+              ].sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
+            },
+          }
+        );
+      }
+
+      return { previousSnapshot };
+    },
+    onError: (err, newPoint, context) => {
+      if (context?.previousSnapshot) {
+        queryClient.setQueryData(
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+          context.previousSnapshot
+        );
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+      });
+    },
+  });
+}
+
+// Hook to update a TOF point
+export function useUpdateTOFPoint(anesthesiaRecordId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      pointId: string;
+      value?: string;
+      percentage?: number;
+      timestamp?: string;
+    }) => {
+      return await apiRequest(
+        'PATCH',
+        `/api/anesthesia/tof/${data.pointId}`,
+        { value: data.value, percentage: data.percentage, timestamp: data.timestamp }
+      );
+    },
+    onMutate: async (updates) => {
+      await queryClient.cancelQueries({
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+      });
+
+      const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
+        `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
+      ]);
+
+      if (previousSnapshot) {
+        const updatedData = { ...previousSnapshot.data };
+        const tofPoints = updatedData.tof || [];
+        const index = tofPoints.findIndex((p: any) => p.id === updates.pointId);
+        
+        if (index !== -1) {
+          const updatedPoints = [...tofPoints];
+          updatedPoints[index] = {
+            ...updatedPoints[index],
+            ...updates,
+          };
+          // Re-sort after update
+          updatedPoints.sort((a: any, b: any) => a.timestamp.localeCompare(b.timestamp));
+          updatedData.tof = updatedPoints;
+        }
+
+        queryClient.setQueryData<ClinicalSnapshot>(
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+          {
+            ...previousSnapshot,
+            data: updatedData,
+          }
+        );
+      }
+
+      return { previousSnapshot };
+    },
+    onError: (err, updates, context) => {
+      if (context?.previousSnapshot) {
+        queryClient.setQueryData(
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+          context.previousSnapshot
+        );
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+      });
+    },
+  });
+}
+
+// Hook to delete a TOF point
+export function useDeleteTOFPoint(anesthesiaRecordId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (pointId: string) => {
+      return await apiRequest(
+        'DELETE',
+        `/api/anesthesia/tof/${pointId}`
+      );
+    },
+    onMutate: async (pointId) => {
+      await queryClient.cancelQueries({
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+      });
+
+      const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
+        `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
+      ]);
+
+      if (previousSnapshot) {
+        const updatedData = { ...previousSnapshot.data };
+        const tofPoints = updatedData.tof || [];
+        const filtered = tofPoints.filter((p: any) => p.id !== pointId);
+        if (filtered.length < tofPoints.length) {
+          updatedData.tof = filtered;
         }
 
         queryClient.setQueryData<ClinicalSnapshot>(
