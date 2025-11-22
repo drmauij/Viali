@@ -37,6 +37,8 @@ Core design decisions include:
 - **BIS and TOF Monitoring**: Integrated monitoring for depth of anesthesia (BIS) and neuromuscular blockade (TOF) with dedicated CRUD operations.
 - **Automated Inventory Usage Calculation**: Intelligent system for automatically calculating medication usage from timeline administration data, supporting manual overrides with audit trails.
 - **Anesthesia Documentation & Checklists**: Comprehensive case documentation system covering technique documentation and WHO Surgical Safety Checklist phases with electronic signatures and server-side audit trails.
+- **Common Event Quick-Add System**: Streamlined event logging with one-click common event buttons (Team Timeout, Intubation, Extubation, Eye Protection, Warm Touch) that immediately save to timeline with icon-based visual differentiation. Events render with specific icons based on event type, with fallback to generic icon for custom text entries.
+- **OP Calendar Timeline Status Indicators**: Color-coded surgery status visualization in OP calendar (red=surgical incision, yellow=surgical suture, green=anesthesia/surgery end) with conditional PACU button enablement based on anesthesia presence end marker.
 
 ## External Dependencies
 

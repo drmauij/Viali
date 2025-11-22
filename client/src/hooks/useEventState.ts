@@ -43,6 +43,7 @@ export interface EventComment {
   id: string;
   time: number;
   text: string;
+  eventType?: string | null; // Type for common events (team_timeout, intubation, etc.)
   anesthesiaRecordId?: number; // Optional for new comments
 }
 

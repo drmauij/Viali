@@ -937,6 +937,7 @@ export function UnifiedTimeline({
         id: event.id,
         time: new Date(event.timestamp).getTime(),
         text: event.description || event.eventType, // Use description as text, fallback to eventType
+        eventType: event.eventType, // Include eventType for icon rendering
         anesthesiaRecordId: event.anesthesiaRecordId,
       }));
       console.log('[EVENTS-SYNC] Mapped event entries:', eventEntries);

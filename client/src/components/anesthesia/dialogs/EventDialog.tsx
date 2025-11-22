@@ -5,21 +5,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
 import { useCreateEvent, useUpdateEvent, useDeleteEvent } from "@/hooks/useEventsQuery";
-import { Clock, ArrowDown, ArrowUp, Sun, Eye, Users } from "lucide-react";
-
-// Common events with icons
-const COMMON_EVENTS = [
-  { label: "Team Timeout", icon: Users },
-  { label: "Intubation", icon: ArrowDown },
-  { label: "Extubation", icon: ArrowUp },
-  { label: "Eye Protection", icon: Eye },
-  { label: "Warm Touch", icon: Sun },
-];
+import { COMMON_EVENTS } from "@/constants/commonEvents";
 
 interface EventToEdit {
   id: string;
   time: number;
   text: string;
+  eventType?: string | null;
 }
 
 interface PendingEvent {
@@ -49,6 +41,7 @@ export function EventDialog({
 }: EventDialogProps) {
   const [eventTextInput, setEventTextInput] = useState("");
   const [eventEditTime, setEventEditTime] = useState<number>(Date.now());
+  const [eventType, setEventType] = useState<string | null>(null);
 
   // Initialize mutation hooks
   const createEvent = useCreateEvent(anesthesiaRecordId || "");
@@ -60,9 +53,11 @@ export function EventDialog({
     if (editingEvent) {
       setEventTextInput(editingEvent.text);
       setEventEditTime(editingEvent.time);
+      setEventType(editingEvent.eventType || null);
     } else {
       setEventTextInput("");
       setEventEditTime(Date.now());
+      setEventType(null);
     }
   }, [editingEvent]);
 
@@ -71,12 +66,13 @@ export function EventDialog({
     if (!anesthesiaRecordId) return;
 
     if (editingEvent) {
-      // Edit existing event
+      // Edit existing event - preserve the original eventType
       updateEvent.mutate(
         {
           id: editingEvent.id,
-          timestamp: new Date(eventEditTime),
+          timestamp: new Date(eventEditTime).toISOString(),
           description: eventTextInput.trim(),
+          eventType: eventType, // Preserve icon type
         },
         {
           onSuccess: () => {
@@ -86,12 +82,13 @@ export function EventDialog({
         }
       );
     } else if (pendingEvent) {
-      // Create new event
+      // Create new event - manual entry always has null eventType
       createEvent.mutate(
         {
           anesthesiaRecordId,
-          timestamp: new Date(pendingEvent.time),
+          timestamp: new Date(pendingEvent.time).toISOString(),
           description: eventTextInput.trim(),
+          eventType: null, // Manual entries have no icon type
         },
         {
           onSuccess: () => {
@@ -120,8 +117,28 @@ export function EventDialog({
     setEventTextInput("");
   };
 
-  const handleQuickEvent = (eventLabel: string) => {
-    setEventTextInput(eventLabel);
+  const handleQuickEvent = (eventLabel: string, eventType: string) => {
+    if (!anesthesiaRecordId || !pendingEvent) {
+      // Fallback: just fill the text input if we can't save immediately
+      setEventTextInput(eventLabel);
+      return;
+    }
+
+    // Immediately save the common event with ISO string timestamp
+    createEvent.mutate(
+      {
+        anesthesiaRecordId,
+        timestamp: new Date(pendingEvent.time).toISOString(),
+        description: eventLabel,
+        eventType,
+      },
+      {
+        onSuccess: () => {
+          onEventCreated?.();
+          handleClose();
+        },
+      }
+    );
   };
 
   return (
@@ -145,7 +162,7 @@ export function EventDialog({
                       key={event.label}
                       variant="outline"
                       className="justify-start h-auto py-2 px-3"
-                      onClick={() => handleQuickEvent(event.label)}
+                      onClick={() => handleQuickEvent(event.label, event.type)}
                       data-testid={`button-quick-event-${event.label.toLowerCase().replace(/\s+/g, '-')}`}
                     >
                       <IconComponent className="w-4 h-4 mr-2 shrink-0" />

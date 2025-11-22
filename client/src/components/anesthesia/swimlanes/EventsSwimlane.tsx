@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { MessageSquareText } from 'lucide-react';
 import { useTimelineContext } from '../TimelineContext';
 import type { EventComment, AnesthesiaTimeMarker } from '@/hooks/useEventState';
+import { getEventIcon } from '@/constants/commonEvents';
 
 /**
  * EventsSwimlane Component
@@ -304,51 +304,54 @@ export function EventsSwimlane({
       )}
 
       {/* Inline popup for existing events */}
-      {hoveredEvent && !isTouchDevice && (
-        <div
-          className="fixed z-50 pointer-events-none"
-          style={{
-            left: hoveredEvent.x,
-            top: hoveredEvent.y - 20,
-            transform: 'translate(-50%, -100%)',
-          }}
-        >
-          <div className="bg-background border-2 border-primary rounded-lg shadow-xl max-w-md p-4 relative">
-            <div className="flex items-center gap-2 mb-2">
-              <MessageSquareText className="w-4 h-4 text-primary" />
-              <span className="text-sm font-semibold text-primary">Event Comment</span>
-              <span className="text-xs text-muted-foreground ml-auto">
-                {formatTime(hoveredEvent.event.time)}
-              </span>
+      {hoveredEvent && !isTouchDevice && (() => {
+        const HoverIconComponent = getEventIcon(hoveredEvent.event.eventType);
+        return (
+          <div
+            className="fixed z-50 pointer-events-none"
+            style={{
+              left: hoveredEvent.x,
+              top: hoveredEvent.y - 20,
+              transform: 'translate(-50%, -100%)',
+            }}
+          >
+            <div className="bg-background border-2 border-primary rounded-lg shadow-xl max-w-md p-4 relative">
+              <div className="flex items-center gap-2 mb-2">
+                <HoverIconComponent className="w-4 h-4 text-primary" />
+                <span className="text-sm font-semibold text-primary">Event Comment</span>
+                <span className="text-xs text-muted-foreground ml-auto">
+                  {formatTime(hoveredEvent.event.time)}
+                </span>
+              </div>
+              <div className="text-sm text-foreground whitespace-pre-wrap break-words max-h-48 overflow-y-auto">
+                {hoveredEvent.event.text}
+              </div>
+              <div className="text-xs text-muted-foreground mt-2 italic">
+                Click to edit
+              </div>
+              {/* Arrow pointing down to the icon - double layer for border effect */}
+              <div
+                className="absolute left-1/2 -translate-x-1/2 w-0 h-0"
+                style={{
+                  bottom: '-12px',
+                  borderLeft: '12px solid transparent',
+                  borderRight: '12px solid transparent',
+                  borderTop: '12px solid hsl(var(--primary))',
+                }}
+              />
+              <div
+                className="absolute left-1/2 -translate-x-1/2 w-0 h-0"
+                style={{
+                  bottom: '-10px',
+                  borderLeft: '10px solid transparent',
+                  borderRight: '10px solid transparent',
+                  borderTop: '10px solid hsl(var(--background))',
+                }}
+              />
             </div>
-            <div className="text-sm text-foreground whitespace-pre-wrap break-words max-h-48 overflow-y-auto">
-              {hoveredEvent.event.text}
-            </div>
-            <div className="text-xs text-muted-foreground mt-2 italic">
-              Click to edit
-            </div>
-            {/* Arrow pointing down to the icon - double layer for border effect */}
-            <div
-              className="absolute left-1/2 -translate-x-1/2 w-0 h-0"
-              style={{
-                bottom: '-12px',
-                borderLeft: '12px solid transparent',
-                borderRight: '12px solid transparent',
-                borderTop: '12px solid hsl(var(--primary))',
-              }}
-            />
-            <div
-              className="absolute left-1/2 -translate-x-1/2 w-0 h-0"
-              style={{
-                bottom: '-10px',
-                borderLeft: '10px solid transparent',
-                borderRight: '10px solid transparent',
-                borderTop: '10px solid hsl(var(--background))',
-              }}
-            />
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Time marker badges on the timeline */}
       {timeMarkers.filter(m => m.time !== null).map((marker) => {
@@ -399,6 +402,7 @@ export function EventsSwimlane({
         }
 
         const leftPosition = `calc(200px + ${xFraction} * (100% - 210px) - 12px)`;
+        const IconComponent = getEventIcon(event.eventType);
 
         return (
           <div
@@ -426,7 +430,7 @@ export function EventsSwimlane({
             onMouseLeave={() => setHoveredEvent(null)}
             data-testid={`event-icon-${event.id}`}
           >
-            <MessageSquareText className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
+            <IconComponent className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
           </div>
         );
       })}
