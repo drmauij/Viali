@@ -700,7 +700,8 @@
       "birthdayNotRecorded": "Geburtsdatum nicht erfasst",
       "procedureNotSpecified": "Verfahren nicht angegeben",
       "years": "Jahre",
-      "noMatchingCases": "Keine passenden Fälle gefunden"
+      "noMatchingCases": "Keine passenden Fälle gefunden",
+      "cancel": "Abbrechen"
     },
     "pacu": {
       "title": "Aufwachraum",
@@ -722,6 +723,9 @@
     },
     "op": {
       "title": "OP-Überwachung",
+      "scheduleTitle": "OP-Plan",
+      "scheduleSubtitle": "Betrachten und verwalten Sie OP-Raumpläne",
+      "today": "Heute",
       "intraoperativeMonitoring": "Intraoperative Überwachung",
       "pacuMonitor": "AUFWACHRAUM-MONITOR",
       "pacuMonitorDescription": "Aufwachraum-Überwachungssystem",
@@ -1447,6 +1451,32 @@
       "addBlock": "Blockade hinzufügen",
       "block": "Blockade",
       "difficultAirway": "Schwieriger Atemweg"
+    },
+    "editSurgery": {
+      "title": "OP bearbeiten",
+      "patient": "Patient",
+      "born": "Geboren",
+      "surgeryRoom": "OP-Saal",
+      "startTime": "Startzeit",
+      "duration": "Dauer (Minuten)",
+      "plannedSurgery": "Geplanter Eingriff",
+      "surgeon": "Chirurg",
+      "surgeonOptional": "optional",
+      "noSurgeonSelected": "Kein Chirurg ausgewählt",
+      "notes": "Notizen",
+      "notesOptional": "optional",
+      "notesPlaceholder": "Notizen zu Antibiotika, Patientenlagerung, etc.",
+      "update": "Aktualisieren",
+      "updating": "Wird aktualisiert...",
+      "deleteSurgery": "OP löschen",
+      "deleting": "Wird gelöscht...",
+      "confirmDelete": "OP löschen bestätigen",
+      "confirmDeleteMessage": "Sind Sie sicher, dass Sie diese geplante OP löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "confirmDeleteWarning": "Alle zugehörigen Anästhesieprotokolle, Präoperative Assessments und zugehörigen Daten werden ebenfalls gelöscht.",
+      "surgeryUpdated": "OP aktualisiert",
+      "surgeryUpdatedDescription": "OP-Details wurden erfolgreich aktualisiert.",
+      "surgeryDeleted": "OP gelöscht",
+      "surgeryDeletedDescription": "Die OP und alle zugehörigen Daten wurden erfolgreich gelöscht."
     }
   }
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
+import { useTranslation } from "react-i18next";
 import OPCalendar from "@/components/anesthesia/OPCalendar";
 import SurgerySummaryDialog from "@/components/anesthesia/SurgerySummaryDialog";
 import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
@@ -7,6 +8,7 @@ import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
 const SURGERY_CONTEXT_KEY = "oplist_surgery_context";
 
 export default function OpList() {
+  const { t } = useTranslation();
   const [, setLocation] = useLocation();
   const [selectedSurgeryId, setSelectedSurgeryId] = useState<string | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
@@ -68,9 +70,9 @@ export default function OpList() {
     <div className="container mx-auto px-0 py-6 pb-24">
       {/* Header */}
       <div className="mb-6 px-4">
-        <h1 className="text-2xl font-bold mb-2">OP Schedule</h1>
+        <h1 className="text-2xl font-bold mb-2">{t('anesthesia.op.scheduleTitle')}</h1>
         <p className="text-sm text-muted-foreground">
-          View and manage operating room schedules
+          {t('anesthesia.op.scheduleSubtitle')}
         </p>
       </div>
 

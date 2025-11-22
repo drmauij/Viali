@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useState, useEffect } from "react";
 import { Loader2, Trash2, Save, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface EditSurgeryDialogProps {
   surgeryId: string | null;
@@ -17,6 +18,7 @@ interface EditSurgeryDialogProps {
 }
 
 export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps) {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -117,8 +119,8 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
         });
       }
       toast({
-        title: "Surgery Updated",
-        description: "Surgery details have been successfully updated.",
+        title: t('anesthesia.editSurgery.surgeryUpdated'),
+        description: t('anesthesia.editSurgery.surgeryUpdatedDescription'),
       });
       onClose();
     },
@@ -148,8 +150,8 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
         });
       }
       toast({
-        title: "Surgery Deleted",
-        description: "Surgery has been successfully deleted.",
+        title: t('anesthesia.editSurgery.surgeryDeleted'),
+        description: t('anesthesia.editSurgery.surgeryDeletedDescription'),
       });
       onClose();
     },
@@ -189,7 +191,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       <Dialog open={!!surgeryId} onOpenChange={() => onClose()}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" data-testid="dialog-edit-surgery">
           <DialogHeader>
-            <DialogTitle>Edit Surgery</DialogTitle>
+            <DialogTitle>{t('anesthesia.editSurgery.title')}</DialogTitle>
           </DialogHeader>
 
           {isLoading ? (
@@ -201,14 +203,14 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
               {/* Patient Information (Read-only) */}
               {patient && (
                 <div className="space-y-2">
-                  <Label>Patient</Label>
+                  <Label>{t('anesthesia.editSurgery.patient')}</Label>
                   <div className="rounded-md border border-input bg-muted px-3 py-2 text-sm">
                     <div className="font-medium">
                       {patient.surname}, {patient.firstName}
                     </div>
                     {patient.birthday && (
                       <div className="text-xs text-muted-foreground mt-1">
-                        Born: {new Date(patient.birthday).toLocaleDateString('de-DE', { 
+                        {t('anesthesia.editSurgery.born')}: {new Date(patient.birthday).toLocaleDateString('de-DE', { 
                           day: '2-digit', 
                           month: '2-digit', 
                           year: 'numeric' 
@@ -221,7 +223,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
 
               {/* Surgery Room */}
               <div className="space-y-2">
-                <Label htmlFor="edit-surgery-room">Surgery Room *</Label>
+                <Label htmlFor="edit-surgery-room">{t('anesthesia.editSurgery.surgeryRoom')} *</Label>
                 <Select value={surgeryRoomId} onValueChange={setSurgeryRoomId}>
                   <SelectTrigger id="edit-surgery-room" data-testid="select-edit-surgery-room">
                     <SelectValue placeholder="Select room..." />
@@ -239,7 +241,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
               {/* Start Time & Duration */}
               <div className="grid gap-3" style={{ gridTemplateColumns: '5fr 3fr' }}>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-planned-date">Start Time *</Label>
+                  <Label htmlFor="edit-planned-date">{t('anesthesia.editSurgery.startTime')} *</Label>
                   <Input
                     id="edit-planned-date"
                     type="datetime-local"
@@ -249,7 +251,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-duration">Duration (minutes) *</Label>
+                  <Label htmlFor="edit-duration">{t('anesthesia.editSurgery.duration')} *</Label>
                   <Input
                     id="edit-duration"
                     type="number"
@@ -263,7 +265,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
 
               {/* Planned Surgery */}
               <div className="space-y-2">
-                <Label htmlFor="edit-planned-surgery">Planned Surgery *</Label>
+                <Label htmlFor="edit-planned-surgery">{t('anesthesia.editSurgery.plannedSurgery')} *</Label>
                 <Input
                   id="edit-planned-surgery"
                   placeholder="e.g., Laparoscopic cholecystectomy"
@@ -275,7 +277,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
 
               {/* Surgeon */}
               <div className="space-y-2">
-                <Label htmlFor="edit-surgeon">Surgeon <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                <Label htmlFor="edit-surgeon">{t('anesthesia.editSurgery.surgeon')} <span className="text-xs text-muted-foreground">({t('anesthesia.editSurgery.surgeonOptional')})</span></Label>
                 <Select 
                   value={surgeon || "none"} 
                   onValueChange={(value) => setSurgeon(value === "none" ? "" : value)}
@@ -284,7 +286,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     <SelectValue placeholder="Select surgeon (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No surgeon selected</SelectItem>
+                    <SelectItem value="none">{t('anesthesia.editSurgery.noSurgeonSelected')}</SelectItem>
                     {surgeons.map((s: any) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.name}
@@ -296,10 +298,10 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
 
               {/* Notes */}
               <div className="space-y-2">
-                <Label htmlFor="edit-notes">Notes <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                <Label htmlFor="edit-notes">{t('anesthesia.editSurgery.notes')} <span className="text-xs text-muted-foreground">({t('anesthesia.editSurgery.notesOptional')})</span></Label>
                 <Textarea
                   id="edit-notes"
-                  placeholder="Enter notes about antibiotics, patient position, etc."
+                  placeholder={t('anesthesia.editSurgery.notesPlaceholder')}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   data-testid="textarea-edit-notes"
@@ -317,11 +319,11 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   className="flex-1"
                 >
                   {deleteMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <>{t('anesthesia.editSurgery.deleting')}</>
                   ) : (
                     <>
                       <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
+                      {t('anesthesia.editSurgery.deleteSurgery')}
                     </>
                   )}
                 </Button>
@@ -333,7 +335,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   className="flex-1"
                 >
                   <X className="mr-2 h-4 w-4" />
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   onClick={handleUpdate}
@@ -342,11 +344,11 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   className="flex-1"
                 >
                   {updateMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <>{t('anesthesia.editSurgery.updating')}</>
                   ) : (
                     <>
                       <Save className="mr-2 h-4 w-4" />
-                      Save Changes
+                      {t('anesthesia.editSurgery.update')}
                     </>
                   )}
                 </Button>
@@ -360,19 +362,21 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Surgery?</AlertDialogTitle>
+            <AlertDialogTitle>{t('anesthesia.editSurgery.confirmDelete')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this surgery? This action cannot be undone.
+              {t('anesthesia.editSurgery.confirmDeleteMessage')}
+              <br /><br />
+              <strong>{t('anesthesia.editSurgery.confirmDeleteWarning')}</strong>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-delete">{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               data-testid="button-confirm-delete"
             >
-              Delete
+              {t('anesthesia.editSurgery.deleteSurgery')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
