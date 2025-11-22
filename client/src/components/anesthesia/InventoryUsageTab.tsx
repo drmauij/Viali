@@ -210,7 +210,7 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
                     <Folder className="h-4 w-4 text-muted-foreground" />
                     <span className="font-medium">{getFolderName(folderId)}</span>
                     <Badge variant="secondary" className="ml-2 text-xs">
-                      {groupedItems[folderId].length}
+                      {groupedItems[folderId].filter(item => getFinalQty(item.id) > 0).length}
                     </Badge>
                   </div>
                 </AccordionTrigger>
