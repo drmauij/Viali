@@ -82,6 +82,9 @@ export default function Op() {
 
   // Determine mode based on route (PACU mode if URL contains /pacu)
   const isPacuMode = location.includes('/pacu');
+  
+  // Active tab state
+  const [activeTab, setActiveTab] = useState(isPacuMode ? "pacu" : "vitals");
 
   // Get surgeryId from params
   const surgeryId = params.id;
@@ -776,7 +779,7 @@ export default function Op() {
         </div>
 
         {/* Tabbed Content */}
-        <Tabs defaultValue={isPacuMode ? "pacu" : "vitals"} className="flex-1 flex flex-col min-h-0">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
           <div className="px-6 shrink-0">
             <div className="flex items-center gap-2 sm:gap-4 mb-4">
               <div className="flex-1 overflow-x-auto">
@@ -817,7 +820,10 @@ export default function Op() {
                 size="sm"
                 className="flex items-center gap-1 sm:gap-2 shrink-0"
                 data-testid="button-toggle-events"
-                onClick={() => setOpenEventsPanel(true)}
+                onClick={() => {
+                  setActiveTab("vitals");
+                  setOpenEventsPanel(true);
+                }}
               >
                 <MessageSquareText className="h-4 w-4" />
                 <span className="hidden sm:inline">Events</span>
