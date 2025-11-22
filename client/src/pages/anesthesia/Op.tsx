@@ -775,7 +775,7 @@ export default function Op() {
         </div>
 
         {/* Tabbed Content */}
-        <Tabs defaultValue="vitals" className="flex-1 flex flex-col min-h-0">
+        <Tabs defaultValue={isPacuMode ? "pacu" : "vitals"} className="flex-1 flex flex-col min-h-0">
           <div className="px-6 shrink-0">
             <div className="flex items-center gap-2 sm:gap-4 mb-4">
               <div className="flex-1 overflow-x-auto">

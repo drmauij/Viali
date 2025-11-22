@@ -32,7 +32,6 @@ import PreOpList from "@/pages/anesthesia/PreOpList";
 import OpList from "@/pages/anesthesia/OpList";
 import Op from "@/pages/anesthesia/Op";
 import Pacu from "@/pages/anesthesia/Pacu";
-import CasePacu from "@/pages/anesthesia/CasePacu";
 import AnesthesiaReports from "@/pages/anesthesia/Reports";
 import AnesthesiaSettings from "@/pages/anesthesia/Settings";
 import EditableValuesDemo from "@/pages/EditableValuesDemo";
