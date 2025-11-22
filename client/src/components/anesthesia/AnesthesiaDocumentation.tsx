@@ -16,6 +16,8 @@ import {
   useDeleteInstallation,
   useGeneralTechnique,
   useAirwayManagement,
+  useDifficultAirwayReport,
+  useUpsertDifficultAirwayReport,
   useNeuraxialBlocks,
   useCreateNeuraxialBlock,
   useDeleteNeuraxialBlock,
@@ -1045,6 +1047,10 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                   />
                   <span className="text-sm font-medium text-destructive">Difficult Airway</span>
                 </label>
+                
+                {difficultAirway && airwayManagement?.id && (
+                  <DifficultAirwayDetailsSection airwayManagementId={airwayManagement.id} />
+                )}
               </div>
             </>
           )}
@@ -1675,6 +1681,351 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
         </p>
       )}
     </CardContent>
+  );
+}
+
+// ============================================================================
+// DIFFICULT AIRWAY DETAILS SECTION
+// ============================================================================
+function DifficultAirwayDetailsSection({ airwayManagementId }: { airwayManagementId: string }) {
+  const { data: report, isLoading } = useDifficultAirwayReport(airwayManagementId);
+  const upsertMutation = useUpsertDifficultAirwayReport(airwayManagementId);
+
+  const [description, setDescription] = useState("");
+  const [techniquesAttempted, setTechniquesAttempted] = useState<Array<{ technique: string; outcome: "success" | "failure" | "partial"; notes?: string }>>([]);
+  const [finalTechnique, setFinalTechnique] = useState("");
+  const [equipmentUsed, setEquipmentUsed] = useState("");
+  const [complications, setComplications] = useState("");
+  const [recommendations, setRecommendations] = useState("");
+  const [patientInformed, setPatientInformed] = useState(false);
+  const [patientInformedAt, setPatientInformedAt] = useState<string | null>(null);
+  const [letterSentToPatient, setLetterSentToPatient] = useState(false);
+  const [letterSentAt, setLetterSentAt] = useState<string | null>(null);
+  const [gpNotified, setGpNotified] = useState(false);
+  const [gpNotifiedAt, setGpNotifiedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (report) {
+      setDescription(report.description || "");
+      setTechniquesAttempted((report.techniquesAttempted as any) || []);
+      setFinalTechnique(report.finalTechnique || "");
+      setEquipmentUsed(report.equipmentUsed || "");
+      setComplications(report.complications || "");
+      setRecommendations(report.recommendations || "");
+      setPatientInformed(report.patientInformed || false);
+      setPatientInformedAt(report.patientInformedAt ? new Date(report.patientInformedAt).toISOString() : null);
+      setLetterSentToPatient(report.letterSentToPatient || false);
+      setLetterSentAt(report.letterSentAt ? new Date(report.letterSentAt).toISOString() : null);
+      setGpNotified(report.gpNotified || false);
+      setGpNotifiedAt(report.gpNotifiedAt ? new Date(report.gpNotifiedAt).toISOString() : null);
+    }
+  }, [report]);
+
+  const reportAutoSave = useAutoSaveMutation({
+    mutationFn: async (data: any) => {
+      return upsertMutation.mutateAsync(data);
+    },
+    queryKey: [`/api/airway/${airwayManagementId}/difficult-airway-report`],
+  });
+
+  const buildCompletePayload = (overrides: any = {}) => {
+    const currentDescription = overrides.description !== undefined ? overrides.description : description;
+    const currentTechniques = overrides.techniquesAttempted !== undefined ? overrides.techniquesAttempted : techniquesAttempted;
+    const currentFinalTechnique = overrides.finalTechnique !== undefined ? overrides.finalTechnique : finalTechnique;
+    
+    const hasMinimumData = currentDescription && currentTechniques.length > 0 && currentFinalTechnique;
+    
+    if (!hasMinimumData) {
+      return null;
+    }
+    
+    return {
+      description: currentDescription,
+      techniquesAttempted: currentTechniques,
+      finalTechnique: currentFinalTechnique,
+      equipmentUsed: overrides.equipmentUsed !== undefined ? overrides.equipmentUsed : (equipmentUsed || null),
+      complications: overrides.complications !== undefined ? overrides.complications : (complications || null),
+      recommendations: overrides.recommendations !== undefined ? overrides.recommendations : (recommendations || null),
+      patientInformed: overrides.patientInformed !== undefined ? overrides.patientInformed : patientInformed,
+      patientInformedAt: overrides.patientInformedAt !== undefined ? overrides.patientInformedAt : patientInformedAt,
+      letterSentToPatient: overrides.letterSentToPatient !== undefined ? overrides.letterSentToPatient : letterSentToPatient,
+      letterSentAt: overrides.letterSentAt !== undefined ? overrides.letterSentAt : letterSentAt,
+      gpNotified: overrides.gpNotified !== undefined ? overrides.gpNotified : gpNotified,
+      gpNotifiedAt: overrides.gpNotifiedAt !== undefined ? overrides.gpNotifiedAt : gpNotifiedAt,
+    };
+  };
+
+  const handleAddTechnique = () => {
+    const updated = [...techniquesAttempted, { technique: "", outcome: "failure" as const, notes: "" }];
+    setTechniquesAttempted(updated);
+    const payload = buildCompletePayload({ techniquesAttempted: updated });
+    if (payload) {
+      reportAutoSave.mutate(payload);
+    }
+  };
+
+  const handleRemoveTechnique = (index: number) => {
+    if (techniquesAttempted.length <= 1) {
+      return;
+    }
+    const updated = techniquesAttempted.filter((_, i) => i !== index);
+    setTechniquesAttempted(updated);
+    const payload = buildCompletePayload({ techniquesAttempted: updated });
+    if (payload) {
+      reportAutoSave.mutate(payload);
+    }
+  };
+
+  const handleTechniqueChange = (index: number, field: 'technique' | 'outcome' | 'notes', value: string) => {
+    const updated = [...techniquesAttempted];
+    if (field === 'outcome') {
+      updated[index][field] = value as "success" | "failure" | "partial";
+    } else {
+      updated[index][field] = value;
+    }
+    setTechniquesAttempted(updated);
+    const payload = buildCompletePayload({ techniquesAttempted: updated });
+    if (payload) {
+      reportAutoSave.mutate(payload);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="mt-4 p-4 border-2 border-destructive/50 rounded-lg bg-destructive/5">
+        <Loader2 className="h-5 w-5 animate-spin mx-auto" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 p-4 border-2 border-destructive/50 rounded-lg bg-destructive/5 space-y-4">
+      <h4 className="font-semibold text-destructive flex items-center gap-2">
+        Difficult Airway Documentation (DAS Standards)
+      </h4>
+
+      <div className="space-y-2">
+        <Label>Description of Incident <span className="text-destructive">*</span></Label>
+        <Textarea
+          rows={3}
+          placeholder="Describe what made the airway difficult, including clinical findings..."
+          value={description}
+          onChange={(e) => {
+            const value = e.target.value;
+            setDescription(value);
+            const payload = buildCompletePayload({ description: value });
+            if (payload) {
+              reportAutoSave.mutate(payload);
+            }
+          }}
+          data-testid="textarea-difficult-airway-description"
+        />
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label>Techniques Attempted</Label>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={handleAddTechnique}
+            data-testid="button-add-technique"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Add Technique
+          </Button>
+        </div>
+        
+        {techniquesAttempted.map((item, index) => (
+          <div key={index} className="flex gap-2 items-start p-3 bg-background rounded border">
+            <div className="flex-1 space-y-2">
+              <Input
+                placeholder="Technique (e.g., Direct laryngoscopy, Videolaryngoscopy)"
+                value={item.technique}
+                onChange={(e) => handleTechniqueChange(index, 'technique', e.target.value)}
+                data-testid={`input-technique-${index}`}
+              />
+              <select
+                className="w-full border rounded-md p-2 bg-background"
+                value={item.outcome}
+                onChange={(e) => handleTechniqueChange(index, 'outcome', e.target.value)}
+                data-testid={`select-outcome-${index}`}
+              >
+                <option value="failure">Failure</option>
+                <option value="partial">Partial Success</option>
+                <option value="success">Success</option>
+              </select>
+              <Input
+                placeholder="Notes (optional - e.g., Grade III view, multiple attempts)"
+                value={item.notes || ""}
+                onChange={(e) => handleTechniqueChange(index, 'notes', e.target.value)}
+                data-testid={`input-notes-${index}`}
+              />
+            </div>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => handleRemoveTechnique(index)}
+              data-testid={`button-remove-technique-${index}`}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+        
+        {techniquesAttempted.length === 0 && (
+          <p className="text-sm text-muted-foreground italic">
+            No techniques documented. Click "Add Technique" to record attempted approaches.
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label>Final Successful Technique <span className="text-destructive">*</span></Label>
+        <Input
+          placeholder="e.g., Videolaryngoscopy with bougie"
+          value={finalTechnique}
+          onChange={(e) => {
+            const value = e.target.value;
+            setFinalTechnique(value);
+            const payload = buildCompletePayload({ finalTechnique: value });
+            if (payload) {
+              reportAutoSave.mutate(payload);
+            }
+          }}
+          data-testid="input-final-technique"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Equipment Used</Label>
+        <Textarea
+          rows={2}
+          placeholder="List all airway equipment used (e.g., C-MAC videolaryngoscope, bougie, size 7.0 ETT)"
+          value={equipmentUsed}
+          onChange={(e) => {
+            const value = e.target.value;
+            setEquipmentUsed(value);
+            const payload = buildCompletePayload({ equipmentUsed: value || null });
+            if (payload) {
+              reportAutoSave.mutate(payload);
+            }
+          }}
+          data-testid="textarea-equipment-used"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Complications</Label>
+        <Textarea
+          rows={2}
+          placeholder="Document any complications (e.g., desaturation, trauma, bleeding)"
+          value={complications}
+          onChange={(e) => {
+            const value = e.target.value;
+            setComplications(value);
+            const payload = buildCompletePayload({ complications: value || null });
+            if (payload) {
+              reportAutoSave.mutate(payload);
+            }
+          }}
+          data-testid="textarea-complications"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Recommendations for Future Anesthetics</Label>
+        <Textarea
+          rows={3}
+          placeholder="Recommendations for future care (e.g., awake fiberoptic intubation, specific equipment requirements)"
+          value={recommendations}
+          onChange={(e) => {
+            const value = e.target.value;
+            setRecommendations(value);
+            const payload = buildCompletePayload({ recommendations: value || null });
+            if (payload) {
+              reportAutoSave.mutate(payload);
+            }
+          }}
+          data-testid="textarea-recommendations"
+        />
+      </div>
+
+      <div className="pt-3 border-t space-y-2">
+        <Label className="text-sm font-semibold">Patient Communication</Label>
+        
+        <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
+          <input
+            type="checkbox"
+            checked={patientInformed}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              const timestamp = checked ? new Date().toISOString() : null;
+              setPatientInformed(checked);
+              setPatientInformedAt(timestamp);
+              const payload = buildCompletePayload({ 
+                patientInformed: checked,
+                patientInformedAt: timestamp,
+              });
+              if (payload) {
+                reportAutoSave.mutate(payload);
+              }
+            }}
+            className="h-4 w-4"
+            data-testid="checkbox-patient-informed"
+          />
+          <span className="text-sm">Patient informed about difficult airway</span>
+        </label>
+
+        <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
+          <input
+            type="checkbox"
+            checked={letterSentToPatient}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              const timestamp = checked ? new Date().toISOString() : null;
+              setLetterSentToPatient(checked);
+              setLetterSentAt(timestamp);
+              const payload = buildCompletePayload({ 
+                letterSentToPatient: checked,
+                letterSentAt: timestamp,
+              });
+              if (payload) {
+                reportAutoSave.mutate(payload);
+              }
+            }}
+            className="h-4 w-4"
+            data-testid="checkbox-letter-sent"
+          />
+          <span className="text-sm">Patient letter sent</span>
+        </label>
+
+        <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
+          <input
+            type="checkbox"
+            checked={gpNotified}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              const timestamp = checked ? new Date().toISOString() : null;
+              setGpNotified(checked);
+              setGpNotifiedAt(timestamp);
+              const payload = buildCompletePayload({ 
+                gpNotified: checked,
+                gpNotifiedAt: timestamp,
+              });
+              if (payload) {
+                reportAutoSave.mutate(payload);
+              }
+            }}
+            className="h-4 w-4"
+            data-testid="checkbox-gp-notified"
+          />
+          <span className="text-sm">GP notified</span>
+        </label>
+      </div>
+    </div>
   );
 }
 

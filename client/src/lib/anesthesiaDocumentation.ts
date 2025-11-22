@@ -5,6 +5,8 @@ import type {
   InsertAnesthesiaInstallation,
   AnesthesiaAirwayManagement,
   InsertAnesthesiaAirwayManagement,
+  DifficultAirwayReport,
+  InsertDifficultAirwayReport,
   AnesthesiaGeneralTechnique,
   InsertAnesthesiaGeneralTechnique,
   AnesthesiaNeuraxialBlock,
@@ -90,6 +92,26 @@ export function useDeleteAirwayManagement(recordId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/${recordId}/airway`] });
+    },
+  });
+}
+
+// ==================== DIFFICULT AIRWAY REPORT ====================
+
+export function useDifficultAirwayReport(airwayId: string | undefined) {
+  return useQuery<DifficultAirwayReport | null>({
+    queryKey: [`/api/airway/${airwayId}/difficult-airway-report`],
+    enabled: !!airwayId,
+  });
+}
+
+export function useUpsertDifficultAirwayReport(airwayId: string | undefined) {
+  return useMutation({
+    mutationFn: async (data: Omit<InsertDifficultAirwayReport, 'airwayManagementId' | 'createdBy'>) => {
+      return await apiRequest("POST", `/api/airway/${airwayId}/difficult-airway-report`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/airway/${airwayId}/difficult-airway-report`] });
     },
   });
 }
