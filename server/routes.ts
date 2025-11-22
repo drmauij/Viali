@@ -7627,6 +7627,10 @@ If unable to parse any drugs, return:
         return res.status(403).json({ message: "Access denied" });
       }
 
+      // TEMPORARY: Force recalculation to debug
+      console.log('[ROUTES] Triggering inventory recalculation for debugging...');
+      await storage.calculateInventoryUsage(recordId);
+      
       const inventory = await storage.getInventoryUsage(recordId);
       
       res.json(inventory);

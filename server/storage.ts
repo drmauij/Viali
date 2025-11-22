@@ -3267,11 +3267,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async calculateInventoryUsage(anesthesiaRecordId: string): Promise<InventoryUsage[]> {
+    console.log('[INV-CALC] Starting inventory calculation for record:', anesthesiaRecordId);
+    
     // Get all medications for this anesthesia record
     const medications = await db
       .select()
       .from(anesthesiaMedications)
       .where(eq(anesthesiaMedications.anesthesiaRecordId, anesthesiaRecordId));
+
+    console.log('[INV-CALC] Found medications:', medications.length, medications.map(m => ({ 
+      itemId: m.itemId, 
+      type: m.type, 
+      dose: m.dose, 
+      rate: m.rate 
+    })));
 
     // Get anesthesia record to access patient weight
     const [anesthesiaRecord] = await db
@@ -3299,6 +3308,12 @@ export class DatabaseStorage implements IStorage {
       .where(sql`${items.id} IN (${sql.join(itemIds.map(id => sql`${id}`), sql`, `)})`);
     
     const itemsMap = new Map(itemsWithConfigs.map(item => [item.id, item]));
+    
+    console.log('[INV-CALC] Item configs loaded:', Array.from(itemsMap.entries()).map(([id, item]) => ({
+      id,
+      rateUnit: item.rateUnit,
+      ampuleTotalContent: item.ampuleTotalContent
+    })));
 
     // Group medications by itemId and type for proper pairing
     const medsByItem = new Map<string, any[]>();
@@ -3314,24 +3329,42 @@ export class DatabaseStorage implements IStorage {
     
     for (const [itemId, meds] of medsByItem.entries()) {
       const item = itemsMap.get(itemId);
-      if (!item) continue;
+      if (!item) {
+        console.log('[INV-CALC] WARNING: No item config found for itemId:', itemId);
+        continue;
+      }
 
       const isBolus = !item.rateUnit || item.rateUnit === null;
       const isFreeFlow = item.rateUnit === 'free';
       const isRateControlled = item.rateUnit && item.rateUnit !== 'free';
 
+      console.log('[INV-CALC] Processing item:', {
+        itemId,
+        isBolus,
+        isFreeFlow,
+        isRateControlled,
+        rateUnit: item.rateUnit,
+        medicationsCount: meds.length,
+        medications: meds.map(m => ({ type: m.type, dose: m.dose, rate: m.rate }))
+      });
+
       let totalQty = 0;
 
       if (isBolus) {
-        for (const med of meds.filter(m => m.type === 'bolus')) {
-          totalQty += calculateInventoryForMedication(
+        const bolusMeds = meds.filter(m => m.type === 'bolus');
+        console.log('[INV-CALC] Bolus branch - found bolus meds:', bolusMeds.length);
+        for (const med of bolusMeds) {
+          const qty = calculateInventoryForMedication(
             { type: med.type, dose: med.dose, rate: med.rate, timestamp: med.timestamp, endTimestamp: med.endTimestamp, itemId: med.itemId },
             item,
             patientWeight
           );
+          console.log('[INV-CALC] Bolus med calculated qty:', qty, 'for dose:', med.dose, 'ampule:', item.ampuleTotalContent);
+          totalQty += qty;
         }
       } else if (isFreeFlow) {
         const startEvents = meds.filter(m => m.type === 'infusion_start');
+        console.log('[INV-CALC] Free-flow branch - start events:', startEvents.length);
         totalQty = startEvents.length;
       } else if (isRateControlled) {
         const sessionMap = new Map<string, Array<typeof meds[0]>>();
@@ -3473,7 +3506,11 @@ export class DatabaseStorage implements IStorage {
       if (totalQty > 0) {
         usageMap.set(itemId, totalQty);
       }
+      
+      console.log('[INV-CALC] Total quantity for item:', itemId, '=', totalQty);
     }
+
+    console.log('[INV-CALC] Final usage map:', Array.from(usageMap.entries()));
 
     // Upsert inventory usage records
     const usageRecords: InventoryUsage[] = [];
