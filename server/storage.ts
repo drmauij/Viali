@@ -371,6 +371,14 @@ export interface IStorage {
   createAnesthesiaMedication(medication: InsertAnesthesiaMedication): Promise<AnesthesiaMedication>;
   updateAnesthesiaMedication(id: string, updates: Partial<AnesthesiaMedication>): Promise<AnesthesiaMedication>;
   deleteAnesthesiaMedication(id: string, userId: string): Promise<void>;
+  getRunningRateControlledInfusions(): Promise<(AnesthesiaMedication & { patientWeight?: number })[]>;
+  createAutoStopNotification(notification: {
+    anesthesiaRecordId: string;
+    medicationId: string;
+    itemName: string;
+    stoppedAt: string;
+    reason: string;
+  }): Promise<void>;
   
   // Anesthesia Event operations
   getAnesthesiaEvents(anesthesiaRecordId: string): Promise<AnesthesiaEvent[]>;
@@ -2940,6 +2948,50 @@ export class DatabaseStorage implements IStorage {
       userId,
       oldValue: currentMedication,
       newValue: null,
+    });
+  }
+
+  async getRunningRateControlledInfusions(): Promise<(AnesthesiaMedication & { patientWeight?: number })[]> {
+    // Find all infusion_start records without endTimestamp
+    const runningInfusions = await db
+      .select({
+        medication: anesthesiaMedications,
+        patientWeight: patients.weight,
+      })
+      .from(anesthesiaMedications)
+      .leftJoin(anesthesiaRecords, eq(anesthesiaMedications.anesthesiaRecordId, anesthesiaRecords.id))
+      .leftJoin(patients, eq(anesthesiaRecords.patientId, patients.id))
+      .where(
+        and(
+          eq(anesthesiaMedications.type, 'infusion_start'),
+          isNull(anesthesiaMedications.endTimestamp)
+        )
+      );
+
+    return runningInfusions.map(row => ({
+      ...row.medication,
+      patientWeight: row.patientWeight || undefined,
+    }));
+  }
+
+  async createAutoStopNotification(notification: {
+    anesthesiaRecordId: string;
+    medicationId: string;
+    itemName: string;
+    stoppedAt: string;
+    reason: string;
+  }): Promise<void> {
+    // Store as a note attached to the anesthesia record
+    await db.insert(notes).values({
+      anesthesiaRecordId: notification.anesthesiaRecordId,
+      content: JSON.stringify({
+        type: 'auto_stop',
+        medicationId: notification.medicationId,
+        itemName: notification.itemName,
+        stoppedAt: notification.stoppedAt,
+        reason: notification.reason,
+      }),
+      category: 'system',
     });
   }
 

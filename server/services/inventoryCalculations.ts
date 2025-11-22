@@ -84,6 +84,51 @@ export function calculateRateControlledAmpules(
   return Math.ceil(totalVolume / ampuleValue);
 }
 
+export function calculateDepletionTime(
+  rate: string | null | undefined,
+  rateUnit: string | null | undefined,
+  ampuleTotalContent: string | null | undefined,
+  patientWeight?: number,
+  safetyBufferPercent: number = 5
+): number | null {
+  const rateValue = parseNumericValue(rate);
+  const ampuleValue = parseNumericValue(ampuleTotalContent);
+  
+  if (rateValue === 0 || ampuleValue === 0) return null;
+  
+  const rateUnitLower = (rateUnit || '').toLowerCase();
+  let hoursToDepletion = 0;
+  
+  // Calculate hours to deplete based on rate unit
+  if (rateUnitLower.includes('ml/h') || rateUnitLower.includes('ml/hr')) {
+    // Direct volume per hour
+    hoursToDepletion = ampuleValue / rateValue;
+  } else if (rateUnitLower.includes('µg/kg/min') || rateUnitLower.includes('ug/kg/min')) {
+    // Convert µg/kg/min to total volume
+    const weight = patientWeight || 70;
+    const minutesToDepletion = (ampuleValue * 1000) / (rateValue * weight);
+    hoursToDepletion = minutesToDepletion / 60;
+  } else if (rateUnitLower.includes('mg/kg/h') || rateUnitLower.includes('mg/kg/hr')) {
+    // Convert mg/kg/h to total volume
+    const weight = patientWeight || 70;
+    hoursToDepletion = ampuleValue / (rateValue * weight);
+  } else if (rateUnitLower.includes('mg/h') || rateUnitLower.includes('mg/hr')) {
+    // Direct mg per hour
+    hoursToDepletion = ampuleValue / rateValue;
+  } else {
+    // Default: assume rate is in same unit as ampule content
+    hoursToDepletion = ampuleValue / rateValue;
+  }
+  
+  if (hoursToDepletion <= 0) return null;
+  
+  // Apply safety buffer (stop at 95% depleted by default)
+  const adjustedHours = hoursToDepletion * (1 - safetyBufferPercent / 100);
+  
+  // Return milliseconds
+  return adjustedHours * 60 * 60 * 1000;
+}
+
 export function calculateInventoryForMedication(
   medication: MedicationRecord,
   item: MedicationItem,
