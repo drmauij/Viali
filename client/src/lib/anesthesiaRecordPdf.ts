@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import i18next from "i18next";
 import type {
   Patient,
   Surgery,
@@ -72,7 +73,7 @@ interface ExportData {
 // Helper to format time from milliseconds to HH:MM (24-hour format)
 function formatTimeFrom24h(timeMs: number): string {
   const date = new Date(timeMs);
-  if (isNaN(date.getTime())) return "Invalid Time";
+  if (isNaN(date.getTime())) return i18next.t("anesthesia.pdf.invalidTime");
   
   const hours = date.getHours().toString().padStart(2, '0');
   const minutes = date.getMinutes().toString().padStart(2, '0');
@@ -81,11 +82,11 @@ function formatTimeFrom24h(timeMs: number): string {
 
 // Helper to format datetime to DD.MM.YYYY HH:MM (24-hour format, European style)
 function formatDateTime24h(date: string | Date | null | undefined): string {
-  if (!date) return "N/A";
+  if (!date) return i18next.t("anesthesia.pdf.na");
   
   try {
     const dateObj = typeof date === "string" ? new Date(date) : date;
-    if (isNaN(dateObj.getTime())) return "Invalid Date";
+    if (isNaN(dateObj.getTime())) return i18next.t("anesthesia.pdf.invalidDate");
     
     const day = dateObj.getDate().toString().padStart(2, '0');
     const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
@@ -95,7 +96,7 @@ function formatDateTime24h(date: string | Date | null | undefined): string {
     
     return `${day}.${month}.${year} ${hours}:${minutes}`;
   } catch (error) {
-    return "Invalid Date";
+    return i18next.t("anesthesia.pdf.invalidDate");
   }
 }
 
@@ -144,7 +145,7 @@ function drawTimelineChart(
   if (!hasData) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "italic");
-    doc.text("No data available", chartX + 5, plotY + plotHeight / 2);
+    doc.text(i18next.t("anesthesia.pdf.noDataAvailable"), chartX + 5, plotY + plotHeight / 2);
     return chartY + chartHeight + 5;
   }
 
@@ -161,7 +162,7 @@ function drawTimelineChart(
   if (allTimes.length === 0) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "italic");
-    doc.text("No data available", chartX + 5, plotY + plotHeight / 2);
+    doc.text(i18next.t("anesthesia.pdf.noDataAvailable"), chartX + 5, plotY + plotHeight / 2);
     return chartY + chartHeight + 5;
   }
 
@@ -293,7 +294,7 @@ function drawMedicationTimeline(
   if (!medications || medications.length === 0) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "italic");
-    doc.text("No medications administered", chartX + 5, chartY + 15);
+    doc.text(i18next.t("anesthesia.pdf.noMedicationsAdministered"), chartX + 5, chartY + 15);
     return chartY + 25;
   }
 
@@ -330,7 +331,7 @@ function drawMedicationTimeline(
     if (laneIndex >= maxLanes) break;
 
     const item = itemMap.get(itemId);
-    const itemName = item?.name || "Unknown";
+    const itemName = item?.name || i18next.t("anesthesia.pdf.unknownMedication");
 
     // Draw lane background
     doc.setFillColor(laneIndex % 2 === 0 ? 250 : 245, 250, 250);
@@ -367,7 +368,7 @@ function drawMedicationTimeline(
         // Add rate label
         doc.setFontSize(6);
         doc.setTextColor(255, 255, 255);
-        const rateText = med.rate === "free" ? "Free" : med.rate || "";
+        const rateText = med.rate === "free" ? i18next.t("anesthesia.pdf.free") : med.rate || "";
         doc.text(rateText, x + 2, currentY + 5);
       }
     });
@@ -411,10 +412,10 @@ function drawOutputChart(
 
   // Collect all output types
   const outputTypes = [
-    { key: "urine", label: "Urine", color: [251, 191, 36] as [number, number, number] },
-    { key: "drainage", label: "Drainage", color: [239, 68, 68] as [number, number, number] },
-    { key: "gastricTube", label: "Gastric", color: [34, 197, 94] as [number, number, number] },
-    { key: "blood", label: "Blood", color: [220, 38, 38] as [number, number, number] },
+    { key: "urine", label: i18next.t("anesthesia.pdf.urine"), color: [251, 191, 36] as [number, number, number] },
+    { key: "drainage", label: i18next.t("anesthesia.pdf.drainage"), color: [239, 68, 68] as [number, number, number] },
+    { key: "gastricTube", label: i18next.t("anesthesia.pdf.gastric"), color: [34, 197, 94] as [number, number, number] },
+    { key: "blood", label: i18next.t("anesthesia.pdf.blood"), color: [220, 38, 38] as [number, number, number] },
   ];
 
   // Check if we have any data
@@ -423,7 +424,7 @@ function drawOutputChart(
   if (!hasData) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "italic");
-    doc.text("No output data available", chartX + 5, plotY + 10);
+    doc.text(i18next.t("anesthesia.pdf.noOutputData"), chartX + 5, plotY + 10);
     return chartY + 25;
   }
 
@@ -442,7 +443,7 @@ function drawOutputChart(
   if (totals.length === 0) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "italic");
-    doc.text("No output data available", chartX + 5, plotY + 10);
+    doc.text(i18next.t("anesthesia.pdf.noOutputData"), chartX + 5, plotY + 10);
     return chartY + 25;
   }
 
@@ -493,7 +494,7 @@ function drawRhythmTimeline(
   if (!rhythmData || rhythmData.length === 0) {
     doc.setFontSize(10);
     doc.setFont("helvetica", "italic");
-    doc.text("No rhythm changes recorded", chartX + 5, chartY + 15);
+    doc.text(i18next.t("anesthesia.pdf.noRhythmChanges"), chartX + 5, chartY + 15);
     return chartY + 25;
   }
 
@@ -536,10 +537,10 @@ function drawRhythmTimeline(
 
     // Color code by rhythm
     const rhythmColors: { [key: string]: [number, number, number] } = {
-      "Sinus": [34, 197, 94],
-      "AF": [239, 68, 68],
-      "SVT": [251, 146, 60],
-      "VT": [220, 38, 38],
+      [i18next.t("anesthesia.pdf.sinus")]: [34, 197, 94],
+      [i18next.t("anesthesia.pdf.af")]: [239, 68, 68],
+      [i18next.t("anesthesia.pdf.svt")]: [251, 146, 60],
+      [i18next.t("anesthesia.pdf.vt")]: [220, 38, 38],
     };
     const color = rhythmColors[rhythm.value] || [100, 100, 100];
     
@@ -575,27 +576,27 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
   // ==================== HEADER ====================
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
-  doc.text("COMPLETE ANESTHESIA RECORD", 105, yPos, { align: "center" });
+  doc.text(i18next.t("anesthesia.pdf.documentTitle"), 105, yPos, { align: "center" });
   yPos += 10;
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text(`Generated: ${formatDateTime24h(new Date())}`, 105, yPos, { align: "center" });
+  doc.text(`${i18next.t("anesthesia.pdf.generated")}: ${formatDateTime24h(new Date())}`, 105, yPos, { align: "center" });
   yPos += 15;
 
   // ==================== PATIENT INFORMATION ====================
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.text("PATIENT INFORMATION", 20, yPos);
+  doc.text(i18next.t("anesthesia.pdf.patientInformation"), 20, yPos);
   yPos += 7;
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   
   const patientInfo = [
-    [`Patient ID: ${data.patient.patientNumber}`, `Name: ${data.patient.surname}, ${data.patient.firstName}`],
-    [`Date of Birth: ${data.patient.birthday}`, `Sex: ${data.patient.sex}`],
-    [`Age: ${calculateAge(data.patient.birthday)} years`, `Phone: ${data.patient.phone || "N/A"}`],
+    [`${i18next.t("anesthesia.pdf.patientId")}: ${data.patient.patientNumber}`, `${i18next.t("anesthesia.pdf.name")}: ${data.patient.surname}, ${data.patient.firstName}`],
+    [`${i18next.t("anesthesia.pdf.dateOfBirth")}: ${data.patient.birthday}`, `${i18next.t("anesthesia.pdf.sex")}: ${data.patient.sex}`],
+    [`${i18next.t("anesthesia.pdf.age")}: ${calculateAge(data.patient.birthday)} ${i18next.t("anesthesia.pdf.years")}`, `${i18next.t("anesthesia.pdf.phone")}: ${data.patient.phone || i18next.t("anesthesia.pdf.na")}`],
   ];
 
   patientInfo.forEach(row => {
@@ -607,7 +608,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
   if (data.patient.allergies && data.patient.allergies.length > 0) {
     yPos += 2;
     doc.setFont("helvetica", "bold");
-    doc.text("Allergies:", 20, yPos);
+    doc.text(`${i18next.t("anesthesia.pdf.allergies")}:`, 20, yPos);
     doc.setFont("helvetica", "normal");
     doc.text(data.patient.allergies.join(", "), 42, yPos);
     yPos += 6;
@@ -618,22 +619,22 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
   // ==================== SURGERY INFORMATION ====================
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.text("SURGERY INFORMATION", 20, yPos);
+  doc.text(i18next.t("anesthesia.pdf.surgeryInformation"), 20, yPos);
   yPos += 7;
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   
   const surgeryInfo = [
-    [`Procedure: ${data.surgery.plannedSurgery}`, `Surgeon: ${data.surgery.surgeon || "N/A"}`],
-    [`Planned Date: ${formatDate(data.surgery.plannedDate)}`, `Status: ${data.surgery.status.toUpperCase()}`],
+    [`${i18next.t("anesthesia.pdf.procedure")}: ${data.surgery.plannedSurgery}`, `${i18next.t("anesthesia.pdf.surgeon")}: ${data.surgery.surgeon || i18next.t("anesthesia.pdf.na")}`],
+    [`${i18next.t("anesthesia.pdf.plannedDate")}: ${formatDate(data.surgery.plannedDate)}`, `${i18next.t("anesthesia.pdf.status")}: ${data.surgery.status.toUpperCase()}`],
   ];
 
   if (data.surgery.actualStartTime) {
-    surgeryInfo.push([`Actual Start: ${formatDateTime24h(data.surgery.actualStartTime)}`, ""]);
+    surgeryInfo.push([`${i18next.t("anesthesia.pdf.actualStart")}: ${formatDateTime24h(data.surgery.actualStartTime)}`, ""]);
   }
   if (data.surgery.actualEndTime) {
-    surgeryInfo.push([`Actual End: ${formatDateTime24h(data.surgery.actualEndTime)}`, ""]);
+    surgeryInfo.push([`${i18next.t("anesthesia.pdf.actualEnd")}: ${formatDateTime24h(data.surgery.actualEndTime)}`, ""]);
   }
 
   surgeryInfo.forEach(row => {
@@ -653,7 +654,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
 
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("PRE-OPERATIVE ASSESSMENT", 20, yPos);
+    doc.text(i18next.t("anesthesia.pdf.preOperativeAssessment"), 20, yPos);
     yPos += 7;
 
     doc.setFontSize(10);
@@ -662,23 +663,23 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     const preOpInfo = [];
     if (data.preOpAssessment.height || data.preOpAssessment.weight) {
       preOpInfo.push([
-        `Height: ${data.preOpAssessment.height || "N/A"}`,
-        `Weight: ${data.preOpAssessment.weight || "N/A"}`
+        `${i18next.t("anesthesia.pdf.height")}: ${data.preOpAssessment.height || i18next.t("anesthesia.pdf.na")}`,
+        `${i18next.t("anesthesia.pdf.weight")}: ${data.preOpAssessment.weight || i18next.t("anesthesia.pdf.na")}`
       ]);
     }
     if (data.preOpAssessment.asa) {
-      preOpInfo.push([`ASA Classification: ${data.preOpAssessment.asa}`, ""]);
+      preOpInfo.push([`${i18next.t("anesthesia.pdf.asaClassification")}: ${data.preOpAssessment.asa}`, ""]);
     }
     if (data.preOpAssessment.mallampati) {
       preOpInfo.push([
-        `Mallampati: ${data.preOpAssessment.mallampati}`,
-        `Airway Difficulty: ${data.preOpAssessment.airwayDifficult || "N/A"}`
+        `${i18next.t("anesthesia.pdf.mallampati")}: ${data.preOpAssessment.mallampati}`,
+        `${i18next.t("anesthesia.pdf.airwayDifficulty")}: ${data.preOpAssessment.airwayDifficult || i18next.t("anesthesia.pdf.na")}`
       ]);
     }
     if (data.preOpAssessment.lastSolids || data.preOpAssessment.lastClear) {
       preOpInfo.push([
-        `Last Solids: ${data.preOpAssessment.lastSolids || "N/A"}`,
-        `Last Clear: ${data.preOpAssessment.lastClear || "N/A"}`
+        `${i18next.t("anesthesia.pdf.lastSolids")}: ${data.preOpAssessment.lastSolids || i18next.t("anesthesia.pdf.na")}`,
+        `${i18next.t("anesthesia.pdf.lastClear")}: ${data.preOpAssessment.lastClear || i18next.t("anesthesia.pdf.na")}`
       ]);
     }
 
@@ -694,7 +695,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
       if (techniques && Object.keys(techniques).length > 0) {
         yPos += 2;
         doc.setFont("helvetica", "bold");
-        doc.text("Planned Anesthesia:", 20, yPos);
+        doc.text(`${i18next.t("anesthesia.pdf.plannedAnesthesia")}:`, 20, yPos);
         yPos += 5;
         doc.setFont("helvetica", "normal");
         Object.entries(techniques).forEach(([key, value]) => {
@@ -712,12 +713,12 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
       if (consentData.signature) {
         yPos += 3;
         doc.setFont("helvetica", "bold");
-        doc.text("Informed Consent Signature:", 20, yPos);
+        doc.text(`${i18next.t("anesthesia.pdf.informedConsent")}:`, 20, yPos);
         yPos += 5;
         doc.setFont("helvetica", "normal");
-        doc.text("✓ Signed electronically", 25, yPos);
+        doc.text(i18next.t("anesthesia.pdf.signedElectronically"), 25, yPos);
         if (consentData.completedAt) {
-          doc.text(`Date: ${formatDateTime24h(new Date(consentData.completedAt))}`, 25, yPos + 5);
+          doc.text(`${i18next.t("anesthesia.pdf.date")}: ${formatDateTime24h(new Date(consentData.completedAt))}`, 25, yPos + 5);
           yPos += 5;
         }
         yPos += 5;
@@ -736,7 +737,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
 
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("ANESTHESIA DETAILS", 20, yPos);
+    doc.text(i18next.t("anesthesia.pdf.anesthesiaDetails"), 20, yPos);
     yPos += 7;
 
     doc.setFontSize(10);
@@ -744,19 +745,19 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
 
     const anesInfo = [];
     if (data.anesthesiaRecord.anesthesiaType) {
-      anesInfo.push([`Type: ${data.anesthesiaRecord.anesthesiaType.toUpperCase()}`, ""]);
+      anesInfo.push([`${i18next.t("anesthesia.pdf.type")}: ${data.anesthesiaRecord.anesthesiaType.toUpperCase()}`, ""]);
     }
     if (data.anesthesiaRecord.physicalStatus) {
-      anesInfo.push([`ASA Physical Status: ${data.anesthesiaRecord.physicalStatus}`, ""]);
+      anesInfo.push([`${i18next.t("anesthesia.pdf.asaPhysicalStatus")}: ${data.anesthesiaRecord.physicalStatus}`, ""]);
     }
     if (data.anesthesiaRecord.emergencyCase) {
-      anesInfo.push([`Emergency Case: Yes`, ""]);
+      anesInfo.push([`${i18next.t("anesthesia.pdf.emergencyCase")}: ${i18next.t("anesthesia.pdf.yes")}`, ""]);
     }
     if (data.anesthesiaRecord.anesthesiaStartTime) {
-      anesInfo.push([`Anesthesia Start: ${formatDateTime24h(data.anesthesiaRecord.anesthesiaStartTime)}`, ""]);
+      anesInfo.push([`${i18next.t("anesthesia.pdf.anesthesiaStart")}: ${formatDateTime24h(data.anesthesiaRecord.anesthesiaStartTime)}`, ""]);
     }
     if (data.anesthesiaRecord.anesthesiaEndTime) {
-      anesInfo.push([`Anesthesia End: ${formatDateTime24h(data.anesthesiaRecord.anesthesiaEndTime)}`, ""]);
+      anesInfo.push([`${i18next.t("anesthesia.pdf.anesthesiaEnd")}: ${formatDateTime24h(data.anesthesiaRecord.anesthesiaEndTime)}`, ""]);
     }
 
     anesInfo.forEach(row => {
@@ -773,7 +774,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
 
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("TIME MARKERS", 20, yPos);
+    doc.text(i18next.t("anesthesia.pdf.timeMarkers"), 20, yPos);
     yPos += 7;
 
     const markers = data.anesthesiaRecord.timeMarkers as TimeMarker[];
@@ -788,7 +789,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     if (markerData.length > 0) {
       autoTable(doc, {
         startY: yPos,
-        head: [["Code", "Event", "Time"]],
+        head: [[i18next.t("anesthesia.pdf.code"), i18next.t("anesthesia.pdf.event"), i18next.t("anesthesia.pdf.time")]],
         body: markerData,
         theme: "grid",
         styles: { fontSize: 9, cellPadding: 3 },
@@ -809,25 +810,25 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
 
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("EVENTS & NOTES", 20, yPos);
+    doc.text(i18next.t("anesthesia.pdf.eventsNotes"), 20, yPos);
     yPos += 7;
 
     const eventData = data.events.map(event => {
       const eventDate = new Date(event.timestamp);
       const timeStr = isNaN(eventDate.getTime()) 
-        ? "Invalid Time" 
+        ? i18next.t("anesthesia.pdf.invalidTime")
         : formatTimeFrom24h(eventDate.getTime());
       
       return [
         timeStr,
         event.description,
-        event.eventType || "Note"
+        event.eventType || i18next.t("anesthesia.pdf.note")
       ];
     });
 
     autoTable(doc, {
       startY: yPos,
-      head: [["Time", "Description", "Type"]],
+      head: [[i18next.t("anesthesia.pdf.time"), i18next.t("anesthesia.pdf.description"), i18next.t("anesthesia.pdf.type")]],
       body: eventData,
       theme: "grid",
       styles: { fontSize: 9, cellPadding: 3 },
@@ -847,7 +848,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
 
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("MEDICATION ADMINISTRATION", 20, yPos);
+    doc.text(i18next.t("anesthesia.pdf.medicationAdministration"), 20, yPos);
     yPos += 7;
 
     // Create a map of itemId to item name (with fallback for missing data)
@@ -856,21 +857,21 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     const medData = data.medications.map(med => {
       const medDate = new Date(med.timestamp);
       const timeStr = isNaN(medDate.getTime()) 
-        ? "Invalid Time" 
+        ? i18next.t("anesthesia.pdf.invalidTime")
         : formatTimeFrom24h(medDate.getTime());
         
       const item = itemMap.get(med.itemId);
-      const itemName = item?.name || "Unknown Medication";
+      const itemName = item?.name || i18next.t("anesthesia.pdf.unknownMedication");
       const doseUnit = med.unit || item?.administrationUnit || "";
       const route = med.route || item?.administrationRoute || "";
       
       let typeDisplay = med.type;
       if (med.type === "infusion_start") {
-        typeDisplay = med.rate === "free" ? "Infusion (Free)" : `Infusion (${med.rate})`;
+        typeDisplay = med.rate === "free" ? i18next.t("anesthesia.pdf.infusionFree") : `${i18next.t("anesthesia.pdf.infusion")} (${med.rate})`;
       } else if (med.type === "infusion_stop") {
-        typeDisplay = "Stop Infusion";
+        typeDisplay = i18next.t("anesthesia.pdf.stopInfusion");
       } else if (med.type === "bolus") {
-        typeDisplay = "Bolus";
+        typeDisplay = i18next.t("anesthesia.pdf.bolus");
       }
 
       return [
@@ -884,7 +885,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
 
     autoTable(doc, {
       startY: yPos,
-      head: [["Time", "Medication", "Dose", "Route", "Type"]],
+      head: [[i18next.t("anesthesia.pdf.time"), i18next.t("anesthesia.pdf.medication"), i18next.t("anesthesia.pdf.dose"), i18next.t("anesthesia.pdf.route"), i18next.t("anesthesia.pdf.type")]],
       body: medData,
       theme: "grid",
       styles: { fontSize: 8, cellPadding: 2 },
@@ -906,7 +907,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
 
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("VITAL SIGNS SUMMARY", 20, yPos);
+    doc.text(i18next.t("anesthesia.pdf.vitalSignsSummary"), 20, yPos);
     yPos += 7;
 
     doc.setFontSize(10);
@@ -918,7 +919,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     if (snapshotData.hr && snapshotData.hr.length > 0) {
       const hrValues = snapshotData.hr.map((p: any) => p.value);
       vitalsInfo.push([
-        `Heart Rate: ${Math.min(...hrValues)} - ${Math.max(...hrValues)} bpm (${snapshotData.hr.length} readings)`,
+        `${i18next.t("anesthesia.pdf.heartRate")}: ${Math.min(...hrValues)} - ${Math.max(...hrValues)} bpm (${snapshotData.hr.length} ${i18next.t("anesthesia.pdf.readings")})`,
         ""
       ]);
     }
@@ -927,7 +928,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
       const bpSys = snapshotData.bp.map((p: any) => p.sys);
       const bpDia = snapshotData.bp.map((p: any) => p.dia);
       vitalsInfo.push([
-        `Blood Pressure: ${Math.min(...bpSys)}/${Math.min(...bpDia)} - ${Math.max(...bpSys)}/${Math.max(...bpDia)} mmHg (${snapshotData.bp.length} readings)`,
+        `${i18next.t("anesthesia.pdf.bloodPressure")}: ${Math.min(...bpSys)}/${Math.min(...bpDia)} - ${Math.max(...bpSys)}/${Math.max(...bpDia)} mmHg (${snapshotData.bp.length} ${i18next.t("anesthesia.pdf.readings")})`,
         ""
       ]);
     }
@@ -935,7 +936,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     if (snapshotData.spo2 && snapshotData.spo2.length > 0) {
       const spo2Values = snapshotData.spo2.map((p: any) => p.value);
       vitalsInfo.push([
-        `SpO2: ${Math.min(...spo2Values)} - ${Math.max(...spo2Values)}% (${snapshotData.spo2.length} readings)`,
+        `SpO2: ${Math.min(...spo2Values)} - ${Math.max(...spo2Values)}% (${snapshotData.spo2.length} ${i18next.t("anesthesia.pdf.readings")})`,
         ""
       ]);
     }
@@ -943,13 +944,13 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     if (snapshotData.temp && snapshotData.temp.length > 0) {
       const tempValues = snapshotData.temp.map((p: any) => p.value);
       vitalsInfo.push([
-        `Temperature: ${Math.min(...tempValues).toFixed(1)} - ${Math.max(...tempValues).toFixed(1)}°C (${snapshotData.temp.length} readings)`,
+        `${i18next.t("anesthesia.pdf.temperature")}: ${Math.min(...tempValues).toFixed(1)} - ${Math.max(...tempValues).toFixed(1)}°C (${snapshotData.temp.length} ${i18next.t("anesthesia.pdf.readings")})`,
         ""
       ]);
     }
 
     if (vitalsInfo.length === 0) {
-      doc.text("No vital signs recorded", 20, yPos);
+      doc.text(i18next.t("anesthesia.pdf.noVitalSigns"), 20, yPos);
       yPos += 6;
     } else {
       vitalsInfo.forEach(row => {
@@ -987,16 +988,16 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     // Draw Vitals Chart
     yPos = drawTimelineChart(
       doc,
-      "VITAL SIGNS TIMELINE",
+      i18next.t("anesthesia.pdf.vitalSignsTimeline"),
       [
-        { name: "HR (bpm)", data: hrData, color: [59, 130, 246] },
-        { name: "BP Sys", data: bpSysData, color: [220, 38, 38] },
-        { name: "BP Dia", data: bpDiaData, color: [239, 68, 68] },
-        { name: "SpO2 (%)", data: spo2Data, color: [34, 197, 94] },
-        { name: "Temp (°C)", data: tempData, color: [251, 146, 60] },
+        { name: i18next.t("anesthesia.pdf.hrBpm"), data: hrData, color: [59, 130, 246] },
+        { name: i18next.t("anesthesia.pdf.bpSys"), data: bpSysData, color: [220, 38, 38] },
+        { name: i18next.t("anesthesia.pdf.bpDia"), data: bpDiaData, color: [239, 68, 68] },
+        { name: i18next.t("anesthesia.pdf.spo2Percent"), data: spo2Data, color: [34, 197, 94] },
+        { name: i18next.t("anesthesia.pdf.tempCelsius"), data: tempData, color: [251, 146, 60] },
       ],
       yPos,
-      { yLabel: "Value", height: 80 }
+      { yLabel: i18next.t("anesthesia.pdf.value"), height: 80 }
     );
 
     // ==================== VISUAL CHARTS: MEDICATIONS TIMELINE ====================
@@ -1004,7 +1005,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
       yPos = checkPageBreak(doc, yPos, 80);
       yPos = drawMedicationTimeline(
         doc,
-        "MEDICATIONS & INFUSIONS TIMELINE",
+        i18next.t("anesthesia.pdf.medicationsInfusionsTimeline"),
         data.medications,
         data.anesthesiaItems || [],
         yPos
@@ -1042,24 +1043,24 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     // Draw Ventilation Parameters Chart
     yPos = drawTimelineChart(
       doc,
-      "VENTILATION PARAMETERS",
+      i18next.t("anesthesia.pdf.ventilationParameters"),
       [
-        { name: "PIP (cmH2O)", data: pipData, color: [59, 130, 246] },
-        { name: "PEEP (cmH2O)", data: peepData, color: [16, 185, 129] },
-        { name: "TV (ml)", data: tidalVolumeData, color: [251, 146, 60] },
-        { name: "RR (/min)", data: respRateData, color: [139, 92, 246] },
-        { name: "FiO2 (%)", data: fio2Data, color: [236, 72, 153] },
-        { name: "EtCO2 (mmHg)", data: etco2Data, color: [234, 179, 8] },
+        { name: i18next.t("anesthesia.pdf.pipCmH2O"), data: pipData, color: [59, 130, 246] },
+        { name: i18next.t("anesthesia.pdf.peepCmH2O"), data: peepData, color: [16, 185, 129] },
+        { name: i18next.t("anesthesia.pdf.tvMl"), data: tidalVolumeData, color: [251, 146, 60] },
+        { name: i18next.t("anesthesia.pdf.rrPerMin"), data: respRateData, color: [139, 92, 246] },
+        { name: i18next.t("anesthesia.pdf.fio2Percent"), data: fio2Data, color: [236, 72, 153] },
+        { name: i18next.t("anesthesia.pdf.etco2MmHg"), data: etco2Data, color: [234, 179, 8] },
       ],
       yPos,
-      { yLabel: "Value", height: 80 }
+      { yLabel: i18next.t("anesthesia.pdf.value"), height: 80 }
     );
 
     // ==================== VISUAL CHARTS: FLUID BALANCE & OUTPUT ====================
     yPos = checkPageBreak(doc, yPos, 70);
     yPos = drawOutputChart(
       doc,
-      "FLUID BALANCE & OUTPUT",
+      i18next.t("anesthesia.pdf.fluidBalanceOutput"),
       snapshotData,
       yPos
     );
@@ -1069,7 +1070,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
       yPos = checkPageBreak(doc, yPos, 50);
       yPos = drawRhythmTimeline(
         doc,
-        "HEART RHYTHM",
+        i18next.t("anesthesia.pdf.heartRhythm"),
         snapshotData.heartRhythm,
         yPos
       );
@@ -1082,7 +1083,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
 
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("POST-OPERATIVE INFORMATION", 20, yPos);
+    doc.text(i18next.t("anesthesia.pdf.postOperativeInformation"), 20, yPos);
     yPos += 7;
 
     doc.setFontSize(10);
@@ -1092,23 +1093,23 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     const postOpInfo = [];
 
     if (postOpData.postOpDestination) {
-      postOpInfo.push([`Destination: ${postOpData.postOpDestination}`, ""]);
+      postOpInfo.push([`${i18next.t("anesthesia.pdf.destination")}: ${postOpData.postOpDestination}`, ""]);
     }
     if (postOpData.complications) {
-      postOpInfo.push([`Complications: ${postOpData.complications}`, ""]);
+      postOpInfo.push([`${i18next.t("anesthesia.pdf.complications")}: ${postOpData.complications}`, ""]);
     }
     if (postOpData.postOpNotes) {
-      postOpInfo.push([`Notes: ${postOpData.postOpNotes}`, ""]);
+      postOpInfo.push([`${i18next.t("anesthesia.pdf.notes")}: ${postOpData.postOpNotes}`, ""]);
     }
 
     // Medication schedule
     const medSchedule = [];
-    if (postOpData.paracetamolTime) medSchedule.push(`Paracetamol: ${postOpData.paracetamolTime}`);
-    if (postOpData.nsarTime) medSchedule.push(`NSAR: ${postOpData.nsarTime}`);
-    if (postOpData.novalginTime) medSchedule.push(`Novalgin: ${postOpData.novalginTime}`);
+    if (postOpData.paracetamolTime) medSchedule.push(`${i18next.t("anesthesia.pdf.paracetamol")}: ${postOpData.paracetamolTime}`);
+    if (postOpData.nsarTime) medSchedule.push(`${i18next.t("anesthesia.pdf.nsar")}: ${postOpData.nsarTime}`);
+    if (postOpData.novalginTime) medSchedule.push(`${i18next.t("anesthesia.pdf.novalgin")}: ${postOpData.novalginTime}`);
 
     if (medSchedule.length > 0) {
-      postOpInfo.push([`Medication Schedule: ${medSchedule.join(", ")}`, ""]);
+      postOpInfo.push([`${i18next.t("anesthesia.pdf.medicationSchedule")}: ${medSchedule.join(", ")}`, ""]);
     }
 
     postOpInfo.forEach(row => {
@@ -1125,21 +1126,21 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
 
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("ANESTHESIA STAFF", 20, yPos);
+    doc.text(i18next.t("anesthesia.pdf.anesthesiaStaff"), 20, yPos);
     yPos += 7;
 
     const staffData = data.staffMembers.map(staff => {
       const startDate = new Date(staff.startTime);
       const startTimeStr = isNaN(startDate.getTime()) 
-        ? "Invalid Time" 
+        ? i18next.t("anesthesia.pdf.invalidTime")
         : formatTimeFrom24h(startDate.getTime());
       
       const endTimeStr = staff.endTime 
         ? (() => {
             const endDate = new Date(staff.endTime);
-            return isNaN(endDate.getTime()) ? "Invalid Time" : formatTimeFrom24h(endDate.getTime());
+            return isNaN(endDate.getTime()) ? i18next.t("anesthesia.pdf.invalidTime") : formatTimeFrom24h(endDate.getTime());
           })()
-        : "Ongoing";
+        : i18next.t("anesthesia.pdf.ongoing");
 
       return [
         staff.role,
@@ -1151,7 +1152,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
 
     autoTable(doc, {
       startY: yPos,
-      head: [["Role", "Name", "Start Time", "End Time"]],
+      head: [[i18next.t("anesthesia.pdf.role"), i18next.t("anesthesia.pdf.name"), i18next.t("anesthesia.pdf.startTime"), i18next.t("anesthesia.pdf.endTime")]],
       body: staffData,
       theme: "grid",
       styles: { fontSize: 9, cellPadding: 3 },
@@ -1172,13 +1173,13 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
 
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("PATIENT POSITIONING", 20, yPos);
+    doc.text(i18next.t("anesthesia.pdf.patientPositioning"), 20, yPos);
     yPos += 7;
 
     const positionData = data.positions.map(pos => {
       const posDate = new Date(pos.time);
       const timeStr = isNaN(posDate.getTime()) 
-        ? "Invalid Time" 
+        ? i18next.t("anesthesia.pdf.invalidTime")
         : formatTimeFrom24h(posDate.getTime());
       
       return [
@@ -1189,7 +1190,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
 
     autoTable(doc, {
       startY: yPos,
-      head: [["Time", "Position"]],
+      head: [[i18next.t("anesthesia.pdf.time"), i18next.t("anesthesia.pdf.position")]],
       body: positionData,
       theme: "grid",
       styles: { fontSize: 9, cellPadding: 3 },
@@ -1208,7 +1209,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
 
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text("SIGNATURES", 20, yPos);
+    doc.text(i18next.t("anesthesia.pdf.signatures"), 20, yPos);
     yPos += 7;
 
     doc.setFontSize(10);
@@ -1217,13 +1218,13 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     // Pre-operative assessment signature
     if (data.preOpAssessment.doctorSignature) {
       doc.setFont("helvetica", "bold");
-      doc.text("Pre-Operative Assessment:", 20, yPos);
+      doc.text(`${i18next.t("anesthesia.pdf.preOperativeAssessmentSig")}:`, 20, yPos);
       yPos += 5;
       doc.setFont("helvetica", "normal");
-      doc.text(`Anesthesiologist: ${data.preOpAssessment.doctorSignature}`, 25, yPos);
+      doc.text(`${i18next.t("anesthesia.pdf.anesthesiologist")}: ${data.preOpAssessment.doctorSignature}`, 25, yPos);
       yPos += 5;
       if (data.preOpAssessment.assessmentDate) {
-        doc.text(`Date: ${formatDate(data.preOpAssessment.assessmentDate)}`, 25, yPos);
+        doc.text(`${i18next.t("anesthesia.pdf.date")}: ${formatDate(data.preOpAssessment.assessmentDate)}`, 25, yPos);
         yPos += 7;
       }
     }
@@ -1233,13 +1234,13 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
       const consentData = data.preOpAssessment.informedConsentData as any;
       if (consentData.signature) {
         doc.setFont("helvetica", "bold");
-        doc.text("Informed Consent:", 20, yPos);
+        doc.text(`${i18next.t("anesthesia.pdf.informedConsent")}:`, 20, yPos);
         yPos += 5;
         doc.setFont("helvetica", "normal");
-        doc.text("✓ Patient consent obtained electronically", 25, yPos);
+        doc.text(i18next.t("anesthesia.pdf.patientConsentObtained"), 25, yPos);
         yPos += 5;
         if (consentData.completedAt) {
-          doc.text(`Date/Time: ${formatDateTime24h(new Date(consentData.completedAt))}`, 25, yPos);
+          doc.text(`${i18next.t("anesthesia.pdf.dateTime")}: ${formatDateTime24h(new Date(consentData.completedAt))}`, 25, yPos);
           yPos += 5;
         }
       }
@@ -1255,7 +1256,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.text(
-      `Page ${i} of ${pageCount} | ${data.patient.patientNumber} | ${formatDate(data.surgery.plannedDate)}`,
+      `${i18next.t("anesthesia.pdf.page")} ${i} ${i18next.t("anesthesia.pdf.of")} ${pageCount} | ${data.patient.patientNumber} | ${formatDate(data.surgery.plannedDate)}`,
       105,
       287,
       { align: "center" }

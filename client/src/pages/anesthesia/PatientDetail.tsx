@@ -2774,7 +2774,7 @@ export default function PatientDetail() {
                                     })}
                                     data-testid="checkbox-nasogastric-tube"
                                   />
-                                  <Label htmlFor="nasogastricTube" className="cursor-pointer font-normal text-sm">Nasogastric Tube</Label>
+                                  <Label htmlFor="nasogastricTube" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.nasogastricTube')}</Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                   <Checkbox
@@ -2892,7 +2892,7 @@ export default function PatientDetail() {
                           className={assessmentData.surgicalApprovalStatus === "standby-ekg" ? "border-yellow-600 data-[state=checked]:bg-yellow-600" : ""}
                         />
                         <Label htmlFor="standby-ekg" className={`cursor-pointer font-normal text-sm flex-1 ${assessmentData.surgicalApprovalStatus === "standby-ekg" ? "text-yellow-700 dark:text-yellow-300 font-semibold" : ""}`}>
-                          ⏸ Stand-by waiting for EKG
+                          {t('anesthesia.patientDetail.standbyWaitingEkg')}
                         </Label>
                       </div>
                       <div className={`flex items-center space-x-2 p-2 rounded-lg ${assessmentData.surgicalApprovalStatus === "standby-labs" ? "bg-yellow-50 dark:bg-yellow-950" : ""}`}>
@@ -2907,7 +2907,7 @@ export default function PatientDetail() {
                           className={assessmentData.surgicalApprovalStatus === "standby-labs" ? "border-yellow-600 data-[state=checked]:bg-yellow-600" : ""}
                         />
                         <Label htmlFor="standby-labs" className={`cursor-pointer font-normal text-sm flex-1 ${assessmentData.surgicalApprovalStatus === "standby-labs" ? "text-yellow-700 dark:text-yellow-300 font-semibold" : ""}`}>
-                          ⏸ Stand-by waiting for Labs
+                          {t('anesthesia.patientDetail.standbyWaitingLabs')}
                         </Label>
                       </div>
                       <div className={`flex items-center space-x-2 p-2 rounded-lg ${assessmentData.surgicalApprovalStatus === "standby-other" ? "bg-yellow-50 dark:bg-yellow-950" : ""}`}>
@@ -2922,7 +2922,7 @@ export default function PatientDetail() {
                           className={assessmentData.surgicalApprovalStatus === "standby-other" ? "border-yellow-600 data-[state=checked]:bg-yellow-600" : ""}
                         />
                         <Label htmlFor="standby-other" className={`cursor-pointer font-normal text-sm flex-1 ${assessmentData.surgicalApprovalStatus === "standby-other" ? "text-yellow-700 dark:text-yellow-300 font-semibold" : ""}`}>
-                          ⏸ Stand-by waiting for Other Exams
+                          {t('anesthesia.patientDetail.standbyWaitingOtherExams')}
                         </Label>
                       </div>
                       <div className={`flex items-center space-x-2 p-2 rounded-lg ${assessmentData.surgicalApprovalStatus === "not-approved" ? "bg-red-50 dark:bg-red-950" : ""}`}>
@@ -2937,7 +2937,7 @@ export default function PatientDetail() {
                           className={assessmentData.surgicalApprovalStatus === "not-approved" ? "border-red-600 data-[state=checked]:bg-red-600" : ""}
                         />
                         <Label htmlFor="not-approved" className={`cursor-pointer font-normal text-sm flex-1 ${assessmentData.surgicalApprovalStatus === "not-approved" ? "text-red-700 dark:text-red-300 font-semibold" : ""}`}>
-                          ✗ Not Approved
+                          {t('anesthesia.patientDetail.notApproved')}
                         </Label>
                       </div>
                     </div>
@@ -3001,13 +3001,13 @@ export default function PatientDetail() {
                       />
                       <div className="flex-1">
                         <Label htmlFor="general" className="font-semibold text-base cursor-pointer">
-                          General Anesthesia
+                          {t('anesthesia.patientDetail.generalAnesthesiaConsent')}
                         </Label>
                         <p className="text-sm text-muted-foreground mt-2">
-                          Complete loss of consciousness using intravenous and/or inhaled medications.
+                          {t('anesthesia.patientDetail.generalAnesthesiaDescription')}
                         </p>
                         <p className="text-sm text-destructive mt-2">
-                          <strong>Possible adverse events:</strong> Nausea, vomiting, sore throat, dental damage, awareness during anesthesia (rare), allergic reactions, cardiovascular complications.
+                          <strong>{t('anesthesia.patientDetail.possibleAdverseEvents')}</strong> {t('anesthesia.patientDetail.generalAnesthesiaRisks')}
                         </p>
                       </div>
                     </div>
@@ -3021,13 +3021,13 @@ export default function PatientDetail() {
                       />
                       <div className="flex-1">
                         <Label htmlFor="regional" className="font-semibold text-base cursor-pointer">
-                          Regional Anesthesia
+                          {t('anesthesia.patientDetail.regionalAnesthesiaConsent')}
                         </Label>
                         <p className="text-sm text-muted-foreground mt-2">
-                          Numbing of a specific region using local anesthetic injections (spinal, epidural, nerve blocks).
+                          {t('anesthesia.patientDetail.regionalAnesthesiaDescription')}
                         </p>
                         <p className="text-sm text-destructive mt-2">
-                          <strong>Possible adverse events:</strong> Headache, back pain, nerve damage (rare), hypotension, bleeding, infection at injection site.
+                          <strong>{t('anesthesia.patientDetail.possibleAdverseEvents')}</strong> {t('anesthesia.patientDetail.regionalAnesthesiaRisks')}
                         </p>
                       </div>
                     </div>
@@ -3041,13 +3041,13 @@ export default function PatientDetail() {
                       />
                       <div className="flex-1">
                         <Label htmlFor="installations" className="font-semibold text-base cursor-pointer">
-                          Planned Installations (IV lines, catheters)
+                          {t('anesthesia.patientDetail.plannedInstallationsConsent')}
                         </Label>
                         <p className="text-sm text-muted-foreground mt-2">
-                          Placement of intravenous lines, arterial lines, central lines, or urinary catheters as needed.
+                          {t('anesthesia.patientDetail.plannedInstallationsDescription')}
                         </p>
                         <p className="text-sm text-destructive mt-2">
-                          <strong>Possible adverse events:</strong> Infection, bleeding, hematoma, pneumothorax (for central lines), thrombosis.
+                          <strong>{t('anesthesia.patientDetail.possibleAdverseEvents')}</strong> {t('anesthesia.patientDetail.plannedInstallationsRisks')}
                         </p>
                       </div>
                     </div>
@@ -3061,13 +3061,13 @@ export default function PatientDetail() {
                       />
                       <div className="flex-1">
                         <Label htmlFor="icuAdmission" className="font-semibold text-base cursor-pointer">
-                          Postoperative ICU Admission
+                          {t('anesthesia.patientDetail.postoperativeIcuAdmission')}
                         </Label>
                         <p className="text-sm text-muted-foreground mt-2">
-                          Transfer to Intensive Care Unit for close monitoring after surgery.
+                          {t('anesthesia.patientDetail.postoperativeIcuDescription')}
                         </p>
                         <p className="text-sm text-destructive mt-2">
-                          <strong>Purpose:</strong> Close hemodynamic monitoring, respiratory support, pain management, and early detection of complications.
+                          {t('anesthesia.patientDetail.postoperativeIcuPurpose')}
                         </p>
                       </div>
                     </div>
@@ -3075,7 +3075,7 @@ export default function PatientDetail() {
 
                   <div className="space-y-4 pt-4 border-t">
                     <div className="space-y-2">
-                      <Label>Date</Label>
+                      <Label>{t('anesthesia.patientDetail.date')}</Label>
                       <Input
                         type="date"
                         value={consentData.date}
@@ -3091,7 +3091,7 @@ export default function PatientDetail() {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Doctor Signature</Label>
+                        <Label>{t('anesthesia.patientDetail.doctorSignature')}</Label>
                         <div
                           className="border-2 border-dashed rounded-lg p-6 cursor-pointer hover:bg-muted/50 transition-colors"
                           onClick={() => setShowConsentDoctorSignaturePad(true)}
@@ -3100,19 +3100,19 @@ export default function PatientDetail() {
                           {consentData.doctorSignature ? (
                             <div className="flex flex-col items-center gap-2">
                               <img src={consentData.doctorSignature} alt="Doctor signature" className="h-16 max-w-full" />
-                              <p className="text-xs text-muted-foreground">Click to change signature</p>
+                              <p className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.clickToChangeSignature')}</p>
                             </div>
                           ) : (
                             <div className="flex flex-col items-center gap-2 text-muted-foreground">
                               <i className="fas fa-signature text-2xl"></i>
-                              <p className="text-sm">Click to add signature</p>
+                              <p className="text-sm">{t('anesthesia.patientDetail.clickToAddSignature')}</p>
                             </div>
                           )}
                         </div>
                       </div>
                       
                       <div className="space-y-2">
-                        <Label>Patient Signature</Label>
+                        <Label>{t('anesthesia.patientDetail.patientSignature')}</Label>
                         <div
                           className="border-2 border-dashed rounded-lg p-6 cursor-pointer hover:bg-muted/50 transition-colors"
                           onClick={() => setShowConsentPatientSignaturePad(true)}
@@ -3121,12 +3121,12 @@ export default function PatientDetail() {
                           {consentData.patientSignature ? (
                             <div className="flex flex-col items-center gap-2">
                               <img src={consentData.patientSignature} alt="Patient signature" className="h-16 max-w-full" />
-                              <p className="text-xs text-muted-foreground">Click to change signature</p>
+                              <p className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.clickToChangeSignature')}</p>
                             </div>
                           ) : (
                             <div className="flex flex-col items-center gap-2 text-muted-foreground">
                               <i className="fas fa-signature text-2xl"></i>
-                              <p className="text-sm">Click to add signature</p>
+                              <p className="text-sm">{t('anesthesia.patientDetail.clickToAddSignature')}</p>
                             </div>
                           )}
                         </div>
