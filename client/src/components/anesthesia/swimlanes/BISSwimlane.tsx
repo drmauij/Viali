@@ -117,7 +117,7 @@ export function BISSwimlane({
         </div>
       )}
 
-      {bisData.map((point: BISPoint, index: number) => {
+      {bisData?.map((point: BISPoint, index: number) => {
         const { id, timestamp, value } = point;
         if (!bisLane) return null;
 

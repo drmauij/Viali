@@ -118,7 +118,7 @@ export function TOFSwimlane({
         </div>
       )}
 
-      {tofData.map((point: TOFPoint, index: number) => {
+      {tofData?.map((point: TOFPoint, index: number) => {
         const { id, timestamp, value, percentage } = point;
         if (!tofLane) return null;
 

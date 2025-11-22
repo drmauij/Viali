@@ -692,7 +692,9 @@ export function UnifiedTimeline({
     addEvent,
     resetEventData,
   } = useEventState({
-    timeMarkers: ANESTHESIA_TIME_MARKERS.map(marker => ({ ...marker, time: null }))
+    timeMarkers: ANESTHESIA_TIME_MARKERS.map(marker => ({ ...marker, time: null })),
+    bis: [],
+    tof: [],
   });
 
   // Load time markers from database when anesthesia record is fetched
