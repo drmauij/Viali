@@ -5137,13 +5137,6 @@ export function UnifiedTimeline({
           setShowBulkVitalsDialog(true);
         }}
         onVitalPointEdit={(type, index, time, value) => {
-          // Clicking on empty space → Open ManualVitalsDialog for bulk entry
-          // Find all vitals at this timestamp for pre-filling
-          const hrAtTime = hrDataPoints.find(pt => Math.abs(pt[0] - time) < 1000)?.[1];
-          const sysAtTime = bpDataPoints.sys.find(pt => Math.abs(pt[0] - time) < 1000)?.[1];
-          const diaAtTime = bpDataPoints.dia.find(pt => Math.abs(pt[0] - time) < 1000)?.[1];
-          const spo2AtTime = spo2DataPoints.find(pt => Math.abs(pt[0] - time) < 1000)?.[1];
-          
           // Clicking on existing point → Open Edit Value Dialog for single edit/delete
           // Capture point ID from clinical snapshot
           let pointId: string | undefined;

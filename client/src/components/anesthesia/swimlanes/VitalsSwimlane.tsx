@@ -255,7 +255,7 @@ export function VitalsSwimlane({
       } else {
         // Clicking on empty space → Open bulk entry dialog
         setIsProcessingClick(false);
-        onVitalPointEdit?.(null, 0, snappedClickTime, 0);
+        onBulkVitalsOpen?.(snappedClickTime);
         return;
       }
     }
