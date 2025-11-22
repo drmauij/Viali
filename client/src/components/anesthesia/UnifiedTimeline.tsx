@@ -1199,6 +1199,12 @@ export function UnifiedTimeline({
   // State for manual vitals entry dialog
   const [showManualVitalsDialog, setShowManualVitalsDialog] = useState(false);
   const [manualVitalsTime, setManualVitalsTime] = useState<number>(Date.now());
+  const [manualVitalsInitialValues, setManualVitalsInitialValues] = useState<{
+    hr?: number;
+    sys?: number;
+    dia?: number;
+    spo2?: number;
+  } | undefined>(undefined);
 
   // State for Events/Times sliding panel
   const [showEventsTimesPanel, setShowEventsTimesPanel] = useState(false);
@@ -5134,10 +5140,20 @@ export function UnifiedTimeline({
           setShowBulkVitalsDialog(true);
         }}
         onVitalPointEdit={(type, index, time, value) => {
-          // Open the bulk vitals dialog at the time of the clicked point
-          // This allows viewing/editing all vitals at that timestamp
-          setBulkVitalsTime(time);
-          setShowBulkVitalsDialog(true);
+          // Find all vitals at this timestamp for editing
+          const hrAtTime = hrDataPoints.find(pt => Math.abs(pt[0] - time) < 1000)?.[1];
+          const sysAtTime = bpDataPoints.sys.find(pt => Math.abs(pt[0] - time) < 1000)?.[1];
+          const diaAtTime = bpDataPoints.dia.find(pt => Math.abs(pt[0] - time) < 1000)?.[1];
+          const spo2AtTime = spo2DataPoints.find(pt => Math.abs(pt[0] - time) < 1000)?.[1];
+          
+          setManualVitalsTime(time);
+          setManualVitalsInitialValues({
+            hr: hrAtTime,
+            sys: sysAtTime,
+            dia: diaAtTime,
+            spo2: spo2AtTime,
+          });
+          setShowManualVitalsDialog(true);
         }}
       />
 
@@ -6340,6 +6356,7 @@ export function UnifiedTimeline({
         open={showManualVitalsDialog}
         onOpenChange={setShowManualVitalsDialog}
         initialTime={manualVitalsTime}
+        initialValues={manualVitalsInitialValues}
         onSave={handleManualVitalsSave}
       />
 

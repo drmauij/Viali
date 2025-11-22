@@ -222,21 +222,24 @@ export function VitalsSwimlane({
     const visibleRange = visibleEnd - visibleStart;
     
     const xPercent = x / rect.width;
-    let clickTime = visibleStart + (xPercent * visibleRange);
-    clickTime = Math.round(clickTime / currentVitalsSnapInterval) * currentVitalsSnapInterval;
+    // Keep raw click time for hit-testing existing points
+    const rawClickTime = visibleStart + (xPercent * visibleRange);
+    // Snap time only for creating new entries
+    const snappedClickTime = Math.round(rawClickTime / currentVitalsSnapInterval) * currentVitalsSnapInterval;
 
     // Validate that click time is within editable boundaries
     const editableStartBoundary = currentTime - TEN_MINUTES;
     const editableEndBoundary = currentTime + TEN_MINUTES;
 
-    if (clickTime < editableStartBoundary || clickTime > editableEndBoundary) {
+    if (rawClickTime < editableStartBoundary || rawClickTime > editableEndBoundary) {
       setIsProcessingClick(false);
       return;
     }
 
     // If no tool mode is active, check if clicking on existing point or empty space
     if (!activeToolMode) {
-      const nearbyPoint = findNearbyVitalPoint(clickTime, y, rect);
+      // Use raw click time for hit-testing to avoid missing existing points
+      const nearbyPoint = findNearbyVitalPoint(rawClickTime, y, rect);
       
       if (nearbyPoint) {
         // Clicking on existing point - open edit dialog
@@ -244,9 +247,9 @@ export function VitalsSwimlane({
         onVitalPointEdit?.(nearbyPoint.type, nearbyPoint.index, nearbyPoint.time, nearbyPoint.value);
         return;
       } else {
-        // Clicking on empty space - open bulk vitals dialog
+        // Clicking on empty space - open bulk vitals dialog with snapped time
         setIsProcessingClick(false);
-        onBulkVitalsOpen?.(clickTime);
+        onBulkVitalsOpen?.(snappedClickTime);
         return;
       }
     }

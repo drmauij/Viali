@@ -10,6 +10,12 @@ interface ManualVitalsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialTime: number;
+  initialValues?: {
+    hr?: number;
+    sys?: number;
+    dia?: number;
+    spo2?: number;
+  };
   onSave: (data: {
     hr?: number;
     sys?: number;
@@ -23,6 +29,7 @@ export function ManualVitalsDialog({
   open,
   onOpenChange,
   initialTime,
+  initialValues,
   onSave,
 }: ManualVitalsDialogProps) {
   const [time, setTime] = useState(initialTime);
@@ -39,14 +46,15 @@ export function ManualVitalsDialog({
   useEffect(() => {
     if (open) {
       setTime(initialTime);
-      setHr("");
-      setSys("");
-      setDia("");
-      setSpo2("");
+      // Pre-fill with existing values if provided, otherwise reset to empty
+      setHr(initialValues?.hr !== undefined ? String(initialValues.hr) : "");
+      setSys(initialValues?.sys !== undefined ? String(initialValues.sys) : "");
+      setDia(initialValues?.dia !== undefined ? String(initialValues.dia) : "");
+      setSpo2(initialValues?.spo2 !== undefined ? String(initialValues.spo2) : "");
       // Focus first input when dialog opens
       setTimeout(() => hrRef.current?.focus(), 100);
     }
-  }, [open, initialTime]);
+  }, [open, initialTime, initialValues]);
 
   const handleKeyDown = (e: React.KeyboardEvent, nextRef: React.RefObject<HTMLInputElement> | null) => {
     if (e.key === 'Tab' && nextRef) {
