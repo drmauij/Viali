@@ -20,6 +20,22 @@ export function useCreateMedication(anesthesiaRecordId: string | undefined) {
       queryClient.invalidateQueries({
         queryKey: [`/api/anesthesia/medications/${anesthesiaRecordId}`],
       });
+      
+      // Trigger inventory recalculation when medications change
+      if (anesthesiaRecordId) {
+        fetch(`/api/anesthesia/inventory/${anesthesiaRecordId}/calculate`, {
+          method: 'POST',
+          credentials: 'include',
+        })
+          .then(() => {
+            queryClient.invalidateQueries({ 
+              queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}`] 
+            });
+          })
+          .catch(error => {
+            console.error('[MEDICATION] Error recalculating inventory:', error);
+          });
+      }
     },
   });
 }
@@ -51,6 +67,22 @@ export function useUpdateMedication(anesthesiaRecordId: string | undefined) {
       queryClient.invalidateQueries({
         queryKey: [`/api/anesthesia/medications/${anesthesiaRecordId}`],
       });
+      
+      // Trigger inventory recalculation when medications change
+      if (anesthesiaRecordId) {
+        fetch(`/api/anesthesia/inventory/${anesthesiaRecordId}/calculate`, {
+          method: 'POST',
+          credentials: 'include',
+        })
+          .then(() => {
+            queryClient.invalidateQueries({ 
+              queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}`] 
+            });
+          })
+          .catch(error => {
+            console.error('[MEDICATION] Error recalculating inventory:', error);
+          });
+      }
     },
   });
 }
@@ -101,6 +133,22 @@ export function useDeleteMedication(anesthesiaRecordId: string | undefined) {
       queryClient.invalidateQueries({
         queryKey: [`/api/anesthesia/medications/${anesthesiaRecordId}`],
       });
+      
+      // Trigger inventory recalculation when medications change
+      if (anesthesiaRecordId) {
+        fetch(`/api/anesthesia/inventory/${anesthesiaRecordId}/calculate`, {
+          method: 'POST',
+          credentials: 'include',
+        })
+          .then(() => {
+            queryClient.invalidateQueries({ 
+              queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}`] 
+            });
+          })
+          .catch(error => {
+            console.error('[MEDICATION] Error recalculating inventory:', error);
+          });
+      }
     },
   });
 }
