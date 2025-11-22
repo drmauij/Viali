@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,6 +36,9 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
   const { t } = useTranslation();
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
+  
+  // State for controlling accordion expansion
+  const [openFolders, setOpenFolders] = useState<string[]>([]);
 
   // Fetch ALL inventory items from the hospital
   const { data: items = [] } = useQuery<Item[]>({
@@ -50,10 +53,25 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
   });
 
   // Fetch auto-calculated usage
-  const { data: inventoryUsage = [] } = useQuery<InventoryUsage[]>({
+  const { data: inventoryUsage = [], refetch: refetchInventory } = useQuery<InventoryUsage[]>({
     queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}`],
     enabled: !!anesthesiaRecordId,
   });
+  
+  // Trigger inventory calculation on mount
+  useEffect(() => {
+    if (!anesthesiaRecordId) return;
+    
+    // Call the calculate endpoint to recalculate inventory based on timeline medications
+    apiRequest('POST', `/api/anesthesia/inventory/${anesthesiaRecordId}/calculate`)
+      .then(() => {
+        // Refetch inventory data after calculation
+        refetchInventory();
+      })
+      .catch(error => {
+        console.error('Error calculating inventory:', error);
+      });
+  }, [anesthesiaRecordId]);
 
   // Create a map of itemId -> auto-calculated quantity
   const autoCalcMap = useMemo(() => {
@@ -174,6 +192,11 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
     });
     return folderIds;
   }, [groupedItems, autoCalcMap, overrideMap]);
+  
+  // Update openFolders when foldersWithUsedItems changes
+  useEffect(() => {
+    setOpenFolders(foldersWithUsedItems);
+  }, [foldersWithUsedItems]);
 
   if (!anesthesiaRecordId) {
     return (
@@ -203,7 +226,7 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
           </CardContent>
         </Card>
       ) : (
-        <Accordion type="multiple" className="space-y-2 w-full" defaultValue={foldersWithUsedItems}>
+        <Accordion type="multiple" className="space-y-2 w-full" value={openFolders} onValueChange={setOpenFolders}>
           {Object.keys(groupedItems).map((folderId) => (
             <AccordionItem key={folderId} value={folderId}>
               <Card>
