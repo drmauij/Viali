@@ -144,12 +144,15 @@ export function VitalsSwimlane({
 
   /**
    * Find if clicking on an existing vital point
+   * Returns the point that is closest vertically to the click
    */
   const findVitalPointAtClick = (clickTime: number, clickY: number, rect: DOMRect) => {
     const TIME_THRESHOLD = 30000; // 30 seconds tolerance
     const PIXEL_THRESHOLD = 20; // 20 pixels vertical tolerance
     
     const yPercent = clickY / rect.height;
+    let closestPoint: { type: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2'; index: number; time: number; value: number } | null = null;
+    let closestDistance = PIXEL_THRESHOLD;
     
     // Check HR points
     for (let i = 0; i < hrDataPoints.length; i++) {
@@ -157,8 +160,9 @@ export function VitalsSwimlane({
       if (Math.abs(time - clickTime) <= TIME_THRESHOLD) {
         const expectedYPercent = 1 - (value / 240); // HR scale 0-240
         const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
-        if (pixelDiff <= PIXEL_THRESHOLD) {
-          return { type: 'hr' as const, index: i, time, value };
+        if (pixelDiff < closestDistance) {
+          closestDistance = pixelDiff;
+          closestPoint = { type: 'hr' as const, index: i, time, value };
         }
       }
     }
@@ -169,8 +173,9 @@ export function VitalsSwimlane({
       if (Math.abs(time - clickTime) <= TIME_THRESHOLD) {
         const expectedYPercent = 1 - (value / 240); // BP scale 0-240
         const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
-        if (pixelDiff <= PIXEL_THRESHOLD) {
-          return { type: 'sys' as const, index: i, time, value };
+        if (pixelDiff < closestDistance) {
+          closestDistance = pixelDiff;
+          closestPoint = { type: 'bp-sys' as const, index: i, time, value };
         }
       }
     }
@@ -181,8 +186,9 @@ export function VitalsSwimlane({
       if (Math.abs(time - clickTime) <= TIME_THRESHOLD) {
         const expectedYPercent = 1 - (value / 240); // BP scale 0-240
         const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
-        if (pixelDiff <= PIXEL_THRESHOLD) {
-          return { type: 'dia' as const, index: i, time, value };
+        if (pixelDiff < closestDistance) {
+          closestDistance = pixelDiff;
+          closestPoint = { type: 'bp-dia' as const, index: i, time, value };
         }
       }
     }
@@ -193,13 +199,14 @@ export function VitalsSwimlane({
       if (Math.abs(time - clickTime) <= TIME_THRESHOLD) {
         const expectedYPercent = 1 - ((value - 45) / (105 - 45)); // SpO2 scale 45-105
         const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
-        if (pixelDiff <= PIXEL_THRESHOLD) {
-          return { type: 'spo2' as const, index: i, time, value };
+        if (pixelDiff < closestDistance) {
+          closestDistance = pixelDiff;
+          closestPoint = { type: 'spo2' as const, index: i, time, value };
         }
       }
     }
     
-    return null;
+    return closestPoint;
   };
 
   /**

@@ -5137,44 +5137,41 @@ export function UnifiedTimeline({
           setShowBulkVitalsDialog(true);
         }}
         onVitalPointEdit={(type, index, time, value) => {
-          if (type === null) {
-            // Clicking on empty space → Open ManualVitalsDialog for bulk entry
-            // Find all vitals at this timestamp for pre-filling
-            const hrAtTime = hrDataPoints.find(pt => Math.abs(pt[0] - time) < 1000)?.[1];
-            const sysAtTime = bpDataPoints.sys.find(pt => Math.abs(pt[0] - time) < 1000)?.[1];
-            const diaAtTime = bpDataPoints.dia.find(pt => Math.abs(pt[0] - time) < 1000)?.[1];
-            const spo2AtTime = spo2DataPoints.find(pt => Math.abs(pt[0] - time) < 1000)?.[1];
-            
-            setManualVitalsTime(time);
-            setManualVitalsInitialValues({
-              hr: hrAtTime,
-              sys: sysAtTime,
-              dia: diaAtTime,
-              spo2: spo2AtTime,
-            });
-            setShowManualVitalsDialog(true);
+          // Clicking on empty space → Open ManualVitalsDialog for bulk entry
+          // Find all vitals at this timestamp for pre-filling
+          const hrAtTime = hrDataPoints.find(pt => Math.abs(pt[0] - time) < 1000)?.[1];
+          const sysAtTime = bpDataPoints.sys.find(pt => Math.abs(pt[0] - time) < 1000)?.[1];
+          const diaAtTime = bpDataPoints.dia.find(pt => Math.abs(pt[0] - time) < 1000)?.[1];
+          const spo2AtTime = spo2DataPoints.find(pt => Math.abs(pt[0] - time) < 1000)?.[1];
+          
+          // Clicking on existing point → Open Edit Value Dialog for single edit/delete
+          // Capture point ID from clinical snapshot
+          let pointId: string | undefined;
+          let editType: 'hr' | 'sys' | 'dia' | 'spo2';
+          
+          if (type === 'hr') {
+            pointId = clinicalSnapshot?.data?.hr?.[index]?.id;
+            editType = 'hr';
+          } else if (type === 'bp-sys') {
+            pointId = clinicalSnapshot?.data?.bp?.[index]?.id;
+            editType = 'sys';
+          } else if (type === 'bp-dia') {
+            pointId = clinicalSnapshot?.data?.bp?.[index]?.id;
+            editType = 'dia';
           } else {
-            // Clicking on existing point → Open Edit Value Dialog for single edit/delete
-            // Capture point ID from clinical snapshot
-            let pointId: string | undefined;
-            if (type === 'hr') {
-              pointId = clinicalSnapshot?.data?.hr?.[index]?.id;
-            } else if (type === 'sys' || type === 'dia') {
-              pointId = clinicalSnapshot?.data?.bp?.[index]?.id;
-            } else if (type === 'spo2') {
-              pointId = clinicalSnapshot?.data?.spo2?.[index]?.id;
-            }
-            
-            setEditingValue({ 
-              type, 
-              time, 
-              value, 
-              index, 
-              originalTime: time,
-              pointId 
-            });
-            setEditDialogOpen(true);
+            pointId = clinicalSnapshot?.data?.spo2?.[index]?.id;
+            editType = 'spo2';
           }
+          
+          setEditingValue({ 
+            type: editType, 
+            time, 
+            value, 
+            index, 
+            originalTime: time,
+            pointId 
+          });
+          setEditDialogOpen(true);
         }}
       />
 
