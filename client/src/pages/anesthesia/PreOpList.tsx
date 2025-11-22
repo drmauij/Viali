@@ -102,23 +102,25 @@ export default function PreOpList() {
 
       {/* Status Tabs */}
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="mb-6">
-        <TabsList className="grid grid-cols-4 w-full">
-          <TabsTrigger value="all" data-testid="tab-all">
-            {t('anesthesia.preop.tabAll')} ({filteredAssessments.length})
-          </TabsTrigger>
-          <TabsTrigger value="planned" data-testid="tab-planned">
-            <CalendarPlus className="h-4 w-4 mr-1" />
-            {t('anesthesia.preop.tabPlanned')} ({groupedByStatus.planned.length})
-          </TabsTrigger>
-          <TabsTrigger value="draft" data-testid="tab-draft">
-            <FileEdit className="h-4 w-4 mr-1" />
-            {t('anesthesia.preop.tabInProgress')} ({groupedByStatus.draft.length})
-          </TabsTrigger>
-          <TabsTrigger value="completed" data-testid="tab-completed">
-            <FileCheck className="h-4 w-4 mr-1" />
-            {t('anesthesia.preop.tabCompleted')} ({groupedByStatus.completed.length})
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+          <TabsList className="inline-flex w-auto min-w-full md:grid md:grid-cols-4 md:w-full">
+            <TabsTrigger value="all" data-testid="tab-all" className="whitespace-nowrap">
+              {t('anesthesia.preop.tabAll')} ({filteredAssessments.length})
+            </TabsTrigger>
+            <TabsTrigger value="planned" data-testid="tab-planned" className="whitespace-nowrap">
+              <CalendarPlus className="h-4 w-4 mr-1 hidden sm:inline-block" />
+              {t('anesthesia.preop.tabPlanned')} ({groupedByStatus.planned.length})
+            </TabsTrigger>
+            <TabsTrigger value="draft" data-testid="tab-draft" className="whitespace-nowrap">
+              <FileEdit className="h-4 w-4 mr-1 hidden sm:inline-block" />
+              {t('anesthesia.preop.tabInProgress')} ({groupedByStatus.draft.length})
+            </TabsTrigger>
+            <TabsTrigger value="completed" data-testid="tab-completed" className="whitespace-nowrap">
+              <FileCheck className="h-4 w-4 mr-1 hidden sm:inline-block" />
+              {t('anesthesia.preop.tabCompleted')} ({groupedByStatus.completed.length})
+            </TabsTrigger>
+          </TabsList>
+        </div>
       </Tabs>
 
       {/* Search */}
