@@ -100,6 +100,7 @@ export interface SaveMedicationPayload {
   route?: string;
   rate?: string;
   endTimestamp?: Date;
+  infusionSessionId?: string;
 }
 
 /**
@@ -147,6 +148,7 @@ export async function saveMedication(payload: SaveMedicationPayload): Promise<an
     route: payload.route,
     rate: payload.rate,
     endTimestamp: payload.endTimestamp,
+    infusionSessionId: payload.infusionSessionId,
   };
 
   console.log('[PERSISTENCE] Sending POST /api/anesthesia/medications:', JSON.stringify(requestPayload, null, 2));
