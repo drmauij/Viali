@@ -20,6 +20,19 @@ export interface PositionPoint {
   position: string;
 }
 
+export interface BISPoint {
+  id: string;
+  timestamp: number;
+  value: number;
+}
+
+export interface TOFPoint {
+  id: string;
+  timestamp: number;
+  value: string; // Fraction value (e.g., "0/4", "1/4", "2/4", "3/4", "4/4")
+  percentage?: number; // Optional T4/T1 ratio percentage
+}
+
 export interface StaffData {
   doctor: StaffPoint[];
   nurse: StaffPoint[];
@@ -46,21 +59,29 @@ export interface UseEventStateReturn {
   heartRhythmData: HeartRhythmPoint[];
   staffData: StaffData;
   positionData: PositionPoint[];
+  bisData: BISPoint[];
+  tofData: TOFPoint[];
   eventComments: EventComment[];
   timeMarkers: AnesthesiaTimeMarker[];
   setHeartRhythmData: React.Dispatch<React.SetStateAction<HeartRhythmPoint[]>>;
   setStaffData: React.Dispatch<React.SetStateAction<StaffData>>;
   setPositionData: React.Dispatch<React.SetStateAction<PositionPoint[]>>;
+  setBisData: React.Dispatch<React.SetStateAction<BISPoint[]>>;
+  setTofData: React.Dispatch<React.SetStateAction<TOFPoint[]>>;
   setEventComments: React.Dispatch<React.SetStateAction<EventComment[]>>;
   setTimeMarkers: React.Dispatch<React.SetStateAction<AnesthesiaTimeMarker[]>>;
   addHeartRhythm: (point: HeartRhythmPoint) => void;
   addStaffEntry: (role: keyof StaffData, point: StaffPoint) => void;
   addPosition: (point: PositionPoint) => void;
+  addBIS: (point: BISPoint) => void;
+  addTOF: (point: TOFPoint) => void;
   addEvent: (comment: EventComment) => void;
   resetEventData: (data: {
     heartRhythm?: HeartRhythmPoint[];
     staff?: StaffData;
     position?: PositionPoint[];
+    bis?: BISPoint[];
+    tof?: TOFPoint[];
     events?: EventComment[];
     timeMarkers?: AnesthesiaTimeMarker[];
   }) => void;
@@ -70,6 +91,8 @@ export function useEventState(initialData?: {
   heartRhythm?: HeartRhythmPoint[];
   staff?: StaffData;
   position?: PositionPoint[];
+  bis?: BISPoint[];
+  tof?: TOFPoint[];
   events?: EventComment[];
   timeMarkers?: AnesthesiaTimeMarker[];
 }): UseEventStateReturn {
@@ -87,6 +110,14 @@ export function useEventState(initialData?: {
 
   const [positionData, setPositionData] = useState<PositionPoint[]>(
     initialData?.position || []
+  );
+
+  const [bisData, setBisData] = useState<BISPoint[]>(
+    initialData?.bis || []
+  );
+
+  const [tofData, setTofData] = useState<TOFPoint[]>(
+    initialData?.tof || []
   );
 
   const [eventComments, setEventComments] = useState<EventComment[]>(
@@ -112,6 +143,14 @@ export function useEventState(initialData?: {
     setPositionData(prev => [...prev, point]);
   }, []);
 
+  const addBIS = useCallback((point: BISPoint) => {
+    setBisData(prev => [...prev, point]);
+  }, []);
+
+  const addTOF = useCallback((point: TOFPoint) => {
+    setTofData(prev => [...prev, point]);
+  }, []);
+
   const addEvent = useCallback((comment: EventComment) => {
     setEventComments(prev => [...prev, comment]);
   }, []);
@@ -120,12 +159,16 @@ export function useEventState(initialData?: {
     heartRhythm?: HeartRhythmPoint[];
     staff?: StaffData;
     position?: PositionPoint[];
+    bis?: BISPoint[];
+    tof?: TOFPoint[];
     events?: EventComment[];
     timeMarkers?: AnesthesiaTimeMarker[];
   }) => {
     if (data.heartRhythm !== undefined) setHeartRhythmData(data.heartRhythm);
     if (data.staff !== undefined) setStaffData(data.staff);
     if (data.position !== undefined) setPositionData(data.position);
+    if (data.bis !== undefined) setBisData(data.bis);
+    if (data.tof !== undefined) setTofData(data.tof);
     if (data.events !== undefined) setEventComments(data.events);
     if (data.timeMarkers !== undefined) setTimeMarkers(data.timeMarkers);
   }, []);
@@ -134,16 +177,22 @@ export function useEventState(initialData?: {
     heartRhythmData,
     staffData,
     positionData,
+    bisData,
+    tofData,
     eventComments,
     timeMarkers,
     setHeartRhythmData,
     setStaffData,
     setPositionData,
+    setBisData,
+    setTofData,
     setEventComments,
     setTimeMarkers,
     addHeartRhythm,
     addStaffEntry,
     addPosition,
+    addBIS,
+    addTOF,
     addEvent,
     resetEventData,
   };
