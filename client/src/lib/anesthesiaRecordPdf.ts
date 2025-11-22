@@ -165,10 +165,23 @@ function drawTimelineChart(
     return chartY + chartHeight + 5;
   }
 
-  const minTime = Math.min(...allTimes);
-  const maxTime = Math.max(...allTimes);
-  const minValue = options.min !== undefined ? options.min : Math.floor(Math.min(...allValues) * 0.9);
-  const maxValue = options.max !== undefined ? options.max : Math.ceil(Math.max(...allValues) * 1.1);
+  let minTime = Math.min(...allTimes);
+  let maxTime = Math.max(...allTimes);
+  let minValue = options.min !== undefined ? options.min : Math.floor(Math.min(...allValues) * 0.9);
+  let maxValue = options.max !== undefined ? options.max : Math.ceil(Math.max(...allValues) * 1.1);
+
+  // Guard against single data point (prevents division by zero)
+  if (maxTime === minTime) {
+    // Expand time range by ±1 hour (3600000 ms)
+    minTime -= 3600000;
+    maxTime += 3600000;
+  }
+  if (maxValue === minValue) {
+    // Expand value range by ±10% or minimum of ±10
+    const range = Math.max(maxValue * 0.1, 10);
+    minValue -= range;
+    maxValue += range;
+  }
 
   // Draw chart border
   doc.setDrawColor(200, 200, 200);
@@ -297,8 +310,15 @@ function drawMedicationTimeline(
 
   // Get time range
   const allTimes = medications.map(m => new Date(m.timestamp).getTime());
-  const minTime = Math.min(...allTimes);
-  const maxTime = Math.max(...allTimes);
+  let minTime = Math.min(...allTimes);
+  let maxTime = Math.max(...allTimes);
+
+  // Guard against single timestamp (prevents division by zero)
+  if (maxTime === minTime) {
+    // Expand time range by ±1 hour (3600000 ms)
+    minTime -= 3600000;
+    maxTime += 3600000;
+  }
 
   // Draw swimlanes
   let currentY = plotY;
@@ -487,8 +507,15 @@ function drawRhythmTimeline(
 
   // Get time range
   const times = sortedData.map(r => new Date(r.timestamp).getTime());
-  const minTime = Math.min(...times);
-  const maxTime = Math.max(...times);
+  let minTime = Math.min(...times);
+  let maxTime = Math.max(...times);
+
+  // Guard against single timestamp (prevents division by zero)
+  if (maxTime === minTime) {
+    // Expand time range by ±1 hour (3600000 ms)
+    minTime -= 3600000;
+    maxTime += 3600000;
+  }
 
   // Draw timeline background
   doc.setFillColor(250, 250, 250);
