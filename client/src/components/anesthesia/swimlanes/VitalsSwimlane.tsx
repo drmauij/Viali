@@ -24,6 +24,7 @@ interface VitalsSwimlaneProps {
   VITALS_HEIGHT: number;
   isTouchDevice: boolean;
   onBulkVitalsOpen?: (time: number) => void;
+  onVitalPointEdit?: (type: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2', index: number, time: number, value: number) => void;
 }
 
 export function VitalsSwimlane({
@@ -32,6 +33,7 @@ export function VitalsSwimlane({
   VITALS_HEIGHT,
   isTouchDevice,
   onBulkVitalsOpen,
+  onVitalPointEdit,
 }: VitalsSwimlaneProps) {
   const {
     vitalsState,
@@ -141,6 +143,66 @@ export function VitalsSwimlane({
   };
 
   /**
+   * Find if there's a vital point near the click position
+   */
+  const findNearbyVitalPoint = (clickTime: number, clickY: number, rect: DOMRect) => {
+    const TIME_THRESHOLD = 30000; // 30 seconds tolerance in milliseconds
+    const PIXEL_THRESHOLD = 15; // 15 pixels tolerance for Y position
+    
+    const yPercent = clickY / rect.height;
+    
+    // Check HR points
+    for (let i = 0; i < hrDataPoints.length; i++) {
+      const [time, value] = hrDataPoints[i];
+      if (Math.abs(time - clickTime) <= TIME_THRESHOLD) {
+        const expectedYPercent = 1 - (value / 240); // HR uses 0-240 scale
+        const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
+        if (pixelDiff <= PIXEL_THRESHOLD) {
+          return { type: 'hr' as const, index: i, time, value };
+        }
+      }
+    }
+    
+    // Check systolic BP points
+    for (let i = 0; i < bpDataPoints.sys.length; i++) {
+      const [time, value] = bpDataPoints.sys[i];
+      if (Math.abs(time - clickTime) <= TIME_THRESHOLD) {
+        const expectedYPercent = 1 - (value / 240); // BP uses 0-240 scale
+        const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
+        if (pixelDiff <= PIXEL_THRESHOLD) {
+          return { type: 'bp-sys' as const, index: i, time, value };
+        }
+      }
+    }
+    
+    // Check diastolic BP points
+    for (let i = 0; i < bpDataPoints.dia.length; i++) {
+      const [time, value] = bpDataPoints.dia[i];
+      if (Math.abs(time - clickTime) <= TIME_THRESHOLD) {
+        const expectedYPercent = 1 - (value / 240); // BP uses 0-240 scale
+        const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
+        if (pixelDiff <= PIXEL_THRESHOLD) {
+          return { type: 'bp-dia' as const, index: i, time, value };
+        }
+      }
+    }
+    
+    // Check SpO2 points (uses different scale: 45-105)
+    for (let i = 0; i < spo2DataPoints.length; i++) {
+      const [time, value] = spo2DataPoints[i];
+      if (Math.abs(time - clickTime) <= TIME_THRESHOLD) {
+        const expectedYPercent = 1 - ((value - 45) / (105 - 45)); // SpO2 uses 45-105 scale
+        const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
+        if (pixelDiff <= PIXEL_THRESHOLD) {
+          return { type: 'spo2' as const, index: i, time, value };
+        }
+      }
+    }
+    
+    return null;
+  };
+
+  /**
    * Handle click to add vital point
    */
   const handleVitalsClick = (e: React.MouseEvent) => {
@@ -153,6 +215,7 @@ export function VitalsSwimlane({
     // Calculate click time from position
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
     
     const visibleStart = currentZoomStart ?? data.startTime;
     const visibleEnd = currentZoomEnd ?? data.endTime;
@@ -171,11 +234,21 @@ export function VitalsSwimlane({
       return;
     }
 
-    // If no tool mode is active, open bulk vitals dialog
+    // If no tool mode is active, check if clicking on existing point or empty space
     if (!activeToolMode) {
-      setIsProcessingClick(false);
-      onBulkVitalsOpen?.(clickTime);
-      return;
+      const nearbyPoint = findNearbyVitalPoint(clickTime, y, rect);
+      
+      if (nearbyPoint) {
+        // Clicking on existing point - open edit dialog
+        setIsProcessingClick(false);
+        onVitalPointEdit?.(nearbyPoint.type, nearbyPoint.index, nearbyPoint.time, nearbyPoint.value);
+        return;
+      } else {
+        // Clicking on empty space - open bulk vitals dialog
+        setIsProcessingClick(false);
+        onBulkVitalsOpen?.(clickTime);
+        return;
+      }
     }
 
     // On touch devices, calculate value directly from click position

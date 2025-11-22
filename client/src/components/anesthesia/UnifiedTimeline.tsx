@@ -5133,6 +5133,12 @@ export function UnifiedTimeline({
           setBulkVitalsTime(time);
           setShowBulkVitalsDialog(true);
         }}
+        onVitalPointEdit={(type, index, time, value) => {
+          // Open the bulk vitals dialog at the time of the clicked point
+          // This allows viewing/editing all vitals at that timestamp
+          setBulkVitalsTime(time);
+          setShowBulkVitalsDialog(true);
+        }}
       />
 
       {/* EventsSwimlane Component - Interactive layers and rendering for events and time markers */}
