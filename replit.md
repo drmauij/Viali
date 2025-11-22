@@ -39,6 +39,7 @@ Core design decisions include:
 - **Anesthesia Documentation & Checklists**: Comprehensive case documentation system covering technique documentation and WHO Surgical Safety Checklist phases with electronic signatures and server-side audit trails.
 - **Common Event Quick-Add System**: Streamlined event logging with one-click common event buttons (Team Timeout, Intubation, Extubation, Eye Protection, Warm Touch) that immediately save to timeline with icon-based visual differentiation. Events render with specific icons based on event type, with fallback to generic icon for custom text entries.
 - **OP Calendar Timeline Status Indicators**: Color-coded surgery status visualization in OP calendar (red=surgical incision, yellow=surgical suture, green=anesthesia/surgery end) with conditional PACU button enablement based on anesthesia presence end marker.
+- **Full English/German Localization (i18next)**: Comprehensive internationalization implementation covering the entire application with 600+ translation keys across 7 major pages (Patients, PreOpList, PACU, Reports, Settings, OP Monitoring [2,050 lines], PatientDetail [3,471 lines]). All user-facing strings, error messages, success notifications, form labels, placeholders, buttons, medical terminology, and anesthesia technique options are fully localized. Time formatting uses 24-hour European format throughout. Translation structure uses nested keys (anesthesia.{domain}.{section}.{label}) for maintainability and organization.
 
 ## External Dependencies
 

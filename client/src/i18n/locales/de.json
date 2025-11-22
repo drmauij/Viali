@@ -752,6 +752,8 @@
       "saved": "Gespeichert",
       "error": "Fehler",
       "errorSaving": "Fehler beim Speichern",
+      "errorCreatingRecord": "Anästhesieprotokoll konnte nicht erstellt werden. Bitte Seite aktualisieren.",
+      "patientFallback": "Patient",
       "procedure": "EINGRIFF",
       "allergies": "ALLERGIEN",
       "cave": "CAVE",

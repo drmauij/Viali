@@ -141,7 +141,7 @@ export default function Op() {
         console.error("Error checking/creating anesthesia record:", error);
         toast({
           title: t('anesthesia.op.error'),
-          description: error.message || "Failed to create anesthesia record. Please refresh the page.",
+          description: error.message || t('anesthesia.op.errorCreatingRecord'),
           variant: "destructive",
         });
       }
@@ -877,7 +877,7 @@ export default function Op() {
                 <UserCircle className="h-8 w-8 text-blue-500" />
                 <div>
                   <h2 className="font-bold text-base md:text-lg">
-                    {patient ? `${patient.firstName || ''} ${patient.surname || ''}`.trim() || 'Patient' : 'Loading...'}
+                    {patient ? `${patient.firstName || ''} ${patient.surname || ''}`.trim() || t('anesthesia.op.patientFallback') : t('anesthesia.op.loadingData')}
                   </h2>
                   <div className="flex items-center gap-3 md:gap-4 flex-wrap">
                     {patient?.birthday && (
