@@ -100,18 +100,24 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
     return autoCalcMap[itemId] || 0;
   };
 
-  // Override mutation (only works for items with auto-calculated usage)
+  // Mutation to create or update inventory usage quantity
   const overrideMutation = useMutation({
     mutationFn: async ({ itemId, qty }: { itemId: string; qty: number }) => {
       const usage = inventoryUsage.find(u => u.itemId === itemId);
-      if (!usage) {
-        // No auto-calculated usage exists, can't override
-        throw new Error("Item not used in timeline. Use medications timeline to record usage.");
+      if (usage) {
+        // Update existing usage record
+        return apiRequest('PATCH', `/api/anesthesia/inventory/${usage.id}/override`, {
+          overrideQty: qty,
+          overrideReason: "Manual adjustment",
+        });
+      } else {
+        // Create new manual usage record
+        return apiRequest('POST', `/api/anesthesia/inventory/${anesthesiaRecordId}/manual`, {
+          itemId,
+          qty,
+          reason: "Manual adjustment",
+        });
       }
-      return apiRequest('PATCH', `/api/anesthesia/inventory/${usage.id}/override`, {
-        overrideQty: qty,
-        overrideReason: "Manual adjustment",
-      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}`] });
@@ -241,8 +247,8 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
                                 e.stopPropagation();
                                 handleQuantityChange(item.id, -1);
                               }}
-                              disabled={overrideMutation.isPending || autoCalc === 0}
-                              title={autoCalc === 0 ? "Add this medication to the timeline first" : "Decrease quantity"}
+                              disabled={overrideMutation.isPending || finalQty === 0}
+                              title="Decrease quantity"
                               data-testid={`button-decrease-${item.id}`}
                             >
                               <Minus className="h-4 w-4" />
@@ -258,8 +264,8 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
                                 e.stopPropagation();
                                 handleQuantityChange(item.id, 1);
                               }}
-                              disabled={overrideMutation.isPending || autoCalc === 0}
-                              title={autoCalc === 0 ? "Add this medication to the timeline first" : "Increase quantity"}
+                              disabled={overrideMutation.isPending}
+                              title="Increase quantity"
                               data-testid={`button-increase-${item.id}`}
                             >
                               <Plus className="h-4 w-4" />
