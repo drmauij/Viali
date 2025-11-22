@@ -30,19 +30,12 @@ export function calculateBolusAmpules(
   dose: string | null | undefined,
   ampuleTotalContent: string | null | undefined
 ): number {
-  console.log('[CALC-BOLUS] Input values:', { dose, ampuleTotalContent });
   const doseValue = parseNumericValue(dose);
   const ampuleValue = parseNumericValue(ampuleTotalContent);
-  console.log('[CALC-BOLUS] Parsed values:', { doseValue, ampuleValue });
   
-  if (doseValue === 0 || ampuleValue === 0) {
-    console.log('[CALC-BOLUS] Returning 0 because one value is 0');
-    return 0;
-  }
+  if (doseValue === 0 || ampuleValue === 0) return 0;
   
-  const result = Math.ceil(doseValue / ampuleValue);
-  console.log('[CALC-BOLUS] Calculated result:', result);
-  return result;
+  return Math.ceil(doseValue / ampuleValue);
 }
 
 export function calculateFreeFlowAmpules(): number {
@@ -96,34 +89,19 @@ export function calculateInventoryForMedication(
   item: MedicationItem,
   patientWeight?: number
 ): number {
-  console.log('[CALC-INV] calculateInventoryForMedication called:', {
-    medicationType: medication.type,
-    medicationDose: medication.dose,
-    medicationRate: medication.rate,
-    itemId: item.id,
-    itemRateUnit: item.rateUnit,
-    itemAmpuleTotalContent: item.ampuleTotalContent,
-    itemAdministrationUnit: item.administrationUnit
-  });
-  
   const isBolusItem = !item.rateUnit || item.rateUnit === null;
   const isFreeFlowItem = item.rateUnit === 'free';
   const isRateControlledItem = item.rateUnit && item.rateUnit !== 'free';
   
-  console.log('[CALC-INV] Item classification:', { isBolusItem, isFreeFlowItem, isRateControlledItem });
-  
   if (medication.type === 'bolus' && isBolusItem) {
-    console.log('[CALC-INV] Calling calculateBolusAmpules');
     return calculateBolusAmpules(medication.dose, item.ampuleTotalContent);
   }
   
   if (medication.type === 'infusion_start' && isFreeFlowItem) {
-    console.log('[CALC-INV] Calling calculateFreeFlowAmpules');
     return calculateFreeFlowAmpules();
   }
   
   if (medication.type === 'infusion_start' && isRateControlledItem) {
-    console.log('[CALC-INV] Calling calculateRateControlledAmpules');
     return calculateRateControlledAmpules(
       medication.rate,
       item.rateUnit,
@@ -134,6 +112,5 @@ export function calculateInventoryForMedication(
     );
   }
   
-  console.log('[CALC-INV] No matching calculation path, returning 0');
   return 0;
 }
