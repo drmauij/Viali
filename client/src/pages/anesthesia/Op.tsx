@@ -935,11 +935,11 @@ export default function Op() {
                         {!postOpData?.paracetamolTime ? (
                           <span className="text-muted-foreground text-sm">Not specified</span>
                         ) : postOpData.paracetamolTime === "Immediately" ? (
-                          <Badge variant="outline" className="bg-green-50">Immediately</Badge>
+                          <Badge variant="outline" className="bg-green-50 dark:bg-green-900/30 text-green-900 dark:text-green-100">Immediately</Badge>
                         ) : postOpData.paracetamolTime === "Contraindicated" ? (
-                          <Badge variant="outline" className="bg-red-50">Contraindicated</Badge>
+                          <Badge variant="outline" className="bg-red-50 dark:bg-red-900/30 text-red-900 dark:text-red-100">Contraindicated</Badge>
                         ) : (
-                          <Badge variant="outline" className="bg-blue-50">{postOpData.paracetamolTime}</Badge>
+                          <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100">{postOpData.paracetamolTime}</Badge>
                         )}
                       </div>
                     </div>
@@ -956,11 +956,11 @@ export default function Op() {
                         {!postOpData?.nsarTime ? (
                           <span className="text-muted-foreground text-sm">Not specified</span>
                         ) : postOpData.nsarTime === "Immediately" ? (
-                          <Badge variant="outline" className="bg-green-50">Immediately</Badge>
+                          <Badge variant="outline" className="bg-green-50 dark:bg-green-900/30 text-green-900 dark:text-green-100">Immediately</Badge>
                         ) : postOpData.nsarTime === "Contraindicated" ? (
-                          <Badge variant="outline" className="bg-red-50">Contraindicated</Badge>
+                          <Badge variant="outline" className="bg-red-50 dark:bg-red-900/30 text-red-900 dark:text-red-100">Contraindicated</Badge>
                         ) : (
-                          <Badge variant="outline" className="bg-blue-50">{postOpData.nsarTime}</Badge>
+                          <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100">{postOpData.nsarTime}</Badge>
                         )}
                       </div>
                     </div>
@@ -977,11 +977,11 @@ export default function Op() {
                         {!postOpData?.novalginTime ? (
                           <span className="text-muted-foreground text-sm">Not specified</span>
                         ) : postOpData.novalginTime === "Immediately" ? (
-                          <Badge variant="outline" className="bg-green-50">Immediately</Badge>
+                          <Badge variant="outline" className="bg-green-50 dark:bg-green-900/30 text-green-900 dark:text-green-100">Immediately</Badge>
                         ) : postOpData.novalginTime === "Contraindicated" ? (
-                          <Badge variant="outline" className="bg-red-50">Contraindicated</Badge>
+                          <Badge variant="outline" className="bg-red-50 dark:bg-red-900/30 text-red-900 dark:text-red-100">Contraindicated</Badge>
                         ) : (
-                          <Badge variant="outline" className="bg-blue-50">{postOpData.novalginTime}</Badge>
+                          <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100">{postOpData.novalginTime}</Badge>
                         )}
                       </div>
                     </div>
