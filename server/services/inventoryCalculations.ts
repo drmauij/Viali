@@ -51,10 +51,11 @@ export function calculateRateControlledAmpules(
   patientWeight?: number
 ): number {
   const rateValue = parseNumericValue(rate);
-  if (rateValue === 0 || !endTime) return 0;
+  if (rateValue === 0) return 0;
   
   const start = new Date(startTime).getTime();
-  const end = new Date(endTime).getTime();
+  // If no endTime (running infusion), use current time for estimated usage
+  const end = endTime ? new Date(endTime).getTime() : Date.now();
   const durationHours = (end - start) / (1000 * 60 * 60);
   
   if (durationHours <= 0) return 0;
