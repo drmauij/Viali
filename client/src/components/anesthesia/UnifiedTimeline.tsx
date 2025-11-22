@@ -5117,11 +5117,11 @@ export function UnifiedTimeline({
       </div>
 
       {/* ECharts timeline */}
-      <div className={`absolute inset-0 z-20 ${activeToolMode ? 'pointer-events-none' : ''}`}>
+      <div className="absolute inset-0 z-20 pointer-events-none">
         <ReactECharts
           ref={chartRef}
           option={option}
-          style={{ height: "100%", width: "100%" }}
+          style={{ height: "100%", width: "100%", pointerEvents: "none" }}
           opts={{ renderer: "canvas" }}
           onChartReady={handleChartReady}
           lazyUpdate
