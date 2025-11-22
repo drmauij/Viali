@@ -1888,12 +1888,11 @@ export function UnifiedTimeline({
   }) => {
     if (!anesthesiaRecordId) return;
 
-    const timestamp = new Date(data.time);
+    const timestamp = new Date(data.time).toISOString();
 
     // Save HR if provided
     if (data.hr !== undefined) {
       addVitalPointMutation.mutate({
-        anesthesiaRecordId,
         vitalType: 'hr',
         timestamp,
         value: data.hr,
@@ -1903,17 +1902,15 @@ export function UnifiedTimeline({
     // Save SpO2 if provided
     if (data.spo2 !== undefined) {
       addVitalPointMutation.mutate({
-        anesthesiaRecordId,
         vitalType: 'spo2',
         timestamp,
         value: data.spo2,
       });
     }
 
-    // Save BP if either sys or dia is provided
-    if (data.sys !== undefined || data.dia !== undefined) {
+    // Save BP if both sys and dia are provided
+    if (data.sys !== undefined && data.dia !== undefined) {
       addBPPointMutation.mutate({
-        anesthesiaRecordId,
         timestamp,
         sys: data.sys,
         dia: data.dia,
