@@ -4969,7 +4969,7 @@ export function UnifiedTimeline({
                         }
                       }
                     }}
-                    className="flex items-center gap-1 text-left bg-muted/50 text-muted-foreground px-2 py-1 rounded text-xs hover:bg-muted transition-colors pointer-events-auto truncate flex-1 max-w-[140px]"
+                    className="flex items-center gap-1 text-left bg-primary/10 text-foreground px-2 py-1 rounded text-xs hover:bg-primary/20 transition-colors pointer-events-auto truncate flex-1 max-w-[140px]"
                     data-testid="button-next-timepoint"
                     title={(() => {
                       const nextMarker = timeMarkers.find(m => m.time === null);
