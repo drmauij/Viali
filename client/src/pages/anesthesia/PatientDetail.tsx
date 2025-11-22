@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Trash2, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
@@ -23,6 +23,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { formatDate, formatDateTimeForInput } from "@/lib/dateUtils";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 import SignaturePad from "@/components/SignaturePad";
+import { generateAnesthesiaRecordPDF } from "@/lib/anesthesiaRecordPdf";
 
 type Patient = {
   id: string;
@@ -850,6 +851,119 @@ export default function PatientDetail() {
     });
   };
 
+  // Handle PDF download for a surgery
+  const handleDownloadPDF = async (surgery: Surgery) => {
+    if (!patient) {
+      toast({
+        title: "Cannot generate PDF",
+        description: "Patient data not available",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!activeHospital) {
+      toast({
+        title: "Cannot generate PDF",
+        description: "Hospital not selected. Please select a hospital first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // First fetch critical data (anesthesia record, pre-op assessment, items)
+      const [anesthesiaRecordRes, preOpRes, itemsRes] = await Promise.all([
+        fetch(`/api/anesthesia/records/surgery/${surgery.id}`, { credentials: "include" }),
+        fetch(`/api/anesthesia/preop/surgery/${surgery.id}`, { credentials: "include" }),
+        fetch(`/api/anesthesia/items/${activeHospital.id}`, { credentials: "include" }),
+      ]);
+
+      // Check for critical failures
+      if (!anesthesiaRecordRes.ok && anesthesiaRecordRes.status !== 404) {
+        throw new Error("Failed to load anesthesia record");
+      }
+      if (!itemsRes.ok) {
+        throw new Error("Failed to load medication data");
+      }
+
+      const anesthesiaRecord = anesthesiaRecordRes.ok ? await anesthesiaRecordRes.json() : null;
+      const preOpAssessment = preOpRes.ok ? await preOpRes.json() : null;
+      const anesthesiaItems = await itemsRes.json();
+
+      // If we have an anesthesia record, fetch its related data
+      let events: any[] = [];
+      let medications: any[] = [];
+      let clinicalSnapshot: any = null;
+      let staffMembers: any[] = [];
+      let positions: any[] = [];
+      let hasDataWarnings = false;
+
+      if (anesthesiaRecord && anesthesiaRecord.id) {
+        const [eventsRes, medicationsRes, snapshotRes, staffRes, positionsRes] = await Promise.all([
+          fetch(`/api/anesthesia/events/${anesthesiaRecord.id}`, { credentials: "include" }),
+          fetch(`/api/anesthesia/medications/${anesthesiaRecord.id}`, { credentials: "include" }),
+          fetch(`/api/anesthesia/vitals/snapshot/${anesthesiaRecord.id}`, { credentials: "include" }),
+          fetch(`/api/anesthesia/staff/${anesthesiaRecord.id}`, { credentials: "include" }),
+          fetch(`/api/anesthesia/positions/${anesthesiaRecord.id}`, { credentials: "include" }),
+        ]);
+
+        // Check for critical data failures
+        const criticalFetchErrors = [];
+        if (!eventsRes.ok) criticalFetchErrors.push("events");
+        if (!medicationsRes.ok) criticalFetchErrors.push("medications");
+
+        if (criticalFetchErrors.length > 0) {
+          throw new Error(`Failed to load critical data: ${criticalFetchErrors.join(", ")}`);
+        }
+
+        // Parse all responses
+        events = await eventsRes.json();
+        medications = await medicationsRes.json();
+        clinicalSnapshot = snapshotRes.ok ? await snapshotRes.json() : null;
+        staffMembers = staffRes.ok ? await staffRes.json() : [];
+        positions = positionsRes.ok ? await positionsRes.json() : [];
+
+        // Track if any non-critical data failed to load
+        hasDataWarnings = !snapshotRes.ok || !staffRes.ok || !positionsRes.ok;
+        if (hasDataWarnings) {
+          console.warn("Some PDF data is incomplete:", {
+            snapshot: !snapshotRes.ok,
+            staff: !staffRes.ok,
+            positions: !positionsRes.ok,
+          });
+        }
+      }
+
+      // Generate PDF
+      generateAnesthesiaRecordPDF({
+        patient,
+        surgery,
+        anesthesiaRecord,
+        preOpAssessment,
+        clinicalSnapshot,
+        events,
+        medications,
+        anesthesiaItems,
+        staffMembers,
+        positions,
+      });
+
+      toast({
+        title: "PDF Generated",
+        description: hasDataWarnings
+          ? "PDF generated with some data unavailable (check console)"
+          : "Complete anesthesia record has been downloaded",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error generating PDF",
+        description: error.message || "Failed to generate PDF. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "planned":
@@ -1494,6 +1608,15 @@ export default function PatientDetail() {
                     <Badge className={getStatusColor(surgery.status)}>
                       {surgery.status}
                     </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDownloadPDF(surgery)}
+                      data-testid={`button-download-pdf-${surgery.id}`}
+                      title="Download Complete Record PDF"
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"

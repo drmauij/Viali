@@ -38,6 +38,7 @@ import { useAutoSaveMutation } from "@/hooks/useAutoSaveMutation";
 import { Minus, Folder, Package, Loader2, MapPin, FileText, AlertTriangle, Pill } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { formatDate } from "@/lib/dateUtils";
+import { generateAnesthesiaRecordPDF } from "@/lib/anesthesiaRecordPdf";
 import {
   X,
   Gauge,
@@ -203,13 +204,13 @@ export default function Op() {
   });
 
   // Fetch vitals snapshots (requires recordId)
-  const { data: vitalsData = [], isLoading: isVitalsLoading } = useQuery({
+  const { data: vitalsData = [], isLoading: isVitalsLoading, isError: isVitalsError, status: vitalsStatus } = useQuery({
     queryKey: [`/api/anesthesia/vitals/${anesthesiaRecord?.id}`],
     enabled: !!anesthesiaRecord?.id,
   });
 
   // Fetch medications (requires recordId)
-  const { data: medicationsData = [], isLoading: isMedicationsLoading } = useQuery({
+  const { data: medicationsData = [], isLoading: isMedicationsLoading, isError: isMedicationsError, status: medicationsStatus } = useQuery({
     queryKey: [`/api/anesthesia/medications/${anesthesiaRecord?.id}`],
     enabled: !!anesthesiaRecord?.id,
   });
@@ -224,8 +225,32 @@ export default function Op() {
   }, [medicationsData, anesthesiaRecord?.id]);
 
   // Fetch events (requires recordId)
-  const { data: eventsData = [], isLoading: isEventsLoading } = useQuery({
+  const { data: eventsData = [], isLoading: isEventsLoading, isError: isEventsError, status: eventsStatus } = useQuery({
     queryKey: [`/api/anesthesia/events/${anesthesiaRecord?.id}`],
+    enabled: !!anesthesiaRecord?.id,
+  });
+
+  // Fetch anesthesia items for PDF export
+  const { data: anesthesiaItems = [], isLoading: isAnesthesiaItemsLoading, isError: isAnesthesiaItemsError, status: anesthesiaItemsStatus } = useQuery({
+    queryKey: [`/api/anesthesia/items/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id,
+  });
+
+  // Fetch clinical snapshot for PDF export
+  const { data: clinicalSnapshot, isLoading: isClinicalSnapshotLoading, isError: isClinicalSnapshotError, status: clinicalSnapshotStatus } = useQuery({
+    queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecord?.id}`],
+    enabled: !!anesthesiaRecord?.id,
+  });
+
+  // Fetch staff members for PDF export
+  const { data: staffMembers = [], isLoading: isStaffLoading, isError: isStaffError, status: staffStatus } = useQuery({
+    queryKey: [`/api/anesthesia/staff/${anesthesiaRecord?.id}`],
+    enabled: !!anesthesiaRecord?.id,
+  });
+
+  // Fetch patient positions for PDF export
+  const { data: positions = [], isLoading: isPositionsLoading, isError: isPositionsError, status: positionsStatus } = useQuery({
+    queryKey: [`/api/anesthesia/positions/${anesthesiaRecord?.id}`],
     enabled: !!anesthesiaRecord?.id,
   });
 
@@ -616,6 +641,134 @@ export default function Op() {
   };
 
 
+  // Handle PDF download
+  const handleDownloadPDF = () => {
+    if (!patient || !surgery) {
+      toast({
+        title: "Cannot generate PDF",
+        description: "Missing patient or surgery data",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if hospital and anesthesia record are loaded (required for all queries)
+    if (!activeHospital) {
+      toast({
+        title: "Cannot generate PDF",
+        description: "Hospital not selected. Please select a hospital first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isRecordLoading || !anesthesiaRecord) {
+      toast({
+        title: "Please Wait",
+        description: "Loading anesthesia record. Please try again in a moment.",
+        variant: "default",
+      });
+      return;
+    }
+
+    // Check if any dependent data is still loading
+    if (isVitalsLoading || isMedicationsLoading || isEventsLoading || 
+        isAnesthesiaItemsLoading || isClinicalSnapshotLoading || 
+        isStaffLoading || isPositionsLoading) {
+      toast({
+        title: "Please Wait",
+        description: "Loading data for PDF export. Please try again in a moment.",
+        variant: "default",
+      });
+      return;
+    }
+
+    // Check if queries have actually completed (status === 'success' means query has run)
+    // This prevents PDF generation when queries are disabled (status === 'idle')
+    const incompleteQueries = [];
+    if (vitalsStatus !== 'success') incompleteQueries.push("vitals");
+    if (medicationsStatus !== 'success') incompleteQueries.push("medications");
+    if (eventsStatus !== 'success') incompleteQueries.push("events");
+    if (anesthesiaItemsStatus !== 'success') incompleteQueries.push("medication definitions");
+    if (staffStatus !== 'success') incompleteQueries.push("staff");
+    if (positionsStatus !== 'success') incompleteQueries.push("positions");
+
+    if (incompleteQueries.length > 0) {
+      toast({
+        title: "Please Wait",
+        description: `Initializing data for PDF export: ${incompleteQueries.join(", ")}. Please try again in a moment.`,
+        variant: "default",
+      });
+      return;
+    }
+
+    // Validate data completeness for critical datasets
+    // Anesthesia items are critical for medication name resolution
+    if (!anesthesiaItems || anesthesiaItems.length === 0) {
+      toast({
+        title: "Cannot generate PDF",
+        description: "No medication definitions available. Please ensure the hospital's anesthesia inventory is configured.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check for critical data fetch failures
+    const criticalErrors = [];
+    if (isAnesthesiaItemsError) criticalErrors.push("medication definitions");
+    if (isMedicationsError) criticalErrors.push("medication administrations");
+    if (isEventsError) criticalErrors.push("events");
+    if (isVitalsError) criticalErrors.push("vitals");
+
+    if (criticalErrors.length > 0) {
+      toast({
+        title: "Cannot generate PDF",
+        description: `Failed to load: ${criticalErrors.join(", ")}. Please refresh and try again.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Warn about non-critical data failures but allow PDF generation
+    const hasMinorErrors = isClinicalSnapshotError || isStaffError || isPositionsError;
+    if (hasMinorErrors) {
+      console.warn("Some PDF data is incomplete:", {
+        clinicalSnapshot: isClinicalSnapshotError,
+        staff: isStaffError,
+        positions: isPositionsError,
+      });
+    }
+
+    try {
+      generateAnesthesiaRecordPDF({
+        patient,
+        surgery,
+        anesthesiaRecord: anesthesiaRecord || null,
+        preOpAssessment: preOpAssessment || null,
+        clinicalSnapshot: clinicalSnapshot || null,
+        events: eventsData || [],
+        medications: medicationsData || [],
+        anesthesiaItems: anesthesiaItems || [],
+        staffMembers: staffMembers || [],
+        positions: positions || [],
+      });
+
+      toast({
+        title: "PDF Generated",
+        description: hasMinorErrors 
+          ? "PDF generated with some data unavailable (check console)" 
+          : "Complete anesthesia record has been downloaded",
+      });
+    } catch (error: any) {
+      console.error("PDF generation error:", error);
+      toast({
+        title: "Error generating PDF",
+        description: error.message || "Failed to generate PDF. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Handle dialog close and navigation
   const handleDialogChange = (open: boolean) => {
     setIsOpen(open);
@@ -692,16 +845,28 @@ export default function Op() {
             </div>
           )}
           
-          {/* Close Button - Fixed top-right */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleClose}
-            className={`absolute right-2 top-2 md:right-4 md:top-4 z-10 ${isPacuMode ? 'text-white hover:bg-white/20' : ''}`}
-            data-testid="button-close-op"
-          >
-            <X className="h-5 w-5" />
-          </Button>
+          {/* Action Buttons - Fixed top-right */}
+          <div className="absolute right-2 top-2 md:right-4 md:top-4 z-10 flex gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleDownloadPDF}
+              className={isPacuMode ? 'text-white hover:bg-white/20' : ''}
+              data-testid="button-download-pdf"
+              title="Download Complete Record PDF"
+            >
+              <Download className="h-5 w-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleClose}
+              className={isPacuMode ? 'text-white hover:bg-white/20' : ''}
+              data-testid="button-close-op"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
 
           <div className={`px-4 md:px-6 ${isPacuMode ? 'py-3' : 'py-3 pr-12 md:pr-14'}`}>
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4 md:flex-wrap">
