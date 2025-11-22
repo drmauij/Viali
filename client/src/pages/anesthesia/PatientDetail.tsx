@@ -2,6 +2,7 @@ import { useRoute, useLocation, Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +55,7 @@ type Surgeon = {
 };
 
 export default function PatientDetail() {
+  const { t } = useTranslation();
   const [, params] = useRoute("/anesthesia/patients/:id");
   const [, setLocation] = useLocation();
   const [isCreateCaseOpen, setIsCreateCaseOpen] = useState(false);
@@ -325,16 +327,16 @@ export default function PatientDetail() {
         }
       });
       toast({
-        title: "Surgery created",
-        description: "The surgery has been successfully created.",
+        title: t('anesthesia.patientDetail.successSurgeryCreated'),
+        description: t('anesthesia.patientDetail.successSurgeryCreatedDesc'),
       });
       setIsCreateCaseOpen(false);
       setNewCase({ plannedSurgery: "", surgeon: "", plannedDate: "", surgeryRoomId: "", duration: 180, notes: "" });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to create surgery",
+        title: t('anesthesia.patientDetail.error'),
+        description: error.message || t('anesthesia.patientDetail.errorSurgeryCreated'),
         variant: "destructive",
       });
     },
@@ -369,16 +371,16 @@ export default function PatientDetail() {
         }
       });
       toast({
-        title: "Surgery updated",
-        description: "The surgery has been successfully updated.",
+        title: t('anesthesia.patientDetail.successSurgeryUpdated'),
+        description: t('anesthesia.patientDetail.successSurgeryUpdatedDesc'),
       });
       setEditingCaseId(null);
       setEditCase({ plannedSurgery: "", surgeon: "", plannedDate: "", surgeryRoomId: "", duration: 180 });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to update surgery",
+        title: t('anesthesia.patientDetail.error'),
+        description: error.message || t('anesthesia.patientDetail.errorSurgeryUpdated'),
         variant: "destructive",
       });
     },
@@ -407,15 +409,15 @@ export default function PatientDetail() {
         }
       });
       toast({
-        title: "Surgery deleted",
-        description: "The surgery has been successfully deleted.",
+        title: t('anesthesia.patientDetail.successSurgeryDeleted'),
+        description: t('anesthesia.patientDetail.successSurgeryDeletedDesc'),
       });
       setDeleteDialogSurgeryId(null);
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to delete surgery",
+        title: t('anesthesia.patientDetail.error'),
+        description: error.message || t('anesthesia.patientDetail.errorSurgeryDeleted'),
         variant: "destructive",
       });
     },
@@ -434,15 +436,15 @@ export default function PatientDetail() {
         }
       });
       toast({
-        title: "Patient updated",
-        description: "The patient has been successfully updated.",
+        title: t('anesthesia.patientDetail.successPatientUpdated'),
+        description: t('anesthesia.patientDetail.successPatientUpdatedDesc'),
       });
       setIsEditDialogOpen(false);
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to update patient",
+        title: t('anesthesia.patientDetail.error'),
+        description: error.message || t('anesthesia.patientDetail.errorPatientUpdated'),
         variant: "destructive",
       });
     },
@@ -461,15 +463,15 @@ export default function PatientDetail() {
         }
       });
       toast({
-        title: "Patient deleted",
-        description: "The patient has been successfully deleted.",
+        title: t('anesthesia.patientDetail.successPatientDeleted'),
+        description: t('anesthesia.patientDetail.successPatientDeletedDesc'),
       });
       setLocation("/anesthesia/patients");
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to delete patient",
+        title: t('anesthesia.patientDetail.error'),
+        description: error.message || t('anesthesia.patientDetail.errorPatientDeleted'),
         variant: "destructive",
       });
     },
@@ -595,14 +597,14 @@ export default function PatientDetail() {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${activeHospital?.id}`] });
       toast({
-        title: "Saved",
-        description: "Pre-op assessment saved successfully",
+        title: t('anesthesia.patientDetail.saved'),
+        description: t('anesthesia.patientDetail.preOpAssessmentSaved'),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to save assessment",
+        title: t('anesthesia.patientDetail.error'),
+        description: error.message || t('anesthesia.patientDetail.errorSaveAssessment'),
         variant: "destructive",
       });
     },
@@ -617,14 +619,14 @@ export default function PatientDetail() {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${activeHospital?.id}`] });
       toast({
-        title: "Updated",
-        description: "Pre-op assessment updated successfully",
+        title: t('anesthesia.patientDetail.updated'),
+        description: t('anesthesia.patientDetail.preOpAssessmentUpdated'),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to update assessment",
+        title: t('anesthesia.patientDetail.error'),
+        description: error.message || t('anesthesia.patientDetail.errorUpdateAssessment'),
         variant: "destructive",
       });
     },
@@ -633,8 +635,8 @@ export default function PatientDetail() {
   const handleCreateCase = () => {
     if (!newCase.plannedSurgery || !newCase.plannedDate) {
       toast({
-        title: "Missing required fields",
-        description: "Please fill in Planned Surgery and Planned Date",
+        title: t('anesthesia.patientDetail.errorMissingRequiredFields'),
+        description: t('anesthesia.patientDetail.errorFillPlannedSurgeryDate'),
         variant: "destructive",
       });
       return;
@@ -643,8 +645,8 @@ export default function PatientDetail() {
     // Validate duration
     if (!newCase.duration || newCase.duration <= 0) {
       toast({
-        title: "Invalid Duration",
-        description: "Duration must be greater than 0 minutes.",
+        title: t('anesthesia.patientDetail.errorInvalidDuration'),
+        description: t('anesthesia.patientDetail.errorDurationGreaterZero'),
         variant: "destructive",
       });
       return;
@@ -697,8 +699,8 @@ export default function PatientDetail() {
   const handleUpdateCase = () => {
     if (!editCase.plannedSurgery || !editCase.plannedDate) {
       toast({
-        title: "Missing required fields",
-        description: "Please fill in Planned Surgery and Planned Date",
+        title: t('anesthesia.patientDetail.errorMissingRequiredFields'),
+        description: t('anesthesia.patientDetail.errorFillPlannedSurgeryDate'),
         variant: "destructive",
       });
       return;
@@ -707,8 +709,8 @@ export default function PatientDetail() {
     // Validate duration
     if (!editCase.duration || editCase.duration <= 0) {
       toast({
-        title: "Invalid Duration",
-        description: "Duration must be greater than 0 minutes.",
+        title: t('anesthesia.patientDetail.errorInvalidDuration'),
+        description: t('anesthesia.patientDetail.errorDurationGreaterZero'),
         variant: "destructive",
       });
       return;
@@ -809,8 +811,8 @@ export default function PatientDetail() {
     // Validate required fields
     if (!assessmentData.asa) {
       toast({
-        title: "Missing ASA Classification",
-        description: "Please select ASA classification before completing the assessment",
+        title: t('anesthesia.patientDetail.errorMissingASA'),
+        description: t('anesthesia.patientDetail.errorSelectASA'),
         variant: "destructive",
       });
       return;
@@ -818,8 +820,8 @@ export default function PatientDetail() {
 
     if (!assessmentData.doctorName) {
       toast({
-        title: "Missing Doctor Name",
-        description: "Please enter your name before completing the assessment",
+        title: t('anesthesia.patientDetail.errorMissingDoctorName'),
+        description: t('anesthesia.patientDetail.errorEnterDoctorName'),
         variant: "destructive",
       });
       return;
@@ -950,15 +952,15 @@ export default function PatientDetail() {
       });
 
       toast({
-        title: "PDF Generated",
+        title: t('anesthesia.patientDetail.pdfGenerated'),
         description: hasDataWarnings
-          ? "PDF generated with some data unavailable (check console)"
-          : "Complete anesthesia record has been downloaded",
+          ? t('anesthesia.patientDetail.pdfGeneratedWithWarnings')
+          : t('anesthesia.patientDetail.pdfGeneratedSuccess'),
       });
     } catch (error: any) {
       toast({
-        title: "Error generating PDF",
-        description: error.message || "Failed to generate PDF. Please try again.",
+        title: t('anesthesia.patientDetail.errorGeneratingPDF'),
+        description: error.message || t('anesthesia.patientDetail.errorGeneratingPDFDesc'),
         variant: "destructive",
       });
     }
@@ -1080,14 +1082,14 @@ export default function PatientDetail() {
         <Link href="/anesthesia/patients">
           <Button variant="ghost" className="gap-2 mb-4" data-testid="button-back">
             <ArrowLeft className="h-4 w-4" />
-            Back to Patients
+            {t('anesthesia.patientDetail.backToPatients')}
           </Button>
         </Link>
         <Card>
           <CardContent className="flex items-center justify-center py-12">
             <div className="flex flex-col items-center gap-3">
               <Loader2 className="h-8 w-8 animate-spin text-primary" data-testid="loader-patient" />
-              <p className="text-muted-foreground">Loading patient data...</p>
+              <p className="text-muted-foreground">{t('anesthesia.patientDetail.loading')}</p>
             </div>
           </CardContent>
         </Card>
@@ -1102,18 +1104,18 @@ export default function PatientDetail() {
         <Link href="/anesthesia/patients">
           <Button variant="ghost" className="gap-2 mb-4" data-testid="button-back">
             <ArrowLeft className="h-4 w-4" />
-            Back to Patients
+            {t('anesthesia.patientDetail.backToPatients')}
           </Button>
         </Link>
         <Card>
           <CardContent className="flex items-center justify-center py-12">
             <div className="flex flex-col items-center gap-3">
               <AlertCircle className="h-8 w-8 text-destructive" data-testid="icon-error" />
-              <p className="text-foreground font-semibold" data-testid="text-error">Patient not found</p>
-              <p className="text-sm text-muted-foreground">The patient you're looking for doesn't exist or has been removed.</p>
+              <p className="text-foreground font-semibold" data-testid="text-error">{t('anesthesia.patientDetail.patientNotFound')}</p>
+              <p className="text-sm text-muted-foreground">{t('anesthesia.patientDetail.patientNotFoundDesc')}</p>
               <Link href="/anesthesia/patients">
                 <Button className="mt-4" data-testid="button-back-to-patients">
-                  Back to Patients
+                  {t('anesthesia.patientDetail.backToPatients')}
                 </Button>
               </Link>
             </div>
@@ -1153,7 +1155,7 @@ export default function PatientDetail() {
         <Link href="/anesthesia/patients">
           <Button variant="ghost" className="gap-2 mb-4" data-testid="button-back">
             <ArrowLeft className="h-4 w-4" />
-            Back to Patients
+            {t('anesthesia.patientDetail.backToPatients')}
           </Button>
         </Link>
 
@@ -1216,13 +1218,13 @@ export default function PatientDetail() {
             {/* Contact Information */}
             {(patient.email || patient.phone) && (
               <div>
-                <h3 className="text-sm font-semibold text-muted-foreground mb-3">Contact Information</h3>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-3">{t('anesthesia.patientDetail.contactInformation')}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {patient.email && (
                     <div className="flex items-center gap-3">
                       <Mail className="h-5 w-5 text-muted-foreground" />
                       <div>
-                        <p className="text-xs text-muted-foreground">Email</p>
+                        <p className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.email')}</p>
                         <p className="font-medium" data-testid="text-patient-email">{patient.email}</p>
                       </div>
                     </div>
@@ -1231,7 +1233,7 @@ export default function PatientDetail() {
                     <div className="flex items-center gap-3">
                       <Phone className="h-5 w-5 text-muted-foreground" />
                       <div>
-                        <p className="text-xs text-muted-foreground">Phone</p>
+                        <p className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.phone')}</p>
                         <p className="font-medium" data-testid="text-patient-phone">{patient.phone}</p>
                       </div>
                     </div>
@@ -1245,7 +1247,7 @@ export default function PatientDetail() {
               <div>
                 <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
                   <AlertCircle className="h-5 w-5 text-red-500" />
-                  Allergies
+                  {t('anesthesia.patientDetail.allergies')}
                 </h3>
                 <div className="space-y-2">
                   {patient.allergies && patient.allergies.length > 0 && (
@@ -1269,7 +1271,7 @@ export default function PatientDetail() {
               <div>
                 <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
                   <NoteIcon className="h-5 w-5 text-muted-foreground" />
-                  Internal Notes
+                  {t('anesthesia.patientDetail.internalNotes')}
                 </h3>
                 <p className="text-sm text-foreground bg-muted/50 p-3 rounded-md" data-testid="text-internal-notes">{patient.internalNotes}</p>
               </div>
@@ -1279,51 +1281,51 @@ export default function PatientDetail() {
       </div>
 
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Surgeries ({surgeries?.length || 0})</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('anesthesia.patientDetail.surgeries')} ({surgeries?.length || 0})</h2>
         <Dialog open={isCreateCaseOpen} onOpenChange={setIsCreateCaseOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2" data-testid="button-create-case">
               <Plus className="h-4 w-4" />
-              New Surgery
+              {t('anesthesia.patientDetail.newSurgery')}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Create New Surgery</DialogTitle>
-              <DialogDescription>Schedule a new surgery for this patient</DialogDescription>
+              <DialogTitle>{t('anesthesia.patientDetail.createNewSurgery')}</DialogTitle>
+              <DialogDescription>{t('anesthesia.patientDetail.createNewSurgeryDesc')}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="surgery">Planned Surgery</Label>
+                <Label htmlFor="surgery">{t('anesthesia.patientDetail.plannedSurgery')}</Label>
                 <Input
                   id="surgery"
-                  placeholder="e.g., Laparoscopic Cholecystectomy"
+                  placeholder={t('anesthesia.patientDetail.plannedSurgeryPlaceholder')}
                   value={newCase.plannedSurgery}
                   onChange={(e) => setNewCase({ ...newCase, plannedSurgery: e.target.value })}
                   data-testid="input-planned-surgery"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="surgeon">Surgeon <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                <Label htmlFor="surgeon">{t('anesthesia.patientDetail.surgeon')} <span className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.optional')}</span></Label>
                 <Select 
                   value={newCase.surgeon || "none"} 
                   onValueChange={(value) => setNewCase({ ...newCase, surgeon: value === "none" ? "" : value })}
                   disabled={isLoadingSurgeons}
                 >
                   <SelectTrigger data-testid="select-surgeon">
-                    <SelectValue placeholder={isLoadingSurgeons ? "Loading surgeons..." : "Select surgeon (optional)"} />
+                    <SelectValue placeholder={isLoadingSurgeons ? t('anesthesia.patientDetail.loadingSurgeons') : t('anesthesia.patientDetail.selectSurgeonOptional')} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">
-                      <span className="text-muted-foreground italic">No surgeon selected</span>
+                      <span className="text-muted-foreground italic">{t('anesthesia.patientDetail.noSurgeonSelected')}</span>
                     </SelectItem>
                     {isLoadingSurgeons ? (
                       <SelectItem value="loading" disabled>
-                        Loading surgeons...
+                        {t('anesthesia.patientDetail.loadingSurgeons')}
                       </SelectItem>
                     ) : surgeons.length === 0 ? (
                       <SelectItem value="no-surgeons" disabled>
-                        No surgeons available
+                        {t('anesthesia.patientDetail.noSurgeonsAvailable')}
                       </SelectItem>
                     ) : (
                       surgeons.map((surgeon) => (
@@ -1336,26 +1338,26 @@ export default function PatientDetail() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="surgery-room">Surgery Room <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                <Label htmlFor="surgery-room">{t('anesthesia.patientDetail.surgeryRoom')} <span className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.optional')}</span></Label>
                 <Select 
                   value={newCase.surgeryRoomId || "none"} 
                   onValueChange={(value) => setNewCase({ ...newCase, surgeryRoomId: value === "none" ? "" : value })}
                   disabled={isLoadingSurgeryRooms}
                 >
                   <SelectTrigger data-testid="select-surgery-room">
-                    <SelectValue placeholder={isLoadingSurgeryRooms ? "Loading rooms..." : "Select surgery room (optional)"} />
+                    <SelectValue placeholder={isLoadingSurgeryRooms ? t('anesthesia.patientDetail.loadingRooms') : t('anesthesia.patientDetail.selectSurgeryRoomOptional')} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">
-                      <span className="text-muted-foreground italic">No room selected</span>
+                      <span className="text-muted-foreground italic">{t('anesthesia.patientDetail.noRoomSelected')}</span>
                     </SelectItem>
                     {isLoadingSurgeryRooms ? (
                       <SelectItem value="loading" disabled>
-                        Loading rooms...
+                        {t('anesthesia.patientDetail.loadingRooms')}
                       </SelectItem>
                     ) : surgeryRooms.length === 0 ? (
                       <SelectItem value="no-rooms" disabled>
-                        No surgery rooms available
+                        {t('anesthesia.patientDetail.noSurgeryRoomsAvailable')}
                       </SelectItem>
                     ) : (
                       surgeryRooms.map((room) => (
@@ -1368,7 +1370,7 @@ export default function PatientDetail() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="date">Planned Date</Label>
+                <Label htmlFor="date">{t('anesthesia.patientDetail.plannedDate')}</Label>
                 <Input
                   id="date"
                   type="datetime-local"
@@ -1378,7 +1380,7 @@ export default function PatientDetail() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="duration">Duration (minutes)</Label>
+                <Label htmlFor="duration">{t('anesthesia.patientDetail.duration')}</Label>
                 <Input
                   id="duration"
                   type="number"
@@ -1389,10 +1391,10 @@ export default function PatientDetail() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="notes">Notes <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                <Label htmlFor="notes">{t('anesthesia.patientDetail.notes')} <span className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.optional')}</span></Label>
                 <Textarea
                   id="notes"
-                  placeholder="Enter notes about antibiotics, patient position, etc."
+                  placeholder={t('anesthesia.patientDetail.notesPlaceholder')}
                   value={newCase.notes}
                   onChange={(e) => setNewCase({ ...newCase, notes: e.target.value })}
                   data-testid="textarea-notes"
@@ -1408,10 +1410,10 @@ export default function PatientDetail() {
                 {createSurgeryMutation.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating...
+                    {t('anesthesia.patientDetail.creating')}
                   </>
                 ) : (
-                  "Create Surgery"
+                  t('anesthesia.patientDetail.createSurgery')
                 )}
               </Button>
             </div>
@@ -1423,12 +1425,12 @@ export default function PatientDetail() {
       <Dialog open={!!editingCaseId} onOpenChange={(open) => !open && setEditingCaseId(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Surgery</DialogTitle>
-            <DialogDescription>Update surgery details</DialogDescription>
+            <DialogTitle>{t('anesthesia.patientDetail.editSurgery')}</DialogTitle>
+            <DialogDescription>{t('anesthesia.patientDetail.updateSurgeryDetails')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-surgery">Planned Surgery</Label>
+              <Label htmlFor="edit-surgery">{t('anesthesia.patientDetail.plannedSurgery')}</Label>
               <Input
                 id="edit-surgery"
                 placeholder="e.g., Laparoscopic Cholecystectomy"
@@ -1502,7 +1504,7 @@ export default function PatientDetail() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-date">Planned Date</Label>
+              <Label htmlFor="edit-date">{t('anesthesia.patientDetail.plannedDate')}</Label>
               <Input
                 id="edit-date"
                 type="datetime-local"
@@ -1542,10 +1544,10 @@ export default function PatientDetail() {
               {updateSurgeryMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Updating...
+                  {t('anesthesia.patientDetail.updating')}
                 </>
               ) : (
-                "Update Surgery"
+                t('anesthesia.patientDetail.updateSurgery')
               )}
             </Button>
           </div>
@@ -1575,7 +1577,7 @@ export default function PatientDetail() {
                   Deleting...
                 </>
               ) : (
-                "Delete"
+                t('anesthesia.patientDetail.delete')
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1783,8 +1785,8 @@ export default function PatientDetail() {
             <div className="px-6 shrink-0">
               <div className="mb-4">
                 <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="assessment" data-testid="tab-assessment">Pre-OP Assessment</TabsTrigger>
-                  <TabsTrigger value="consent" data-testid="tab-consent">Informed Consent</TabsTrigger>
+                  <TabsTrigger value="assessment" data-testid="tab-assessment">{t('anesthesia.patientDetail.preOpAssessment')}</TabsTrigger>
+                  <TabsTrigger value="consent" data-testid="tab-consent">{t('anesthesia.patientDetail.informedConsent')}</TabsTrigger>
                 </TabsList>
               </div>
             </div>
@@ -1823,12 +1825,12 @@ export default function PatientDetail() {
                   {openSections.length > 0 ? (
                     <>
                       <ChevronUp className="h-4 w-4" />
-                      Collapse All
+                      {t('anesthesia.patientDetail.collapseAll')}
                     </>
                   ) : (
                     <>
                       <ChevronDown className="h-4 w-4" />
-                      Expand All
+                      {t('anesthesia.patientDetail.expandAll')}
                     </>
                   )}
                 </Button>
@@ -1837,24 +1839,24 @@ export default function PatientDetail() {
               {/* Planned Surgery Card (Non-collapsible) */}
               <Card className="bg-primary/5 dark:bg-primary/10 border-primary/20">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg text-primary">Planned Surgery Information</CardTitle>
+                  <CardTitle className="text-lg text-primary">{t('anesthesia.patientDetail.plannedSurgeryInformation')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Planned Surgery</p>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.patientDetail.plannedSurgery')}</p>
                       <p className="font-semibold text-base">{surgeries?.find(s => s.id === selectedCaseId)?.plannedSurgery || selectedCaseId}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Surgeon</p>
-                      <p className="font-semibold text-base">{surgeries?.find(s => s.id === selectedCaseId)?.surgeon || 'Not assigned'}</p>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.patientDetail.surgeon')}</p>
+                      <p className="font-semibold text-base">{surgeries?.find(s => s.id === selectedCaseId)?.surgeon || t('anesthesia.patientDetail.notAssigned')}</p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Planned Date</p>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.patientDetail.plannedDate')}</p>
                       <p className="font-semibold text-base">
                         {(() => {
                           const plannedDate = surgeries?.find(s => s.id === selectedCaseId)?.plannedDate;
-                          if (!plannedDate) return 'Not scheduled';
+                          if (!plannedDate) return t('anesthesia.patientDetail.notScheduled');
                           return formatDate(plannedDate);
                         })()}
                       </p>
@@ -1873,33 +1875,33 @@ export default function PatientDetail() {
                 <AccordionItem value="general">
                   <Card className={hasGeneralData() ? "border-white dark:border-white" : ""}>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-general">
-                      <CardTitle className="text-lg">General Data</CardTitle>
+                      <CardTitle className="text-lg">{t('anesthesia.patientDetail.generalData')}</CardTitle>
                     </AccordionTrigger>
                     <AccordionContent>
                       <CardContent className="space-y-4 pt-0">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div className="space-y-2">
-                            <Label>Height (cm)</Label>
+                            <Label>{t('anesthesia.patientDetail.heightCm')}</Label>
                             <Input
                               type="number"
                               value={assessmentData.height}
                               onChange={(e) => setAssessmentData({...assessmentData, height: e.target.value})}
-                              placeholder="Enter height..."
+                              placeholder={t('anesthesia.patientDetail.enterHeight')}
                               data-testid="input-height"
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>Weight (kg)</Label>
+                            <Label>{t('anesthesia.patientDetail.weightKg')}</Label>
                             <Input
                               type="number"
                               value={assessmentData.weight}
                               onChange={(e) => setAssessmentData({...assessmentData, weight: e.target.value})}
-                              placeholder="Enter weight..."
+                              placeholder={t('anesthesia.patientDetail.enterWeight')}
                               data-testid="input-weight"
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>BMI</Label>
+                            <Label>{t('anesthesia.patientDetail.bmi')}</Label>
                             <Input
                               type="text"
                               value={assessmentData.height && assessmentData.weight ? 
@@ -1907,14 +1909,14 @@ export default function PatientDetail() {
                                 ''
                               }
                               readOnly
-                              placeholder="Auto-calculated"
+                              placeholder={t('anesthesia.patientDetail.autoCalculated')}
                               className="bg-muted"
                               data-testid="input-bmi"
                             />
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label>Allergies</Label>
+                          <Label>{t('anesthesia.patientDetail.allergies')}</Label>
                           <div className="border rounded-lg p-3 space-y-2">
                             <div className="grid grid-cols-2 gap-2">
                               {(anesthesiaSettings?.allergyList || []).map((allergy) => (
@@ -1938,44 +1940,44 @@ export default function PatientDetail() {
                             <Input
                               value={assessmentData.allergiesOther}
                               onChange={(e) => setAssessmentData({...assessmentData, allergiesOther: e.target.value})}
-                              placeholder="Other allergies (free text)..."
+                              placeholder={t('anesthesia.patientDetail.otherAllergiesPlaceholder')}
                               data-testid="input-allergies-other"
                             />
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label>CAVE</Label>
+                          <Label>{t('anesthesia.patientDetail.cave')}</Label>
                           <Input
                             value={assessmentData.cave}
                             onChange={(e) => setAssessmentData({...assessmentData, cave: e.target.value})}
-                            placeholder="CAVE (Contraindications, Warnings)..."
+                            placeholder={t('anesthesia.patientDetail.cavePlaceholder')}
                             data-testid="input-cave"
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>ASA Classification</Label>
+                          <Label>{t('anesthesia.patientDetail.asaClassification')}</Label>
                           <Select
                             value={assessmentData.asa}
                             onValueChange={(value) => setAssessmentData({...assessmentData, asa: value})}
                           >
                             <SelectTrigger data-testid="select-asa">
-                              <SelectValue placeholder="Select ASA class" />
+                              <SelectValue placeholder={t('anesthesia.patientDetail.selectASAClass')} />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="I">I - Healthy patient</SelectItem>
-                              <SelectItem value="II">II - Mild systemic disease</SelectItem>
-                              <SelectItem value="III">III - Severe systemic disease</SelectItem>
-                              <SelectItem value="IV">IV - Life-threatening disease</SelectItem>
-                              <SelectItem value="V">V - Moribund patient</SelectItem>
+                              <SelectItem value="I">{t('anesthesia.patientDetail.asaI')}</SelectItem>
+                              <SelectItem value="II">{t('anesthesia.patientDetail.asaII')}</SelectItem>
+                              <SelectItem value="III">{t('anesthesia.patientDetail.asaIII')}</SelectItem>
+                              <SelectItem value="IV">{t('anesthesia.patientDetail.asaIV')}</SelectItem>
+                              <SelectItem value="V">{t('anesthesia.patientDetail.asaV')}</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label>Special Notes</Label>
+                          <Label>{t('anesthesia.patientDetail.specialNotes')}</Label>
                           <Textarea
                             value={assessmentData.specialNotes}
                             onChange={(e) => setAssessmentData({...assessmentData, specialNotes: e.target.value})}
-                            placeholder="Enter any special notes or considerations..."
+                            placeholder={t('anesthesia.patientDetail.specialNotesPlaceholder')}
                             rows={3}
                             data-testid="textarea-special-notes"
                           />
@@ -1990,7 +1992,7 @@ export default function PatientDetail() {
                   <Card className={hasMedicationsData() ? "border-purple-400 dark:border-purple-600" : ""}>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-medications">
                       <CardTitle className={`text-lg ${hasMedicationsData() ? "text-purple-600 dark:text-purple-400" : ""}`}>
-                        Medications
+                        {t('anesthesia.patientDetail.medications')}
                       </CardTitle>
                     </AccordionTrigger>
                     <AccordionContent>
@@ -1998,7 +2000,7 @@ export default function PatientDetail() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-4">
                             <div className="space-y-2">
-                              <Label className="text-base font-semibold">Anticoagulation Medications</Label>
+                              <Label className="text-base font-semibold">{t('anesthesia.patientDetail.anticoagulationMedications')}</Label>
                               <div className="border rounded-lg p-3 space-y-2">
                                 <div className="grid grid-cols-2 gap-2">
                                   {anticoagulationMedications.map((medication) => (
@@ -2022,13 +2024,13 @@ export default function PatientDetail() {
                                 <Input
                                   value={assessmentData.anticoagulationMedsOther}
                                   onChange={(e) => setAssessmentData({...assessmentData, anticoagulationMedsOther: e.target.value})}
-                                  placeholder="Other anticoagulation medications (free text)..."
+                                  placeholder={t('anesthesia.patientDetail.otherAnticoagulationPlaceholder')}
                                   data-testid="input-anticoag-other"
                                 />
                               </div>
                             </div>
                             <div className="space-y-2">
-                              <Label className="text-base font-semibold">General Medications</Label>
+                              <Label className="text-base font-semibold">{t('anesthesia.patientDetail.generalMedications')}</Label>
                               <div className="border rounded-lg p-3 space-y-2">
                                 <div className="grid grid-cols-2 gap-2">
                                   {generalMedications.map((medication) => (
@@ -2052,18 +2054,18 @@ export default function PatientDetail() {
                                 <Input
                                   value={assessmentData.generalMedsOther}
                                   onChange={(e) => setAssessmentData({...assessmentData, generalMedsOther: e.target.value})}
-                                  placeholder="Other medications (free text)..."
+                                  placeholder={t('anesthesia.patientDetail.otherMedicationsPlaceholder')}
                                   data-testid="input-general-med-other"
                                 />
                               </div>
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <Label className="text-base font-semibold">Additional Notes</Label>
+                            <Label className="text-base font-semibold">{t('anesthesia.patientDetail.additionalNotes')}</Label>
                             <Textarea
                               value={assessmentData.medicationsNotes}
                               onChange={(e) => setAssessmentData({...assessmentData, medicationsNotes: e.target.value})}
-                              placeholder="Enter additional notes about medications..."
+                              placeholder={t('anesthesia.patientDetail.medicationsNotesPlaceholder')}
                               rows={14}
                               data-testid="textarea-medications-notes"
                             />
@@ -2079,14 +2081,14 @@ export default function PatientDetail() {
                   <Card className={hasHeartData() ? "border-red-500 dark:border-red-700" : ""}>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-heart">
                       <CardTitle className={`text-lg ${hasHeartData() ? "text-red-600 dark:text-red-400" : ""}`}>
-                        Heart and Circulation
+                        {t('anesthesia.patientDetail.heartAndCirculation')}
                       </CardTitle>
                     </AccordionTrigger>
                     <AccordionContent>
                       <CardContent className="pt-0">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-3">
-                            <Label className="text-base font-semibold">Conditions</Label>
+                            <Label className="text-base font-semibold">{t('anesthesia.patientDetail.conditions')}</Label>
                             <div className="space-y-2">
                               {(anesthesiaSettings?.illnessLists?.cardiovascular || []).map(({ id, label }) => (
                                 <div key={id} className="flex items-center space-x-2">
@@ -2105,11 +2107,11 @@ export default function PatientDetail() {
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <Label className="text-base font-semibold">Additional Notes</Label>
+                            <Label className="text-base font-semibold">{t('anesthesia.patientDetail.additionalNotes')}</Label>
                             <Textarea
                               value={assessmentData.heartNotes}
                               onChange={(e) => setAssessmentData({...assessmentData, heartNotes: e.target.value})}
-                              placeholder="Enter additional notes about cardiovascular conditions..."
+                              placeholder={t('anesthesia.patientDetail.heartNotesPlaceholder')}
                               rows={8}
                               data-testid="textarea-heart-notes"
                             />
@@ -2125,14 +2127,14 @@ export default function PatientDetail() {
                   <Card className={hasLungData() ? "border-blue-500 dark:border-blue-700" : ""}>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-lungs">
                       <CardTitle className={`text-lg ${hasLungData() ? "text-blue-600 dark:text-blue-400" : ""}`}>
-                        Lungs
+                        {t('anesthesia.patientDetail.lungs')}
                       </CardTitle>
                     </AccordionTrigger>
                     <AccordionContent>
                       <CardContent className="pt-0">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-3">
-                            <Label className="text-base font-semibold">Conditions</Label>
+                            <Label className="text-base font-semibold">{t('anesthesia.patientDetail.conditions')}</Label>
                             <div className="space-y-2">
                               {(anesthesiaSettings?.illnessLists?.pulmonary || []).map(({ id, label }) => (
                                 <div key={id} className="flex items-center space-x-2">
@@ -2151,11 +2153,11 @@ export default function PatientDetail() {
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <Label className="text-base font-semibold">Additional Notes</Label>
+                            <Label className="text-base font-semibold">{t('anesthesia.patientDetail.additionalNotes')}</Label>
                             <Textarea
                               value={assessmentData.lungNotes}
                               onChange={(e) => setAssessmentData({...assessmentData, lungNotes: e.target.value})}
-                              placeholder="Enter additional notes about respiratory conditions..."
+                              placeholder={t('anesthesia.patientDetail.lungNotesPlaceholder')}
                               rows={6}
                               data-testid="textarea-lung-notes"
                             />
@@ -2171,7 +2173,7 @@ export default function PatientDetail() {
                   <Card className={hasGIKidneyMetabolicData() ? "border-yellow-500 dark:border-yellow-700" : ""}>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-gi-kidney-metabolic">
                       <CardTitle className={`text-lg ${hasGIKidneyMetabolicData() ? "text-yellow-600 dark:text-yellow-400" : ""}`}>
-                        GI-Tract, Kidney and Metabolic
+                        {t('anesthesia.patientDetail.giKidneyMetabolic')}
                       </CardTitle>
                     </AccordionTrigger>
                     <AccordionContent>
@@ -2179,7 +2181,7 @@ export default function PatientDetail() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-4">
                             <div className="space-y-2">
-                              <Label className="text-base font-semibold">GI-Tract</Label>
+                              <Label className="text-base font-semibold">{t('anesthesia.patientDetail.giTract')}</Label>
                               <div className="border rounded-lg p-3 space-y-2">
                                 {(anesthesiaSettings?.illnessLists?.gastrointestinal || []).map(({ id, label }) => (
                                   <div key={id} className="flex items-center space-x-2">
@@ -2198,7 +2200,7 @@ export default function PatientDetail() {
                               </div>
                             </div>
                             <div className="space-y-2">
-                              <Label className="text-base font-semibold">Kidney</Label>
+                              <Label className="text-base font-semibold">{t('anesthesia.patientDetail.kidney')}</Label>
                               <div className="border rounded-lg p-3 space-y-2">
                                 {(anesthesiaSettings?.illnessLists?.kidney || []).map(({ id, label }) => (
                                   <div key={id} className="flex items-center space-x-2">
@@ -2217,7 +2219,7 @@ export default function PatientDetail() {
                               </div>
                             </div>
                             <div className="space-y-2">
-                              <Label className="text-base font-semibold">Metabolic</Label>
+                              <Label className="text-base font-semibold">{t('anesthesia.patientDetail.metabolic')}</Label>
                               <div className="border rounded-lg p-3 space-y-2">
                                 {(anesthesiaSettings?.illnessLists?.metabolic || []).map(({ id, label }) => (
                                   <div key={id} className="flex items-center space-x-2">
@@ -2237,11 +2239,11 @@ export default function PatientDetail() {
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <Label className="text-base font-semibold">Additional Notes</Label>
+                            <Label className="text-base font-semibold">{t('anesthesia.patientDetail.additionalNotes')}</Label>
                             <Textarea
                               value={assessmentData.giKidneyMetabolicNotes}
                               onChange={(e) => setAssessmentData({...assessmentData, giKidneyMetabolicNotes: e.target.value})}
-                              placeholder="Enter additional notes about GI, kidney or metabolic conditions..."
+                              placeholder={t('anesthesia.patientDetail.giKidneyMetabolicNotesPlaceholder')}
                               rows={18}
                               data-testid="textarea-gi-kidney-metabolic-notes"
                             />
@@ -2257,7 +2259,7 @@ export default function PatientDetail() {
                   <Card className={hasNeuroPsychSkeletalData() ? "border-orange-500 dark:border-orange-700" : ""}>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-neuro-psych-skeletal">
                       <CardTitle className={`text-lg ${hasNeuroPsychSkeletalData() ? "text-orange-600 dark:text-orange-400" : ""}`}>
-                        Neurological, Psychiatry and Skeletal
+                        {t('anesthesia.patientDetail.neuroPsychSkeletal')}
                       </CardTitle>
                     </AccordionTrigger>
                     <AccordionContent>
@@ -2265,7 +2267,7 @@ export default function PatientDetail() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-4">
                             <div className="space-y-2">
-                              <Label className="text-base font-semibold">Neurological</Label>
+                              <Label className="text-base font-semibold">{t('anesthesia.patientDetail.neurological')}</Label>
                               <div className="border rounded-lg p-3 space-y-2">
                                 {(anesthesiaSettings?.illnessLists?.neurological || []).map(({ id, label }) => (
                                   <div key={id} className="flex items-center space-x-2">
@@ -2284,7 +2286,7 @@ export default function PatientDetail() {
                               </div>
                             </div>
                             <div className="space-y-2">
-                              <Label className="text-base font-semibold">Psychiatry</Label>
+                              <Label className="text-base font-semibold">{t('anesthesia.patientDetail.psychiatry')}</Label>
                               <div className="border rounded-lg p-3 space-y-2">
                                 {(anesthesiaSettings?.illnessLists?.psychiatric || []).map(({ id, label }) => (
                                   <div key={id} className="flex items-center space-x-2">
@@ -2303,7 +2305,7 @@ export default function PatientDetail() {
                               </div>
                             </div>
                             <div className="space-y-2">
-                              <Label className="text-base font-semibold">Skeletal</Label>
+                              <Label className="text-base font-semibold">{t('anesthesia.patientDetail.skeletal')}</Label>
                               <div className="border rounded-lg p-3 space-y-2">
                                 {(anesthesiaSettings?.illnessLists?.skeletal || []).map(({ id, label }) => (
                                   <div key={id} className="flex items-center space-x-2">
@@ -2480,14 +2482,14 @@ export default function PatientDetail() {
                 <AccordionItem value="anesthesia">
                   <Card>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-anesthesia">
-                      <CardTitle className="text-lg">Planned Anesthesia and Installations</CardTitle>
+                      <CardTitle className="text-lg">{t('anesthesia.patientDetail.plannedAnesthesiaInstallations')}</CardTitle>
                     </AccordionTrigger>
                     <AccordionContent>
                       <CardContent className="pt-0">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="space-y-4">
                             <div className="space-y-2">
-                              <Label className="text-base font-semibold">Anesthesia Technique</Label>
+                              <Label className="text-base font-semibold">{t('anesthesia.patientDetail.anesthesiaTechnique')}</Label>
                               <div className="border rounded-lg p-3 space-y-2">
                                 {/* General Anesthesia */}
                                 <div className="space-y-2">
@@ -2501,22 +2503,22 @@ export default function PatientDetail() {
                                       })}
                                       data-testid="checkbox-general"
                                     />
-                                    <Label htmlFor="general" className="cursor-pointer font-normal text-sm font-semibold">General Anesthesia</Label>
+                                    <Label htmlFor="general" className="cursor-pointer font-normal text-sm font-semibold">{t('anesthesia.patientDetail.generalAnesthesia')}</Label>
                                   </div>
                                   {assessmentData.anesthesiaTechniques.general && (
                                     <div className="ml-6 space-y-1.5 p-2 bg-muted/30 rounded">
                                       {[
-                                        { id: 'tiva-tci', label: 'TIVA/TCI' },
-                                        { id: 'tubus', label: 'Tubus' },
-                                        { id: 'rsi', label: 'RSI' },
-                                        { id: 'larynxmask', label: 'Larynxmask' },
-                                        { id: 'larynxmask-auragain', label: 'Larynxmask AuraGain' },
-                                        { id: 'rae-tubus', label: 'RAE Tubus' },
-                                        { id: 'spiralfedertubus', label: 'Spiralfedertubus' },
-                                        { id: 'doppellumentubus', label: 'Doppellumentubus' },
-                                        { id: 'nasal-intubation', label: 'Nasal Intubation' },
-                                        { id: 'awake-intubation', label: 'Awake Intubation' },
-                                        { id: 'ponv-prophylaxis', label: 'PONV Prophylaxis' },
+                                        { id: 'tiva-tci', label: t('anesthesia.patientDetail.tivaTci') },
+                                        { id: 'tubus', label: t('anesthesia.patientDetail.tubus') },
+                                        { id: 'rsi', label: t('anesthesia.patientDetail.rsi') },
+                                        { id: 'larynxmask', label: t('anesthesia.patientDetail.larynxmask') },
+                                        { id: 'larynxmask-auragain', label: t('anesthesia.patientDetail.larynxmaskAuraGain') },
+                                        { id: 'rae-tubus', label: t('anesthesia.patientDetail.raeTubus') },
+                                        { id: 'spiralfedertubus', label: t('anesthesia.patientDetail.spiralfedertubus') },
+                                        { id: 'doppellumentubus', label: t('anesthesia.patientDetail.doppellumentubus') },
+                                        { id: 'nasal-intubation', label: t('anesthesia.patientDetail.nasalIntubation') },
+                                        { id: 'awake-intubation', label: t('anesthesia.patientDetail.awakeIntubation') },
+                                        { id: 'ponv-prophylaxis', label: t('anesthesia.patientDetail.ponvProphylaxis') },
                                       ].map(({ id, label }) => (
                                         <div key={id} className="flex items-center space-x-2">
                                           <Checkbox
@@ -2552,7 +2554,7 @@ export default function PatientDetail() {
                                     })}
                                     data-testid="checkbox-spinal"
                                   />
-                                  <Label htmlFor="spinal" className="cursor-pointer font-normal text-sm">Spinal Anesthesia</Label>
+                                  <Label htmlFor="spinal" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.spinalAnesthesia')}</Label>
                                 </div>
 
                                 {/* Epidural Anesthesia */}
@@ -2567,13 +2569,13 @@ export default function PatientDetail() {
                                       })}
                                       data-testid="checkbox-epidural"
                                     />
-                                    <Label htmlFor="epidural" className="cursor-pointer font-normal text-sm font-semibold">Epidural Anesthesia</Label>
+                                    <Label htmlFor="epidural" className="cursor-pointer font-normal text-sm font-semibold">{t('anesthesia.patientDetail.epiduralAnesthesia')}</Label>
                                   </div>
                                   {assessmentData.anesthesiaTechniques.epidural && (
                                     <div className="ml-6 space-y-1.5 p-2 bg-muted/30 rounded">
                                       {[
-                                        { id: 'thoracic', label: 'Thoracic' },
-                                        { id: 'lumbar', label: 'Lumbar' },
+                                        { id: 'thoracic', label: t('anesthesia.patientDetail.thoracic') },
+                                        { id: 'lumbar', label: t('anesthesia.patientDetail.lumbar') },
                                       ].map(({ id, label }) => (
                                         <div key={id} className="flex items-center space-x-2">
                                           <Checkbox
@@ -2610,22 +2612,22 @@ export default function PatientDetail() {
                                       })}
                                       data-testid="checkbox-regional"
                                     />
-                                    <Label htmlFor="regional" className="cursor-pointer font-normal text-sm font-semibold">Regional Anesthesia</Label>
+                                    <Label htmlFor="regional" className="cursor-pointer font-normal text-sm font-semibold">{t('anesthesia.patientDetail.regionalAnesthesia')}</Label>
                                   </div>
                                   {assessmentData.anesthesiaTechniques.regional && (
                                     <div className="ml-6 space-y-1.5 p-2 bg-muted/30 rounded">
                                       {[
-                                        { id: 'interscalene-block', label: 'Interscalene Block' },
-                                        { id: 'supraclavicular-block', label: 'Supraclavicular Block' },
-                                        { id: 'infraclavicular-block', label: 'Infraclavicular Block' },
-                                        { id: 'axillary-block', label: 'Axillary Block' },
-                                        { id: 'femoral-block', label: 'Femoral Block' },
-                                        { id: 'sciatic-block', label: 'Sciatic Block' },
-                                        { id: 'popliteal-block', label: 'Popliteal Block' },
-                                        { id: 'tap-block', label: 'TAP Block' },
-                                        { id: 'pecs-block', label: 'PECS Block' },
-                                        { id: 'serratus-block', label: 'Serratus Block' },
-                                        { id: 'with-catheter', label: 'with Catheter' },
+                                        { id: 'interscalene-block', label: t('anesthesia.patientDetail.interscaleneBlock') },
+                                        { id: 'supraclavicular-block', label: t('anesthesia.patientDetail.supraclavicularBlock') },
+                                        { id: 'infraclavicular-block', label: t('anesthesia.patientDetail.infraclavicularBlock') },
+                                        { id: 'axillary-block', label: t('anesthesia.patientDetail.axillaryBlock') },
+                                        { id: 'femoral-block', label: t('anesthesia.patientDetail.femoralBlock') },
+                                        { id: 'sciatic-block', label: t('anesthesia.patientDetail.sciaticBlock') },
+                                        { id: 'popliteal-block', label: t('anesthesia.patientDetail.poplitealBlock') },
+                                        { id: 'tap-block', label: t('anesthesia.patientDetail.tapBlock') },
+                                        { id: 'pecs-block', label: t('anesthesia.patientDetail.pecsBlock') },
+                                        { id: 'serratus-block', label: t('anesthesia.patientDetail.serratusBlock') },
+                                        { id: 'with-catheter', label: t('anesthesia.patientDetail.withCatheter') },
                                       ].map(({ id, label }) => (
                                         <div key={id} className="flex items-center space-x-2">
                                           <Checkbox
@@ -2661,7 +2663,7 @@ export default function PatientDetail() {
                                     })}
                                     data-testid="checkbox-sedation"
                                   />
-                                  <Label htmlFor="sedation" className="cursor-pointer font-normal text-sm">Sedation</Label>
+                                  <Label htmlFor="sedation" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.sedation')}</Label>
                                 </div>
 
                                 {/* Combined Technique */}
@@ -2675,13 +2677,13 @@ export default function PatientDetail() {
                                     })}
                                     data-testid="checkbox-combined"
                                   />
-                                  <Label htmlFor="combined" className="cursor-pointer font-normal text-sm">Combined Technique</Label>
+                                  <Label htmlFor="combined" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.combinedTechnique')}</Label>
                                 </div>
                               </div>
                             </div>
                             
                             <div className="space-y-2">
-                              <Label className="text-base font-semibold">Post-Operative Care</Label>
+                              <Label className="text-base font-semibold">{t('anesthesia.patientDetail.postOperativeCare')}</Label>
                               <div className="border rounded-lg p-3">
                                 <div className="flex items-center space-x-2">
                                   <Checkbox
@@ -2693,17 +2695,17 @@ export default function PatientDetail() {
                                     })}
                                     data-testid="checkbox-post-op-icu"
                                   />
-                                  <Label htmlFor="postOpICU" className="cursor-pointer font-normal text-sm">Post-op ICU</Label>
+                                  <Label htmlFor="postOpICU" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.postOpICU')}</Label>
                                 </div>
                               </div>
                             </div>
 
                             <div className="space-y-2">
-                              <Label className="text-base font-semibold">Other Anesthesia Details</Label>
+                              <Label className="text-base font-semibold">{t('anesthesia.patientDetail.otherAnesthesiaDetails')}</Label>
                               <Textarea
                                 value={assessmentData.anesthesiaOther}
                                 onChange={(e) => setAssessmentData({...assessmentData, anesthesiaOther: e.target.value})}
-                                placeholder="Enter additional anesthesia details..."
+                                placeholder={t('anesthesia.patientDetail.otherAnesthesiaPlaceholder')}
                                 rows={3}
                                 data-testid="textarea-anesthesia-other"
                               />
@@ -2712,7 +2714,7 @@ export default function PatientDetail() {
 
                           <div className="space-y-4">
                             <div className="space-y-2">
-                              <Label className="text-base font-semibold">Required Installations</Label>
+                              <Label className="text-base font-semibold">{t('anesthesia.patientDetail.requiredInstallations')}</Label>
                               <div className="border rounded-lg p-3 space-y-2">
                                 <div className="flex items-center space-x-2">
                                   <Checkbox
@@ -2724,7 +2726,7 @@ export default function PatientDetail() {
                                     })}
                                     data-testid="checkbox-arterial-line"
                                   />
-                                  <Label htmlFor="arterialLine" className="cursor-pointer font-normal text-sm">Arterial Line</Label>
+                                  <Label htmlFor="arterialLine" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.arterialLine')}</Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                   <Checkbox
@@ -2736,7 +2738,7 @@ export default function PatientDetail() {
                                     })}
                                     data-testid="checkbox-central-line"
                                   />
-                                  <Label htmlFor="centralLine" className="cursor-pointer font-normal text-sm">Central Venous Line</Label>
+                                  <Label htmlFor="centralLine" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.centralVenousLine')}</Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                   <Checkbox
@@ -2748,7 +2750,7 @@ export default function PatientDetail() {
                                     })}
                                     data-testid="checkbox-epidural-catheter"
                                   />
-                                  <Label htmlFor="epiduralCatheter" className="cursor-pointer font-normal text-sm">Epidural Catheter</Label>
+                                  <Label htmlFor="epiduralCatheter" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.epiduralCatheter')}</Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                   <Checkbox
@@ -2760,7 +2762,7 @@ export default function PatientDetail() {
                                     })}
                                     data-testid="checkbox-urinary-catheter"
                                   />
-                                  <Label htmlFor="urinaryCatheter" className="cursor-pointer font-normal text-sm">Urinary Catheter</Label>
+                                  <Label htmlFor="urinaryCatheter" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.urinaryCatheter')}</Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
                                   <Checkbox
@@ -2784,17 +2786,17 @@ export default function PatientDetail() {
                                     })}
                                     data-testid="checkbox-peripheral-iv"
                                   />
-                                  <Label htmlFor="peripheralIV" className="cursor-pointer font-normal text-sm">Peripheral IV</Label>
+                                  <Label htmlFor="peripheralIV" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.peripheralIV')}</Label>
                                 </div>
                               </div>
                             </div>
 
                             <div className="space-y-2">
-                              <Label className="text-base font-semibold">Other Installations</Label>
+                              <Label className="text-base font-semibold">{t('anesthesia.patientDetail.otherInstallations')}</Label>
                               <Textarea
                                 value={assessmentData.installationsOther}
                                 onChange={(e) => setAssessmentData({...assessmentData, installationsOther: e.target.value})}
-                                placeholder="Enter additional installations..."
+                                placeholder={t('anesthesia.patientDetail.otherInstallationsPlaceholder')}
                                 rows={3}
                                 data-testid="textarea-installations-other"
                               />
@@ -2810,12 +2812,12 @@ export default function PatientDetail() {
               {/* Doctor Signature and Save */}
               <Card className="mt-6">
                 <CardHeader>
-                  <CardTitle>Assessment Completion</CardTitle>
+                  <CardTitle>{t('anesthesia.patientDetail.assessmentCompletion')}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Assessment Date</Label>
+                      <Label>{t('anesthesia.patientDetail.assessmentDate')}</Label>
                       <Input
                         type="date"
                         value={assessmentData.assessmentDate}
@@ -2829,18 +2831,18 @@ export default function PatientDetail() {
                       )}
                     </div>
                     <div className="space-y-2">
-                      <Label>Doctor Name</Label>
+                      <Label>{t('anesthesia.patientDetail.doctorName')}</Label>
                       <Input
                         value={assessmentData.doctorName}
                         onChange={(e) => setAssessmentData({...assessmentData, doctorName: e.target.value})}
-                        placeholder="Enter your name"
+                        placeholder={t('anesthesia.patientDetail.enterYourName')}
                         data-testid="input-doctor-name"
                       />
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Doctor Signature</Label>
+                    <Label>{t('anesthesia.patientDetail.doctorSignature')}</Label>
                     <div
                       className="border-2 border-dashed rounded-lg p-6 cursor-pointer hover:bg-muted/50 transition-colors"
                       onClick={() => setShowAssessmentSignaturePad(true)}
@@ -2849,19 +2851,19 @@ export default function PatientDetail() {
                       {assessmentData.doctorSignature ? (
                         <div className="flex flex-col items-center gap-2">
                           <img src={assessmentData.doctorSignature} alt="Doctor signature" className="h-16 max-w-full" />
-                          <p className="text-xs text-muted-foreground">Click to change signature</p>
+                          <p className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.clickToChangeSignature')}</p>
                         </div>
                       ) : (
                         <div className="flex flex-col items-center gap-2 text-muted-foreground">
                           <i className="fas fa-signature text-2xl"></i>
-                          <p className="text-sm">Click to add signature</p>
+                          <p className="text-sm">{t('anesthesia.patientDetail.clickToAddSignature')}</p>
                         </div>
                       )}
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-base font-semibold">Surgical Approval Status</Label>
+                    <Label className="text-base font-semibold">{t('anesthesia.patientDetail.surgicalApprovalStatus')}</Label>
                     <div className="space-y-2">
                       <div className={`flex items-center space-x-2 p-2 rounded-lg ${assessmentData.surgicalApprovalStatus === "approved" ? "bg-green-50 dark:bg-green-950" : ""}`}>
                         <Checkbox
@@ -2875,7 +2877,7 @@ export default function PatientDetail() {
                           className={assessmentData.surgicalApprovalStatus === "approved" ? "border-green-600 data-[state=checked]:bg-green-600" : ""}
                         />
                         <Label htmlFor="approved" className={`cursor-pointer font-normal text-sm flex-1 ${assessmentData.surgicalApprovalStatus === "approved" ? "text-green-700 dark:text-green-300 font-semibold" : ""}`}>
-                          ✓ Approved for Surgery
+                          {t('anesthesia.patientDetail.approvedForSurgery')}
                         </Label>
                       </div>
                       <div className={`flex items-center space-x-2 p-2 rounded-lg ${assessmentData.surgicalApprovalStatus === "standby-ekg" ? "bg-yellow-50 dark:bg-yellow-950" : ""}`}>
@@ -2952,10 +2954,10 @@ export default function PatientDetail() {
                       {(createPreOpMutation.isPending || updatePreOpMutation.isPending) ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Saving...
+                          {t('anesthesia.patientDetail.saving')}
                         </>
                       ) : (
-                        "Save Draft"
+                        t('anesthesia.patientDetail.saveDraft')
                       )}
                     </Button>
                     <Button 
@@ -2966,15 +2968,15 @@ export default function PatientDetail() {
                       data-testid="button-complete-assessment"
                     >
                       {existingAssessment?.status === "completed" ? (
-                        "✓ Completed"
+                        t('anesthesia.patientDetail.completed')
                       ) : (
                         (createPreOpMutation.isPending || updatePreOpMutation.isPending) ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Completing...
+                            {t('anesthesia.patientDetail.completing')}
                           </>
                         ) : (
-                          "Complete & Sign"
+                          t('anesthesia.patientDetail.completeAndSign')
                         )
                       )}
                     </Button>
@@ -2986,7 +2988,7 @@ export default function PatientDetail() {
             <TabsContent value="consent" className="flex-1 overflow-y-auto px-6 pb-6 space-y-6 mt-0">
               <Card>
                 <CardHeader>
-                  <CardTitle>Informed Consent for Anesthesia</CardTitle>
+                  <CardTitle>{t('anesthesia.patientDetail.informedConsentForAnesthesia')}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-4">
@@ -3143,10 +3145,10 @@ export default function PatientDetail() {
                       {(createPreOpMutation.isPending || updatePreOpMutation.isPending) ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Saving...
+                          {t('anesthesia.patientDetail.saving')}
                         </>
                       ) : (
-                        "Save Draft"
+                        t('anesthesia.patientDetail.saveDraft')
                       )}
                     </Button>
                     <Button 
@@ -3157,15 +3159,15 @@ export default function PatientDetail() {
                       data-testid="button-complete-consent"
                     >
                       {existingAssessment?.status === "completed" ? (
-                        "✓ Completed"
+                        t('anesthesia.patientDetail.completed')
                       ) : (
                         (createPreOpMutation.isPending || updatePreOpMutation.isPending) ? (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Completing...
+                            {t('anesthesia.patientDetail.completing')}
                           </>
                         ) : (
-                          "Complete & Sign"
+                          t('anesthesia.patientDetail.completeAndSign')
                         )
                       )}
                     </Button>
@@ -3181,8 +3183,8 @@ export default function PatientDetail() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Patient</DialogTitle>
-            <DialogDescription>Update patient information and medical details</DialogDescription>
+            <DialogTitle>{t('anesthesia.patientDetail.editPatient')}</DialogTitle>
+            <DialogDescription>{t('anesthesia.patientDetail.updatePatientInfo')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
@@ -3389,10 +3391,10 @@ export default function PatientDetail() {
                 {updatePatientMutation.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
+                    {t('anesthesia.patientDetail.saving')}
                   </>
                 ) : (
-                  "Save Changes"
+                  t('anesthesia.patientDetail.saveChanges')
                 )}
               </Button>
             </div>
@@ -3404,19 +3406,19 @@ export default function PatientDetail() {
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Patient</AlertDialogTitle>
+            <AlertDialogTitle>{t('anesthesia.patientDetail.deletePatient')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this patient? This action cannot be undone.
+              {t('anesthesia.patientDetail.deletePatientConfirmation')}
               <br /><br />
-              <strong>Patient: {patient.surname}, {patient.firstName}</strong>
+              <strong>{t('anesthesia.patientDetail.patient')}: {patient.surname}, {patient.firstName}</strong>
               <br />
-              Patient ID: {patient.patientNumber}
+              {t('anesthesia.patientDetail.patientId')}: {patient.patientNumber}
               <br /><br />
-              All associated data, including surgeries and assessments, will be permanently deleted.
+              {t('anesthesia.patientDetail.deleteWarning')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-delete">{t('anesthesia.patientDetail.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deletePatientMutation.mutate()}
               disabled={deletePatientMutation.isPending}
@@ -3426,10 +3428,10 @@ export default function PatientDetail() {
               {deletePatientMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
+                  {t('anesthesia.patientDetail.deleting')}
                 </>
               ) : (
-                "Delete Patient"
+                t('anesthesia.patientDetail.deletePatient')
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -3444,7 +3446,7 @@ export default function PatientDetail() {
           setAssessmentData({...assessmentData, doctorSignature: signature});
           setShowAssessmentSignaturePad(false);
         }}
-        title="Doctor Signature (Assessment)"
+        title={t('anesthesia.patientDetail.doctorSignatureAssessment')}
       />
       
       <SignaturePad
@@ -3454,7 +3456,7 @@ export default function PatientDetail() {
           setConsentData({...consentData, doctorSignature: signature});
           setShowConsentDoctorSignaturePad(false);
         }}
-        title="Doctor Signature (Consent)"
+        title={t('anesthesia.patientDetail.doctorSignatureConsent')}
       />
       
       <SignaturePad
@@ -3464,7 +3466,7 @@ export default function PatientDetail() {
           setConsentData({...consentData, patientSignature: signature});
           setShowConsentPatientSignaturePad(false);
         }}
-        title="Patient Signature"
+        title={t('anesthesia.patientDetail.patientSignature')}
       />
     </div>
   );
