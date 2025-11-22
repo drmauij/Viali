@@ -5590,6 +5590,21 @@ If unable to parse any drugs, return:
         return res.status(403).json({ message: "Access denied" });
       }
 
+      // Synchronize allergies to patient record (patients table as single source of truth)
+      if (validatedData.allergies !== undefined || validatedData.allergiesOther !== undefined) {
+        const patientUpdates: any = {};
+        
+        if (validatedData.allergies !== undefined) {
+          patientUpdates.allergies = validatedData.allergies;
+        }
+        
+        if (validatedData.allergiesOther !== undefined) {
+          patientUpdates.otherAllergies = validatedData.allergiesOther;
+        }
+        
+        await storage.updatePatient(surgery.patientId, patientUpdates);
+      }
+
       const newAssessment = await storage.createPreOpAssessment(validatedData);
       
       res.status(201).json(newAssessment);
@@ -5625,6 +5640,21 @@ If unable to parse any drugs, return:
       
       if (!hasAccess) {
         return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Synchronize allergies to patient record (patients table as single source of truth)
+      if (req.body.allergies !== undefined || req.body.allergiesOther !== undefined) {
+        const patientUpdates: any = {};
+        
+        if (req.body.allergies !== undefined) {
+          patientUpdates.allergies = req.body.allergies;
+        }
+        
+        if (req.body.allergiesOther !== undefined) {
+          patientUpdates.otherAllergies = req.body.allergiesOther;
+        }
+        
+        await storage.updatePatient(surgery.patientId, patientUpdates);
       }
 
       const updatedAssessment = await storage.updatePreOpAssessment(id, req.body);

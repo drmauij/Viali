@@ -375,7 +375,7 @@ export default function PatientDetail() {
         description: t('anesthesia.patientDetail.successSurgeryUpdatedDesc'),
       });
       setEditingCaseId(null);
-      setEditCase({ plannedSurgery: "", surgeon: "", plannedDate: "", surgeryRoomId: "", duration: 180 });
+      setEditCase({ plannedSurgery: "", surgeon: "", plannedDate: "", surgeryRoomId: "", duration: 180, notes: "" });
     },
     onError: (error: any) => {
       toast({
@@ -939,7 +939,7 @@ export default function PatientDetail() {
 
       // Generate PDF
       generateAnesthesiaRecordPDF({
-        patient,
+        patient: { ...patient, deletedAt: null },
         surgery,
         anesthesiaRecord,
         preOpAssessment,
