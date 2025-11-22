@@ -15,6 +15,8 @@ import { StickyTimelineHeader } from "./StickyTimelineHeader";
 import { MedicationConfigDialog } from "./MedicationConfigDialog";
 import { EventDialog } from "./dialogs/EventDialog";
 import { HeartRhythmDialog } from "./dialogs/HeartRhythmDialog";
+import { BISDialog } from "./dialogs/BISDialog";
+import { TOFDialog } from "./dialogs/TOFDialog";
 import { StaffDialog } from "./dialogs/StaffDialog";
 import { PositionDialog } from "./dialogs/PositionDialog";
 import { MedicationDoseDialog } from "./dialogs/MedicationDoseDialog";
@@ -106,6 +108,8 @@ import { OutputSwimlane } from "./swimlanes/OutputSwimlane";
 import { PositionSwimlane } from "./swimlanes/PositionSwimlane";
 import { StaffSwimlane } from "./swimlanes/StaffSwimlane";
 import { HeartRhythmSwimlane } from "./swimlanes/HeartRhythmSwimlane";
+import { BISSwimlane } from "./swimlanes/BISSwimlane";
+import { TOFSwimlane } from "./swimlanes/TOFSwimlane";
 import { EventsTimesPanel } from "./EventsTimesPanel";
 
 /**
@@ -664,21 +668,27 @@ export function UnifiedTimeline({
     // No need to process data.apiEvents separately for now
   }, [data.medications, anesthesiaItems, administrationGroups, anesthesiaRecordId, resetMedicationData]);
 
-  // Event state management hook (heart rhythm, staff, position, events, time markers)
+  // Event state management hook (heart rhythm, staff, position, BIS, TOF, events, time markers)
   const {
     heartRhythmData,
     staffData,
     positionData,
+    bisData,
+    tofData,
     eventComments,
     timeMarkers,
     setHeartRhythmData,
     setStaffData,
     setPositionData,
+    setBisData,
+    setTofData,
     setEventComments,
     setTimeMarkers,
     addHeartRhythm,
     addStaffEntry,
     addPosition,
+    addBIS,
+    addTOF,
     addEvent,
     resetEventData,
   } = useEventState({
@@ -715,6 +725,47 @@ export function UnifiedTimeline({
       setHeartRhythmData([]);
     }
   }, [clinicalSnapshot, setHeartRhythmData]);
+
+  // NEW: Sync BIS data from clinical snapshot
+  useEffect(() => {
+    if (clinicalSnapshot === undefined) return;
+    
+    const snapshotData = clinicalSnapshot?.data as any;
+    const bis = snapshotData?.bis || [];
+    
+    if (bis.length > 0) {
+      console.log('[BIS-SYNC] Loading BIS from snapshot:', bis.length, 'points');
+      const bisEntries = bis.map((point: any) => ({
+        id: point.id,
+        timestamp: new Date(point.timestamp).getTime(),
+        value: point.value,
+      }));
+      setBisData(bisEntries);
+    } else {
+      setBisData([]);
+    }
+  }, [clinicalSnapshot, setBisData]);
+
+  // NEW: Sync TOF data from clinical snapshot
+  useEffect(() => {
+    if (clinicalSnapshot === undefined) return;
+    
+    const snapshotData = clinicalSnapshot?.data as any;
+    const tof = snapshotData?.tof || [];
+    
+    if (tof.length > 0) {
+      console.log('[TOF-SYNC] Loading TOF from snapshot:', tof.length, 'points');
+      const tofEntries = tof.map((point: any) => ({
+        id: point.id,
+        timestamp: new Date(point.timestamp).getTime(),
+        value: point.value,
+        percentage: point.percentage,
+      }));
+      setTofData(tofEntries);
+    } else {
+      setTofData([]);
+    }
+  }, [clinicalSnapshot, setTofData]);
 
   // NEW: Sync ventilation mode data from clinical snapshot
   useEffect(() => {
@@ -896,6 +947,16 @@ export function UnifiedTimeline({
   const [editingHeartRhythm, setEditingHeartRhythm] = useState<{ time: number; rhythm: string; index: number; id: string } | null>(null);
   const [heartRhythmInput, setHeartRhythmInput] = useState("");
   const [heartRhythmEditTime, setHeartRhythmEditTime] = useState<number>(0);
+
+  // UI state for BIS dialogs and interactions
+  const [showBISDialog, setShowBISDialog] = useState(false);
+  const [pendingBIS, setPendingBIS] = useState<{ time: number } | null>(null);
+  const [editingBIS, setEditingBIS] = useState<{ id: string; time: number; value: number; index: number } | null>(null);
+
+  // UI state for TOF dialogs and interactions
+  const [showTOFDialog, setShowTOFDialog] = useState(false);
+  const [pendingTOF, setPendingTOF] = useState<{ time: number } | null>(null);
+  const [editingTOF, setEditingTOF] = useState<{ id: string; time: number; value: string; percentage?: number; index: number } | null>(null);
 
   // UI state for staff dialogs and interactions
   const [showStaffDialog, setShowStaffDialog] = useState(false);
@@ -1484,6 +1545,7 @@ export function UnifiedTimeline({
     { id: "staff", label: "Staff", height: 48, colorLight: "rgba(241, 245, 249, 0.8)", colorDark: "hsl(220, 25%, 25%)" },
     { id: "ventilation", label: "Ventilation", height: 48, colorLight: "rgba(254, 243, 199, 0.8)", colorDark: "hsl(35, 70%, 22%)" },
     { id: "output", label: "Output", height: 48, colorLight: "rgba(254, 226, 226, 0.8)", colorDark: "hsl(0, 60%, 25%)" },
+    { id: "others", label: "Others", height: 48, colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" },
   ];
 
   // Build active swimlanes with collapsible children
@@ -1576,6 +1638,20 @@ export function UnifiedTimeline({
             label: `  ${roleName}`,
             height: 38,
             ...staffColor,
+          });
+        });
+      }
+
+      // Insert BIS and TOF children after Others parent (if not collapsed)
+      if (lane.id === "others" && !collapsedSwimlanes.has("others")) {
+        const othersColor = { colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" };
+        const othersParams = ["BIS", "TOF"];
+        othersParams.forEach((paramName) => {
+          lanes.push({
+            id: paramName.toLowerCase(),
+            label: `  ${paramName}`,
+            height: 38,
+            ...othersColor,
           });
         });
       }
@@ -5178,6 +5254,38 @@ export function UnifiedTimeline({
         }}
       />
 
+      {/* BISSwimlane Component - Interactive layer and rendering for BIS monitoring */}
+      <BISSwimlane
+        swimlanePositions={swimlanePositions}
+        isTouchDevice={isTouchDevice}
+        onBISDialogOpen={(pending) => {
+          setPendingBIS(pending);
+          setEditingBIS(null);
+          setShowBISDialog(true);
+        }}
+        onBISEditDialogOpen={(editing) => {
+          setEditingBIS(editing);
+          setPendingBIS(null);
+          setShowBISDialog(true);
+        }}
+      />
+
+      {/* TOFSwimlane Component - Interactive layer and rendering for TOF monitoring */}
+      <TOFSwimlane
+        swimlanePositions={swimlanePositions}
+        isTouchDevice={isTouchDevice}
+        onTOFDialogOpen={(pending) => {
+          setPendingTOF(pending);
+          setEditingTOF(null);
+          setShowTOFDialog(true);
+        }}
+        onTOFEditDialogOpen={(editing) => {
+          setEditingTOF(editing);
+          setPendingTOF(null);
+          setShowTOFDialog(true);
+        }}
+      />
+
       {/* StaffSwimlane Component - Interactive layers and rendering for staff assignments */}
       <StaffSwimlane
         swimlanePositions={swimlanePositions}
@@ -5201,7 +5309,7 @@ export function UnifiedTimeline({
 
       {/* Interactive overlays for collapsible parent swimlanes */}
       {swimlanePositions.map((lane) => {
-        const isCollapsibleParent = lane.id === "medikamente" || lane.id === "ventilation" || lane.id === "output" || lane.id === "staff";
+        const isCollapsibleParent = lane.id === "medikamente" || lane.id === "ventilation" || lane.id === "output" || lane.id === "staff" || lane.id === "others";
         if (!isCollapsibleParent) return null;
         
         return (
@@ -6635,6 +6743,44 @@ export function UnifiedTimeline({
         }}
         onHeartRhythmDeleted={() => {
           setEditingHeartRhythm(null);
+        }}
+      />
+
+      {/* BIS Dialog */}
+      <BISDialog
+        open={showBISDialog}
+        onOpenChange={setShowBISDialog}
+        anesthesiaRecordId={anesthesiaRecordId}
+        editingBIS={editingBIS}
+        pendingBIS={pendingBIS}
+        onBISCreated={() => {
+          setPendingBIS(null);
+          setEditingBIS(null);
+        }}
+        onBISUpdated={() => {
+          setEditingBIS(null);
+        }}
+        onBISDeleted={() => {
+          setEditingBIS(null);
+        }}
+      />
+
+      {/* TOF Dialog */}
+      <TOFDialog
+        open={showTOFDialog}
+        onOpenChange={setShowTOFDialog}
+        anesthesiaRecordId={anesthesiaRecordId}
+        editingTOF={editingTOF}
+        pendingTOF={pendingTOF}
+        onTOFCreated={() => {
+          setPendingTOF(null);
+          setEditingTOF(null);
+        }}
+        onTOFUpdated={() => {
+          setEditingTOF(null);
+        }}
+        onTOFDeleted={() => {
+          setEditingTOF(null);
         }}
       />
 
