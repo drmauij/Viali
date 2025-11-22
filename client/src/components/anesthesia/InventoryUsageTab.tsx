@@ -57,21 +57,43 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
     queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}`],
     enabled: !!anesthesiaRecordId,
   });
+
+  // Fetch medications to detect running infusions
+  const { data: medications = [] } = useQuery<any[]>({
+    queryKey: [`/api/anesthesia/medications/${anesthesiaRecordId}`],
+    enabled: !!anesthesiaRecordId,
+  });
   
-  // Trigger inventory calculation on mount
+  // Trigger inventory calculation on mount and periodically for running infusions
   useEffect(() => {
     if (!anesthesiaRecordId) return;
     
     // Call the calculate endpoint to recalculate inventory based on timeline medications
-    apiRequest('POST', `/api/anesthesia/inventory/${anesthesiaRecordId}/calculate`)
-      .then(() => {
-        // Refetch inventory data after calculation
-        refetchInventory();
-      })
-      .catch(error => {
-        console.error('Error calculating inventory:', error);
-      });
-  }, [anesthesiaRecordId]);
+    const calculateInventory = () => {
+      apiRequest('POST', `/api/anesthesia/inventory/${anesthesiaRecordId}/calculate`)
+        .then(() => {
+          // Refetch inventory data after calculation
+          refetchInventory();
+        })
+        .catch(error => {
+          console.error('Error calculating inventory:', error);
+        });
+    };
+    
+    // Initial calculation
+    calculateInventory();
+    
+    // Check if there are any running rate-controlled infusions
+    const hasRunningInfusions = medications.some(
+      (med: any) => med.type === 'infusion_start' && !med.endTimestamp
+    );
+    
+    // If there are running infusions, update calculation every 60 seconds
+    if (hasRunningInfusions) {
+      const interval = setInterval(calculateInventory, 60 * 1000);
+      return () => clearInterval(interval);
+    }
+  }, [anesthesiaRecordId, medications]);
 
   // Create a map of itemId -> auto-calculated quantity
   const autoCalcMap = useMemo(() => {
@@ -111,6 +133,16 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
     if (folderId === 'uncategorized') return t('anesthesia.op.uncategorized');
     const folder = folders.find(f => f.id === folderId);
     return folder?.name || t('anesthesia.op.uncategorized');
+  };
+
+  // Check if an item has a running rate-controlled infusion
+  const isRunningInfusion = (itemId: string) => {
+    return medications.some(
+      (med: any) => 
+        med.itemId === itemId && 
+        med.type === 'infusion_start' && 
+        !med.endTimestamp
+    );
   };
 
   // Get final quantity for an item
@@ -261,8 +293,13 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
                             <p className="font-medium text-sm">{item.name}</p>
                             {autoCalc > 0 && (
                               <span className="text-xs text-muted-foreground">
-                                ({t('anesthesia.op.calc')}: {Math.round(autoCalc)})
+                                ({t('anesthesia.op.calc')}: ~{Math.round(autoCalc)})
                               </span>
+                            )}
+                            {isRunningInfusion(item.id) && (
+                              <Badge variant="outline" className="bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/50 text-xs animate-pulse">
+                                {t('anesthesia.op.running')}
+                              </Badge>
                             )}
                           </div>
                           <div className="flex items-center gap-2">
