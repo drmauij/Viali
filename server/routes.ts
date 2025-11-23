@@ -2156,18 +2156,19 @@ If unable to parse any drugs, return:
     }
   });
 
-  // Export items catalog to CSV
+  // Export items catalog to CSV  
   app.get('/api/items/export-csv', isAuthenticated, async (req: any, res) => {
     try {
       const hospitalId = req.query.hospitalId as string;
       const userId = req.user.id;
       const activeUnitId = req.headers['x-active-unit-id'] as string | undefined;
 
+      console.log('[CSV EXPORT] Starting export - Hospital:', hospitalId, 'User:', userId, 'Unit:', activeUnitId);
+
       if (!hospitalId) {
+        console.log('[CSV EXPORT] Missing hospital ID');
         return res.status(400).json({ message: "Hospital ID is required" });
       }
-
-      console.log('[Export CSV] Hospital ID:', hospitalId, 'User ID:', userId, 'Active Unit ID:', activeUnitId);
 
       // Verify user has access to this hospital
       const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId);
