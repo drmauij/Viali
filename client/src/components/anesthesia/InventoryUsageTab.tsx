@@ -93,7 +93,7 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
       const interval = setInterval(calculateInventory, 60 * 1000);
       return () => clearInterval(interval);
     }
-  }, [anesthesiaRecordId, medications]);
+  }, [anesthesiaRecordId, medications, refetchInventory]);
 
   // Create a map of itemId -> auto-calculated quantity
   const autoCalcMap = useMemo(() => {
@@ -227,7 +227,16 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
   
   // Update openFolders when foldersWithUsedItems changes
   useEffect(() => {
-    setOpenFolders(foldersWithUsedItems);
+    setOpenFolders(prev => {
+      // Only update if the folders actually changed to prevent infinite loops
+      const prevSet = new Set(prev);
+      const newSet = new Set(foldersWithUsedItems);
+      const hasChanged = 
+        prevSet.size !== newSet.size ||
+        foldersWithUsedItems.some(f => !prevSet.has(f));
+      
+      return hasChanged ? foldersWithUsedItems : prev;
+    });
   }, [foldersWithUsedItems]);
 
   if (!anesthesiaRecordId) {

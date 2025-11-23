@@ -114,10 +114,10 @@ async function checkAndStopDepletedInfusions(storage: IStorage) {
         console.log(`[AUTO-STOP] Stopping depleted infusion: ${item.name} (ID: ${infusion.id})`);
         
         // Create stop event with auto-stop marker
-        // Convert to ISO string to match schema expectations (endTimestamp is stored as text)
+        // Pass Date object directly - Drizzle expects timestamp type, not string
         const stopTime = new Date(depletionTime);
         await storage.updateAnesthesiaMedication(infusion.id, {
-          endTimestamp: stopTime.toISOString(),
+          endTimestamp: stopTime,
           // TODO: Add autoStopped flag to schema in future migration
         });
 

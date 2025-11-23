@@ -3542,7 +3542,10 @@ export class DatabaseStorage implements IStorage {
           const startEvent = sortedEvents.find(e => e.type === 'infusion_start');
           const stopEvent = sortedEvents.find(e => e.type === 'infusion_stop');
           
-          if (startEvent && stopEvent) {
+          // Check if infusion has stopped either via separate stop event OR via endTimestamp on start event
+          const hasStopTime = stopEvent || (startEvent?.endTimestamp);
+          
+          if (startEvent && hasStopTime) {
             const rateChanges = sortedEvents
               .filter(e => e.type === 'rate_change')
               .map(e => ({ 
@@ -3550,9 +3553,14 @@ export class DatabaseStorage implements IStorage {
                 rate: e.rate || '0' 
               }));
             
+            // Use stopEvent timestamp if available, otherwise use endTimestamp from startEvent
+            const stopTime = stopEvent 
+              ? new Date(stopEvent.timestamp)
+              : new Date(startEvent.endTimestamp!);
+            
             sessions.push({
               start: { timestamp: new Date(startEvent.timestamp), rate: startEvent.rate || '0' },
-              stop: new Date(stopEvent.timestamp),
+              stop: stopTime,
               rateChanges
             });
           }
@@ -3573,13 +3581,20 @@ export class DatabaseStorage implements IStorage {
           for (const startEvent of startEvents) {
             const startTime = new Date(startEvent.timestamp);
             
+            // Try to find a separate stop event first
             const stopEvent = stopEvents.find(s => 
               !usedStops.has(s) && new Date(s.timestamp).getTime() > startTime.getTime()
             );
             
-            if (stopEvent) {
-              const stopTime = new Date(stopEvent.timestamp);
-              usedStops.add(stopEvent);
+            // If no separate stop event, check if start event has endTimestamp
+            const stopTime = stopEvent 
+              ? new Date(stopEvent.timestamp)
+              : (startEvent.endTimestamp ? new Date(startEvent.endTimestamp) : null);
+            
+            if (stopTime) {
+              if (stopEvent) {
+                usedStops.add(stopEvent);
+              }
               
               const relevantRateChanges = rateChangeEvents
                 .filter(rc => {
