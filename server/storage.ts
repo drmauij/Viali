@@ -3269,6 +3269,11 @@ export class DatabaseStorage implements IStorage {
           cuffPressure: airway.cuffPressure,
           intubationPreExisting: airway.intubationPreExisting,
           notes: airway.notes,
+          laryngoscopeType: airway.laryngoscopeType,
+          laryngoscopeBlade: airway.laryngoscopeBlade,
+          intubationAttempts: airway.intubationAttempts,
+          difficultAirway: airway.difficultAirway,
+          cormackLehane: airway.cormackLehane,
           updatedAt: new Date(),
         },
       })
