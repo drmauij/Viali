@@ -14,6 +14,7 @@ import { PatientInfoHeader } from "@/components/anesthesia/PatientInfoHeader";
 import { PostOpInfoCard } from "@/components/anesthesia/PostOpInfoCard";
 import { MedicationScheduleCard } from "@/components/anesthesia/MedicationScheduleCard";
 import { WHOChecklistCard } from "@/components/anesthesia/WHOChecklistCard";
+import { PatientWeightDialog } from "@/components/anesthesia/dialogs/PatientWeightDialog";
 import { useOpData } from "@/hooks/useOpData";
 import { useChecklistState } from "@/hooks/useChecklistState";
 import { usePacuDataFiltering } from "@/hooks/usePacuDataFiltering";
@@ -91,6 +92,9 @@ export default function Op() {
   
   // Active tab state
   const [activeTab, setActiveTab] = useState(isPacuMode ? "pacu" : "vitals");
+  
+  // Weight dialog state
+  const [showWeightDialog, setShowWeightDialog] = useState(false);
 
   // Get surgeryId from params
   const surgeryId = params.id;
@@ -508,6 +512,38 @@ export default function Op() {
 
   // Get patient weight from preOp assessment
   const patientWeight = preOpAssessment?.weight ? parseFloat(preOpAssessment.weight) : undefined;
+  
+  // Show weight dialog when data is loaded but weight is missing
+  useEffect(() => {
+    if (!isPreOpLoading && !isPatientLoading && preOpAssessment && !patientWeight && !showWeightDialog) {
+      setShowWeightDialog(true);
+    }
+  }, [isPreOpLoading, isPatientLoading, preOpAssessment, patientWeight, showWeightDialog]);
+  
+  // Handle weight save
+  const handleWeightSave = async (weight: string) => {
+    if (!preOpAssessment?.id) return;
+    
+    try {
+      await apiRequest('PATCH', `/api/anesthesia/preop/${preOpAssessment.id}`, { weight });
+      
+      // Invalidate the preOp assessment query to refetch with new weight
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${surgeryId}`] });
+      
+      setShowWeightDialog(false);
+      toast({
+        title: t('common.success'),
+        description: t('anesthesia.preop.lastSaved'),
+      });
+    } catch (error) {
+      console.error('Failed to save weight:', error);
+      toast({
+        variant: "destructive",
+        title: t('common.error'),
+        description: t('anesthesia.op.errorSaving'),
+      });
+    }
+  };
 
   // Calculate age from birthday
   const calculateAge = (birthday: string | null | undefined): number | null => {
@@ -547,7 +583,14 @@ export default function Op() {
 
   return (
     <>
-    <Dialog open={isOpen} onOpenChange={handleDialogChange}>
+    {/* Patient Weight Dialog - shown on load if weight is missing */}
+    <PatientWeightDialog
+      open={showWeightDialog}
+      patientName={patient ? `${patient.surname}, ${patient.firstname}` : undefined}
+      onSave={handleWeightSave}
+    />
+    
+    <Dialog open={isOpen && !showWeightDialog} onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col [&>button]:hidden" aria-describedby="op-dialog-description">
         <h2 className="sr-only" id="op-dialog-title">{isPacuMode ? t('anesthesia.op.pacuMonitor') : t('anesthesia.op.intraoperativeMonitoring')} - {t('anesthesia.op.patient')} {surgery.patientId}</h2>
         <p className="sr-only" id="op-dialog-description">{isPacuMode ? 'Post-anesthesia care unit monitoring system' : 'Professional anesthesia monitoring system for tracking vitals, medications, and clinical events during surgery'}</p>

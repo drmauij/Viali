@@ -988,6 +988,18 @@
       "noDataAvailable": "Keine Daten verfügbar",
       "free": "Frei"
     },
+    "weightDialog": {
+      "title": "Patientengewicht erforderlich",
+      "patient": "Patient",
+      "description": "Bitte geben Sie das Gewicht des Patienten ein, um gewichtsbasierte Medikamentenberechnungen und Beatmungseinstellungen zu ermöglichen.",
+      "weightLabel": "Patientengewicht",
+      "error": "Bitte geben Sie ein gültiges Gewicht zwischen 1-500 kg ein",
+      "save": "Speichern & Fortfahren",
+      "whyNeeded": "Warum wird das Gewicht benötigt?",
+      "reason1": "Gewichtsbasierte Medikamentendosierung (μg/kg/min, mg/kg/h)",
+      "reason2": "Tidalvolumen-Berechnungen (typisch 6 ml/kg)",
+      "reason3": "Genaue Berechnung des Inventarverbrauchs"
+    },
     "settings": {
       "title": "Anästhesie-Einstellungen",
       "subtitle": "Konfigurieren Sie die Einstellungen des Anästhesiemoduls einschließlich Artikel, Gruppen und OP-Räume.",
