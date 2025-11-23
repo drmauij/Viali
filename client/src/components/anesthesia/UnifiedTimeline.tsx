@@ -1523,22 +1523,13 @@ export function UnifiedTimeline({
         parts.push(`(${unitParts.join(', ')})`);
       }
     } else {
-      // Infusion (free-flow or rate-controlled): "Name (unit, route/rate-type)"
-      // Example: "Ringer Acetate (ml, i.v./free-flow)" or "NaCl 0.9% (ml, i.v./ml/h)"
+      // Infusion (free-flow or rate-controlled): "Name (rate-type)"
+      // Example: "Ringer (free-flow)" or "Remifentanil (μg/kg/min)"
       const rateInfo = isFreeFlow ? 'free-flow' : item.rateUnit;
       
-      const unitParts = [];
-      if (item.administrationUnit) unitParts.push(item.administrationUnit);
-      
-      if (item.administrationRoute || rateInfo) {
-        const routeRate = [item.administrationRoute, rateInfo]
-          .filter(Boolean)
-          .join('/');
-        unitParts.push(routeRate);
-      }
-      
-      if (unitParts.length > 0) {
-        parts.push(`(${unitParts.join(', ')})`);
+      // For infusions, show ONLY the rate unit (free-flow or rate unit)
+      if (rateInfo) {
+        parts.push(`(${rateInfo})`);
       }
     }
     
