@@ -1700,8 +1700,8 @@ export function UnifiedTimeline({
         });
       }
 
-      // Always insert BIS and TOF children after Others parent (they should always be visible)
-      if (lane.id === "others") {
+      // Insert BIS and TOF children after Others parent (if not collapsed)
+      if (lane.id === "others" && !collapsedSwimlanes.has("others")) {
         const othersColor = { colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" };
         const othersParams = ["BIS", "TOF"];
         othersParams.forEach((paramName) => {
@@ -4660,16 +4660,22 @@ export function UnifiedTimeline({
     heartRhythmData,
     staffData,
     positionData,
+    bisData,
+    tofData,
     eventComments,
     timeMarkers,
     setHeartRhythmData,
     setStaffData,
     setPositionData,
+    setBisData,
+    setTofData,
     setEventComments,
     setTimeMarkers,
     addHeartRhythm,
     addStaffEntry,
     addPosition,
+    addBIS,
+    addTOF,
     addEvent,
     resetEventData,
   };
