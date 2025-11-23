@@ -378,7 +378,19 @@ export function UnifiedTimeline({
   const deleteOutput = useDeleteOutput(anesthesiaRecordId);
   
   // State for collapsible parent swimlanes
-  const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<Set<string>>(new Set());
+  // Initialize with all parent swimlanes expanded to ensure BIS/TOF are visible
+  const [collapsedSwimlanes, setCollapsedSwimlanes] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('collapsedSwimlanes');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return new Set(parsed);
+      } catch {
+        return new Set();
+      }
+    }
+    return new Set();
+  });
   
   // Function to toggle swimlane collapsed state
   const toggleSwimlane = (swimlaneId: string) => {
@@ -389,6 +401,8 @@ export function UnifiedTimeline({
       } else {
         next.add(swimlaneId);
       }
+      // Persist to localStorage
+      localStorage.setItem('collapsedSwimlanes', JSON.stringify(Array.from(next)));
       return next;
     });
   };
@@ -1686,8 +1700,8 @@ export function UnifiedTimeline({
         });
       }
 
-      // Insert BIS and TOF children after Others parent (if not collapsed)
-      if (lane.id === "others" && !collapsedSwimlanes.has("others")) {
+      // Always insert BIS and TOF children after Others parent (they should always be visible)
+      if (lane.id === "others") {
         const othersColor = { colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" };
         const othersParams = ["BIS", "TOF"];
         othersParams.forEach((paramName) => {
