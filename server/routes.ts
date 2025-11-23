@@ -2158,35 +2158,25 @@ If unable to parse any drugs, return:
 
   // Export items catalog to CSV  
   app.get('/api/items/export-csv', isAuthenticated, async (req: any, res) => {
-    console.log('=== CSV EXPORT ROUTE HIT ===', req.query);
     try {
       const hospitalId = req.query.hospitalId as string;
-      const userId = req.user?.id;
-      const activeUnitId = req.headers['x-active-unit-id'] as string | undefined;
-
-      console.log('[CSV EXPORT] Starting export - Hospital:', hospitalId, 'User:', userId, 'Unit:', activeUnitId);
+      const unitId = req.query.unitId as string;
+      const userId = req.user.id;
 
       if (!hospitalId) {
-        console.log('[CSV EXPORT] Missing hospital ID');
         return res.status(400).json({ message: "Hospital ID is required" });
       }
 
-      if (!userId) {
-        console.log('[CSV EXPORT] No user in session');
-        return res.status(401).json({ message: "Not authenticated" });
-      }
-
-      // Verify user has access to this hospital
-      console.log('[CSV EXPORT] Checking access...');
-      const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId);
-      console.log('[CSV EXPORT] Unit ID result:', unitId);
-      
       if (!unitId) {
-        console.log('[CSV EXPORT] Access denied - no unitId found for user');
-        return res.status(403).json({ message: "Access denied to this hospital" });
+        return res.status(400).json({ message: "Unit ID is required" });
       }
 
-      console.log('[Export CSV] Access granted, unit ID:', unitId);
+      // Verify user has access to this hospital and unit (same pattern as /api/items/:hospitalId)
+      const userHospitals = await storage.getUserHospitals(userId);
+      const hasAccess = userHospitals.some(h => h.id === hospitalId && h.unitId === unitId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied to this hospital or unit" });
+      }
 
       // Get all items for this hospital/unit with their relations
       const items = await storage.getItems(hospitalId, unitId);
