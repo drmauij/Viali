@@ -690,6 +690,7 @@ export default function Items() {
     onSuccess: (data) => {
       if (!data) return;
       queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/folders/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
       setBulkImportOpen(false);
       setBulkImages([]);
       setBulkItems([]);
@@ -1631,7 +1632,6 @@ export default function Items() {
       return;
     }
     
-    console.log('[CSV IMPORT] Processed items:', items.map(i => ({ name: i.name, folderPath: i.folderPath })));
     setBulkItems(items);
     setImportMode('select'); // Move to review screen
   };
