@@ -1678,7 +1678,17 @@ export default function Items() {
     }
 
     try {
+      // Get active unit ID from localStorage (format: "hospitalId-unitId-role")
+      const activeHospitalKey = localStorage.getItem('activeHospital');
+      const headers: Record<string, string> = {};
+      
+      if (activeHospitalKey && activeHospitalKey.length >= 73) {
+        const unitId = activeHospitalKey.substring(37, 73);
+        headers["X-Active-Unit-Id"] = unitId;
+      }
+
       const response = await fetch(`/api/items/export-csv?hospitalId=${activeHospital.id}`, {
+        headers,
         credentials: "include",
       });
 
