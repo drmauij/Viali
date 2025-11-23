@@ -136,7 +136,12 @@ export function MedicationConfigDialog({
   // Mutation to create a new item
   const createItemMutation = useMutation({
     mutationFn: async (newItem: { name: string }) => {
-      return apiRequest('POST', `/api/items`, { ...newItem, hospitalId: activeHospitalId }) as Promise<Item>;
+      return apiRequest('POST', `/api/items`, { 
+        ...newItem, 
+        hospitalId: activeHospitalId,
+        unitId: activeUnitId,
+        unit: "Pack" // Default to Pack type for quick-add items
+      }) as Promise<Item>;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospitalId}?unitId=${activeUnitId}`] });
