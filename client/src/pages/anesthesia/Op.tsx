@@ -17,6 +17,9 @@ import { WHOChecklistCard } from "@/components/anesthesia/WHOChecklistCard";
 import { useOpData } from "@/hooks/useOpData";
 import { useChecklistState } from "@/hooks/useChecklistState";
 import { usePacuDataFiltering } from "@/hooks/usePacuDataFiltering";
+import { usePdfExport } from "@/hooks/usePdfExport";
+import { useInventoryTracking } from "@/hooks/useInventoryTracking";
+import { useTimelineData } from "@/hooks/useTimelineData";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -317,83 +320,14 @@ export default function Op() {
   });
 
   // Transform vitals data for timeline
-  const timelineData = useMemo((): UnifiedTimelineData => {
-    // Use filtered data in PACU mode, regular data in OP mode
-    const dataToUse = isPacuMode ? filteredVitalsData : vitalsData;
-    const medsToUse = isPacuMode ? filteredMedicationsData : medicationsData;
-    
-    if (!dataToUse || dataToUse.length === 0) {
-      const now = new Date().getTime();
-      const sixHoursAgo = now - 6 * 60 * 60 * 1000;
-      const sixHoursFuture = now + 6 * 60 * 60 * 1000;
-
-      return {
-        startTime: sixHoursAgo,
-        endTime: sixHoursFuture,
-        vitals: {
-          sysBP: [],
-          diaBP: [],
-          hr: [],
-          spo2: [],
-        },
-        events: [],
-        medications: medsToUse || [],
-        apiEvents: eventsData || [],
-      };
-    }
-
-    // Convert vitals snapshots to timeline format
-    const vitals: TimelineVitals = {
-      sysBP: [],
-      diaBP: [],
-      hr: [],
-      spo2: [],
-    };
-
-    dataToUse.forEach((snapshot: any) => {
-      const timestamp = new Date(snapshot.timestamp).getTime();
-      const data = snapshot.data || {};
-
-      if (data.sysBP !== undefined) {
-        vitals.sysBP.push({ time: timestamp, value: data.sysBP });
-      }
-      if (data.diaBP !== undefined) {
-        vitals.diaBP.push({ time: timestamp, value: data.diaBP });
-      }
-      if (data.hr !== undefined) {
-        vitals.hr.push({ time: timestamp, value: data.hr });
-      }
-      if (data.spo2 !== undefined) {
-        vitals.spo2.push({ time: timestamp, value: data.spo2 });
-      }
-    });
-
-    // Convert events to timeline format
-    const events: TimelineEvent[] = (eventsData || []).map((event: any) => ({
-      time: new Date(event.timestamp).getTime(),
-      type: event.eventType || 'event',
-      description: event.description || '',
-    }));
-
-    // Calculate time range
-    const timestamps = dataToUse.map((s: any) => new Date(s.timestamp).getTime());
-    const minTime = timestamps.length > 0 ? Math.min(...timestamps) : new Date().getTime() - 6 * 60 * 60 * 1000;
-    const maxTime = timestamps.length > 0 ? Math.max(...timestamps) : new Date().getTime() + 6 * 60 * 60 * 1000;
-
-    // Always extend timeline to at least 6 hours into the future from now
-    const now = new Date().getTime();
-    const futureExtension = now + 6 * 60 * 60 * 1000;
-    const calculatedEndTime = maxTime + 60 * 60 * 1000; // 1 hour after last data point
-    
-    return {
-      startTime: minTime - 60 * 60 * 1000, // 1 hour before first data point
-      endTime: Math.max(calculatedEndTime, futureExtension), // At least 6 hours into the future
-      vitals,
-      events,
-      medications: medsToUse || [],
-      apiEvents: eventsData || [],
-    };
-  }, [vitalsData, eventsData, medicationsData, isPacuMode, filteredVitalsData, filteredMedicationsData]);
+  const timelineData = useTimelineData({
+    vitalsData,
+    eventsData,
+    medicationsData,
+    isPacuMode,
+    filteredVitalsData,
+    filteredMedicationsData,
+  });
 
   // OP State
   const [opData, setOpData] = useState({
@@ -440,9 +374,6 @@ export default function Op() {
     postOpNotes: "",
     complications: "",
   });
-
-  // Inventory tracking state - { itemId: quantity }
-  const [inventoryQuantities, setInventoryQuantities] = useState<Record<string, number>>({});
 
   // Post-Operative Information state
   type MedicationTime = "Immediately" | "Contraindicated" | string;
@@ -497,46 +428,18 @@ export default function Op() {
     return groups;
   }, [items]);
 
+  // Inventory tracking (must be after groupedItems is defined)
+  const { inventoryQuantities, usedFolderIds, handleQuantityChange } = useInventoryTracking({
+    medicationsData,
+    groupedItems,
+  });
+
   // Get folder name by id
   const getFolderName = (folderId: string) => {
     if (folderId === 'no-folder') return 'Uncategorized';
     const folder = folders.find((f: any) => f.id === folderId);
     return folder?.name || 'Unknown Folder';
   };
-
-  // Calculate folders containing used items to auto-expand them
-  const foldersWithUsedItems = useMemo(() => {
-    const folderIds: string[] = [];
-    
-    Object.keys(groupedItems).forEach(folderId => {
-      const hasUsedItems = groupedItems[folderId].some((item: any) => 
-        (inventoryQuantities[item.id] || 0) > 0
-      );
-      if (hasUsedItems) {
-        folderIds.push(folderId);
-      }
-    });
-    
-    return folderIds;
-  }, [groupedItems, inventoryQuantities]);
-
-  // Initialize quantities from medication data only once
-  useEffect(() => {
-    if (!medicationsData || Object.keys(inventoryQuantities).length > 0) return;
-
-    const computedQuantities: Record<string, number> = {};
-    
-    // Parse medications from backend
-    medicationsData.forEach((med: any) => {
-      if (med.itemId && med.dose) {
-        const quantity = parseFloat(med.dose) || 0;
-        computedQuantities[med.itemId] = (computedQuantities[med.itemId] || 0) + quantity;
-      }
-    });
-    
-    setInventoryQuantities(computedQuantities);
-  }, [medicationsData]);
-
 
   // Initialize Post-Op data from anesthesia record
   useEffect(() => {
@@ -547,143 +450,42 @@ export default function Op() {
     }
   }, [anesthesiaRecord]);
 
-  // Handle quantity change for inventory items
-  const handleQuantityChange = (itemId: string, delta: number) => {
-    setInventoryQuantities(prev => ({
-      ...prev,
-      [itemId]: Math.max(0, (prev[itemId] || 0) + delta),
-    }));
-  };
 
-
-  // Handle PDF download
-  const handleDownloadPDF = () => {
-    if (!patient || !surgery) {
-      toast({
-        title: t('anesthesia.op.pdfCannotGenerate'),
-        description: t('anesthesia.op.pdfMissingData'),
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Check if hospital and anesthesia record are loaded (required for all queries)
-    if (!activeHospital) {
-      toast({
-        title: t('anesthesia.op.pdfCannotGenerate'),
-        description: t('anesthesia.op.pdfHospitalNotSelected'),
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (isRecordLoading || !anesthesiaRecord) {
-      toast({
-        title: t('anesthesia.op.pdfWait'),
-        description: "Loading anesthesia record. Please try again in a moment.",
-        variant: "default",
-      });
-      return;
-    }
-
-    // Check if any dependent data is still loading
-    if (isVitalsLoading || isMedicationsLoading || isEventsLoading || 
-        isAnesthesiaItemsLoading || isClinicalSnapshotLoading || 
-        isStaffLoading || isPositionsLoading) {
-      toast({
-        title: t('anesthesia.op.pdfWait'),
-        description: "Loading data for PDF export. Please try again in a moment.",
-        variant: "default",
-      });
-      return;
-    }
-
-    // Check if queries have actually completed (status === 'success' means query has run)
-    // This prevents PDF generation when queries are disabled (status === 'idle')
-    const incompleteQueries = [];
-    if (vitalsStatus !== 'success') incompleteQueries.push("vitals");
-    if (medicationsStatus !== 'success') incompleteQueries.push("medications");
-    if (eventsStatus !== 'success') incompleteQueries.push("events");
-    if (anesthesiaItemsStatus !== 'success') incompleteQueries.push("medication definitions");
-    if (staffStatus !== 'success') incompleteQueries.push("staff");
-    if (positionsStatus !== 'success') incompleteQueries.push("positions");
-
-    if (incompleteQueries.length > 0) {
-      toast({
-        title: t('anesthesia.op.pdfWait'),
-        description: `Initializing data for PDF export: ${incompleteQueries.join(", ")}. Please try again in a moment.`,
-        variant: "default",
-      });
-      return;
-    }
-
-    // Validate data completeness for critical datasets
-    // Anesthesia items are critical for medication name resolution
-    if (!anesthesiaItems || anesthesiaItems.length === 0) {
-      toast({
-        title: t('anesthesia.op.pdfCannotGenerate'),
-        description: "No medication definitions available. Please ensure the hospital's anesthesia inventory is configured.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Check for critical data fetch failures
-    const criticalErrors = [];
-    if (isAnesthesiaItemsError) criticalErrors.push("medication definitions");
-    if (isMedicationsError) criticalErrors.push("medication administrations");
-    if (isEventsError) criticalErrors.push("events");
-    if (isVitalsError) criticalErrors.push("vitals");
-
-    if (criticalErrors.length > 0) {
-      toast({
-        title: t('anesthesia.op.pdfCannotGenerate'),
-        description: `Failed to load: ${criticalErrors.join(", ")}. Please refresh and try again.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Warn about non-critical data failures but allow PDF generation
-    const hasMinorErrors = isClinicalSnapshotError || isStaffError || isPositionsError;
-    if (hasMinorErrors) {
-      console.warn("Some PDF data is incomplete:", {
-        clinicalSnapshot: isClinicalSnapshotError,
-        staff: isStaffError,
-        positions: isPositionsError,
-      });
-    }
-
-    try {
-      generateAnesthesiaRecordPDF({
-        patient,
-        surgery,
-        anesthesiaRecord: anesthesiaRecord || null,
-        preOpAssessment: preOpAssessment || null,
-        clinicalSnapshot: clinicalSnapshot || null,
-        events: eventsData || [],
-        medications: medicationsData || [],
-        anesthesiaItems: anesthesiaItems || [],
-        staffMembers: staffMembers || [],
-        positions: positions || [],
-        timeMarkers: (anesthesiaRecord?.timeMarkers as any[]) || [],
-      });
-
-      toast({
-        title: t('anesthesia.op.pdfGenerated'),
-        description: hasMinorErrors 
-          ? "PDF generated with some data unavailable (check console)" 
-          : "Complete anesthesia record has been downloaded",
-      });
-    } catch (error: any) {
-      console.error("PDF generation error:", error);
-      toast({
-        title: "Error generating PDF",
-        description: error.message || "Failed to generate PDF. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
+  // PDF export hook
+  const { handleDownloadPDF } = usePdfExport({
+    patient,
+    surgery,
+    activeHospital,
+    anesthesiaRecord,
+    preOpAssessment,
+    clinicalSnapshot,
+    eventsData,
+    medicationsData,
+    anesthesiaItems,
+    staffMembers,
+    positions,
+    isRecordLoading,
+    isVitalsLoading,
+    isMedicationsLoading,
+    isEventsLoading,
+    isAnesthesiaItemsLoading,
+    isClinicalSnapshotLoading,
+    isStaffLoading,
+    isPositionsLoading,
+    vitalsStatus,
+    medicationsStatus,
+    eventsStatus,
+    anesthesiaItemsStatus,
+    staffStatus,
+    positionsStatus,
+    isAnesthesiaItemsError,
+    isMedicationsError,
+    isEventsError,
+    isVitalsError,
+    isClinicalSnapshotError,
+    isStaffError,
+    isPositionsError,
+  });
 
   // Handle dialog close and navigation
   const handleDialogChange = (open: boolean) => {
