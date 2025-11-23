@@ -33,6 +33,7 @@ interface Item {
 interface FolderType {
   id: string;
   name: string;
+  sortOrder: number;
 }
 
 interface CommitItem {
@@ -185,6 +186,33 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
     });
     return groups;
   }, [items]);
+
+  // Get sorted folder IDs (by sortOrder, then by name) to match inventory list order
+  const sortedFolderIds = useMemo(() => {
+    // Get all folder IDs that have items
+    const folderIdsWithItems = Object.keys(groupedItems);
+    
+    // Sort them according to the folders array's sortOrder
+    return folderIdsWithItems.sort((a, b) => {
+      // Handle uncategorized folder - always put it last
+      if (a === 'uncategorized') return 1;
+      if (b === 'uncategorized') return -1;
+      
+      const folderA = folders.find(f => f.id === a);
+      const folderB = folders.find(f => f.id === b);
+      
+      // If both folders exist, sort by sortOrder then by name
+      if (folderA && folderB) {
+        if (folderA.sortOrder !== folderB.sortOrder) {
+          return folderA.sortOrder - folderB.sortOrder;
+        }
+        return folderA.name.localeCompare(folderB.name);
+      }
+      
+      // Fallback to alphabetical if folder not found
+      return a.localeCompare(b);
+    });
+  }, [groupedItems, folders]);
 
   // Get folder name
   const getFolderName = (folderId: string) => {
@@ -467,7 +495,7 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
         </Card>
       )}
 
-      {Object.keys(groupedItems).length === 0 ? (
+      {sortedFolderIds.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
@@ -476,7 +504,7 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
         </Card>
       ) : (
         <div className="space-y-2">
-          {Object.keys(groupedItems).map((folderId) => {
+          {sortedFolderIds.map((folderId) => {
             const isExpanded = openFolders.has(folderId);
             
             return (
