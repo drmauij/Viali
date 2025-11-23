@@ -117,15 +117,31 @@ export function calculateRateControlledAmpules(
   // Normalize rate unit to handle localized formats (e.g., "µg/kg per minute" → "µg/kg/min")
   const rateUnitLower = normalizeRateUnit(rateUnit);
   
+  console.log('[CALC-DEBUG] Input values:', {
+    rateValue,
+    rateUnit,
+    rateUnitLower,
+    durationHours,
+    ampuleTotalContent,
+    patientWeight
+  });
+  
   let totalVolume = 0;
   
   if (rateUnitLower.includes('ml/h') || rateUnitLower.includes('ml/hr')) {
     totalVolume = rateValue * durationHours;
   } else if (rateUnitLower.includes('µg/kg/min') || rateUnitLower.includes('ug/kg/min') || rateUnitLower.includes('mcg/kg/min')) {
     const durationMinutes = durationHours * 60;
-    const totalMicrograms = rateValue * (patientWeight || 70) * durationMinutes;
+    const weight = patientWeight || 70;
+    const totalMicrograms = rateValue * weight * durationMinutes;
     const totalMilligrams = totalMicrograms / 1000;
     totalVolume = totalMilligrams;
+    console.log('[CALC-DEBUG] μg/kg/min calculation:', {
+      durationMinutes,
+      weight,
+      totalMicrograms,
+      totalMilligrams
+    });
   } else if (rateUnitLower.includes('µg/kg/h') || rateUnitLower.includes('ug/kg/h') || rateUnitLower.includes('mcg/kg/h') || rateUnitLower.includes('µg/kg/hr') || rateUnitLower.includes('ug/kg/hr') || rateUnitLower.includes('mcg/kg/hr')) {
     const totalMicrograms = rateValue * (patientWeight || 70) * durationHours;
     const totalMilligrams = totalMicrograms / 1000;
@@ -141,12 +157,20 @@ export function calculateRateControlledAmpules(
     totalVolume = rateValue * durationHours;
   } else {
     totalVolume = rateValue * durationHours;
+    console.log('[CALC-DEBUG] Default calculation (unrecognized unit)');
   }
   
   const ampuleValue = parseNumericValue(ampuleTotalContent);
   if (ampuleValue === 0) return 0;
   
-  return Math.ceil(totalVolume / ampuleValue);
+  const result = Math.ceil(totalVolume / ampuleValue);
+  console.log('[CALC-DEBUG] Final calculation:', {
+    totalVolume,
+    ampuleValue,
+    result
+  });
+  
+  return result;
 }
 
 export function calculateDepletionTime(
