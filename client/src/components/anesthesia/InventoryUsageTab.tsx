@@ -400,16 +400,17 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
   useEffect(() => {
     setOpenFolders(prev => {
       // If user hasn't manually interacted (prev is empty), auto-expand folders with used items
-      if (prev.length === 0 && foldersWithUsedItems.length > 0) {
-        return foldersWithUsedItems;
+      if (prev.size === 0 && foldersWithUsedItems.length > 0) {
+        return new Set(foldersWithUsedItems);
       }
       
       // Otherwise, add any NEW folders with used items to the existing expansion state
-      const prevSet = new Set(prev);
-      const newFoldersToAdd = foldersWithUsedItems.filter(f => !prevSet.has(f));
+      const newFoldersToAdd = foldersWithUsedItems.filter(f => !prev.has(f));
       
       if (newFoldersToAdd.length > 0) {
-        return [...prev, ...newFoldersToAdd];
+        const newSet = new Set(prev);
+        newFoldersToAdd.forEach(f => newSet.add(f));
+        return newSet;
       }
       
       return prev;
