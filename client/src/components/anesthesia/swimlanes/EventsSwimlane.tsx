@@ -120,20 +120,43 @@ export function EventsSwimlane({
 
   // Calculate if there are pending commits - matches InventoryUsageTab logic
   const hasPendingCommits = useMemo(() => {
+    console.log('[PENDING_COMMITS_CHECK]', {
+      inventoryLoading,
+      commitsLoading,
+      inventoryError,
+      commitsError,
+      inventoryUsageLength: inventoryUsage.length,
+      commitsLength: commits.length,
+    });
+
     // If queries are loading or failed, treat as pending commits (conservative/safe default)
     if (inventoryLoading || commitsLoading || inventoryError || commitsError) {
+      console.log('[PENDING_COMMITS_CHECK] Returning true - loading or error state');
       return true;
     }
 
-    if (!inventoryUsage.length) return false;
+    if (!inventoryUsage.length) {
+      console.log('[PENDING_COMMITS_CHECK] Returning false - no inventory usage');
+      return false;
+    }
 
     // Check if any item has uncommitted quantity
-    return inventoryUsage.some(usage => {
+    const result = inventoryUsage.some(usage => {
       const finalQty = getFinalQty(usage.itemId, usage);
       const committed = committedQuantities[usage.itemId] || 0;
       const uncommitted = Math.max(0, Math.round(finalQty - committed));
+      console.log('[PENDING_COMMITS_CHECK] Item check:', {
+        itemId: usage.itemId,
+        finalQty,
+        committed,
+        uncommitted,
+        hasPending: uncommitted > 0,
+      });
       return uncommitted > 0;
     });
+
+    console.log('[PENDING_COMMITS_CHECK] Final result:', result);
+    return result;
   }, [inventoryUsage, committedQuantities, inventoryLoading, commitsLoading, inventoryError, commitsError]);
 
   // Track if X2 reminder was already shown for this session
