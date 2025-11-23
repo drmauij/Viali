@@ -203,7 +203,7 @@ export function EventsSwimlane({
       if (nextMarkerIndex !== -1) {
         const nextMarker = timeMarkers[nextMarkerIndex];
         
-        // Check if trying to set PACU End (P) with pending commits
+        // Check if trying to set PACU End (P) with pending commits (BLOCKING)
         if (nextMarker.code === 'P' && hasPendingCommits) {
           // Show different message based on state: loading, error, or actual pending commits
           if (inventoryLoading || commitsLoading) {
@@ -228,6 +228,13 @@ export function EventsSwimlane({
           return;
         }
 
+        // Check if setting X2 (Anesthesia End) with pending commits (NON-BLOCKING REMINDER)
+        // Show reminder dialog only once per session
+        const shouldShowX2Reminder = 
+          nextMarker.code === 'X2' && 
+          hasPendingCommits && 
+          !x2ReminderShownRef.current;
+
         const updatedMarkers = [...timeMarkers];
         updatedMarkers[nextMarkerIndex] = {
           ...updatedMarkers[nextMarkerIndex],
@@ -244,21 +251,8 @@ export function EventsSwimlane({
           });
         }
 
-        // Check if we just set X2 (Anesthesia End) and there are pending commits
-        // Only show the reminder once per session using the ref
-        console.log('[X2_CHECK]', {
-          code: nextMarker.code,
-          hasPendingCommits,
-          reminderAlreadyShown: x2ReminderShownRef.current,
-          inventoryUsageLength: inventoryUsage.length,
-          commitsLength: commits.length,
-          inventoryLoading,
-          commitsLoading,
-          inventoryError,
-          commitsError,
-        });
-        
-        if (nextMarker.code === 'X2' && hasPendingCommits && !x2ReminderShownRef.current) {
+        // Show X2 reminder dialog after marker is set
+        if (shouldShowX2Reminder) {
           console.log('[X2_CHECK] Showing reminder dialog');
           x2ReminderShownRef.current = true;
           setShowCommitReminder(true);
