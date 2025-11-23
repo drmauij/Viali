@@ -8,7 +8,9 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Package, Minus, Plus, Folder, RotateCcw } from "lucide-react";
+import { Package, Minus, Plus, Folder, RotateCcw, CheckCircle, History, Undo } from "lucide-react";
+import { ControlledItemsCommitDialog } from "./ControlledItemsCommitDialog";
+import { formatDate } from "@/lib/dateUtils";
 
 interface InventoryUsageTabProps {
   anesthesiaRecordId: string;
@@ -25,11 +27,29 @@ interface Item {
   id: string;
   name: string;
   folderId: string;
+  controlled: boolean;
+  trackExactQuantity: boolean;
 }
 
 interface FolderType {
   id: string;
   name: string;
+}
+
+interface CommitItem {
+  itemId: string;
+  itemName: string;
+  quantity: number;
+  isControlled: boolean;
+}
+
+interface InventoryCommit {
+  id: string;
+  committedAt: string;
+  committedBy: string;
+  items: CommitItem[];
+  rolledBackAt: string | null;
+  rollbackReason: string | null;
 }
 
 export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps) {
@@ -39,6 +59,7 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
   
   // State for controlling accordion expansion
   const [openFolders, setOpenFolders] = useState<string[]>([]);
+  const [showCommitDialog, setShowCommitDialog] = useState(false);
 
   // Fetch ALL inventory items from the hospital
   const { data: items = [] } = useQuery<Item[]>({
@@ -55,6 +76,12 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
   // Fetch auto-calculated usage
   const { data: inventoryUsage = [], refetch: refetchInventory } = useQuery<InventoryUsage[]>({
     queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}`],
+    enabled: !!anesthesiaRecordId,
+  });
+
+  // Fetch commit history
+  const { data: commits = [] } = useQuery<InventoryCommit[]>({
+    queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}/commits`],
     enabled: !!anesthesiaRecordId,
   });
 
@@ -94,6 +121,19 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
       return () => clearInterval(interval);
     }
   }, [anesthesiaRecordId, medications, refetchInventory]);
+
+  // Calculate total committed quantities per item from non-rolled-back commits
+  const committedQuantities = useMemo(() => {
+    const quantities: Record<string, number> = {};
+    commits
+      .filter(c => !c.rolledBackAt)
+      .forEach(commit => {
+        commit.items.forEach(item => {
+          quantities[item.itemId] = (quantities[item.itemId] || 0) + item.quantity;
+        });
+      });
+    return quantities;
+  }, [commits]);
 
   // Create a map of itemId -> auto-calculated quantity
   const autoCalcMap = useMemo(() => {
@@ -154,6 +194,32 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
     return autoCalcMap[itemId] || 0;
   };
 
+  // Get uncommitted quantity (total - committed)
+  const getUncommittedQty = (itemId: string) => {
+    const total = getFinalQty(itemId);
+    const committed = committedQuantities[itemId] || 0;
+    return Math.max(0, Math.round(total - committed));
+  };
+
+  // Get items to commit (uncommitted quantities)
+  const itemsToCommit = useMemo(() => {
+    const toCommit: CommitItem[] = [];
+    Object.keys(groupedItems).forEach(folderId => {
+      groupedItems[folderId].forEach(item => {
+        const qty = getUncommittedQty(item.id);
+        if (qty > 0) {
+          toCommit.push({
+            itemId: item.id,
+            itemName: item.name,
+            quantity: qty,
+            isControlled: item.controlled || false,
+          });
+        }
+      });
+    });
+    return toCommit;
+  }, [groupedItems, autoCalcMap, overrideMap, committedQuantities]);
+
   // Mutation to create or update inventory usage quantity
   const overrideMutation = useMutation({
     mutationFn: async ({ itemId, qty }: { itemId: string; qty: number }) => {
@@ -200,6 +266,54 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
     },
   });
 
+  // Commit mutation
+  const commitMutation = useMutation({
+    mutationFn: async (signature: string | null) => {
+      const response = await apiRequest('POST', `/api/anesthesia/inventory/${anesthesiaRecordId}/commit`, {
+        signature,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}/commits`] });
+      toast({
+        title: t('anesthesia.op.commitSuccess'),
+        description: `${itemsToCommit.length} items committed`,
+      });
+      setShowCommitDialog(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('anesthesia.op.commitError'),
+        description: error.message || "Failed to commit inventory",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Rollback mutation
+  const rollbackMutation = useMutation({
+    mutationFn: async (commitId: string) => {
+      const response = await apiRequest('POST', `/api/anesthesia/inventory/commits/${commitId}/rollback`, {
+        reason: "Manual rollback",
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}/commits`] });
+      toast({
+        title: t('anesthesia.op.rollbackSuccess'),
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('anesthesia.op.rollbackError'),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleQuantityChange = (itemId: string, delta: number) => {
     const currentQty = Math.round(getFinalQty(itemId));
     const newQty = Math.max(0, currentQty + delta);
@@ -210,6 +324,16 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
     const override = overrideMap[itemId];
     if (override && override.qty !== null) {
       clearOverrideMutation.mutate(override.usageId);
+    }
+  };
+
+  const handleCommit = (signature: string | null) => {
+    commitMutation.mutate(signature);
+  };
+
+  const handleRollback = (commitId: string) => {
+    if (confirm(t('anesthesia.op.rollbackConfirm'))) {
+      rollbackMutation.mutate(commitId);
     }
   };
 
@@ -254,10 +378,74 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold">{t('anesthesia.op.medicationSupplyUsage')}</h3>
-        <Badge variant="outline" className="text-xs">
-          {t('anesthesia.op.autoCalculatedFromTimeline')}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-xs">
+            {t('anesthesia.op.autoCalculatedFromTimeline')}
+          </Badge>
+          <Button
+            onClick={() => setShowCommitDialog(true)}
+            disabled={itemsToCommit.length === 0 || commitMutation.isPending}
+            size="sm"
+            data-testid="button-commit-inventory"
+          >
+            <CheckCircle className="h-4 w-4 mr-2" />
+            {t('anesthesia.op.commitUsedItems')}
+          </Button>
+        </div>
       </div>
+
+      {/* Commit History */}
+      {commits.length > 0 && (
+        <Card className="mb-4">
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2 mb-3">
+              <History className="h-4 w-4" />
+              <h4 className="font-semibold text-sm">{t('anesthesia.op.commitHistory')}</h4>
+            </div>
+            <div className="space-y-2">
+              {commits.map(commit => (
+                <div
+                  key={commit.id}
+                  className={`flex items-center justify-between p-3 rounded-lg border ${
+                    commit.rolledBackAt 
+                      ? 'bg-muted/50 opacity-60' 
+                      : 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
+                  }`}
+                  data-testid={`commit-${commit.id}`}
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">
+                        {commit.items.length} items committed
+                      </span>
+                      {commit.rolledBackAt && (
+                        <Badge variant="destructive" className="text-xs">
+                          {t('anesthesia.op.rolledBack')}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDate(new Date(commit.committedAt))}
+                    </p>
+                  </div>
+                  {!commit.rolledBackAt && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRollback(commit.id)}
+                      disabled={rollbackMutation.isPending}
+                      data-testid={`button-rollback-${commit.id}`}
+                    >
+                      <Undo className="h-4 w-4 mr-1" />
+                      {t('anesthesia.op.rollback')}
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {Object.keys(groupedItems).length === 0 ? (
         <Card>
@@ -284,9 +472,11 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
                   <CardContent className="pt-0 space-y-2">
                     {groupedItems[folderId].map((item) => {
                       const finalQty = getFinalQty(item.id);
+                      const uncommittedQty = getUncommittedQty(item.id);
                       const autoCalc = autoCalcMap[item.id] || 0;
                       const hasOverride = overrideMap[item.id]?.qty !== null;
                       const isUsed = finalQty > 0;
+                      const committedQty = committedQuantities[item.id] || 0;
 
                       return (
                         <div
@@ -304,6 +494,11 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
                               <span className="text-xs text-muted-foreground">
                                 ({t('anesthesia.op.calc')}: ~{Math.round(autoCalc)})
                               </span>
+                            )}
+                            {committedQty > 0 && (
+                              <Badge variant="outline" className="bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50 text-xs">
+                                ✓ {committedQty}
+                              </Badge>
                             )}
                             {isRunningInfusion(item.id) && (
                               <Badge variant="outline" className="bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/50 text-xs animate-pulse">
@@ -368,6 +563,14 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
           ))}
         </Accordion>
       )}
+
+      <ControlledItemsCommitDialog
+        isOpen={showCommitDialog}
+        onClose={() => setShowCommitDialog(false)}
+        onCommit={handleCommit}
+        items={itemsToCommit}
+        isCommitting={commitMutation.isPending}
+      />
     </div>
   );
 }

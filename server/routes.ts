@@ -7928,6 +7928,122 @@ If unable to parse any drugs, return:
     }
   });
 
+  // Commit inventory usage to inventory system
+  app.post('/api/anesthesia/inventory/:recordId/commit', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId } = req.params;
+      const { signature } = req.body;
+      const userId = req.user.id;
+
+      // Verify access
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Get patient info
+      const patient = await storage.getPatientById(surgery.patientId);
+
+      // Commit inventory
+      const commit = await storage.commitInventoryUsage(
+        recordId,
+        userId,
+        signature,
+        patient ? `${patient.firstName} ${patient.lastName}` : null,
+        patient ? patient.patientId : null
+      );
+
+      res.json(commit);
+    } catch (error) {
+      console.error("Error committing inventory:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to commit inventory" });
+    }
+  });
+
+  // Get commit history for an anesthesia record
+  app.get('/api/anesthesia/inventory/:recordId/commits', isAuthenticated, async (req: any, res) => {
+    try {
+      const { recordId } = req.params;
+      const userId = req.user.id;
+
+      // Verify access
+      const record = await storage.getAnesthesiaRecordById(recordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const commits = await storage.getInventoryCommits(recordId);
+      res.json(commits);
+    } catch (error) {
+      console.error("Error fetching commit history:", error);
+      res.status(500).json({ message: "Failed to fetch commit history" });
+    }
+  });
+
+  // Rollback an inventory commit
+  app.post('/api/anesthesia/inventory/commits/:commitId/rollback', isAuthenticated, async (req: any, res) => {
+    try {
+      const { commitId } = req.params;
+      const { reason } = req.body;
+      const userId = req.user.id;
+
+      // Get commit to verify access
+      const commit = await storage.getInventoryCommitById(commitId);
+      if (!commit) {
+        return res.status(404).json({ message: "Commit not found" });
+      }
+
+      // Verify access
+      const record = await storage.getAnesthesiaRecordById(commit.anesthesiaRecordId);
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Rollback commit
+      const rolledBackCommit = await storage.rollbackInventoryCommit(commitId, userId, reason);
+      res.json(rolledBackCommit);
+    } catch (error) {
+      console.error("Error rolling back commit:", error);
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to rollback commit" });
+    }
+  });
+
   // 10. Audit Trail
 
   // Get audit trail for a record

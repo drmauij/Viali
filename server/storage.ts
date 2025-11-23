@@ -41,6 +41,7 @@ import {
   anesthesiaNeuraxialBlocks,
   anesthesiaPeripheralBlocks,
   inventoryUsage,
+  inventoryCommits,
   auditTrail,
   type User,
   type UpsertUser,
@@ -115,6 +116,8 @@ import {
   type InsertAnesthesiaPeripheralBlock,
   type InventoryUsage,
   type InsertInventoryUsage,
+  type InventoryCommit,
+  type InsertInventoryCommit,
   type AuditTrail,
   type InsertAuditTrail,
 } from "@shared/schema";
@@ -434,6 +437,12 @@ export interface IStorage {
   getInventoryUsage(anesthesiaRecordId: string): Promise<InventoryUsage[]>;
   calculateInventoryUsage(anesthesiaRecordId: string): Promise<InventoryUsage[]>;
   updateInventoryUsage(id: string, quantityUsed: number): Promise<InventoryUsage>;
+  
+  // Inventory Commit operations
+  commitInventoryUsage(anesthesiaRecordId: string, userId: string, signature: string | null, patientName: string | null, patientId: string | null): Promise<any>;
+  getInventoryCommits(anesthesiaRecordId: string): Promise<any[]>;
+  getInventoryCommitById(commitId: string): Promise<any | null>;
+  rollbackInventoryCommit(commitId: string, userId: string, reason: string): Promise<any>;
   
   // Audit Trail operations
   getAuditTrail(recordType: string, recordId: string): Promise<AuditTrail[]>;
@@ -3774,6 +3783,218 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return created;
+  }
+
+  // Inventory Commit operations
+  async commitInventoryUsage(
+    anesthesiaRecordId: string,
+    userId: string,
+    signature: string | null,
+    patientName: string | null,
+    patientId: string | null
+  ): Promise<InventoryCommit> {
+    // Get all current inventory usage (calculated + overrides)
+    const usage = await this.getInventoryUsage(anesthesiaRecordId);
+    
+    if (usage.length === 0) {
+      throw new Error("No inventory items to commit");
+    }
+
+    // Get all previous commits to calculate already-committed quantities
+    const previousCommits = await db
+      .select()
+      .from(inventoryCommits)
+      .where(
+        and(
+          eq(inventoryCommits.anesthesiaRecordId, anesthesiaRecordId),
+          isNull(inventoryCommits.rolledBackAt)
+        )
+      );
+
+    // Calculate total committed quantities per item
+    const committedQuantities: Record<string, number> = {};
+    for (const commit of previousCommits) {
+      const commitItems = commit.items as Array<{ itemId: string; quantity: number }>;
+      for (const item of commitItems) {
+        committedQuantities[item.itemId] = (committedQuantities[item.itemId] || 0) + item.quantity;
+      }
+    }
+
+    // Get item details for all items
+    const itemIds = usage.map(u => u.itemId);
+    const itemsData = await db
+      .select()
+      .from(items)
+      .where(inArray(items.id, itemIds));
+
+    const itemsMap = new Map(itemsData.map(item => [item.id, item]));
+
+    // Calculate quantities to commit (current usage minus already committed)
+    const itemsToCommit: Array<{
+      itemId: string;
+      itemName: string;
+      quantity: number;
+      isControlled: boolean;
+    }> = [];
+
+    for (const usageRecord of usage) {
+      const item = itemsMap.get(usageRecord.itemId);
+      if (!item) continue;
+
+      const currentQty = parseFloat(String(usageRecord.overrideQty || usageRecord.calculatedQty));
+      const alreadyCommitted = committedQuantities[usageRecord.itemId] || 0;
+      const qtyToCommit = Math.max(0, Math.round(currentQty - alreadyCommitted));
+
+      if (qtyToCommit > 0) {
+        itemsToCommit.push({
+          itemId: usageRecord.itemId,
+          itemName: item.name,
+          quantity: qtyToCommit,
+          isControlled: item.controlled || false,
+        });
+      }
+    }
+
+    if (itemsToCommit.length === 0) {
+      throw new Error("No new items to commit (all items already committed)");
+    }
+
+    // Check if there are controlled items
+    const hasControlledItems = itemsToCommit.some(i => i.isControlled);
+    if (hasControlledItems && !signature) {
+      throw new Error("Signature required for controlled items");
+    }
+
+    // Create commit record
+    const [commit] = await db
+      .insert(inventoryCommits)
+      .values({
+        anesthesiaRecordId,
+        committedBy: userId,
+        signature,
+        patientName,
+        patientId,
+        items: itemsToCommit,
+      })
+      .returning();
+
+    // Deduct from inventory for items with trackExactQuantity enabled
+    for (const item of itemsToCommit) {
+      const itemData = itemsMap.get(item.itemId);
+      if (itemData && itemData.trackExactQuantity) {
+        const currentUnits = parseInt(String(itemData.currentUnits || 0));
+        const newUnits = Math.max(0, currentUnits - item.quantity);
+
+        await db
+          .update(items)
+          .set({ currentUnits: newUnits })
+          .where(eq(items.id, item.itemId));
+
+        // Log controlled item administration
+        if (item.isControlled) {
+          await db.insert(activities).values({
+            itemId: item.itemId,
+            hospitalId: itemData.hospitalId,
+            unitId: itemData.unitId,
+            action: 'use',
+            qty: -item.quantity,
+            userId,
+            notes: `Anesthesia commit: ${patientName || 'Unknown patient'}`,
+            controlledVerified: true,
+            patientId,
+          });
+        }
+      }
+    }
+
+    return commit;
+  }
+
+  async getInventoryCommits(anesthesiaRecordId: string): Promise<InventoryCommit[]> {
+    const commits = await db
+      .select()
+      .from(inventoryCommits)
+      .where(eq(inventoryCommits.anesthesiaRecordId, anesthesiaRecordId))
+      .orderBy(desc(inventoryCommits.committedAt));
+
+    return commits;
+  }
+
+  async getInventoryCommitById(commitId: string): Promise<InventoryCommit | null> {
+    const [commit] = await db
+      .select()
+      .from(inventoryCommits)
+      .where(eq(inventoryCommits.id, commitId));
+
+    return commit || null;
+  }
+
+  async rollbackInventoryCommit(
+    commitId: string,
+    userId: string,
+    reason: string
+  ): Promise<InventoryCommit> {
+    const commit = await this.getInventoryCommitById(commitId);
+    if (!commit) {
+      throw new Error("Commit not found");
+    }
+
+    if (commit.rolledBackAt) {
+      throw new Error("Commit already rolled back");
+    }
+
+    // Mark commit as rolled back
+    const [updated] = await db
+      .update(inventoryCommits)
+      .set({
+        rolledBackAt: new Date(),
+        rolledBackBy: userId,
+        rollbackReason: reason,
+      })
+      .where(eq(inventoryCommits.id, commitId))
+      .returning();
+
+    // Restore inventory quantities for items with trackExactQuantity
+    const commitItems = commit.items as Array<{
+      itemId: string;
+      quantity: number;
+      isControlled: boolean;
+    }>;
+
+    const itemIds = commitItems.map(i => i.itemId);
+    const itemsData = await db
+      .select()
+      .from(items)
+      .where(inArray(items.id, itemIds));
+
+    for (const commitItem of commitItems) {
+      const itemData = itemsData.find(i => i.id === commitItem.itemId);
+      if (itemData && itemData.trackExactQuantity) {
+        const currentUnits = parseInt(String(itemData.currentUnits || 0));
+        const newUnits = currentUnits + commitItem.quantity;
+
+        await db
+          .update(items)
+          .set({ currentUnits: newUnits })
+          .where(eq(items.id, commitItem.itemId));
+
+        // Log controlled item rollback
+        if (commitItem.isControlled) {
+          await db.insert(activities).values({
+            itemId: commitItem.itemId,
+            hospitalId: itemData.hospitalId,
+            unitId: itemData.unitId,
+            action: 'adjust',
+            qty: commitItem.quantity,
+            userId,
+            notes: `Rollback commit: ${reason}`,
+            controlledVerified: true,
+          });
+        }
+      }
+    }
+
+    return updated;
   }
 
   // Audit Trail operations

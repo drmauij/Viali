@@ -1124,6 +1124,40 @@ export const inventoryUsage = pgTable("inventory_usage", {
   unique("idx_inventory_usage_unique").on(table.anesthesiaRecordId, table.itemId),
 ]);
 
+// Inventory Commits (Track committed inventory deductions)
+export const inventoryCommits = pgTable("inventory_commits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: 'cascade' }),
+  
+  // Commit metadata
+  committedAt: timestamp("committed_at", { withTimezone: true }).defaultNow().notNull(),
+  committedBy: varchar("committed_by").notNull().references(() => users.id),
+  signature: text("signature"), // Base64 signature for controlled items
+  
+  // Patient info (auto-populated from surgery)
+  patientName: varchar("patient_name"),
+  patientId: varchar("patient_id"),
+  
+  // Committed items (JSONB array of {itemId, itemName, quantity, isControlled})
+  items: jsonb("items").$type<Array<{
+    itemId: string;
+    itemName: string;
+    quantity: number;
+    isControlled: boolean;
+  }>>().notNull(),
+  
+  // Rollback tracking
+  rolledBackAt: timestamp("rolled_back_at", { withTimezone: true }),
+  rolledBackBy: varchar("rolled_back_by").references(() => users.id),
+  rollbackReason: text("rollback_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_inventory_commits_record").on(table.anesthesiaRecordId),
+  index("idx_inventory_commits_committed_at").on(table.committedAt),
+  index("idx_inventory_commits_committed_by").on(table.committedBy),
+]);
+
 // Audit Trail (Immutable log of all changes for compliance)
 export const auditTrail = pgTable("audit_trail", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1761,6 +1795,12 @@ export const insertInventoryUsageSchema = createInsertSchema(inventoryUsage).omi
   updatedAt: true,
 });
 
+export const insertInventoryCommitSchema = createInsertSchema(inventoryCommits).omit({
+  id: true,
+  createdAt: true,
+  committedAt: true,
+});
+
 export const insertAuditTrailSchema = createInsertSchema(auditTrail).omit({
   id: true,
   createdAt: true,
@@ -1855,6 +1895,8 @@ export type AnesthesiaPeripheralBlock = typeof anesthesiaPeripheralBlocks.$infer
 export type InsertAnesthesiaPeripheralBlock = z.infer<typeof insertAnesthesiaPeripheralBlockSchema>;
 export type InventoryUsage = typeof inventoryUsage.$inferSelect;
 export type InsertInventoryUsage = z.infer<typeof insertInventoryUsageSchema>;
+export type InventoryCommit = typeof inventoryCommits.$inferSelect;
+export type InsertInventoryCommit = z.infer<typeof insertInventoryCommitSchema>;
 export type AuditTrail = typeof auditTrail.$inferSelect;
 export type InsertAuditTrail = z.infer<typeof insertAuditTrailSchema>;
 export type Note = typeof notes.$inferSelect;
