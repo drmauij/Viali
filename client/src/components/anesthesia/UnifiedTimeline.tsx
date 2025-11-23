@@ -623,56 +623,23 @@ export function UnifiedTimeline({
   // Each add/edit/delete operation triggers its own optimistic mutation with React Query
   // This eliminates the O(n²) snapshot aggregation that was blocking UI for 700-900ms
 
-  // 🔍 SENTINEL: Test if React commits this component at all
-  useEffect(() => {
-    console.log('⚡ [SENTINEL] Component committed by React - effects can now run');
-  }, []);
-
-  console.log('📍 [MED-SYNC-SETUP] About to define medication sync useEffect', {
-    componentRendering: true,
-    hasData: !!data,
-    hasMedications: !!data?.medications,
-    medicationsValue: data?.medications,
-    hasAnesthesiaItems: !!anesthesiaItems,
-    anesthesiaItemsValue: anesthesiaItems
-  });
 
   // Auto-load medications from API data - React Query is the single source of truth
   // Always sync when data.medications changes (after mutations, cache invalidation, or record switch)
   useEffect(() => {
-    console.log('🔥🔥🔥 [MED-SYNC-EFFECT-FIRED] useEffect executed', {
-      hasAnesthesiaItems: !!anesthesiaItems,
-      anesthesiaItemsLength: anesthesiaItems?.length || 0,
-      hasMedications: !!data.medications,
-      medicationsIsArray: Array.isArray(data.medications),
-      medicationsLength: data.medications?.length || 0,
-      hasAdminGroups: !!administrationGroups,
-      adminGroupsLength: administrationGroups?.length || 0,
-      recordId: anesthesiaRecordId,
-      hasResetFn: !!resetMedicationData
-    });
-    
     // 🔥 FIX: Guard against React StrictMode timing issue
     // resetMedicationData can be undefined during first render due to StrictMode double-render
     if (!resetMedicationData) {
-      console.log('[MED-SYNC-DEBUG] Skipping - resetMedicationData not yet initialized (StrictMode timing)');
       return;
     }
     
     // Skip if items not loaded yet
     if (!anesthesiaItems || anesthesiaItems.length === 0) {
-      console.log('[MED-SYNC-DEBUG] Skipping - no anesthesia items');
       return;
     }
     if (!data.medications) {
-      console.log('[MED-SYNC-DEBUG] Skipping - no medications data');
       return;
     }
-    
-    console.log('[MED-SYNC] Syncing medications from React Query to local state', { 
-      medicationCount: data.medications.length,
-      recordId: anesthesiaRecordId
-    });
     
     // Build item-to-swimlane mapping
     const itemToSwimlane = buildItemToSwimlaneMap(anesthesiaItems, administrationGroups);
@@ -687,19 +654,11 @@ export function UnifiedTimeline({
     const freeFlowSessionsData = transformFreeFlowInfusions(data.medications || [], itemToSwimlane, anesthesiaItems);
     
     // Reset medication data using hook
-    console.log('[MED-SYNC] Calling resetMedicationData with:', {
-      dosesCount: Object.keys(doses).length,
-      rateSessionsCount: Object.keys(rateSessions).length,
-      freeFlowSessionsCount: Object.keys(freeFlowSessionsData).length,
-      freeFlowSessions: freeFlowSessionsData
-    });
     resetMedicationData({
       doses,
       rateSessions,
       freeFlowSessions: freeFlowSessionsData,
     });
-    
-    console.log('[MED-SYNC] Medication state initialized');
     
     // Note: Events are already handled via data.events prop for timeline rendering
     // No need to process data.apiEvents separately for now

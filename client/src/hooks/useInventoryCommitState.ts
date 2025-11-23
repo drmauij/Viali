@@ -32,15 +32,6 @@ export function useInventoryCommitState(anesthesiaRecordId: string | null) {
   // Calculate hasPendingCommits
   // Conservative: treat loading/error states as "pending" to prevent silent bypasses
   const hasPendingCommits = useMemo(() => {
-    console.log('[PENDING_COMMITS_CHECK]', {
-      inventoryLoading,
-      commitsLoading,
-      inventoryError,
-      commitsError,
-      inventoryUsageLength: inventoryUsage?.length || 0,
-      commitsLength: existingCommits?.length || 0,
-    });
-
     // Conservative: treat loading/error states as "yes there are pending commits"
     // This prevents users from bypassing the check when data fails to load
     if (inventoryLoading || commitsLoading || inventoryError || commitsError) {
@@ -64,21 +55,10 @@ export function useInventoryCommitState(anesthesiaRecordId: string | null) {
       const uncommitted = finalQty - totalCommitted;
       
       const hasPending = uncommitted > 0;
-      if (hasPending) {
-        console.log('[PENDING_COMMITS_CHECK] Item check:', {
-          itemId: item.itemId,
-          finalQty: item.finalQty,
-          committed: totalCommitted,
-          uncommitted,
-          hasPending,
-        });
-      }
       
       return hasPending;
     });
   }, [inventoryUsage, existingCommits, inventoryLoading, commitsLoading, inventoryError, commitsError]);
-
-  console.log('[PENDING_COMMITS_CHECK] Final result:', hasPendingCommits);
 
   return {
     inventoryUsage,

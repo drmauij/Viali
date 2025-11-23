@@ -109,15 +109,6 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
     enabled: !!surgery?.patientId,
   });
 
-  // Debug logging for patient data chain
-  useEffect(() => {
-    console.log('[PATIENT-DEBUG] Query chain:', {
-      anesthesiaRecordId,
-      anesthesiaRecord: anesthesiaRecord ? { id: anesthesiaRecord.id, surgeryId: anesthesiaRecord.surgeryId } : null,
-      surgery: surgery ? { id: surgery.id, patientId: surgery.patientId } : null,
-      patient: patient ? { id: patient.id, firstName: patient.firstName, surname: patient.surname, birthday: patient.birthday } : null,
-    });
-  }, [anesthesiaRecordId, anesthesiaRecord, surgery, patient]);
   
   // Trigger inventory calculation on mount and periodically for running infusions
   useEffect(() => {
