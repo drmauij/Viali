@@ -1,1 +1,0 @@
-ALTER TABLE "order_lines" ADD COLUMN "offline_worked" boolean DEFAULT false;
