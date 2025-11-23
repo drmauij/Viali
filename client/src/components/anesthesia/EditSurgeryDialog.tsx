@@ -189,17 +189,19 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   return (
     <>
       <Dialog open={!!surgeryId} onOpenChange={() => onClose()}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" data-testid="dialog-edit-surgery">
-          <DialogHeader>
-            <DialogTitle>{t('anesthesia.editSurgery.title')}</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0 overflow-hidden" data-testid="dialog-edit-surgery">
+          <div className="p-6 border-b shrink-0">
+            <DialogHeader>
+              <DialogTitle>{t('anesthesia.editSurgery.title')}</DialogTitle>
+            </DialogHeader>
+          </div>
 
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 px-6 py-4 overflow-y-auto flex-1 min-h-0">
               {/* Patient Information (Read-only) */}
               {patient && (
                 <div className="space-y-2">
