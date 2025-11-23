@@ -3751,7 +3751,7 @@ export class DatabaseStorage implements IStorage {
       .from(inventoryUsage)
       .where(eq(inventoryUsage.anesthesiaRecordId, anesthesiaRecordId));
     
-    // Delete or zero-out records for items that are no longer used (unless manually overridden)
+    // Delete records for items that are no longer used (unless manually overridden)
     for (const existing of existingUsage) {
       if (!usageMap.has(existing.itemId) && existing.overrideQty === null) {
         // Item no longer has any usage - delete the record
@@ -3762,10 +3762,8 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Upsert inventory usage records
-    const usageRecords: InventoryUsage[] = [];
-    
     for (const [itemId, calculatedQty] of Array.from(usageMap.entries())) {
-      const [upserted] = await db
+      await db
         .insert(inventoryUsage)
         .values({
           anesthesiaRecordId,
@@ -3780,15 +3778,16 @@ export class DatabaseStorage implements IStorage {
           },
           // Only update if not manually overridden (overrideQty is null)
           where: sql`${inventoryUsage.overrideQty} IS NULL`,
-        })
-        .returning();
-      
-      if (upserted) {
-        usageRecords.push(upserted);
-      }
+        });
     }
 
-    return usageRecords;
+    // Return all remaining usage records (including manual overrides)
+    const finalUsage = await db
+      .select()
+      .from(inventoryUsage)
+      .where(eq(inventoryUsage.anesthesiaRecordId, anesthesiaRecordId));
+    
+    return finalUsage;
   }
 
   async updateInventoryUsage(
