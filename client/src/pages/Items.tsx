@@ -1631,6 +1631,7 @@ export default function Items() {
       return;
     }
     
+    console.log('[CSV IMPORT] Processed items:', items.map(i => ({ name: i.name, folderPath: i.folderPath })));
     setBulkItems(items);
     setImportMode('select'); // Move to review screen
   };

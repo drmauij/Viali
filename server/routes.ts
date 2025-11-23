@@ -2081,10 +2081,14 @@ If unable to parse any drugs, return:
 
       const createdItems = [];
       for (const bulkItem of bulkItems) {
+        console.log('[BULK IMPORT] Processing item:', bulkItem.name, 'folderPath:', bulkItem.folderPath, 'folderId:', bulkItem.folderId);
+        
         // Resolve folderPath to folderId if provided
         let folderId = bulkItem.folderId ?? null;
         if (bulkItem.folderPath) {
+          console.log('[BULK IMPORT] Resolving folderPath:', bulkItem.folderPath);
           folderId = await resolveFolderPath(bulkItem.folderPath);
+          console.log('[BULK IMPORT] Resolved to folderId:', folderId);
         }
 
         // Resolve vendorName to vendorId if provided
