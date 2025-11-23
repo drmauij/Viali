@@ -1,7 +1,34 @@
-import { useState } from 'react';
+import { useState, useMemo, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useTimelineContext } from '../TimelineContext';
 import type { EventComment, AnesthesiaTimeMarker } from '@/hooks/useEventState';
 import { getEventIcon } from '@/constants/commonEvents';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+interface InventoryUsageItem {
+  id: string;
+  itemId: string;
+  calculatedQty: number;
+  overrideQty: number | null;
+}
+
+interface InventoryCommit {
+  id: string;
+  rolledBackAt: string | null;
+  items: Array<{
+    itemId: string;
+    quantity: number;
+  }>;
+}
 
 /**
  * EventsSwimlane Component
@@ -47,6 +74,73 @@ export function EventsSwimlane({
   } = useTimelineContext();
 
   const { eventComments, timeMarkers } = eventState;
+  const { toast } = useToast();
+
+  // Fetch inventory usage to check for pending commits
+  const { 
+    data: inventoryUsage = [], 
+    isError: inventoryError,
+    isLoading: inventoryLoading 
+  } = useQuery<InventoryUsageItem[]>({
+    queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}`],
+    enabled: !!anesthesiaRecordId,
+  });
+
+  // Fetch commit history
+  const { 
+    data: commits = [], 
+    isError: commitsError,
+    isLoading: commitsLoading 
+  } = useQuery<InventoryCommit[]>({
+    queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}/commits`],
+    enabled: !!anesthesiaRecordId,
+  });
+
+  // Calculate committed quantities per item
+  const committedQuantities = useMemo(() => {
+    const quantities: Record<string, number> = {};
+    commits
+      .filter(c => !c.rolledBackAt)
+      .forEach(commit => {
+        commit.items.forEach(item => {
+          quantities[item.itemId] = (quantities[item.itemId] || 0) + item.quantity;
+        });
+      });
+    return quantities;
+  }, [commits]);
+
+  // Get final quantity for an item (override or calculated)
+  const getFinalQty = (itemId: string, usage: InventoryUsageItem | undefined) => {
+    if (!usage) return 0;
+    if (usage.overrideQty !== null && usage.overrideQty !== undefined) {
+      return usage.overrideQty;
+    }
+    return usage.calculatedQty || 0;
+  };
+
+  // Calculate if there are pending commits - matches InventoryUsageTab logic
+  const hasPendingCommits = useMemo(() => {
+    // If queries are loading or failed, treat as pending commits (conservative/safe default)
+    if (inventoryLoading || commitsLoading || inventoryError || commitsError) {
+      return true;
+    }
+
+    if (!inventoryUsage.length) return false;
+
+    // Check if any item has uncommitted quantity
+    return inventoryUsage.some(usage => {
+      const finalQty = getFinalQty(usage.itemId, usage);
+      const committed = committedQuantities[usage.itemId] || 0;
+      const uncommitted = Math.max(0, Math.round(finalQty - committed));
+      return uncommitted > 0;
+    });
+  }, [inventoryUsage, committedQuantities, inventoryLoading, commitsLoading, inventoryError, commitsError]);
+
+  // Track if X2 reminder was already shown for this session
+  const x2ReminderShownRef = useRef(false);
+
+  // State for commit reminder dialog
+  const [showCommitReminder, setShowCommitReminder] = useState(false);
 
   // Hover state for event comments
   const [eventHoverInfo, setEventHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
@@ -107,6 +201,33 @@ export function EventsSwimlane({
       // Place next unplaced marker
       const nextMarkerIndex = timeMarkers.findIndex(m => m.time === null);
       if (nextMarkerIndex !== -1) {
+        const nextMarker = timeMarkers[nextMarkerIndex];
+        
+        // Check if trying to set PACU End (P) with pending commits
+        if (nextMarker.code === 'P' && hasPendingCommits) {
+          // Show different message based on state: loading, error, or actual pending commits
+          if (inventoryLoading || commitsLoading) {
+            toast({
+              title: "Cannot set PACU End",
+              description: "Still loading inventory status. Please wait a moment and try again.",
+              variant: "destructive",
+            });
+          } else if (inventoryError || commitsError) {
+            toast({
+              title: "Cannot set PACU End",
+              description: "Unable to verify inventory status. Please check your connection and try again.",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Cannot set PACU End",
+              description: "Please commit all inventory items before marking PACU End.",
+              variant: "destructive",
+            });
+          }
+          return;
+        }
+
         const updatedMarkers = [...timeMarkers];
         updatedMarkers[nextMarkerIndex] = {
           ...updatedMarkers[nextMarkerIndex],
@@ -121,6 +242,13 @@ export function EventsSwimlane({
             anesthesiaRecordId,
             timeMarkers: updatedMarkers,
           });
+        }
+
+        // Check if we just set X2 (Anesthesia End) and there are pending commits
+        // Only show the reminder once per session using the ref
+        if (nextMarker.code === 'X2' && hasPendingCommits && !x2ReminderShownRef.current) {
+          x2ReminderShownRef.current = true;
+          setShowCommitReminder(true);
         }
       }
     }
@@ -434,6 +562,23 @@ export function EventsSwimlane({
           </div>
         );
       })}
+
+      {/* Friendly reminder dialog for inventory commit after X2 */}
+      <AlertDialog open={showCommitReminder} onOpenChange={setShowCommitReminder}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Inventory Commit Reminder</AlertDialogTitle>
+            <AlertDialogDescription>
+              You've marked Anesthesia End. Don't forget to commit the inventory items that were used during this procedure.
+              <br /><br />
+              You can commit them from the Inventory tab when you're ready.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction data-testid="button-close-commit-reminder">Got it, thanks!</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
