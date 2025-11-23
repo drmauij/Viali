@@ -564,7 +564,7 @@ export class DatabaseStorage implements IStorage {
         soonestExpiry: sql<Date>`MIN(${lots.expiryDate})`.as('soonest_expiry'),
       })
       .from(items)
-      .leftJoin(stockLevels, eq(items.id, stockLevels.itemId))
+      .leftJoin(stockLevels, and(eq(items.id, stockLevels.itemId), eq(stockLevels.unitId, unitId)))
       .leftJoin(lots, eq(items.id, lots.itemId))
       .where(and(eq(items.hospitalId, hospitalId), eq(items.unitId, unitId)))
       .groupBy(items.id, stockLevels.id);
