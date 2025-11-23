@@ -18,6 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Loader2, Check, ChevronsUpDown, Plus, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 type Item = {
   id: string;
@@ -56,6 +57,7 @@ export function MedicationConfigDialog({
   onSaveSuccess,
 }: MedicationConfigDialogProps) {
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [comboboxOpen, setComboboxOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -277,19 +279,19 @@ export function MedicationConfigDialog({
       <DialogContent className="sm:max-w-[600px]" data-testid="dialog-medication-config">
         <DialogHeader>
           <DialogTitle>
-            {editingItem ? `Edit Medication Configuration` : `Configure Medication for ${administrationGroup?.name}`}
+            {editingItem ? t("anesthesia.timeline.editMedicationConfiguration") : `${t("anesthesia.timeline.configureMedication")} ${administrationGroup?.name}`}
           </DialogTitle>
           <DialogDescription>
             {editingItem 
               ? "Update the medication settings or remove it from the group"
-              : "Select an item and configure its medication/infusion settings to add it to this group"}
+              : t("anesthesia.timeline.selectItemConfigure")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
           {/* Item Selection with Searchable Combobox */}
           <div className="grid gap-2">
-            <Label>Select Item</Label>
+            <Label>{t("anesthesia.timeline.selectItem")}</Label>
             <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -300,7 +302,7 @@ export function MedicationConfigDialog({
                   data-testid="button-select-item"
                   disabled={!!editingItem} // Disable changing item in edit mode
                 >
-                  {selectedItem ? selectedItem.name : "Select an item..."}
+                  {selectedItem ? selectedItem.name : t("anesthesia.timeline.selectAnItem")}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
@@ -402,7 +404,7 @@ export function MedicationConfigDialog({
             <>
               {/* Item Name */}
               <div className="grid gap-2">
-                <Label htmlFor="config-item-name">Item Name</Label>
+                <Label htmlFor="config-item-name">{t("anesthesia.timeline.itemName")}</Label>
                 <Input
                   id="config-item-name"
                   value={configItemName}
@@ -413,7 +415,7 @@ export function MedicationConfigDialog({
 
               {/* Type Selection */}
               <div className="grid gap-2">
-                <Label htmlFor="config-type">Item Type</Label>
+                <Label htmlFor="config-type">{t("anesthesia.timeline.itemType")}</Label>
                 <Select
                   value={configAnesthesiaType}
                   onValueChange={(value) => setConfigAnesthesiaType(value as 'medication' | 'infusion')}
@@ -422,27 +424,27 @@ export function MedicationConfigDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="medication">Medication</SelectItem>
-                    <SelectItem value="infusion">Infusion</SelectItem>
+                    <SelectItem value="medication">{t("anesthesia.timeline.medication")}</SelectItem>
+                    <SelectItem value="infusion">{t("anesthesia.timeline.infusion")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {/* Ampule/Bag Content */}
               <div className="grid gap-2">
-                <Label htmlFor="config-ampule">Ampule/Bag Content</Label>
+                <Label htmlFor="config-ampule">{t("anesthesia.timeline.ampuleBagContent")}</Label>
                 <Input
                   id="config-ampule"
                   value={configAmpuleContent}
                   onChange={(e) => setConfigAmpuleContent(e.target.value)}
-                  placeholder="e.g., 50 mg, 1000 ml"
+                  placeholder={t("anesthesia.timeline.ampuleBagPlaceholder")}
                   data-testid="input-config-ampule"
                 />
               </div>
 
               {/* Default Dose */}
               <div className="grid gap-2">
-                <Label htmlFor="config-dose">Default Dose</Label>
+                <Label htmlFor="config-dose">{t("anesthesia.timeline.defaultDose")}</Label>
                 <Input
                   id="config-dose"
                   value={configDefaultDose}
@@ -454,7 +456,7 @@ export function MedicationConfigDialog({
 
               {/* Administration Route */}
               <div className="grid gap-2">
-                <Label htmlFor="config-route">Administration Route</Label>
+                <Label htmlFor="config-route">{t("anesthesia.timeline.administrationRoute")}</Label>
                 <Input
                   id="config-route"
                   value={configAdministrationRoute}
@@ -467,7 +469,7 @@ export function MedicationConfigDialog({
               {/* Type-specific fields */}
               {configAnesthesiaType === 'medication' && (
                 <div className="grid gap-2">
-                  <Label htmlFor="config-unit">Administration Unit</Label>
+                  <Label htmlFor="config-unit">{t("anesthesia.timeline.administrationUnit")}</Label>
                   <Select value={configAdministrationUnit} onValueChange={setConfigAdministrationUnit}>
                     <SelectTrigger id="config-unit" data-testid="select-config-unit">
                       <SelectValue />
@@ -492,13 +494,13 @@ export function MedicationConfigDialog({
                       data-testid="checkbox-config-rate-controlled"
                     />
                     <Label htmlFor="config-rate-controlled" className="cursor-pointer">
-                      Rate-controlled infusion
+                      {t("anesthesia.timeline.rateControlled")}
                     </Label>
                   </div>
 
                   {configIsRateControlled && (
                     <div className="grid gap-2">
-                      <Label htmlFor="config-rate-unit">Rate Unit</Label>
+                      <Label htmlFor="config-rate-unit">{t("anesthesia.timeline.rateUnit")}</Label>
                       <Select value={configRateUnit} onValueChange={setConfigRateUnit}>
                         <SelectTrigger id="config-rate-unit" data-testid="select-config-rate-unit">
                           <SelectValue />
@@ -560,7 +562,7 @@ export function MedicationConfigDialog({
                     Saving...
                   </>
                 ) : (
-                  editingItem ? "Update Configuration" : "Save Configuration"
+                  editingItem ? t("anesthesia.timeline.updateConfiguration") : t("anesthesia.timeline.saveConfiguration")
                 )}
               </Button>
             </div>
