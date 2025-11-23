@@ -1433,14 +1433,14 @@ export default function PatientDetail() {
 
       {/* Edit Surgery Dialog */}
       <Dialog open={!!editingCaseId} onOpenChange={(open) => !open && setEditingCaseId(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
-          <div className="p-6 border-b">
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          <div className="p-6 border-b shrink-0">
             <DialogHeader>
               <DialogTitle>{t('anesthesia.patientDetail.editSurgery')}</DialogTitle>
               <DialogDescription>{t('anesthesia.patientDetail.updateSurgeryDetails')}</DialogDescription>
             </DialogHeader>
           </div>
-          <div className="space-y-4 py-4 px-6 overflow-y-auto flex-1">
+          <div className="space-y-4 py-4 px-6 overflow-y-auto flex-1 min-h-0">
             <div className="space-y-2">
               <Label htmlFor="edit-surgery">{t('anesthesia.patientDetail.plannedSurgery')}</Label>
               <Input
