@@ -4,11 +4,10 @@ import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Package, Minus, Plus, Folder, RotateCcw, CheckCircle, History, Undo } from "lucide-react";
+import { Package, Minus, Plus, Folder, RotateCcw, CheckCircle, History, Undo, ChevronDown, ChevronRight } from "lucide-react";
 import { ControlledItemsCommitDialog } from "./ControlledItemsCommitDialog";
 import { formatDate } from "@/lib/dateUtils";
 
@@ -57,9 +56,22 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
   
-  // State for controlling accordion expansion
-  const [openFolders, setOpenFolders] = useState<string[]>([]);
+  // State for controlling folder expansion
+  const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
   const [showCommitDialog, setShowCommitDialog] = useState(false);
+
+  // Toggle folder expansion
+  const toggleFolder = (folderId: string) => {
+    setOpenFolders(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(folderId)) {
+        newSet.delete(folderId);
+      } else {
+        newSet.add(folderId);
+      }
+      return newSet;
+    });
+  };
 
   // Fetch ALL inventory items from the hospital/unit
   const { data: items = [] } = useQuery<Item[]>({
@@ -463,21 +475,30 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
           </CardContent>
         </Card>
       ) : (
-        <Accordion type="multiple" className="space-y-2 w-full" value={openFolders} onValueChange={setOpenFolders}>
-          {Object.keys(groupedItems).map((folderId) => (
-            <AccordionItem key={folderId} value={folderId}>
-              <Card>
-                <AccordionTrigger className="px-4 py-3 hover:no-underline" data-testid={`accordion-folder-${folderId}`}>
-                  <div className="flex items-center gap-2">
-                    <Folder className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium">{getFolderName(folderId)}</span>
-                    <Badge variant="secondary" className="ml-2 text-xs">
-                      {groupedItems[folderId].filter(item => getFinalQty(item.id) > 0).length}
-                    </Badge>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <CardContent className="pt-0 space-y-2">
+        <div className="space-y-2">
+          {Object.keys(groupedItems).map((folderId) => {
+            const isExpanded = openFolders.has(folderId);
+            
+            return (
+              <Card key={folderId}>
+                <div
+                  className="flex items-center gap-2 px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => toggleFolder(folderId)}
+                  data-testid={`accordion-folder-${folderId}`}
+                >
+                  {isExpanded ? (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  )}
+                  <Folder className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">{getFolderName(folderId)}</span>
+                  <Badge variant="secondary" className="ml-2 text-xs">
+                    {groupedItems[folderId].filter(item => getFinalQty(item.id) > 0).length}
+                  </Badge>
+                </div>
+                {isExpanded && (
+                  <CardContent className="pt-0 pb-4 space-y-2">
                     {groupedItems[folderId].map((item) => {
                       const finalQty = getFinalQty(item.id);
                       const uncommittedQty = getUncommittedQty(item.id);
@@ -559,11 +580,11 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
                       );
                     })}
                   </CardContent>
-                </AccordionContent>
+                )}
               </Card>
-            </AccordionItem>
-          ))}
-        </Accordion>
+            );
+          })}
+        </div>
       )}
 
       <ControlledItemsCommitDialog
