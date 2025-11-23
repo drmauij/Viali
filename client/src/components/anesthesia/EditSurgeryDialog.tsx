@@ -189,7 +189,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   return (
     <>
       <Dialog open={!!surgeryId} onOpenChange={() => onClose()}>
-        <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0 overflow-hidden" data-testid="dialog-edit-surgery">
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden" data-testid="dialog-edit-surgery">
           <div className="p-6 border-b shrink-0">
             <DialogHeader>
               <DialogTitle>{t('anesthesia.editSurgery.title')}</DialogTitle>
@@ -312,12 +312,12 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-col gap-2 pt-4">
+              <div className="flex flex-col sm:flex-row gap-2 pt-4">
                 <Button
                   onClick={handleUpdate}
                   disabled={updateMutation.isPending || deleteMutation.isPending}
                   data-testid="button-update-surgery"
-                  className="w-full"
+                  className="w-full sm:flex-1"
                 >
                   {updateMutation.isPending ? (
                     <>{t('anesthesia.editSurgery.updating')}</>
@@ -333,7 +333,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   onClick={onClose}
                   disabled={deleteMutation.isPending || updateMutation.isPending}
                   data-testid="button-cancel-surgery"
-                  className="w-full"
+                  className="w-full sm:flex-1"
                 >
                   <X className="mr-2 h-4 w-4" />
                   {t('common.cancel')}
@@ -343,7 +343,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   onClick={handleDelete}
                   disabled={deleteMutation.isPending || updateMutation.isPending}
                   data-testid="button-delete-surgery"
-                  className="w-full"
+                  className="w-full sm:flex-1"
                 >
                   {deleteMutation.isPending ? (
                     <>{t('anesthesia.editSurgery.deleting')}</>
