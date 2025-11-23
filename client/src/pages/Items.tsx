@@ -1667,26 +1667,79 @@ export default function Items() {
     link.click();
   };
 
-  const downloadItemsCatalog = async () => {
-    if (!activeHospital?.id || !activeHospital?.unitId) {
+  const downloadItemsCatalog = () => {
+    if (!activeHospital?.name || items.length === 0) {
       toast({
-        title: "No Hospital Selected",
-        description: "Please select a hospital first",
+        title: "No Data",
+        description: "No items available to export",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      const response = await fetch(`/api/items/export-csv?hospitalId=${activeHospital.id}&unitId=${activeHospital.unitId}`, {
-        credentials: "include",
+      // Build folder name lookup
+      const folderMap = new Map<string, Folder>();
+      folders.forEach(folder => folderMap.set(folder.id, folder));
+
+      // Build vendor name lookup
+      const vendorMap = new Map<string, string>();
+      vendors.forEach(vendor => vendorMap.set(vendor.id, vendor.name));
+
+      // CSV headers
+      const headers = [
+        'Name',
+        'Barcode',
+        'Description',
+        'Unit',
+        'MinUnits',
+        'MaxUnits',
+        'CurrentUnits',
+        'ReorderPoint',
+        'TrackExactQuantity',
+        'Controlled',
+        'FolderName',
+        'VendorName'
+      ];
+
+      // Build CSV rows from existing data
+      const rows = items.map(item => {
+        const folderName = item.folderId ? (folderMap.get(item.folderId)?.name || '') : '';
+        const vendorName = item.vendorId ? (vendorMap.get(item.vendorId) || '') : '';
+        
+        return [
+          item.name || '',
+          item.barcode || '',
+          item.description || '',
+          item.unit || 'Pack',
+          item.minThreshold || 0,
+          item.maxThreshold || 0,
+          item.currentUnits || 0,
+          item.reorderPoint || 0,
+          item.trackExactQuantity ? 'true' : 'false',
+          item.controlled ? 'true' : 'false',
+          folderName,
+          vendorName
+        ];
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to export items");
-      }
+      // Combine headers and rows
+      const csvData = [headers, ...rows];
+      
+      // Convert to CSV string with proper escaping
+      const csvContent = csvData.map(row => 
+        row.map(cell => {
+          const cellStr = String(cell);
+          // Escape quotes and wrap in quotes if contains comma, quote, or newline
+          if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+            return `"${cellStr.replace(/"/g, '""')}"`;
+          }
+          return cellStr;
+        }).join(',')
+      ).join('\n');
 
-      const blob = await response.blob();
+      // Download the CSV file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.download = `items_catalog_${activeHospital.name}_${new Date().toISOString().split('T')[0]}.csv`;
@@ -1694,7 +1747,7 @@ export default function Items() {
 
       toast({
         title: "Export Complete",
-        description: "Items catalog downloaded successfully",
+        description: `Exported ${items.length} items successfully`,
       });
     } catch (error: any) {
       toast({
