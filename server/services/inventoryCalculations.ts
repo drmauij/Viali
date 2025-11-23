@@ -35,6 +35,10 @@ export function normalizeRateUnit(rateUnit: string | null | undefined): string {
   // Normalize to lowercase for pattern matching
   let working = rateUnit.toLowerCase().trim();
   
+  // CRITICAL FIX: Normalize both Unicode variants of micro symbol
+  // μ (U+03BC Greek mu) and µ (U+00B5 micro sign) → both to 'μ' for consistency
+  working = working.replace(/\u00B5/g, '\u03BC'); // Convert µ → μ
+  
   // Step 1: Replace time unit words with standard abbreviations
   // German: Minute(n) → min, Stunde(n) → h
   working = working.replace(/\bminute(n)?\b/gi, 'min');
@@ -62,7 +66,8 @@ export function normalizeRateUnit(rateUnit: string | null | undefined): string {
   //   - With or without whitespace (already normalized to no spaces)
   
   // Try to match weight-based patterns first (more specific)
-  const weightBasedPattern = /(µg|ug|mcg|mg)\/kg\/(min|h|hr)/;
+  // Now includes both μ and µ for safety
+  const weightBasedPattern = /(μg|µg|ug|mcg|mg)\/kg\/(min|h|hr)/;
   const weightMatch = working.match(weightBasedPattern);
   if (weightMatch) {
     return weightMatch[0]; // Return the normalized weight-based unit
@@ -130,7 +135,7 @@ export function calculateRateControlledAmpules(
   
   if (rateUnitLower.includes('ml/h') || rateUnitLower.includes('ml/hr')) {
     totalVolume = rateValue * durationHours;
-  } else if (rateUnitLower.includes('µg/kg/min') || rateUnitLower.includes('ug/kg/min') || rateUnitLower.includes('mcg/kg/min')) {
+  } else if (rateUnitLower.includes('μg/kg/min') || rateUnitLower.includes('µg/kg/min') || rateUnitLower.includes('ug/kg/min') || rateUnitLower.includes('mcg/kg/min')) {
     const durationMinutes = durationHours * 60;
     const weight = patientWeight || 70;
     const totalMicrograms = rateValue * weight * durationMinutes;
@@ -142,7 +147,7 @@ export function calculateRateControlledAmpules(
       totalMicrograms,
       totalMilligrams
     });
-  } else if (rateUnitLower.includes('µg/kg/h') || rateUnitLower.includes('ug/kg/h') || rateUnitLower.includes('mcg/kg/h') || rateUnitLower.includes('µg/kg/hr') || rateUnitLower.includes('ug/kg/hr') || rateUnitLower.includes('mcg/kg/hr')) {
+  } else if (rateUnitLower.includes('μg/kg/h') || rateUnitLower.includes('μg/kg/hr') || rateUnitLower.includes('µg/kg/h') || rateUnitLower.includes('ug/kg/h') || rateUnitLower.includes('mcg/kg/h') || rateUnitLower.includes('µg/kg/hr') || rateUnitLower.includes('ug/kg/hr') || rateUnitLower.includes('mcg/kg/hr')) {
     const totalMicrograms = rateValue * (patientWeight || 70) * durationHours;
     const totalMilligrams = totalMicrograms / 1000;
     totalVolume = totalMilligrams;
