@@ -67,6 +67,17 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
     enabled: !!activeHospital?.id,
   });
 
+  // DEBUG: Log items to check folderId
+  useEffect(() => {
+    if (items.length > 0) {
+      console.log('[INVENTORY-DEBUG] Items from API:', items.map(item => ({
+        id: item.id,
+        name: item.name,
+        folderId: item.folderId
+      })));
+    }
+  }, [items]);
+
   // Fetch folders
   const { data: folders = [] } = useQuery<FolderType[]>({
     queryKey: [`/api/folders/${activeHospital?.id}`],
