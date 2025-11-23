@@ -99,7 +99,7 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
 
   // Fetch surgery to get patient info
   const { data: surgery } = useQuery<any>({
-    queryKey: [`/api/surgeries/${anesthesiaRecord?.surgeryId}`],
+    queryKey: [`/api/anesthesia/surgeries/${anesthesiaRecord?.surgeryId}`],
     enabled: !!anesthesiaRecord?.surgeryId,
   });
 
