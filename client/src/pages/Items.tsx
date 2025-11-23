@@ -1602,7 +1602,11 @@ export default function Items() {
           case 'reorderPoint':
           case 'minUnits':
           case 'maxUnits':
-            item[targetField] = parseInt(value) || 0;
+            // Only set if value exists and is a valid number
+            const numVal = value ? parseInt(value) : undefined;
+            if (numVal !== undefined && !isNaN(numVal)) {
+              item[targetField] = numVal;
+            }
             break;
           case 'trackExactQuantity':
             const trackVal = String(value).toLowerCase();
@@ -3297,11 +3301,14 @@ export default function Items() {
           setBulkImportFolderId(null);
         }
       }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{t('items.bulkImportTitle')}</DialogTitle>
-            <DialogDescription>Import items from photos (AI analysis) or CSV file</DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-7xl max-h-[90vh] flex flex-col p-0">
+          <div className="p-6 border-b">
+            <DialogHeader>
+              <DialogTitle>{t('items.bulkImportTitle')}</DialogTitle>
+              <DialogDescription>Import items from photos (AI analysis) or CSV file</DialogDescription>
+            </DialogHeader>
+          </div>
+          <div className="overflow-y-auto flex-1 p-6">
 
           {/* Folder Selection */}
           {folders.length > 0 && (
@@ -3389,7 +3396,7 @@ export default function Items() {
               
               {/* CSV Preview Table */}
               <div className="border rounded-lg overflow-hidden">
-                <div className="max-h-40 overflow-y-auto">
+                <div className="max-h-64 overflow-y-auto">
                   <table className="w-full text-xs">
                     <thead className="bg-muted sticky top-0">
                       <tr>
@@ -3610,6 +3617,7 @@ export default function Items() {
               </div>
             </div>
           )}
+          </div>
         </DialogContent>
       </Dialog>
       
