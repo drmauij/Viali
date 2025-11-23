@@ -246,7 +246,20 @@ export function EventsSwimlane({
 
         // Check if we just set X2 (Anesthesia End) and there are pending commits
         // Only show the reminder once per session using the ref
+        console.log('[X2_CHECK]', {
+          code: nextMarker.code,
+          hasPendingCommits,
+          reminderAlreadyShown: x2ReminderShownRef.current,
+          inventoryUsageLength: inventoryUsage.length,
+          commitsLength: commits.length,
+          inventoryLoading,
+          commitsLoading,
+          inventoryError,
+          commitsError,
+        });
+        
         if (nextMarker.code === 'X2' && hasPendingCommits && !x2ReminderShownRef.current) {
+          console.log('[X2_CHECK] Showing reminder dialog');
           x2ReminderShownRef.current = true;
           setShowCommitReminder(true);
         }
