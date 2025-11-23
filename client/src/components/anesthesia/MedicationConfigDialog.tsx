@@ -522,7 +522,9 @@ export function MedicationConfigDialog({
                         <SelectContent>
                           <SelectItem value="ml/h">ml/h</SelectItem>
                           <SelectItem value="μg/kg/min">μg/kg/min</SelectItem>
+                          <SelectItem value="μg/min">μg/min</SelectItem>
                           <SelectItem value="mg/kg/h">mg/kg/h</SelectItem>
+                          <SelectItem value="mg/min">mg/min</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
