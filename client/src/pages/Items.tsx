@@ -1494,7 +1494,7 @@ export default function Items() {
           // Additional fields for full catalog export/import
           else if (lowerHeader === 'barcode' || lowerHeader === 'sku') {
             autoMapping[header] = 'barcode';
-          } else if (lowerHeader === 'folderpath' || lowerHeader === 'folder path' || lowerHeader === 'folder') {
+          } else if (lowerHeader === 'folderpath' || lowerHeader === 'folder path' || lowerHeader === 'folder' || lowerHeader === 'foldername' || lowerHeader === 'folder name') {
             autoMapping[header] = 'folderPath';
           } else if (lowerHeader === 'vendorname' || lowerHeader === 'vendor name' || lowerHeader === 'vendor') {
             autoMapping[header] = 'vendorName';
