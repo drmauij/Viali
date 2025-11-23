@@ -2169,16 +2169,22 @@ If unable to parse any drugs, return:
     try {
       const hospitalId = req.query.hospitalId as string;
       const userId = req.user.id;
+      const activeUnitId = req.headers['x-active-unit-id'] as string | undefined;
 
       if (!hospitalId) {
         return res.status(400).json({ message: "Hospital ID is required" });
       }
 
+      console.log('[Export CSV] Hospital ID:', hospitalId, 'User ID:', userId, 'Active Unit ID:', activeUnitId);
+
       // Verify user has access to this hospital
-      const unitId = await getUserUnitForHospital(userId, hospitalId);
+      const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId);
       if (!unitId) {
+        console.log('[Export CSV] Access denied - no unitId found for user');
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
+
+      console.log('[Export CSV] Access granted, unit ID:', unitId);
 
       // Get all items for this hospital with their relations
       const items = await storage.getItemsByHospital(hospitalId);
