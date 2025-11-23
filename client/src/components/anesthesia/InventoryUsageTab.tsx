@@ -390,20 +390,15 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold">{t('anesthesia.op.medicationSupplyUsage')}</h3>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-xs">
-            {t('anesthesia.op.autoCalculatedFromTimeline')}
-          </Badge>
-          <Button
-            onClick={() => setShowCommitDialog(true)}
-            disabled={itemsToCommit.length === 0 || commitMutation.isPending}
-            size="sm"
-            data-testid="button-commit-inventory"
-          >
-            <CheckCircle className="h-4 w-4 mr-2" />
-            {t('anesthesia.op.commitUsedItems')}
-          </Button>
-        </div>
+        <Button
+          onClick={() => setShowCommitDialog(true)}
+          disabled={itemsToCommit.length === 0 || commitMutation.isPending}
+          size="sm"
+          data-testid="button-commit-inventory"
+        >
+          <CheckCircle className="h-4 w-4 mr-2" />
+          {t('anesthesia.op.commitUsedItems')}
+        </Button>
       </div>
 
       {/* Commit History */}
