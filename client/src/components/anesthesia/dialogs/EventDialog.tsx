@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
 import { useCreateEvent, useUpdateEvent, useDeleteEvent } from "@/hooks/useEventsQuery";
 import { COMMON_EVENTS } from "@/constants/commonEvents";
+import { useTranslation } from "react-i18next";
 
 interface EventToEdit {
   id: string;
@@ -42,6 +43,7 @@ export function EventDialog({
   const [eventTextInput, setEventTextInput] = useState("");
   const [eventEditTime, setEventEditTime] = useState<number>(Date.now());
   const [eventType, setEventType] = useState<string | null>(null);
+  const { t } = useTranslation();
 
   // Initialize mutation hooks
   const createEvent = useCreateEvent(anesthesiaRecordId || "");
@@ -117,10 +119,24 @@ export function EventDialog({
     setEventTextInput("");
   };
 
-  const handleQuickEvent = (eventLabel: string, eventType: string) => {
+  // Translate event type to label
+  const getEventLabel = (eventType: string): string => {
+    const eventTypeMap: Record<string, string> = {
+      'team_timeout': t('anesthesia.timeline.teamTimeout'),
+      'intubation': t('anesthesia.timeline.intubation'),
+      'extubation': t('anesthesia.timeline.extubation'),
+      'eye_protection': t('anesthesia.timeline.eyeProtection'),
+      'warm_touch': t('anesthesia.timeline.warmTouch'),
+    };
+    return eventTypeMap[eventType] || eventType;
+  };
+
+  const handleQuickEvent = (eventType: string) => {
+    const translatedLabel = getEventLabel(eventType);
+    
     if (!anesthesiaRecordId || !pendingEvent) {
       // Fallback: just fill the text input if we can't save immediately
-      setEventTextInput(eventLabel);
+      setEventTextInput(translatedLabel);
       return;
     }
 
@@ -129,7 +145,7 @@ export function EventDialog({
       {
         anesthesiaRecordId,
         timestamp: new Date(pendingEvent.time).toISOString(),
-        description: eventLabel,
+        description: translatedLabel,
         eventType,
       },
       {
@@ -145,28 +161,28 @@ export function EventDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto" data-testid="dialog-event-comment">
         <DialogHeader>
-          <DialogTitle>{editingEvent ? "Edit Event" : "Add Event"}</DialogTitle>
+          <DialogTitle>{editingEvent ? t("anesthesia.timeline.editEvent") : t("anesthesia.timeline.addEvent")}</DialogTitle>
           <DialogDescription>
-            {editingEvent ? "Edit or delete the event comment" : "Quick select a common event or enter custom text"}
+            {editingEvent ? t("anesthesia.timeline.editDeleteEvent") : t("anesthesia.timeline.quickSelectEvent")}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           {!editingEvent && (
             <div className="grid gap-2">
-              <Label>Common Events</Label>
+              <Label>{t("anesthesia.timeline.commonEvents")}</Label>
               <div className="grid grid-cols-2 gap-2 max-h-[240px] overflow-y-auto p-1">
                 {COMMON_EVENTS.map((event) => {
                   const IconComponent = event.icon;
                   return (
                     <Button
-                      key={event.label}
+                      key={event.type}
                       variant="outline"
                       className="justify-start h-auto py-2 px-3"
-                      onClick={() => handleQuickEvent(event.label, event.type)}
-                      data-testid={`button-quick-event-${event.label.toLowerCase().replace(/\s+/g, '-')}`}
+                      onClick={() => handleQuickEvent(event.type)}
+                      data-testid={`button-quick-event-${event.type}`}
                     >
                       <IconComponent className="w-4 h-4 mr-2 shrink-0" />
-                      <span className="text-sm">{event.label}</span>
+                      <span className="text-sm">{getEventLabel(event.type)}</span>
                     </Button>
                   );
                 })}
@@ -174,13 +190,13 @@ export function EventDialog({
             </div>
           )}
           <div className="grid gap-2">
-            <Label htmlFor="event-text">Event Comment</Label>
+            <Label htmlFor="event-text">{t("anesthesia.timeline.eventComment")}</Label>
             <Textarea
               id="event-text"
               data-testid="input-event-text"
               value={eventTextInput}
               onChange={(e) => setEventTextInput(e.target.value)}
-              placeholder="Enter event description..."
+              placeholder={t("anesthesia.timeline.enterEventDescription")}
               rows={4}
               autoFocus={!!editingEvent}
             />

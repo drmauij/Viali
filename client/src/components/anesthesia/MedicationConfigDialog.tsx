@@ -141,8 +141,8 @@ export function MedicationConfigDialog({
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospitalId}?unitId=${activeUnitId}`] });
       toast({
-        title: "Item created",
-        description: `${data.name} has been added to inventory`,
+        title: t("anesthesia.timeline.itemCreated"),
+        description: `${data.name} ${t("anesthesia.timeline.itemCreatedDescription")}`,
       });
       // Select the newly created item
       setSelectedItemId(data.id);
@@ -153,8 +153,8 @@ export function MedicationConfigDialog({
     onError: (error: any) => {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to create item",
+        title: t("anesthesia.timeline.error"),
+        description: error.message || t("anesthesia.timeline.failedToCreateItem"),
       });
     },
   });
@@ -168,10 +168,10 @@ export function MedicationConfigDialog({
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/items/${activeHospitalId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospitalId}?unitId=${activeUnitId}`] });
       toast({
-        title: editingItem ? "Configuration updated" : "Configuration saved",
+        title: editingItem ? t("anesthesia.timeline.configurationUpdated") : t("anesthesia.timeline.configurationSaved"),
         description: editingItem 
-          ? "Medication configuration has been updated" 
-          : "Medication has been configured and added to the group",
+          ? t("anesthesia.timeline.configUpdatedDescription")
+          : t("anesthesia.timeline.configSavedDescription"),
       });
       onOpenChange(false);
       onSaveSuccess?.();
@@ -179,8 +179,8 @@ export function MedicationConfigDialog({
     onError: (error: any) => {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to update configuration",
+        title: t("anesthesia.timeline.error"),
+        description: error.message || t("anesthesia.timeline.failedToUpdateConfig"),
       });
     },
   });
@@ -196,8 +196,8 @@ export function MedicationConfigDialog({
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/items/${activeHospitalId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospitalId}?unitId=${activeUnitId}`] });
       toast({
-        title: "Medication removed",
-        description: "Medication has been removed from the administration group",
+        title: t("anesthesia.timeline.medicationRemoved"),
+        description: t("anesthesia.timeline.medicationRemovedDescription"),
       });
       onOpenChange(false);
       onSaveSuccess?.();
@@ -205,8 +205,8 @@ export function MedicationConfigDialog({
     onError: (error: any) => {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to remove medication",
+        title: t("anesthesia.timeline.error"),
+        description: error.message || t("anesthesia.timeline.failedToRemoveMedication"),
       });
     },
   });
@@ -283,7 +283,7 @@ export function MedicationConfigDialog({
           </DialogTitle>
           <DialogDescription>
             {editingItem 
-              ? "Update the medication settings or remove it from the group"
+              ? t("anesthesia.timeline.updateSettings")
               : t("anesthesia.timeline.selectItemConfigure")}
           </DialogDescription>
         </DialogHeader>
@@ -309,14 +309,14 @@ export function MedicationConfigDialog({
               <PopoverContent className="w-[400px] p-0">
                 <Command>
                   <CommandInput 
-                    placeholder="Search items..." 
+                    placeholder={t("anesthesia.timeline.searchItems")}
                     value={searchQuery}
                     onValueChange={setSearchQuery}
                   />
                   <CommandList>
                     <CommandEmpty>
                       <div className="text-center py-2">
-                        <p className="text-sm text-muted-foreground mb-2">No item found.</p>
+                        <p className="text-sm text-muted-foreground mb-2">{t("anesthesia.timeline.noItemFound")}</p>
                         <Button
                           variant="outline"
                           size="sm"
@@ -328,7 +328,7 @@ export function MedicationConfigDialog({
                           data-testid="button-quick-add"
                         >
                           <Plus className="mr-2 h-4 w-4" />
-                          Quick Add "{searchQuery}"
+                          {t("anesthesia.timeline.quickAdd")} "{searchQuery}"
                         </Button>
                       </div>
                     </CommandEmpty>
@@ -358,13 +358,13 @@ export function MedicationConfigDialog({
           {/* Quick Add Section */}
           {showQuickAdd && (
             <div className="grid gap-2 p-4 border rounded-lg bg-muted/50">
-              <Label htmlFor="quick-add-name">Quick Add New Item</Label>
+              <Label htmlFor="quick-add-name">{t("anesthesia.timeline.quickAddNewItem")}</Label>
               <div className="flex gap-2">
                 <Input
                   id="quick-add-name"
                   value={quickAddName}
                   onChange={(e) => setQuickAddName(e.target.value)}
-                  placeholder="Enter item name"
+                  placeholder={t("anesthesia.timeline.enterItemName")}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       handleQuickAdd();
@@ -382,7 +382,7 @@ export function MedicationConfigDialog({
                   {createItemMutation.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    "Add"
+                    t("anesthesia.timeline.add")
                   )}
                 </Button>
                 <Button
@@ -394,7 +394,7 @@ export function MedicationConfigDialog({
                   size="sm"
                   data-testid="button-cancel-quick-add"
                 >
-                  Cancel
+                  {t("anesthesia.timeline.cancel")}
                 </Button>
               </div>
             </div>
@@ -449,7 +449,7 @@ export function MedicationConfigDialog({
                   id="config-dose"
                   value={configDefaultDose}
                   onChange={(e) => setConfigDefaultDose(e.target.value)}
-                  placeholder="e.g., 2, 0.1, or range like 25-35-50"
+                  placeholder={t("anesthesia.timeline.dosePlaceholder")}
                   data-testid="input-config-dose"
                 />
               </div>
@@ -461,7 +461,7 @@ export function MedicationConfigDialog({
                   id="config-route"
                   value={configAdministrationRoute}
                   onChange={(e) => setConfigAdministrationRoute(e.target.value)}
-                  placeholder="e.g., i.v., i.m., s.c."
+                  placeholder={t("anesthesia.timeline.routePlaceholder")}
                   data-testid="input-config-route"
                 />
               </div>
@@ -475,10 +475,10 @@ export function MedicationConfigDialog({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="μg">μg (micrograms)</SelectItem>
-                      <SelectItem value="mg">mg (milligrams)</SelectItem>
-                      <SelectItem value="g">g (grams)</SelectItem>
-                      <SelectItem value="ml">ml (milliliters)</SelectItem>
+                      <SelectItem value="μg">μg ({t("anesthesia.timeline.micrograms")})</SelectItem>
+                      <SelectItem value="mg">mg ({t("anesthesia.timeline.milligrams")})</SelectItem>
+                      <SelectItem value="g">g ({t("anesthesia.timeline.grams")})</SelectItem>
+                      <SelectItem value="ml">ml ({t("anesthesia.timeline.milliliters")})</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -532,12 +532,12 @@ export function MedicationConfigDialog({
                   {removeMedicationMutation.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Removing...
+                      {t("anesthesia.timeline.removing")}
                     </>
                   ) : (
                     <>
                       <Trash2 className="mr-2 h-4 w-4" />
-                      Remove
+                      {t("anesthesia.timeline.remove")}
                     </>
                   )}
                 </Button>
@@ -549,7 +549,7 @@ export function MedicationConfigDialog({
                 onClick={() => onOpenChange(false)}
                 data-testid="button-cancel-config"
               >
-                Cancel
+                {t("anesthesia.timeline.cancel")}
               </Button>
               <Button
                 onClick={handleSave}
@@ -559,7 +559,7 @@ export function MedicationConfigDialog({
                 {updateConfigMutation.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
+                    {t("anesthesia.timeline.saving")}
                   </>
                 ) : (
                   editingItem ? t("anesthesia.timeline.updateConfiguration") : t("anesthesia.timeline.saveConfiguration")
