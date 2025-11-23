@@ -10,6 +10,7 @@ import type { UseMedicationStateReturn } from '@/hooks/useMedicationState';
 import type { UseVentilationStateReturn } from '@/hooks/useVentilationState';
 import type { UseEventStateReturn } from '@/hooks/useEventState';
 import type { UseOutputStateReturn } from '@/hooks/useOutputState';
+import type { UseInventoryCommitStateReturn } from '@/hooks/useInventoryCommitState';
 import {
   useAddVitalPoint,
   useAddBPPoint,
@@ -113,6 +114,7 @@ export interface TimelineContextValue {
   ventilationState: UseVentilationStateReturn;
   eventState: UseEventStateReturn;
   outputState: UseOutputStateReturn;
+  inventoryCommitState: UseInventoryCommitStateReturn;
   currentTime: number;
   setCurrentTime: (time: number) => void;
   chartInitTime: number;
@@ -182,6 +184,7 @@ export interface TimelineContextProviderProps {
   ventilationState: UseVentilationStateReturn;
   eventState: UseEventStateReturn;
   outputState: UseOutputStateReturn;
+  inventoryCommitState: UseInventoryCommitStateReturn;
   currentTime: number;
   setCurrentTime: (time: number) => void;
   chartInitTime: number;
@@ -259,6 +262,7 @@ export function TimelineContextProvider({
   ventilationState,
   eventState,
   outputState,
+  inventoryCommitState,
   currentTime,
   setCurrentTime,
   chartInitTime,
@@ -317,6 +321,7 @@ export function TimelineContextProvider({
       ventilationState,
       eventState,
       outputState,
+      inventoryCommitState,
       currentTime,
       setCurrentTime,
       chartInitTime,

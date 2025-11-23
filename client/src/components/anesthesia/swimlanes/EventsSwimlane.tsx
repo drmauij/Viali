@@ -60,6 +60,7 @@ export function EventsSwimlane({
 }: EventsSwimlaneProps) {
   const {
     eventState,
+    inventoryCommitState,
     currentTime,
     chartInitTime,
     currentZoomStart,
@@ -76,94 +77,22 @@ export function EventsSwimlane({
   const { eventComments, timeMarkers } = eventState;
   const { toast } = useToast();
 
-  // Fetch inventory usage to check for pending commits
-  const { 
-    data: inventoryUsage = [], 
-    isError: inventoryError,
-    isLoading: inventoryLoading 
-  } = useQuery<InventoryUsageItem[]>({
-    queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}`],
-    enabled: !!anesthesiaRecordId,
-  });
+  // Destructure inventory commit state from context (shared with UnifiedTimeline quick-add button)
+  const {
+    hasPendingCommits,
+    inventoryLoading,
+    commitsLoading,
+    inventoryError,
+    commitsError,
+    x2ReminderShownRef,
+  } = inventoryCommitState;
 
-  // Fetch commit history
-  const { 
-    data: commits = [], 
-    isError: commitsError,
-    isLoading: commitsLoading 
-  } = useQuery<InventoryCommit[]>({
-    queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}/commits`],
-    enabled: !!anesthesiaRecordId,
-  });
-
-  // Calculate committed quantities per item
-  const committedQuantities = useMemo(() => {
-    const quantities: Record<string, number> = {};
-    commits
-      .filter(c => !c.rolledBackAt)
-      .forEach(commit => {
-        commit.items.forEach(item => {
-          quantities[item.itemId] = (quantities[item.itemId] || 0) + item.quantity;
-        });
-      });
-    return quantities;
-  }, [commits]);
-
-  // Get final quantity for an item (override or calculated)
-  const getFinalQty = (itemId: string, usage: InventoryUsageItem | undefined) => {
-    if (!usage) return 0;
-    if (usage.overrideQty !== null && usage.overrideQty !== undefined) {
-      return usage.overrideQty;
-    }
-    return usage.calculatedQty || 0;
-  };
-
-  // Calculate if there are pending commits - matches InventoryUsageTab logic
-  const hasPendingCommits = useMemo(() => {
-    console.log('[PENDING_COMMITS_CHECK]', {
-      inventoryLoading,
-      commitsLoading,
-      inventoryError,
-      commitsError,
-      inventoryUsageLength: inventoryUsage.length,
-      commitsLength: commits.length,
-    });
-
-    // If queries are loading or failed, treat as pending commits (conservative/safe default)
-    if (inventoryLoading || commitsLoading || inventoryError || commitsError) {
-      console.log('[PENDING_COMMITS_CHECK] Returning true - loading or error state');
-      return true;
-    }
-
-    if (!inventoryUsage.length) {
-      console.log('[PENDING_COMMITS_CHECK] Returning false - no inventory usage');
-      return false;
-    }
-
-    // Check if any item has uncommitted quantity
-    const result = inventoryUsage.some(usage => {
-      const finalQty = getFinalQty(usage.itemId, usage);
-      const committed = committedQuantities[usage.itemId] || 0;
-      const uncommitted = Math.max(0, Math.round(finalQty - committed));
-      console.log('[PENDING_COMMITS_CHECK] Item check:', {
-        itemId: usage.itemId,
-        finalQty,
-        committed,
-        uncommitted,
-        hasPending: uncommitted > 0,
-      });
-      return uncommitted > 0;
-    });
-
-    console.log('[PENDING_COMMITS_CHECK] Final result:', result);
-    return result;
-  }, [inventoryUsage, committedQuantities, inventoryLoading, commitsLoading, inventoryError, commitsError]);
-
-  // Track if X2 reminder was already shown for this session
-  const x2ReminderShownRef = useRef(false);
-
-  // State for commit reminder dialog
+  // State for showing commit reminder dialog (local to this component)
   const [showCommitReminder, setShowCommitReminder] = useState(false);
+
+  // NOTE: Removed local inventory queries - now using shared inventoryCommitState from context
+  // NOTE: Removed committedQuantities, getFinalQty, hasPendingCommits - now from context
+  // NOTE: x2ReminderShownRef and showCommitReminder moved above, hasPendingCommits from context
 
   // Hover state for event comments
   const [eventHoverInfo, setEventHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);

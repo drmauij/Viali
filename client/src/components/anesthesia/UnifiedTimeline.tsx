@@ -3,7 +3,7 @@ import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
 import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil, StopCircle, PlayCircle, Droplet, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +49,7 @@ import { useMedicationState } from "@/hooks/useMedicationState";
 import { useVentilationState } from "@/hooks/useVentilationState";
 import { useEventState } from "@/hooks/useEventState";
 import { useOutputState } from "@/hooks/useOutputState";
+import { useInventoryCommitState } from "@/hooks/useInventoryCommitState";
 import { 
   useClinicalSnapshot, 
   useAddVitalPoint, 
@@ -257,6 +258,7 @@ export function UnifiedTimeline({
 }) {
   const chartRef = useRef<any>(null);
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
+  const [showCommitReminder, setShowCommitReminder] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const activeHospital = useActiveHospital();
@@ -731,6 +733,9 @@ export function UnifiedTimeline({
     bis: [],
     tof: [],
   });
+
+  // Inventory commit state management (for X2/P safeguards)
+  const inventoryCommitState = useInventoryCommitState(anesthesiaRecordId || null);
 
   // Load time markers from database when anesthesia record is fetched
   useEffect(() => {
@@ -4695,6 +4700,7 @@ export function UnifiedTimeline({
       ventilationState={ventilationState}
       eventState={eventState}
       outputState={outputState}
+      inventoryCommitState={inventoryCommitState}
       currentTime={currentTime}
       setCurrentTime={setCurrentTime}
       chartInitTime={chartInitTime}
@@ -4992,6 +4998,25 @@ export function UnifiedTimeline({
                     onClick={() => {
                       const nextMarkerIndex = timeMarkers.findIndex(m => m.time === null);
                       if (nextMarkerIndex !== -1) {
+                        const nextMarker = timeMarkers[nextMarkerIndex];
+                        
+                        // Check if trying to set PACU End (P) with pending commits (BLOCKING)
+                        if (nextMarker.code === 'P' && inventoryCommitState.hasPendingCommits) {
+                          console.log('[P_CHECK] Blocking PACU End - pending commits exist');
+                          toast({
+                            title: "Cannot set PACU End",
+                            description: "Please commit all inventory items before marking PACU End.",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+
+                        // Check if setting X2 (Anesthesia End) with pending commits (NON-BLOCKING REMINDER)
+                        const shouldShowX2Reminder = 
+                          nextMarker.code === 'X2' && 
+                          inventoryCommitState.hasPendingCommits && 
+                          !inventoryCommitState.x2ReminderShownRef.current;
+
                         const updatedMarkers = [...timeMarkers];
                         updatedMarkers[nextMarkerIndex] = {
                           ...updatedMarkers[nextMarkerIndex],
@@ -5006,6 +5031,13 @@ export function UnifiedTimeline({
                             anesthesiaRecordId,
                             timeMarkers: updatedMarkers,
                           });
+                        }
+
+                        // Show X2 reminder dialog after marker is set
+                        if (shouldShowX2Reminder) {
+                          console.log('[X2_CHECK] Showing reminder dialog from quick button');
+                          inventoryCommitState.x2ReminderShownRef.current = true;
+                          setShowCommitReminder(true);
                         }
                       }
                     }}
@@ -7011,6 +7043,23 @@ export function UnifiedTimeline({
           setShowEventsTimesPanel(false);
         }}
       />
+
+      {/* Friendly reminder dialog for inventory commit after X2 */}
+      <AlertDialog open={showCommitReminder} onOpenChange={setShowCommitReminder}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Inventory Commit Reminder</AlertDialogTitle>
+            <AlertDialogDescription>
+              You've marked Anesthesia End. Don't forget to commit the inventory items that were used during this procedure.
+              <br /><br />
+              You can commit them from the Inventory tab when you're ready.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction data-testid="button-close-commit-reminder">Got it, thanks!</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
     </TimelineContextProvider>
   );
