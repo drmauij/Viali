@@ -515,7 +515,18 @@ export default function Op() {
   
   // Show weight dialog when data is loaded but weight is missing
   useEffect(() => {
+    console.log('[WEIGHT-DIALOG-DEBUG]', {
+      isPreOpLoading,
+      isPatientLoading,
+      hasPreOpAssessment: !!preOpAssessment,
+      preOpWeight: preOpAssessment?.weight,
+      patientWeight,
+      showWeightDialog,
+      willShow: !isPreOpLoading && !isPatientLoading && preOpAssessment && !patientWeight && !showWeightDialog
+    });
+    
     if (!isPreOpLoading && !isPatientLoading && preOpAssessment && !patientWeight && !showWeightDialog) {
+      console.log('[WEIGHT-DIALOG] Opening weight dialog');
       setShowWeightDialog(true);
     }
   }, [isPreOpLoading, isPatientLoading, preOpAssessment, patientWeight, showWeightDialog]);
