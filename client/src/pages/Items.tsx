@@ -1768,11 +1768,13 @@ export default function Items() {
       return;
     }
     
-    // Add folderId to each item if selected
-    const itemsWithFolder = bulkItems.map(item => ({
-      ...item,
-      folderId: bulkImportFolderId
-    }));
+    // Add folderId to each item if selected (for photo imports)
+    // Preserve folderPath from CSV imports
+    const itemsWithFolder = bulkItems.map(item => 
+      bulkImportFolderId 
+        ? { ...item, folderId: bulkImportFolderId }
+        : item
+    );
     
     bulkCreateMutation.mutate(itemsWithFolder);
   };
