@@ -2006,6 +2006,19 @@ If unable to parse any drugs, return:
       const { items: bulkItems, hospitalId } = req.body;
       const userId = req.user.id;
       
+      console.log('[BULK] Received', bulkItems?.length, 'items for bulk creation');
+      if (bulkItems && bulkItems.length > 0) {
+        const sample = bulkItems[0];
+        console.log('[BULK] Sample item fields:', Object.keys(sample));
+        console.log('[BULK] Sample item:', {
+          name: sample.name,
+          unit: sample.unit,
+          initialStock: sample.initialStock,
+          currentUnits: sample.currentUnits,
+          trackExactQuantity: sample.trackExactQuantity
+        });
+      }
+      
       if (!bulkItems || !Array.isArray(bulkItems) || bulkItems.length === 0) {
         return res.status(400).json({ message: "Items array is required" });
       }
