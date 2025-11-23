@@ -3443,10 +3443,58 @@ export class DatabaseStorage implements IStorage {
 
   async calculateInventoryUsage(anesthesiaRecordId: string): Promise<InventoryUsage[]> {
     // Get all medications for this anesthesia record
-    const medications = await db
+    const allMedications = await db
       .select()
       .from(anesthesiaMedications)
       .where(eq(anesthesiaMedications.anesthesiaRecordId, anesthesiaRecordId));
+
+    // Get all non-rolled-back commits to find the latest commit timestamp per item
+    const commits = await db
+      .select()
+      .from(inventoryCommits)
+      .where(
+        and(
+          eq(inventoryCommits.anesthesiaRecordId, anesthesiaRecordId),
+          isNull(inventoryCommits.rolledBackAt)
+        )
+      )
+      .orderBy(inventoryCommits.committedAt);
+
+    // Build a map of itemId -> latest commit timestamp
+    const lastCommitTimeByItem = new Map<string, Date>();
+    for (const commit of commits) {
+      const commitItems = commit.items as Array<{ itemId: string; quantity: number }>;
+      const commitTime = new Date(commit.committedAt);
+      
+      for (const item of commitItems) {
+        // Keep track of the latest commit time for each item
+        const existing = lastCommitTimeByItem.get(item.itemId);
+        if (!existing || commitTime > existing) {
+          lastCommitTimeByItem.set(item.itemId, commitTime);
+        }
+      }
+    }
+
+    // Filter medications to only include those AFTER the last commit for each item
+    const medications = allMedications.filter(med => {
+      const lastCommitTime = lastCommitTimeByItem.get(med.itemId);
+      if (!lastCommitTime) {
+        // No commit yet for this item, include all medications
+        return true;
+      }
+      // Only include medications after the last commit
+      const medTime = new Date(med.timestamp);
+      return medTime > lastCommitTime;
+    });
+
+    console.log('[INVENTORY-CALC] Filtered medications:', {
+      totalMedications: allMedications.length,
+      filteredMedications: medications.length,
+      lastCommitTimes: Array.from(lastCommitTimeByItem.entries()).map(([itemId, time]) => ({
+        itemId,
+        lastCommitTime: time.toISOString()
+      }))
+    });
 
     // Get anesthesia record and surgery to access patient weight from preOpAssessment
     const [anesthesiaRecord] = await db
@@ -3794,30 +3842,11 @@ export class DatabaseStorage implements IStorage {
     patientId: string | null
   ): Promise<InventoryCommit> {
     // Get all current inventory usage (calculated + overrides)
+    // Note: calculateInventoryUsage already filters to only include post-commit usage
     const usage = await this.getInventoryUsage(anesthesiaRecordId);
     
     if (usage.length === 0) {
       throw new Error("No inventory items to commit");
-    }
-
-    // Get all previous commits to calculate already-committed quantities
-    const previousCommits = await db
-      .select()
-      .from(inventoryCommits)
-      .where(
-        and(
-          eq(inventoryCommits.anesthesiaRecordId, anesthesiaRecordId),
-          isNull(inventoryCommits.rolledBackAt)
-        )
-      );
-
-    // Calculate total committed quantities per item
-    const committedQuantities: Record<string, number> = {};
-    for (const commit of previousCommits) {
-      const commitItems = commit.items as Array<{ itemId: string; quantity: number }>;
-      for (const item of commitItems) {
-        committedQuantities[item.itemId] = (committedQuantities[item.itemId] || 0) + item.quantity;
-      }
     }
 
     // Get item details for all items
@@ -3829,7 +3858,8 @@ export class DatabaseStorage implements IStorage {
 
     const itemsMap = new Map(itemsData.map(item => [item.id, item]));
 
-    // Calculate quantities to commit (current usage minus already committed)
+    // Build items to commit - since calculateInventoryUsage filters by timestamp,
+    // the current quantities already represent uncommitted items only
     const itemsToCommit: Array<{
       itemId: string;
       itemName: string;
@@ -3842,8 +3872,7 @@ export class DatabaseStorage implements IStorage {
       if (!item) continue;
 
       const currentQty = parseFloat(String(usageRecord.overrideQty || usageRecord.calculatedQty));
-      const alreadyCommitted = committedQuantities[usageRecord.itemId] || 0;
-      const qtyToCommit = Math.max(0, Math.round(currentQty - alreadyCommitted));
+      const qtyToCommit = Math.max(0, Math.round(currentQty));
 
       if (qtyToCommit > 0) {
         itemsToCommit.push({
@@ -3877,6 +3906,20 @@ export class DatabaseStorage implements IStorage {
         items: itemsToCommit,
       })
       .returning();
+
+    // Clear inventory_usage records for committed items
+    // This ensures that the next calculation starts fresh and only counts post-commit usage
+    const committedItemIds = itemsToCommit.map(i => i.itemId);
+    if (committedItemIds.length > 0) {
+      await db
+        .delete(inventoryUsage)
+        .where(
+          and(
+            eq(inventoryUsage.anesthesiaRecordId, anesthesiaRecordId),
+            inArray(inventoryUsage.itemId, committedItemIds)
+          )
+        );
+    }
 
     // Deduct from inventory for items with trackExactQuantity enabled or "Single unit" type
     for (const item of itemsToCommit) {
@@ -3993,6 +4036,10 @@ export class DatabaseStorage implements IStorage {
         }
       }
     }
+
+    // Recalculate inventory usage to restore previously committed items
+    // This is critical because the commit process deleted the inventory_usage records
+    await this.calculateInventoryUsage(commit.anesthesiaRecordId);
 
     return updated;
   }

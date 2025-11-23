@@ -150,19 +150,6 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
     }
   }, [anesthesiaRecordId, medications, refetchInventory]);
 
-  // Calculate total committed quantities per item from non-rolled-back commits
-  const committedQuantities = useMemo(() => {
-    const quantities: Record<string, number> = {};
-    commits
-      .filter(c => !c.rolledBackAt)
-      .forEach(commit => {
-        commit.items.forEach(item => {
-          quantities[item.itemId] = (quantities[item.itemId] || 0) + item.quantity;
-        });
-      });
-    return quantities;
-  }, [commits]);
-
   // Create a map of itemId -> auto-calculated quantity
   const autoCalcMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -222,11 +209,11 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
     return autoCalcMap[itemId] || 0;
   };
 
-  // Get uncommitted quantity (total - committed)
+  // Get uncommitted quantity
+  // Note: The server already filters medications by timestamp, so getFinalQty 
+  // already represents only post-commit usage (not cumulative)
   const getUncommittedQty = (itemId: string) => {
-    const total = getFinalQty(itemId);
-    const committed = committedQuantities[itemId] || 0;
-    return Math.max(0, Math.round(total - committed));
+    return Math.max(0, Math.round(getFinalQty(itemId)));
   };
 
   // Get items to commit (uncommitted quantities)
@@ -246,7 +233,7 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
       });
     });
     return toCommit;
-  }, [groupedItems, autoCalcMap, overrideMap, committedQuantities]);
+  }, [groupedItems, autoCalcMap, overrideMap]);
 
   // Mutation to create or update inventory usage quantity
   const overrideMutation = useMutation({
@@ -499,7 +486,6 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
                       const autoCalc = autoCalcMap[item.id] || 0;
                       const hasOverride = overrideMap[item.id]?.qty !== null;
                       const isUsed = finalQty > 0;
-                      const committedQty = committedQuantities[item.id] || 0;
 
                       return (
                         <div
@@ -517,11 +503,6 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
                               <span className="text-xs text-muted-foreground">
                                 ({t('anesthesia.op.calc')}: ~{Math.round(autoCalc)})
                               </span>
-                            )}
-                            {committedQty > 0 && (
-                              <Badge variant="outline" className="bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/50 text-xs">
-                                ✓ {committedQty}
-                              </Badge>
                             )}
                             {isRunningInfusion(item.id) && (
                               <Badge variant="outline" className="bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-500/50 text-xs animate-pulse">
