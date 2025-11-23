@@ -514,29 +514,33 @@ export default function Op() {
   const patientWeight = preOpAssessment?.weight ? parseFloat(preOpAssessment.weight) : undefined;
   
   // Show weight dialog when data is loaded but weight is missing
+  // Show dialog if: (1) no preOp assessment exists, OR (2) preOp assessment exists but has no weight
   useEffect(() => {
-    console.log('[WEIGHT-DIALOG-DEBUG]', {
-      isPreOpLoading,
-      isPatientLoading,
-      hasPreOpAssessment: !!preOpAssessment,
-      preOpWeight: preOpAssessment?.weight,
-      patientWeight,
-      showWeightDialog,
-      willShow: !isPreOpLoading && !isPatientLoading && preOpAssessment && !patientWeight && !showWeightDialog
-    });
-    
-    if (!isPreOpLoading && !isPatientLoading && preOpAssessment && !patientWeight && !showWeightDialog) {
-      console.log('[WEIGHT-DIALOG] Opening weight dialog');
-      setShowWeightDialog(true);
+    if (!isPreOpLoading && !isPatientLoading && !showWeightDialog && surgeryId) {
+      // Show if no preOp assessment OR preOp assessment exists without weight
+      const shouldShow = !preOpAssessment || (preOpAssessment && !patientWeight);
+      if (shouldShow) {
+        console.log('[WEIGHT-DIALOG] Opening weight dialog - preOp missing or weight missing');
+        setShowWeightDialog(true);
+      }
     }
-  }, [isPreOpLoading, isPatientLoading, preOpAssessment, patientWeight, showWeightDialog]);
+  }, [isPreOpLoading, isPatientLoading, preOpAssessment, patientWeight, showWeightDialog, surgeryId]);
   
-  // Handle weight save
+  // Handle weight save - create preOp assessment if it doesn't exist
   const handleWeightSave = async (weight: string) => {
-    if (!preOpAssessment?.id) return;
+    if (!surgeryId) return;
     
     try {
-      await apiRequest('PATCH', `/api/anesthesia/preop/${preOpAssessment.id}`, { weight });
+      if (preOpAssessment?.id) {
+        // Update existing preOp assessment
+        await apiRequest('PATCH', `/api/anesthesia/preop/${preOpAssessment.id}`, { weight });
+      } else {
+        // Create new preOp assessment with weight
+        await apiRequest('POST', '/api/anesthesia/preop', {
+          surgeryId,
+          weight
+        });
+      }
       
       // Invalidate the preOp assessment query to refetch with new weight
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${surgeryId}`] });
