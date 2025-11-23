@@ -7953,16 +7953,13 @@ If unable to parse any drugs, return:
         return res.status(403).json({ message: "Access denied" });
       }
 
-      // Get patient info
-      const patient = await storage.getPatientById(surgery.patientId);
-
-      // Commit inventory
+      // Commit inventory (using surgery's patientId)
       const commit = await storage.commitInventoryUsage(
         recordId,
         userId,
         signature,
-        patient ? `${patient.firstName} ${patient.lastName}` : null,
-        patient ? patient.patientId : null
+        surgery.patientId, // Use patientId as name (can be enhanced later)
+        surgery.patientId
       );
 
       res.json(commit);

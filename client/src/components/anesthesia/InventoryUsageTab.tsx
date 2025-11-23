@@ -90,6 +90,18 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
     queryKey: [`/api/anesthesia/medications/${anesthesiaRecordId}`],
     enabled: !!anesthesiaRecordId,
   });
+
+  // Fetch anesthesia record to get surgery info
+  const { data: anesthesiaRecord } = useQuery<any>({
+    queryKey: [`/api/anesthesia/records/${anesthesiaRecordId}`],
+    enabled: !!anesthesiaRecordId,
+  });
+
+  // Fetch surgery to get patient info
+  const { data: surgery } = useQuery<any>({
+    queryKey: [`/api/surgeries/${anesthesiaRecord?.surgeryId}`],
+    enabled: !!anesthesiaRecord?.surgeryId,
+  });
   
   // Trigger inventory calculation on mount and periodically for running infusions
   useEffect(() => {
@@ -570,6 +582,8 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
         onCommit={handleCommit}
         items={itemsToCommit}
         isCommitting={commitMutation.isPending}
+        patientId={surgery?.patientId}
+        patientName={surgery?.patientId}
       />
     </div>
   );

@@ -21,6 +21,8 @@ interface ControlledItemsCommitDialogProps {
   onCommit: (signature: string | null) => void;
   items: CommitItem[];
   isCommitting: boolean;
+  patientId?: string | null;
+  patientName?: string | null;
 }
 
 export function ControlledItemsCommitDialog({
@@ -29,6 +31,8 @@ export function ControlledItemsCommitDialog({
   onCommit,
   items,
   isCommitting,
+  patientId,
+  patientName,
 }: ControlledItemsCommitDialogProps) {
   const { t } = useTranslation();
   const [showSignaturePad, setShowSignaturePad] = useState(false);
@@ -79,6 +83,33 @@ export function ControlledItemsCommitDialog({
                   <p className="text-xs text-muted-foreground">
                     {t('anesthesia.op.controlledItemsSignatureRequired')}
                   </p>
+                  
+                  {/* Patient Information */}
+                  {(patientId || patientName) && (
+                    <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <p className="text-xs font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                        {t('anesthesia.op.patientInformation')}
+                      </p>
+                      <div className="space-y-1">
+                        {patientName && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="text-muted-foreground">{t('anesthesia.op.patientName')}:</span>
+                            <span className="font-medium" data-testid="patient-name">{patientName}</span>
+                          </div>
+                        )}
+                        {patientId && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="text-muted-foreground">{t('anesthesia.op.patientId')}:</span>
+                            <span className="font-medium" data-testid="patient-id">{patientId}</span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {t('anesthesia.op.controlledItemsWillBeRegistered')}
+                      </p>
+                    </div>
+                  )}
+                  
                   <div className="space-y-1 bg-amber-50 dark:bg-amber-950/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
                     {controlledItems.map(item => (
                       <div
