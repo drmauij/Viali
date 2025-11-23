@@ -233,9 +233,9 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
   ].filter(section => section.items.length > 0 || section.notes?.trim());
 
   const allMedications = [
-    ...data.anticoagulationMeds.map(m => `${m} (Anticoagulation)`),
+    ...(data.anticoagulationMeds || []).map(m => `${m} (Anticoagulation)`),
     data.anticoagulationMedsOther ? `${data.anticoagulationMedsOther} (Anticoagulation)` : '',
-    ...data.generalMeds,
+    ...(data.generalMeds || []),
     data.generalMedsOther
   ].filter(Boolean);
 
