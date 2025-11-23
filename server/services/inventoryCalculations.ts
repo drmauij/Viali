@@ -73,6 +73,13 @@ export function normalizeRateUnit(rateUnit: string | null | undefined): string {
     return weightMatch[0]; // Return the normalized weight-based unit
   }
   
+  // Try to match absolute dosing patterns (without /kg)
+  const absolutePattern = /(μg|µg|ug|mcg|mg)\/(min|h|hr)/;
+  const absoluteMatch = working.match(absolutePattern);
+  if (absoluteMatch) {
+    return absoluteMatch[0]; // Return the normalized absolute dosing unit
+  }
+  
   // Try to match simple volume rate patterns
   const volumePattern = /ml\/(h|hr|min)/;
   const volumeMatch = working.match(volumePattern);
@@ -158,6 +165,26 @@ export function calculateRateControlledAmpules(
   } else if (rateUnitLower.includes('mg/kg/h') || rateUnitLower.includes('mg/kg/hr')) {
     const totalMilligrams = rateValue * (patientWeight || 70) * durationHours;
     totalVolume = totalMilligrams;
+  } else if (rateUnitLower.includes('μg/min') || rateUnitLower.includes('µg/min') || rateUnitLower.includes('ug/min') || rateUnitLower.includes('mcg/min')) {
+    // Absolute dosing: micrograms per minute (not weight-based)
+    const durationMinutes = durationHours * 60;
+    const totalMicrograms = rateValue * durationMinutes;
+    const totalMilligrams = totalMicrograms / 1000;
+    totalVolume = totalMilligrams;
+    console.log('[CALC-DEBUG] μg/min (absolute) calculation:', {
+      durationMinutes,
+      totalMicrograms,
+      totalMilligrams
+    });
+  } else if (rateUnitLower.includes('mg/min')) {
+    // Absolute dosing: milligrams per minute (not weight-based)
+    const durationMinutes = durationHours * 60;
+    const totalMilligrams = rateValue * durationMinutes;
+    totalVolume = totalMilligrams;
+    console.log('[CALC-DEBUG] mg/min (absolute) calculation:', {
+      durationMinutes,
+      totalMilligrams
+    });
   } else if (rateUnitLower.includes('mg/h') || rateUnitLower.includes('mg/hr')) {
     totalVolume = rateValue * durationHours;
   } else {
@@ -217,6 +244,14 @@ export function calculateDepletionTime(
     // Convert mg/kg/h to total volume
     const weight = patientWeight || 70;
     hoursToDepletion = ampuleValue / (rateValue * weight);
+  } else if (rateUnitLower.includes('μg/min') || rateUnitLower.includes('µg/min') || rateUnitLower.includes('ug/min') || rateUnitLower.includes('mcg/min')) {
+    // Absolute dosing: micrograms per minute (not weight-based)
+    const minutesToDepletion = (ampuleValue * 1000) / rateValue;
+    hoursToDepletion = minutesToDepletion / 60;
+  } else if (rateUnitLower.includes('mg/min')) {
+    // Absolute dosing: milligrams per minute (not weight-based)
+    const minutesToDepletion = ampuleValue / rateValue;
+    hoursToDepletion = minutesToDepletion / 60;
   } else if (rateUnitLower.includes('mg/h') || rateUnitLower.includes('mg/hr')) {
     // Direct mg per hour
     hoursToDepletion = ampuleValue / rateValue;
