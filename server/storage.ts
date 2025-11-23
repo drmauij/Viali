@@ -3745,6 +3745,22 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    // Get all existing usage records for this anesthesia record
+    const existingUsage = await db
+      .select()
+      .from(inventoryUsage)
+      .where(eq(inventoryUsage.anesthesiaRecordId, anesthesiaRecordId));
+    
+    // Delete or zero-out records for items that are no longer used (unless manually overridden)
+    for (const existing of existingUsage) {
+      if (!usageMap.has(existing.itemId) && existing.overrideQty === null) {
+        // Item no longer has any usage - delete the record
+        await db
+          .delete(inventoryUsage)
+          .where(eq(inventoryUsage.id, existing.id));
+      }
+    }
+    
     // Upsert inventory usage records
     const usageRecords: InventoryUsage[] = [];
     
