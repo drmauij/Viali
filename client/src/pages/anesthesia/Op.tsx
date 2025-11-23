@@ -10,7 +10,13 @@ import {
   PeripheralBlocksSection
 } from "@/components/anesthesia/AnesthesiaDocumentation";
 import { OpInventory } from "@/components/anesthesia/OpInventory";
+import { PatientInfoHeader } from "@/components/anesthesia/PatientInfoHeader";
+import { PostOpInfoCard } from "@/components/anesthesia/PostOpInfoCard";
+import { MedicationScheduleCard } from "@/components/anesthesia/MedicationScheduleCard";
+import { WHOChecklistCard } from "@/components/anesthesia/WHOChecklistCard";
 import { useOpData } from "@/hooks/useOpData";
+import { useChecklistState } from "@/hooks/useChecklistState";
+import { usePacuDataFiltering } from "@/hooks/usePacuDataFiltering";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -198,30 +204,26 @@ export default function Op() {
     }
   }, [patientError, toast, t]);
 
-  // Checklist mutations
-  // Auto-save mutations for WHO Checklists
-  const signInAutoSave = useAutoSaveMutation({
-    mutationFn: async (data: { checklist: Record<string, boolean>; notes: string; signature: string }) => {
-      if (!anesthesiaRecord?.id) throw new Error("No anesthesia record");
-      return apiRequest('PATCH', `/api/anesthesia/records/${anesthesiaRecord.id}/signin`, data);
-    },
-    queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
+  // WHO Checklist state management using custom hooks
+  const signInState = useChecklistState({
+    checklistType: 'signIn',
+    anesthesiaRecordId: anesthesiaRecord?.id,
+    surgeryId: surgeryId || '',
+    initialData: anesthesiaRecord?.signInData,
   });
 
-  const timeOutAutoSave = useAutoSaveMutation({
-    mutationFn: async (data: { checklist: Record<string, boolean>; notes: string; signature: string }) => {
-      if (!anesthesiaRecord?.id) throw new Error("No anesthesia record");
-      return apiRequest('PATCH', `/api/anesthesia/records/${anesthesiaRecord.id}/timeout`, data);
-    },
-    queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
+  const timeOutState = useChecklistState({
+    checklistType: 'timeOut',
+    anesthesiaRecordId: anesthesiaRecord?.id,
+    surgeryId: surgeryId || '',
+    initialData: anesthesiaRecord?.timeOutData,
   });
 
-  const signOutAutoSave = useAutoSaveMutation({
-    mutationFn: async (data: { checklist: Record<string, boolean>; notes: string; signature: string }) => {
-      if (!anesthesiaRecord?.id) throw new Error("No anesthesia record");
-      return apiRequest('PATCH', `/api/anesthesia/records/${anesthesiaRecord.id}/signout`, data);
-    },
-    queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
+  const signOutState = useChecklistState({
+    checklistType: 'signOut',
+    anesthesiaRecordId: anesthesiaRecord?.id,
+    surgeryId: surgeryId || '',
+    initialData: anesthesiaRecord?.signOutData,
   });
 
   // Debug: Log medications data
@@ -306,35 +308,13 @@ export default function Op() {
     setIsAllergiesDialogOpen(false);
   };
 
-  // Extract A2 timestamp (Anesthesia Presence End) for PACU mode filtering
-  const a2Timestamp = useMemo(() => {
-    if (!isPacuMode || !anesthesiaRecord?.timeMarkers) return null;
-    const markers = anesthesiaRecord.timeMarkers as any[];
-    const a2Marker = markers.find((m: any) => m.code === 'A2');
-    // Ensure we return a number
-    return a2Marker?.time ? Number(a2Marker.time) : null;
-  }, [isPacuMode, anesthesiaRecord?.timeMarkers]);
-
-  // Filter vitals snapshots for PACU mode (only show vitals after A2 timestamp)
-  const filteredVitalsData = useMemo(() => {
-    if (!isPacuMode || !a2Timestamp || !vitalsData) return vitalsData;
-    
-    // Filter vitals snapshots array to only include those recorded after A2 timestamp
-    return vitalsData.filter((snapshot: any) => {
-      const snapshotTime = new Date(snapshot.timestamp).getTime();
-      return snapshotTime > a2Timestamp;
-    });
-  }, [isPacuMode, a2Timestamp, vitalsData]);
-
-  // Filter medications data for PACU mode (only show medications after A2 timestamp)
-  const filteredMedicationsData = useMemo(() => {
-    if (!isPacuMode || !a2Timestamp || !medicationsData) return medicationsData;
-    
-    return medicationsData.filter((med: any) => {
-      const medTime = new Date(med.timestamp).getTime();
-      return medTime > a2Timestamp;
-    });
-  }, [isPacuMode, a2Timestamp, medicationsData]);
+  // PACU mode data filtering
+  const { a2Timestamp, filteredVitalsData, filteredMedicationsData } = usePacuDataFiltering({
+    isPacuMode,
+    anesthesiaRecord,
+    vitalsData,
+    medicationsData,
+  });
 
   // Transform vitals data for timeline
   const timelineData = useMemo((): UnifiedTimelineData => {
@@ -464,22 +444,6 @@ export default function Op() {
   // Inventory tracking state - { itemId: quantity }
   const [inventoryQuantities, setInventoryQuantities] = useState<Record<string, number>>({});
 
-  // WHO Checklist state - controlled with persistence
-  const [signInChecklist, setSignInChecklist] = useState<Record<string, boolean>>({});
-  const [signInNotes, setSignInNotes] = useState("");
-  const [signInSignature, setSignInSignature] = useState("");
-  const [timeOutChecklist, setTimeOutChecklist] = useState<Record<string, boolean>>({});
-  const [timeOutNotes, setTimeOutNotes] = useState("");
-  const [timeOutSignature, setTimeOutSignature] = useState("");
-  const [signOutChecklist, setSignOutChecklist] = useState<Record<string, boolean>>({});
-  const [signOutNotes, setSignOutNotes] = useState("");
-  const [signOutSignature, setSignOutSignature] = useState("");
-
-  // Modal state for signature pads
-  const [showSignInSigPad, setShowSignInSigPad] = useState(false);
-  const [showTimeOutSigPad, setShowTimeOutSigPad] = useState(false);
-  const [showSignOutSigPad, setShowSignOutSigPad] = useState(false);
-
   // Post-Operative Information state
   type MedicationTime = "Immediately" | "Contraindicated" | string;
   const [postOpData, setPostOpData] = useState<{
@@ -573,44 +537,6 @@ export default function Op() {
     setInventoryQuantities(computedQuantities);
   }, [medicationsData]);
 
-  // Initialize WHO checklist state from anesthesia record
-  useEffect(() => {
-    if (!anesthesiaRecord) return;
-    
-    if (anesthesiaRecord.signInData) {
-      if (anesthesiaRecord.signInData.checklist) {
-        setSignInChecklist(anesthesiaRecord.signInData.checklist);
-      }
-      if (anesthesiaRecord.signInData.notes) {
-        setSignInNotes(anesthesiaRecord.signInData.notes);
-      }
-      if (anesthesiaRecord.signInData.signature) {
-        setSignInSignature(anesthesiaRecord.signInData.signature);
-      }
-    }
-    if (anesthesiaRecord.timeOutData) {
-      if (anesthesiaRecord.timeOutData.checklist) {
-        setTimeOutChecklist(anesthesiaRecord.timeOutData.checklist);
-      }
-      if (anesthesiaRecord.timeOutData.notes) {
-        setTimeOutNotes(anesthesiaRecord.timeOutData.notes);
-      }
-      if (anesthesiaRecord.timeOutData.signature) {
-        setTimeOutSignature(anesthesiaRecord.timeOutData.signature);
-      }
-    }
-    if (anesthesiaRecord.signOutData) {
-      if (anesthesiaRecord.signOutData.checklist) {
-        setSignOutChecklist(anesthesiaRecord.signOutData.checklist);
-      }
-      if (anesthesiaRecord.signOutData.notes) {
-        setSignOutNotes(anesthesiaRecord.signOutData.notes);
-      }
-      if (anesthesiaRecord.signOutData.signature) {
-        setSignOutSignature(anesthesiaRecord.signOutData.signature);
-      }
-    }
-  }, [anesthesiaRecord]);
 
   // Initialize Post-Op data from anesthesia record
   useEffect(() => {
@@ -823,103 +749,20 @@ export default function Op() {
       <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col [&>button]:hidden" aria-describedby="op-dialog-description">
         <h2 className="sr-only" id="op-dialog-title">{isPacuMode ? t('anesthesia.op.pacuMonitor') : t('anesthesia.op.intraoperativeMonitoring')} - {t('anesthesia.op.patient')} {surgery.patientId}</h2>
         <p className="sr-only" id="op-dialog-description">{isPacuMode ? 'Post-anesthesia care unit monitoring system' : 'Professional anesthesia monitoring system for tracking vitals, medications, and clinical events during surgery'}</p>
+        
         {/* Fixed Patient Info Header */}
-        <div className="shrink-0 bg-background relative">
-          {/* Action Buttons - Fixed top-right */}
-          <div className="absolute right-2 top-2 md:right-4 md:top-4 z-10 flex gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleDownloadPDF}
-              data-testid="button-download-pdf"
-              title={t('anesthesia.op.downloadCompleteRecordPDF')}
-            >
-              <Download className="h-5 w-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleClose}
-              data-testid="button-close-op"
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
-
-          <div className="px-4 md:px-6 py-3 pr-12 md:pr-14">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4 md:flex-wrap">
-              {/* Patient Name & Icon */}
-              <div className="flex items-center gap-3">
-                <UserCircle className="h-8 w-8 text-blue-500" />
-                <div>
-                  <h2 className="font-bold text-base md:text-lg">
-                    {patient ? `${patient.firstName || ''} ${patient.surname || ''}`.trim() || t('anesthesia.op.patientFallback') : t('anesthesia.op.loadingData')}
-                  </h2>
-                  <div className="flex items-center gap-3 md:gap-4 flex-wrap">
-                    {patient?.birthday && (
-                      <p className="text-xs md:text-sm text-muted-foreground">
-                        {formatDate(patient.birthday)}{patientAge !== null && ` • ${patientAge} ${t('anesthesia.op.yearsOld')}`}
-                      </p>
-                    )}
-                    {preOpAssessment && (
-                      <div className="flex items-center gap-3 font-semibold text-sm">
-                        {preOpAssessment.height && (
-                          <>
-                            <span className="text-foreground">{preOpAssessment.height} {t('anesthesia.op.cm')}</span>
-                            <span className="text-muted-foreground">•</span>
-                          </>
-                        )}
-                        {preOpAssessment.weight && (
-                          <span className="text-foreground">{preOpAssessment.weight} {t('anesthesia.op.kg')}</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Surgery Info */}
-              <div className="px-3 py-2 bg-primary/10 border border-primary/30 rounded-lg">
-                <p className="text-xs font-medium text-primary/70">{t('anesthesia.op.procedure').toUpperCase()}</p>
-                <p className="font-semibold text-sm text-primary">{surgery.plannedSurgery}</p>
-                {surgery.surgeon && (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {surgery.surgeon} • {formatDate(surgery.plannedDate)}
-                  </p>
-                )}
-              </div>
-
-              {/* Allergies & CAVE - Clickable Display */}
-              {(allergies || cave) && (
-                <div 
-                  onClick={handleOpenAllergiesDialog}
-                  className="flex items-start gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 rounded-lg cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors"
-                  data-testid="allergies-cave-warning"
-                >
-                  <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
-                  <div className="flex gap-4 flex-wrap flex-1">
-                    {allergies && (
-                      <div className="flex-1 min-w-[120px]">
-                        <p className="text-xs font-medium text-amber-700 dark:text-amber-300">{t('anesthesia.op.allergies').toUpperCase()}</p>
-                        <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                          {isPreOpLoading ? <Skeleton className="h-4 w-20" /> : allergies}
-                        </p>
-                      </div>
-                    )}
-                    {cave && (
-                      <div className="flex-1 min-w-[120px]">
-                        <p className="text-xs font-medium text-amber-700 dark:text-amber-300">{t('anesthesia.op.cave').toUpperCase()}</p>
-                        <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                          {isPreOpLoading ? <Skeleton className="h-4 w-20" /> : cave}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <PatientInfoHeader
+          patient={patient}
+          surgery={surgery}
+          preOpAssessment={preOpAssessment}
+          allergies={allergies}
+          cave={cave}
+          patientAge={patientAge}
+          isPreOpLoading={isPreOpLoading}
+          onDownloadPDF={handleDownloadPDF}
+          onClose={handleClose}
+          onOpenAllergiesDialog={handleOpenAllergiesDialog}
+        />
 
         {/* Tabbed Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
@@ -998,145 +841,8 @@ export default function Op() {
           {/* PACU Documentation Tab - Only visible in PACU mode */}
           {isPacuMode && (
             <TabsContent value="pacu" className="flex-1 overflow-y-auto px-6 pb-6 mt-0 space-y-4" data-testid="tab-content-pacu">
-              {/* Post-Operative Information */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MapPin className="h-5 w-5" />
-                    {t('anesthesia.op.postOperativeInformation')}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Destination */}
-                  {postOpData?.postOpDestination && (
-                    <div>
-                      <h4 className="text-sm font-medium mb-2">{t('anesthesia.op.destination')}</h4>
-                      <Badge className={
-                        postOpData.postOpDestination === 'pacu' ? 'bg-blue-500 text-white' :
-                        postOpData.postOpDestination === 'icu' ? 'bg-red-500 text-white' :
-                        postOpData.postOpDestination === 'ward' ? 'bg-green-500 text-white' :
-                        postOpData.postOpDestination === 'home' ? 'bg-gray-500 text-white' :
-                        'bg-gray-500 text-white'
-                      }>
-                        {postOpData.postOpDestination.toUpperCase()}
-                      </Badge>
-                    </div>
-                  )}
-
-                  {/* Post-Op Notes */}
-                  {postOpData?.postOpNotes && (
-                    <>
-                      <Separator />
-                      <div>
-                        <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                          <FileText className="h-4 w-4" />
-                          {t('anesthesia.op.postOperativeNotes')}
-                        </h4>
-                        <p className="text-sm whitespace-pre-wrap bg-muted/30 p-3 rounded-md" data-testid="text-pacu-postop-notes">
-                          {postOpData.postOpNotes}
-                        </p>
-                      </div>
-                    </>
-                  )}
-
-                  {/* Complications */}
-                  {postOpData?.complications && (
-                    <>
-                      <Separator />
-                      <div>
-                        <h4 className="text-sm font-medium mb-2 flex items-center gap-2 text-red-600">
-                          <AlertTriangle className="h-4 w-4" />
-                          {t('anesthesia.op.complications')}
-                        </h4>
-                        <p className="text-sm whitespace-pre-wrap bg-red-50 p-3 rounded-md border border-red-200" data-testid="text-pacu-complications">
-                          {postOpData.complications}
-                        </p>
-                      </div>
-                    </>
-                  )}
-
-                  {/* Empty state */}
-                  {!postOpData?.postOpDestination && !postOpData?.postOpNotes && !postOpData?.complications && (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      No post-operative information recorded yet.
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Medication Schedule */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Pill className="h-5 w-5" />
-                    {t('anesthesia.op.medicationSchedule')}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {/* Paracetamol */}
-                    <div className="flex items-center justify-between py-2">
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium text-sm">Paracetamol</span>
-                      </div>
-                      <div data-testid="text-pacu-paracetamol-time">
-                        {!postOpData?.paracetamolTime ? (
-                          <span className="text-muted-foreground text-sm">{t('anesthesia.op.notSpecified')}</span>
-                        ) : postOpData.paracetamolTime === "Immediately" ? (
-                          <Badge variant="outline" className="bg-green-50 dark:bg-green-900/30 text-green-900 dark:text-green-100">{t('anesthesia.op.immediately')}</Badge>
-                        ) : postOpData.paracetamolTime === "Contraindicated" ? (
-                          <Badge variant="outline" className="bg-red-50 dark:bg-red-900/30 text-red-900 dark:text-red-100">{t('anesthesia.op.contraindicated')}</Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100">{postOpData.paracetamolTime}</Badge>
-                        )}
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    {/* NSAR */}
-                    <div className="flex items-center justify-between py-2">
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium text-sm">NSAR</span>
-                      </div>
-                      <div data-testid="text-pacu-nsar-time">
-                        {!postOpData?.nsarTime ? (
-                          <span className="text-muted-foreground text-sm">{t('anesthesia.op.notSpecified')}</span>
-                        ) : postOpData.nsarTime === "Immediately" ? (
-                          <Badge variant="outline" className="bg-green-50 dark:bg-green-900/30 text-green-900 dark:text-green-100">{t('anesthesia.op.immediately')}</Badge>
-                        ) : postOpData.nsarTime === "Contraindicated" ? (
-                          <Badge variant="outline" className="bg-red-50 dark:bg-red-900/30 text-red-900 dark:text-red-100">{t('anesthesia.op.contraindicated')}</Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100">{postOpData.nsarTime}</Badge>
-                        )}
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    {/* Novalgin */}
-                    <div className="flex items-center justify-between py-2">
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium text-sm">Novalgin</span>
-                      </div>
-                      <div data-testid="text-pacu-novalgin-time">
-                        {!postOpData?.novalginTime ? (
-                          <span className="text-muted-foreground text-sm">{t('anesthesia.op.notSpecified')}</span>
-                        ) : postOpData.novalginTime === "Immediately" ? (
-                          <Badge variant="outline" className="bg-green-50 dark:bg-green-900/30 text-green-900 dark:text-green-100">{t('anesthesia.op.immediately')}</Badge>
-                        ) : postOpData.novalginTime === "Contraindicated" ? (
-                          <Badge variant="outline" className="bg-red-50 dark:bg-red-900/30 text-red-900 dark:text-red-100">{t('anesthesia.op.contraindicated')}</Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-blue-50 dark:bg-blue-900/30 text-blue-900 dark:text-blue-100">{postOpData.novalginTime}</Badge>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <PostOpInfoCard postOpData={postOpData} />
+              <MedicationScheduleCard postOpData={postOpData} />
             </TabsContent>
           )}
 
@@ -1294,353 +1000,53 @@ export default function Op() {
           {/* Checklists Tab - Only shown in OP mode */}
           {!isPacuMode && (
             <TabsContent value="checklists" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0" data-testid="tab-content-checklists">
-            <div className="space-y-4">
-              {/* Sign In */}
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <ClipboardList className="h-5 w-5" />
-                    {t('anesthesia.op.signIn')}
-                  </CardTitle>
-                  {signInAutoSave.status !== 'idle' && (
-                    <Badge variant={
-                      signInAutoSave.status === 'saving' ? 'secondary' :
-                      signInAutoSave.status === 'saved' ? 'default' : 'destructive'
-                    } data-testid="badge-signin-status">
-                      {signInAutoSave.status === 'saving' && t('anesthesia.op.saving')}
-                      {signInAutoSave.status === 'saved' && t('anesthesia.op.saved')}
-                      {signInAutoSave.status === 'error' && t('anesthesia.op.errorSaving')}
-                    </Badge>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {anesthesiaSettings?.checklistItems?.signIn && anesthesiaSettings.checklistItems.signIn.length > 0 ? (
-                    <>
-                      {anesthesiaSettings.checklistItems.signIn.map((item: string, index: number) => {
-                        const itemKey = item.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-                        const isChecked = signInChecklist[itemKey] || false;
-                        return (
-                          <div key={index} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`signin-${index}`}
-                              checked={isChecked}
-                              onCheckedChange={(checked) => {
-                                const nextChecklist = {
-                                  ...signInChecklist,
-                                  [itemKey]: checked === true
-                                };
-                                setSignInChecklist(nextChecklist);
-                                signInAutoSave.mutate({
-                                  checklist: nextChecklist,
-                                  notes: signInNotes,
-                                  signature: signInSignature,
-                                });
-                              }}
-                              data-testid={`checkbox-signin-${index}`}
-                            />
-                            <label
-                              htmlFor={`signin-${index}`}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                            >
-                              {item}
-                            </label>
-                          </div>
-                        );
-                      })}
-                      <div className="pt-2 space-y-2">
-                        <Label htmlFor="signin-notes">{t('anesthesia.op.additionalNotes')}</Label>
-                        <Textarea
-                          id="signin-notes"
-                          placeholder="Add any additional notes or observations..."
-                          value={signInNotes}
-                          onChange={(e) => {
-                            const nextNotes = e.target.value;
-                            setSignInNotes(nextNotes);
-                            signInAutoSave.mutate({
-                              checklist: signInChecklist,
-                              notes: nextNotes,
-                              signature: signInSignature,
-                            });
-                          }}
-                          rows={3}
-                          data-testid="textarea-signin-notes"
-                        />
-                      </div>
-                      <div className="pt-2 space-y-2">
-                        <Label htmlFor="signin-signature">{t('anesthesia.op.signature')}</Label>
-                        <div className="space-y-2">
-                          {signInSignature ? (
-                            <div className="relative border rounded-md p-2">
-                              <img src={signInSignature} alt="Signature" className="max-h-24" />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="absolute top-1 right-1"
-                                onClick={() => {
-                                  setSignInSignature('');
-                                  signInAutoSave.mutate({
-                                    checklist: signInChecklist,
-                                    notes: signInNotes,
-                                    signature: '',
-                                  });
-                                }}
-                                data-testid="button-clear-signin-signature"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="w-full"
-                              onClick={() => setShowSignInSigPad(true)}
-                              data-testid="button-add-signin-signature"
-                            >
-                              {t('anesthesia.op.addSignature')}
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">{t('anesthesia.op.noChecklistItemsConfigured')}</p>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Time Out */}
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="h-5 w-5" />
-                    {t('anesthesia.op.timeOut')}
-                  </CardTitle>
-                  {timeOutAutoSave.status !== 'idle' && (
-                    <Badge variant={
-                      timeOutAutoSave.status === 'saving' ? 'secondary' :
-                      timeOutAutoSave.status === 'saved' ? 'default' : 'destructive'
-                    } data-testid="badge-timeout-status">
-                      {timeOutAutoSave.status === 'saving' && t('anesthesia.op.saving')}
-                      {timeOutAutoSave.status === 'saved' && t('anesthesia.op.saved')}
-                      {timeOutAutoSave.status === 'error' && t('anesthesia.op.errorSaving')}
-                    </Badge>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {anesthesiaSettings?.checklistItems?.timeOut && anesthesiaSettings.checklistItems.timeOut.length > 0 ? (
-                    <>
-                      {anesthesiaSettings.checklistItems.timeOut.map((item: string, index: number) => {
-                        const itemKey = item.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-                        const isChecked = timeOutChecklist[itemKey] || false;
-                        return (
-                          <div key={index} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`timeout-${index}`}
-                              checked={isChecked}
-                              onCheckedChange={(checked) => {
-                                const nextChecklist = {
-                                  ...timeOutChecklist,
-                                  [itemKey]: checked === true
-                                };
-                                setTimeOutChecklist(nextChecklist);
-                                timeOutAutoSave.mutate({
-                                  checklist: nextChecklist,
-                                  notes: timeOutNotes,
-                                  signature: timeOutSignature,
-                                });
-                              }}
-                              data-testid={`checkbox-timeout-${index}`}
-                            />
-                            <label
-                              htmlFor={`timeout-${index}`}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                            >
-                              {item}
-                            </label>
-                          </div>
-                        );
-                      })}
-                      <div className="pt-2 space-y-2">
-                        <Label htmlFor="timeout-notes">{t('anesthesia.op.additionalNotes')}</Label>
-                        <Textarea
-                          id="timeout-notes"
-                          placeholder="Add any additional notes or observations..."
-                          value={timeOutNotes}
-                          onChange={(e) => {
-                            const nextNotes = e.target.value;
-                            setTimeOutNotes(nextNotes);
-                            timeOutAutoSave.mutate({
-                              checklist: timeOutChecklist,
-                              notes: nextNotes,
-                              signature: timeOutSignature,
-                            });
-                          }}
-                          rows={3}
-                          data-testid="textarea-timeout-notes"
-                        />
-                      </div>
-                      <div className="pt-2 space-y-2">
-                        <Label htmlFor="timeout-signature">{t('anesthesia.op.signature')}</Label>
-                        <div className="space-y-2">
-                          {timeOutSignature ? (
-                            <div className="relative border rounded-md p-2">
-                              <img src={timeOutSignature} alt="Signature" className="max-h-24" />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="absolute top-1 right-1"
-                                onClick={() => {
-                                  setTimeOutSignature('');
-                                  timeOutAutoSave.mutate({
-                                    checklist: timeOutChecklist,
-                                    notes: timeOutNotes,
-                                    signature: '',
-                                  });
-                                }}
-                                data-testid="button-clear-timeout-signature"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="w-full"
-                              onClick={() => setShowTimeOutSigPad(true)}
-                              data-testid="button-add-timeout-signature"
-                            >
-                              {t('anesthesia.op.addSignature')}
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">{t('anesthesia.op.noChecklistItemsConfigured')}</p>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Sign Out */}
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <FileCheck className="h-5 w-5" />
-                    {t('anesthesia.op.signOut')}
-                  </CardTitle>
-                  {signOutAutoSave.status !== 'idle' && (
-                    <Badge variant={
-                      signOutAutoSave.status === 'saving' ? 'secondary' :
-                      signOutAutoSave.status === 'saved' ? 'default' : 'destructive'
-                    } data-testid="badge-signout-status">
-                      {signOutAutoSave.status === 'saving' && t('anesthesia.op.saving')}
-                      {signOutAutoSave.status === 'saved' && t('anesthesia.op.saved')}
-                      {signOutAutoSave.status === 'error' && t('anesthesia.op.errorSaving')}
-                    </Badge>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {anesthesiaSettings?.checklistItems?.signOut && anesthesiaSettings.checklistItems.signOut.length > 0 ? (
-                    <>
-                      {anesthesiaSettings.checklistItems.signOut.map((item: string, index: number) => {
-                        const itemKey = item.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-                        const isChecked = signOutChecklist[itemKey] || false;
-                        return (
-                          <div key={index} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`signout-${index}`}
-                              checked={isChecked}
-                              onCheckedChange={(checked) => {
-                                const nextChecklist = {
-                                  ...signOutChecklist,
-                                  [itemKey]: checked === true
-                                };
-                                setSignOutChecklist(nextChecklist);
-                                signOutAutoSave.mutate({
-                                  checklist: nextChecklist,
-                                  notes: signOutNotes,
-                                  signature: signOutSignature,
-                                });
-                              }}
-                              data-testid={`checkbox-signout-${index}`}
-                            />
-                            <label
-                              htmlFor={`signout-${index}`}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                            >
-                              {item}
-                            </label>
-                          </div>
-                        );
-                      })}
-                      <div className="pt-2 space-y-2">
-                        <Label htmlFor="signout-notes">{t('anesthesia.op.additionalNotes')}</Label>
-                        <Textarea
-                          id="signout-notes"
-                          placeholder="Add any additional notes or observations..."
-                          value={signOutNotes}
-                          onChange={(e) => {
-                            const nextNotes = e.target.value;
-                            setSignOutNotes(nextNotes);
-                            signOutAutoSave.mutate({
-                              checklist: signOutChecklist,
-                              notes: nextNotes,
-                              signature: signOutSignature,
-                            });
-                          }}
-                          rows={3}
-                          data-testid="textarea-signout-notes"
-                        />
-                      </div>
-                      <div className="pt-2 space-y-2">
-                        <Label htmlFor="signout-signature">{t('anesthesia.op.signature')}</Label>
-                        <div className="space-y-2">
-                          {signOutSignature ? (
-                            <div className="relative border rounded-md p-2">
-                              <img src={signOutSignature} alt="Signature" className="max-h-24" />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="absolute top-1 right-1"
-                                onClick={() => {
-                                  setSignOutSignature('');
-                                  signOutAutoSave.mutate({
-                                    checklist: signOutChecklist,
-                                    notes: signOutNotes,
-                                    signature: '',
-                                  });
-                                }}
-                                data-testid="button-clear-signout-signature"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="w-full"
-                              onClick={() => setShowSignOutSigPad(true)}
-                              data-testid="button-add-signout-signature"
-                            >
-                              {t('anesthesia.op.addSignature')}
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">{t('anesthesia.op.noChecklistItemsConfigured')}</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
+              <div className="space-y-4">
+                <WHOChecklistCard
+                  title={t('anesthesia.op.signIn')}
+                  icon={ClipboardList}
+                  checklistType="signIn"
+                  items={anesthesiaSettings?.checklistItems?.signIn || []}
+                  checklist={signInState.checklist}
+                  notes={signInState.notes}
+                  signature={signInState.signature}
+                  saveStatus={signInState.saveStatus}
+                  onChecklistChange={signInState.setChecklist}
+                  onNotesChange={signInState.setNotes}
+                  onSignatureChange={signInState.setSignature}
+                  onShowSignaturePad={() => signInState.setShowSignaturePad(true)}
+                />
+                
+                <WHOChecklistCard
+                  title={t('anesthesia.op.timeOut')}
+                  icon={Clock}
+                  checklistType="timeOut"
+                  items={anesthesiaSettings?.checklistItems?.timeOut || []}
+                  checklist={timeOutState.checklist}
+                  notes={timeOutState.notes}
+                  signature={timeOutState.signature}
+                  saveStatus={timeOutState.saveStatus}
+                  onChecklistChange={timeOutState.setChecklist}
+                  onNotesChange={timeOutState.setNotes}
+                  onSignatureChange={timeOutState.setSignature}
+                  onShowSignaturePad={() => timeOutState.setShowSignaturePad(true)}
+                />
+                
+                <WHOChecklistCard
+                  title={t('anesthesia.op.signOut')}
+                  icon={FileCheck}
+                  checklistType="signOut"
+                  items={anesthesiaSettings?.checklistItems?.signOut || []}
+                  checklist={signOutState.checklist}
+                  notes={signOutState.notes}
+                  signature={signOutState.signature}
+                  saveStatus={signOutState.saveStatus}
+                  onChecklistChange={signOutState.setChecklist}
+                  onNotesChange={signOutState.setNotes}
+                  onSignatureChange={signOutState.setSignature}
+                  onShowSignaturePad={() => signOutState.setShowSignaturePad(true)}
+                />
+              </div>
+            </TabsContent>
           )}
 
           {/* Post-op Tab - Only shown in OP mode */}
@@ -2005,43 +1411,31 @@ export default function Op() {
 
     {/* SignaturePad Modals */}
     <SignaturePad
-      isOpen={showSignInSigPad}
-      onClose={() => setShowSignInSigPad(false)}
+      isOpen={signInState.showSignaturePad}
+      onClose={() => signInState.setShowSignaturePad(false)}
       onSave={(signature) => {
-        setSignInSignature(signature);
-        signInAutoSave.mutate({
-          checklist: signInChecklist,
-          notes: signInNotes,
-          signature: signature,
-        });
+        signInState.setSignature(signature);
+        signInState.setShowSignaturePad(false);
       }}
       title="Sign In Signature"
     />
 
     <SignaturePad
-      isOpen={showTimeOutSigPad}
-      onClose={() => setShowTimeOutSigPad(false)}
+      isOpen={timeOutState.showSignaturePad}
+      onClose={() => timeOutState.setShowSignaturePad(false)}
       onSave={(signature) => {
-        setTimeOutSignature(signature);
-        timeOutAutoSave.mutate({
-          checklist: timeOutChecklist,
-          notes: timeOutNotes,
-          signature: signature,
-        });
+        timeOutState.setSignature(signature);
+        timeOutState.setShowSignaturePad(false);
       }}
       title="Time Out Signature"
     />
 
     <SignaturePad
-      isOpen={showSignOutSigPad}
-      onClose={() => setShowSignOutSigPad(false)}
+      isOpen={signOutState.showSignaturePad}
+      onClose={() => signOutState.setShowSignaturePad(false)}
       onSave={(signature) => {
-        setSignOutSignature(signature);
-        signOutAutoSave.mutate({
-          checklist: signOutChecklist,
-          notes: signOutNotes,
-          signature: signature,
-        });
+        signOutState.setSignature(signature);
+        signOutState.setShowSignaturePad(false);
       }}
       title="Sign Out Signature"
     />
