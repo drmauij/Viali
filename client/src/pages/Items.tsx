@@ -1491,6 +1491,24 @@ export default function Items() {
           } else if (lowerHeader === 'rateunit' || lowerHeader === 'rate unit') {
             autoMapping[header] = 'rateUnit';
           }
+          // Additional fields for full catalog export/import
+          else if (lowerHeader === 'barcode' || lowerHeader === 'sku') {
+            autoMapping[header] = 'barcode';
+          } else if (lowerHeader === 'folderpath' || lowerHeader === 'folder path' || lowerHeader === 'folder') {
+            autoMapping[header] = 'folderPath';
+          } else if (lowerHeader === 'vendorname' || lowerHeader === 'vendor name' || lowerHeader === 'vendor') {
+            autoMapping[header] = 'vendorName';
+          } else if (lowerHeader === 'currentunits' || lowerHeader === 'current units' || lowerHeader === 'current stock') {
+            autoMapping[header] = 'currentUnits';
+          } else if (lowerHeader === 'reorderpoint' || lowerHeader === 'reorder point') {
+            autoMapping[header] = 'reorderPoint';
+          } else if (lowerHeader === 'trackexactquantity' || lowerHeader === 'track exact quantity' || lowerHeader === 'exact quantity') {
+            autoMapping[header] = 'trackExactQuantity';
+          } else if (lowerHeader === 'minunits' || lowerHeader === 'min units') {
+            autoMapping[header] = 'minUnits';
+          } else if (lowerHeader === 'maxunits' || lowerHeader === 'max units') {
+            autoMapping[header] = 'maxUnits';
+          }
         });
         setCsvMapping(autoMapping);
       },
@@ -1573,6 +1591,22 @@ export default function Items() {
           case 'ampuleUnit':
             ampuleUnit = value ? String(value) : '';
             break;
+          // Catalog export fields
+          case 'barcode':
+          case 'folderPath':
+          case 'vendorName':
+            item[targetField] = value ? String(value) : undefined;
+            break;
+          case 'currentUnits':
+          case 'reorderPoint':
+          case 'minUnits':
+          case 'maxUnits':
+            item[targetField] = parseInt(value) || 0;
+            break;
+          case 'trackExactQuantity':
+            const trackVal = String(value).toLowerCase();
+            item[targetField] = trackVal === 'true' || trackVal === 'yes' || trackVal === '1';
+            break;
         }
       });
       
@@ -1631,6 +1665,44 @@ export default function Items() {
     link.href = URL.createObjectURL(blob);
     link.download = 'medications_template.csv';
     link.click();
+  };
+
+  const downloadItemsCatalog = async () => {
+    if (!activeHospital?.id) {
+      toast({
+        title: "No Hospital Selected",
+        description: "Please select a hospital first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/items/export-csv?hospitalId=${activeHospital.id}`, {
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to export items");
+      }
+
+      const blob = await response.blob();
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `items_catalog_${activeHospital.name}_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+
+      toast({
+        title: "Export Complete",
+        description: "Items catalog downloaded successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Export Failed",
+        description: error.message || "Failed to export items",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleBulkImportSave = () => {
@@ -3234,30 +3306,16 @@ export default function Items() {
                   <div className="text-xs text-muted-foreground mt-1">Map fields from spreadsheet</div>
                 </Button>
               </div>
-              <div className="flex flex-col gap-2 items-center">
-                <div className="text-xs text-muted-foreground">Download Template:</div>
-                <div className="flex gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={downloadSimpleCsvTemplate}
-                    data-testid="button-download-simple-template"
-                  >
-                    <i className="fas fa-download mr-2"></i>
-                    Simple Items
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={downloadMedicationCsvTemplate}
-                    data-testid="button-download-medication-template"
-                  >
-                    <i className="fas fa-download mr-2"></i>
-                    Medications
-                  </Button>
-                </div>
+              <div className="flex justify-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={downloadItemsCatalog}
+                  data-testid="button-download-items-catalog"
+                >
+                  <i className="fas fa-download mr-2"></i>
+                  Download Items Catalog
+                </Button>
               </div>
               {bulkImages.length > 0 && (
                 <div className="grid grid-cols-5 gap-2">

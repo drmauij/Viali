@@ -2044,8 +2044,63 @@ If unable to parse any drugs, return:
         });
       }
 
+      // Load folders and vendors for path/name resolution
+      const folders = await storage.getFoldersByHospital(hospitalId);
+      const vendors = await storage.getVendorsByHospital(hospitalId);
+
+      // Helper function to find or create folder by path
+      const resolveFolderPath = async (path: string): Promise<string | null> => {
+        if (!path || path.trim() === '') return null;
+        
+        const parts = path.split('/').map(p => p.trim()).filter(p => p);
+        if (parts.length === 0) return null;
+        
+        let parentId: string | null = null;
+        
+        for (const part of parts) {
+          // Find existing folder
+          let folder = folders.find(f => 
+            f.name === part && f.parentFolderId === parentId
+          );
+          
+          // Create if doesn't exist
+          if (!folder) {
+            folder = await storage.createFolder({
+              hospitalId,
+              unitId,
+              name: part,
+              parentFolderId: parentId,
+            });
+            folders.push(folder);
+          }
+          
+          parentId = folder.id;
+        }
+        
+        return parentId;
+      };
+
+      // Helper function to find vendor by name
+      const resolveVendorName = (name: string): string | null => {
+        if (!name || name.trim() === '') return null;
+        const vendor = vendors.find(v => v.name.toLowerCase() === name.toLowerCase());
+        return vendor ? vendor.id : null;
+      };
+
       const createdItems = [];
       for (const bulkItem of bulkItems) {
+        // Resolve folderPath to folderId if provided
+        let folderId = bulkItem.folderId ?? null;
+        if (bulkItem.folderPath) {
+          folderId = await resolveFolderPath(bulkItem.folderPath);
+        }
+
+        // Resolve vendorName to vendorId if provided
+        let vendorId = bulkItem.vendorId ?? null;
+        if (bulkItem.vendorName) {
+          vendorId = resolveVendorName(bulkItem.vendorName);
+        }
+
         // Check if this item has medication configuration data
         const hasMedicationConfig = !!(
           bulkItem.medicationGroup ||
@@ -2060,17 +2115,22 @@ If unable to parse any drugs, return:
           hospitalId,
           unitId,
           name: bulkItem.name,
+          barcode: bulkItem.barcode ?? null,
           description: bulkItem.description ?? "",
           unit: bulkItem.unit ?? "pack",
           packSize: bulkItem.packSize ?? 1,
           minThreshold: bulkItem.minThreshold ?? 0,
           maxThreshold: bulkItem.maxThreshold ?? 0,
+          minUnits: bulkItem.minUnits ?? 0,
+          maxUnits: bulkItem.maxUnits ?? 0,
+          reorderPoint: bulkItem.reorderPoint ?? 0,
           defaultOrderQty: 0,
           critical: bulkItem.critical ?? false,
           controlled: bulkItem.controlled ?? false,
           trackExactQuantity: bulkItem.trackExactQuantity ?? false,
           currentUnits: bulkItem.currentUnits ?? 0,
-          folderId: bulkItem.folderId ?? null,
+          folderId,
+          vendorId,
         };
 
         const item = await storage.createItem(itemData);
@@ -2101,6 +2161,116 @@ If unable to parse any drugs, return:
     } catch (error: any) {
       console.error("Error creating bulk items:", error);
       res.status(500).json({ message: error.message || "Failed to create items" });
+    }
+  });
+
+  // Export items catalog to CSV
+  app.get('/api/items/export-csv', isAuthenticated, async (req: any, res) => {
+    try {
+      const hospitalId = req.query.hospitalId as string;
+      const userId = req.user.id;
+
+      if (!hospitalId) {
+        return res.status(400).json({ message: "Hospital ID is required" });
+      }
+
+      // Verify user has access to this hospital
+      const unitId = await getUserUnitForHospital(userId, hospitalId);
+      if (!unitId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+
+      // Get all items for this hospital with their relations
+      const items = await storage.getItemsByHospital(hospitalId);
+      const folders = await storage.getFoldersByHospital(hospitalId);
+      const vendors = await storage.getVendorsByHospital(hospitalId);
+
+      // Build folder path lookup
+      const folderPathMap = new Map<string, string>();
+      folders.forEach(folder => {
+        const path: string[] = [folder.name];
+        let currentFolder = folder;
+        
+        // Build path by traversing parent folders
+        while (currentFolder.parentFolderId) {
+          const parent = folders.find(f => f.id === currentFolder.parentFolderId);
+          if (parent) {
+            path.unshift(parent.name);
+            currentFolder = parent;
+          } else {
+            break;
+          }
+        }
+        
+        folderPathMap.set(folder.id, path.join('/'));
+      });
+
+      // Build vendor name lookup
+      const vendorNameMap = new Map<string, string>();
+      vendors.forEach(vendor => {
+        vendorNameMap.set(vendor.id, vendor.name);
+      });
+
+      // CSV headers
+      const headers = [
+        'Name',
+        'Barcode',
+        'Description',
+        'Unit',
+        'MinUnits',
+        'MaxUnits',
+        'CurrentUnits',
+        'ReorderPoint',
+        'TrackExactQuantity',
+        'Controlled',
+        'FolderPath',
+        'VendorName'
+      ];
+
+      // Build CSV rows
+      const rows = items.map(item => {
+        const folderPath = item.folderId ? folderPathMap.get(item.folderId) || '' : '';
+        const vendorName = item.vendorId ? vendorNameMap.get(item.vendorId) || '' : '';
+        
+        return [
+          item.name || '',
+          item.barcode || '',
+          item.description || '',
+          item.unit || 'Pack',
+          item.minUnits || 0,
+          item.maxUnits || 0,
+          item.currentUnits || 0,
+          item.reorderPoint || 0,
+          item.trackExactQuantity ? 'true' : 'false',
+          item.controlled ? 'true' : 'false',
+          folderPath,
+          vendorName
+        ];
+      });
+
+      // Combine headers and rows
+      const csvData = [headers, ...rows];
+      
+      // Convert to CSV string with proper escaping
+      const csvContent = csvData.map(row => 
+        row.map(cell => {
+          const cellStr = String(cell);
+          // Escape quotes and wrap in quotes if contains comma, quote, or newline
+          if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+            return `"${cellStr.replace(/"/g, '""')}"`;
+          }
+          return cellStr;
+        }).join(',')
+      ).join('\n');
+
+      // Set headers for download
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="items_catalog.csv"');
+      
+      res.send(csvContent);
+    } catch (error: any) {
+      console.error("Error exporting items:", error);
+      res.status(500).json({ message: error.message || "Failed to export items" });
     }
   });
 
