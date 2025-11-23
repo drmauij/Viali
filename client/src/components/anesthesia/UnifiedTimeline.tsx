@@ -41,6 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { saveMedication, saveTimeMarkers } from "@/services/timelinePersistence";
 import { queryClient } from "@/lib/queryClient";
 import { useVitalsState } from "@/hooks/useVitalsState";
@@ -259,6 +260,7 @@ export function UnifiedTimeline({
   const { toast } = useToast();
   const { user } = useAuth();
   const activeHospital = useActiveHospital();
+  const { t } = useTranslation();
 
   // Fetch configured anesthesia items from inventory
   const { data: allAnesthesiaItems = [] } = useQuery<AnesthesiaItem[]>({
@@ -1595,15 +1597,15 @@ export function UnifiedTimeline({
 
   // Default swimlane configuration - can be overridden via props
   const baseSwimlanes: SwimlaneConfig[] = [
-    { id: "zeiten", label: "Times", height: 50, colorLight: "rgba(243, 232, 255, 0.8)", colorDark: "hsl(270, 55%, 20%)" },
-    { id: "ereignisse", label: "Events", height: 48, colorLight: "rgba(219, 234, 254, 0.8)", colorDark: "hsl(210, 60%, 18%)" },
-    { id: "herzrhythmus", label: "Heart Rhythm", height: 48, colorLight: "rgba(252, 231, 243, 0.8)", colorDark: "hsl(330, 50%, 20%)" },
+    { id: "zeiten", label: t("anesthesia.timeline.times"), height: 50, colorLight: "rgba(243, 232, 255, 0.8)", colorDark: "hsl(270, 55%, 20%)" },
+    { id: "ereignisse", label: t("anesthesia.timeline.events"), height: 48, colorLight: "rgba(219, 234, 254, 0.8)", colorDark: "hsl(210, 60%, 18%)" },
+    { id: "herzrhythmus", label: t("anesthesia.timeline.heartRhythm"), height: 48, colorLight: "rgba(252, 231, 243, 0.8)", colorDark: "hsl(330, 50%, 20%)" },
     // Administration group lanes will be inserted dynamically here
-    { id: "position", label: "Position", height: 48, colorLight: "rgba(226, 232, 240, 0.8)", colorDark: "hsl(215, 20%, 25%)" },
-    { id: "staff", label: "Staff", height: 48, colorLight: "rgba(241, 245, 249, 0.8)", colorDark: "hsl(220, 25%, 25%)" },
-    { id: "ventilation", label: "Ventilation", height: 48, colorLight: "rgba(254, 243, 199, 0.8)", colorDark: "hsl(35, 70%, 22%)" },
-    { id: "output", label: "Output", height: 48, colorLight: "rgba(254, 226, 226, 0.8)", colorDark: "hsl(0, 60%, 25%)" },
-    { id: "others", label: "Others", height: 48, colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" },
+    { id: "position", label: t("anesthesia.timeline.position"), height: 48, colorLight: "rgba(226, 232, 240, 0.8)", colorDark: "hsl(215, 20%, 25%)" },
+    { id: "staff", label: t("anesthesia.timeline.staff"), height: 48, colorLight: "rgba(241, 245, 249, 0.8)", colorDark: "hsl(220, 25%, 25%)" },
+    { id: "ventilation", label: t("anesthesia.timeline.ventilation"), height: 48, colorLight: "rgba(254, 243, 199, 0.8)", colorDark: "hsl(35, 70%, 22%)" },
+    { id: "output", label: t("anesthesia.timeline.output"), height: 48, colorLight: "rgba(254, 226, 226, 0.8)", colorDark: "hsl(0, 60%, 25%)" },
+    { id: "others", label: t("anesthesia.timeline.others"), height: 48, colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" },
   ];
 
   // Build active swimlanes with collapsible children
@@ -1622,7 +1624,7 @@ export function UnifiedTimeline({
         // Add single "Medications" parent lane
         lanes.push({
           id: "medikamente",
-          label: "Medications",
+          label: t("anesthesia.timeline.medications"),
           height: 48,
           ...medGroupColor,
           hierarchyLevel: 'parent',
