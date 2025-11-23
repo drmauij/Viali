@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, X, Download, Printer, Loader2 } from "lucide-react";
+import { Plus, X, Download, Printer, Loader2, Trash2 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -684,32 +684,80 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
     );
   }
 
+  const handleClearAll = () => {
+    // Clear all general technique state
+    setApproach("");
+    setRsi(false);
+    
+    // Clear all airway management state
+    setAirwayDevice("");
+    setSize("");
+    setDepth("");
+    setCuffPressure("");
+    setIntubationPreExisting(false);
+    setAirwayNotes("");
+    setLaryngoscopeType("");
+    setLaryngoscopeBlade("");
+    setIntubationAttempts("");
+    setDifficultAirway(false);
+    setCormackLehane("");
+    
+    // Save cleared state to database
+    generalAutoSave.mutate({
+      approach: null,
+      rsi: false,
+      sedationLevel: null,
+      airwaySupport: null,
+      notes: null,
+    });
+    
+    airwayAutoSave.mutate({
+      airwayDevice: null,
+      size: null,
+      depth: null,
+      cuffPressure: null,
+      intubationPreExisting: false,
+      notes: null,
+      laryngoscopeType: null,
+      laryngoscopeBlade: null,
+      intubationAttempts: null,
+      difficultAirway: false,
+      cormackLehane: null,
+    });
+    
+    toast({
+      title: t('anesthesia.documentation.cleared'),
+      description: t('anesthesia.documentation.generalAnesthesiaCleared'),
+    });
+  };
+
+  // Check if any data exists
+  const hasData = approach || rsi || airwayDevice || size || depth || cuffPressure || 
+                  laryngoscopeType || laryngoscopeBlade || intubationAttempts || 
+                  difficultAirway || cormackLehane || airwayNotes || intubationPreExisting;
+
   return (
     <CardContent className="space-y-6 pt-0">
+      {/* Clear All Button */}
+      {hasData && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleClearAll}
+            className="text-destructive hover:text-destructive"
+            data-testid="button-clear-general-anesthesia"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            {t('anesthesia.documentation.clearAll')}
+          </Button>
+        </div>
+      )}
+      
       {/* Maintenance Type Options */}
       <div className="space-y-3">
+        <Label className="text-base font-semibold">{t('anesthesia.documentation.maintenanceType')}</Label>
         <div className="space-y-2">
-          <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-muted/50">
-            <input
-              type="radio"
-              name="maintenance-type"
-              value=""
-              checked={!approach}
-              onChange={(e) => {
-                setApproach("");
-                generalAutoSave.mutate({
-                  approach: null,
-                  rsi,
-                  sedationLevel: null,
-                  airwaySupport: null,
-                  notes: null,
-                });
-              }}
-              className="h-4 w-4"
-              data-testid="radio-maintenance-none"
-            />
-            <span className="font-medium text-muted-foreground">None</span>
-          </label>
           <label className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-muted/50">
             <input
               type="radio"

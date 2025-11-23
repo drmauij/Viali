@@ -1200,17 +1200,32 @@ export default function Op() {
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-general-anesthesia">
                       <div className="flex items-center gap-2">
                         <CardTitle className="text-lg">{t('anesthesia.op.generalAnesthesia')}</CardTitle>
-                        {(generalTechniqueData || airwayManagementData) ? (
-                          <Badge variant="default" className="ml-2 gap-1" data-testid="badge-general-status">
-                            <CheckCircle className="h-3 w-3" />
-                            {t('anesthesia.op.configured')}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="ml-2 gap-1" data-testid="badge-general-status">
-                            <MinusCircle className="h-3 w-3" />
-                            {t('anesthesia.op.noData')}
-                          </Badge>
-                        )}
+                        {(() => {
+                          // Check if there's meaningful data
+                          const hasGeneralData = generalTechniqueData?.approach || generalTechniqueData?.rsi;
+                          const hasAirwayData = airwayManagementData?.airwayDevice || 
+                                              airwayManagementData?.size || 
+                                              airwayManagementData?.depth || 
+                                              airwayManagementData?.cuffPressure ||
+                                              airwayManagementData?.laryngoscopeType ||
+                                              airwayManagementData?.difficultAirway;
+                          
+                          if (hasGeneralData || hasAirwayData) {
+                            return (
+                              <Badge variant="default" className="ml-2 gap-1" data-testid="badge-general-status">
+                                <CheckCircle className="h-3 w-3" />
+                                {t('anesthesia.op.configured')}
+                              </Badge>
+                            );
+                          }
+                          
+                          return (
+                            <Badge variant="outline" className="ml-2 gap-1" data-testid="badge-general-status">
+                              <MinusCircle className="h-3 w-3" />
+                              {t('anesthesia.op.noData')}
+                            </Badge>
+                          );
+                        })()}
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
