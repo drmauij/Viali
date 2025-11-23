@@ -578,7 +578,8 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
         items={itemsToCommit}
         isCommitting={commitMutation.isPending}
         patientId={surgery?.patientId}
-        patientName={surgery?.patientId}
+        patientName={surgery?.patientName}
+        patientBirthday={surgery?.patientBirthday}
       />
     </div>
   );

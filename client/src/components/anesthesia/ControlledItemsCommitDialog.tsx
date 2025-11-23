@@ -23,6 +23,7 @@ interface ControlledItemsCommitDialogProps {
   isCommitting: boolean;
   patientId?: string | null;
   patientName?: string | null;
+  patientBirthday?: string | null;
 }
 
 export function ControlledItemsCommitDialog({
@@ -33,6 +34,7 @@ export function ControlledItemsCommitDialog({
   isCommitting,
   patientId,
   patientName,
+  patientBirthday,
 }: ControlledItemsCommitDialogProps) {
   const { t } = useTranslation();
   const [showSignaturePad, setShowSignaturePad] = useState(false);
@@ -84,32 +86,6 @@ export function ControlledItemsCommitDialog({
                     {t('anesthesia.op.controlledItemsSignatureRequired')}
                   </p>
                   
-                  {/* Patient Information */}
-                  {(patientId || patientName) && (
-                    <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <p className="text-xs font-semibold text-blue-900 dark:text-blue-100 mb-1">
-                        {t('anesthesia.op.patientInformation')}
-                      </p>
-                      <div className="space-y-1">
-                        {patientName && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <span className="text-muted-foreground">{t('anesthesia.op.patientName')}:</span>
-                            <span className="font-medium" data-testid="patient-name">{patientName}</span>
-                          </div>
-                        )}
-                        {patientId && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <span className="text-muted-foreground">{t('anesthesia.op.patientId')}:</span>
-                            <span className="font-medium" data-testid="patient-id">{patientId}</span>
-                          </div>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        {t('anesthesia.op.controlledItemsWillBeRegistered')}
-                      </p>
-                    </div>
-                  )}
-                  
                   <div className="space-y-1 bg-amber-50 dark:bg-amber-950/20 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
                     {controlledItems.map(item => (
                       <div
@@ -123,6 +99,58 @@ export function ControlledItemsCommitDialog({
                         </Badge>
                       </div>
                     ))}
+                  </div>
+
+                  {/* Patient Information Summary */}
+                  {(patientName || patientBirthday) && (
+                    <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <p className="text-xs font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                        {t('anesthesia.op.patientInformation')}
+                      </p>
+                      <div className="space-y-1">
+                        {patientName && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="text-muted-foreground">{t('anesthesia.op.patientName')}:</span>
+                            <span className="font-medium" data-testid="patient-name">{patientName}</span>
+                          </div>
+                        )}
+                        {patientBirthday && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="text-muted-foreground">{t('anesthesia.op.patientBirthday')}:</span>
+                            <span className="font-medium" data-testid="patient-birthday">{patientBirthday}</span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {t('anesthesia.op.controlledItemsWillBeRegistered')}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Signature Status */}
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <span className="text-sm font-medium">
+                      {t('anesthesia.op.signatureRequired')}
+                    </span>
+                    {signature ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowSignaturePad(true)}
+                        data-testid="button-change-signature"
+                      >
+                        {t('common.edit')}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => setShowSignaturePad(true)}
+                        data-testid="button-sign"
+                      >
+                        {t('anesthesia.op.signHere')}
+                      </Button>
+                    )}
                   </div>
                 </div>
               )}
@@ -153,34 +181,6 @@ export function ControlledItemsCommitDialog({
                     </div>
                   </div>
                 </>
-              )}
-
-              {/* Signature Status */}
-              {hasControlledItems && (
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <span className="text-sm font-medium">
-                    {t('anesthesia.op.signatureRequired')}
-                  </span>
-                  {signature ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowSignaturePad(true)}
-                      data-testid="button-change-signature"
-                    >
-                      {t('common.edit')}
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => setShowSignaturePad(true)}
-                      data-testid="button-sign"
-                    >
-                      {t('anesthesia.op.signHere')}
-                    </Button>
-                  )}
-                </div>
               )}
             </div>
           </ScrollArea>
