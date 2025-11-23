@@ -2045,39 +2045,31 @@ If unable to parse any drugs, return:
       }
 
       // Load folders and vendors for path/name resolution
-      const folders = await storage.getFoldersByHospital(hospitalId);
-      const vendors = await storage.getVendorsByHospital(hospitalId);
+      const folders = await storage.getFolders(hospitalId, unitId);
+      const vendors = await storage.getVendors(hospitalId);
 
-      // Helper function to find or create folder by path
+      // Helper function to find or create folder by name (flat structure only)
       const resolveFolderPath = async (path: string): Promise<string | null> => {
         if (!path || path.trim() === '') return null;
         
-        const parts = path.split('/').map(p => p.trim()).filter(p => p);
-        if (parts.length === 0) return null;
+        // Take only the last part of the path (leaf folder name)
+        const folderName = path.split('/').map(p => p.trim()).filter(p => p).pop();
+        if (!folderName) return null;
         
-        let parentId: string | null = null;
+        // Find existing folder by name
+        let folder = folders.find(f => f.name === folderName);
         
-        for (const part of parts) {
-          // Find existing folder
-          let folder = folders.find(f => 
-            f.name === part && f.parentFolderId === parentId
-          );
-          
-          // Create if doesn't exist
-          if (!folder) {
-            folder = await storage.createFolder({
-              hospitalId,
-              unitId,
-              name: part,
-              parentFolderId: parentId,
-            });
-            folders.push(folder);
-          }
-          
-          parentId = folder.id;
+        // Create if doesn't exist
+        if (!folder) {
+          folder = await storage.createFolder({
+            hospitalId,
+            unitId,
+            name: folderName,
+          });
+          folders.push(folder);
         }
         
-        return parentId;
+        return folder.id;
       };
 
       // Helper function to find vendor by name
@@ -2186,29 +2178,15 @@ If unable to parse any drugs, return:
 
       console.log('[Export CSV] Access granted, unit ID:', unitId);
 
-      // Get all items for this hospital with their relations
-      const items = await storage.getItemsByHospital(hospitalId);
-      const folders = await storage.getFoldersByHospital(hospitalId);
-      const vendors = await storage.getVendorsByHospital(hospitalId);
+      // Get all items for this hospital/unit with their relations
+      const items = await storage.getItems(hospitalId, unitId);
+      const folders = await storage.getFolders(hospitalId, unitId);
+      const vendors = await storage.getVendors(hospitalId);
 
-      // Build folder path lookup
-      const folderPathMap = new Map<string, string>();
+      // Build folder name lookup (flat structure)
+      const folderNameMap = new Map<string, string>();
       folders.forEach(folder => {
-        const path: string[] = [folder.name];
-        let currentFolder = folder;
-        
-        // Build path by traversing parent folders
-        while (currentFolder.parentFolderId) {
-          const parent = folders.find(f => f.id === currentFolder.parentFolderId);
-          if (parent) {
-            path.unshift(parent.name);
-            currentFolder = parent;
-          } else {
-            break;
-          }
-        }
-        
-        folderPathMap.set(folder.id, path.join('/'));
+        folderNameMap.set(folder.id, folder.name);
       });
 
       // Build vendor name lookup
@@ -2235,7 +2213,7 @@ If unable to parse any drugs, return:
 
       // Build CSV rows
       const rows = items.map(item => {
-        const folderPath = item.folderId ? folderPathMap.get(item.folderId) || '' : '';
+        const folderName = item.folderId ? folderNameMap.get(item.folderId) || '' : '';
         const vendorName = item.vendorId ? vendorNameMap.get(item.vendorId) || '' : '';
         
         return [
@@ -2249,7 +2227,7 @@ If unable to parse any drugs, return:
           item.reorderPoint || 0,
           item.trackExactQuantity ? 'true' : 'false',
           item.controlled ? 'true' : 'false',
-          folderPath,
+          folderName,
           vendorName
         ];
       });
