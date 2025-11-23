@@ -3878,10 +3878,10 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
 
-    // Deduct from inventory for items with trackExactQuantity enabled
+    // Deduct from inventory for items with trackExactQuantity enabled or "Single unit" type
     for (const item of itemsToCommit) {
       const itemData = itemsMap.get(item.itemId);
-      if (itemData && itemData.trackExactQuantity) {
+      if (itemData && (itemData.trackExactQuantity || itemData.unit === "Single unit")) {
         const currentUnits = parseInt(String(itemData.currentUnits || 0));
         const newUnits = Math.max(0, currentUnits - item.quantity);
 
@@ -3954,7 +3954,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(inventoryCommits.id, commitId))
       .returning();
 
-    // Restore inventory quantities for items with trackExactQuantity
+    // Restore inventory quantities for items with trackExactQuantity or "Single unit" type
     const commitItems = commit.items as Array<{
       itemId: string;
       quantity: number;
@@ -3969,7 +3969,7 @@ export class DatabaseStorage implements IStorage {
 
     for (const commitItem of commitItems) {
       const itemData = itemsData.find(i => i.id === commitItem.itemId);
-      if (itemData && itemData.trackExactQuantity) {
+      if (itemData && (itemData.trackExactQuantity || itemData.unit === "Single unit")) {
         const currentUnits = parseInt(String(itemData.currentUnits || 0));
         const newUnits = currentUnits + commitItem.quantity;
 
