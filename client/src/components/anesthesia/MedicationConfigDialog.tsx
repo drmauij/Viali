@@ -154,6 +154,15 @@ export function MedicationConfigDialog({
       setConfigItemName(data.name);
       setShowQuickAdd(false);
       setQuickAddName("");
+      
+      // Scroll to the configuration form after a brief delay to ensure it's rendered
+      setTimeout(() => {
+        const configForm = document.getElementById('config-item-name');
+        if (configForm) {
+          configForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          configForm.focus();
+        }
+      }, 100);
     },
     onError: (error: any) => {
       toast({
