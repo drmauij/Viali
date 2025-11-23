@@ -1314,6 +1314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         )
         .orderBy(items.name);
 
+      console.log('[ANESTHESIA-ITEMS-API] Returning items:', anesthesiaItems.map(item => ({ id: item.id, name: item.name, folderId: item.folderId })));
       res.json(anesthesiaItems);
     } catch (error: any) {
       console.error("Error fetching anesthesia items:", error);
