@@ -614,13 +614,16 @@ export class DatabaseStorage implements IStorage {
       // 3. Delete order lines that reference this item
       await tx.delete(orderLines).where(eq(orderLines.itemId, id));
       
-      // 4. Delete lots that belong to this item (must be before stock levels)
+      // 4. Delete anesthesia medications that reference this item
+      await tx.delete(anesthesiaMedications).where(eq(anesthesiaMedications.itemId, id));
+      
+      // 5. Delete lots that belong to this item (must be before stock levels)
       await tx.delete(lots).where(eq(lots.itemId, id));
       
-      // 5. Delete stock levels for this item
+      // 6. Delete stock levels for this item
       await tx.delete(stockLevels).where(eq(stockLevels.itemId, id));
       
-      // 6. Finally delete the item itself
+      // 7. Finally delete the item itself
       await tx.delete(items).where(eq(items.id, id));
     });
   }
