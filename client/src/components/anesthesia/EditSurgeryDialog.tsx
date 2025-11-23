@@ -241,8 +241,8 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
               </div>
 
               {/* Start Time & Duration */}
-              <div className="grid gap-3" style={{ gridTemplateColumns: '5fr 3fr' }}>
-                <div className="space-y-2">
+              <div className="flex gap-3 min-w-0">
+                <div className="space-y-2 flex-1 min-w-0">
                   <Label htmlFor="edit-planned-date">{t('anesthesia.editSurgery.startTime')} *</Label>
                   <Input
                     id="edit-planned-date"
@@ -252,7 +252,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     data-testid="input-edit-planned-date"
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 w-24 shrink-0">
                   <Label htmlFor="edit-duration">{t('anesthesia.editSurgery.duration')} *</Label>
                   <Input
                     id="edit-duration"
