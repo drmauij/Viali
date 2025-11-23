@@ -515,13 +515,23 @@ export default function Op() {
   
   // Show weight dialog when data is loaded but weight is missing
   // Show dialog if: (1) no preOp assessment exists, OR (2) preOp assessment exists but has no weight
+  // Use ref to track if we've already shown the dialog to prevent reopening after save
+  const hasShownWeightDialogRef = useRef(false);
+  
+  // Reset the ref whenever surgeryId changes (switching between surgeries)
   useEffect(() => {
-    if (!isPreOpLoading && !isPatientLoading && !showWeightDialog && surgeryId) {
+    hasShownWeightDialogRef.current = false;
+  }, [surgeryId]);
+  
+  useEffect(() => {
+    // Only show once per surgery load, and only if we haven't already shown it
+    if (!isPreOpLoading && !isPatientLoading && !showWeightDialog && surgeryId && !hasShownWeightDialogRef.current) {
       // Show if no preOp assessment OR preOp assessment exists without weight
       const shouldShow = !preOpAssessment || (preOpAssessment && !patientWeight);
       if (shouldShow) {
         console.log('[WEIGHT-DIALOG] Opening weight dialog - preOp missing or weight missing');
         setShowWeightDialog(true);
+        hasShownWeightDialogRef.current = true; // Mark as shown
       }
     }
   }, [isPreOpLoading, isPatientLoading, preOpAssessment, patientWeight, showWeightDialog, surgeryId]);
