@@ -10,13 +10,7 @@ import {
   PeripheralBlocksSection
 } from "@/components/anesthesia/AnesthesiaDocumentation";
 import { OpInventory } from "@/components/anesthesia/OpInventory";
-import {
-  useInstallations,
-  useGeneralTechnique,
-  useAirwayManagement,
-  useNeuraxialBlocks,
-  usePeripheralBlocks,
-} from "@/lib/anesthesiaDocumentation";
+import { useOpData } from "@/hooks/useOpData";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -92,16 +86,59 @@ export default function Op() {
   // Get surgeryId from params
   const surgeryId = params.id;
 
-  // Fetch surgery details
-  const { data: surgery, isLoading: isSurgeryLoading, error: surgeryError } = useQuery({
-    queryKey: [`/api/anesthesia/surgeries/${surgeryId}`],
-    enabled: !!surgeryId,
-  });
-
-  // Fetch anesthesia record
-  const { data: anesthesiaRecord, isLoading: isRecordLoading } = useQuery({
-    queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
-    enabled: !!surgeryId,
+  // Centralized data fetching
+  const {
+    surgery,
+    anesthesiaRecord,
+    preOpAssessment,
+    patient,
+    anesthesiaSettings,
+    hospitalUsers,
+    vitalsData,
+    medicationsData,
+    eventsData,
+    anesthesiaItems,
+    clinicalSnapshot,
+    staffMembers,
+    positions,
+    installationsData,
+    generalTechniqueData,
+    airwayManagementData,
+    neuraxialBlocksData,
+    peripheralBlocksData,
+    inventoryUsage,
+    inventoryCommits,
+    inventoryItems,
+    isSurgeryLoading,
+    isRecordLoading,
+    isPreOpLoading,
+    isPatientLoading,
+    isVitalsLoading,
+    isMedicationsLoading,
+    isEventsLoading,
+    isAnesthesiaItemsLoading,
+    isClinicalSnapshotLoading,
+    isStaffLoading,
+    isPositionsLoading,
+    surgeryError,
+    patientError,
+    isVitalsError,
+    isMedicationsError,
+    isEventsError,
+    isAnesthesiaItemsError,
+    isClinicalSnapshotError,
+    isStaffError,
+    isPositionsError,
+    vitalsStatus,
+    medicationsStatus,
+    eventsStatus,
+    anesthesiaItemsStatus,
+    clinicalSnapshotStatus,
+    staffStatus,
+    positionsStatus,
+  } = useOpData({
+    surgeryId: surgeryId || "",
+    activeHospitalId: activeHospital?.id || "",
   });
 
   // Auto-create anesthesia record if it doesn't exist (404 only)
@@ -150,18 +187,6 @@ export default function Op() {
     checkAndCreateRecord();
   }, [surgery, anesthesiaRecord, surgeryId, isRecordLoading, toast]);
 
-  // Fetch pre-op assessment
-  const { data: preOpAssessment, isLoading: isPreOpLoading } = useQuery({
-    queryKey: [`/api/anesthesia/preop/surgery/${surgeryId}`],
-    enabled: !!surgeryId,
-  });
-
-  // Fetch patient data
-  const { data: patient, isLoading: isPatientLoading, error: patientError } = useQuery({
-    queryKey: [`/api/patients/${surgery?.patientId}`],
-    enabled: !!surgery?.patientId,
-  });
-
   // Show error toast if patient fetch fails
   useEffect(() => {
     if (patientError) {
@@ -172,12 +197,6 @@ export default function Op() {
       });
     }
   }, [patientError, toast, t]);
-
-  // Fetch anesthesia settings for WHO checklists
-  const { data: anesthesiaSettings } = useQuery({
-    queryKey: [`/api/anesthesia/settings/${activeHospital?.id}`],
-    enabled: !!activeHospital?.id,
-  });
 
   // Checklist mutations
   // Auto-save mutations for WHO Checklists
@@ -205,18 +224,6 @@ export default function Op() {
     queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
   });
 
-  // Fetch vitals snapshots (requires recordId)
-  const { data: vitalsData = [], isLoading: isVitalsLoading, isError: isVitalsError, status: vitalsStatus } = useQuery({
-    queryKey: [`/api/anesthesia/vitals/${anesthesiaRecord?.id}`],
-    enabled: !!anesthesiaRecord?.id,
-  });
-
-  // Fetch medications (requires recordId)
-  const { data: medicationsData = [], isLoading: isMedicationsLoading, isError: isMedicationsError, status: medicationsStatus } = useQuery({
-    queryKey: [`/api/anesthesia/medications/${anesthesiaRecord?.id}`],
-    enabled: !!anesthesiaRecord?.id,
-  });
-
   // Debug: Log medications data
   useEffect(() => {
     console.log('[OP-MEDS] Medications data changed:', {
@@ -225,65 +232,6 @@ export default function Op() {
       data: medicationsData,
     });
   }, [medicationsData, anesthesiaRecord?.id]);
-
-  // Fetch events (requires recordId)
-  const { data: eventsData = [], isLoading: isEventsLoading, isError: isEventsError, status: eventsStatus } = useQuery({
-    queryKey: [`/api/anesthesia/events/${anesthesiaRecord?.id}`],
-    enabled: !!anesthesiaRecord?.id,
-  });
-
-  // Fetch anesthesia items for PDF export
-  const { data: anesthesiaItems = [], isLoading: isAnesthesiaItemsLoading, isError: isAnesthesiaItemsError, status: anesthesiaItemsStatus } = useQuery({
-    queryKey: [`/api/anesthesia/items/${activeHospital?.id}`],
-    enabled: !!activeHospital?.id,
-  });
-
-  // Fetch clinical snapshot for PDF export
-  const { data: clinicalSnapshot, isLoading: isClinicalSnapshotLoading, isError: isClinicalSnapshotError, status: clinicalSnapshotStatus } = useQuery({
-    queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecord?.id}`],
-    enabled: !!anesthesiaRecord?.id,
-  });
-
-  // Fetch staff members for PDF export
-  const { data: staffMembers = [], isLoading: isStaffLoading, isError: isStaffError, status: staffStatus } = useQuery({
-    queryKey: [`/api/anesthesia/staff/${anesthesiaRecord?.id}`],
-    enabled: !!anesthesiaRecord?.id,
-  });
-
-  // Fetch patient positions for PDF export
-  const { data: positions = [], isLoading: isPositionsLoading, isError: isPositionsError, status: positionsStatus } = useQuery({
-    queryKey: [`/api/anesthesia/positions/${anesthesiaRecord?.id}`],
-    enabled: !!anesthesiaRecord?.id,
-  });
-
-  // Fetch hospital users for provider dropdown
-  const { data: hospitalUsers = [] } = useQuery<any[]>({
-    queryKey: [`/api/admin/${activeHospital?.id}/users`],
-    enabled: !!activeHospital?.id,
-  });
-
-  // Fetch anesthesia documentation data for status badges
-  const { data: installationsData = [] } = useInstallations(anesthesiaRecord?.id || "");
-  const { data: generalTechniqueData } = useGeneralTechnique(anesthesiaRecord?.id || "");
-  const { data: airwayManagementData } = useAirwayManagement(anesthesiaRecord?.id || "");
-  const { data: neuraxialBlocksData = [] } = useNeuraxialBlocks(anesthesiaRecord?.id || "");
-  const { data: peripheralBlocksData = [] } = usePeripheralBlocks(anesthesiaRecord?.id || "");
-
-  // Fetch inventory data for OpInventory component
-  const { data: inventoryUsage = [] } = useQuery<any[]>({
-    queryKey: [`/api/anesthesia/inventory/${anesthesiaRecord?.id}`],
-    enabled: !!anesthesiaRecord?.id,
-  });
-
-  const { data: inventoryCommits = [] } = useQuery<any[]>({
-    queryKey: [`/api/anesthesia/inventory/${anesthesiaRecord?.id}/commits`],
-    enabled: !!anesthesiaRecord?.id,
-  });
-
-  const { data: inventoryItems = [] } = useQuery<any[]>({
-    queryKey: [`/api/anesthesia/items/${activeHospital?.id}`],
-    enabled: !!activeHospital?.id,
-  });
 
   // Handler to clear A3 time marker (called from OpInventory when blocking)
   const handleClearA3Marker = async () => {
