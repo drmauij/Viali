@@ -172,16 +172,16 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
   const groupedItems = useMemo(() => {
     const groups: Record<string, Item[]> = {};
     items.forEach(item => {
-      // Check if folderId exists in the folders list
-      const folderExists = item.folderId && folders.some(f => f.id === item.folderId);
-      const folderId = folderExists ? item.folderId : 'uncategorized';
+      // Use the item's folderId if it exists, otherwise 'uncategorized'
+      // Don't validate against folders list to avoid race conditions
+      const folderId = item.folderId || 'uncategorized';
       if (!groups[folderId]) {
         groups[folderId] = [];
       }
       groups[folderId].push(item);
     });
     return groups;
-  }, [items, folders]);
+  }, [items]);
 
   // Get folder name
   const getFolderName = (folderId: string) => {
@@ -365,16 +365,23 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
   }, [groupedItems, autoCalcMap, overrideMap]);
   
   // Update openFolders when foldersWithUsedItems changes
+  // Only auto-expand on initial load, preserve manual user interactions after
   useEffect(() => {
     setOpenFolders(prev => {
-      // Only update if the folders actually changed to prevent infinite loops
-      const prevSet = new Set(prev);
-      const newSet = new Set(foldersWithUsedItems);
-      const hasChanged = 
-        prevSet.size !== newSet.size ||
-        foldersWithUsedItems.some(f => !prevSet.has(f));
+      // If user hasn't manually interacted (prev is empty), auto-expand folders with used items
+      if (prev.length === 0 && foldersWithUsedItems.length > 0) {
+        return foldersWithUsedItems;
+      }
       
-      return hasChanged ? foldersWithUsedItems : prev;
+      // Otherwise, add any NEW folders with used items to the existing expansion state
+      const prevSet = new Set(prev);
+      const newFoldersToAdd = foldersWithUsedItems.filter(f => !prevSet.has(f));
+      
+      if (newFoldersToAdd.length > 0) {
+        return [...prev, ...newFoldersToAdd];
+      }
+      
+      return prev;
     });
   }, [foldersWithUsedItems]);
 
