@@ -201,7 +201,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="space-y-4 px-6 py-4 overflow-y-auto flex-1 min-h-0">
+            <div className="space-y-4 px-6 py-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0">
               {/* Patient Information (Read-only) */}
               {patient && (
                 <div className="space-y-2">
@@ -312,20 +312,19 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-2 pt-4">
+              <div className="flex flex-col gap-2 pt-4">
                 <Button
-                  variant="destructive"
-                  onClick={handleDelete}
-                  disabled={deleteMutation.isPending || updateMutation.isPending}
-                  data-testid="button-delete-surgery"
-                  className="flex-1"
+                  onClick={handleUpdate}
+                  disabled={updateMutation.isPending || deleteMutation.isPending}
+                  data-testid="button-update-surgery"
+                  className="w-full"
                 >
-                  {deleteMutation.isPending ? (
-                    <>{t('anesthesia.editSurgery.deleting')}</>
+                  {updateMutation.isPending ? (
+                    <>{t('anesthesia.editSurgery.updating')}</>
                   ) : (
                     <>
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      {t('anesthesia.editSurgery.deleteSurgery')}
+                      <Save className="mr-2 h-4 w-4" />
+                      {t('anesthesia.editSurgery.update')}
                     </>
                   )}
                 </Button>
@@ -334,23 +333,24 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   onClick={onClose}
                   disabled={deleteMutation.isPending || updateMutation.isPending}
                   data-testid="button-cancel-surgery"
-                  className="flex-1"
+                  className="w-full"
                 >
                   <X className="mr-2 h-4 w-4" />
                   {t('common.cancel')}
                 </Button>
                 <Button
-                  onClick={handleUpdate}
-                  disabled={updateMutation.isPending || deleteMutation.isPending}
-                  data-testid="button-update-surgery"
-                  className="flex-1"
+                  variant="destructive"
+                  onClick={handleDelete}
+                  disabled={deleteMutation.isPending || updateMutation.isPending}
+                  data-testid="button-delete-surgery"
+                  className="w-full"
                 >
-                  {updateMutation.isPending ? (
-                    <>{t('anesthesia.editSurgery.updating')}</>
+                  {deleteMutation.isPending ? (
+                    <>{t('anesthesia.editSurgery.deleting')}</>
                   ) : (
                     <>
-                      <Save className="mr-2 h-4 w-4" />
-                      {t('anesthesia.editSurgery.update')}
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      {t('anesthesia.editSurgery.deleteSurgery')}
                     </>
                   )}
                 </Button>
