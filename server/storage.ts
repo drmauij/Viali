@@ -3651,7 +3651,7 @@ export class DatabaseStorage implements IStorage {
           }
           
           for (const segment of segments) {
-            totalQty += calculateRateControlledAmpules(
+            const ampules = calculateRateControlledAmpules(
               segment.rate,
               item.rateUnit,
               segment.start,
@@ -3659,6 +3659,17 @@ export class DatabaseStorage implements IStorage {
               item.ampuleTotalContent,
               patientWeight
             );
+            console.log('[INVENTORY-CALC] Rate-controlled calculation:', {
+              itemId,
+              rate: segment.rate,
+              rateUnit: item.rateUnit,
+              start: segment.start,
+              end: segment.end,
+              ampuleTotalContent: item.ampuleTotalContent,
+              patientWeight,
+              calculatedAmpules: ampules
+            });
+            totalQty += ampules;
           }
         }
       }
