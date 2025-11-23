@@ -61,10 +61,10 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
   const [openFolders, setOpenFolders] = useState<string[]>([]);
   const [showCommitDialog, setShowCommitDialog] = useState(false);
 
-  // Fetch ALL inventory items from the hospital
+  // Fetch ALL inventory items from the hospital/unit
   const { data: items = [] } = useQuery<Item[]>({
-    queryKey: [`/api/anesthesia/items/${activeHospital?.id}`],
-    enabled: !!activeHospital?.id,
+    queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId],
+    enabled: !!activeHospital?.id && !!activeHospital?.unitId,
   });
 
   // Fetch folders - MUST include unitId parameter
