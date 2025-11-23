@@ -57,8 +57,8 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
   
-  // State for controlling folder expansion
-  const [openFolders, setOpenFolders] = useState<Set<string>>(new Set());
+  // State for controlling folder expansion (using Set for instant lookups)
+  const [openFolders, setOpenFolders] = useState<Set<string>>(() => new Set());
   const [showCommitDialog, setShowCommitDialog] = useState(false);
 
   // Toggle folder expansion
