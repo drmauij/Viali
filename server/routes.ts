@@ -2141,9 +2141,15 @@ If unable to parse any drugs, return:
           });
         }
         
-        // Set initial stock if provided
-        if (bulkItem.initialStock !== undefined && bulkItem.initialStock > 0) {
-          await storage.updateStockLevel(item.id, unitId, bulkItem.initialStock);
+        // Set initial stock if provided (check both initialStock and currentUnits)
+        const stockToSet = bulkItem.initialStock ?? bulkItem.currentUnits;
+        if (stockToSet !== undefined && stockToSet > 0) {
+          // For trackExactQuantity items, stock is in units
+          // For regular items, stock is in packs
+          const stockLevel = bulkItem.trackExactQuantity 
+            ? Math.ceil(stockToSet / (bulkItem.packSize || 1))
+            : stockToSet;
+          await storage.updateStockLevel(item.id, unitId, stockLevel);
         }
         
         createdItems.push(item);
