@@ -99,7 +99,10 @@ export function useVitalsState(initialData?: {
   const bpDataPoints = useMemo<BpDataPoints>(() => {
     return {
       sys: bpRecords.map(r => [r.timestamp, r.sys]),
-      dia: bpRecords.map(r => [r.timestamp, r.dia]),
+      // Filter out diastolic points for temporary BP records (those with dia: 0)
+      dia: bpRecords
+        .filter(r => r.dia > 0) // Only include records with actual diastolic values
+        .map(r => [r.timestamp, r.dia]),
     };
   }, [bpRecords]);
 

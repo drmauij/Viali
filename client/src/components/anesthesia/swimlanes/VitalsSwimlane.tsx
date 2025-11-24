@@ -211,10 +211,11 @@ export function VitalsSwimlane({
       }
     }
     
-    // Check diastolic BP points - use same records
+    // Check diastolic BP points - use same records (skip temp points with dia: 0)
     for (let i = 0; i < bpRecords.length; i++) {
       const record = bpRecords[i];
-      if (Math.abs(record.timestamp - clickTime) <= TIME_THRESHOLD) {
+      // Skip temporary BP records (those with dia: 0)
+      if (record.dia > 0 && Math.abs(record.timestamp - clickTime) <= TIME_THRESHOLD) {
         const expectedYPercent = 1 - (record.dia / 240); // BP scale 0-240
         const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
         if (pixelDiff < closestDistance) {
