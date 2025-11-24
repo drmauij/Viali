@@ -44,7 +44,9 @@ export function useChecklistState({
   const autoSave = useAutoSaveMutation({
     mutationFn: async (data: { checklist: Record<string, boolean>; notes: string; signature: string }) => {
       if (!anesthesiaRecordId) throw new Error("No anesthesia record");
-      return apiRequest('PATCH', `/api/anesthesia/records/${anesthesiaRecordId}/${checklistType.toLowerCase()}`, data);
+      // Convert checklistType from camelCase to kebab-case: signIn -> sign-in, timeOut -> time-out, signOut -> sign-out
+      const kebabType = checklistType.replace(/([A-Z])/g, '-$1').toLowerCase();
+      return apiRequest('PATCH', `/api/anesthesia/records/${anesthesiaRecordId}/checklist/${kebabType}`, data);
     },
     queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
   });
