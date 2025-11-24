@@ -467,6 +467,8 @@ export function UnifiedTimeline({
   // Enter reorder mode - group items by folder
   const enterReorderMode = () => {
     const itemsByFolder: Record<string, typeof anesthesiaItems> = {};
+    
+    // Group ALL items by folder, including those without administrationGroup
     anesthesiaItems.forEach(item => {
       const folderId = item.administrationGroup || 'unassigned';
       if (!itemsByFolder[folderId]) {
@@ -474,6 +476,7 @@ export function UnifiedTimeline({
       }
       itemsByFolder[folderId].push(item);
     });
+    
     setReorderedItemsByFolder(itemsByFolder);
     setIsReorderMode(true);
   };
@@ -6274,9 +6277,19 @@ export function UnifiedTimeline({
           </DialogHeader>
           <div className="overflow-y-auto max-h-[50vh] p-4">
             <div className="space-y-4">
-              {Object.entries(reorderedItemsByFolder).map(([folderId, items]) => {
+              {Object.entries(reorderedItemsByFolder)
+                .sort(([aId], [bId]) => {
+                  // Sort: put "unassigned" at the end
+                  if (aId === 'unassigned') return 1;
+                  if (bId === 'unassigned') return -1;
+                  // Otherwise maintain order by folder name
+                  const aFolder = administrationGroups.find(g => g.id === aId);
+                  const bFolder = administrationGroups.find(g => g.id === bId);
+                  return (aFolder?.name || '').localeCompare(bFolder?.name || '');
+                })
+                .map(([folderId, items]) => {
                 const folder = administrationGroups.find(g => g.id === folderId);
-                const folderName = folder?.name || 'Unassigned';
+                const folderName = folder?.name || (folderId === 'unassigned' ? 'Unassigned' : 'Unknown');
                 const isCollapsed = collapsedFolders.has(folderId);
                 
                 return (
