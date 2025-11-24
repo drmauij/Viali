@@ -242,10 +242,10 @@ export function VitalsSwimlane({
   };
 
   /**
-   * Handle mouse down to start dragging in edit mode
+   * Handle mouse/touch down to start dragging in edit mode
    */
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (activeToolMode !== 'edit' || isTouchDevice) return;
+    if (activeToolMode !== 'edit') return;
 
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -277,6 +277,139 @@ export function VitalsSwimlane({
    */
   const handleMouseUp = (e: React.MouseEvent) => {
     if (!isDragging || !selectedPoint) return;
+
+    // Save the dragged point if position changed
+    if (dragPosition && (dragPosition.value !== selectedPoint.originalValue || dragPosition.time !== selectedPoint.originalTime)) {
+      // Update local state immediately for responsive UI + persist to backend
+      if (selectedPoint.type === 'hr') {
+        updateHrPoint(selectedPoint.id, { timestamp: dragPosition.time, value: dragPosition.value });
+        updateVitalPointMutation.mutate({
+          pointId: selectedPoint.id,
+          timestamp: new Date(dragPosition.time).toISOString(),
+          value: dragPosition.value
+        });
+      } else if (selectedPoint.type === 'bp-sys') {
+        // For BP points, only value changes (time fixed) to maintain pairing
+        const bpRecord = bpRecords.find(r => r.id === selectedPoint.id);
+        if (bpRecord) {
+          updateBPPoint(selectedPoint.id, { sys: dragPosition.value });
+          updateBPPointMutation.mutate({
+            pointId: selectedPoint.id,
+            timestamp: new Date(selectedPoint.originalTime).toISOString(),
+            sys: dragPosition.value,
+            dia: bpRecord.dia
+          });
+        }
+      } else if (selectedPoint.type === 'bp-dia') {
+        // For BP points, only value changes (time fixed) to maintain pairing
+        const bpRecord = bpRecords.find(r => r.id === selectedPoint.id);
+        if (bpRecord) {
+          updateBPPoint(selectedPoint.id, { dia: dragPosition.value });
+          updateBPPointMutation.mutate({
+            pointId: selectedPoint.id,
+            timestamp: new Date(selectedPoint.originalTime).toISOString(),
+            sys: bpRecord.sys,
+            dia: dragPosition.value
+          });
+        }
+      } else if (selectedPoint.type === 'spo2') {
+        updateSpo2Point(selectedPoint.id, { timestamp: dragPosition.time, value: dragPosition.value });
+        updateVitalPointMutation.mutate({
+          pointId: selectedPoint.id,
+          timestamp: new Date(dragPosition.time).toISOString(),
+          value: dragPosition.value
+        });
+      }
+    }
+    
+    // Reset drag state
+    setSelectedPoint(null);
+    setDragPosition(null);
+    setIsDragging(false);
+  };
+
+  /**
+   * Handle touch start to initiate dragging on touch devices
+   */
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (activeToolMode !== 'edit') return;
+    if (e.touches.length !== 1) return; // Only handle single-touch
+
+    e.preventDefault(); // Prevent scrolling while dragging
+    const touch = e.touches[0];
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    
+    const visibleStart = currentZoomStart ?? data.startTime;
+    const visibleEnd = currentZoomEnd ?? data.endTime;
+    const visibleRange = visibleEnd - visibleStart;
+    
+    const xPercent = x / rect.width;
+    const rawClickTime = visibleStart + (xPercent * visibleRange);
+
+    // Try to find a point at this location
+    const pointToSelect = findVitalPointAtClick(rawClickTime, y, rect);
+    if (pointToSelect) {
+      setSelectedPoint({
+        type: pointToSelect.type,
+        id: pointToSelect.id,
+        originalTime: pointToSelect.time,
+        originalValue: pointToSelect.value
+      });
+      setDragPosition({ time: pointToSelect.time, value: pointToSelect.value });
+      setIsDragging(true);
+    }
+  };
+
+  /**
+   * Handle touch move for dragging on touch devices
+   */
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || !selectedPoint || e.touches.length !== 1) return;
+
+    e.preventDefault(); // Prevent scrolling while dragging
+    const touch = e.touches[0];
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+
+    const visibleStart = currentZoomStart ?? data.startTime;
+    const visibleEnd = currentZoomEnd ?? data.endTime;
+    const visibleRange = visibleEnd - visibleStart;
+
+    const xPercent = x / rect.width;
+    let time = visibleStart + (xPercent * visibleRange);
+
+    const yPercent = y / rect.height;
+    const isSpO2 = selectedPoint.type === 'spo2';
+    const isBP = selectedPoint.type === 'bp-sys' || selectedPoint.type === 'bp-dia';
+    
+    let value: number;
+    if (isSpO2) {
+      const minVal = 45;
+      const maxVal = 105;
+      const rawValue = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+      value = Math.min(rawValue, 100);
+    } else {
+      const minVal = 0;
+      const maxVal = 240;
+      value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+    }
+    
+    // For BP points, only allow value dragging (time fixed) to maintain pairing
+    // For HR/SpO2, allow full repositioning (both time and value)
+    const dragTime = isBP ? selectedPoint.originalTime : Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
+    setDragPosition({ time: dragTime, value });
+  };
+
+  /**
+   * Handle touch end to finalize drag on touch devices
+   */
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!isDragging || !selectedPoint) return;
+
+    e.preventDefault();
 
     // Save the dragged point if position changed
     if (dragPosition && (dragPosition.value !== selectedPoint.originalValue || dragPosition.time !== selectedPoint.originalTime)) {
@@ -543,6 +676,17 @@ export function VitalsSwimlane({
         onMouseLeave={() => {
           setHoverInfo(null);
           // Cancel drag if mouse leaves overlay
+          if (isDragging) {
+            setSelectedPoint(null);
+            setDragPosition(null);
+            setIsDragging(false);
+          }
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={() => {
+          // Cancel drag if touch is interrupted
           if (isDragging) {
             setSelectedPoint(null);
             setDragPosition(null);
