@@ -1,7 +1,24 @@
 import { useMemo, useRef, useState, useEffect, useLayoutEffect, useCallback } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil, StopCircle, PlayCircle, Droplet, Loader2 } from "lucide-react";
+import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil, StopCircle, PlayCircle, Droplet, Loader2, ArrowUpDown, GripVertical, Check } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -43,7 +60,7 @@ import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { saveMedication, saveTimeMarkers } from "@/services/timelinePersistence";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useVitalsState } from "@/hooks/useVitalsState";
 import { useMedicationState } from "@/hooks/useMedicationState";
 import { useVentilationState } from "@/hooks/useVentilationState";
@@ -376,6 +393,29 @@ export function UnifiedTimeline({
   const updateMedication = useUpdateMedication(anesthesiaRecordId);
   const deleteMedication = useDeleteMedication(anesthesiaRecordId);
   
+  // Medication reorder mutation
+  const reorderMedsMutation = useMutation({
+    mutationFn: async (items: Array<{ itemId: string; sortOrder: number }>) => {
+      if (!activeHospital?.id) throw new Error("No active hospital");
+      await apiRequest('POST', '/api/anesthesia/items/reorder', { items });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/items/${activeHospital?.id}`] });
+      toast({
+        title: t("common.success"),
+        description: t("anesthesia.settings.reorderSuccess"),
+      });
+    },
+    onError: (error) => {
+      console.error('Failed to reorder items:', error);
+      toast({
+        title: t("common.error"),
+        description: error instanceof Error ? error.message : t("anesthesia.settings.reorderError"),
+        variant: "destructive",
+      });
+    },
+  });
+  
   // Mutation hooks for output
   const createOutput = useCreateOutput(anesthesiaRecordId);
   const updateOutput = useUpdateOutput(anesthesiaRecordId);
@@ -409,6 +449,55 @@ export function UnifiedTimeline({
       localStorage.setItem('collapsedSwimlanes', JSON.stringify(Array.from(next)));
       return next;
     });
+  };
+  
+  // State for medication reorder mode
+  const [isReorderMode, setIsReorderMode] = useState(false);
+  const [reorderedItems, setReorderedItems] = useState<typeof anesthesiaItems>([]);
+  
+  // DnD Kit sensors for reordering
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+  
+  // Enter reorder mode
+  const enterReorderMode = () => {
+    setIsReorderMode(true);
+    setReorderedItems([...anesthesiaItems]);
+  };
+  
+  // Cancel reorder mode
+  const cancelReorderMode = () => {
+    setIsReorderMode(false);
+    setReorderedItems([]);
+  };
+  
+  // Save reorder changes
+  const saveReorderChanges = async () => {
+    const updates = reorderedItems.map((item, index) => ({
+      itemId: item.id,
+      sortOrder: index,
+    }));
+    
+    await reorderMedsMutation.mutateAsync(updates);
+    setIsReorderMode(false);
+    setReorderedItems([]);
+  };
+  
+  // Handle drag end for reordering
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      setReorderedItems((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
   };
   
   // Use custom hook for medication state management
@@ -5009,21 +5098,36 @@ export function UnifiedTimeline({
                 </button>
               ) : isCollapsibleParent ? (
                 // For collapsible parent swimlanes, make entire label area clickable to toggle
-                <button
-                  onClick={() => toggleSwimlane(lane.id)}
-                  className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1 pointer-events-auto"
-                  data-testid={`button-toggle-${lane.id}`}
-                  title={collapsedSwimlanes.has(lane.id) ? "Expand" : "Collapse"}
-                >
-                  {collapsedSwimlanes.has(lane.id) ? (
-                    <ChevronRight className="w-4 h-4 text-foreground/70 shrink-0" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-foreground/70 shrink-0" />
+                <div className="flex items-center justify-between flex-1">
+                  <button
+                    onClick={() => toggleSwimlane(lane.id)}
+                    className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1 pointer-events-auto"
+                    data-testid={`button-toggle-${lane.id}`}
+                    title={collapsedSwimlanes.has(lane.id) ? "Expand" : "Collapse"}
+                  >
+                    {collapsedSwimlanes.has(lane.id) ? (
+                      <ChevronRight className="w-4 h-4 text-foreground/70 shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-foreground/70 shrink-0" />
+                    )}
+                    <span className={`${labelClass} text-black dark:text-white`}>
+                      {lane.label}
+                    </span>
+                  </button>
+                  {isMedParent && !collapsedSwimlanes.has(lane.id) && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        enterReorderMode();
+                      }}
+                      className="hover:bg-background/10 transition-colors rounded p-1 pointer-events-auto ml-1"
+                      data-testid="button-reorder-medications"
+                      title={t("anesthesia.timeline.reorderMedications")}
+                    >
+                      <ArrowUpDown className="w-4 h-4 text-foreground/70" />
+                    </button>
                   )}
-                  <span className={`${labelClass} text-black dark:text-white`}>
-                    {lane.label}
-                  </span>
-                </button>
+                </div>
               ) : swimlaneConfig?.hierarchyLevel === 'group' ? (
                 // For administration group headers, make entire label area clickable to configure medications
                 <button
@@ -6049,6 +6153,62 @@ export function UnifiedTimeline({
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Medication Reorder Mode Dialog */}
+      <Dialog open={isReorderMode} onOpenChange={(open) => !open && cancelReorderMode()}>
+        <DialogContent className="max-w-2xl max-h-[80vh]" data-testid="dialog-reorder-medications">
+          <DialogHeader>
+            <DialogTitle>{t("anesthesia.timeline.reorderMedications")}</DialogTitle>
+            <DialogDescription>
+              {t("anesthesia.timeline.reorderMedicationsDescription")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto max-h-[50vh] p-4">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={reorderedItems.map(item => item.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-2">
+                  {reorderedItems.map((item) => (
+                    <SortableMedicationItem key={item.id} id={item.id} item={item} />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={cancelReorderMode}
+              data-testid="button-cancel-reorder"
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onClick={saveReorderChanges}
+              disabled={reorderMedsMutation.isPending}
+              data-testid="button-save-reorder"
+            >
+              {reorderMedsMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {t("common.saving")}
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  {t("common.save")}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Unified Free-Flow Infusion Sheet */}
       <FreeFlowManageDialog
         open={showFreeFlowSheet}
@@ -6998,6 +7158,47 @@ export function UnifiedTimeline({
 }
 
 // Edit Value Form Component
+// Sortable Item Component for medication reordering
+function SortableMedicationItem({ id, item }: { id: string; item: typeof anesthesiaItems[0] }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 p-3 bg-background border rounded-md shadow-sm hover:shadow-md transition-shadow"
+      data-testid={`sortable-medication-${id}`}
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing"
+      >
+        <GripVertical className="w-5 h-5 text-muted-foreground" />
+      </div>
+      <div className="flex-1">
+        <div className="text-sm font-medium">{item.name}</div>
+        <div className="text-xs text-muted-foreground">
+          {item.dose} {item.unit}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EditValueForm({
   type,
   initialValue,
