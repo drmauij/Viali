@@ -14,6 +14,7 @@ interface PendingMedicationDose {
   time: number;
   label: string;
   defaultDose?: string | null;
+  itemId: string;
 }
 
 interface AnesthesiaItem {
@@ -86,37 +87,9 @@ export function MedicationDoseDialog({
       return;
     }
     
-    const { swimlaneId, time, label } = pendingMedicationDose;
+    const { swimlaneId, time, label, itemId } = pendingMedicationDose;
     
-    // Extract itemId from swimlaneId (format: "admingroup-{groupId}-item-{index}")
-    const itemIdMatch = swimlaneId.match(/item-(\d+)$/);
-    if (!itemIdMatch) {
-      console.log('[MED] No itemId match found for swimlaneId:', swimlaneId);
-      toast({
-        title: "Error",
-        description: "Could not identify medication",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    const itemIndex = parseInt(itemIdMatch[1]);
-    console.log('[MED] Extracted item index:', itemIndex);
-    
-    // Get the actual itemId from anesthesiaItems using the index
-    const item = anesthesiaItems?.[itemIndex];
-    if (!item?.id) {
-      console.log('[MED] No anesthesia item found at index:', itemIndex);
-      toast({
-        title: "Error",
-        description: "Could not identify medication",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    const itemId = item.id;
-    console.log('[MED] Resolved itemId:', itemId);
+    console.log('[MED] Using itemId from pending dose:', itemId);
     
     const doseValue = medicationDoseInput.trim();
     
@@ -169,31 +142,7 @@ export function MedicationDoseDialog({
       return;
     }
     
-    const { swimlaneId, time, label } = pendingMedicationDose;
-    
-    // Extract itemId from swimlaneId
-    const itemIdMatch = swimlaneId.match(/item-(\d+)$/);
-    if (!itemIdMatch) {
-      toast({
-        title: "Error",
-        description: "Could not identify medication",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    const itemIndex = parseInt(itemIdMatch[1]);
-    const item = anesthesiaItems?.[itemIndex];
-    if (!item?.id) {
-      toast({
-        title: "Error",
-        description: "Could not identify medication",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    const itemId = item.id;
+    const { swimlaneId, time, label, itemId } = pendingMedicationDose;
     
     // Save immediately
     try {

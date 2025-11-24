@@ -1157,7 +1157,7 @@ export function UnifiedTimeline({
   // State for medication dose entry
   const [medicationHoverInfo, setMedicationHoverInfo] = useState<{ x: number; y: number; time: number; swimlaneId: string; label: string } | null>(null);
   const [showMedicationDoseDialog, setShowMedicationDoseDialog] = useState(false);
-  const [pendingMedicationDose, setPendingMedicationDose] = useState<{ swimlaneId: string; time: number; label: string } | null>(null);
+  const [pendingMedicationDose, setPendingMedicationDose] = useState<{ swimlaneId: string; time: number; label: string; itemId: string } | null>(null);
 
   // State for administration group medication configuration dialog
   const [showMedicationConfigDialog, setShowMedicationConfigDialog] = useState(false);

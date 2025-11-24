@@ -366,7 +366,7 @@ export interface MedicationsSwimlaneProps {
     colorDark: string;
   }>;
   isTouchDevice: boolean;
-  onMedicationDoseDialogOpen: (pending: { swimlaneId: string; time: number; label: string; defaultDose?: string | null }) => void;
+  onMedicationDoseDialogOpen: (pending: { swimlaneId: string; time: number; label: string; defaultDose?: string | null; itemId: string }) => void;
   onMedicationEditDialogOpen: (editing: { swimlaneId: string; time: number; dose: string; index: number; id: string }) => void;
   onInstantMedicationSave: (swimlaneId: string, time: number, dose: string, itemId: string) => Promise<void>;
   onInfusionDialogOpen: (pending: { swimlaneId: string; time: number; label: string }) => void;
@@ -897,10 +897,21 @@ export function MedicationsSwimlane({
                     id,
                   });
                 } else {
+                  // Ensure lane has an itemId before proceeding
+                  if (!lane.itemId) {
+                    console.error('[MED] Lane missing itemId, cannot add dose:', lane);
+                    toast({
+                      title: "Configuration Error",
+                      description: "This medication is not properly configured. Please contact support.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  
                   // Check if medication has a simple default dose (no hyphen = single value)
                   const hasSimpleDefaultDose = lane.defaultDose && !lane.defaultDose.includes('-');
                   
-                  if (hasSimpleDefaultDose && lane.itemId) {
+                  if (hasSimpleDefaultDose) {
                     // Instantly save with default dose without opening dialog
                     onInstantMedicationSave(lane.id, time, lane.defaultDose!, lane.itemId);
                   } else {
@@ -909,7 +920,8 @@ export function MedicationsSwimlane({
                       swimlaneId: lane.id, 
                       time, 
                       label: lane.label.trim(),
-                      defaultDose: lane.defaultDose
+                      defaultDose: lane.defaultDose,
+                      itemId: lane.itemId
                     });
                   }
                 }
