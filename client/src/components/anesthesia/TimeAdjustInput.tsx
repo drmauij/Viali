@@ -17,7 +17,7 @@ export function TimeAdjustInput({
   className = "",
   'data-testid': testId 
 }: TimeAdjustInputProps) {
-  const timeStr = formatTime(value);
+  const timeStr = formatTime(new Date(value));
 
   const adjustTime = (minutes: number) => {
     const newDate = new Date(value);
@@ -25,8 +25,25 @@ export function TimeAdjustInput({
     onChange(newDate.getTime());
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      e.stopPropagation();
+      adjustTime(-step);
+    } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      e.stopPropagation();
+      adjustTime(step);
+    }
+  };
+
   return (
-    <div className={`flex items-center gap-2 ${className}`} data-testid={testId}>
+    <div 
+      className={`flex items-center gap-2 ${className}`} 
+      data-testid={testId}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+    >
       <Button
         type="button"
         variant="outline"
