@@ -109,6 +109,136 @@ function checkPageBreak(doc: jsPDF, currentY: number, spaceNeeded: number = 80):
   return currentY;
 }
 
+// Helper to render a base64 signature image in the PDF
+function renderSignatureImage(
+  doc: jsPDF,
+  signatureBase64: string,
+  xPos: number,
+  yPos: number,
+  width: number = 50,
+  height: number = 20
+): void {
+  try {
+    // Add signature image (base64 data URL)
+    doc.addImage(signatureBase64, 'PNG', xPos, yPos, width, height);
+    // Draw a border around the signature
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.rect(xPos, yPos, width, height);
+  } catch (error) {
+    // Fallback: just draw a placeholder box if image fails
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.rect(xPos, yPos, width, height);
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text(i18next.t("anesthesia.pdf.signatureError"), xPos + 2, yPos + height / 2);
+    doc.setTextColor(0, 0, 0);
+  }
+}
+
+// Helper to draw WHO Surgical Safety Checklist section
+function drawWHOChecklist(
+  doc: jsPDF,
+  title: string,
+  checklistData: { checklist?: Record<string, boolean>; notes?: string; signature?: string } | undefined,
+  items: Array<{ key: string; label: string }>,
+  yPos: number
+): number {
+  // Draw section title
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "bold");
+  doc.setFillColor(59, 130, 246);
+  doc.rect(20, yPos - 5, 170, 8, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.text(title, 22, yPos);
+  doc.setTextColor(0, 0, 0);
+  yPos += 8;
+
+  if (!checklistData || !checklistData.checklist) {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(100, 100, 100);
+    doc.text(i18next.t("anesthesia.pdf.notCompleted"), 25, yPos);
+    doc.setTextColor(0, 0, 0);
+    return yPos + 10;
+  }
+
+  const checklist = checklistData.checklist;
+  
+  // Draw checklist items with checkboxes
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  
+  items.forEach((item) => {
+    const isChecked = checklist[item.key] || false;
+    
+    // Draw checkbox
+    const boxSize = 4;
+    const boxX = 25;
+    const boxY = yPos - 3;
+    
+    doc.setDrawColor(100, 100, 100);
+    doc.setLineWidth(0.3);
+    doc.rect(boxX, boxY, boxSize, boxSize);
+    
+    // Draw checkmark if checked
+    if (isChecked) {
+      doc.setFillColor(34, 197, 94);
+      doc.rect(boxX + 0.5, boxY + 0.5, boxSize - 1, boxSize - 1, "F");
+      doc.setDrawColor(255, 255, 255);
+      doc.setLineWidth(0.5);
+      // Draw checkmark symbol
+      doc.line(boxX + 1.2, boxY + 2, boxX + 1.8, boxY + 3);
+      doc.line(boxX + 1.8, boxY + 3, boxX + 3.2, boxY + 1);
+    }
+    
+    // Draw item label
+    doc.setTextColor(0, 0, 0);
+    doc.text(item.label, boxX + boxSize + 3, yPos);
+    yPos += 5.5;
+  });
+  
+  yPos += 2;
+  
+  // Draw notes if available
+  if (checklistData.notes && checklistData.notes.trim() !== "") {
+    // Check if we need a new page before starting notes
+    yPos = checkPageBreak(doc, yPos, 30);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text(`${i18next.t("anesthesia.pdf.notes")}:`, 25, yPos);
+    yPos += 5;
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    const splitNotes = doc.splitTextToSize(checklistData.notes, 160);
+    splitNotes.forEach((line: string, idx: number) => {
+      // Check for page break every 10 lines or when we're low on space
+      if (idx % 10 === 0) {
+        yPos = checkPageBreak(doc, yPos, 20);
+      }
+      doc.text(line, 25, yPos);
+      yPos += 4;
+    });
+    yPos += 3;
+  }
+  
+  // Draw signature if available
+  if (checklistData.signature) {
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${i18next.t("anesthesia.pdf.signature")}:`, 25, yPos);
+    yPos += 5;
+    
+    // Render the signature image
+    renderSignatureImage(doc, checklistData.signature, 25, yPos, 50, 15);
+    yPos += 18;
+  }
+  
+  return yPos + 5;
+}
+
 // Helper to draw a timeline chart with multiple data series
 function drawTimelineChart(
   doc: jsPDF,
@@ -707,23 +837,6 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
       }
     }
 
-    // Informed consent signature
-    if (data.preOpAssessment.informedConsentData) {
-      const consentData = data.preOpAssessment.informedConsentData as any;
-      if (consentData.signature) {
-        yPos += 3;
-        doc.setFont("helvetica", "bold");
-        doc.text(`${i18next.t("anesthesia.pdf.informedConsent")}:`, 20, yPos);
-        yPos += 5;
-        doc.setFont("helvetica", "normal");
-        doc.text(i18next.t("anesthesia.pdf.signedElectronically"), 25, yPos);
-        if (consentData.completedAt) {
-          doc.text(`${i18next.t("anesthesia.pdf.date")}: ${formatDateTime24h(new Date(consentData.completedAt))}`, 25, yPos + 5);
-          yPos += 5;
-        }
-        yPos += 5;
-      }
-    }
 
     yPos += 5;
   }
@@ -1203,46 +1316,201 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     yPos = (doc as any).lastAutoTable.finalY + 10;
   }
 
-  // ==================== SIGNATURES ====================
-  if (data.preOpAssessment) {
-    yPos = checkPageBreak(doc, yPos, 50);
+  // ==================== WHO SURGICAL SAFETY CHECKLIST ====================
+  if (data.anesthesiaRecord && (data.anesthesiaRecord.signInData || data.anesthesiaRecord.timeOutData || data.anesthesiaRecord.signOutData)) {
+    yPos = checkPageBreak(doc, yPos, 80);
 
-    doc.setFontSize(14);
+    // Main WHO Checklist Title
+    doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text(i18next.t("anesthesia.pdf.signatures"), 20, yPos);
-    yPos += 7;
+    doc.text(i18next.t("anesthesia.pdf.whoChecklistTitle"), 105, yPos, { align: "center" });
+    yPos += 12;
+
+    // Sign-In Checklist
+    if (data.anesthesiaRecord.signInData) {
+      yPos = checkPageBreak(doc, yPos, 60);
+      const signInItems = [
+        { key: "patient_identity_confirmed", label: i18next.t("anesthesia.pdf.whoSignIn.patientIdentity") },
+        { key: "site_marked", label: i18next.t("anesthesia.pdf.whoSignIn.siteMarked") },
+        { key: "procedure_confirmed", label: i18next.t("anesthesia.pdf.whoSignIn.procedureConfirmed") },
+        { key: "consent_signed", label: i18next.t("anesthesia.pdf.whoSignIn.consentSigned") },
+        { key: "anesthesia_safety_check", label: i18next.t("anesthesia.pdf.whoSignIn.anesthesiaSafety") },
+        { key: "allergies_known", label: i18next.t("anesthesia.pdf.whoSignIn.allergiesKnown") },
+        { key: "difficult_airway_risk", label: i18next.t("anesthesia.pdf.whoSignIn.difficultAirway") },
+        { key: "blood_loss_risk", label: i18next.t("anesthesia.pdf.whoSignIn.bloodLossRisk") },
+      ];
+      yPos = drawWHOChecklist(doc, i18next.t("anesthesia.pdf.whoSignInTitle"), data.anesthesiaRecord.signInData, signInItems, yPos);
+    }
+
+    // Time-Out Checklist
+    if (data.anesthesiaRecord.timeOutData) {
+      yPos = checkPageBreak(doc, yPos, 60);
+      const timeOutItems = [
+        { key: "team_introductions", label: i18next.t("anesthesia.pdf.whoTimeOut.teamIntroductions") },
+        { key: "patient_confirmed", label: i18next.t("anesthesia.pdf.whoTimeOut.patientConfirmed") },
+        { key: "procedure_confirmed", label: i18next.t("anesthesia.pdf.whoTimeOut.procedureConfirmed") },
+        { key: "antibiotics_given", label: i18next.t("anesthesia.pdf.whoTimeOut.antibioticsGiven") },
+        { key: "imaging_available", label: i18next.t("anesthesia.pdf.whoTimeOut.imagingAvailable") },
+        { key: "concerns_addressed", label: i18next.t("anesthesia.pdf.whoTimeOut.concernsAddressed") },
+      ];
+      yPos = drawWHOChecklist(doc, i18next.t("anesthesia.pdf.whoTimeOutTitle"), data.anesthesiaRecord.timeOutData, timeOutItems, yPos);
+    }
+
+    // Sign-Out Checklist
+    if (data.anesthesiaRecord.signOutData) {
+      yPos = checkPageBreak(doc, yPos, 60);
+      const signOutItems = [
+        { key: "procedure_recorded", label: i18next.t("anesthesia.pdf.whoSignOut.procedureRecorded") },
+        { key: "counts_correct", label: i18next.t("anesthesia.pdf.whoSignOut.countsCorrect") },
+        { key: "specimens_labeled", label: i18next.t("anesthesia.pdf.whoSignOut.specimensLabeled") },
+        { key: "equipment_issues", label: i18next.t("anesthesia.pdf.whoSignOut.equipmentIssues") },
+        { key: "recovery_concerns", label: i18next.t("anesthesia.pdf.whoSignOut.recoveryConcerns") },
+      ];
+      yPos = drawWHOChecklist(doc, i18next.t("anesthesia.pdf.whoSignOutTitle"), data.anesthesiaRecord.signOutData, signOutItems, yPos);
+    }
+
+    yPos += 5;
+  }
+
+  // ==================== PRE-OPERATIVE ASSESSMENT & INFORMED CONSENT ====================
+  if (data.preOpAssessment) {
+    yPos = checkPageBreak(doc, yPos, 80);
+
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text(i18next.t("anesthesia.pdf.preOpConsentTitle"), 105, yPos, { align: "center" });
+    yPos += 12;
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
 
-    // Pre-operative assessment signature
+    // Pre-Operative Assessment Section
+    doc.setFontSize(13);
+    doc.setFont("helvetica", "bold");
+    doc.setFillColor(59, 130, 246);
+    doc.rect(20, yPos - 5, 170, 8, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.text(i18next.t("anesthesia.pdf.preOpAssessmentSection"), 22, yPos);
+    doc.setTextColor(0, 0, 0);
+    yPos += 10;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+
+    // Display key pre-op assessment details
+    if (data.preOpAssessment.asa) {
+      doc.text(`${i18next.t("anesthesia.pdf.asaClassification")}: ${data.preOpAssessment.asa}`, 25, yPos);
+      yPos += 5;
+    }
+    if (data.preOpAssessment.assessmentDate) {
+      doc.text(`${i18next.t("anesthesia.pdf.assessmentDate")}: ${formatDate(data.preOpAssessment.assessmentDate)}`, 25, yPos);
+      yPos += 5;
+    }
+
+    // Doctor signature (if it's a base64 image)
     if (data.preOpAssessment.doctorSignature) {
+      yPos += 3;
       doc.setFont("helvetica", "bold");
-      doc.text(`${i18next.t("anesthesia.pdf.preOperativeAssessmentSig")}:`, 20, yPos);
+      doc.text(`${i18next.t("anesthesia.pdf.anesthesiologistSignature")}:`, 25, yPos);
       yPos += 5;
-      doc.setFont("helvetica", "normal");
-      doc.text(`${i18next.t("anesthesia.pdf.anesthesiologist")}: ${data.preOpAssessment.doctorSignature}`, 25, yPos);
-      yPos += 5;
-      if (data.preOpAssessment.assessmentDate) {
-        doc.text(`${i18next.t("anesthesia.pdf.date")}: ${formatDate(data.preOpAssessment.assessmentDate)}`, 25, yPos);
+      
+      // Check if it's a base64 image (starts with data:image) or just text
+      if (data.preOpAssessment.doctorSignature.startsWith('data:image')) {
+        renderSignatureImage(doc, data.preOpAssessment.doctorSignature, 25, yPos, 50, 15);
+        yPos += 18;
+      } else {
+        // Fallback: text-based signature
+        doc.setFont("helvetica", "normal");
+        doc.text(data.preOpAssessment.doctorSignature, 25, yPos);
         yPos += 7;
       }
     }
 
-    // Informed consent signature
-    if (data.preOpAssessment.informedConsentData) {
-      const consentData = data.preOpAssessment.informedConsentData as any;
-      if (consentData.signature) {
-        doc.setFont("helvetica", "bold");
-        doc.text(`${i18next.t("anesthesia.pdf.informedConsent")}:`, 20, yPos);
-        yPos += 5;
+    yPos += 5;
+
+    // Informed Consent Section
+    doc.setFontSize(13);
+    doc.setFont("helvetica", "bold");
+    doc.setFillColor(59, 130, 246);
+    doc.rect(20, yPos - 5, 170, 8, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.text(i18next.t("anesthesia.pdf.informedConsentSection"), 22, yPos);
+    doc.setTextColor(0, 0, 0);
+    yPos += 10;
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+
+    // Display consent options
+    const consentOptions = [];
+    if (data.preOpAssessment.consentGiven) consentOptions.push(i18next.t("anesthesia.pdf.consentGeneral"));
+    if (data.preOpAssessment.consentRegional) consentOptions.push(i18next.t("anesthesia.pdf.consentRegional"));
+    if (data.preOpAssessment.consentInstallations) consentOptions.push(i18next.t("anesthesia.pdf.consentInstallations"));
+    if (data.preOpAssessment.consentICU) consentOptions.push(i18next.t("anesthesia.pdf.consentICU"));
+
+    if (consentOptions.length > 0) {
+      doc.setFont("helvetica", "bold");
+      doc.text(`${i18next.t("anesthesia.pdf.consentItems")}:`, 25, yPos);
+      yPos += 5;
+      doc.setFont("helvetica", "normal");
+      consentOptions.forEach(option => {
+        doc.text(`• ${option}`, 30, yPos);
+        yPos += 4.5;
+      });
+      yPos += 2;
+    }
+
+    if (data.preOpAssessment.consentText) {
+      doc.setFont("helvetica", "bold");
+      doc.text(`${i18next.t("anesthesia.pdf.additionalConsentNotes")}:`, 25, yPos);
+      yPos += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      const splitText = doc.splitTextToSize(data.preOpAssessment.consentText, 160);
+      splitText.forEach((line: string) => {
+        doc.text(line, 25, yPos);
+        yPos += 4;
+      });
+      yPos += 3;
+    }
+
+    doc.setFontSize(9);
+
+    // Consent date
+    if (data.preOpAssessment.consentDate) {
+      doc.text(`${i18next.t("anesthesia.pdf.consentDate")}: ${formatDate(data.preOpAssessment.consentDate)}`, 25, yPos);
+      yPos += 7;
+    }
+
+    // Doctor consent signature
+    if (data.preOpAssessment.consentDoctorSignature) {
+      doc.setFont("helvetica", "bold");
+      doc.text(`${i18next.t("anesthesia.pdf.doctorSignature")}:`, 25, yPos);
+      yPos += 5;
+      
+      if (data.preOpAssessment.consentDoctorSignature.startsWith('data:image')) {
+        renderSignatureImage(doc, data.preOpAssessment.consentDoctorSignature, 25, yPos, 50, 15);
+        yPos += 18;
+      } else {
         doc.setFont("helvetica", "normal");
-        doc.text(i18next.t("anesthesia.pdf.patientConsentObtained"), 25, yPos);
-        yPos += 5;
-        if (consentData.completedAt) {
-          doc.text(`${i18next.t("anesthesia.pdf.dateTime")}: ${formatDateTime24h(new Date(consentData.completedAt))}`, 25, yPos);
-          yPos += 5;
-        }
+        doc.text(data.preOpAssessment.consentDoctorSignature, 25, yPos);
+        yPos += 7;
+      }
+    }
+
+    // Patient signature
+    if (data.preOpAssessment.patientSignature) {
+      doc.setFont("helvetica", "bold");
+      doc.text(`${i18next.t("anesthesia.pdf.patientSignature")}:`, 25, yPos);
+      yPos += 5;
+      
+      if (data.preOpAssessment.patientSignature.startsWith('data:image')) {
+        renderSignatureImage(doc, data.preOpAssessment.patientSignature, 25, yPos, 50, 15);
+        yPos += 18;
+      } else {
+        doc.setFont("helvetica", "normal");
+        doc.text(data.preOpAssessment.patientSignature, 25, yPos);
+        yPos += 7;
       }
     }
 
