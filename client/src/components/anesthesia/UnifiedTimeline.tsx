@@ -1590,6 +1590,22 @@ export function UnifiedTimeline({
     return grouped;
   }, [anesthesiaItems]);
 
+  // Calculate max tracks needed for each free-flow swimlane
+  const swimlaneTrackCounts = useMemo(() => {
+    const { calculateMaxTracks } = require('@/lib/infusionTrackAssignment');
+    const trackCounts: Record<string, number> = {};
+    const maxTime = data.endTime;
+    
+    Object.keys(freeFlowSessions).forEach(swimlaneId => {
+      const sessions = freeFlowSessions[swimlaneId];
+      if (sessions && sessions.length > 0) {
+        trackCounts[swimlaneId] = calculateMaxTracks(sessions, maxTime);
+      }
+    });
+    
+    return trackCounts;
+  }, [freeFlowSessions, data.endTime]);
+
   // Format item display name
   const formatItemDisplayName = (item: AnesthesiaItem): string => {
     const parts = [item.name];
@@ -1733,10 +1749,21 @@ export function UnifiedTimeline({
             // Add child lanes for items in this group
             const groupItems = itemsByAdminGroup[group.id] || [];
             groupItems.forEach((item, index) => {
+              const swimlaneId = `admingroup-${group.id}-item-${index}`;
+              
+              // Calculate dynamic height for free-flow infusions based on parallel tracks
+              let laneHeight = 38; // Default height
+              const isFreeFlow = item.rateUnit === 'free';
+              if (isFreeFlow) {
+                const trackCount = swimlaneTrackCounts[swimlaneId] || 1;
+                const TRACK_HEIGHT = 30; // Height per track
+                laneHeight = Math.max(38, trackCount * TRACK_HEIGHT);
+              }
+              
               lanes.push({
-                id: `admingroup-${group.id}-item-${index}`,
+                id: swimlaneId,
                 label: formatItemDisplayName(item),
-                height: 38,
+                height: laneHeight,
                 ...medGroupColor,
                 rateUnit: item.rateUnit ?? null,
                 defaultDose: item.defaultDose ?? null,
@@ -1805,7 +1832,7 @@ export function UnifiedTimeline({
     return lanes;
   };
 
-  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [collapsedSwimlanes, swimlanes, administrationGroups, itemsByAdminGroup]);
+  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [collapsedSwimlanes, swimlanes, administrationGroups, itemsByAdminGroup, swimlaneTrackCounts]);
 
   // Handle editing vital values
   const handleSaveEdit = async (newValue: number) => {

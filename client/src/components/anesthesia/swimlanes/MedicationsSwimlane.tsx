@@ -726,7 +726,16 @@ export function MedicationsSwimlane({
         const visibleEnd = currentZoomEnd ?? data.endTime;
         const visibleRange = visibleEnd - visibleStart;
         
-        return sessions.map((session, sessionIndex) => {
+        // Assign tracks to sessions for parallel display
+        const { assignInfusionTracks } = require('@/lib/infusionTrackAssignment');
+        const sessionsWithTracks = assignInfusionTracks(sessions, data.endTime);
+        
+        // Calculate track height
+        const maxTrack = Math.max(...sessionsWithTracks.map((s: any) => s.track), 0);
+        const trackCount = maxTrack + 1;
+        const TRACK_HEIGHT = 30;
+        
+        return sessionsWithTracks.map((session: any, sessionIndex: number) => {
           const startTime = session.startTime;
           const endTime = session.endTime || null; // null means still running
           const displayEndTime = endTime || visibleEnd; // For rendering, use visible end if running
@@ -743,6 +752,10 @@ export function MedicationsSwimlane({
           const rightPercent = Math.min(100, endPercent);
           const widthPercent = rightPercent - leftPercent;
           
+          // Calculate vertical position based on track assignment
+          // Track 0 at bottom, Track 1 above it, etc.
+          const trackYOffset = session.track * TRACK_HEIGHT;
+          
           return (
             <UnifiedInfusion
               key={`freeflow-infusion-${lane.id}-${sessionIndex}`}
@@ -753,8 +766,8 @@ export function MedicationsSwimlane({
               medicationName={lane.label.trim()}
               leftPercent={leftPercent}
               widthPercent={widthPercent}
-              yPosition={childLane.top}
-              swimlaneHeight={childLane.height}
+              yPosition={childLane.top + trackYOffset}
+              swimlaneHeight={TRACK_HEIGHT}
               testId={`freeflow-infusion-${lane.id}-${sessionIndex}`}
               formatTime={formatTime}
               isTouchDevice={isTouchDevice}
@@ -765,8 +778,8 @@ export function MedicationsSwimlane({
                 // If infusion is running (no endTime), show stop dialog
                 if (endTime) {
                   // Check if there are any sessions after this one in the same swimlane
-                  const allSessionsInLane = lane.freeFlowSessions || [];
-                  const hasLaterSessions = allSessionsInLane.some(s => s.startTime > session.startTime);
+                  const allSessionsInLane = sessions;
+                  const hasLaterSessions = allSessionsInLane.some((s: any) => s.startTime > session.startTime);
                   
                   if (hasLaterSessions) {
                     // Cannot resume a historical session - show informational toast
