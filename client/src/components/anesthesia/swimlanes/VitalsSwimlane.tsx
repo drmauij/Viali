@@ -44,6 +44,8 @@ export function VitalsSwimlane({
     activeToolMode,
     addVitalPointMutation,
     addBPPointMutation,
+    updateVitalPointMutation,
+    updateBPPointMutation,
     data,
     blendSequenceStep,
     setBlendSequenceStep,
@@ -60,6 +62,10 @@ export function VitalsSwimlane({
     bpDataPoints,
     spo2DataPoints,
     setBpDataPoints,
+    updateHrPoint,
+    updateSysPoint,
+    updateDiaPoint,
+    updateSpo2Point,
   } = vitalsState;
 
   // State for hover tooltip (remains local to this component)
@@ -107,6 +113,8 @@ export function VitalsSwimlane({
 
     if (activeToolMode === 'edit' && selectedPoint) {
       const isSpO2 = selectedPoint.type === 'spo2';
+      const isBP = selectedPoint.type === 'bp-sys' || selectedPoint.type === 'bp-dia';
+      
       if (isSpO2) {
         const minVal = 45;
         const maxVal = 105;
@@ -117,9 +125,12 @@ export function VitalsSwimlane({
         const maxVal = 240;
         value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
       }
-      const fixedTime = selectedPoint.originalTime;
-      setDragPosition({ time: fixedTime, value });
-      setHoverInfo({ x: e.clientX, y: e.clientY, value, time: fixedTime });
+      
+      // For BP points, only allow value dragging (time fixed) to maintain pairing
+      // For HR/SpO2, allow full repositioning (both time and value)
+      const dragTime = isBP ? selectedPoint.originalTime : Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
+      setDragPosition({ time: dragTime, value });
+      setHoverInfo({ x: e.clientX, y: e.clientY, value, time: dragTime });
     } else if (activeToolMode === 'hr' || activeToolMode === 'bp' || (activeToolMode === 'blend' && (blendSequenceStep === 'sys' || blendSequenceStep === 'dia' || blendSequenceStep === 'hr'))) {
       const minVal = 0;
       const maxVal = 240;
@@ -231,25 +242,55 @@ export function VitalsSwimlane({
     // EDIT MODE: Select point for dragging
     if (activeToolMode === 'edit') {
       if (selectedPoint) {
-        // Already dragging a point - save the new value from dragPosition
-        if (dragPosition) {
-          // Update the point with the new value
+        // Already dragging a point - save the new time and value from dragPosition
+        if (dragPosition && (dragPosition.value !== selectedPoint.originalValue || dragPosition.time !== selectedPoint.originalTime)) {
+          const newPoint: VitalPoint = [dragPosition.time, dragPosition.value];
+          
+          // Update local state immediately for responsive UI
           if (selectedPoint.type === 'hr') {
-            const updatedPoints = [...hrDataPoints];
-            updatedPoints[selectedPoint.index] = [selectedPoint.originalTime, dragPosition.value];
-            setHrDataPoints(updatedPoints);
+            updateHrPoint(selectedPoint.index, newPoint);
+            // Persist to backend
+            updateVitalPointMutation.mutate({
+              vitalType: 'hr',
+              index: selectedPoint.index,
+              timestamp: new Date(dragPosition.time).toISOString(),
+              value: dragPosition.value
+            });
           } else if (selectedPoint.type === 'bp-sys') {
-            const updatedPoints = [...bpDataPoints.sys];
-            updatedPoints[selectedPoint.index] = [selectedPoint.originalTime, dragPosition.value];
-            setBpDataPoints(prev => ({ ...prev, sys: updatedPoints }));
+            // BP time is fixed - only value changes
+            updateSysPoint(selectedPoint.index, newPoint);
+            // Find matching diastolic value (time never changed, so use index)
+            const diaValue = bpDataPoints.dia[selectedPoint.index]?.[1];
+            if (diaValue !== undefined) {
+              updateBPPointMutation.mutate({
+                index: selectedPoint.index,
+                timestamp: new Date(selectedPoint.originalTime).toISOString(),
+                sys: dragPosition.value,
+                dia: diaValue
+              });
+            }
           } else if (selectedPoint.type === 'bp-dia') {
-            const updatedPoints = [...bpDataPoints.dia];
-            updatedPoints[selectedPoint.index] = [selectedPoint.originalTime, dragPosition.value];
-            setBpDataPoints(prev => ({ ...prev, dia: updatedPoints }));
+            // BP time is fixed - only value changes
+            updateDiaPoint(selectedPoint.index, newPoint);
+            // Find matching systolic value (time never changed, so use index)
+            const sysValue = bpDataPoints.sys[selectedPoint.index]?.[1];
+            if (sysValue !== undefined) {
+              updateBPPointMutation.mutate({
+                index: selectedPoint.index,
+                timestamp: new Date(selectedPoint.originalTime).toISOString(),
+                sys: sysValue,
+                dia: dragPosition.value
+              });
+            }
           } else if (selectedPoint.type === 'spo2') {
-            const updatedPoints = [...spo2DataPoints];
-            updatedPoints[selectedPoint.index] = [selectedPoint.originalTime, dragPosition.value];
-            setSpo2DataPoints(updatedPoints);
+            updateSpo2Point(selectedPoint.index, newPoint);
+            // Persist to backend
+            updateVitalPointMutation.mutate({
+              vitalType: 'spo2',
+              index: selectedPoint.index,
+              timestamp: new Date(dragPosition.time).toISOString(),
+              value: dragPosition.value
+            });
           }
         }
         
