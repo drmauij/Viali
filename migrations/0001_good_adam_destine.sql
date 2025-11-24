@@ -1,0 +1,1 @@
+ALTER TABLE "medication_configs" ADD COLUMN "sort_order" integer DEFAULT 0;
