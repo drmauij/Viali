@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useEffect, useLayoutEffect, useCallback } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil, StopCircle, PlayCircle, Droplet, Loader2, ArrowUpDown, GripVertical, Check } from "lucide-react";
+import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil, StopCircle, PlayCircle, Droplet, Loader2, ArrowUpDown, GripVertical, Check, Copy } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -5844,6 +5844,93 @@ export function UnifiedTimeline({
             >
               <PlayCircle className="w-4 h-4 mr-2" />
               Start New Infusion
+            </Button>
+            <Button
+              onClick={() => {
+                if (!pendingFreeFlowStop || !anesthesiaRecordId) return;
+                const { session, clickTime } = pendingFreeFlowStop;
+                
+                // DUPLICATE action: Create a parallel infusion (keep current running)
+                // Extract item ID from swimlane ID
+                const groupMatch = session.swimlaneId.match(/admingroup-([a-f0-9-]+)-item-(\d+)/);
+                if (!groupMatch) {
+                  toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: "Unable to duplicate infusion",
+                  });
+                  return;
+                }
+                
+                const groupId = groupMatch[1];
+                const itemIndex = parseInt(groupMatch[2], 10);
+                const groupItems = anesthesiaItems.filter(item => item.administrationGroup === groupId);
+                const item = groupItems[itemIndex];
+                
+                if (!item) {
+                  toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: "Item not found",
+                  });
+                  return;
+                }
+                
+                const duplicateStartTime = clickTime; // Start at current time
+                
+                // Optimistic update: Add new parallel session
+                setFreeFlowSessions(prev => {
+                  const sessions = prev[session.swimlaneId] || [];
+                  
+                  // Add duplicate session with temporary ID
+                  const duplicateSession: FreeFlowSession = {
+                    id: `temp-duplicate-${Date.now()}`,
+                    swimlaneId: session.swimlaneId,
+                    startTime: duplicateStartTime,
+                    dose: session.dose,
+                    label: session.label,
+                  };
+                  
+                  return {
+                    ...prev,
+                    [session.swimlaneId]: [...sessions, duplicateSession].sort((a, b) => a.startTime - b.startTime),
+                  };
+                });
+                
+                // Add dose marker to infusionData
+                setInfusionData(prev => {
+                  const existingData = prev[session.swimlaneId] || [];
+                  return {
+                    ...prev,
+                    [session.swimlaneId]: [...existingData, [duplicateStartTime, session.dose] as [number, string]].sort((a, b) => a[0] - b[0]),
+                  };
+                });
+                
+                // Close dialog immediately
+                setShowFreeFlowStopDialog(false);
+                setPendingFreeFlowStop(null);
+                
+                // Show success message immediately
+                toast({
+                  title: "Parallel infusion created",
+                  description: `Duplicate ${session.label} started with dose ${session.dose}`,
+                });
+                
+                // Background: Persist to database
+                createMedication.mutate({
+                  anesthesiaRecordId,
+                  itemId: item.id,
+                  timestamp: new Date(duplicateStartTime),
+                  type: 'infusion_start' as const,
+                  rate: 'free',
+                  dose: session.dose,
+                });
+              }}
+              variant="secondary"
+              data-testid="button-freeflow-duplicate"
+            >
+              <Copy className="w-4 h-4 mr-2" />
+              Duplicate (Parallel Infusion)
             </Button>
             <Button
               onClick={() => {
