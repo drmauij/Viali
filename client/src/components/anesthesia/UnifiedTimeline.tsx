@@ -5814,6 +5814,7 @@ export function UnifiedTimeline({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex flex-col gap-2 my-4">
+            {/* Primary actions: Start New and Stop */}
             <Button
               onClick={() => {
                 if (!pendingFreeFlowStop || !anesthesiaRecordId) return;
@@ -5908,6 +5909,69 @@ export function UnifiedTimeline({
             </Button>
             <Button
               onClick={() => {
+                if (!pendingFreeFlowStop) return;
+                const { session, clickTime } = pendingFreeFlowStop;
+                
+                // Optimistic update: Immediately update UI
+                setFreeFlowSessions(prev => {
+                  const sessions = prev[session.swimlaneId] || [];
+                  return {
+                    ...prev,
+                    [session.swimlaneId]: sessions.map(s => 
+                      s.startTime === session.startTime 
+                        ? { ...s, endTime: clickTime }
+                        : s
+                    ),
+                  };
+                });
+                
+                // Add visual end marker (tick without dose value)
+                setInfusionData(prev => {
+                  const existingData = prev[session.swimlaneId] || [];
+                  return {
+                    ...prev,
+                    [session.swimlaneId]: [...existingData, [clickTime, ""] as [number, string]].sort((a, b) => a[0] - b[0]),
+                  };
+                });
+                
+                // Close dialog immediately
+                setShowFreeFlowStopDialog(false);
+                setPendingFreeFlowStop(null);
+                
+                // Show success message immediately
+                toast({
+                  title: "Infusion stopped",
+                  description: `${session.label} stopped at ${formatTime(clickTime)}`,
+                });
+                
+                // Background: Persist to database
+                const matchingMedication = data.medications?.find(med => {
+                  const medTime = new Date(med.timestamp).getTime();
+                  return med.type === 'infusion_start' && 
+                         med.rate === 'free' &&
+                         Math.abs(medTime - session.startTime) < 1000; // Within 1 second tolerance
+                });
+                
+                if (matchingMedication) {
+                  updateMedication.mutate({
+                    id: matchingMedication.id,
+                    endTimestamp: new Date(clickTime),
+                  });
+                }
+              }}
+              variant="outline"
+              data-testid="button-freeflow-stop"
+            >
+              <StopCircle className="w-4 h-4 mr-2" />
+              Stop Infusion
+            </Button>
+            
+            {/* Spacing divider */}
+            <div className="border-t border-border my-2"></div>
+            
+            {/* Secondary action: Duplicate */}
+            <Button
+              onClick={() => {
                 if (!pendingFreeFlowStop || !anesthesiaRecordId) return;
                 const { session, clickTime } = pendingFreeFlowStop;
                 
@@ -5992,64 +6056,6 @@ export function UnifiedTimeline({
             >
               <Copy className="w-4 h-4 mr-2" />
               Duplicate (Parallel Infusion)
-            </Button>
-            <Button
-              onClick={() => {
-                if (!pendingFreeFlowStop) return;
-                const { session, clickTime } = pendingFreeFlowStop;
-                
-                // Optimistic update: Immediately update UI
-                setFreeFlowSessions(prev => {
-                  const sessions = prev[session.swimlaneId] || [];
-                  return {
-                    ...prev,
-                    [session.swimlaneId]: sessions.map(s => 
-                      s.startTime === session.startTime 
-                        ? { ...s, endTime: clickTime }
-                        : s
-                    ),
-                  };
-                });
-                
-                // Add visual end marker (tick without dose value)
-                setInfusionData(prev => {
-                  const existingData = prev[session.swimlaneId] || [];
-                  return {
-                    ...prev,
-                    [session.swimlaneId]: [...existingData, [clickTime, ""] as [number, string]].sort((a, b) => a[0] - b[0]),
-                  };
-                });
-                
-                // Close dialog immediately
-                setShowFreeFlowStopDialog(false);
-                setPendingFreeFlowStop(null);
-                
-                // Show success message immediately
-                toast({
-                  title: "Infusion stopped",
-                  description: `${session.label} stopped at ${formatTime(clickTime)}`,
-                });
-                
-                // Background: Persist to database
-                const matchingMedication = data.medications?.find(med => {
-                  const medTime = new Date(med.timestamp).getTime();
-                  return med.type === 'infusion_start' && 
-                         med.rate === 'free' &&
-                         Math.abs(medTime - session.startTime) < 1000; // Within 1 second tolerance
-                });
-                
-                if (matchingMedication) {
-                  updateMedication.mutate({
-                    id: matchingMedication.id,
-                    endTimestamp: new Date(clickTime),
-                  });
-                }
-              }}
-              variant="outline"
-              data-testid="button-freeflow-stop"
-            >
-              <StopCircle className="w-4 h-4 mr-2" />
-              Stop Infusion
             </Button>
           </div>
           <AlertDialogFooter>
