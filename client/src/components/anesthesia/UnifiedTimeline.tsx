@@ -1976,10 +1976,14 @@ export function UnifiedTimeline({
     const updated = [...timeMarkers];
     updated[editingTimeMarker.index] = { ...updated[editingTimeMarker.index], time: newTime };
     setTimeMarkers(updated);
-    setTimeMarkerEditDialogOpen(false);
-    setEditingTimeMarker(null);
+    
+    // Update the editing state with the new time so the dialog shows the updated value
+    setEditingTimeMarker({
+      ...editingTimeMarker,
+      marker: { ...editingTimeMarker.marker, time: newTime }
+    });
 
-    // Save to database
+    // Save to database immediately (auto-save on each adjustment)
     if (anesthesiaRecordId) {
       saveTimeMarkersMutation.mutate({
         anesthesiaRecordId,
