@@ -468,6 +468,7 @@ export default function Op() {
     anesthesiaItems,
     staffMembers,
     positions,
+    anesthesiaSettings,
     isRecordLoading,
     isVitalsLoading,
     isMedicationsLoading,

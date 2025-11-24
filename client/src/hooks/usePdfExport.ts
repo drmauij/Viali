@@ -14,6 +14,7 @@ interface UsePdfExportProps {
   anesthesiaItems: any[];
   staffMembers: any[];
   positions: any[];
+  anesthesiaSettings: any;
   isRecordLoading: boolean;
   isVitalsLoading: boolean;
   isMedicationsLoading: boolean;
@@ -143,6 +144,7 @@ export function usePdfExport(props: UsePdfExportProps) {
         staffMembers: props.staffMembers || [],
         positions: props.positions || [],
         timeMarkers: (props.anesthesiaRecord?.timeMarkers as any[]) || [],
+        checklistSettings: props.anesthesiaSettings?.checklistItems || null,
       });
 
       toast({

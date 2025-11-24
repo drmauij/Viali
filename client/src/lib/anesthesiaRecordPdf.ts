@@ -56,6 +56,12 @@ interface PositionEntry {
   time: string;
 }
 
+interface ChecklistSettings {
+  signIn?: string[];
+  timeOut?: string[];
+  signOut?: string[];
+}
+
 interface ExportData {
   patient: Patient;
   surgery: Surgery;
@@ -68,6 +74,7 @@ interface ExportData {
   staffMembers?: StaffMember[];
   positions?: PositionEntry[];
   timeMarkers?: TimeMarker[];
+  checklistSettings?: ChecklistSettings | null;
 }
 
 // Helper to format time from milliseconds to HH:MM (24-hour format)
@@ -1329,7 +1336,11 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     // Sign-In Checklist
     if (data.anesthesiaRecord.signInData) {
       yPos = checkPageBreak(doc, yPos, 60);
-      const signInItems = [
+      // Use configured checklist items if available, otherwise use defaults
+      const signInItems = data.checklistSettings?.signIn?.map(item => ({
+        key: item.toLowerCase().replace(/\s+/g, '_'),
+        label: item
+      })) || [
         { key: "patient_identity_confirmed", label: i18next.t("anesthesia.pdf.whoSignIn.patientIdentity") },
         { key: "site_marked", label: i18next.t("anesthesia.pdf.whoSignIn.siteMarked") },
         { key: "procedure_confirmed", label: i18next.t("anesthesia.pdf.whoSignIn.procedureConfirmed") },
@@ -1345,7 +1356,10 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     // Time-Out Checklist
     if (data.anesthesiaRecord.timeOutData) {
       yPos = checkPageBreak(doc, yPos, 60);
-      const timeOutItems = [
+      const timeOutItems = data.checklistSettings?.timeOut?.map(item => ({
+        key: item.toLowerCase().replace(/\s+/g, '_'),
+        label: item
+      })) || [
         { key: "team_introductions", label: i18next.t("anesthesia.pdf.whoTimeOut.teamIntroductions") },
         { key: "patient_confirmed", label: i18next.t("anesthesia.pdf.whoTimeOut.patientConfirmed") },
         { key: "procedure_confirmed", label: i18next.t("anesthesia.pdf.whoTimeOut.procedureConfirmed") },
@@ -1359,7 +1373,10 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     // Sign-Out Checklist
     if (data.anesthesiaRecord.signOutData) {
       yPos = checkPageBreak(doc, yPos, 60);
-      const signOutItems = [
+      const signOutItems = data.checklistSettings?.signOut?.map(item => ({
+        key: item.toLowerCase().replace(/\s+/g, '_'),
+        label: item
+      })) || [
         { key: "procedure_recorded", label: i18next.t("anesthesia.pdf.whoSignOut.procedureRecorded") },
         { key: "counts_correct", label: i18next.t("anesthesia.pdf.whoSignOut.countsCorrect") },
         { key: "specimens_labeled", label: i18next.t("anesthesia.pdf.whoSignOut.specimensLabeled") },
@@ -1381,9 +1398,6 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     doc.text(i18next.t("anesthesia.pdf.preOpConsentTitle"), 105, yPos, { align: "center" });
     yPos += 12;
 
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-
     // Pre-Operative Assessment Section
     doc.setFontSize(13);
     doc.setFont("helvetica", "bold");
@@ -1394,32 +1408,119 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     doc.setTextColor(0, 0, 0);
     yPos += 10;
 
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
 
     // Display key pre-op assessment details
     if (data.preOpAssessment.asa) {
-      doc.text(`${i18next.t("anesthesia.pdf.asaClassification")}: ${data.preOpAssessment.asa}`, 25, yPos);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${i18next.t("anesthesia.pdf.asaClassification")}: `, 25, yPos);
+      doc.setFont("helvetica", "normal");
+      doc.text(data.preOpAssessment.asa, 65, yPos);
       yPos += 5;
     }
     if (data.preOpAssessment.assessmentDate) {
-      doc.text(`${i18next.t("anesthesia.pdf.assessmentDate")}: ${formatDate(data.preOpAssessment.assessmentDate)}`, 25, yPos);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${i18next.t("anesthesia.pdf.assessmentDate")}: `, 25, yPos);
+      doc.setFont("helvetica", "normal");
+      doc.text(formatDate(data.preOpAssessment.assessmentDate), 65, yPos);
       yPos += 5;
     }
 
-    // Doctor signature (if it's a base64 image)
-    if (data.preOpAssessment.doctorSignature) {
+    // Planned Anesthesia Technique
+    if (data.preOpAssessment.anesthesiaTechniques) {
+      yPos = checkPageBreak(doc, yPos, 20);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${i18next.t("anesthesia.pdf.plannedAnesthesia")}:`, 25, yPos);
+      yPos += 5;
+      doc.setFont("helvetica", "normal");
+      
+      const techniques = data.preOpAssessment.anesthesiaTechniques as any;
+      const techniqueList = [];
+      if (techniques.general) techniqueList.push(i18next.t("anesthesia.pdf.generalAnesthesia"));
+      if (techniques.spinal) techniqueList.push(i18next.t("anesthesia.pdf.spinalAnesthesia"));
+      if (techniques.epidural) techniqueList.push(i18next.t("anesthesia.pdf.epiduralAnesthesia"));
+      if (techniques.regional) techniqueList.push(i18next.t("anesthesia.pdf.regionalAnesthesia"));
+      if (techniques.sedation) techniqueList.push(i18next.t("anesthesia.pdf.sedation"));
+      if (techniques.combined) techniqueList.push(i18next.t("anesthesia.pdf.combined"));
+      
+      if (techniqueList.length > 0) {
+        techniqueList.forEach(tech => {
+          doc.text(`• ${tech}`, 30, yPos);
+          yPos += 4.5;
+        });
+        yPos += 2;
+      }
+    }
+
+    // Medications
+    if (data.preOpAssessment.generalMeds && data.preOpAssessment.generalMeds.length > 0) {
+      yPos = checkPageBreak(doc, yPos, 20);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${i18next.t("anesthesia.pdf.currentMedications")}:`, 25, yPos);
+      yPos += 5;
+      doc.setFont("helvetica", "normal");
+      doc.text(data.preOpAssessment.generalMeds.join(", "), 30, yPos);
+      yPos += 5;
+    }
+
+    // Special Notes
+    if (data.preOpAssessment.specialNotes) {
+      yPos = checkPageBreak(doc, yPos, 25);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${i18next.t("anesthesia.pdf.specialNotes")}:`, 25, yPos);
+      yPos += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      const splitNotes = doc.splitTextToSize(data.preOpAssessment.specialNotes, 160);
+      splitNotes.forEach((line: string) => {
+        yPos = checkPageBreak(doc, yPos, 10);
+        doc.text(line, 25, yPos);
+        yPos += 4;
+      });
       yPos += 3;
+      doc.setFontSize(9);
+    }
+
+    // Airway Assessment
+    if (data.preOpAssessment.mallampati || data.preOpAssessment.airwayDifficult || data.preOpAssessment.airwayNotes) {
+      yPos = checkPageBreak(doc, yPos, 20);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${i18next.t("anesthesia.pdf.airwayAssessment")}:`, 25, yPos);
+      yPos += 5;
+      doc.setFont("helvetica", "normal");
+      
+      if (data.preOpAssessment.mallampati) {
+        doc.text(`Mallampati: ${data.preOpAssessment.mallampati}`, 30, yPos);
+        yPos += 4.5;
+      }
+      if (data.preOpAssessment.airwayDifficult) {
+        doc.text(`${i18next.t("anesthesia.pdf.difficultAirway")}: ${data.preOpAssessment.airwayDifficult}`, 30, yPos);
+        yPos += 4.5;
+      }
+      if (data.preOpAssessment.airwayNotes) {
+        doc.setFontSize(8);
+        const airwaySplit = doc.splitTextToSize(data.preOpAssessment.airwayNotes, 155);
+        airwaySplit.forEach((line: string) => {
+          doc.text(line, 30, yPos);
+          yPos += 4;
+        });
+        doc.setFontSize(9);
+      }
+      yPos += 2;
+    }
+
+    // Doctor signature
+    if (data.preOpAssessment.doctorSignature) {
+      yPos = checkPageBreak(doc, yPos, 25);
       doc.setFont("helvetica", "bold");
       doc.text(`${i18next.t("anesthesia.pdf.anesthesiologistSignature")}:`, 25, yPos);
       yPos += 5;
       
-      // Check if it's a base64 image (starts with data:image) or just text
       if (data.preOpAssessment.doctorSignature.startsWith('data:image')) {
         renderSignatureImage(doc, data.preOpAssessment.doctorSignature, 25, yPos, 50, 15);
         yPos += 18;
       } else {
-        // Fallback: text-based signature
         doc.setFont("helvetica", "normal");
         doc.text(data.preOpAssessment.doctorSignature, 25, yPos);
         yPos += 7;
@@ -1429,6 +1530,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     yPos += 5;
 
     // Informed Consent Section
+    yPos = checkPageBreak(doc, yPos, 60);
     doc.setFontSize(13);
     doc.setFont("helvetica", "bold");
     doc.setFillColor(59, 130, 246);
@@ -1441,33 +1543,49 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
 
-    // Display consent options
-    const consentOptions = [];
-    if (data.preOpAssessment.consentGiven) consentOptions.push(i18next.t("anesthesia.pdf.consentGeneral"));
-    if (data.preOpAssessment.consentRegional) consentOptions.push(i18next.t("anesthesia.pdf.consentRegional"));
-    if (data.preOpAssessment.consentInstallations) consentOptions.push(i18next.t("anesthesia.pdf.consentInstallations"));
-    if (data.preOpAssessment.consentICU) consentOptions.push(i18next.t("anesthesia.pdf.consentICU"));
+    // Display consent options with checkboxes
+    const consentItems = [
+      { checked: data.preOpAssessment.consentGiven, label: i18next.t("anesthesia.pdf.consentGeneral") },
+      { checked: data.preOpAssessment.consentRegional, label: i18next.t("anesthesia.pdf.consentRegional") },
+      { checked: data.preOpAssessment.consentInstallations, label: i18next.t("anesthesia.pdf.consentInstallations") },
+      { checked: data.preOpAssessment.consentICU, label: i18next.t("anesthesia.pdf.consentICU") }
+    ];
 
-    if (consentOptions.length > 0) {
-      doc.setFont("helvetica", "bold");
-      doc.text(`${i18next.t("anesthesia.pdf.consentItems")}:`, 25, yPos);
-      yPos += 5;
-      doc.setFont("helvetica", "normal");
-      consentOptions.forEach(option => {
-        doc.text(`• ${option}`, 30, yPos);
-        yPos += 4.5;
-      });
-      yPos += 2;
-    }
+    consentItems.forEach(item => {
+      if (item.checked) {
+        yPos = checkPageBreak(doc, yPos, 10);
+        // Draw checkbox
+        const boxSize = 3;
+        const boxX = 25;
+        const boxY = yPos - 2.5;
+        
+        doc.setDrawColor(100, 100, 100);
+        doc.setLineWidth(0.3);
+        doc.rect(boxX, boxY, boxSize, boxSize);
+        
+        // Draw checkmark
+        doc.setFillColor(34, 197, 94);
+        doc.rect(boxX + 0.4, boxY + 0.4, boxSize - 0.8, boxSize - 0.8, "F");
+        
+        doc.setTextColor(0, 0, 0);
+        doc.text(item.label, boxX + boxSize + 3, yPos);
+        yPos += 5;
+      }
+    });
 
+    yPos += 2;
+
+    // Full consent text explanation
     if (data.preOpAssessment.consentText) {
+      yPos = checkPageBreak(doc, yPos, 30);
       doc.setFont("helvetica", "bold");
-      doc.text(`${i18next.t("anesthesia.pdf.additionalConsentNotes")}:`, 25, yPos);
+      doc.text(`${i18next.t("anesthesia.pdf.consentExplanation")}:`, 25, yPos);
       yPos += 5;
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       const splitText = doc.splitTextToSize(data.preOpAssessment.consentText, 160);
       splitText.forEach((line: string) => {
+        yPos = checkPageBreak(doc, yPos, 10);
         doc.text(line, 25, yPos);
         yPos += 4;
       });
@@ -1478,12 +1596,17 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
 
     // Consent date
     if (data.preOpAssessment.consentDate) {
-      doc.text(`${i18next.t("anesthesia.pdf.consentDate")}: ${formatDate(data.preOpAssessment.consentDate)}`, 25, yPos);
+      yPos = checkPageBreak(doc, yPos, 10);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${i18next.t("anesthesia.pdf.consentDate")}: `, 25, yPos);
+      doc.setFont("helvetica", "normal");
+      doc.text(formatDate(data.preOpAssessment.consentDate), 55, yPos);
       yPos += 7;
     }
 
     // Doctor consent signature
     if (data.preOpAssessment.consentDoctorSignature) {
+      yPos = checkPageBreak(doc, yPos, 25);
       doc.setFont("helvetica", "bold");
       doc.text(`${i18next.t("anesthesia.pdf.doctorSignature")}:`, 25, yPos);
       yPos += 5;
@@ -1500,6 +1623,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
 
     // Patient signature
     if (data.preOpAssessment.patientSignature) {
+      yPos = checkPageBreak(doc, yPos, 25);
       doc.setFont("helvetica", "bold");
       doc.text(`${i18next.t("anesthesia.pdf.patientSignature")}:`, 25, yPos);
       yPos += 5;
