@@ -1561,7 +1561,7 @@ export function UnifiedTimeline({
   }, []);
 
 
-  // Group items by administration group and sort alphabetically within each group
+  // Group items by administration group and sort by sortOrder within each group
   const itemsByAdminGroup = useMemo(() => {
     const grouped: Record<string, AnesthesiaItem[]> = {};
     
@@ -1574,9 +1574,17 @@ export function UnifiedTimeline({
       grouped[item.administrationGroup].push(item);
     });
     
-    // Sort items alphabetically by name within each group
+    // Sort items by medicationSortOrder within each group (fallback to alphabetical if no sortOrder)
     Object.keys(grouped).forEach(groupName => {
-      grouped[groupName].sort((a, b) => a.name.localeCompare(b.name));
+      grouped[groupName].sort((a, b) => {
+        const aOrder = a.medicationSortOrder ?? 999;
+        const bOrder = b.medicationSortOrder ?? 999;
+        if (aOrder !== bOrder) {
+          return aOrder - bOrder;
+        }
+        // Fallback to alphabetical if sortOrder is the same
+        return a.name.localeCompare(b.name);
+      });
     });
     
     return grouped;

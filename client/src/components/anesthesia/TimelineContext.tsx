@@ -68,6 +68,7 @@ export type AnesthesiaItem = {
   rateUnit?: string | null;
   administrationGroup?: string;
   defaultDose?: string | null;
+  medicationSortOrder?: number | null;
 };
 
 /**
