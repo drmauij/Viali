@@ -57,6 +57,7 @@ const UnifiedInfusion = ({
 }: UnifiedInfusionProps) => {
   const [showTooltip, setShowTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
   
   const lineYOffset = swimlaneHeight - 2;
   const visibleRange = visibleEnd - visibleStart;
@@ -308,7 +309,7 @@ const BolusPill = ({
         <span 
           className="absolute text-base font-semibold leading-none"
           style={{ 
-            color: '#000000',
+            color: isDark ? '#ffffff' : '#000000',
             top: '50%',
             transform: 'translateY(-50%)'
           }}
@@ -321,7 +322,7 @@ const BolusPill = ({
           style={{
             width: '2px',
             height: '12px',
-            backgroundColor: '#000000',
+            backgroundColor: isDark ? '#ffffff' : '#000000',
           }}
         />
       </div>
