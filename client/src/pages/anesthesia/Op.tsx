@@ -653,6 +653,11 @@ export default function Op() {
                       {t('anesthesia.op.anesthesia')}
                     </TabsTrigger>
                   )}
+                  {!isPacuMode && (
+                    <TabsTrigger value="checklists" data-testid="tab-checklists" className="text-xs sm:text-sm whitespace-nowrap">
+                      {t('anesthesia.op.checklists')}
+                    </TabsTrigger>
+                  )}
                   <TabsTrigger value="preop" data-testid="tab-preop" className="text-xs sm:text-sm whitespace-nowrap">
                     {t('anesthesia.op.preOp')}
                   </TabsTrigger>
@@ -660,14 +665,9 @@ export default function Op() {
                     {t('anesthesia.op.inventory')}
                   </TabsTrigger>
                   {!isPacuMode && (
-                    <>
-                      <TabsTrigger value="checklists" data-testid="tab-checklists" className="text-xs sm:text-sm whitespace-nowrap">
-                        {t('anesthesia.op.checklists')}
-                      </TabsTrigger>
-                      <TabsTrigger value="postop" data-testid="tab-postop" className="text-xs sm:text-sm whitespace-nowrap">
-                        {t('anesthesia.op.postOp')}
-                      </TabsTrigger>
-                    </>
+                    <TabsTrigger value="postop" data-testid="tab-postop" className="text-xs sm:text-sm whitespace-nowrap">
+                      {t('anesthesia.op.postOp')}
+                    </TabsTrigger>
                   )}
                 </TabsList>
               </div>
