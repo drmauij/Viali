@@ -236,9 +236,11 @@ export function useUpdateVitalPoint(anesthesiaRecordId: string | undefined) {
             const index = points.findIndex((p: any) => p.id === updates.pointId);
             if (index !== -1) {
               const updatedPoints = [...points];
+              // Only spread value and timestamp, not pointId
+              const { pointId, ...updateFields } = updates;
               updatedPoints[index] = {
                 ...updatedPoints[index],
-                ...updates,
+                ...updateFields,
               };
               // Re-sort after update
               updatedPoints.sort((a: any, b: any) => a.timestamp.localeCompare(b.timestamp));
@@ -309,9 +311,11 @@ export function useUpdateBPPoint(anesthesiaRecordId: string | undefined) {
         
         if (index !== -1) {
           const updatedPoints = [...bpPoints];
+          // Only spread sys, dia, mean, timestamp - not pointId
+          const { pointId, ...updateFields } = updates;
           updatedPoints[index] = {
             ...updatedPoints[index],
-            ...updates,
+            ...updateFields,
           };
           // Re-sort after update
           updatedPoints.sort((a: any, b: any) => a.timestamp.localeCompare(b.timestamp));

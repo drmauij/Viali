@@ -1690,28 +1690,11 @@ export function UnifiedTimeline({
       return;
     }
 
-    const { type, index, time, originalTime } = editingValue;
+    const { type, time, originalTime } = editingValue;
+    const pointId = editingValue.pointId;
 
-    // Update local state first
-    if (type === 'hr') {
-      const updated = [...hrDataPoints];
-      updated[index] = [time, newValue];
-      setHrDataPoints(updated);
-    } else if (type === 'sys') {
-      const updated = [...bpDataPoints.sys];
-      updated[index] = [time, newValue];
-      setBpDataPoints({ ...bpDataPoints, sys: updated });
-    } else if (type === 'dia') {
-      const updated = [...bpDataPoints.dia];
-      updated[index] = [time, newValue];
-      setBpDataPoints({ ...bpDataPoints, dia: updated });
-    } else if (type === 'spo2') {
-      const updated = [...spo2DataPoints];
-      updated[index] = [time, newValue];
-      setSpo2DataPoints(updated);
-    }
-
-    // Persist update to database
+    // Mutations handle optimistic updates via query cache
+    // Local state syncs from query cache via useEffect (single source of truth)
     // Use originalTime to locate the snapshot, fallback to time if not set
     const lookupTime = originalTime || time;
     const timestamp = new Date(lookupTime);
@@ -1759,13 +1742,10 @@ export function UnifiedTimeline({
       updatedVitals.spo2 = newValue;
     }
 
-    // CRITICAL FIX: Use point ID captured at click time
-    const pointId = editingValue.pointId;
-    
-    console.log('[EDIT] Using captured point ID:', { type, index, pointId, timestamp, updatedVitals });
+    console.log('[EDIT] Using captured point ID:', { type, pointId, timestamp, updatedVitals });
 
     if (!pointId) {
-      console.error('[EDIT] No point ID available - was not captured on click:', { type, index });
+      console.error('[EDIT] No point ID available - was not captured on click:', { type });
       toast({
         title: "Error updating vital",
         description: "Could not locate vital point. Please try clicking the point again.",
@@ -1880,6 +1860,9 @@ export function UnifiedTimeline({
 
     const timestamp = new Date(data.time).toISOString();
 
+    // Mutations handle optimistic updates via query cache
+    // Local state syncs from query cache via useEffect (single source of truth)
+    
     // Save HR if provided
     if (data.hr !== undefined) {
       addVitalPointMutation.mutate({
@@ -1889,7 +1872,7 @@ export function UnifiedTimeline({
       });
     }
 
-    // Save SpO2 if provided
+    // Save SpO2 if provided (backend persistence)
     if (data.spo2 !== undefined) {
       addVitalPointMutation.mutate({
         vitalType: 'spo2',
@@ -1898,7 +1881,7 @@ export function UnifiedTimeline({
       });
     }
 
-    // Save BP if both sys and dia are provided
+    // Save BP if both sys and dia are provided (backend persistence)
     if (data.sys !== undefined && data.dia !== undefined) {
       addBPPointMutation.mutate({
         timestamp,
@@ -2009,39 +1992,19 @@ export function UnifiedTimeline({
   };
 
   // Undo last vital entry
+  // NOTE: Undo functionality disabled - React Query mutations handle optimistic updates
+  // and automatic rollback on errors. To properly implement undo with the new ID-based
+  // system, we would need to track point IDs in lastAction.
   const handleUndo = () => {
     if (!lastAction) return;
-
-    if (lastAction.type === 'hr' && lastAction.data) {
-      setHrDataPoints(prev => prev.filter(p => p[0] !== lastAction.data![0] || p[1] !== lastAction.data![1]));
-      // Toast notification disabled (can be re-enabled later)
-      // toast({
-      //   title: "Value removed",
-      //   description: "HR value has been removed",
-      //   duration: 2000,
-      // });
-    } else if (lastAction.type === 'bp' && lastAction.bpData) {
-      const { sys, dia } = lastAction.bpData;
-      setBpDataPoints(prev => ({
-        sys: prev.sys.filter(p => p[0] !== sys[0] || p[1] !== sys[1]),
-        dia: prev.dia.filter(p => p[0] !== dia[0] || p[1] !== dia[1])
-      }));
-      // Toast notification disabled (can be re-enabled later)
-      // toast({
-      //   title: "Value removed",
-      //   description: "BP values have been removed",
-      //   duration: 2000,
-      // });
-    } else if (lastAction.type === 'spo2' && lastAction.data) {
-      setSpo2DataPoints(prev => prev.filter(p => p[0] !== lastAction.data![0] || p[1] !== lastAction.data![1]));
-      // Toast notification disabled (can be re-enabled later)
-      // toast({
-      //   title: "Value removed",
-      //   description: "SpO2 value has been removed",
-      //   duration: 2000,
-      // });
-    }
-
+    
+    console.log('[UNDO] Undo functionality disabled with mutation-based architecture');
+    toast({
+      title: "Undo not available",
+      description: "Use the edit/delete dialogs to modify vitals",
+      variant: "default",
+    });
+    
     setLastAction(null);
   };
 
@@ -3043,7 +3006,7 @@ export function UnifiedTimeline({
         addedItems.push('TOF (logged)');
       }
     } else {
-      // OLD FORMAT: Handle vitals as before
+      // OLD FORMAT: Handle vitals using mutations
       if (vitals?.hr !== null && vitals?.hr !== undefined) {
         let hr = vitals.hr;
         if (!validateVitalRange('hr', hr)) {
@@ -3051,7 +3014,11 @@ export function UnifiedTimeline({
           warningItems.push(`HR ${hr}→${clamped} (out of range)`);
           hr = clamped;
         }
-        setHrDataPoints(prev => [...prev, [timestamp, hr]]);
+        addVitalPointMutation.mutate({
+          vitalType: 'hr',
+          timestamp: new Date(timestamp).toISOString(),
+          value: hr
+        });
         addedItems.push('HR');
       }
       if ((vitals?.sysBP !== null && vitals?.sysBP !== undefined) && (vitals?.diaBP !== null && vitals?.diaBP !== undefined)) {
@@ -3067,10 +3034,11 @@ export function UnifiedTimeline({
           warningItems.push(`DiaBP ${diaBP}→${clamped}`);
           diaBP = clamped;
         }
-        setBpDataPoints(prev => ({
-          sys: [...prev.sys, [timestamp, sysBP]],
-          dia: [...prev.dia, [timestamp, diaBP]],
-        }));
+        addBPPointMutation.mutate({
+          timestamp: new Date(timestamp).toISOString(),
+          sys: sysBP,
+          dia: diaBP
+        });
         addedItems.push('BP');
       }
       if (vitals?.spo2 !== null && vitals?.spo2 !== undefined) {
@@ -3080,7 +3048,11 @@ export function UnifiedTimeline({
           warningItems.push(`SpO2 ${spo2}→${clamped}`);
           spo2 = clamped;
         }
-        setSpo2DataPoints(prev => [...prev, [timestamp, spo2]]);
+        addVitalPointMutation.mutate({
+          vitalType: 'spo2',
+          timestamp: new Date(timestamp).toISOString(),
+          value: spo2
+        });
         addedItems.push('SpO2');
       }
 
