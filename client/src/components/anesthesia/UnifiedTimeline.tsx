@@ -453,7 +453,8 @@ export function UnifiedTimeline({
   
   // State for medication reorder mode
   const [isReorderMode, setIsReorderMode] = useState(false);
-  const [reorderedItems, setReorderedItems] = useState<typeof anesthesiaItems>([]);
+  const [reorderedItemsByFolder, setReorderedItemsByFolder] = useState<Record<string, typeof anesthesiaItems>>({});
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
   
   // DnD Kit sensors for reordering
   const sensors = useSensors(
@@ -463,39 +464,61 @@ export function UnifiedTimeline({
     })
   );
   
-  // Enter reorder mode
+  // Enter reorder mode - group items by folder
   const enterReorderMode = () => {
+    const itemsByFolder: Record<string, typeof anesthesiaItems> = {};
+    anesthesiaItems.forEach(item => {
+      const folderId = item.administrationGroup || 'unassigned';
+      if (!itemsByFolder[folderId]) {
+        itemsByFolder[folderId] = [];
+      }
+      itemsByFolder[folderId].push(item);
+    });
+    setReorderedItemsByFolder(itemsByFolder);
     setIsReorderMode(true);
-    setReorderedItems([...anesthesiaItems]);
   };
   
   // Cancel reorder mode
   const cancelReorderMode = () => {
     setIsReorderMode(false);
-    setReorderedItems([]);
+    setReorderedItemsByFolder({});
+    setCollapsedFolders(new Set());
   };
   
-  // Save reorder changes
+  // Save reorder changes - folder-scoped sortOrder
   const saveReorderChanges = async () => {
-    const updates = reorderedItems.map((item, index) => ({
-      itemId: item.id,
-      sortOrder: index,
-    }));
+    const updates: Array<{ itemId: string; sortOrder: number; folderId: string }> = [];
+    
+    Object.entries(reorderedItemsByFolder).forEach(([folderId, items]) => {
+      items.forEach((item, index) => {
+        updates.push({
+          itemId: item.id,
+          folderId,
+          sortOrder: index, // folder-scoped: 0, 1, 2... within each folder
+        });
+      });
+    });
     
     await reorderMedsMutation.mutateAsync(updates);
     setIsReorderMode(false);
-    setReorderedItems([]);
+    setReorderedItemsByFolder({});
+    setCollapsedFolders(new Set());
   };
   
-  // Handle drag end for reordering
-  const handleDragEnd = (event: DragEndEvent) => {
+  // Handle drag end for reordering within a folder
+  const handleDragEndInFolder = (folderId: string) => (event: DragEndEvent) => {
     const { active, over } = event;
     
     if (over && active.id !== over.id) {
-      setReorderedItems((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over.id);
-        return arrayMove(items, oldIndex, newIndex);
+      setReorderedItemsByFolder((prev) => {
+        const folderItems = prev[folderId] || [];
+        const oldIndex = folderItems.findIndex((item) => item.id === active.id);
+        const newIndex = folderItems.findIndex((item) => item.id === over.id);
+        
+        return {
+          ...prev,
+          [folderId]: arrayMove(folderItems, oldIndex, newIndex),
+        };
       });
     }
   };
@@ -6240,7 +6263,7 @@ export function UnifiedTimeline({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Medication Reorder Mode Dialog */}
+      {/* Medication Reorder Mode Dialog - Folder-grouped */}
       <Dialog open={isReorderMode} onOpenChange={(open) => !open && cancelReorderMode()}>
         <DialogContent className="max-w-2xl max-h-[80vh]" data-testid="dialog-reorder-medications">
           <DialogHeader>
@@ -6250,22 +6273,66 @@ export function UnifiedTimeline({
             </DialogDescription>
           </DialogHeader>
           <div className="overflow-y-auto max-h-[50vh] p-4">
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={reorderedItems.map(item => item.id)}
-                strategy={verticalListSortingStrategy}
-              >
-                <div className="space-y-2">
-                  {reorderedItems.map((item) => (
-                    <SortableMedicationItem key={item.id} id={item.id} item={item} />
-                  ))}
-                </div>
-              </SortableContext>
-            </DndContext>
+            <div className="space-y-4">
+              {Object.entries(reorderedItemsByFolder).map(([folderId, items]) => {
+                const folder = administrationGroups.find(g => g.id === folderId);
+                const folderName = folder?.name || 'Unassigned';
+                const isCollapsed = collapsedFolders.has(folderId);
+                
+                return (
+                  <div key={folderId} className="border rounded-lg overflow-hidden">
+                    {/* Folder Header - Collapsible */}
+                    <button
+                      onClick={() => {
+                        setCollapsedFolders(prev => {
+                          const next = new Set(prev);
+                          if (next.has(folderId)) {
+                            next.delete(folderId);
+                          } else {
+                            next.add(folderId);
+                          }
+                          return next;
+                        });
+                      }}
+                      className="w-full flex items-center justify-between p-3 bg-muted hover:bg-muted/80 transition-colors"
+                      data-testid={`button-toggle-folder-${folderId}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {isCollapsed ? (
+                          <ChevronRight className="w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4" />
+                        )}
+                        <span className="font-semibold">{folderName}</span>
+                        <Badge variant="secondary">{items.length}</Badge>
+                      </div>
+                    </button>
+                    
+                    {/* Folder Items - Drag-and-drop within folder only */}
+                    {!isCollapsed && (
+                      <div className="p-3">
+                        <DndContext
+                          sensors={sensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={handleDragEndInFolder(folderId)}
+                        >
+                          <SortableContext
+                            items={items.map(item => item.id)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            <div className="space-y-2">
+                              {items.map((item) => (
+                                <SortableMedicationItem key={item.id} id={item.id} item={item} />
+                              ))}
+                            </div>
+                          </SortableContext>
+                        </DndContext>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
           <DialogFooter>
             <Button
