@@ -1779,71 +1779,29 @@ export function UnifiedTimeline({
   };
 
   const handleDeleteValue = async () => {
-    if (!editingValue || !anesthesiaRecordId || !clinicalSnapshot?.data) return;
+    if (!editingValue || !anesthesiaRecordId) return;
 
-    const { type, index, time, originalTime } = editingValue;
+    const { type, time, originalTime } = editingValue;
+    const pointId = editingValue.pointId;
 
-    // NEW: Use React Query delete mutation with point IDs
-    if (type === 'hr') {
-      const pointId = clinicalSnapshot.data.hr?.[index]?.id;
-      if (pointId) {
-        deleteVitalPointMutation.mutate(pointId);
-      }
-    } else if (type === 'sys' || type === 'dia') {
-      // For BP, delete the entire BP point (includes both sys and dia)
-      const pointId = clinicalSnapshot.data.bp?.[index]?.id;
-      if (pointId) {
-        deleteVitalPointMutation.mutate(pointId);
-      }
-    } else if (type === 'spo2') {
-      const pointId = clinicalSnapshot.data.spo2?.[index]?.id;
-      if (pointId) {
-        deleteVitalPointMutation.mutate(pointId);
-      }
-    }
-
-    // Persist deletion to database
-    // Use originalTime to locate the snapshot, fallback to time if not set
-    const lookupTime = originalTime || time;
-    const timestamp = new Date(lookupTime);
-    
-    // Validate timestamp
-    if (isNaN(timestamp.getTime())) {
-      console.error('[DELETE] Invalid timestamp:', { originalTime, time, lookupTime });
+    // Validate we have a point ID
+    if (!pointId) {
+      console.error('[DELETE] No point ID available for deletion');
       toast({
         title: "Error deleting vital",
-        description: "Invalid timestamp for deletion",
+        description: "Point ID is missing",
         variant: "destructive",
       });
       setEditDialogOpen(false);
       setEditingValue(null);
       return;
     }
-    
-    // Collect all remaining vitals at this timestamp (excluding the deleted one)
-    const remainingVitals: any = {};
 
-    // Check HR at this timestamp (excluding if we deleted it)
-    if (type !== 'hr') {
-      const hrPoint = hrDataPoints.find(p => p[0] === lookupTime);
-      if (hrPoint) remainingVitals.hr = hrPoint[1];
-    }
+    // Use React Query delete mutation with point ID
+    // The mutation handles optimistic updates via query cache
+    // Local state syncs from query cache via useEffect (single source of truth)
+    deleteVitalPointMutation.mutate(pointId);
 
-    // Check BP at this timestamp (excluding if we deleted it)
-    if (type !== 'sys' && type !== 'dia') {
-      const sysPoint = bpDataPoints.sys.find(p => p[0] === lookupTime);
-      const diaPoint = bpDataPoints.dia.find(p => p[0] === lookupTime);
-      if (sysPoint) remainingVitals.sysBP = sysPoint[1];
-      if (diaPoint) remainingVitals.diaBP = diaPoint[1];
-    }
-
-    // Check SPO2 at this timestamp (excluding if we deleted it)
-    if (type !== 'spo2') {
-      const spo2Point = spo2DataPoints.find(p => p[0] === lookupTime);
-      if (spo2Point) remainingVitals.spo2 = spo2Point[1];
-    }
-
-    // All persistence is now handled by React Query mutations above
     setEditDialogOpen(false);
     setEditingValue(null);
   };
@@ -5075,23 +5033,18 @@ export function UnifiedTimeline({
           setBulkVitalsTime(time);
           setShowBulkVitalsDialog(true);
         }}
-        onVitalPointEdit={(type, index, time, value) => {
+        onVitalPointEdit={(type, pointId, time, value) => {
           // Clicking on existing point → Open Edit Value Dialog for single edit/delete
-          // Capture point ID from clinical snapshot
-          let pointId: string | undefined;
+          // VitalsSwimlane passes the point ID directly as the second parameter
           let editType: 'hr' | 'sys' | 'dia' | 'spo2';
           
           if (type === 'hr') {
-            pointId = clinicalSnapshot?.data?.hr?.[index]?.id;
             editType = 'hr';
           } else if (type === 'bp-sys') {
-            pointId = clinicalSnapshot?.data?.bp?.[index]?.id;
             editType = 'sys';
           } else if (type === 'bp-dia') {
-            pointId = clinicalSnapshot?.data?.bp?.[index]?.id;
             editType = 'dia';
           } else {
-            pointId = clinicalSnapshot?.data?.spo2?.[index]?.id;
             editType = 'spo2';
           }
           
@@ -5099,7 +5052,7 @@ export function UnifiedTimeline({
             type: editType, 
             time, 
             value, 
-            index, 
+            index: 0,
             originalTime: time,
             pointId 
           });
