@@ -3566,13 +3566,18 @@ export class DatabaseStorage implements IStorage {
 
       if (isBolus) {
         const bolusMeds = meds.filter(m => m.type === 'bolus');
-        for (const med of bolusMeds) {
-          const qty = calculateInventoryForMedication(
-            { type: med.type, dose: med.dose, rate: med.rate, timestamp: med.timestamp, endTimestamp: med.endTimestamp, itemId: med.itemId },
-            item,
-            patientWeight
-          );
-          totalQty += qty;
+        // CRITICAL FIX: Sum all doses first, THEN calculate ampules
+        // Wrong: ceil(10/50) + ceil(10/50) + ceil(10/50) = 3 ampules
+        // Correct: ceil((10+10+10)/50) = ceil(30/50) = 1 ampule
+        const totalDose = bolusMeds.reduce((sum, med: any) => {
+          const doseValue = parseFloat(med.dose?.match(/[\d.]+/)?.[0] || '0');
+          return sum + doseValue;
+        }, 0);
+        
+        // Calculate ampules from total dose
+        const ampuleValue = parseFloat(item.ampuleTotalContent?.match(/[\d.]+/)?.[0] || '0');
+        if (ampuleValue > 0 && totalDose > 0) {
+          totalQty = Math.ceil(totalDose / ampuleValue);
         }
       } else if (isFreeFlow) {
         const startEvents = meds.filter(m => m.type === 'infusion_start');
