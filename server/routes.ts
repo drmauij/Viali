@@ -1303,6 +1303,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ampuleTotalContent: medicationConfigs.ampuleTotalContent,
           administrationRoute: medicationConfigs.administrationRoute,
           rateUnit: medicationConfigs.rateUnit,
+          medicationSortOrder: medicationConfigs.sortOrder,
         })
         .from(items)
         .innerJoin(medicationConfigs, eq(items.id, medicationConfigs.itemId))
@@ -1312,7 +1313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             eq(items.unitId, anesthesiaUnitId)
           )
         )
-        .orderBy(items.name);
+        .orderBy(medicationConfigs.sortOrder, items.name);
 
       res.json(anesthesiaItems);
     } catch (error: any) {
@@ -1350,7 +1351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if we have any medication config data
       const hasMedicationConfig = req.body.medicationGroup || req.body.administrationGroup || 
         req.body.defaultDose || req.body.administrationUnit || req.body.ampuleTotalContent || 
-        req.body.administrationRoute || req.body.rateUnit;
+        req.body.administrationRoute || req.body.rateUnit !== undefined;
 
       if (hasMedicationConfig) {
         // Prepare medication config data - all fields are optional
@@ -1363,6 +1364,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ampuleTotalContent: req.body.ampuleTotalContent || null,
           administrationRoute: req.body.administrationRoute || null,
           rateUnit: req.body.rateUnit || null,
+          sortOrder: req.body.sortOrder !== undefined ? req.body.sortOrder : 0,
         };
 
         // Check if config exists
@@ -1401,6 +1403,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ampuleTotalContent: medicationConfigs.ampuleTotalContent,
           administrationRoute: medicationConfigs.administrationRoute,
           rateUnit: medicationConfigs.rateUnit,
+          medicationSortOrder: medicationConfigs.sortOrder,
         })
         .from(items)
         .leftJoin(medicationConfigs, eq(items.id, medicationConfigs.itemId))
@@ -1411,6 +1414,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error updating anesthesia config:", error);
       res.status(500).json({ message: "Failed to update anesthesia configuration" });
+    }
+  });
+
+  // Bulk reorder medications within administration groups
+  app.post('/api/anesthesia/items/reorder', isAuthenticated, async (req: any, res) => {
+    try {
+      const { items: itemsToReorder } = req.body;
+      const userId = req.user.id;
+
+      if (!Array.isArray(itemsToReorder) || itemsToReorder.length === 0) {
+        return res.status(400).json({ message: "Invalid items array" });
+      }
+
+      // Verify user has access to all items
+      for (const { itemId } of itemsToReorder) {
+        const item = await storage.getItem(itemId);
+        if (!item) {
+          return res.status(404).json({ message: `Item ${itemId} not found` });
+        }
+
+        const unitId = await getUserUnitForHospital(userId, item.hospitalId);
+        if (!unitId || unitId !== item.unitId) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+
+      // Update sort orders
+      for (const { itemId, sortOrder } of itemsToReorder) {
+        await db
+          .update(medicationConfigs)
+          .set({ sortOrder })
+          .where(eq(medicationConfigs.itemId, itemId));
+      }
+
+      res.json({ success: true, updated: itemsToReorder.length });
+    } catch (error: any) {
+      console.error("Error reordering medications:", error);
+      res.status(500).json({ message: "Failed to reorder medications" });
     }
   });
   

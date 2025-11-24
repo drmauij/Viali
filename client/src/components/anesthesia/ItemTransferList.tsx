@@ -1,15 +1,33 @@
 import { useState, useMemo } from "react";
-import { Search, ChevronRight, ChevronsRight, ChevronLeft, ChevronsLeft } from "lucide-react";
+import { Search, ChevronRight, ChevronsRight, ChevronLeft, ChevronsLeft, GripVertical } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 type Item = {
   id: string;
   name: string;
   rateUnit?: string | null; // null = bolus, "free" = free-flow, actual unit = rate-controlled
+  medicationSortOrder?: number;
 };
 
 type ItemTransferListProps = {
@@ -17,18 +35,105 @@ type ItemTransferListProps = {
   selectedItems: Item[];
   onMove: (itemIds: string[], toSelected: boolean) => void;
   onItemClick?: (item: Item) => void;
+  onReorder?: (items: Item[]) => void;
 };
+
+function SortableItem({
+  item,
+  isSelected,
+  onToggle,
+  onClick,
+}: {
+  item: Item;
+  isSelected: boolean;
+  onToggle: () => void;
+  onClick: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "flex items-center gap-2 p-2 rounded hover:bg-accent cursor-pointer transition-colors",
+        isSelected && "bg-accent"
+      )}
+      data-testid={`item-selected-${item.id}`}
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing touch-none p-1 hover:bg-accent rounded"
+      >
+        <GripVertical className="h-4 w-4 text-muted-foreground" />
+      </div>
+      <Checkbox
+        checked={isSelected}
+        onCheckedChange={onToggle}
+        onClick={(e) => e.stopPropagation()}
+        data-testid={`checkbox-selected-${item.id}`}
+      />
+      <div
+        className="flex-1"
+        onClick={(e) => {
+          if (!(e.target as HTMLElement).closest('[role="checkbox"]')) {
+            onClick();
+          }
+        }}
+      >
+        <span className="text-sm">{item.name}</span>
+        {item.rateUnit && (
+          <span className={cn(
+            "ml-2 text-xs px-1.5 py-0.5 rounded",
+            item.rateUnit === 'free' 
+              ? "bg-cyan-100 dark:bg-cyan-900 text-cyan-700 dark:text-cyan-300"
+              : "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"
+          )}>
+            {item.rateUnit === 'free' ? 'Free-flow' : 'Rate-controlled'}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export function ItemTransferList({
   availableItems,
   selectedItems,
   onMove,
   onItemClick,
+  onReorder,
 }: ItemTransferListProps) {
   const [availableSearch, setAvailableSearch] = useState("");
   const [selectedSearch, setSelectedSearch] = useState("");
   const [availableChecked, setAvailableChecked] = useState<Set<string>>(new Set());
   const [selectedChecked, setSelectedChecked] = useState<Set<string>>(new Set());
+
+  // Sort selected items by medicationSortOrder
+  const sortedSelectedItems = useMemo(() => {
+    return [...selectedItems].sort((a, b) => {
+      const orderA = a.medicationSortOrder ?? 0;
+      const orderB = b.medicationSortOrder ?? 0;
+      if (orderA === orderB) {
+        return a.name.localeCompare(b.name);
+      }
+      return orderA - orderB;
+    });
+  }, [selectedItems]);
 
   // Filter items based on search
   const filteredAvailable = useMemo(() => {
@@ -38,10 +143,35 @@ export function ItemTransferList({
   }, [availableItems, availableSearch]);
 
   const filteredSelected = useMemo(() => {
-    return selectedItems.filter((item) =>
+    return sortedSelectedItems.filter((item) =>
       item.name.toLowerCase().includes(selectedSearch.toLowerCase())
     );
-  }, [selectedItems, selectedSearch]);
+  }, [sortedSelectedItems, selectedSearch]);
+
+  // Setup drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Handle drag end
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = sortedSelectedItems.findIndex((item) => item.id === active.id);
+      const newIndex = sortedSelectedItems.findIndex((item) => item.id === over.id);
+
+      const reorderedItems = arrayMove(sortedSelectedItems, oldIndex, newIndex);
+      
+      // Call onReorder callback with the newly ordered items
+      if (onReorder) {
+        onReorder(reorderedItems);
+      }
+    }
+  };
 
   // Handle checkbox toggle
   const handleAvailableToggle = (itemId: string) => {
@@ -186,7 +316,7 @@ export function ItemTransferList({
         </Button>
       </div>
 
-      {/* Selected Items (Anesthesia Items) */}
+      {/* Selected Items (Anesthesia Items) - with Drag and Drop */}
       <div className="border rounded-lg p-4 bg-card dark:bg-card">
         <div className="mb-3">
           <h3 className="font-semibold mb-2 text-foreground dark:text-foreground">Anesthesia Items</h3>
@@ -209,50 +339,32 @@ export function ItemTransferList({
                 {selectedSearch ? "No items found" : "No items configured yet"}
               </p>
             ) : (
-              filteredSelected.map((item) => (
-                <div
-                  key={item.id}
-                  className={cn(
-                    "flex items-center gap-2 p-2 rounded hover:bg-accent cursor-pointer transition-colors",
-                    selectedChecked.has(item.id) && "bg-accent"
-                  )}
-                  onClick={(e) => {
-                    // If clicking the checkbox, toggle selection
-                    if ((e.target as HTMLElement).closest('[role="checkbox"]')) {
-                      handleSelectedToggle(item.id);
-                    } else {
-                      // Otherwise, trigger item click for configuration
-                      onItemClick?.(item);
-                    }
-                  }}
-                  data-testid={`item-selected-${item.id}`}
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={filteredSelected.map(item => item.id)}
+                  strategy={verticalListSortingStrategy}
                 >
-                  <Checkbox
-                    checked={selectedChecked.has(item.id)}
-                    onCheckedChange={() => handleSelectedToggle(item.id)}
-                    data-testid={`checkbox-selected-${item.id}`}
-                  />
-                  <div className="flex-1">
-                    <span className="text-sm">{item.name}</span>
-                    {item.rateUnit && (
-                      <span className={cn(
-                        "ml-2 text-xs px-1.5 py-0.5 rounded",
-                        item.rateUnit === 'free' 
-                          ? "bg-cyan-100 dark:bg-cyan-900 text-cyan-700 dark:text-cyan-300"
-                          : "bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300"
-                      )}>
-                        {item.rateUnit === 'free' ? 'Free-flow' : 'Rate-controlled'}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))
+                  {filteredSelected.map((item) => (
+                    <SortableItem
+                      key={item.id}
+                      item={item}
+                      isSelected={selectedChecked.has(item.id)}
+                      onToggle={() => handleSelectedToggle(item.id)}
+                      onClick={() => onItemClick?.(item)}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
             )}
           </div>
         </ScrollArea>
         
         <p className="text-xs text-muted-foreground mt-2">
-          {filteredSelected.length} items configured
+          {filteredSelected.length} items configured • Drag to reorder
         </p>
       </div>
     </div>

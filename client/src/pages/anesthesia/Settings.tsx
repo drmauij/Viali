@@ -494,6 +494,27 @@ export default function AnesthesiaSettings() {
     }
   };
 
+  // Handle reordering of anesthesia items
+  const handleReorder = async (reorderedItems: Item[]) => {
+    // Update sort orders based on new positions
+    const updates = reorderedItems.map((item, index) => ({
+      itemId: item.id,
+      sortOrder: index,
+    }));
+
+    try {
+      await apiRequest('POST', '/api/anesthesia/items/reorder', { items: updates });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/items/${activeHospital?.id}`] });
+    } catch (error) {
+      console.error('Failed to reorder items:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save item order',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Handle item click in selected list (for reconfiguration)
   const handleItemClick = (item: Item) => {
     setSelectedItemForConfig(item);
@@ -623,6 +644,7 @@ export default function AnesthesiaSettings() {
             selectedItems={selectedItems}
             onMove={handleMove}
             onItemClick={handleItemClick}
+            onReorder={handleReorder}
           />
         </TabsContent>
 

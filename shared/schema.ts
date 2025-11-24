@@ -393,6 +393,9 @@ export const medicationConfigs = pgTable("medication_configs", {
   // null = bolus, "free" = free-running infusion (dashed line), actual unit = rate-controlled pump (solid line)
   rateUnit: varchar("rate_unit"), // null, "free", "ml/h", "μg/kg/min", "mg/kg/h"
   
+  // Sort order within administration group (for custom ordering in anesthesia record)
+  sortOrder: integer("sort_order").default(0),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [

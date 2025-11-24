@@ -3827,7 +3827,7 @@ export function UnifiedTimeline({
     }
     
     // Get item ID from swimlane
-    const item = anesthesiaItems.find(i => `admingroup-${i.administrationGroup}-item-${i.sortOrder}` === swimlaneId);
+    const item = anesthesiaItems.find(i => `admingroup-${i.administrationGroup}-item-${i.medicationSortOrder}` === swimlaneId);
     if (!item) {
       toast({
         title: "Error",
@@ -3885,6 +3885,96 @@ export function UnifiedTimeline({
       });
     } catch (error) {
       console.error('[SHEET-START-NEW] Failed to save:', error);
+      toast({
+        title: "Error saving infusion",
+        description: error instanceof Error ? error.message : "Failed to save",
+        variant: "destructive",
+      });
+    }
+    
+    // Close sheet
+    setShowFreeFlowSheet(false);
+    setFreeFlowSheetSession(null);
+    setSheetDoseInput("");
+    setSheetTimeInput(0);
+  };
+
+  // Handle sheet duplicate (create a parallel infusion)
+  const handleSheetDuplicate = async () => {
+    if (!freeFlowSheetSession) return;
+    
+    const { swimlaneId, label } = freeFlowSheetSession;
+    const newDose = sheetDoseInput.trim() || freeFlowSheetSession.dose;
+    const newStartTime = sheetTimeInput || currentTime; // Use selected time or current time
+    
+    if (!newDose) {
+      toast({
+        title: "Quantity required",
+        description: "Please enter the quantity for the parallel infusion",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Get item ID from swimlane
+    const item = anesthesiaItems.find(i => `admingroup-${i.administrationGroup}-item-${i.medicationSortOrder}` === swimlaneId);
+    if (!item) {
+      toast({
+        title: "Error",
+        description: "Could not find medication item",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Update local state optimistically
+    const newSession: FreeFlowSession = {
+      swimlaneId,
+      startTime: newStartTime,
+      dose: newDose,
+      label,
+    };
+    
+    setFreeFlowSessions(prev => {
+      const sessions = prev[swimlaneId] || [];
+      return {
+        ...prev,
+        [swimlaneId]: [...sessions, newSession].sort((a, b) => a.startTime - b.startTime),
+      };
+    });
+    
+    setInfusionData(prev => {
+      const existingData = prev[swimlaneId] || [];
+      return {
+        ...prev,
+        [swimlaneId]: [...existingData, [newStartTime, newDose] as [number, string]].sort((a, b) => a[0] - b[0]),
+      };
+    });
+    
+    // Save to database using mutation
+    console.log('[SHEET-DUPLICATE] Saving parallel infusion to database:', {
+      anesthesiaRecordId,
+      itemId: item.id,
+      timestamp: new Date(newStartTime),
+      dose: newDose,
+    });
+    
+    try {
+      await saveMedicationMutation.mutateAsync({
+        anesthesiaRecordId,
+        itemId: item.id,
+        timestamp: new Date(newStartTime),
+        type: 'infusion_start' as const,
+        rate: 'free',
+        dose: newDose,
+      });
+      
+      toast({
+        title: "Parallel infusion started",
+        description: `${label} - parallel infusion with ${newDose}ml started`,
+      });
+    } catch (error) {
+      console.error('[SHEET-DUPLICATE] Failed to save:', error);
       toast({
         title: "Error saving infusion",
         description: error instanceof Error ? error.message : "Failed to save",
@@ -5970,6 +6060,7 @@ export function UnifiedTimeline({
         onSheetDelete={handleSheetDelete}
         onSheetStop={handleSheetStop}
         onSheetStartNew={handleSheetStartNew}
+        onSheetDuplicate={handleSheetDuplicate}
         sheetDoseInput={sheetDoseInput}
         onSheetDoseInputChange={setSheetDoseInput}
         sheetTimeInput={sheetTimeInput}

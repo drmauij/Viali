@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trash2, StopCircle, PlayCircle } from "lucide-react";
+import { Trash2, StopCircle, PlayCircle, Copy } from "lucide-react";
 import { TimeAdjustInput } from "@/components/anesthesia/TimeAdjustInput";
 
 interface FreeFlowSession {
@@ -31,6 +31,7 @@ interface FreeFlowManageDialogProps {
   onSheetDelete: () => void;
   onSheetStop: () => void;
   onSheetStartNew: () => void;
+  onSheetDuplicate?: () => void;
   sheetDoseInput: string;
   onSheetDoseInputChange: (value: string) => void;
   sheetTimeInput: number;
@@ -47,6 +48,7 @@ export function FreeFlowManageDialog({
   onSheetDelete,
   onSheetStop,
   onSheetStartNew,
+  onSheetDuplicate,
   sheetDoseInput,
   onSheetDoseInputChange,
   sheetTimeInput,
@@ -122,57 +124,78 @@ export function FreeFlowManageDialog({
               </div>
 
               {/* Footer Actions */}
-              <div className="flex items-center justify-between gap-2 pt-4 border-t border-border">
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={onSheetDelete}
-                  data-testid="button-sheet-delete"
-                >
-                  <Trash2 className="w-4 h-4 mr-1" />
-                  Delete
-                </Button>
-                
-                <div className="flex gap-2">
-                  {/* Stop button (when running) */}
-                  {isRunning && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={onSheetStop}
-                      data-testid="button-sheet-stop"
-                    >
-                      <StopCircle className="w-4 h-4 mr-1" />
-                      Stop
-                    </Button>
-                  )}
+              <div className="flex flex-col gap-3 pt-4 border-t border-border">
+                <div className="flex items-center justify-between gap-2">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={onSheetDelete}
+                    data-testid="button-sheet-delete"
+                  >
+                    <Trash2 className="w-4 h-4 mr-1" />
+                    Delete
+                  </Button>
                   
-                  {/* Save button (when clicking label) */}
-                  {clickMode === 'label' && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={onSheetSave}
-                      data-testid="button-sheet-save"
-                      disabled={!sheetDoseInput.trim()}
-                    >
-                      Save
-                    </Button>
-                  )}
-                  
-                  {/* Start New button (when clicking segment) */}
-                  {clickMode === 'segment' && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={onSheetStartNew}
-                      data-testid="button-sheet-start-new"
-                    >
-                      <PlayCircle className="w-4 h-4 mr-1" />
-                      Start New
-                    </Button>
-                  )}
+                  <div className="flex gap-2">
+                    {/* Stop button (when running) */}
+                    {isRunning && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={onSheetStop}
+                        data-testid="button-sheet-stop"
+                      >
+                        <StopCircle className="w-4 h-4 mr-1" />
+                        Stop
+                      </Button>
+                    )}
+                    
+                    {/* Save button (when clicking label) */}
+                    {clickMode === 'label' && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={onSheetSave}
+                        data-testid="button-sheet-save"
+                        disabled={!sheetDoseInput.trim()}
+                      >
+                        Save
+                      </Button>
+                    )}
+                    
+                    {/* Start New button (when clicking segment) */}
+                    {clickMode === 'segment' && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={onSheetStartNew}
+                        data-testid="button-sheet-start-new"
+                      >
+                        <PlayCircle className="w-4 h-4 mr-1" />
+                        Start New
+                      </Button>
+                    )}
+                  </div>
                 </div>
+                
+                {/* Duplicate button - creates a parallel infusion */}
+                {isRunning && onSheetDuplicate && (
+                  <div className="flex flex-col gap-2">
+                    <div className="text-xs text-muted-foreground text-center">
+                      Create a parallel infusion:
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={onSheetDuplicate}
+                      data-testid="button-sheet-duplicate"
+                      className="w-full"
+                    >
+                      <Copy className="w-4 h-4 mr-1" />
+                      Duplicate (Parallel Infusion)
+                    </Button>
+                  </div>
+                )}
               </div>
             </>
           );
