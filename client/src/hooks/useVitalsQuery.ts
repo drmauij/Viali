@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
+import type { VitalPointRecord, BPPointRecord } from './useVitalsState';
 
 // Types matching the new backend structure
 export interface VitalPointWithId {
@@ -602,7 +603,39 @@ export function parseTimestamp(timestamp: string): number {
   return new Date(timestamp).getTime();
 }
 
-// Helper to convert new format to old format for backward compatibility
+// Helper to convert snapshot to normalized records with IDs
+export function convertToRecordsFormat(snapshot: ClinicalSnapshot | undefined): {
+  hr: VitalPointRecord[];
+  bp: BPPointRecord[];
+  spo2: VitalPointRecord[];
+} {
+  if (!snapshot?.data) {
+    return { hr: [], bp: [], spo2: [] };
+  }
+
+  const hr = (snapshot.data.hr || []).map(p => ({
+    id: p.id,
+    timestamp: parseTimestamp(p.timestamp),
+    value: p.value,
+  }));
+
+  const spo2 = (snapshot.data.spo2 || []).map(p => ({
+    id: p.id,
+    timestamp: parseTimestamp(p.timestamp),
+    value: p.value,
+  }));
+
+  const bp = (snapshot.data.bp || []).map(p => ({
+    id: p.id,
+    timestamp: parseTimestamp(p.timestamp),
+    sys: p.sys,
+    dia: p.dia,
+  }));
+
+  return { hr, bp, spo2 };
+}
+
+// Legacy tuple format for backward compatibility (DEPRECATED - use convertToRecordsFormat)
 export function convertToLegacyFormat(snapshot: ClinicalSnapshot | undefined): {
   hr: [number, number][];
   sys: [number, number][];

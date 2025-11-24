@@ -22,7 +22,7 @@ interface VitalsSwimlaneProps {
   VITALS_HEIGHT: number;
   isTouchDevice: boolean;
   onBulkVitalsOpen?: (time: number) => void;
-  onVitalPointEdit?: (type: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2', index: number, time: number, value: number) => void;
+  onVitalPointEdit?: (type: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2', id: string, time: number, value: number) => void;
 }
 
 export function VitalsSwimlane({
@@ -58,13 +58,14 @@ export function VitalsSwimlane({
   } = useTimelineContext();
 
   const {
+    hrRecords,
+    bpRecords,
+    spo2Records,
     hrDataPoints,
     bpDataPoints,
     spo2DataPoints,
-    setBpDataPoints,
     updateHrPoint,
-    updateSysPoint,
-    updateDiaPoint,
+    updateBPPoint,
     updateSpo2Point,
   } = vitalsState;
 
@@ -73,10 +74,10 @@ export function VitalsSwimlane({
   const [lastTouchTime, setLastTouchTime] = useState<number>(0);
   const [lastAction, setLastAction] = useState<{ type: 'hr' | 'bp' | 'spo2'; data?: VitalPoint; bpData?: { sys: VitalPoint; dia: VitalPoint } } | null>(null);
 
-  // State for edit mode - dragging and repositioning existing vitals
+  // State for edit mode - dragging and repositioning existing vitals with ID
   const [selectedPoint, setSelectedPoint] = useState<{
     type: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2';
-    index: number;
+    id: string;
     originalTime: number;
     originalValue: number;
   } | null>(null);
@@ -149,64 +150,64 @@ export function VitalsSwimlane({
 
   /**
    * Find if clicking on an existing vital point
-   * Returns the point that is closest vertically to the click
+   * Returns the point that is closest vertically to the click (with ID)
    */
   const findVitalPointAtClick = (clickTime: number, clickY: number, rect: DOMRect) => {
     const TIME_THRESHOLD = 30000; // 30 seconds tolerance
     const PIXEL_THRESHOLD = 20; // 20 pixels vertical tolerance
     
     const yPercent = clickY / rect.height;
-    let closestPoint: { type: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2'; index: number; time: number; value: number } | null = null;
+    let closestPoint: { type: 'hr' | 'bp-sys' | 'bp-dia' | 'spo2'; id: string; time: number; value: number } | null = null;
     let closestDistance = PIXEL_THRESHOLD;
     
-    // Check HR points
-    for (let i = 0; i < hrDataPoints.length; i++) {
-      const [time, value] = hrDataPoints[i];
-      if (Math.abs(time - clickTime) <= TIME_THRESHOLD) {
-        const expectedYPercent = 1 - (value / 240); // HR scale 0-240
+    // Check HR points - use records to get IDs
+    for (let i = 0; i < hrRecords.length; i++) {
+      const record = hrRecords[i];
+      if (Math.abs(record.timestamp - clickTime) <= TIME_THRESHOLD) {
+        const expectedYPercent = 1 - (record.value / 240); // HR scale 0-240
         const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
         if (pixelDiff < closestDistance) {
           closestDistance = pixelDiff;
-          closestPoint = { type: 'hr' as const, index: i, time, value };
+          closestPoint = { type: 'hr' as const, id: record.id, time: record.timestamp, value: record.value };
         }
       }
     }
     
-    // Check systolic BP points
-    for (let i = 0; i < bpDataPoints.sys.length; i++) {
-      const [time, value] = bpDataPoints.sys[i];
-      if (Math.abs(time - clickTime) <= TIME_THRESHOLD) {
-        const expectedYPercent = 1 - (value / 240); // BP scale 0-240
+    // Check systolic BP points - use records to get IDs
+    for (let i = 0; i < bpRecords.length; i++) {
+      const record = bpRecords[i];
+      if (Math.abs(record.timestamp - clickTime) <= TIME_THRESHOLD) {
+        const expectedYPercent = 1 - (record.sys / 240); // BP scale 0-240
         const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
         if (pixelDiff < closestDistance) {
           closestDistance = pixelDiff;
-          closestPoint = { type: 'bp-sys' as const, index: i, time, value };
+          closestPoint = { type: 'bp-sys' as const, id: record.id, time: record.timestamp, value: record.sys };
         }
       }
     }
     
-    // Check diastolic BP points
-    for (let i = 0; i < bpDataPoints.dia.length; i++) {
-      const [time, value] = bpDataPoints.dia[i];
-      if (Math.abs(time - clickTime) <= TIME_THRESHOLD) {
-        const expectedYPercent = 1 - (value / 240); // BP scale 0-240
+    // Check diastolic BP points - use same records
+    for (let i = 0; i < bpRecords.length; i++) {
+      const record = bpRecords[i];
+      if (Math.abs(record.timestamp - clickTime) <= TIME_THRESHOLD) {
+        const expectedYPercent = 1 - (record.dia / 240); // BP scale 0-240
         const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
         if (pixelDiff < closestDistance) {
           closestDistance = pixelDiff;
-          closestPoint = { type: 'bp-dia' as const, index: i, time, value };
+          closestPoint = { type: 'bp-dia' as const, id: record.id, time: record.timestamp, value: record.dia };
         }
       }
     }
     
-    // Check SpO2 points (scale 45-105)
-    for (let i = 0; i < spo2DataPoints.length; i++) {
-      const [time, value] = spo2DataPoints[i];
-      if (Math.abs(time - clickTime) <= TIME_THRESHOLD) {
-        const expectedYPercent = 1 - ((value - 45) / (105 - 45)); // SpO2 scale 45-105
+    // Check SpO2 points (scale 45-105) - use records to get IDs
+    for (let i = 0; i < spo2Records.length; i++) {
+      const record = spo2Records[i];
+      if (Math.abs(record.timestamp - clickTime) <= TIME_THRESHOLD) {
+        const expectedYPercent = 1 - ((record.value - 45) / (105 - 45)); // SpO2 scale 45-105
         const pixelDiff = Math.abs((yPercent - expectedYPercent) * rect.height);
         if (pixelDiff < closestDistance) {
           closestDistance = pixelDiff;
-          closestPoint = { type: 'spo2' as const, index: i, time, value };
+          closestPoint = { type: 'spo2' as const, id: record.id, time: record.timestamp, value: record.value };
         }
       }
     }
@@ -244,50 +245,44 @@ export function VitalsSwimlane({
       if (selectedPoint) {
         // Already dragging a point - save the new time and value from dragPosition
         if (dragPosition && (dragPosition.value !== selectedPoint.originalValue || dragPosition.time !== selectedPoint.originalTime)) {
-          const newPoint: VitalPoint = [dragPosition.time, dragPosition.value];
-          
-          // Update local state immediately for responsive UI
+          // Update local state immediately for responsive UI + persist to backend
           if (selectedPoint.type === 'hr') {
-            updateHrPoint(selectedPoint.index, newPoint);
-            // Persist to backend
+            updateHrPoint(selectedPoint.id, { timestamp: dragPosition.time, value: dragPosition.value });
             updateVitalPointMutation.mutate({
-              vitalType: 'hr',
-              index: selectedPoint.index,
+              pointId: selectedPoint.id,
               timestamp: new Date(dragPosition.time).toISOString(),
               value: dragPosition.value
             });
           } else if (selectedPoint.type === 'bp-sys') {
-            // BP time is fixed - only value changes
-            updateSysPoint(selectedPoint.index, newPoint);
-            // Find matching diastolic value (time never changed, so use index)
-            const diaValue = bpDataPoints.dia[selectedPoint.index]?.[1];
-            if (diaValue !== undefined) {
+            // For BP points, only value changes (time fixed) to maintain pairing
+            // Get current record to access diastolic value
+            const bpRecord = bpRecords.find(r => r.id === selectedPoint.id);
+            if (bpRecord) {
+              updateBPPoint(selectedPoint.id, { sys: dragPosition.value });
               updateBPPointMutation.mutate({
-                index: selectedPoint.index,
+                pointId: selectedPoint.id,
                 timestamp: new Date(selectedPoint.originalTime).toISOString(),
                 sys: dragPosition.value,
-                dia: diaValue
+                dia: bpRecord.dia
               });
             }
           } else if (selectedPoint.type === 'bp-dia') {
-            // BP time is fixed - only value changes
-            updateDiaPoint(selectedPoint.index, newPoint);
-            // Find matching systolic value (time never changed, so use index)
-            const sysValue = bpDataPoints.sys[selectedPoint.index]?.[1];
-            if (sysValue !== undefined) {
+            // For BP points, only value changes (time fixed) to maintain pairing
+            // Get current record to access systolic value
+            const bpRecord = bpRecords.find(r => r.id === selectedPoint.id);
+            if (bpRecord) {
+              updateBPPoint(selectedPoint.id, { dia: dragPosition.value });
               updateBPPointMutation.mutate({
-                index: selectedPoint.index,
+                pointId: selectedPoint.id,
                 timestamp: new Date(selectedPoint.originalTime).toISOString(),
-                sys: sysValue,
+                sys: bpRecord.sys,
                 dia: dragPosition.value
               });
             }
           } else if (selectedPoint.type === 'spo2') {
-            updateSpo2Point(selectedPoint.index, newPoint);
-            // Persist to backend
+            updateSpo2Point(selectedPoint.id, { timestamp: dragPosition.time, value: dragPosition.value });
             updateVitalPointMutation.mutate({
-              vitalType: 'spo2',
-              index: selectedPoint.index,
+              pointId: selectedPoint.id,
               timestamp: new Date(dragPosition.time).toISOString(),
               value: dragPosition.value
             });
@@ -305,7 +300,7 @@ export function VitalsSwimlane({
         if (pointToSelect) {
           setSelectedPoint({
             type: pointToSelect.type,
-            index: pointToSelect.index,
+            id: pointToSelect.id,
             originalTime: pointToSelect.time,
             originalValue: pointToSelect.value
           });
@@ -323,7 +318,7 @@ export function VitalsSwimlane({
       if (existingPoint) {
         // Clicking on existing point → Open single edit dialog
         setIsProcessingClick(false);
-        onVitalPointEdit?.(existingPoint.type, existingPoint.index, existingPoint.time, existingPoint.value);
+        onVitalPointEdit?.(existingPoint.type, existingPoint.id, existingPoint.time, existingPoint.value);
         return;
       } else {
         // Clicking on empty space → Open bulk entry dialog
@@ -374,22 +369,13 @@ export function VitalsSwimlane({
       setIsProcessingClick(false);
     } else if (activeToolMode === 'bp') {
       if (bpEntryMode === 'sys') {
-        const sysPoint: VitalPoint = [clickInfo.time, clickInfo.value];
-        setBpDataPoints(prev => ({
-          ...prev,
-          sys: [...prev.sys, sysPoint]
-        }));
+        // Store systolic value, wait for diastolic
         setPendingSysValue({ time: clickInfo.time, value: clickInfo.value });
         setBpEntryMode('dia');
         setHoverInfo(null);
         setIsProcessingClick(false);
       } else {
-        const diaPoint: VitalPoint = [pendingSysValue?.time ?? clickInfo.time, clickInfo.value];
-        setBpDataPoints(prev => ({
-          ...prev,
-          dia: [...prev.dia, diaPoint]
-        }));
-
+        // Now have both sys and dia - create BP point via mutation
         if (pendingSysValue) {
           addBPPointMutation.mutate({
             timestamp: new Date(pendingSysValue.time).toISOString(),
@@ -414,22 +400,13 @@ export function VitalsSwimlane({
       setIsProcessingClick(false);
     } else if (activeToolMode === 'blend') {
       if (blendSequenceStep === 'sys') {
-        const sysPoint: VitalPoint = [clickInfo.time, clickInfo.value];
-        setBpDataPoints(prev => ({
-          ...prev,
-          sys: [...prev.sys, sysPoint]
-        }));
+        // Store systolic value, wait for diastolic
         setPendingSysValue({ time: clickInfo.time, value: clickInfo.value });
         setBlendSequenceStep('dia');
         setHoverInfo(null);
         setIsProcessingClick(false);
       } else if (blendSequenceStep === 'dia') {
-        const diaPoint: VitalPoint = [pendingSysValue?.time ?? clickInfo.time, clickInfo.value];
-        setBpDataPoints(prev => ({
-          ...prev,
-          dia: [...prev.dia, diaPoint]
-        }));
-
+        // Now have both sys and dia - create BP point via mutation
         if (pendingSysValue) {
           addBPPointMutation.mutate({
             timestamp: new Date(pendingSysValue.time).toISOString(),

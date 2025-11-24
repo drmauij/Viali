@@ -57,7 +57,7 @@ import {
   useUpdateVitalPoint, 
   useUpdateBPPoint,
   useDeleteVitalPoint,
-  convertToLegacyFormat 
+  convertToRecordsFormat 
 } from "@/hooks/useVitalsQuery";
 import { useCreateVentilationMode, useUpdateVentilationMode, useDeleteVentilationMode } from "@/hooks/useVentilationModeQuery";
 import { useCreateEvent, useUpdateEvent, useDeleteEvent } from "@/hooks/useEventsQuery";
@@ -498,28 +498,33 @@ export function UnifiedTimeline({
   const updateBPPointMutation = useUpdateBPPoint(anesthesiaRecordId);
   const deleteVitalPointMutation = useDeleteVitalPoint(anesthesiaRecordId);
   
-  // Convert React Query snapshot to legacy format for ECharts
-  const legacyVitals = useMemo(() => {
-    return convertToLegacyFormat(clinicalSnapshot);
+  // Convert React Query snapshot to records format (with IDs)
+  const vitalsRecords = useMemo(() => {
+    return convertToRecordsFormat(clinicalSnapshot);
   }, [clinicalSnapshot]);
   
   // Use custom hook for vitals state management (fed from React Query)
   const {
+    hrRecords,
+    bpRecords,
+    spo2Records,
     hrDataPoints,
     bpDataPoints,
     spo2DataPoints,
-    hrDataPointsRef,
-    bpDataPointsRef,
-    spo2DataPointsRef,
-    setHrDataPoints,
-    setBpDataPoints,
-    setSpo2DataPoints,
+    hrRecordsRef,
+    bpRecordsRef,
+    spo2RecordsRef,
+    setHrRecords,
+    setBpRecords,
+    setSpo2Records,
     resetVitalsData,
+    updateHrPoint,
+    updateBPPoint,
+    updateSpo2Point,
   } = useVitalsState({
-    hr: legacyVitals.hr,
-    sys: legacyVitals.sys,
-    dia: legacyVitals.dia,
-    spo2: legacyVitals.spo2,
+    hr: vitalsRecords.hr,
+    bp: vitalsRecords.bp,
+    spo2: vitalsRecords.spo2,
   });
   
   // Use custom hook for ventilation state management
@@ -599,25 +604,24 @@ export function UnifiedTimeline({
   // NEW: Sync React Query snapshot into local state (conversion layer)
   // React Query is the single source of truth - local state is just a view layer for ECharts
   useEffect(() => {
-    if (!legacyVitals) return;
+    if (!vitalsRecords) return;
     
     console.log('[VITALS-SYNC] Syncing vitals from React Query to local state', { 
       recordId: anesthesiaRecordId,
-      hrCount: legacyVitals.hr.length,
-      bpCount: legacyVitals.sys.length,
-      spo2Count: legacyVitals.spo2.length
+      hrCount: vitalsRecords.hr.length,
+      bpCount: vitalsRecords.bp.length,
+      spo2Count: vitalsRecords.spo2.length
     });
     
     // Always sync from React Query - it's the source of truth
     // This ensures optimistic updates from mutations propagate to the UI
     resetVitalsData({ 
-      hr: legacyVitals.hr, 
-      sys: legacyVitals.sys, 
-      dia: legacyVitals.dia, 
-      spo2: legacyVitals.spo2 
+      hr: vitalsRecords.hr, 
+      bp: vitalsRecords.bp, 
+      spo2: vitalsRecords.spo2 
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [legacyVitals, anesthesiaRecordId]);
+  }, [vitalsRecords, anesthesiaRecordId]);
   
   // NEW: Auto-save removed - vitals are now saved immediately via point-based mutations
   // Each add/edit/delete operation triggers its own optimistic mutation with React Query
@@ -4517,15 +4521,21 @@ export function UnifiedTimeline({
   
   // Create state objects to pass to TimelineContextProvider
   const vitalsState = {
+    hrRecords,
+    bpRecords,
+    spo2Records,
     hrDataPoints,
     bpDataPoints,
     spo2DataPoints,
-    hrDataPointsRef,
-    bpDataPointsRef,
-    spo2DataPointsRef,
-    setHrDataPoints,
-    setBpDataPoints,
-    setSpo2DataPoints,
+    hrRecordsRef,
+    bpRecordsRef,
+    spo2RecordsRef,
+    setHrRecords,
+    setBpRecords,
+    setSpo2Records,
+    updateHrPoint,
+    updateBPPoint,
+    updateSpo2Point,
     resetVitalsData,
   };
   

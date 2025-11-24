@@ -1,5 +1,20 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 
+// Normalized records with IDs (source of truth)
+export interface VitalPointRecord {
+  id: string;
+  timestamp: number;
+  value: number;
+}
+
+export interface BPPointRecord {
+  id: string;
+  timestamp: number;
+  sys: number;
+  dia: number;
+}
+
+// Legacy tuple format for backward compatibility with charts
 export type VitalPoint = [number, number]; // [timestamp, value]
 
 export interface BpDataPoints {
@@ -7,148 +22,168 @@ export interface BpDataPoints {
   dia: VitalPoint[];
 }
 
+// State structure now uses records
 export interface VitalsState {
-  hrDataPoints: VitalPoint[];
-  bpDataPoints: BpDataPoints;
-  spo2DataPoints: VitalPoint[];
+  hrRecords: VitalPointRecord[];
+  bpRecords: BPPointRecord[];
+  spo2Records: VitalPointRecord[];
 }
 
 export interface VitalsStateRefs {
-  hrDataPointsRef: React.MutableRefObject<VitalPoint[]>;
-  bpDataPointsRef: React.MutableRefObject<BpDataPoints>;
-  spo2DataPointsRef: React.MutableRefObject<VitalPoint[]>;
+  hrRecordsRef: React.MutableRefObject<VitalPointRecord[]>;
+  bpRecordsRef: React.MutableRefObject<BPPointRecord[]>;
+  spo2RecordsRef: React.MutableRefObject<VitalPointRecord[]>;
 }
 
 export interface UseVitalsStateReturn {
+  // Raw records (with IDs)
+  hrRecords: VitalPointRecord[];
+  bpRecords: BPPointRecord[];
+  spo2Records: VitalPointRecord[];
+  
+  // Memoized tuple selectors for chart rendering
   hrDataPoints: VitalPoint[];
   bpDataPoints: BpDataPoints;
   spo2DataPoints: VitalPoint[];
-  hrDataPointsRef: React.MutableRefObject<VitalPoint[]>;
-  bpDataPointsRef: React.MutableRefObject<BpDataPoints>;
-  spo2DataPointsRef: React.MutableRefObject<VitalPoint[]>;
-  setHrDataPoints: React.Dispatch<React.SetStateAction<VitalPoint[]>>;
-  setBpDataPoints: React.Dispatch<React.SetStateAction<BpDataPoints>>;
-  setSpo2DataPoints: React.Dispatch<React.SetStateAction<VitalPoint[]>>;
-  addHrPoint: (point: VitalPoint) => void;
-  addSysPoint: (point: VitalPoint) => void;
-  addDiaPoint: (point: VitalPoint) => void;
-  addSpo2Point: (point: VitalPoint) => void;
-  updateHrPoint: (index: number, point: VitalPoint) => void;
-  updateSysPoint: (index: number, point: VitalPoint) => void;
-  updateDiaPoint: (index: number, point: VitalPoint) => void;
-  updateSpo2Point: (index: number, point: VitalPoint) => void;
-  resetVitalsData: (vitals: { hr?: VitalPoint[], sys?: VitalPoint[], dia?: VitalPoint[], spo2?: VitalPoint[] }) => void;
+  
+  // Refs
+  hrRecordsRef: React.MutableRefObject<VitalPointRecord[]>;
+  bpRecordsRef: React.MutableRefObject<BPPointRecord[]>;
+  spo2RecordsRef: React.MutableRefObject<VitalPointRecord[]>;
+  
+  // Setters for raw records
+  setHrRecords: React.Dispatch<React.SetStateAction<VitalPointRecord[]>>;
+  setBpRecords: React.Dispatch<React.SetStateAction<BPPointRecord[]>>;
+  setSpo2Records: React.Dispatch<React.SetStateAction<VitalPointRecord[]>>;
+  
+  // Add functions
+  addHrPoint: (record: VitalPointRecord) => void;
+  addBPPoint: (record: BPPointRecord) => void;
+  addSpo2Point: (record: VitalPointRecord) => void;
+  
+  // Update functions (by ID)
+  updateHrPoint: (id: string, updates: Partial<VitalPointRecord>) => void;
+  updateBPPoint: (id: string, updates: Partial<BPPointRecord>) => void;
+  updateSpo2Point: (id: string, updates: Partial<VitalPointRecord>) => void;
+  
+  // Reset function
+  resetVitalsData: (vitals: { 
+    hr?: VitalPointRecord[], 
+    bp?: BPPointRecord[], 
+    spo2?: VitalPointRecord[] 
+  }) => void;
 }
 
 export function useVitalsState(initialData?: {
-  hr?: VitalPoint[];
-  sys?: VitalPoint[];
-  dia?: VitalPoint[];
-  spo2?: VitalPoint[];
+  hr?: VitalPointRecord[];
+  bp?: BPPointRecord[];
+  spo2?: VitalPointRecord[];
 }): UseVitalsStateReturn {
-  const [hrDataPoints, setHrDataPoints] = useState<VitalPoint[]>(initialData?.hr || []);
-  const [bpDataPoints, setBpDataPoints] = useState<BpDataPoints>({
-    sys: initialData?.sys || [],
-    dia: initialData?.dia || [],
-  });
-  const [spo2DataPoints, setSpo2DataPoints] = useState<VitalPoint[]>(initialData?.spo2 || []);
+  const [hrRecords, setHrRecords] = useState<VitalPointRecord[]>(initialData?.hr || []);
+  const [bpRecords, setBpRecords] = useState<BPPointRecord[]>(initialData?.bp || []);
+  const [spo2Records, setSpo2Records] = useState<VitalPointRecord[]>(initialData?.spo2 || []);
 
-  const hrDataPointsRef = useRef(hrDataPoints);
-  const bpDataPointsRef = useRef(bpDataPoints);
-  const spo2DataPointsRef = useRef(spo2DataPoints);
+  const hrRecordsRef = useRef(hrRecords);
+  const bpRecordsRef = useRef(bpRecords);
+  const spo2RecordsRef = useRef(spo2Records);
 
-  useEffect(() => { hrDataPointsRef.current = hrDataPoints; }, [hrDataPoints]);
-  useEffect(() => { bpDataPointsRef.current = bpDataPoints; }, [bpDataPoints]);
-  useEffect(() => { spo2DataPointsRef.current = spo2DataPoints; }, [spo2DataPoints]);
+  useEffect(() => { hrRecordsRef.current = hrRecords; }, [hrRecords]);
+  useEffect(() => { bpRecordsRef.current = bpRecords; }, [bpRecords]);
+  useEffect(() => { spo2RecordsRef.current = spo2Records; }, [spo2Records]);
 
-  const addHrPoint = useCallback((point: VitalPoint) => {
-    setHrDataPoints(prev => [...prev, point]);
+  // Memoized tuple selectors for chart rendering
+  const hrDataPoints = useMemo<VitalPoint[]>(() => {
+    return hrRecords.map(r => [r.timestamp, r.value]);
+  }, [hrRecords]);
+
+  const bpDataPoints = useMemo<BpDataPoints>(() => {
+    return {
+      sys: bpRecords.map(r => [r.timestamp, r.sys]),
+      dia: bpRecords.map(r => [r.timestamp, r.dia]),
+    };
+  }, [bpRecords]);
+
+  const spo2DataPoints = useMemo<VitalPoint[]>(() => {
+    return spo2Records.map(r => [r.timestamp, r.value]);
+  }, [spo2Records]);
+
+  // Add functions
+  const addHrPoint = useCallback((record: VitalPointRecord) => {
+    setHrRecords(prev => [...prev, record].sort((a, b) => a.timestamp - b.timestamp));
   }, []);
 
-  const addSysPoint = useCallback((point: VitalPoint) => {
-    setBpDataPoints(prev => ({
-      ...prev,
-      sys: [...prev.sys, point]
-    }));
+  const addBPPoint = useCallback((record: BPPointRecord) => {
+    setBpRecords(prev => [...prev, record].sort((a, b) => a.timestamp - b.timestamp));
   }, []);
 
-  const addDiaPoint = useCallback((point: VitalPoint) => {
-    setBpDataPoints(prev => ({
-      ...prev,
-      dia: [...prev.dia, point]
-    }));
+  const addSpo2Point = useCallback((record: VitalPointRecord) => {
+    setSpo2Records(prev => [...prev, record].sort((a, b) => a.timestamp - b.timestamp));
   }, []);
 
-  const addSpo2Point = useCallback((point: VitalPoint) => {
-    setSpo2DataPoints(prev => [...prev, point]);
-  }, []);
-
-  const updateHrPoint = useCallback((index: number, point: VitalPoint) => {
-    setHrDataPoints(prev => {
-      const updated = [...prev];
-      updated[index] = point;
-      return updated;
+  // Update functions (by ID)
+  const updateHrPoint = useCallback((id: string, updates: Partial<VitalPointRecord>) => {
+    setHrRecords(prev => {
+      const updated = prev.map(r => r.id === id ? { ...r, ...updates } : r);
+      return updated.sort((a, b) => a.timestamp - b.timestamp);
     });
   }, []);
 
-  const updateSysPoint = useCallback((index: number, point: VitalPoint) => {
-    setBpDataPoints(prev => {
-      const updated = [...prev.sys];
-      updated[index] = point;
-      return { ...prev, sys: updated };
+  const updateBPPoint = useCallback((id: string, updates: Partial<BPPointRecord>) => {
+    setBpRecords(prev => {
+      const updated = prev.map(r => r.id === id ? { ...r, ...updates } : r);
+      return updated.sort((a, b) => a.timestamp - b.timestamp);
     });
   }, []);
 
-  const updateDiaPoint = useCallback((index: number, point: VitalPoint) => {
-    setBpDataPoints(prev => {
-      const updated = [...prev.dia];
-      updated[index] = point;
-      return { ...prev, dia: updated };
-    });
-  }, []);
-
-  const updateSpo2Point = useCallback((index: number, point: VitalPoint) => {
-    setSpo2DataPoints(prev => {
-      const updated = [...prev];
-      updated[index] = point;
-      return updated;
+  const updateSpo2Point = useCallback((id: string, updates: Partial<VitalPointRecord>) => {
+    setSpo2Records(prev => {
+      const updated = prev.map(r => r.id === id ? { ...r, ...updates } : r);
+      return updated.sort((a, b) => a.timestamp - b.timestamp);
     });
   }, []);
 
   const resetVitalsData = useCallback((vitals: { 
-    hr?: VitalPoint[], 
-    sys?: VitalPoint[], 
-    dia?: VitalPoint[], 
-    spo2?: VitalPoint[] 
+    hr?: VitalPointRecord[], 
+    bp?: BPPointRecord[], 
+    spo2?: VitalPointRecord[] 
   }) => {
-    if (vitals.hr !== undefined) setHrDataPoints(vitals.hr);
-    if (vitals.sys !== undefined || vitals.dia !== undefined) {
-      setBpDataPoints(prev => ({
-        sys: vitals.sys !== undefined ? vitals.sys : prev.sys,
-        dia: vitals.dia !== undefined ? vitals.dia : prev.dia,
-      }));
-    }
-    if (vitals.spo2 !== undefined) setSpo2DataPoints(vitals.spo2);
+    if (vitals.hr !== undefined) setHrRecords(vitals.hr);
+    if (vitals.bp !== undefined) setBpRecords(vitals.bp);
+    if (vitals.spo2 !== undefined) setSpo2Records(vitals.spo2);
   }, []);
 
   return {
+    // Raw records
+    hrRecords,
+    bpRecords,
+    spo2Records,
+    
+    // Memoized tuples for charts
     hrDataPoints,
     bpDataPoints,
     spo2DataPoints,
-    hrDataPointsRef,
-    bpDataPointsRef,
-    spo2DataPointsRef,
-    setHrDataPoints,
-    setBpDataPoints,
-    setSpo2DataPoints,
+    
+    // Refs
+    hrRecordsRef,
+    bpRecordsRef,
+    spo2RecordsRef,
+    
+    // Setters
+    setHrRecords,
+    setBpRecords,
+    setSpo2Records,
+    
+    // Add functions
     addHrPoint,
-    addSysPoint,
-    addDiaPoint,
+    addBPPoint,
     addSpo2Point,
+    
+    // Update functions
     updateHrPoint,
-    updateSysPoint,
-    updateDiaPoint,
+    updateBPPoint,
     updateSpo2Point,
+    
+    // Reset
     resetVitalsData,
   };
 }
