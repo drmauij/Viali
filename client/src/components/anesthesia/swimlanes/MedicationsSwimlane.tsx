@@ -5,6 +5,7 @@ import { useCreateMedication, useUpdateMedication, useDeleteMedication } from "@
 import { InfusionStartEditDialog } from "../dialogs/InfusionStartEditDialog";
 import { RateChangeEditDialog } from "../dialogs/RateChangeEditDialog";
 import { useToast } from "@/hooks/use-toast";
+import { assignInfusionTracks } from "@/lib/infusionTrackAssignment";
 import type {
   RateInfusionSegment,
   RateInfusionSession,
@@ -727,7 +728,6 @@ export function MedicationsSwimlane({
         const visibleRange = visibleEnd - visibleStart;
         
         // Assign tracks to sessions for parallel display
-        const { assignInfusionTracks } = require('@/lib/infusionTrackAssignment');
         const sessionsWithTracks = assignInfusionTracks(sessions, data.endTime);
         
         // Calculate track height

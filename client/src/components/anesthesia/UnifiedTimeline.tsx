@@ -85,6 +85,7 @@ import { TimelineContextProvider } from "./TimelineContext";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
 import { TimeAdjustInput } from "./TimeAdjustInput";
 import { formatTime } from "@/lib/dateUtils";
+import { calculateMaxTracks, assignInfusionTracks } from "@/lib/infusionTrackAssignment";
 import {
   ONE_MINUTE,
   FIVE_MINUTES,
@@ -1592,7 +1593,6 @@ export function UnifiedTimeline({
 
   // Calculate max tracks needed for each free-flow swimlane
   const swimlaneTrackCounts = useMemo(() => {
-    const { calculateMaxTracks } = require('@/lib/infusionTrackAssignment');
     const trackCounts: Record<string, number> = {};
     const maxTime = data.endTime;
     
