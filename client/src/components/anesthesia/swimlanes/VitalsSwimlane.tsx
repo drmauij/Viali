@@ -207,7 +207,7 @@ export function VitalsSwimlane({
    * Handle click to add vital point or edit existing
    */
   const handleVitalsClick = (e: React.MouseEvent) => {
-    if (isProcessingClick || activeToolMode === 'edit') {
+    if (isProcessingClick) {
       return;
     }
 
@@ -227,6 +227,53 @@ export function VitalsSwimlane({
     const rawClickTime = visibleStart + (xPercent * visibleRange);
     // Snap time only for creating new entries
     const snappedClickTime = Math.round(rawClickTime / currentVitalsSnapInterval) * currentVitalsSnapInterval;
+
+    // EDIT MODE: Select point for dragging
+    if (activeToolMode === 'edit') {
+      if (selectedPoint) {
+        // Already dragging a point - save the new value from dragPosition
+        if (dragPosition) {
+          // Update the point with the new value
+          if (selectedPoint.type === 'hr') {
+            const updatedPoints = [...hrDataPoints];
+            updatedPoints[selectedPoint.index] = [selectedPoint.originalTime, dragPosition.value];
+            setHrDataPoints(updatedPoints);
+          } else if (selectedPoint.type === 'bp-sys') {
+            const updatedPoints = [...bpDataPoints.sys];
+            updatedPoints[selectedPoint.index] = [selectedPoint.originalTime, dragPosition.value];
+            setBpDataPoints(prev => ({ ...prev, sys: updatedPoints }));
+          } else if (selectedPoint.type === 'bp-dia') {
+            const updatedPoints = [...bpDataPoints.dia];
+            updatedPoints[selectedPoint.index] = [selectedPoint.originalTime, dragPosition.value];
+            setBpDataPoints(prev => ({ ...prev, dia: updatedPoints }));
+          } else if (selectedPoint.type === 'spo2') {
+            const updatedPoints = [...spo2DataPoints];
+            updatedPoints[selectedPoint.index] = [selectedPoint.originalTime, dragPosition.value];
+            setSpo2DataPoints(updatedPoints);
+          }
+        }
+        
+        // Deselect the point
+        setSelectedPoint(null);
+        setDragPosition(null);
+        setIsProcessingClick(false);
+        return;
+      } else {
+        // No point selected - try to select one
+        const pointToSelect = findVitalPointAtClick(rawClickTime, y, rect);
+        if (pointToSelect) {
+          setSelectedPoint({
+            type: pointToSelect.type,
+            index: pointToSelect.index,
+            originalTime: pointToSelect.time,
+            originalValue: pointToSelect.value
+          });
+          setDragPosition({ time: pointToSelect.time, value: pointToSelect.value });
+        }
+        setIsProcessingClick(false);
+        return;
+      }
+    }
 
     // If no tool mode is active, check if clicking on existing point
     if (!activeToolMode) {
