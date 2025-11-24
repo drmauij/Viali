@@ -18,7 +18,6 @@ import type { HeartRhythmPoint } from '@/hooks/useEventState';
  */
 
 const ONE_MINUTE = 60 * 1000;
-const TEN_MINUTES = 10 * 60 * 1000;
 
 export interface HeartRhythmSwimlaneProps {
   swimlanePositions: Array<{ id: string; top: number; height: number }>;
@@ -107,14 +106,6 @@ export function HeartRhythmSwimlane({
 
             // Snap to 1-minute intervals
             time = Math.round(time / ONE_MINUTE) * ONE_MINUTE;
-
-            // Validate that time is within editable boundaries
-            const editableStartBoundary = chartInitTime - TEN_MINUTES;
-            const editableEndBoundary = currentTime + TEN_MINUTES;
-
-            if (time < editableStartBoundary || time > editableEndBoundary) {
-              return;
-            }
 
             onHeartRhythmDialogOpen({ time });
           }}

@@ -1946,14 +1946,7 @@ export function UnifiedTimeline({
       return;
     }
     
-    // Validate that time is within editable boundaries
-    const editableStartBoundary = chartInitTime - TEN_MINUTES; // FIXED boundary
-    const editableEndBoundary = currentTime + TEN_MINUTES; // MOVING boundary
-    
-    if (snappedTime < editableStartBoundary || snappedTime > editableEndBoundary) {
-      // Click is outside editable window - ignore
-      return;
-    }
+    // No restrictions - allow editing at any time point on the timeline
     
     // Update the marker with the time
     const updated = [...timeMarkers];
@@ -2249,68 +2242,9 @@ export function UnifiedTimeline({
       setCurrentZoomStart(visibleStart);
       setCurrentZoomEnd(visibleEnd);
       
-      // Query ECharts directly for the ACTUAL time interval it's displaying
-      // This ensures snapping matches what ECharts renders, regardless of screen size
-      let vitalsSnapInterval: number;
-      
-      try {
-        // Access ECharts internal model to get actual rendered tick coordinates
-        const axis = (chart as any)._model?._componentsMap?.get('xAxis')?.[0]?.axis;
-        
-        if (axis && typeof axis.getTicksCoords === 'function') {
-          const ticks = axis.getTicksCoords();
-          
-          // Calculate actual interval from consecutive tick VALUES (not pixel coords)
-          // IMPORTANT: Use ticks[1] and ticks[2] because ticks[0] might be at an odd start time
-          // (e.g., chart starts at 22:06:17, so tick[0]=22:06:17, tick[1]=22:10:00, tick[2]=22:15:00)
-          // The real interval is between tick[1] and tick[2] (22:10:00 → 22:15:00 = 5 min)
-          if (ticks && ticks.length >= 3) {
-            const tick1Value = ticks[1].tickValue;
-            const tick2Value = ticks[2].tickValue;
-            
-            if (typeof tick1Value === 'number' && typeof tick2Value === 'number') {
-              const actualInterval = Math.abs(tick2Value - tick1Value);
-              const intervalMinutes = actualInterval / (60 * 1000);
-              
-              // Map actual tick interval to fixed snap intervals
-              // Rule 1: tick interval <= 2 min → snap to 1 min
-              // Rule 2: tick interval > 2 and <= 15 min → snap to 5 min
-              // Rule 3: tick interval > 15 min → snap to 10 min
-              if (intervalMinutes <= 2) {
-                vitalsSnapInterval = 1 * 60 * 1000;
-              } else if (intervalMinutes <= 15) {
-                vitalsSnapInterval = 5 * 60 * 1000;
-              } else {
-                vitalsSnapInterval = 10 * 60 * 1000;
-              }
-              
-            } else {
-              throw new Error('Tick values not numeric');
-            }
-          } else {
-            throw new Error('Insufficient ticks');
-          }
-        } else {
-          throw new Error('Axis API not available');
-        }
-      } catch (error) {
-        // Fallback: estimate tick interval from visible range
-        // Assume ECharts typically shows ~12-20 ticks, use 15 as average
-        const visibleRangeMs = visibleEnd - visibleStart;
-        const estimatedTickCount = 15;
-        const estimatedTickInterval = visibleRangeMs / estimatedTickCount;
-        const intervalMinutes = estimatedTickInterval / (60 * 1000);
-        
-        // Map estimated tick interval to fixed snap intervals (same rules)
-        if (intervalMinutes <= 2) {
-          vitalsSnapInterval = 1 * 60 * 1000;
-        } else if (intervalMinutes <= 15) {
-          vitalsSnapInterval = 5 * 60 * 1000;
-        } else {
-          vitalsSnapInterval = 10 * 60 * 1000;
-        }
-        
-      }
+      // FIXED SNAP INTERVAL: Always use 1 minute regardless of zoom level
+      // This allows precise data entry at any zoom level
+      const vitalsSnapInterval = 1 * 60 * 1000; // 1 minute
       
       setCurrentVitalsSnapInterval(vitalsSnapInterval);
     };

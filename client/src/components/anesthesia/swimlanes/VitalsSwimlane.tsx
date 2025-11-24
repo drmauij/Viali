@@ -16,8 +16,6 @@ import type { VitalPoint } from '@/hooks/useVitalsState';
  * - generateVitalsYAxisLabels: Graphics for manual y-axis labels
  */
 
-const TEN_MINUTES = 10 * 60 * 1000;
-
 interface VitalsSwimlaneProps {
   chartRef: React.RefObject<any>;
   VITALS_TOP: number;
@@ -104,10 +102,6 @@ export function VitalsSwimlane({
     let time = visibleStart + (xPercent * visibleRange);
     time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
 
-    const editableStartBoundary = chartInitTime - TEN_MINUTES;
-    const editableEndBoundary = currentTime + TEN_MINUTES;
-    const isEditable = time >= editableStartBoundary && time <= editableEndBoundary;
-
     let value: number;
     const yPercent = y / rect.height;
 
@@ -126,12 +120,12 @@ export function VitalsSwimlane({
       const fixedTime = selectedPoint.originalTime;
       setDragPosition({ time: fixedTime, value });
       setHoverInfo({ x: e.clientX, y: e.clientY, value, time: fixedTime });
-    } else if (isEditable && (activeToolMode === 'hr' || activeToolMode === 'bp' || (activeToolMode === 'blend' && (blendSequenceStep === 'sys' || blendSequenceStep === 'dia' || blendSequenceStep === 'hr')))) {
+    } else if (activeToolMode === 'hr' || activeToolMode === 'bp' || (activeToolMode === 'blend' && (blendSequenceStep === 'sys' || blendSequenceStep === 'dia' || blendSequenceStep === 'hr'))) {
       const minVal = 0;
       const maxVal = 240;
       value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
       setHoverInfo({ x: e.clientX, y: e.clientY, value, time });
-    } else if (isEditable && (activeToolMode === 'spo2' || (activeToolMode === 'blend' && blendSequenceStep === 'spo2'))) {
+    } else if (activeToolMode === 'spo2' || (activeToolMode === 'blend' && blendSequenceStep === 'spo2')) {
       const minVal = 45;
       const maxVal = 105;
       const rawValue = Math.round(maxVal - (yPercent * (maxVal - minVal)));
@@ -233,15 +227,6 @@ export function VitalsSwimlane({
     const rawClickTime = visibleStart + (xPercent * visibleRange);
     // Snap time only for creating new entries
     const snappedClickTime = Math.round(rawClickTime / currentVitalsSnapInterval) * currentVitalsSnapInterval;
-
-    // Validate that click time is within editable boundaries
-    const editableStartBoundary = currentTime - TEN_MINUTES;
-    const editableEndBoundary = currentTime + TEN_MINUTES;
-
-    if (rawClickTime < editableStartBoundary || rawClickTime > editableEndBoundary) {
-      setIsProcessingClick(false);
-      return;
-    }
 
     // If no tool mode is active, check if clicking on existing point
     if (!activeToolMode) {

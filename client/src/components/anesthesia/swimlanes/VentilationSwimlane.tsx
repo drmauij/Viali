@@ -16,8 +16,6 @@ import type { VitalPoint } from '@/hooks/useVitalsState';
  * - generateVentilationSeries: Chart series for ventilation parameter text labels
  */
 
-const TEN_MINUTES = 10 * 60 * 1000;
-
 /**
  * Ventilation parameter info mapping
  */
@@ -161,14 +159,6 @@ export function VentilationSwimlane({
             // Snap to zoom-dependent interval for ventilation parameters
             time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
 
-            // Validate that time is within editable boundaries
-            const editableStartBoundary = chartInitTime - TEN_MINUTES;
-            const editableEndBoundary = currentTime + TEN_MINUTES;
-
-            if (time < editableStartBoundary || time > editableEndBoundary) {
-              return;
-            }
-
             onVentilationBulkDialogOpen({ time });
           }}
           data-testid="interactive-ventilation-bulk-lane"
@@ -250,14 +240,6 @@ export function VentilationSwimlane({
 
                 // Snap to zoom-dependent interval for ventilation parameters
                 time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
-
-                // Validate that time is within editable boundaries
-                const editableStartBoundary = chartInitTime - TEN_MINUTES;
-                const editableEndBoundary = currentTime + TEN_MINUTES;
-
-                if (time < editableStartBoundary || time > editableEndBoundary) {
-                  return;
-                }
 
                 onVentilationDialogOpen({
                   paramKey: paramInfo.key,

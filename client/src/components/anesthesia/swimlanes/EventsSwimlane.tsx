@@ -41,7 +41,6 @@ interface InventoryCommit {
  */
 
 const ONE_MINUTE = 60 * 1000;
-const TEN_MINUTES = 10 * 60 * 1000;
 
 interface EventsSwimlaneProps {
   swimlanePositions: Array<{ id: string; top: number; height: number }>;
@@ -128,14 +127,6 @@ export function EventsSwimlane({
 
     // Always snap to 1-minute intervals for time markers
     time = snapToInterval(time, ONE_MINUTE);
-
-    // Validate that time is within editable boundaries
-    const editableStartBoundary = chartInitTime - TEN_MINUTES;
-    const editableEndBoundary = currentTime + TEN_MINUTES;
-
-    if (time < editableStartBoundary || time > editableEndBoundary) {
-      return;
-    }
 
     // Check if we're clicking on an existing marker (within 3 minutes threshold)
     const threeMinutes = 3 * 60 * 1000;
@@ -231,15 +222,6 @@ export function EventsSwimlane({
     if (!time || isNaN(time) || time < MIN_VALID_TIMESTAMP) {
       console.warn('[EVENTS-CLICK] Invalid time calculated:', time, '- falling back to currentTime');
       time = currentTime;
-    }
-
-    // Validate that time is within editable boundaries
-    const editableStartBoundary = chartInitTime - TEN_MINUTES;
-    const editableEndBoundary = currentTime + TEN_MINUTES;
-
-    if (time < editableStartBoundary || time > editableEndBoundary) {
-      console.log('[EVENTS-CLICK] Click REJECTED - outside editable window');
-      return;
     }
 
     console.log('[EVENTS-CLICK] Click ACCEPTED - opening dialog');

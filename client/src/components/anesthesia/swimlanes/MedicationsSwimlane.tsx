@@ -495,10 +495,6 @@ export function MedicationsSwimlane({
     return runningSession || sessions[sessions.length - 1];
   };
 
-  // Helper: Calculate editable boundaries
-  const TEN_MINUTES = 10 * 60 * 1000;
-  const FIFTEEN_MINUTES = 15 * 60 * 1000;
-
   // Handler: Save rate change edit
   const handleSaveRateChange = async (medicationId: string, newRate: string, newTime: Date) => {
     try {
@@ -869,15 +865,6 @@ export function MedicationsSwimlane({
                 // Snap to 1-minute interval for medications
                 time = Math.round(time / currentDrugSnapInterval) * currentDrugSnapInterval;
                 
-                // Validate that time is within editable boundaries
-                const editableStartBoundary = chartInitTime - FIFTEEN_MINUTES;
-                const editableEndBoundary = currentTime + FIFTEEN_MINUTES;
-                
-                if (time < editableStartBoundary || time > editableEndBoundary) {
-                  // Click is outside editable window - ignore
-                  return;
-                }
-                
                 // Check if we're clicking on an existing dose label
                 const existingDoses = medicationDoseData[lane.id] || [];
                 const clickTolerance = currentDrugSnapInterval; // Allow clicking within one interval of the dose
@@ -1030,15 +1017,6 @@ export function MedicationsSwimlane({
                 
                 // Snap to 1-minute interval for infusions
                 time = Math.round(time / currentDrugSnapInterval) * currentDrugSnapInterval;
-                
-                // Validate that time is within editable boundaries
-                const editableStartBoundary = chartInitTime - FIFTEEN_MINUTES;
-                const editableEndBoundary = currentTime + FIFTEEN_MINUTES;
-                
-                if (time < editableStartBoundary || time > editableEndBoundary) {
-                  // Click is outside editable window - ignore
-                  return;
-                }
                 
                 // Check if we're clicking on an existing infusion value
                 const existingValues = infusionData[lane.id] || [];

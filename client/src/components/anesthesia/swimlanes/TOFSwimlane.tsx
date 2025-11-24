@@ -3,7 +3,6 @@ import { useTimelineContext } from '../TimelineContext';
 import type { TOFPoint } from '@/hooks/useEventState';
 
 const ONE_MINUTE = 60 * 1000;
-const TEN_MINUTES = 10 * 60 * 1000;
 
 export interface TOFSwimlaneProps {
   swimlanePositions: Array<{ id: string; top: number; height: number }>;
@@ -87,13 +86,6 @@ export function TOFSwimlane({
             let time = visibleStart + (xPercent * visibleRange);
 
             time = Math.round(time / ONE_MINUTE) * ONE_MINUTE;
-
-            const editableStartBoundary = chartInitTime - TEN_MINUTES;
-            const editableEndBoundary = currentTime + TEN_MINUTES;
-
-            if (time < editableStartBoundary || time > editableEndBoundary) {
-              return;
-            }
 
             onTOFDialogOpen({ time });
           }}

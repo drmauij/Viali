@@ -15,9 +15,6 @@ import type { OutputData } from '@/hooks/useOutputState';
  * Uses TimelineContext for shared state and mutations
  */
 
-const TEN_MINUTES = 10 * 60 * 1000;
-const FIFTEEN_MINUTES = 15 * 60 * 1000;
-
 /**
  * Output parameter info mapping
  */
@@ -148,14 +145,6 @@ export function OutputSwimlane({
             // Snap to zoom-dependent interval for output parameters
             time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
 
-            // Validate that time is within editable boundaries
-            const editableStartBoundary = chartInitTime - TEN_MINUTES;
-            const editableEndBoundary = currentTime + TEN_MINUTES;
-
-            if (time < editableStartBoundary || time > editableEndBoundary) {
-              return;
-            }
-
             onOutputBulkDialogOpen({ time });
           }}
           data-testid="interactive-output-bulk-lane"
@@ -244,15 +233,6 @@ export function OutputSwimlane({
 
                 // Snap to zoom-dependent interval for output parameters
                 time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
-
-                // Validate that time is within editable boundaries
-                const editableStartBoundary = chartInitTime - FIFTEEN_MINUTES;
-                const editableEndBoundary = currentTime + FIFTEEN_MINUTES;
-
-                if (time < editableStartBoundary || time > editableEndBoundary) {
-                  // Click is outside editable window - ignore
-                  return;
-                }
 
                 // Check if we're clicking on an existing value
                 const existingValues = outputData[paramInfo.key] || [];
