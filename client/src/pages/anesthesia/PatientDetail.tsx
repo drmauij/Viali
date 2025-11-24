@@ -949,7 +949,22 @@ export default function PatientDetail() {
 
       // Generate PDF
       generateAnesthesiaRecordPDF({
-        patient: { ...patient, deletedAt: null },
+        patient: {
+          ...patient,
+          email: patient.email ?? null,
+          phone: patient.phone ?? null,
+          address: patient.address ?? null,
+          emergencyContact: patient.emergencyContact ?? null,
+          insuranceProvider: patient.insuranceProvider ?? null,
+          insuranceNumber: patient.insuranceNumber ?? null,
+          allergies: patient.allergies ?? null,
+          otherAllergies: patient.otherAllergies ?? null,
+          internalNotes: patient.internalNotes ?? null,
+          createdBy: patient.createdBy ?? null,
+          createdAt: patient.createdAt ? new Date(patient.createdAt) : null,
+          updatedAt: patient.updatedAt ? new Date(patient.updatedAt) : null,
+          deletedAt: null,
+        },
         surgery,
         anesthesiaRecord,
         preOpAssessment,
@@ -959,6 +974,8 @@ export default function PatientDetail() {
         anesthesiaItems,
         staffMembers,
         positions,
+        timeMarkers: (anesthesiaRecord?.timeMarkers as any[]) || [],
+        checklistSettings: anesthesiaSettings?.checklistItems || null,
       });
 
       toast({
