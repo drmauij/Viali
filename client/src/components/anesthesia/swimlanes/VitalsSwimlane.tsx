@@ -82,6 +82,7 @@ export function VitalsSwimlane({
     originalValue: number;
   } | null>(null);
   const [dragPosition, setDragPosition] = useState<{ time: number; value: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false); // NEW: Track if currently dragging
 
   // Refs for edit mode
   const selectedPointRef = useRef(selectedPoint);
@@ -112,7 +113,7 @@ export function VitalsSwimlane({
     let value: number;
     const yPercent = y / rect.height;
 
-    if (activeToolMode === 'edit' && selectedPoint) {
+    if (activeToolMode === 'edit' && selectedPoint && isDragging) {
       const isSpO2 = selectedPoint.type === 'spo2';
       const isBP = selectedPoint.type === 'bp-sys' || selectedPoint.type === 'bp-dia';
       
@@ -216,6 +217,93 @@ export function VitalsSwimlane({
   };
 
   /**
+   * Handle mouse down to start dragging in edit mode
+   */
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (activeToolMode !== 'edit' || isTouchDevice) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const visibleStart = currentZoomStart ?? data.startTime;
+    const visibleEnd = currentZoomEnd ?? data.endTime;
+    const visibleRange = visibleEnd - visibleStart;
+    
+    const xPercent = x / rect.width;
+    const rawClickTime = visibleStart + (xPercent * visibleRange);
+
+    // Try to find a point at this location
+    const pointToSelect = findVitalPointAtClick(rawClickTime, y, rect);
+    if (pointToSelect) {
+      setSelectedPoint({
+        type: pointToSelect.type,
+        id: pointToSelect.id,
+        originalTime: pointToSelect.time,
+        originalValue: pointToSelect.value
+      });
+      setDragPosition({ time: pointToSelect.time, value: pointToSelect.value });
+      setIsDragging(true);
+    }
+  };
+
+  /**
+   * Handle mouse up to finalize drag in edit mode
+   */
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (!isDragging || !selectedPoint) return;
+
+    // Save the dragged point if position changed
+    if (dragPosition && (dragPosition.value !== selectedPoint.originalValue || dragPosition.time !== selectedPoint.originalTime)) {
+      // Update local state immediately for responsive UI + persist to backend
+      if (selectedPoint.type === 'hr') {
+        updateHrPoint(selectedPoint.id, { timestamp: dragPosition.time, value: dragPosition.value });
+        updateVitalPointMutation.mutate({
+          pointId: selectedPoint.id,
+          timestamp: new Date(dragPosition.time).toISOString(),
+          value: dragPosition.value
+        });
+      } else if (selectedPoint.type === 'bp-sys') {
+        // For BP points, only value changes (time fixed) to maintain pairing
+        const bpRecord = bpRecords.find(r => r.id === selectedPoint.id);
+        if (bpRecord) {
+          updateBPPoint(selectedPoint.id, { sys: dragPosition.value });
+          updateBPPointMutation.mutate({
+            pointId: selectedPoint.id,
+            timestamp: new Date(selectedPoint.originalTime).toISOString(),
+            sys: dragPosition.value,
+            dia: bpRecord.dia
+          });
+        }
+      } else if (selectedPoint.type === 'bp-dia') {
+        // For BP points, only value changes (time fixed) to maintain pairing
+        const bpRecord = bpRecords.find(r => r.id === selectedPoint.id);
+        if (bpRecord) {
+          updateBPPoint(selectedPoint.id, { dia: dragPosition.value });
+          updateBPPointMutation.mutate({
+            pointId: selectedPoint.id,
+            timestamp: new Date(selectedPoint.originalTime).toISOString(),
+            sys: bpRecord.sys,
+            dia: dragPosition.value
+          });
+        }
+      } else if (selectedPoint.type === 'spo2') {
+        updateSpo2Point(selectedPoint.id, { timestamp: dragPosition.time, value: dragPosition.value });
+        updateVitalPointMutation.mutate({
+          pointId: selectedPoint.id,
+          timestamp: new Date(dragPosition.time).toISOString(),
+          value: dragPosition.value
+        });
+      }
+    }
+    
+    // Reset drag state
+    setSelectedPoint(null);
+    setDragPosition(null);
+    setIsDragging(false);
+  };
+
+  /**
    * Handle click to add vital point or edit existing
    */
   const handleVitalsClick = (e: React.MouseEvent) => {
@@ -240,75 +328,10 @@ export function VitalsSwimlane({
     // Snap time only for creating new entries
     const snappedClickTime = Math.round(rawClickTime / currentVitalsSnapInterval) * currentVitalsSnapInterval;
 
-    // EDIT MODE: Select point for dragging
+    // EDIT MODE: Now handled by mouse down/up for dragging - skip click handling
     if (activeToolMode === 'edit') {
-      if (selectedPoint) {
-        // Already dragging a point - save the new time and value from dragPosition
-        if (dragPosition && (dragPosition.value !== selectedPoint.originalValue || dragPosition.time !== selectedPoint.originalTime)) {
-          // Update local state immediately for responsive UI + persist to backend
-          if (selectedPoint.type === 'hr') {
-            updateHrPoint(selectedPoint.id, { timestamp: dragPosition.time, value: dragPosition.value });
-            updateVitalPointMutation.mutate({
-              pointId: selectedPoint.id,
-              timestamp: new Date(dragPosition.time).toISOString(),
-              value: dragPosition.value
-            });
-          } else if (selectedPoint.type === 'bp-sys') {
-            // For BP points, only value changes (time fixed) to maintain pairing
-            // Get current record to access diastolic value
-            const bpRecord = bpRecords.find(r => r.id === selectedPoint.id);
-            if (bpRecord) {
-              updateBPPoint(selectedPoint.id, { sys: dragPosition.value });
-              updateBPPointMutation.mutate({
-                pointId: selectedPoint.id,
-                timestamp: new Date(selectedPoint.originalTime).toISOString(),
-                sys: dragPosition.value,
-                dia: bpRecord.dia
-              });
-            }
-          } else if (selectedPoint.type === 'bp-dia') {
-            // For BP points, only value changes (time fixed) to maintain pairing
-            // Get current record to access systolic value
-            const bpRecord = bpRecords.find(r => r.id === selectedPoint.id);
-            if (bpRecord) {
-              updateBPPoint(selectedPoint.id, { dia: dragPosition.value });
-              updateBPPointMutation.mutate({
-                pointId: selectedPoint.id,
-                timestamp: new Date(selectedPoint.originalTime).toISOString(),
-                sys: bpRecord.sys,
-                dia: dragPosition.value
-              });
-            }
-          } else if (selectedPoint.type === 'spo2') {
-            updateSpo2Point(selectedPoint.id, { timestamp: dragPosition.time, value: dragPosition.value });
-            updateVitalPointMutation.mutate({
-              pointId: selectedPoint.id,
-              timestamp: new Date(dragPosition.time).toISOString(),
-              value: dragPosition.value
-            });
-          }
-        }
-        
-        // Deselect the point
-        setSelectedPoint(null);
-        setDragPosition(null);
-        setIsProcessingClick(false);
-        return;
-      } else {
-        // No point selected - try to select one
-        const pointToSelect = findVitalPointAtClick(rawClickTime, y, rect);
-        if (pointToSelect) {
-          setSelectedPoint({
-            type: pointToSelect.type,
-            id: pointToSelect.id,
-            originalTime: pointToSelect.time,
-            originalValue: pointToSelect.value
-          });
-          setDragPosition({ time: pointToSelect.time, value: pointToSelect.value });
-        }
-        setIsProcessingClick(false);
-        return;
-      }
+      setIsProcessingClick(false);
+      return;
     }
 
     // If no tool mode is active, check if clicking on existing point
@@ -443,7 +466,7 @@ export function VitalsSwimlane({
   // Determine cursor style based on tool mode
   const getCursorStyle = () => {
     if (activeToolMode === 'edit') {
-      return selectedPoint ? 'cursor-grabbing' : 'cursor-pointer';
+      return isDragging ? 'cursor-grabbing' : 'cursor-grab';
     } else if (activeToolMode) {
       return 'cursor-crosshair';
     } else {
@@ -463,8 +486,18 @@ export function VitalsSwimlane({
           top: `${VITALS_TOP}px`,
           height: `${VITALS_HEIGHT}px`,
         }}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
         onMouseMove={handleVitalsMouseMove}
-        onMouseLeave={() => setHoverInfo(null)}
+        onMouseLeave={() => {
+          setHoverInfo(null);
+          // Cancel drag if mouse leaves overlay
+          if (isDragging) {
+            setSelectedPoint(null);
+            setDragPosition(null);
+            setIsDragging(false);
+          }
+        }}
         onClick={handleVitalsClick}
         data-testid="vitals-interactive-overlay"
       />
