@@ -75,6 +75,7 @@ interface ExportData {
   positions?: PositionEntry[];
   timeMarkers?: TimeMarker[];
   checklistSettings?: ChecklistSettings | null;
+  chartImage?: string | null;
 }
 
 // Helper to format time from milliseconds to HH:MM (24-hour format)
@@ -1105,20 +1106,46 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
       value: p.value
     }));
 
-    // Draw Vitals Chart
-    yPos = drawTimelineChart(
-      doc,
-      i18next.t("anesthesia.pdf.vitalSignsTimeline"),
-      [
-        { name: i18next.t("anesthesia.pdf.hrBpm"), data: hrData, color: [59, 130, 246] },
-        { name: i18next.t("anesthesia.pdf.bpSys"), data: bpSysData, color: [220, 38, 38] },
-        { name: i18next.t("anesthesia.pdf.bpDia"), data: bpDiaData, color: [239, 68, 68] },
-        { name: i18next.t("anesthesia.pdf.spo2Percent"), data: spo2Data, color: [34, 197, 94] },
-        { name: i18next.t("anesthesia.pdf.tempCelsius"), data: tempData, color: [251, 146, 60] },
-      ],
-      yPos,
-      { yLabel: i18next.t("anesthesia.pdf.value"), height: 80 }
-    );
+    // Draw Vitals Chart - use actual chart image if available, otherwise use simplified chart
+    if (data.chartImage) {
+      // Embed the actual timeline chart image
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text(i18next.t("anesthesia.pdf.vitalSignsTimeline"), 20, yPos);
+      yPos += 8;
+      
+      try {
+        // Calculate dimensions to fit the chart on the page
+        const maxWidth = 170;
+        const maxHeight = 120;
+        
+        // Add the chart image
+        doc.addImage(data.chartImage, 'PNG', 20, yPos, maxWidth, maxHeight);
+        yPos += maxHeight + 10;
+      } catch (error) {
+        console.error('[PDF] Error embedding chart image:', error);
+        // Fall back to text message
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "italic");
+        doc.text(i18next.t("anesthesia.pdf.chartNotAvailable"), 20, yPos);
+        yPos += 10;
+      }
+    } else {
+      // Fallback to simplified line chart
+      yPos = drawTimelineChart(
+        doc,
+        i18next.t("anesthesia.pdf.vitalSignsTimeline"),
+        [
+          { name: i18next.t("anesthesia.pdf.hrBpm"), data: hrData, color: [59, 130, 246] },
+          { name: i18next.t("anesthesia.pdf.bpSys"), data: bpSysData, color: [220, 38, 38] },
+          { name: i18next.t("anesthesia.pdf.bpDia"), data: bpDiaData, color: [239, 68, 68] },
+          { name: i18next.t("anesthesia.pdf.spo2Percent"), data: spo2Data, color: [34, 197, 94] },
+          { name: i18next.t("anesthesia.pdf.tempCelsius"), data: tempData, color: [251, 146, 60] },
+        ],
+        yPos,
+        { yLabel: i18next.t("anesthesia.pdf.value"), height: 80 }
+      );
+    }
 
     // ==================== VISUAL CHARTS: MEDICATIONS TIMELINE ====================
     if (data.medications && data.medications.length > 0) {

@@ -1,6 +1,8 @@
 import { useToast } from "@/hooks/use-toast";
 import { generateAnesthesiaRecordPDF } from "@/lib/anesthesiaRecordPdf";
 import { useTranslation } from "react-i18next";
+import type { UnifiedTimelineRef } from "@/components/anesthesia/UnifiedTimeline";
+import type { RefObject } from "react";
 
 interface UsePdfExportProps {
   patient: any;
@@ -15,6 +17,7 @@ interface UsePdfExportProps {
   staffMembers: any[];
   positions: any[];
   anesthesiaSettings: any;
+  timelineRef: RefObject<UnifiedTimelineRef>;
   isRecordLoading: boolean;
   isVitalsLoading: boolean;
   isMedicationsLoading: boolean;
@@ -42,7 +45,7 @@ export function usePdfExport(props: UsePdfExportProps) {
   const { toast } = useToast();
   const { t } = useTranslation();
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (!props.patient || !props.surgery) {
       toast({
         title: t('anesthesia.op.pdfCannotGenerate'),
@@ -132,6 +135,21 @@ export function usePdfExport(props: UsePdfExportProps) {
     }
 
     try {
+      // Export chart image from timeline
+      let chartImage: string | null = null;
+      if (props.timelineRef.current) {
+        try {
+          chartImage = await props.timelineRef.current.getChartImage();
+          if (chartImage) {
+            console.log('[PDF-EXPORT] Chart image exported successfully');
+          } else {
+            console.warn('[PDF-EXPORT] Chart image export returned null');
+          }
+        } catch (error) {
+          console.error('[PDF-EXPORT] Failed to export chart image:', error);
+        }
+      }
+
       generateAnesthesiaRecordPDF({
         patient: props.patient,
         surgery: props.surgery,
@@ -145,6 +163,7 @@ export function usePdfExport(props: UsePdfExportProps) {
         positions: props.positions || [],
         timeMarkers: (props.anesthesiaRecord?.timeMarkers as any[]) || [],
         checklistSettings: props.anesthesiaSettings?.checklistItems || null,
+        chartImage,
       });
 
       toast({

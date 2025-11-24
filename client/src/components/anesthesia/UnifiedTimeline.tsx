@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useEffect, useLayoutEffect, useCallback } from "react";
+import { useMemo, useRef, useState, useEffect, useLayoutEffect, useCallback, forwardRef, useImperativeHandle } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
 import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil, StopCircle, PlayCircle, Droplet, Loader2, ArrowUpDown, GripVertical, Check, Copy } from "lucide-react";
@@ -253,17 +253,12 @@ type AdministrationGroup = {
   createdAt: string;
 };
 
-export function UnifiedTimeline({
-  data,
-  height,
-  swimlanes, // Optional: allow custom swimlane configuration
-  now, // Current time for determining editable zones and initial zoom
-  patientWeight, // Patient weight in kg for default ventilation calculations
-  anesthesiaRecordId, // Anesthesia record ID for auto-saving vitals
-  anesthesiaRecord, // Full anesthesia record for loading saved data (time markers, etc.)
-  openEventsPanel, // External trigger to open events panel
-  onEventsPanelChange, // Callback when events panel state changes
-}: {
+// Ref type for UnifiedTimeline
+export interface UnifiedTimelineRef {
+  getChartImage: () => Promise<string | null>;
+}
+
+export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   data: UnifiedTimelineData;
   height?: number;
   swimlanes?: SwimlaneConfig[];
@@ -273,14 +268,56 @@ export function UnifiedTimeline({
   anesthesiaRecord?: any;
   openEventsPanel?: boolean;
   onEventsPanelChange?: (open: boolean) => void;
-}) {
+}>(function UnifiedTimeline({
+  data,
+  height,
+  swimlanes, // Optional: allow custom swimlane configuration
+  now, // Current time for determining editable zones and initial zoom
+  patientWeight, // Patient weight in kg for default ventilation calculations
+  anesthesiaRecordId, // Anesthesia record ID for auto-saving vitals
+  anesthesiaRecord, // Full anesthesia record for loading saved data (time markers, etc.)
+  openEventsPanel, // External trigger to open events panel
+  onEventsPanelChange, // Callback when events panel state changes
+}, ref) {
   const chartRef = useRef<any>(null);
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
   const [showCommitReminder, setShowCommitReminder] = useState(false);
+  const [isChartReady, setIsChartReady] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const activeHospital = useActiveHospital();
   const { t } = useTranslation();
+
+  // Expose chart image export function
+  useImperativeHandle(ref, () => ({
+    getChartImage: async (): Promise<string | null> => {
+      if (!chartRef.current || !isChartReady) {
+        console.warn('[CHART-EXPORT] Chart not ready for export');
+        return null;
+      }
+      
+      try {
+        const chartInstance = chartRef.current.getEchartsInstance();
+        if (!chartInstance) {
+          console.warn('[CHART-EXPORT] Chart instance not available');
+          return null;
+        }
+        
+        // Export chart as PNG data URL with white background
+        const dataURL = chartInstance.getDataURL({
+          type: 'png',
+          pixelRatio: 2, // Higher resolution for better quality
+          backgroundColor: isDark ? '#1a1a1a' : '#ffffff',
+        });
+        
+        console.log('[CHART-EXPORT] Chart exported successfully');
+        return dataURL;
+      } catch (error) {
+        console.error('[CHART-EXPORT] Error exporting chart:', error);
+        return null;
+      }
+    },
+  }), [isChartReady, isDark]);
 
   // Fetch configured anesthesia items from inventory
   const { data: allAnesthesiaItems = [] } = useQuery<AnesthesiaItem[]>({
@@ -2174,6 +2211,9 @@ export function UnifiedTimeline({
 
   // Handle chart ready - set initial zoom to 60-minute window with NOW positioned left
   const handleChartReady = (chart: any) => {
+    // Mark chart as ready for image export
+    setIsChartReady(true);
+    
     if (hasSetInitialZoomRef.current) return;
 
     const currentTime = now || data.endTime;
@@ -7363,7 +7403,7 @@ export function UnifiedTimeline({
     </div>
     </TimelineContextProvider>
   );
-}
+});
 
 // Edit Value Form Component
 // Sortable Item Component for medication reordering
