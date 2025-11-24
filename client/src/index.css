@@ -707,7 +707,7 @@
 }
 
 .timeline-item-active {
-  background-color: hsl(250, 80%, 60%);
+  background-color: hsl(217, 91%, 60%);
   border: none;
   border-radius: 4px;
   color: white;
@@ -718,7 +718,7 @@
 }
 
 .timeline-item-active:hover {
-  background-color: hsl(250, 80%, 55%);
+  background-color: hsl(217, 91%, 55%);
   transform: scale(1.02);
 }
 
@@ -767,7 +767,7 @@
 }
 
 .timeline-item-completed {
-  background-color: hsl(158, 64%, 52%);
+  background-color: hsl(160, 84%, 39%);
   border: none;
   border-radius: 4px;
   color: white;
@@ -778,7 +778,7 @@
 }
 
 .timeline-item-completed:hover {
-  background-color: hsl(158, 64%, 47%);
+  background-color: hsl(160, 84%, 34%);
   transform: scale(1.02);
 }
 
