@@ -6285,6 +6285,9 @@ export function UnifiedTimeline({
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-edit-value">
           <DialogHeader>
             <DialogTitle>Edit Vital Sign Value</DialogTitle>
+            <DialogDescription>
+              Modify the vital sign measurement or delete it from the timeline.
+            </DialogDescription>
           </DialogHeader>
           {editingValue && (
             <EditValueForm
@@ -6315,6 +6318,9 @@ export function UnifiedTimeline({
         <DialogContent className="sm:max-w-[600px]" data-testid="dialog-bulk-edit-times">
           <DialogHeader>
             <DialogTitle>Edit Anesthesia Times</DialogTitle>
+            <DialogDescription>
+              Adjust the timestamps for key anesthesia milestones.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
             {timeMarkers.map((marker, index) => (
@@ -6446,6 +6452,9 @@ export function UnifiedTimeline({
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-edit-time-marker">
           <DialogHeader>
             <DialogTitle>Edit Time Marker</DialogTitle>
+            <DialogDescription>
+              Adjust the time for this anesthesia milestone or remove it from the timeline.
+            </DialogDescription>
           </DialogHeader>
           {editingTimeMarker && (
             <div className="grid gap-4 py-4">
@@ -6497,6 +6506,9 @@ export function UnifiedTimeline({
         <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto" data-testid="dialog-ai-confirmation">
           <DialogHeader>
             <DialogTitle>Confirm Extracted Monitor Data</DialogTitle>
+            <DialogDescription>
+              Review the AI-extracted vitals and parameters before adding them to the timeline.
+            </DialogDescription>
           </DialogHeader>
           {extractedData && (
             <div className="grid gap-4 py-4">
