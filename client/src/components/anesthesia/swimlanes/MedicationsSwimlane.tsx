@@ -1152,130 +1152,164 @@ export function MedicationsSwimlane({
                       // Parse range options
                       const rateOptions = lane.defaultDose.split('-').map(v => v.trim()).filter(v => v);
                       
-                      // Check if there's a running session (check rateInfusionSessions, not legacy infusionData)
-                      const session = getActiveSession(lane.id);
+                      // Check ALL sessions (including stopped ones)
+                      const sessions = rateInfusionSessions[lane.id] || [];
+                      console.log('[RATE-INFUSION-CLICK] Checking range sessions:', { swimlaneId: lane.id, count: sessions.length, time });
                       
-                      if (session && !session.endTime) {
-                        // Running infusion exists - open simplified manage dialog
-                        const currentRate = session.segments[session.segments.length - 1]?.rate || '0';
-                        const rateUnit = session.segments[0]?.rateUnit || lane.rateUnit || 'ml/h';
-                        
-                        onRateManageDialogOpen(
-                          {
-                            swimlaneId: lane.id,
-                            time: time, // Use click time, not session start
-                            value: currentRate,
-                            index: 0,
-                            label: `${lane.label.trim()} (${rateUnit})`, // Include rate unit in label
-                            rateOptions,
-                            sessionId: session.id, // Add session ID for mutations
-                            itemId: lane.itemId, // Add item ID for creating new records
-                            isRunning: true, // Session is running (no endTime)
-                          },
-                          time, // Use click time for proper forward-looking management
-                          currentRate
-                        );
-                      } else {
-                        // No running session - start a new one
-                        onRateSelectionDialogOpen({
-                          swimlaneId: lane.id,
-                          time,
-                          label: lane.label.trim(),
-                          rateOptions,
-                        });
+                      // Find if click is within any session (running or stopped)
+                      const clickedSession = sessions.find(session => {
+                        const sessionStart = session.startTime;
+                        const sessionEnd = session.endTime || Infinity;
+                        return time >= sessionStart && time <= sessionEnd;
+                      });
+                      
+                      if (clickedSession) {
+                        if (!clickedSession.endTime) {
+                          // SCENARIO 2: Clicked on RUNNING infusion → open manage dialog
+                          console.log('[RATE-INFUSION-CLICK] Clicked on running range infusion');
+                          const currentRate = clickedSession.segments[clickedSession.segments.length - 1]?.rate || '0';
+                          const rateUnit = clickedSession.segments[0]?.rateUnit || lane.rateUnit || 'ml/h';
+                          
+                          onRateManageDialogOpen(
+                            {
+                              swimlaneId: lane.id,
+                              time: time,
+                              value: currentRate,
+                              index: 0,
+                              label: `${lane.label.trim()} (${rateUnit})`,
+                              rateOptions,
+                              sessionId: clickedSession.id,
+                              itemId: lane.itemId,
+                              isRunning: true,
+                            },
+                            time,
+                            currentRate
+                          );
+                        } else {
+                          // SCENARIO 3: Clicked on STOPPED infusion → open restart dialog
+                          console.log('[RATE-INFUSION-CLICK] Clicked on stopped range infusion - opening restart dialog');
+                          onRateRestartDialogOpen(clickedSession, time);
+                        }
+                        return;
                       }
+                      
+                      // SCENARIO 1: No session clicked - open rate selection dialog
+                      console.log('[RATE-INFUSION-CLICK] No range session clicked - opening rate selection');
+                      onRateSelectionDialogOpen({
+                        swimlaneId: lane.id,
+                        time,
+                        label: lane.label.trim(),
+                        rateOptions,
+                      });
                     } else {
-                      // Simple numeric default: check if there's a running session
-                      const session = getActiveSession(lane.id);
+                      // Simple numeric default: check ALL sessions (including stopped ones)
+                      const sessions = rateInfusionSessions[lane.id] || [];
+                      console.log('[RATE-INFUSION-CLICK] Checking sessions:', { swimlaneId: lane.id, count: sessions.length, time });
                       
-                      if (session && !session.endTime) {
-                        // Running infusion exists - open simplified manage dialog
-                        const currentRate = session.segments[session.segments.length - 1]?.rate || '0';
-                        const rateUnit = session.segments[0]?.rateUnit || lane.rateUnit || 'ml/h';
-                        
-                        onRateManageDialogOpen(
-                          {
-                            swimlaneId: lane.id,
-                            time: time, // Use click time, not session start
-                            value: currentRate,
-                            index: 0,
-                            label: `${lane.label.trim()} (${rateUnit})`, // Include rate unit in label
-                            rateOptions: undefined,
-                            sessionId: session.id, // Add session ID for mutations
-                            itemId: lane.itemId, // Add item ID for creating new records
-                            isRunning: true, // Session is running (no endTime)
-                          },
-                          time, // Use click time for proper forward-looking management
-                          currentRate
-                        );
-                      } else {
-                        // No running session - start a new one with the default dose directly
-                        
-                        // Extract group ID and item index from swimlane id
-                        const groupMatch = lane.id.match(/admingroup-([a-f0-9-]+)-item-(\d+)/);
-                        if (!groupMatch || !anesthesiaRecordId) {
-                          console.error('[RATE-INFUSION-CLICK] Failed to match swimlane ID or missing recordId');
-                          return;
+                      // Find if click is within any session (running or stopped)
+                      const clickedSession = sessions.find(session => {
+                        const sessionStart = session.startTime;
+                        const sessionEnd = session.endTime || Infinity;
+                        return time >= sessionStart && time <= sessionEnd;
+                      });
+                      
+                      if (clickedSession) {
+                        if (!clickedSession.endTime) {
+                          // SCENARIO 2: Clicked on RUNNING infusion → open manage dialog
+                          console.log('[RATE-INFUSION-CLICK] Clicked on running infusion');
+                          const currentRate = clickedSession.segments[clickedSession.segments.length - 1]?.rate || '0';
+                          const rateUnit = clickedSession.segments[0]?.rateUnit || lane.rateUnit || 'ml/h';
+                          
+                          onRateManageDialogOpen(
+                            {
+                              swimlaneId: lane.id,
+                              time: time,
+                              value: currentRate,
+                              index: 0,
+                              label: `${lane.label.trim()} (${rateUnit})`,
+                              rateOptions: undefined,
+                              sessionId: clickedSession.id,
+                              itemId: lane.itemId,
+                              isRunning: true,
+                            },
+                            time,
+                            currentRate
+                          );
+                        } else {
+                          // SCENARIO 3: Clicked on STOPPED infusion → open restart dialog
+                          console.log('[RATE-INFUSION-CLICK] Clicked on stopped infusion - opening restart dialog');
+                          onRateRestartDialogOpen(clickedSession, time);
                         }
-                        
-                        const groupId = groupMatch[1];
-                        const itemIndex = parseInt(groupMatch[2], 10);
-                        
-                        // Find all items in this administration group and get the item at index
-                        const groupItems = anesthesiaItems.filter(item => item.administrationGroup === groupId);
-                        const item = groupItems[itemIndex];
-                        if (!item) {
-                          console.error('[RATE-INFUSION-CLICK] Item not found at index', itemIndex);
-                          return;
-                        }
-                        
-                        console.log('[RATE-INFUSION-CLICK] Starting rate-controlled infusion:', {
-                          itemId: item.id,
-                          itemName: item.name,
-                          rate: lane.defaultDose,
-                          rateUnit: lane.rateUnit,
-                          time
-                        });
-                        
-                        // Update local state for immediate feedback
-                        setInfusionData(prev => ({
-                          ...prev,
-                          [lane.id]: [...(prev[lane.id] || []), [time, lane.defaultDose]].sort((a, b) => a[0] - b[0]),
-                        }));
-                        
-                        // Create initial rate infusion session (as array!)
-                        const tempId = crypto.randomUUID(); // Temporary ID for optimistic update
-                        const newSegment: RateInfusionSegment = {
-                          startTime: time,
-                          rate: lane.defaultDose,
-                          rateUnit: lane.rateUnit || '',
-                        };
-                        setRateInfusionSessions(prev => ({
-                          ...prev,
-                          [lane.id]: [{
-                            id: tempId, // Temporary ID, will be replaced by real ID from database
-                            swimlaneId: lane.id,
-                            label: lane.label.trim(),
-                            syringeQuantity: lane.defaultDose, // Use actual configured value, not hardcoded "50ml"
-                            startDose: lane.defaultDose, // Also set startDose to match
-                            segments: [newSegment],
-                            startTime: time,
-                            state: 'running',
-                          }],
-                        }));
-                        
-                        // 🔥 FIX: Save to database as infusion_start (first rate)
-                        createMedicationMutation.mutate({
-                          anesthesiaRecordId,
-                          itemId: item.id,
-                          timestamp: new Date(time),
-                          type: 'infusion_start' as const,
-                          rate: lane.defaultDose,
-                          dose: lane.defaultDose, // Syringe quantity
-                        });
-                        
-                        console.log('[RATE-INFUSION-CLICK] Mutation called!');
+                        return;
                       }
+                      
+                      // SCENARIO 1: No session clicked - start a new infusion with the default dose
+                      console.log('[RATE-INFUSION-CLICK] No session clicked - starting new infusion');
+                      
+                      // Extract group ID and item index from swimlane id
+                      const groupMatch = lane.id.match(/admingroup-([a-f0-9-]+)-item-(\d+)/);
+                      if (!groupMatch || !anesthesiaRecordId) {
+                        console.error('[RATE-INFUSION-CLICK] Failed to match swimlane ID or missing recordId');
+                        return;
+                      }
+                      
+                      const groupId = groupMatch[1];
+                      const itemIndex = parseInt(groupMatch[2], 10);
+                      
+                      // Find all items in this administration group and get the item at index
+                      const groupItems = anesthesiaItems.filter(item => item.administrationGroup === groupId);
+                      const item = groupItems[itemIndex];
+                      if (!item) {
+                        console.error('[RATE-INFUSION-CLICK] Item not found at index', itemIndex);
+                        return;
+                      }
+                      
+                      console.log('[RATE-INFUSION-CLICK] Starting rate-controlled infusion:', {
+                        itemId: item.id,
+                        itemName: item.name,
+                        rate: lane.defaultDose,
+                        rateUnit: lane.rateUnit,
+                        time
+                      });
+                      
+                      // Update local state for immediate feedback
+                      setInfusionData(prev => ({
+                        ...prev,
+                        [lane.id]: [...(prev[lane.id] || []), [time, lane.defaultDose]].sort((a, b) => a[0] - b[0]),
+                      }));
+                      
+                      // Create initial rate infusion session (as array!)
+                      const tempId = crypto.randomUUID(); // Temporary ID for optimistic update
+                      const newSegment: RateInfusionSegment = {
+                        startTime: time,
+                        rate: lane.defaultDose,
+                        rateUnit: lane.rateUnit || '',
+                      };
+                      setRateInfusionSessions(prev => ({
+                        ...prev,
+                        [lane.id]: [{
+                          id: tempId, // Temporary ID, will be replaced by real ID from database
+                          swimlaneId: lane.id,
+                          label: lane.label.trim(),
+                          syringeQuantity: lane.defaultDose, // Use actual configured value, not hardcoded "50ml"
+                          startDose: lane.defaultDose, // Also set startDose to match
+                          segments: [newSegment],
+                          startTime: time,
+                          state: 'running',
+                        }],
+                      }));
+                      
+                      // 🔥 FIX: Save to database as infusion_start (first rate)
+                      createMedicationMutation.mutate({
+                        anesthesiaRecordId,
+                        itemId: item.id,
+                        timestamp: new Date(time),
+                        type: 'infusion_start' as const,
+                        rate: lane.defaultDose,
+                        dose: lane.defaultDose, // Syringe quantity
+                      });
+                      
+                      console.log('[RATE-INFUSION-CLICK] Mutation called!');
                     }
                   } else {
                     // No default dose: open dialog
