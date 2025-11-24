@@ -67,12 +67,17 @@ export function VitalsSwimlane({
     updateHrPoint,
     updateBPPoint,
     updateSpo2Point,
+    addBPPoint,
+    setBpRecords,
   } = vitalsState;
 
   // State for hover tooltip (remains local to this component)
   const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; value: number; time: number } | null>(null);
   const [lastTouchTime, setLastTouchTime] = useState<number>(0);
   const [lastAction, setLastAction] = useState<{ type: 'hr' | 'bp' | 'spo2'; data?: VitalPoint; bpData?: { sys: VitalPoint; dia: VitalPoint } } | null>(null);
+
+  // State for temporary BP point during entry (shows systolic immediately)
+  const [tempBpPointId, setTempBpPointId] = useState<string | null>(null);
 
   // State for edit mode - dragging and repositioning existing vitals with ID
   const [selectedPoint, setSelectedPoint] = useState<{
@@ -91,6 +96,25 @@ export function VitalsSwimlane({
   // Keep refs in sync with state
   useEffect(() => { selectedPointRef.current = selectedPoint; }, [selectedPoint]);
   useEffect(() => { dragPositionRef.current = dragPosition; }, [dragPosition]);
+
+  // Clean up temporary BP point when tool mode changes or BP entry is cancelled
+  useEffect(() => {
+    const shouldCleanup = tempBpPointId && (
+      // BP mode cancelled or switched back to sys
+      (activeToolMode === 'bp' && bpEntryMode === 'sys') ||
+      // Blend mode cancelled or switched away from dia
+      (activeToolMode === 'blend' && blendSequenceStep !== 'dia') ||
+      // Switched to different tool mode
+      (activeToolMode !== 'bp' && activeToolMode !== 'blend')
+    );
+
+    if (shouldCleanup) {
+      // Remove temp point from local state (temp points have IDs starting with 'temp-')
+      setBpRecords(prev => prev.filter(r => r.id !== tempBpPointId));
+      setTempBpPointId(null);
+      setPendingSysValue(null);
+    }
+  }, [activeToolMode, bpEntryMode, blendSequenceStep, tempBpPointId, setBpRecords, setPendingSysValue]);
 
   /**
    * Handle mouse move for hover preview
@@ -392,14 +416,27 @@ export function VitalsSwimlane({
       setIsProcessingClick(false);
     } else if (activeToolMode === 'bp') {
       if (bpEntryMode === 'sys') {
-        // Store systolic value, wait for diastolic
+        // Store systolic value and show it immediately as a temporary point
+        const tempId = `temp-bp-${clickInfo.time}`;
+        addBPPoint({
+          id: tempId,
+          timestamp: clickInfo.time,
+          sys: clickInfo.value,
+          dia: 0, // Placeholder, will be replaced when diastolic is entered
+        });
+        setTempBpPointId(tempId);
         setPendingSysValue({ time: clickInfo.time, value: clickInfo.value });
         setBpEntryMode('dia');
         setHoverInfo(null);
         setIsProcessingClick(false);
       } else {
-        // Now have both sys and dia - create BP point via mutation
-        if (pendingSysValue) {
+        // Now have both sys and dia - remove temp point and create real BP point via mutation
+        if (pendingSysValue && tempBpPointId) {
+          // Remove temp point
+          setBpRecords(prev => prev.filter(r => r.id !== tempBpPointId));
+          setTempBpPointId(null);
+          
+          // Create real BP point via mutation
           addBPPointMutation.mutate({
             timestamp: new Date(pendingSysValue.time).toISOString(),
             sys: pendingSysValue.value,
@@ -423,14 +460,27 @@ export function VitalsSwimlane({
       setIsProcessingClick(false);
     } else if (activeToolMode === 'blend') {
       if (blendSequenceStep === 'sys') {
-        // Store systolic value, wait for diastolic
+        // Store systolic value and show it immediately as a temporary point
+        const tempId = `temp-bp-${clickInfo.time}`;
+        addBPPoint({
+          id: tempId,
+          timestamp: clickInfo.time,
+          sys: clickInfo.value,
+          dia: 0, // Placeholder, will be replaced when diastolic is entered
+        });
+        setTempBpPointId(tempId);
         setPendingSysValue({ time: clickInfo.time, value: clickInfo.value });
         setBlendSequenceStep('dia');
         setHoverInfo(null);
         setIsProcessingClick(false);
       } else if (blendSequenceStep === 'dia') {
-        // Now have both sys and dia - create BP point via mutation
-        if (pendingSysValue) {
+        // Now have both sys and dia - remove temp point and create real BP point via mutation
+        if (pendingSysValue && tempBpPointId) {
+          // Remove temp point
+          setBpRecords(prev => prev.filter(r => r.id !== tempBpPointId));
+          setTempBpPointId(null);
+          
+          // Create real BP point via mutation
           addBPPointMutation.mutate({
             timestamp: new Date(pendingSysValue.time).toISOString(),
             sys: pendingSysValue.value,
