@@ -136,6 +136,7 @@
     "tryAdjustingSearch": "Try adjusting your search terms",
     "noItemsMatchFilters": "No items match the selected filters",
     "bulkEdit": "Bulk Edit",
+    "controlledNoBulkEdit": "Controlled items require individual tracking",
     "bulkImport": "Bulk Import",
     "saveAll": "Save All",
     "newFolder": "New Folder",

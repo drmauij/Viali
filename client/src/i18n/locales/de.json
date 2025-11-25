@@ -136,6 +136,7 @@
     "tryAdjustingSearch": "Versuchen Sie, Ihre Suchbegriffe anzupassen",
     "noItemsMatchFilters": "Keine Artikel entsprechen den ausgewählten Filtern",
     "bulkEdit": "Massenbearbeitung",
+    "controlledNoBulkEdit": "Kontrollierte Artikel erfordern individuelle Verfolgung",
     "bulkImport": "Massenimport",
     "saveAll": "Alle speichern",
     "newFolder": "Neuer Ordner",
