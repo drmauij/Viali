@@ -1764,130 +1764,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { findStandardParameter } = await import('@shared/monitorParameters');
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-      // Enhanced prompt with German medical terminology and context persistence
-      const prompt = `You are a medical monitor analysis AI. Analyze this medical monitor screenshot and perform TWO tasks:
+      // Enhanced prompt with monitor brand recognition and region-based extraction
+      const prompt = `You are an expert medical monitor OCR AI. Your task is to extract ALL visible numeric parameters from this anesthesia/ICU monitor screenshot with 99%+ accuracy.
 
-TASK 1: CLASSIFY THE MONITOR TYPE
-Determine what type of medical monitor this is based on visual indicators:
+STEP 1: IDENTIFY MONITOR BRAND AND TYPE
+Look for brand indicators:
+- GE (General Electric): Logo with "GE" text, model names like B125M, B450, B650, B850, Carescape
+- Dräger/IBW: "Dräger" logo, "IBW" header, modes like S-IMV, PC-BIPAP, yellow/green interface
+- Philips: "Philips" logo, IntelliVue series, blue interface
+- Mindray: "Mindray" text, BeneView series
+- Nihon Kohden: "NK" logo
 
-VITALS MONITOR INDICATORS:
-- ECG waveforms (heart rhythm traces)
-- Blood pressure waveforms (arterial line, central venous pressure)
-- Parameters: HR/HF (heart rate), BP/RR (blood pressure), ART (invasive arterial BP), ZVD/CVP (central venous pressure), SpO2 (oxygen saturation)
-- Temperature, NIBP (non-invasive blood pressure)
-
-VENTILATION MONITOR INDICATORS:
-- Flow curves and pressure waveforms (breathing patterns)
-- Parameters appearing TOGETHER: VTe/VTi (tidal volume), MVe (minute volume), PEEP, PIP, Paw (airway pressure), FiO2, etCO2
-- Ventilator mode indicators (PC-BIPAP, SIMV, etc.)
-
-OTHER MONITOR TYPES:
+STEP 2: IDENTIFY MONITOR TYPE
+- "vitals": Patient monitor with ECG traces, SpO2, blood pressure, heart rate
+- "ventilation": Ventilator/anesthesia machine with flow curves, pressure waveforms, CO2 capnography
+- "mixed": Shows both vitals and ventilation parameters
 - "tof": Train-of-Four neuromuscular monitoring
-- "perfusor": Infusion pumps with drug rates
-- "mixed": Shows multiple types of parameters
-- "unknown": Cannot determine
+- "perfusor": Infusion pump display
 
-CRITICAL CONTEXT PERSISTENCE RULE:
-- If you identify a VITALS monitor, ALL parameters belong to vitals category - even if you see "RR" or "AF"
-- RR/AF on a vitals monitor = ECG-derived respiratory rate (VITALS parameter, NOT ventilation)
-- Only classify as "ventilation" if you see ventilation-specific indicators: flow/pressure curves + VTe/MVe/PEEP/PIP together
-- DO NOT switch context mid-analysis - maintain monitor type consistency
+STEP 3: SYSTEMATIC REGION-BASED EXTRACTION
+Extract parameters by scanning these regions:
 
-TASK 2: EXTRACT ALL VISIBLE PARAMETERS
+FOR VITALS MONITORS (e.g., GE B-series):
+- RIGHT PANEL: Large colored numbers (green=HR, yellow/cyan=SpO2, red=BP, blue=CVP)
+- BOTTOM BAR: Blood pressure sys/dia (MAP), secondary vitals
+- WAVEFORM LABELS: Parameters next to each trace
+- STATUS AREAS: PI (perfusion index), ST segment, temperature
 
-GERMAN-ENGLISH MEDICAL TERMINOLOGY REFERENCE:
+FOR VENTILATION MONITORS (e.g., Dräger/IBW):
+- TOP LEFT: Gas measurements - CO2 (Insp/Exp columns), O2 percentages, MAC value
+- LEFT SIDE: Gas supply pressures (O2, Air in kPa), flow indicators
+- RIGHT PANEL ("Monitoring" section): MV, VTe, Ppeak, Freq, PEEP, Pplateau, Cdyn, Resist
+- BOTTOM BAR: Settings row - O2%, Fluss, Freq, TInsp, Plateau, VTi, PMax, PEEP, Trigger
+- MODE TABS: Current ventilation mode (S-IMV, PCV, PSV, etc.)
 
-VITALS (Vitalparameter):
-- HF / HR → Heart Rate (Herzfrequenz)
-- ART / IBP → Invasive Arterial Blood Pressure (arterieller Druck)
-- ZVD / CVP → Central Venous Pressure (Zentraler Venendruck)
-- AFi / AF (on vitals monitor) → Respiratory Rate from ECG (Atemfrequenz, ECG-abgeleitet)
-- SpO2 → Oxygen Saturation (Sauerstoffsättigung)
-- NIBP / RR → Non-Invasive Blood Pressure (nicht-invasiver Blutdruck)
-- Temp → Temperature (Temperatur)
-- etCO2 → End-Tidal CO2 (endexspiratorisches CO2)
+COMPLETE PARAMETER REFERENCE:
 
-VENTILATION (Beatmung):
-- AF / RR (on ventilation monitor) → Respiratory Rate (Atemfrequenz)
-- VTe / VT → Tidal Volume (Tidalvolumen)
-- MVe / MV → Minute Volume (Minutenvolumen)
-- PEEP → Positive End-Expiratory Pressure
-- PIP → Peak Inspiratory Pressure (Spitzendruck)
-- Paw / Pmean → Mean Airway Pressure (mittlerer Atemwegsdruck)
-- FiO2 → Fraction of Inspired Oxygen (inspiratorische Sauerstoffkonzentration)
-- Pinsp → Inspiratory Pressure (Inspirationsdruck)
-- I:E → Inspiration to Expiration Ratio
-- Compliance / C → Lung Compliance (Compliance)
-- Flow → Air Flow (Atemfluss)
+VITALS PARAMETERS:
+- HF/HR → Heart Rate (20-240 bpm)
+- SpO2 → Oxygen Saturation (50-100%)
+- PI → Perfusion Index (0-20%)
+- ST → ST Segment deviation (-10 to +10 mm)
+- SYS/DIA → Blood Pressure systolic/diastolic (40-250 / 20-180 mmHg)
+- MAP/MAD → Mean Arterial Pressure (30-180 mmHg)
+- ART → Invasive Arterial BP (40-200 mmHg)
+- ZVD/CVP → Central Venous Pressure (0-30 mmHg)
+- Temp/T → Temperature (30-45 °C)
+- Resp/RF → Respiratory Rate from impedance (4-60 /min)
 
-HEMODYNAMICS:
-- CO / HZV → Cardiac Output (Herzzeitvolumen)
-- SV / SV → Stroke Volume (Schlagvolumen)
-- SVR / SVR → Systemic Vascular Resistance (systemischer Gefäßwiderstand)
+VENTILATION PARAMETERS:
+- CO2 Insp → Inspired CO2 (0-10 mmHg)
+- CO2 Exp/etCO2 → Expired/End-tidal CO2 (15-80 mmHg)
+- O2 Insp/Exp → Inspired/Expired O2 percentages
+- MAC → Minimum Alveolar Concentration (0-3)
+- O2% / FiO2 → Fraction Inspired O2 (21-100%)
+- Fluss/Flow → Gas flow (0-20 L/min)
+- Freq/AF/RR → Respiratory Rate (4-60 /min)
+- TInsp → Inspiratory Time (0.2-5 s)
+- Plateau → Plateau percentage (0-100%)
+- VTi/VTe/VT → Tidal Volume inspiratory/expiratory (50-1500 mL)
+- PMax/Ppeak/PIP → Peak Inspiratory Pressure (5-60 mbar)
+- PEEP → Positive End-Expiratory Pressure (0-30 mbar)
+- Pplateau → Plateau Pressure (0-50 mbar)
+- MV/MVe → Minute Volume (0-30 L/min)
+- Cdyn → Dynamic Compliance (0-200 mL/mbar)
+- Resist → Airway Resistance (0-50 mbar/L/s)
+- Trigger → Trigger sensitivity (0-20 L/min)
+- I:E → Inspiration:Expiration ratio
 
-UNIT HANDLING:
-- Extract units EXACTLY as shown on monitor (kPa, mmHg, mbar, cmH2O, L/min, mL, %, bpm, etc.)
-- DO NOT convert units - keep original values and units
-- Different hospitals use different units - all are valid
+GAS SUPPLY (left side gauges):
+- O2 kPa → Oxygen supply pressure
+- Air kPa → Compressed air pressure
 
-PLAUSIBILITY RANGES (for validation):
-- HR/HF: 30-250 bpm
-- BP systolic: 50-250 mmHg
-- ART: 40-200 mmHg (invasive)
-- ZVD/CVP: 0-25 mmHg or 0-35 cmH2O
-- SpO2: 50-100%
-- Respiratory Rate: 4-60 /min
-- Tidal Volume: 100-1500 mL
-- Minute Volume: 2-30 L/min
-- PEEP: 0-25 mbar/cmH2O
-- PIP: 5-60 mbar/cmH2O
-- etCO2: 2-8 kPa OR 15-60 mmHg
-- FiO2: 21-100%
+CRITICAL EXTRACTION RULES:
+1. Extract EVERY visible numeric value with its label
+2. For compound displays (e.g., "89/53" for BP), extract as separate SYS and DIA values
+3. For tables with Insp/Exp columns, extract both values separately
+4. Include units exactly as shown (mbar, cmH2O, mmHg, kPa, L/min, mL, %, /min, s)
+5. For values shown as "AUS" or "OFF" or "---", skip that parameter
+6. Read small text carefully - don't miss Cdyn, Resist, Trigger in right panels
+7. Extract MAC even if 0.0 (it's still a valid parameter)
+8. For BP, also extract MAP if shown in parentheses like "(69)"
 
-EXTRACTION RULES:
-1. Extract ALL visible numeric parameters with labels
-2. Use exact label from monitor (German, English, or abbreviation)
-3. Include unit if visible, otherwise leave empty
-4. Maintain monitor type context - don't switch categories mid-analysis
-5. If uncertain about a parameter, still extract it with detected name
-
-Return ONLY a JSON object with this structure:
+Return a JSON object:
 {
-  "monitorType": "vitals" | "ventilation" | "tof" | "perfusor" | "mixed" | "unknown",
+  "monitorType": "vitals" | "ventilation" | "mixed" | "tof" | "perfusor" | "unknown",
+  "monitorBrand": "GE" | "Dräger" | "Philips" | "Mindray" | "unknown",
   "confidence": "high" | "medium" | "low",
   "parameters": [
-    {
-      "detectedName": "string (exact label from monitor)",
-      "value": number,
-      "unit": "string (exact unit shown, or empty)"
-    }
+    { "detectedName": "exact label", "value": number, "unit": "exact unit" }
   ]
 }
 
-Example - German vitals monitor (note: RR stays in vitals context):
+EXAMPLE - GE B125M Vitals Monitor:
 {
   "monitorType": "vitals",
+  "monitorBrand": "GE",
   "confidence": "high",
   "parameters": [
-    { "detectedName": "HF", "value": 119, "unit": "/min" },
-    { "detectedName": "AFi", "value": 18, "unit": "/min" },
-    { "detectedName": "SpO2", "value": 96, "unit": "%" },
-    { "detectedName": "ART", "value": 113, "unit": "mmHg" },
-    { "detectedName": "ZVD", "value": 35, "unit": "mmHg" }
+    { "detectedName": "HF", "value": 51, "unit": "/min" },
+    { "detectedName": "ST", "value": 0.1, "unit": "mm" },
+    { "detectedName": "SpO2", "value": 92, "unit": "%" },
+    { "detectedName": "PI", "value": 0.45, "unit": "" },
+    { "detectedName": "SYS", "value": 89, "unit": "mmHg" },
+    { "detectedName": "DIA", "value": 53, "unit": "mmHg" },
+    { "detectedName": "MAD", "value": 69, "unit": "mmHg" }
   ]
 }
 
-Example - German ventilation monitor:
+EXAMPLE - Dräger/IBW Ventilator (S-IMV mode):
 {
   "monitorType": "ventilation",
+  "monitorBrand": "Dräger",
   "confidence": "high",
   "parameters": [
-    { "detectedName": "AF", "value": 14, "unit": "/min" },
-    { "detectedName": "FiO2", "value": 60, "unit": "%" },
-    { "detectedName": "VTe", "value": 443, "unit": "mL" },
-    { "detectedName": "MVe", "value": 6.24, "unit": "L/min" },
+    { "detectedName": "CO2 Insp", "value": 0, "unit": "mmHg" },
+    { "detectedName": "CO2 Exp", "value": 35, "unit": "mmHg" },
+    { "detectedName": "O2 Insp", "value": 29, "unit": "%" },
+    { "detectedName": "O2 Exp", "value": 23, "unit": "%" },
+    { "detectedName": "MAC", "value": 0.0, "unit": "" },
+    { "detectedName": "O2", "value": 40, "unit": "%" },
+    { "detectedName": "Fluss", "value": 1.00, "unit": "L/min" },
+    { "detectedName": "Freq", "value": 10, "unit": "/min" },
+    { "detectedName": "TInsp", "value": 1.4, "unit": "s" },
+    { "detectedName": "Plateau", "value": 10, "unit": "%" },
+    { "detectedName": "VTi", "value": 450, "unit": "mL" },
+    { "detectedName": "PMax", "value": 25, "unit": "mbar" },
     { "detectedName": "PEEP", "value": 5, "unit": "mbar" },
-    { "detectedName": "etCO2", "value": 3.7, "unit": "kPa" }
+    { "detectedName": "Trigger", "value": 1.5, "unit": "L/min" },
+    { "detectedName": "MV", "value": 4.6, "unit": "L/min" },
+    { "detectedName": "VTe", "value": 480, "unit": "mL" },
+    { "detectedName": "Ppeak", "value": 18, "unit": "mbar" },
+    { "detectedName": "Pplateau", "value": 12, "unit": "mbar" },
+    { "detectedName": "Cdyn", "value": 36, "unit": "mL/mbar" },
+    { "detectedName": "Resist", "value": 16, "unit": "mbar/L/s" }
   ]
 }`;
 
@@ -1909,7 +1919,7 @@ Example - German ventilation monitor:
           }
         ],
         response_format: { type: "json_object" },
-        max_completion_tokens: 2048,
+        max_completion_tokens: 4096,
       });
 
       const aiResponse = JSON.parse(response.choices[0].message.content || '{}');
@@ -1927,16 +1937,17 @@ Example - German ventilation monitor:
         };
       });
 
-      // Build response with monitor type and mapped parameters
+      // Build response with monitor type, brand, and mapped parameters
       const result = {
         monitorType: aiResponse.monitorType || 'unknown',
+        monitorBrand: aiResponse.monitorBrand || 'unknown',
         detectionMethod: 'ai_vision' as const,
         confidence: aiResponse.confidence || 'medium',
         parameters: mappedParameters,
         timestamp: Date.now()
       };
 
-      console.log('[Monitor Analysis] Type:', result.monitorType, 'Parameters:', mappedParameters.length);
+      console.log('[Monitor Analysis] Brand:', result.monitorBrand, 'Type:', result.monitorType, 'Parameters:', mappedParameters.length);
       res.json(result);
     } catch (error: any) {
       console.error("Error analyzing monitor image:", error);
