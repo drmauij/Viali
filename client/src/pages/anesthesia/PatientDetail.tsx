@@ -24,7 +24,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { formatDate, formatDateTimeForInput } from "@/lib/dateUtils";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 import SignaturePad from "@/components/SignaturePad";
-import { generateAnesthesiaRecordPDF } from "@/lib/anesthesiaRecordPdf";
+import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
 import { HiddenChartExporter, type HiddenChartExporterRef } from "@/components/anesthesia/HiddenChartExporter";
 
 type Patient = {
@@ -875,7 +875,7 @@ export default function PatientDetail() {
     });
   };
 
-  // Handle PDF download for a surgery
+  // Handle PDF download for a surgery - uses centralized PDF generation utility
   const handleDownloadPDF = async (surgery: Surgery) => {
     if (!patient) {
       toast({
@@ -895,128 +895,25 @@ export default function PatientDetail() {
       return;
     }
 
-    try {
-      // First fetch critical data (anesthesia record, pre-op assessment, items)
-      const [anesthesiaRecordRes, preOpRes, itemsRes] = await Promise.all([
-        fetch(`/api/anesthesia/records/surgery/${surgery.id}`, { credentials: "include" }),
-        fetch(`/api/anesthesia/preop/surgery/${surgery.id}`, { credentials: "include" }),
-        fetch(`/api/anesthesia/items/${activeHospital.id}`, { credentials: "include" }),
-      ]);
+    const result = await downloadAnesthesiaRecordPdf({
+      surgery,
+      patient: patient as any,
+      hospitalId: activeHospital.id,
+      anesthesiaSettings,
+      hiddenChartRef,
+    });
 
-      // Check for critical failures
-      if (!anesthesiaRecordRes.ok && anesthesiaRecordRes.status !== 404) {
-        throw new Error("Failed to load anesthesia record");
-      }
-      if (!itemsRes.ok) {
-        throw new Error("Failed to load medication data");
-      }
-
-      const anesthesiaRecord = anesthesiaRecordRes.ok ? await anesthesiaRecordRes.json() : null;
-      const preOpAssessment = preOpRes.ok ? await preOpRes.json() : null;
-      const anesthesiaItems = await itemsRes.json();
-
-      // If we have an anesthesia record, fetch its related data
-      let events: any[] = [];
-      let medications: any[] = [];
-      let clinicalSnapshot: any = null;
-      let staffMembers: any[] = [];
-      let positions: any[] = [];
-      let hasDataWarnings = false;
-
-      if (anesthesiaRecord && anesthesiaRecord.id) {
-        const [eventsRes, medicationsRes, snapshotRes, staffRes, positionsRes] = await Promise.all([
-          fetch(`/api/anesthesia/events/${anesthesiaRecord.id}`, { credentials: "include" }),
-          fetch(`/api/anesthesia/medications/${anesthesiaRecord.id}`, { credentials: "include" }),
-          fetch(`/api/anesthesia/vitals/snapshot/${anesthesiaRecord.id}`, { credentials: "include" }),
-          fetch(`/api/anesthesia/staff/${anesthesiaRecord.id}`, { credentials: "include" }),
-          fetch(`/api/anesthesia/positions/${anesthesiaRecord.id}`, { credentials: "include" }),
-        ]);
-
-        // Check for critical data failures
-        const criticalFetchErrors = [];
-        if (!eventsRes.ok) criticalFetchErrors.push("events");
-        if (!medicationsRes.ok) criticalFetchErrors.push("medications");
-
-        if (criticalFetchErrors.length > 0) {
-          throw new Error(`Failed to load critical data: ${criticalFetchErrors.join(", ")}`);
-        }
-
-        // Parse all responses
-        events = await eventsRes.json();
-        medications = await medicationsRes.json();
-        clinicalSnapshot = snapshotRes.ok ? await snapshotRes.json() : null;
-        staffMembers = staffRes.ok ? await staffRes.json() : [];
-        positions = positionsRes.ok ? await positionsRes.json() : [];
-
-        // Track if any non-critical data failed to load
-        hasDataWarnings = !snapshotRes.ok || !staffRes.ok || !positionsRes.ok;
-        if (hasDataWarnings) {
-          console.warn("Some PDF data is incomplete:", {
-            snapshot: !snapshotRes.ok,
-            staff: !staffRes.ok,
-            positions: !positionsRes.ok,
-          });
-        }
-      }
-
-      // Export chart image using hidden chart exporter
-      let chartImage: string | null = null;
-      if (clinicalSnapshot && hiddenChartRef.current) {
-        try {
-          console.log("[PDF-EXPORT] Exporting chart image...");
-          chartImage = await hiddenChartRef.current.exportChart(clinicalSnapshot);
-          if (chartImage) {
-            console.log("[PDF-EXPORT] Chart image exported successfully");
-          } else {
-            console.warn("[PDF-EXPORT] Chart export returned null");
-          }
-        } catch (error) {
-          console.error("[PDF-EXPORT] Failed to export chart:", error);
-        }
-      }
-
-      // Generate PDF
-      generateAnesthesiaRecordPDF({
-        patient: {
-          ...patient,
-          email: patient.email ?? null,
-          phone: patient.phone ?? null,
-          address: patient.address ?? null,
-          emergencyContact: patient.emergencyContact ?? null,
-          insuranceProvider: patient.insuranceProvider ?? null,
-          insuranceNumber: patient.insuranceNumber ?? null,
-          allergies: patient.allergies ?? null,
-          otherAllergies: patient.otherAllergies ?? null,
-          internalNotes: patient.internalNotes ?? null,
-          createdBy: patient.createdBy ?? null,
-          createdAt: patient.createdAt ? new Date(patient.createdAt) : null,
-          updatedAt: patient.updatedAt ? new Date(patient.updatedAt) : null,
-          deletedAt: null,
-        },
-        surgery,
-        anesthesiaRecord,
-        preOpAssessment,
-        clinicalSnapshot,
-        events,
-        medications,
-        anesthesiaItems,
-        staffMembers,
-        positions,
-        timeMarkers: (anesthesiaRecord?.timeMarkers as any[]) || [],
-        checklistSettings: anesthesiaSettings?.checklistItems || null,
-        chartImage,
-      });
-
+    if (result.success) {
       toast({
         title: t('anesthesia.patientDetail.pdfGenerated'),
-        description: hasDataWarnings
+        description: result.hasWarnings
           ? t('anesthesia.patientDetail.pdfGeneratedWithWarnings')
           : t('anesthesia.patientDetail.pdfGeneratedSuccess'),
       });
-    } catch (error: any) {
+    } else {
       toast({
         title: t('anesthesia.patientDetail.errorGeneratingPDF'),
-        description: error.message || t('anesthesia.patientDetail.errorGeneratingPDFDesc'),
+        description: result.error || t('anesthesia.patientDetail.errorGeneratingPDFDesc'),
         variant: "destructive",
       });
     }
