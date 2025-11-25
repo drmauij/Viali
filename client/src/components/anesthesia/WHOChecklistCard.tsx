@@ -7,11 +7,16 @@ import { Button } from "@/components/ui/button";
 import { X, LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+export interface ChecklistItem {
+  id: string;
+  label: string;
+}
+
 export interface WHOChecklistCardProps {
   title: string;
   icon: LucideIcon;
   checklistType: 'signIn' | 'timeOut' | 'signOut';
-  items: string[];
+  items: ChecklistItem[];
   checklist: Record<string, boolean>;
   notes: string;
   signature: string;
@@ -75,22 +80,21 @@ export function WHOChecklistCard({
       <CardContent className="space-y-3">
         {items && items.length > 0 ? (
           <>
-            {items.map((item: string, index: number) => {
-              const itemKey = item.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-              const isChecked = checklist[itemKey] || false;
+            {items.map((item: ChecklistItem, index: number) => {
+              const isChecked = checklist[item.id] || false;
               return (
-                <div key={index} className="flex items-center space-x-2">
+                <div key={item.id} className="flex items-center space-x-2">
                   <Checkbox
-                    id={`${checklistType}-${index}`}
+                    id={`${checklistType}-${item.id}`}
                     checked={isChecked}
-                    onCheckedChange={(checked) => handleCheckboxChange(itemKey, checked === true)}
-                    data-testid={`checkbox-${checklistType}-${index}`}
+                    onCheckedChange={(checked) => handleCheckboxChange(item.id, checked === true)}
+                    data-testid={`checkbox-${checklistType}-${item.id}`}
                   />
                   <label
-                    htmlFor={`${checklistType}-${index}`}
+                    htmlFor={`${checklistType}-${item.id}`}
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                   >
-                    {item}
+                    {item.label}
                   </label>
                 </div>
               );
