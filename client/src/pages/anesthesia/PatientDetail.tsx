@@ -3162,8 +3162,8 @@ export default function PatientDetail() {
                       <div className="space-y-2">
                         <Label>{t('anesthesia.patientDetail.patientSignature')}</Label>
                         <div
-                          className="border-2 border-dashed rounded-lg p-6 cursor-pointer hover:bg-muted/50 transition-colors"
-                          onClick={() => setShowConsentPatientSignaturePad(true)}
+                          className={`border-2 border-dashed rounded-lg p-6 cursor-pointer hover:bg-muted/50 transition-colors ${consentData.emergencyNoSignature ? 'opacity-50 pointer-events-none' : ''}`}
+                          onClick={() => !consentData.emergencyNoSignature && setShowConsentPatientSignaturePad(true)}
                           data-testid="consent-patient-signature-trigger"
                         >
                           {consentData.patientSignature ? (
@@ -3178,7 +3178,62 @@ export default function PatientDetail() {
                             </div>
                           )}
                         </div>
+                        
+                        {/* Emergency checkbox - patient cannot sign */}
+                        <div className={`flex items-center space-x-2 p-2 rounded-lg ${consentData.emergencyNoSignature ? "bg-orange-50 dark:bg-orange-950" : ""}`}>
+                          <Checkbox
+                            id="emergencyNoSignature"
+                            checked={consentData.emergencyNoSignature}
+                            onCheckedChange={(checked) => setConsentData({
+                              ...consentData, 
+                              emergencyNoSignature: checked as boolean,
+                              patientSignature: checked ? "" : consentData.patientSignature
+                            })}
+                            data-testid="checkbox-emergency-no-signature"
+                            className={consentData.emergencyNoSignature ? "border-orange-600 data-[state=checked]:bg-orange-600" : ""}
+                          />
+                          <Label htmlFor="emergencyNoSignature" className={`cursor-pointer font-normal text-sm flex-1 ${consentData.emergencyNoSignature ? "text-orange-700 dark:text-orange-300 font-semibold" : ""}`}>
+                            {t('anesthesia.patientDetail.emergencyNoSignature')}
+                          </Label>
+                        </div>
                       </div>
+                    </div>
+                    
+                    {/* Email copy option */}
+                    <div className="space-y-3 pt-4 border-t">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="sendEmailCopy"
+                          checked={consentData.sendEmailCopy}
+                          onCheckedChange={(checked) => setConsentData({
+                            ...consentData, 
+                            sendEmailCopy: checked as boolean,
+                            emailForCopy: checked ? (patient?.email || consentData.emailForCopy) : consentData.emailForCopy
+                          })}
+                          data-testid="checkbox-send-email-copy"
+                        />
+                        <Label htmlFor="sendEmailCopy" className="cursor-pointer font-normal text-sm">
+                          {t('anesthesia.patientDetail.sendEmailCopy')}
+                        </Label>
+                      </div>
+                      
+                      {consentData.sendEmailCopy && (
+                        <div className="space-y-2 ml-6">
+                          <Label className="text-sm">{t('anesthesia.patientDetail.emailForCopy')}</Label>
+                          <Input
+                            type="email"
+                            value={consentData.emailForCopy}
+                            onChange={(e) => setConsentData({...consentData, emailForCopy: e.target.value})}
+                            placeholder={patient?.email || t('anesthesia.patientDetail.enterPatientEmail')}
+                            data-testid="input-email-for-copy"
+                          />
+                          {!consentData.emailForCopy && !patient?.email && (
+                            <p className="text-xs text-muted-foreground">
+                              {t('anesthesia.patientDetail.noEmailAvailable')}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
