@@ -1718,6 +1718,32 @@
       "missingFields": "Bitte wählen Sie einen Patienten und OP-Saal aus und geben Sie Details zur OP ein.",
       "invalidDuration": "Ungültige Dauer",
       "invalidDurationDescription": "Die Dauer muss größer als 0 Minuten sein."
+    },
+    "excelImport": {
+      "title": "Aus Excel importieren",
+      "description": "Zeilen aus Ihrem Excel-OP-Plan einfügen. Jede Zeile erstellt eine neue OP.",
+      "pasteData": "Excel-Daten einfügen",
+      "pastePlaceholder": "Zeilen aus Excel hier einfügen (Ctrl+V)...",
+      "parseData": "Daten analysieren",
+      "defaultRoom": "Standard OP-Saal",
+      "selectRoom": "OP-Saal auswählen",
+      "selectedCount": "{{selected}} von {{total}} Zeilen ausgewählt",
+      "existingPatient": "Vorhanden",
+      "newPatient": "Neuer Patient",
+      "surgeon": "Chirurg",
+      "backToPaste": "Zurück zum Einfügen",
+      "importing": "Importiere {{current}}/{{total}}...",
+      "importSelected": "{{count}} OPs importieren",
+      "importComplete": "Import abgeschlossen",
+      "importSummary": "{{success}} OPs erfolgreich importiert, {{errors}} Fehler",
+      "noRowsSelected": "Keine Zeilen ausgewählt",
+      "notEnoughColumns": "Zeile hat nur {{count}} Spalten (mindestens 9 erforderlich)",
+      "missingLastName": "Nachname fehlt",
+      "missingFirstName": "Vorname fehlt",
+      "invalidDOB": "Ungültiges Geburtsdatum",
+      "invalidSurgeryDate": "Ungültiges OP-Datum",
+      "invalidStartTime": "Ungültige Startzeit",
+      "missingProcedure": "Eingriff fehlt"
     }
   }
 }

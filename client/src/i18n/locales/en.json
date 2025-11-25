@@ -1718,6 +1718,32 @@
       "missingFields": "Please select a patient, room, and enter surgery details.",
       "invalidDuration": "Invalid Duration",
       "invalidDurationDescription": "Duration must be greater than 0 minutes."
+    },
+    "excelImport": {
+      "title": "Import from Excel",
+      "description": "Paste rows from your Excel surgery schedule. Each row will create a new surgery.",
+      "pasteData": "Paste Excel Data",
+      "pastePlaceholder": "Paste rows from Excel here (Ctrl+V)...",
+      "parseData": "Parse Data",
+      "defaultRoom": "Default Surgery Room",
+      "selectRoom": "Select a surgery room",
+      "selectedCount": "{{selected}} of {{total}} rows selected",
+      "existingPatient": "Existing",
+      "newPatient": "New Patient",
+      "surgeon": "Surgeon",
+      "backToPaste": "Back to Paste",
+      "importing": "Importing {{current}}/{{total}}...",
+      "importSelected": "Import {{count}} Surgeries",
+      "importComplete": "Import Complete",
+      "importSummary": "{{success}} surgeries imported successfully, {{errors}} errors",
+      "noRowsSelected": "No rows selected",
+      "notEnoughColumns": "Row has only {{count}} columns (need at least 9)",
+      "missingLastName": "Missing last name",
+      "missingFirstName": "Missing first name",
+      "invalidDOB": "Invalid date of birth",
+      "invalidSurgeryDate": "Invalid surgery date",
+      "invalidStartTime": "Invalid start time",
+      "missingProcedure": "Missing procedure name"
     }
   }
 }

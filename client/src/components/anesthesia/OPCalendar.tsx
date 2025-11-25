@@ -5,13 +5,14 @@ import moment from "moment";
 import "moment/locale/en-gb";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2 } from "lucide-react";
+import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, FileSpreadsheet } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import QuickCreateSurgeryDialog from "./QuickCreateSurgeryDialog";
+import ExcelImportDialog from "./ExcelImportDialog";
 import TimelineWeekView from "./TimelineWeekView";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
@@ -106,6 +107,9 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     endDate?: Date;
     roomId?: string;
   } | null>(null);
+  
+  // Excel import dialog state
+  const [excelImportOpen, setExcelImportOpen] = useState(false);
 
   // Fetch surgery rooms for the active hospital
   const { data: surgeryRooms = [], isLoading } = useQuery<any[]>({
@@ -517,6 +521,16 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             <i className="fas fa-list text-xs sm:text-sm sm:mr-1"></i>
             <span className="hidden sm:inline">Agenda</span>
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setExcelImportOpen(true)}
+            data-testid="button-excel-import"
+            className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm bg-green-50 border-green-200 text-green-700 hover:bg-green-100 dark:bg-green-950 dark:border-green-800 dark:text-green-300 dark:hover:bg-green-900"
+          >
+            <FileSpreadsheet className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+            <span className="hidden sm:inline">Excel</span>
+          </Button>
         </div>
       </div>
 
@@ -659,6 +673,16 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           initialDate={quickCreateData.date}
           initialEndDate={quickCreateData.endDate}
           initialRoomId={quickCreateData.roomId}
+          surgeryRooms={surgeryRooms}
+        />
+      )}
+
+      {/* Excel Import Dialog */}
+      {activeHospital && (
+        <ExcelImportDialog
+          open={excelImportOpen}
+          onOpenChange={setExcelImportOpen}
+          hospitalId={activeHospital.id}
           surgeryRooms={surgeryRooms}
         />
       )}
