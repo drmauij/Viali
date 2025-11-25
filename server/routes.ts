@@ -4401,6 +4401,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reset allergies, medications, and checklists to defaults (admin only)
+  app.post('/api/hospitals/:id/reset-lists', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id: hospitalId } = req.params;
+      const userId = req.user.id;
+
+      // Check if user has admin access to this hospital
+      const hospitals = await storage.getUserHospitals(userId);
+      const hospital = hospitals.find(h => h.id === hospitalId && h.role === 'admin');
+      
+      if (!hospital) {
+        return res.status(403).json({ message: "Admin access required to reset lists" });
+      }
+
+      // Import resetListsToDefaults function
+      const { resetListsToDefaults } = await import('./seed-hospital');
+      
+      // Reset the lists (destructive operation - replaces existing data)
+      const result = await resetListsToDefaults(hospitalId);
+      
+      res.json({
+        message: "Lists reset to defaults successfully",
+        result
+      });
+    } catch (error) {
+      console.error("Error resetting lists:", error);
+      res.status(500).json({ message: "Failed to reset lists to defaults" });
+    }
+  });
+
   // ========== ANESTHESIA MODULE ROUTES ==========
 
   // 1. Hospital Anesthesia Settings

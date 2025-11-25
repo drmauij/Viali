@@ -31,6 +31,8 @@ export default function Hospital() {
 
   // Seed data states
   const [seedDialogOpen, setSeedDialogOpen] = useState(false);
+  const [resetListsDialogOpen, setResetListsDialogOpen] = useState(false);
+  const [resetListsConfirmText, setResetListsConfirmText] = useState("");
 
   // Unit states
   const [unitDialogOpen, setUnitDialogOpen] = useState(false);
@@ -209,6 +211,28 @@ export default function Hospital() {
     },
     onError: (error: any) => {
       toast({ title: t("common.error"), description: error.message || "Failed to seed hospital data", variant: "destructive" });
+    },
+  });
+
+  // Reset lists mutation
+  const resetListsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/hospitals/${activeHospital?.id}/reset-lists`, {});
+      return await response.json();
+    },
+    onSuccess: () => {
+      // Invalidate anesthesia settings to refresh the lists
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/settings/${activeHospital?.id}`] });
+      setResetListsDialogOpen(false);
+      setResetListsConfirmText("");
+      
+      toast({ 
+        title: "Lists reset successfully", 
+        description: "Allergies, medications, and checklists have been reset to defaults.",
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to reset lists", variant: "destructive" });
     },
   });
 
@@ -450,6 +474,45 @@ export default function Hospital() {
               <>
                 <i className="fas fa-seedling mr-2"></i>
                 Seed Default Data
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {/* Reset Lists Card */}
+      <div className="bg-card border border-destructive/30 rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-foreground text-lg">
+              <i className="fas fa-rotate-right mr-2 text-destructive"></i>
+              Reset Lists
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Reset allergies, medications, and checklists to default values
+            </p>
+            <p className="text-xs text-destructive mt-1">
+              <i className="fas fa-exclamation-triangle mr-1"></i>
+              Warning: This will replace all customizations with defaults
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-destructive text-destructive hover:bg-destructive/10"
+            onClick={() => setResetListsDialogOpen(true)}
+            disabled={resetListsMutation.isPending}
+            data-testid="button-reset-lists"
+          >
+            {resetListsMutation.isPending ? (
+              <>
+                <i className="fas fa-spinner fa-spin mr-2"></i>
+                Resetting...
+              </>
+            ) : (
+              <>
+                <i className="fas fa-rotate-right mr-2"></i>
+                Reset Lists
               </>
             )}
           </Button>
@@ -889,6 +952,58 @@ export default function Hospital() {
               data-testid="button-confirm-seed"
             >
               {seedHospitalMutation.isPending ? "Seeding..." : "Seed Default Data"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset Lists Confirmation Dialog - Double Confirm */}
+      <AlertDialog open={resetListsDialogOpen} onOpenChange={(open) => {
+        setResetListsDialogOpen(open);
+        if (!open) setResetListsConfirmText("");
+      }}>
+        <AlertDialogContent data-testid="dialog-reset-lists-confirm">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-destructive">
+              <i className="fas fa-exclamation-triangle mr-2"></i>
+              Reset Lists to Defaults?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p className="font-medium text-destructive">This is a destructive action that cannot be undone!</p>
+              <p>This will <strong>replace</strong> the following with default values:</p>
+              <ul className="list-disc pl-5 space-y-1 text-sm">
+                <li><strong>Allergies:</strong> 9 common allergies (Penicillin, Latex, etc.)</li>
+                <li><strong>Anticoagulation medications:</strong> 6 items (Aspirin, Warfarin, etc.)</li>
+                <li><strong>General medications:</strong> 8 items (Metformin, Insulin, etc.)</li>
+                <li><strong>WHO Checklists:</strong> Sign-In, Time-Out, and Sign-Out items</li>
+              </ul>
+              <p className="text-sm mt-3">
+                <strong>Medical History will NOT be affected.</strong>
+              </p>
+              <div className="mt-4 p-3 bg-destructive/10 rounded-lg border border-destructive/30">
+                <Label htmlFor="confirm-reset" className="text-sm font-medium">
+                  Type <span className="font-mono bg-muted px-1 rounded">RESET</span> to confirm:
+                </Label>
+                <Input
+                  id="confirm-reset"
+                  value={resetListsConfirmText}
+                  onChange={(e) => setResetListsConfirmText(e.target.value)}
+                  placeholder="Type RESET to confirm"
+                  className="mt-2"
+                  data-testid="input-confirm-reset"
+                />
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-reset-lists">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => resetListsMutation.mutate()}
+              disabled={resetListsMutation.isPending || resetListsConfirmText !== "RESET"}
+              className="bg-destructive hover:bg-destructive/90"
+              data-testid="button-confirm-reset-lists"
+            >
+              {resetListsMutation.isPending ? "Resetting..." : "Reset Lists"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

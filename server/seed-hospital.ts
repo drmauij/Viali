@@ -26,6 +26,101 @@ export interface SeedResult {
   medicationsCreated: number;
 }
 
+export const DEFAULT_ALLERGY_LIST = [
+  { id: "penicillin", label: "Penicillin" },
+  { id: "latex", label: "Latex" },
+  { id: "localAnesthetics", label: "Local Anesthetics" },
+  { id: "nsaids", label: "NSAIDs" },
+  { id: "opioids", label: "Opioids" },
+  { id: "muscleRelaxants", label: "Muscle Relaxants" },
+  { id: "contrastMedia", label: "Contrast Media" },
+  { id: "eggs", label: "Eggs" },
+  { id: "soy", label: "Soy" },
+];
+
+export const DEFAULT_MEDICATION_LISTS = {
+  anticoagulation: [
+    { id: "aspirin", label: "Aspirin" },
+    { id: "warfarin", label: "Warfarin" },
+    { id: "clopidogrel", label: "Clopidogrel" },
+    { id: "rivaroxaban", label: "Rivaroxaban" },
+    { id: "apixaban", label: "Apixaban" },
+    { id: "heparin", label: "Heparin" },
+  ],
+  general: [
+    { id: "metformin", label: "Metformin" },
+    { id: "insulin", label: "Insulin" },
+    { id: "levothyroxine", label: "Levothyroxine" },
+    { id: "metoprolol", label: "Metoprolol" },
+    { id: "lisinopril", label: "Lisinopril" },
+    { id: "amlodipine", label: "Amlodipine" },
+    { id: "atorvastatin", label: "Atorvastatin" },
+    { id: "omeprazole", label: "Omeprazole" },
+  ],
+};
+
+export const DEFAULT_CHECKLIST_ITEMS = {
+  signIn: [
+    { id: "patientIdentity", label: "Patient identity confirmed" },
+    { id: "surgicalSiteMarked", label: "Surgical site marked" },
+    { id: "consentVerified", label: "Consent verified" },
+    { id: "anesthesiaEquipment", label: "Anesthesia equipment checked" },
+    { id: "pulseOximeter", label: "Pulse oximeter on patient" },
+    { id: "allergiesDocumented", label: "Known allergies documented" },
+    { id: "difficultAirway", label: "Difficult airway assessment" },
+    { id: "bloodLossRisk", label: "Risk of blood loss >500ml" },
+  ],
+  timeOut: [
+    { id: "teamIntroductions", label: "Team introductions complete" },
+    { id: "correctPatient", label: "Correct patient confirmed" },
+    { id: "correctProcedure", label: "Correct procedure confirmed" },
+    { id: "correctSiteSide", label: "Correct site/side confirmed" },
+    { id: "criticalEvents", label: "Anticipated critical events discussed" },
+    { id: "antibioticsGiven", label: "Antibiotics given (if required)" },
+    { id: "imagingDisplayed", label: "Essential imaging displayed" },
+  ],
+  signOut: [
+    { id: "procedureRecorded", label: "Procedure name recorded" },
+    { id: "countsCorrect", label: "Instrument/sponge/needle counts correct" },
+    { id: "specimenLabeling", label: "Specimen labeling confirmed" },
+    { id: "equipmentProblems", label: "Equipment problems addressed" },
+    { id: "recoveryConcerns", label: "Key concerns for recovery discussed" },
+  ],
+};
+
+/**
+ * Resets the allergies, medications, and checklists to default values.
+ * This is a DESTRUCTIVE operation that replaces existing customizations.
+ * Preserves all other hospital anesthesia settings (illnessLists, medicationConfigurations, etc.)
+ * 
+ * @param hospitalId - The hospital ID to reset
+ * @returns Object with reset status
+ */
+export async function resetListsToDefaults(hospitalId: string): Promise<{ success: boolean }> {
+  const existingSettings = await storage.getHospitalAnesthesiaSettings(hospitalId);
+  
+  if (existingSettings) {
+    // Preserve all existing settings, only override the specific lists
+    await storage.upsertHospitalAnesthesiaSettings({
+      ...existingSettings,
+      hospitalId,
+      allergyList: DEFAULT_ALLERGY_LIST,
+      medicationLists: DEFAULT_MEDICATION_LISTS,
+      checklistItems: DEFAULT_CHECKLIST_ITEMS,
+    });
+  } else {
+    // No existing settings, create with just defaults
+    await storage.upsertHospitalAnesthesiaSettings({
+      hospitalId,
+      allergyList: DEFAULT_ALLERGY_LIST,
+      medicationLists: DEFAULT_MEDICATION_LISTS,
+      checklistItems: DEFAULT_CHECKLIST_ITEMS,
+    });
+  }
+  
+  return { success: true };
+}
+
 /**
  * Seeds a hospital with default data (units, surgery rooms, admin groups, medications)
  * Only creates items that don't already exist - never replaces existing data.
