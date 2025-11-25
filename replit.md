@@ -14,6 +14,18 @@ The frontend is built with React, TypeScript, and Vite, utilizing Wouter for rou
 ### Backend
 The backend is developed using Express.js and TypeScript, with a PostgreSQL database managed by Drizzle ORM. Authentication supports standard Google OAuth and local email/password via Passport.js, employing session-based authentication. The API is RESTful, featuring centralized error handling, bcrypt for password hashing, and role-based access control.
 
+### Code Organization (Modular Architecture)
+The backend follows a modular architecture for improved maintainability:
+- **server/utils/**: Shared utility modules
+  - `encryption.ts`: Patient data encryption (AES-256-CBC) with key derivation
+  - `accessControl.ts`: User role verification, hospital access control, unit management
+  - `licensing.ts`: License limits, usage throttling, bulk import limits
+  - `index.ts`: Central re-export for all utilities
+- **server/services/**: Business logic services
+  - `aiMonitorAnalysis.ts`: AI-powered medical monitor OCR (vitals/ventilation extraction), voice transcription, drug command parsing
+- **server/auth/**: Authentication modules
+  - `google.ts`: Google OAuth strategy, session management, isAuthenticated middleware
+
 ### Authentication & Authorization
 Viali implements a hybrid authentication strategy (Google OAuth and local email/password) combined with robust role-based and multi-hospital authorization. A comprehensive user management system handles user creation, password changes, and hospital assignments. Data isolation between hospitals is enforced at the API layer through authorization, query parameter filtering, and resource-based authorization.
 
