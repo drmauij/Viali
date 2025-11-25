@@ -943,6 +943,9 @@ export const preOpAssessments = pgTable("preop_assessments", {
   consentDoctorSignature: text("consent_doctor_signature"),
   patientSignature: text("patient_signature"),
   consentDate: varchar("consent_date"),
+  emergencyNoSignature: boolean("emergency_no_signature").default(false),
+  sendEmailCopy: boolean("send_email_copy").default(false),
+  emailForCopy: varchar("email_for_copy"),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

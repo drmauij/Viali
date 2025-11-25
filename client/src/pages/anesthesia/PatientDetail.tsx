@@ -200,6 +200,9 @@ export default function PatientDetail() {
     date: new Date().toISOString().split('T')[0],
     doctorSignature: "",
     patientSignature: "",
+    emergencyNoSignature: false,
+    sendEmailCopy: false,
+    emailForCopy: "",
   });
   
   // Signature pad states
@@ -563,6 +566,9 @@ export default function PatientDetail() {
         date: existingAssessment.consentDate || new Date().toISOString().split('T')[0],
         doctorSignature: existingAssessment.consentDoctorSignature || "",
         patientSignature: existingAssessment.patientSignature || "",
+        emergencyNoSignature: existingAssessment.emergencyNoSignature || false,
+        sendEmailCopy: existingAssessment.sendEmailCopy || false,
+        emailForCopy: existingAssessment.emailForCopy || "",
       });
     } else if (isPreOpOpen && !existingAssessment && patient) {
       // Reset form with patient allergies and current user's name for new assessments
@@ -765,6 +771,9 @@ export default function PatientDetail() {
       consentDate: consentData.date,
       consentDoctorSignature: consentData.doctorSignature,
       patientSignature: consentData.patientSignature,
+      emergencyNoSignature: consentData.emergencyNoSignature,
+      sendEmailCopy: consentData.sendEmailCopy,
+      emailForCopy: consentData.emailForCopy,
       // Set status - completed if explicitly marked or if signature present
       status: markAsCompleted ? "completed" : ((overrideData.doctorSignature || assessmentData.doctorSignature) ? "completed" : "draft"),
     };
