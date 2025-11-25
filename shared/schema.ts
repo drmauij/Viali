@@ -430,6 +430,8 @@ export const hospitalAnesthesiaSettings = pgTable("hospital_anesthesia_settings"
     neurological?: Array<{ id: string; label: string }>;
     psychiatric?: Array<{ id: string; label: string }>;
     skeletal?: Array<{ id: string; label: string }>;
+    coagulation?: Array<{ id: string; label: string }>;
+    infectious?: Array<{ id: string; label: string }>;
     woman?: Array<{ id: string; label: string }>;
     noxen?: Array<{ id: string; label: string }>;
     children?: Array<{ id: string; label: string }>;

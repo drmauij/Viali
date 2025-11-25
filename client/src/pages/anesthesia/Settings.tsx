@@ -1225,6 +1225,8 @@ export default function AnesthesiaSettings() {
               { key: 'neurological', label: t('anesthesia.settings.neurological') },
               { key: 'psychiatric', label: t('anesthesia.settings.psychiatric') },
               { key: 'skeletal', label: t('anesthesia.settings.skeletal') },
+              { key: 'coagulation', label: t('anesthesia.settings.coagulation') },
+              { key: 'infectious', label: t('anesthesia.settings.infectiousDiseases') },
               { key: 'woman', label: t('anesthesia.settings.gynecology') },
               { key: 'noxen', label: t('anesthesia.settings.substanceUse') },
               { key: 'children', label: t('anesthesia.settings.pediatric') },

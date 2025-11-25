@@ -244,6 +244,11 @@ export default function PatientDetail() {
     skeletalIllnesses: {} as Record<string, boolean>,
     neuroPsychSkeletalNotes: "",
     
+    // Coagulation and Infectious Diseases - dynamically initialized from settings
+    coagulationIllnesses: {} as Record<string, boolean>,
+    infectiousIllnesses: {} as Record<string, boolean>,
+    coagulationInfectiousNotes: "",
+    
     // Woman (Gynecological) - dynamically initialized from settings
     womanIssues: {} as Record<string, boolean>,
     womanNotes: "",
@@ -518,6 +523,9 @@ export default function PatientDetail() {
         psychIllnesses: mergeIllnessData(existingAssessment.psychIllnesses, anesthesiaSettings?.illnessLists?.psychiatric),
         skeletalIllnesses: mergeIllnessData(existingAssessment.skeletalIllnesses, anesthesiaSettings?.illnessLists?.skeletal),
         neuroPsychSkeletalNotes: existingAssessment.neuroPsychSkeletalNotes || "",
+        coagulationIllnesses: mergeIllnessData(existingAssessment.coagulationIllnesses, anesthesiaSettings?.illnessLists?.coagulation),
+        infectiousIllnesses: mergeIllnessData(existingAssessment.infectiousIllnesses, anesthesiaSettings?.illnessLists?.infectious),
+        coagulationInfectiousNotes: existingAssessment.coagulationInfectiousNotes || "",
         womanIssues: mergeIllnessData(existingAssessment.womanIssues, anesthesiaSettings?.illnessLists?.woman),
         womanNotes: existingAssessment.womanNotes || "",
         noxen: mergeIllnessData(existingAssessment.noxen, anesthesiaSettings?.illnessLists?.noxen),
@@ -580,6 +588,8 @@ export default function PatientDetail() {
         neuroIllnesses: createEmptyIllnessState(lists.neurological),
         psychIllnesses: createEmptyIllnessState(lists.psychiatric),
         skeletalIllnesses: createEmptyIllnessState(lists.skeletal),
+        coagulationIllnesses: createEmptyIllnessState(lists.coagulation),
+        infectiousIllnesses: createEmptyIllnessState(lists.infectious),
         womanIssues: createEmptyIllnessState(lists.woman),
         noxen: createEmptyIllnessState(lists.noxen),
         childrenIssues: createEmptyIllnessState(lists.children),
@@ -1058,6 +1068,12 @@ export default function PatientDetail() {
            Object.values(assessmentData.psychIllnesses).some(v => v) || 
            Object.values(assessmentData.skeletalIllnesses).some(v => v) || 
            assessmentData.neuroPsychSkeletalNotes.trim() !== "";
+  };
+  
+  const hasCoagulationInfectiousData = () => {
+    return Object.values(assessmentData.coagulationIllnesses).some(v => v) || 
+           Object.values(assessmentData.infectiousIllnesses).some(v => v) || 
+           assessmentData.coagulationInfectiousNotes.trim() !== "";
   };
   
   const hasWomanData = () => {
@@ -1848,7 +1864,7 @@ export default function PatientDetail() {
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    const allSectionIds = ["general", "medications", "heart", "lungs", "gi-kidney-metabolic", "neuro-psych-skeletal", "woman", "noxen", "children", "anesthesia"];
+                    const allSectionIds = ["general", "medications", "heart", "lungs", "gi-kidney-metabolic", "neuro-psych-skeletal", "coagulation-infectious", "woman", "noxen", "children", "anesthesia"];
                     // Get only filled sections
                     const filledSections = allSectionIds.filter(id => {
                       if (id === "general") return hasGeneralData();
@@ -1857,6 +1873,7 @@ export default function PatientDetail() {
                       if (id === "lungs") return hasLungData();
                       if (id === "gi-kidney-metabolic") return hasGIKidneyMetabolicData();
                       if (id === "neuro-psych-skeletal") return hasNeuroPsychSkeletalData();
+                      if (id === "coagulation-infectious") return hasCoagulationInfectiousData();
                       if (id === "woman") return hasWomanData();
                       if (id === "noxen") return hasNoxenData();
                       if (id === "children") return hasChildrenData();
@@ -2383,6 +2400,73 @@ export default function PatientDetail() {
                               placeholder="Enter additional notes about neurological, psychiatric or skeletal conditions..."
                               rows={23}
                               data-testid="textarea-neuro-psych-skeletal-notes"
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </AccordionContent>
+                  </Card>
+                </AccordionItem>
+
+                {/* Coagulation and Infectious Diseases Section */}
+                <AccordionItem value="coagulation-infectious">
+                  <Card className={hasCoagulationInfectiousData() ? "border-red-500 dark:border-red-700" : ""}>
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-coagulation-infectious">
+                      <CardTitle className={`text-lg ${hasCoagulationInfectiousData() ? "text-red-600 dark:text-red-400" : ""}`}>
+                        {t('anesthesia.patientDetail.coagulationInfectious')}
+                      </CardTitle>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <CardContent className="pt-0">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label className="text-base font-semibold">{t('anesthesia.patientDetail.coagulation')}</Label>
+                              <div className="border rounded-lg p-3 space-y-2">
+                                {(anesthesiaSettings?.illnessLists?.coagulation || []).map(({ id, label }) => (
+                                  <div key={id} className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={id}
+                                      checked={(assessmentData.coagulationIllnesses as any)[id] || false}
+                                      onCheckedChange={(checked) => setAssessmentData({
+                                        ...assessmentData,
+                                        coagulationIllnesses: {...assessmentData.coagulationIllnesses, [id]: checked as boolean}
+                                      })}
+                                      data-testid={`checkbox-${id}`}
+                                    />
+                                    <Label htmlFor={id} className="cursor-pointer font-normal text-sm">{label}</Label>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-base font-semibold">{t('anesthesia.patientDetail.infectiousDiseases')}</Label>
+                              <div className="border rounded-lg p-3 space-y-2">
+                                {(anesthesiaSettings?.illnessLists?.infectious || []).map(({ id, label }) => (
+                                  <div key={id} className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={id}
+                                      checked={(assessmentData.infectiousIllnesses as any)[id] || false}
+                                      onCheckedChange={(checked) => setAssessmentData({
+                                        ...assessmentData,
+                                        infectiousIllnesses: {...assessmentData.infectiousIllnesses, [id]: checked as boolean}
+                                      })}
+                                      data-testid={`checkbox-${id}`}
+                                    />
+                                    <Label htmlFor={id} className="cursor-pointer font-normal text-sm">{label}</Label>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-base font-semibold">{t('anesthesia.patientDetail.additionalNotes')}</Label>
+                            <Textarea
+                              value={assessmentData.coagulationInfectiousNotes}
+                              onChange={(e) => setAssessmentData({...assessmentData, coagulationInfectiousNotes: e.target.value})}
+                              placeholder={t('anesthesia.patientDetail.coagulationInfectiousNotesPlaceholder')}
+                              rows={16}
+                              data-testid="textarea-coagulation-infectious-notes"
                             />
                           </div>
                         </div>

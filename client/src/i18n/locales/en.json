@@ -1088,6 +1088,8 @@
       "neurological": "Neurological",
       "psychiatric": "Psychiatric",
       "skeletal": "Skeletal",
+      "coagulation": "Coagulation",
+      "infectiousDiseases": "Infectious Diseases",
       "gynecology": "Gynecology",
       "substanceUse": "Substance Use",
       "pediatric": "Pediatric",
@@ -1156,7 +1158,11 @@
       "surgeryRoomRemoved": "Surgery room has been removed",
       "settingsUpdated": "Settings updated",
       "anesthesiaSettingsUpdated": "Anesthesia settings have been updated",
-      "failedToUpdateSettings": "Failed to update settings"
+      "failedToUpdateSettings": "Failed to update settings",
+      "editAllergy": "Edit Allergy",
+      "editMedication": "Edit Medication",
+      "editCondition": "Edit Condition",
+      "editChecklistItem": "Edit Checklist Item"
     },
     "reports": {
       "title": "Reports & Analytics",
@@ -1281,6 +1287,10 @@
       "psychiatry": "Psychiatry",
       "skeletal": "Skeletal",
       "additionalNeurologicalNotes": "Enter additional notes about neurological, psychiatric or skeletal conditions...",
+      "coagulationInfectious": "Coagulation and Infectious Diseases",
+      "coagulation": "Coagulation",
+      "infectiousDiseases": "Infectious Diseases",
+      "coagulationInfectiousNotesPlaceholder": "Enter additional notes about coagulation or infectious disease conditions...",
       "gynecology": "Gynecology",
       "additionalGynecologyNotes": "Enter additional notes about gynecological conditions...",
       "pediatric": "Pediatric",

@@ -1088,6 +1088,8 @@
       "neurological": "Neurologisch",
       "psychiatric": "Psychiatrisch",
       "skeletal": "Skelett",
+      "coagulation": "Gerinnung",
+      "infectiousDiseases": "Infektiöse Vorerkrankungen",
       "gynecology": "Gynäkologie",
       "substanceUse": "Substanzkonsum",
       "pediatric": "Pädiatrie",
@@ -1156,7 +1158,11 @@
       "surgeryRoomRemoved": "OP-Raum wurde entfernt",
       "settingsUpdated": "Einstellungen aktualisiert",
       "anesthesiaSettingsUpdated": "Anästhesieeinstellungen wurden aktualisiert",
-      "failedToUpdateSettings": "Fehler beim Aktualisieren der Einstellungen"
+      "failedToUpdateSettings": "Fehler beim Aktualisieren der Einstellungen",
+      "editAllergy": "Allergie bearbeiten",
+      "editMedication": "Medikament bearbeiten",
+      "editCondition": "Erkrankung bearbeiten",
+      "editChecklistItem": "Checklistenpunkt bearbeiten"
     },
     "reports": {
       "title": "Berichte & Analysen",
@@ -1281,6 +1287,10 @@
       "psychiatry": "Psychiatrie",
       "skeletal": "Skelett",
       "additionalNeurologicalNotes": "Zusätzliche Notizen zu neurologischen, psychiatrischen oder Skeletterkrankungen eingeben...",
+      "coagulationInfectious": "Gerinnung und Infektiöse Vorerkrankungen",
+      "coagulation": "Gerinnung",
+      "infectiousDiseases": "Infektiöse Vorerkrankungen",
+      "coagulationInfectiousNotesPlaceholder": "Zusätzliche Notizen zu Gerinnungs- oder Infektionskrankheiten eingeben...",
       "gynecology": "Gynäkologie",
       "additionalGynecologyNotes": "Zusätzliche Notizen zu gynäkologischen Erkrankungen eingeben...",
       "pediatric": "Pädiatrie",
