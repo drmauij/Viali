@@ -2991,44 +2991,23 @@ export default function PatientDetail() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <Button 
-                      variant="outline"
-                      size="lg" 
-                      onClick={() => handleSavePreOpAssessment(false)}
-                      disabled={createPreOpMutation.isPending || updatePreOpMutation.isPending}
-                      data-testid="button-save-draft"
-                    >
-                      {(createPreOpMutation.isPending || updatePreOpMutation.isPending) ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          {t('anesthesia.patientDetail.saving')}
-                        </>
-                      ) : (
-                        t('anesthesia.patientDetail.saveDraft')
-                      )}
-                    </Button>
-                    <Button 
-                      className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800" 
-                      size="lg" 
-                      onClick={handleCompleteAssessment}
-                      disabled={createPreOpMutation.isPending || updatePreOpMutation.isPending || existingAssessment?.status === "completed"}
-                      data-testid="button-complete-assessment"
-                    >
-                      {existingAssessment?.status === "completed" ? (
-                        t('anesthesia.patientDetail.completed')
-                      ) : (
-                        (createPreOpMutation.isPending || updatePreOpMutation.isPending) ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            {t('anesthesia.patientDetail.completing')}
-                          </>
-                        ) : (
-                          t('anesthesia.patientDetail.completeAndSign')
-                        )
-                      )}
-                    </Button>
-                  </div>
+                  <Button 
+                    variant="outline"
+                    size="lg" 
+                    className="w-full"
+                    onClick={() => handleSavePreOpAssessment(false)}
+                    disabled={createPreOpMutation.isPending || updatePreOpMutation.isPending}
+                    data-testid="button-save-draft"
+                  >
+                    {(createPreOpMutation.isPending || updatePreOpMutation.isPending) ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {t('anesthesia.patientDetail.saving')}
+                      </>
+                    ) : (
+                      t('anesthesia.patientDetail.saveDraft')
+                    )}
+                  </Button>
                 </CardContent>
               </Card>
             </TabsContent>
