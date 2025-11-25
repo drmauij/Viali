@@ -91,20 +91,23 @@ export const HiddenChartExporter = forwardRef<HiddenChartExporterRef, Props>(
     const buildChartOption = useCallback(() => {
       if (!chartData) return {};
 
-      const hrData = (chartData.hr || []).map((p: any) => [
+      // Clinical snapshot data is nested inside .data property
+      const snapshotData = chartData.data || chartData;
+
+      const hrData = (snapshotData.hr || []).map((p: any) => [
         new Date(p.timestamp).getTime(),
         p.value,
       ]);
-      const bpData = (chartData.bp || []).map((p: any) => ({
+      const bpData = (snapshotData.bp || []).map((p: any) => ({
         time: new Date(p.timestamp).getTime(),
         sys: p.sys,
         dia: p.dia,
       }));
-      const spo2Data = (chartData.spo2 || []).map((p: any) => [
+      const spo2Data = (snapshotData.spo2 || []).map((p: any) => [
         new Date(p.timestamp).getTime(),
         p.value,
       ]);
-      const tempData = (chartData.temp || []).map((p: any) => [
+      const tempData = (snapshotData.temp || []).map((p: any) => [
         new Date(p.timestamp).getTime(),
         p.value,
       ]);
