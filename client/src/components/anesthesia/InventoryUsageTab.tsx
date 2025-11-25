@@ -478,18 +478,6 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
         </Button>
       </div>
 
-      {/* Search Field */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder={t('anesthesia.op.searchItems')}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-          data-testid="inventory-search"
-        />
-      </div>
-
       {/* Commit History */}
       {commits.length > 0 && (
         <Card className="mb-4">
@@ -542,6 +530,18 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
           </CardContent>
         </Card>
       )}
+
+      {/* Search Field */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder={t('anesthesia.op.searchItems')}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10"
+          data-testid="inventory-search"
+        />
+      </div>
 
       {sortedFolderIds.length === 0 ? (
         <Card>
