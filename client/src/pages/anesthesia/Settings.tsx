@@ -26,7 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, X, ChevronUp, ChevronDown, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Plus, X, ChevronUp, ChevronDown, Pencil, Trash2, Languages } from "lucide-react";
 import { arrayMove } from "@dnd-kit/sortable";
 
 type MedicationGroup = {
@@ -136,15 +136,18 @@ export default function AnesthesiaSettings() {
   const [newItemId, setNewItemId] = useState('');
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
 
-  // State for editing list items (allergies, medications, illnesses)
+  // State for editing list items (allergies, medications, illnesses, checklists)
   const [listItemDialogOpen, setListItemDialogOpen] = useState(false);
   const [editingListItem, setEditingListItem] = useState<{
-    type: 'allergy' | 'medication' | 'illness';
+    type: 'allergy' | 'medication' | 'illness' | 'checklist';
     category?: string;
     oldValue: string;
     oldId?: string;
   } | null>(null);
   const [listItemFormValue, setListItemFormValue] = useState('');
+
+  // State for translation
+  const [isTranslating, setIsTranslating] = useState<string | null>(null);
 
   // Split items into available and selected
   const anesthesiaItemIds = new Set(anesthesiaItems.map(item => item.id));
@@ -461,11 +464,101 @@ export default function AnesthesiaSettings() {
       editMedication(editingListItem.category as 'anticoagulation' | 'general', editingListItem.oldValue, listItemFormValue);
     } else if (editingListItem.type === 'illness' && editingListItem.category && editingListItem.oldId) {
       editIllness(editingListItem.category, editingListItem.oldId, listItemFormValue);
+    } else if (editingListItem.type === 'checklist' && editingListItem.category) {
+      editChecklistItem(editingListItem.category as 'signIn' | 'timeOut' | 'signOut', editingListItem.oldValue, listItemFormValue);
     }
     
     setListItemDialogOpen(false);
     setEditingListItem(null);
     setListItemFormValue('');
+  };
+
+  // Translation function using OpenAI
+  const translateSection = async (section: 'allergies' | 'anticoagulation' | 'general' | 'illness' | 'checklist', category?: string) => {
+    if (!anesthesiaSettings) return;
+    
+    const sectionKey = category ? `${section}-${category}` : section;
+    setIsTranslating(sectionKey);
+    
+    try {
+      let items: string[] = [];
+      
+      if (section === 'allergies') {
+        items = anesthesiaSettings.allergyList || [];
+      } else if (section === 'anticoagulation') {
+        items = anesthesiaSettings.medicationLists?.anticoagulation || [];
+      } else if (section === 'general') {
+        items = anesthesiaSettings.medicationLists?.general || [];
+      } else if (section === 'illness' && category) {
+        items = ((anesthesiaSettings.illnessLists as any)?.[category] || []).map((i: any) => i.label);
+      } else if (section === 'checklist' && category) {
+        items = anesthesiaSettings.checklistItems?.[category as 'signIn' | 'timeOut' | 'signOut'] || [];
+      }
+      
+      if (items.length === 0) {
+        toast({
+          title: t('anesthesia.settings.noItemsToTranslate'),
+          description: t('anesthesia.settings.addItemsFirst'),
+        });
+        setIsTranslating(null);
+        return;
+      }
+      
+      const response = await apiRequest('POST', '/api/translate', { items });
+      const data = await response.json();
+      const translatedItems: string[] = data.translations;
+      
+      if (section === 'allergies') {
+        updateSettingsMutation.mutate({ allergyList: translatedItems });
+      } else if (section === 'anticoagulation') {
+        updateSettingsMutation.mutate({
+          medicationLists: {
+            ...anesthesiaSettings.medicationLists,
+            anticoagulation: translatedItems,
+          },
+        });
+      } else if (section === 'general') {
+        updateSettingsMutation.mutate({
+          medicationLists: {
+            ...anesthesiaSettings.medicationLists,
+            general: translatedItems,
+          },
+        });
+      } else if (section === 'illness' && category) {
+        const currentLists = anesthesiaSettings.illnessLists || {};
+        const currentItems = (currentLists as any)[category] || [];
+        const updatedItems = currentItems.map((item: any, index: number) => ({
+          id: generateIdFromLabel(translatedItems[index] || item.label),
+          label: translatedItems[index] || item.label,
+        }));
+        updateSettingsMutation.mutate({
+          illnessLists: {
+            ...currentLists,
+            [category]: updatedItems,
+          },
+        });
+      } else if (section === 'checklist' && category) {
+        updateSettingsMutation.mutate({
+          checklistItems: {
+            ...anesthesiaSettings.checklistItems,
+            [category]: translatedItems,
+          },
+        });
+      }
+      
+      toast({
+        title: t('anesthesia.settings.translationComplete'),
+        description: t('anesthesia.settings.itemsTranslated'),
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: t('common.error'),
+        description: error.message || t('anesthesia.settings.translationFailed'),
+      });
+    } finally {
+      setIsTranslating(null);
+    }
   };
 
   const addChecklistItem = (category: 'signIn' | 'timeOut' | 'signOut') => {
@@ -490,6 +583,17 @@ export default function AnesthesiaSettings() {
       checklistItems: {
         ...currentItems,
         [category]: (currentItems[category] || []).filter(i => i !== item),
+      },
+    });
+  };
+
+  const editChecklistItem = (category: 'signIn' | 'timeOut' | 'signOut', oldValue: string, newValue: string) => {
+    if (!anesthesiaSettings || !newValue.trim()) return;
+    const currentItems = anesthesiaSettings.checklistItems || {};
+    updateSettingsMutation.mutate({
+      checklistItems: {
+        ...currentItems,
+        [category]: (currentItems[category] || []).map(i => i === oldValue ? newValue.trim() : i),
       },
     });
   };
@@ -876,11 +980,27 @@ export default function AnesthesiaSettings() {
         </TabsContent>
 
         <TabsContent value="allergies" className="space-y-4">
-          <div className="mb-4">
-            <h3 className="text-lg font-medium">{t('anesthesia.settings.commonAllergies')}</h3>
-            <p className="text-sm text-muted-foreground">
-              {t('anesthesia.settings.commonAllergiesDescription')}
-            </p>
+          <div className="mb-4 flex items-start justify-between">
+            <div>
+              <h3 className="text-lg font-medium">{t('anesthesia.settings.commonAllergies')}</h3>
+              <p className="text-sm text-muted-foreground">
+                {t('anesthesia.settings.commonAllergiesDescription')}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => translateSection('allergies')}
+              disabled={isTranslating === 'allergies'}
+              data-testid="button-translate-allergies"
+            >
+              {isTranslating === 'allergies' ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Languages className="h-4 w-4 mr-2" />
+              )}
+              EN ↔ DE
+            </Button>
           </div>
 
           <div className="flex gap-2 mb-4">
@@ -948,7 +1068,23 @@ export default function AnesthesiaSettings() {
 
           <div className="space-y-6">
             <div>
-              <h4 className="font-medium mb-3">{t('anesthesia.settings.anticoagulationMedications')}</h4>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium">{t('anesthesia.settings.anticoagulationMedications')}</h4>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => translateSection('anticoagulation')}
+                  disabled={isTranslating === 'anticoagulation'}
+                  data-testid="button-translate-anticoagulation"
+                >
+                  {isTranslating === 'anticoagulation' ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Languages className="h-4 w-4 mr-2" />
+                  )}
+                  EN ↔ DE
+                </Button>
+              </div>
               <div className="flex gap-2 mb-3">
                 <Input
                   value={editingCategory === 'anticoagulation' ? newItemInput : ''}
@@ -1001,7 +1137,23 @@ export default function AnesthesiaSettings() {
             </div>
 
             <div>
-              <h4 className="font-medium mb-3">{t('anesthesia.settings.generalMedications')}</h4>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium">{t('anesthesia.settings.generalMedications')}</h4>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => translateSection('general')}
+                  disabled={isTranslating === 'general'}
+                  data-testid="button-translate-general"
+                >
+                  {isTranslating === 'general' ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Languages className="h-4 w-4 mr-2" />
+                  )}
+                  EN ↔ DE
+                </Button>
+              </div>
               <div className="flex gap-2 mb-3">
                 <Input
                   value={editingCategory === 'general' ? newItemInput : ''}
@@ -1078,7 +1230,22 @@ export default function AnesthesiaSettings() {
               { key: 'children', label: t('anesthesia.settings.pediatric') },
             ].map(({ key, label }) => (
               <div key={key} className="border rounded-lg p-4">
-                <h4 className="font-medium mb-3">{label}</h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium">{label}</h4>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => translateSection('illness', key)}
+                    disabled={isTranslating === `illness-${key}`}
+                    data-testid={`button-translate-illness-${key}`}
+                  >
+                    {isTranslating === `illness-${key}` ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Languages className="h-3 w-3" />
+                    )}
+                  </Button>
+                </div>
                 <div className="flex gap-2 mb-3">
                   <Input
                     value={editingCategory === key ? newItemInput : ''}
@@ -1150,7 +1317,23 @@ export default function AnesthesiaSettings() {
               { key: 'signOut' as const, label: t('anesthesia.settings.signOutBeforePatientLeavesOR') },
             ].map(({ key, label }) => (
               <div key={key} className="border rounded-lg p-4">
-                <h4 className="font-medium mb-3">{label}</h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium">{label}</h4>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => translateSection('checklist', key)}
+                    disabled={isTranslating === `checklist-${key}`}
+                    data-testid={`button-translate-checklist-${key}`}
+                  >
+                    {isTranslating === `checklist-${key}` ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Languages className="h-4 w-4 mr-2" />
+                    )}
+                    EN ↔ DE
+                  </Button>
+                </div>
                 <div className="flex gap-2 mb-3">
                   <Input
                     value={editingCategory === key ? newItemInput : ''}
@@ -1175,15 +1358,30 @@ export default function AnesthesiaSettings() {
                       data-testid={`checklist-item-${key}-${item}`}
                     >
                       <span className="text-sm">{item}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => removeChecklistItem(key, item)}
-                        data-testid={`button-remove-checklist-${key}-${item}`}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => {
+                            setEditingListItem({ type: 'checklist', category: key, oldValue: item });
+                            setListItemFormValue(item);
+                            setListItemDialogOpen(true);
+                          }}
+                          data-testid={`button-edit-checklist-${key}-${item}`}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => removeChecklistItem(key, item)}
+                          data-testid={`button-remove-checklist-${key}-${item}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1628,7 +1826,7 @@ export default function AnesthesiaSettings() {
         </DialogContent>
       </Dialog>
 
-      {/* List Item Edit Dialog (Allergies, Medications, Illnesses) */}
+      {/* List Item Edit Dialog (Allergies, Medications, Illnesses, Checklists) */}
       <Dialog open={listItemDialogOpen} onOpenChange={setListItemDialogOpen}>
         <DialogContent data-testid="dialog-list-item-form">
           <DialogHeader>
@@ -1636,6 +1834,7 @@ export default function AnesthesiaSettings() {
               {editingListItem?.type === 'allergy' && t('anesthesia.settings.editAllergy')}
               {editingListItem?.type === 'medication' && t('anesthesia.settings.editMedication')}
               {editingListItem?.type === 'illness' && t('anesthesia.settings.editCondition')}
+              {editingListItem?.type === 'checklist' && t('anesthesia.settings.editChecklistItem')}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">

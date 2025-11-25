@@ -1674,6 +1674,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Translate items between English and German
+  app.post('/api/translate', isAuthenticated, async (req: any, res) => {
+    try {
+      const { items } = req.body;
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ message: "Items array is required" });
+      }
+
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+
+      const itemsList = items.join('\n');
+      
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `You are a medical translator. Translate the given medical terms between English and German.
+            - If the terms are in English, translate to German
+            - If the terms are in German, translate to English
+            - Keep medical terminology accurate
+            - Return ONLY the translated terms, one per line, in the same order as input
+            - Do not add any explanations or numbering`
+          },
+          {
+            role: "user",
+            content: itemsList
+          }
+        ],
+        temperature: 0.3,
+      });
+
+      const translatedText = response.choices[0]?.message?.content || '';
+      const translations = translatedText.split('\n').filter(line => line.trim());
+      
+      // Ensure we have the same number of translations as input
+      if (translations.length !== items.length) {
+        console.warn('Translation count mismatch:', { input: items.length, output: translations.length });
+      }
+
+      res.json({ translations });
+    } catch (error: any) {
+      console.error("Error translating items:", error);
+      res.status(500).json({ message: error.message || "Failed to translate items" });
+    }
+  });
+
   // Bulk item creation
   app.post('/api/items/bulk', isAuthenticated, async (req: any, res) => {
     try {
