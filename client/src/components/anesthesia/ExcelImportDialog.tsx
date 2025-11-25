@@ -70,8 +70,11 @@ export default function ExcelImportDialog({
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
 
   useEffect(() => {
-    if (surgeryRooms.length > 0 && !defaultRoomId) {
-      setDefaultRoomId(surgeryRooms[0].id);
+    if (surgeryRooms.length > 0) {
+      const currentRoomExists = surgeryRooms.some(r => r.id === defaultRoomId);
+      if (!defaultRoomId || !currentRoomExists) {
+        setDefaultRoomId(surgeryRooms[0].id);
+      }
     }
   }, [surgeryRooms, defaultRoomId]);
 
@@ -292,18 +295,21 @@ export default function ExcelImportDialog({
           patientId = newPatient.id;
         }
 
-        const [year, month, day] = row.surgeryDate.split('-').map(Number);
-        const [hour, minute] = row.startTime.split(':').map(Number);
-        const startDate = new Date(year, month - 1, day, hour, minute);
-        const endDate = new Date(startDate);
-        endDate.setMinutes(endDate.getMinutes() + row.duration);
+        const plannedDateStr = `${row.surgeryDate}T${row.startTime}:00`;
+        
+        const [startHour, startMinute] = row.startTime.split(':').map(Number);
+        const totalMinutes = startHour * 60 + startMinute + row.duration;
+        const endHour = Math.floor(totalMinutes / 60) % 24;
+        const endMin = totalMinutes % 60;
+        const endTimeStr = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}:00`;
+        const endDateStr = `${row.surgeryDate}T${endTimeStr}`;
 
         await createSurgeryMutation.mutateAsync({
           hospitalId,
           patientId,
           surgeryRoomId: defaultRoomId,
-          plannedDate: startDate.toISOString(),
-          actualEndTime: endDate.toISOString(),
+          plannedDate: plannedDateStr,
+          actualEndTime: endDateStr,
           plannedSurgery: row.procedure,
           surgeon: row.surgeon || undefined,
           notes: row.notes || undefined,
