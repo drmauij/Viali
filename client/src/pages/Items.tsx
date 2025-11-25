@@ -2307,10 +2307,32 @@ export default function Items() {
                                       <span className="text-sm">{t('items.controlledNoBulkEdit')}</span>
                                     </div>
                                   ) : (
-                                    <div className="flex gap-2 flex-1">
-                                      <div className="flex-1">
+                                    <div className="flex gap-2 flex-1 flex-wrap">
+                                      <div className="w-24">
+                                        <Label className="text-xs">{t('items.unitType')}</Label>
+                                        <Select
+                                          value={bulkEditItems[item.id]?.trackExactQuantity !== undefined 
+                                            ? (bulkEditItems[item.id].trackExactQuantity ? 'pack' : 'single') 
+                                            : (item.trackExactQuantity ? 'pack' : 'single')}
+                                          onValueChange={(val) => {
+                                            setBulkEditItems(prev => ({
+                                              ...prev,
+                                              [item.id]: { ...prev[item.id], trackExactQuantity: val === 'pack' }
+                                            }));
+                                          }}
+                                        >
+                                          <SelectTrigger className="h-9" data-testid={`bulk-edit-unit-type-${item.id}`}>
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="pack">{t('items.pack')}</SelectItem>
+                                            <SelectItem value="single">{t('items.singleUnit')}</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                      <div className="flex-1 min-w-16">
                                         <Label className="text-xs">
-                                          {item.trackExactQuantity ? t('items.currentUnits') : t('items.stock')}
+                                          {(bulkEditItems[item.id]?.trackExactQuantity !== undefined ? bulkEditItems[item.id].trackExactQuantity : item.trackExactQuantity) ? t('items.currentUnits') : t('items.stock')}
                                         </Label>
                                         <Input
                                           type="number"
@@ -2336,7 +2358,7 @@ export default function Items() {
                                           data-testid={`bulk-edit-${item.trackExactQuantity ? 'units' : 'stock'}-${item.id}`}
                                         />
                                       </div>
-                                      <div className="flex-1">
+                                      <div className="flex-1 min-w-16">
                                         <Label className="text-xs">{t('items.minThreshold')}</Label>
                                         <Input
                                           type="number"
@@ -2350,7 +2372,7 @@ export default function Items() {
                                           data-testid={`bulk-edit-min-${item.id}`}
                                         />
                                       </div>
-                                      <div className="flex-1">
+                                      <div className="flex-1 min-w-16">
                                         <Label className="text-xs">{t('items.maxThreshold')}</Label>
                                         <Input
                                           type="number"
@@ -2536,9 +2558,31 @@ export default function Items() {
                       </div>
                     ) : (
                       <div className="flex gap-2 flex-1">
+                        <div className="w-24">
+                          <Label className="text-xs">{t('items.unitType')}</Label>
+                          <Select
+                            value={bulkEditItems[item.id]?.trackExactQuantity !== undefined 
+                              ? (bulkEditItems[item.id].trackExactQuantity ? 'pack' : 'single') 
+                              : (item.trackExactQuantity ? 'pack' : 'single')}
+                            onValueChange={(val) => {
+                              setBulkEditItems(prev => ({
+                                ...prev,
+                                [item.id]: { ...prev[item.id], trackExactQuantity: val === 'pack' }
+                              }));
+                            }}
+                          >
+                            <SelectTrigger className="h-9" data-testid={`bulk-edit-unit-type-desktop-${item.id}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pack">{t('items.pack')}</SelectItem>
+                              <SelectItem value="single">{t('items.singleUnit')}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <div className="flex-1">
                           <Label className="text-xs">
-                            {item.trackExactQuantity ? t('items.currentUnits') : t('items.stock')}
+                            {(bulkEditItems[item.id]?.trackExactQuantity !== undefined ? bulkEditItems[item.id].trackExactQuantity : item.trackExactQuantity) ? t('items.currentUnits') : t('items.stock')}
                           </Label>
                           <Input
                             type="number"
