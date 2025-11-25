@@ -39,15 +39,24 @@ interface DownloadPdfResult {
  * @returns Promise with success status and any warnings
  */
 export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): Promise<DownloadPdfResult> {
-  const { surgery, patient, hospitalId, anesthesiaSettings, hiddenChartRef } = options;
+  const { surgery, patient, hospitalId, anesthesiaSettings: providedSettings, hiddenChartRef } = options;
 
   try {
-    // Fetch critical data (anesthesia record, pre-op assessment, items)
-    const [anesthesiaRecordRes, preOpRes, itemsRes] = await Promise.all([
+    // Fetch critical data (anesthesia record, pre-op assessment, items, and settings if not provided)
+    const fetchPromises: Promise<Response>[] = [
       fetch(`/api/anesthesia/records/surgery/${surgery.id}`, { credentials: "include" }),
       fetch(`/api/anesthesia/preop/surgery/${surgery.id}`, { credentials: "include" }),
       fetch(`/api/anesthesia/items/${hospitalId}`, { credentials: "include" }),
-    ]);
+    ];
+    
+    // Always fetch settings to ensure we have the correct checklist item keys
+    if (!providedSettings) {
+      fetchPromises.push(fetch(`/api/anesthesia/settings/${hospitalId}`, { credentials: "include" }));
+    }
+    
+    const responses = await Promise.all(fetchPromises);
+    const [anesthesiaRecordRes, preOpRes, itemsRes] = responses;
+    const settingsRes = !providedSettings ? responses[3] : null;
 
     // Check for critical failures
     if (!anesthesiaRecordRes.ok && anesthesiaRecordRes.status !== 404) {
@@ -60,6 +69,10 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
     const anesthesiaRecord = anesthesiaRecordRes.ok ? await anesthesiaRecordRes.json() : null;
     const preOpAssessment = preOpRes.ok ? await preOpRes.json() : null;
     const anesthesiaItems = await itemsRes.json();
+    
+    // Use provided settings or parse fetched settings
+    const anesthesiaSettings: AnesthesiaSettingsForPdf | null = providedSettings || 
+      (settingsRes?.ok ? await settingsRes.json() : null);
 
     // If we have an anesthesia record, fetch its related data
     let events: any[] = [];
