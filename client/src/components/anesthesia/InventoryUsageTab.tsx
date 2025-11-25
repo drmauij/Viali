@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Package, Minus, Plus, Folder, RotateCcw, CheckCircle, History, Undo, ChevronDown, ChevronRight, Search } from "lucide-react";
+import { Package, Minus, Plus, Folder, RotateCcw, CheckCircle, History, Undo, ChevronDown, ChevronRight, Search, X } from "lucide-react";
 import { ControlledItemsCommitDialog } from "./ControlledItemsCommitDialog";
 import { formatDate } from "@/lib/dateUtils";
 
@@ -538,9 +538,19 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
           placeholder={t('anesthesia.op.searchItems')}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
+          className="pl-10 pr-8"
           data-testid="inventory-search"
         />
+        {searchTerm && (
+          <button
+            type="button"
+            onClick={() => setSearchTerm('')}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted"
+            data-testid="inventory-search-clear"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {sortedFolderIds.length === 0 ? (
