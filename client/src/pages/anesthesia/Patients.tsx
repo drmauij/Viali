@@ -314,15 +314,15 @@ export default function Patients() {
                 <Label>Allergies</Label>
                 <div className="grid grid-cols-2 gap-2">
                   {(anesthesiaSettings?.allergyList || []).map((allergy) => (
-                    <div key={allergy} className="flex items-center space-x-2">
+                    <div key={allergy.id} className="flex items-center space-x-2">
                       <Checkbox
-                        id={`allergy-${allergy}`}
-                        checked={newPatient.allergies.includes(allergy)}
-                        onCheckedChange={() => toggleAllergy(allergy)}
-                        data-testid={`checkbox-allergy-${allergy.toLowerCase().replace(/\s+/g, '-')}`}
+                        id={`allergy-${allergy.id}`}
+                        checked={newPatient.allergies.includes(allergy.id)}
+                        onCheckedChange={() => toggleAllergy(allergy.id)}
+                        data-testid={`checkbox-allergy-${allergy.id}`}
                       />
-                      <Label htmlFor={`allergy-${allergy}`} className="text-sm font-normal cursor-pointer">
-                        {allergy}
+                      <Label htmlFor={`allergy-${allergy.id}`} className="text-sm font-normal cursor-pointer">
+                        {allergy.label}
                       </Label>
                     </div>
                   ))}

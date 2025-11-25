@@ -57,9 +57,9 @@ interface PositionEntry {
 }
 
 interface ChecklistSettings {
-  signIn?: string[];
-  timeOut?: string[];
-  signOut?: string[];
+  signIn?: Array<{ id: string; label: string }>;
+  timeOut?: Array<{ id: string; label: string }>;
+  signOut?: Array<{ id: string; label: string }>;
 }
 
 interface ExportData {
@@ -1388,8 +1388,8 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
       yPos = checkPageBreak(doc, yPos, 60);
       // Use configured checklist items if available, otherwise use defaults
       const signInItems = data.checklistSettings?.signIn?.map(item => ({
-        key: item.toLowerCase().replace(/\s+/g, '_'),
-        label: item
+        key: item.id,
+        label: item.label
       })) || [
         { key: "patient_identity_confirmed", label: i18next.t("anesthesia.pdf.whoSignIn.patientIdentity") },
         { key: "site_marked", label: i18next.t("anesthesia.pdf.whoSignIn.siteMarked") },
@@ -1407,8 +1407,8 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     if (data.anesthesiaRecord.timeOutData) {
       yPos = checkPageBreak(doc, yPos, 60);
       const timeOutItems = data.checklistSettings?.timeOut?.map(item => ({
-        key: item.toLowerCase().replace(/\s+/g, '_'),
-        label: item
+        key: item.id,
+        label: item.label
       })) || [
         { key: "team_introductions", label: i18next.t("anesthesia.pdf.whoTimeOut.teamIntroductions") },
         { key: "patient_confirmed", label: i18next.t("anesthesia.pdf.whoTimeOut.patientConfirmed") },
@@ -1424,8 +1424,8 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     if (data.anesthesiaRecord.signOutData) {
       yPos = checkPageBreak(doc, yPos, 60);
       const signOutItems = data.checklistSettings?.signOut?.map(item => ({
-        key: item.toLowerCase().replace(/\s+/g, '_'),
-        label: item
+        key: item.id,
+        label: item.label
       })) || [
         { key: "procedure_recorded", label: i18next.t("anesthesia.pdf.whoSignOut.procedureRecorded") },
         { key: "counts_correct", label: i18next.t("anesthesia.pdf.whoSignOut.countsCorrect") },

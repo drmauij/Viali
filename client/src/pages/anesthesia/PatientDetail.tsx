@@ -1317,11 +1317,15 @@ export default function PatientDetail() {
                 <div className="space-y-2">
                   {patient.allergies && patient.allergies.length > 0 && (
                     <div className="flex flex-wrap gap-2" data-testid="container-allergies">
-                      {patient.allergies.map((allergy) => (
-                        <Badge key={allergy} variant="destructive" className="text-xs" data-testid={`badge-allergy-${allergy.toLowerCase()}`}>
-                          {allergy}
-                        </Badge>
-                      ))}
+                      {patient.allergies.map((allergyId) => {
+                        const allergyItem = anesthesiaSettings?.allergyList?.find(a => a.id === allergyId);
+                        const displayLabel = allergyItem?.label || allergyId;
+                        return (
+                          <Badge key={allergyId} variant="destructive" className="text-xs" data-testid={`badge-allergy-${allergyId}`}>
+                            {displayLabel}
+                          </Badge>
+                        );
+                      })}
                     </div>
                   )}
                   {patient.otherAllergies && (
@@ -1988,20 +1992,20 @@ export default function PatientDetail() {
                           <div className="border rounded-lg p-3 space-y-2">
                             <div className="grid grid-cols-2 gap-2">
                               {(anesthesiaSettings?.allergyList || []).map((allergy) => (
-                                <div key={allergy} className="flex items-center space-x-2">
+                                <div key={allergy.id} className="flex items-center space-x-2">
                                   <Checkbox
-                                    id={`allergy-${allergy}`}
-                                    checked={assessmentData.allergies.includes(allergy)}
+                                    id={`allergy-${allergy.id}`}
+                                    checked={assessmentData.allergies.includes(allergy.id)}
                                     onCheckedChange={(checked) => {
                                       if (checked) {
-                                        setAssessmentData({...assessmentData, allergies: [...assessmentData.allergies, allergy]});
+                                        setAssessmentData({...assessmentData, allergies: [...assessmentData.allergies, allergy.id]});
                                       } else {
-                                        setAssessmentData({...assessmentData, allergies: assessmentData.allergies.filter(a => a !== allergy)});
+                                        setAssessmentData({...assessmentData, allergies: assessmentData.allergies.filter(a => a !== allergy.id)});
                                       }
                                     }}
-                                    data-testid={`checkbox-allergy-${allergy.toLowerCase().replace(/\s+/g, '-')}`}
+                                    data-testid={`checkbox-allergy-${allergy.id}`}
                                   />
-                                  <Label htmlFor={`allergy-${allergy}`} className="cursor-pointer font-normal text-sm">{allergy}</Label>
+                                  <Label htmlFor={`allergy-${allergy.id}`} className="cursor-pointer font-normal text-sm">{allergy.label}</Label>
                                 </div>
                               ))}
                             </div>
@@ -2072,20 +2076,20 @@ export default function PatientDetail() {
                               <div className="border rounded-lg p-3 space-y-2">
                                 <div className="grid grid-cols-2 gap-2">
                                   {anticoagulationMedications.map((medication) => (
-                                    <div key={medication} className="flex items-center space-x-2">
+                                    <div key={medication.id} className="flex items-center space-x-2">
                                       <Checkbox
-                                        id={`anticoag-${medication}`}
-                                        checked={assessmentData.anticoagulationMeds.includes(medication)}
+                                        id={`anticoag-${medication.id}`}
+                                        checked={assessmentData.anticoagulationMeds.includes(medication.id)}
                                         onCheckedChange={(checked) => {
                                           if (checked) {
-                                            setAssessmentData({...assessmentData, anticoagulationMeds: [...assessmentData.anticoagulationMeds, medication]});
+                                            setAssessmentData({...assessmentData, anticoagulationMeds: [...assessmentData.anticoagulationMeds, medication.id]});
                                           } else {
-                                            setAssessmentData({...assessmentData, anticoagulationMeds: assessmentData.anticoagulationMeds.filter(m => m !== medication)});
+                                            setAssessmentData({...assessmentData, anticoagulationMeds: assessmentData.anticoagulationMeds.filter(m => m !== medication.id)});
                                           }
                                         }}
-                                        data-testid={`checkbox-anticoag-${medication.toLowerCase().replace(/\s+/g, '-')}`}
+                                        data-testid={`checkbox-anticoag-${medication.id}`}
                                       />
-                                      <Label htmlFor={`anticoag-${medication}`} className="cursor-pointer font-normal text-sm">{medication}</Label>
+                                      <Label htmlFor={`anticoag-${medication.id}`} className="cursor-pointer font-normal text-sm">{medication.label}</Label>
                                     </div>
                                   ))}
                                 </div>
@@ -2102,20 +2106,20 @@ export default function PatientDetail() {
                               <div className="border rounded-lg p-3 space-y-2">
                                 <div className="grid grid-cols-2 gap-2">
                                   {generalMedications.map((medication) => (
-                                    <div key={medication} className="flex items-center space-x-2">
+                                    <div key={medication.id} className="flex items-center space-x-2">
                                       <Checkbox
-                                        id={`general-med-${medication}`}
-                                        checked={assessmentData.generalMeds.includes(medication)}
+                                        id={`general-med-${medication.id}`}
+                                        checked={assessmentData.generalMeds.includes(medication.id)}
                                         onCheckedChange={(checked) => {
                                           if (checked) {
-                                            setAssessmentData({...assessmentData, generalMeds: [...assessmentData.generalMeds, medication]});
+                                            setAssessmentData({...assessmentData, generalMeds: [...assessmentData.generalMeds, medication.id]});
                                           } else {
-                                            setAssessmentData({...assessmentData, generalMeds: assessmentData.generalMeds.filter(m => m !== medication)});
+                                            setAssessmentData({...assessmentData, generalMeds: assessmentData.generalMeds.filter(m => m !== medication.id)});
                                           }
                                         }}
-                                        data-testid={`checkbox-general-med-${medication.toLowerCase().replace(/\s+/g, '-')}`}
+                                        data-testid={`checkbox-general-med-${medication.id}`}
                                       />
-                                      <Label htmlFor={`general-med-${medication}`} className="cursor-pointer font-normal text-sm">{medication}</Label>
+                                      <Label htmlFor={`general-med-${medication.id}`} className="cursor-pointer font-normal text-sm">{medication.label}</Label>
                                     </div>
                                   ))}
                                 </div>
@@ -3440,25 +3444,25 @@ export default function PatientDetail() {
               <div className="flex flex-wrap gap-2 mb-2">
                 {(anesthesiaSettings?.allergyList || []).map((allergy) => (
                   <Badge
-                    key={allergy}
-                    variant={editForm.allergies.includes(allergy) ? "default" : "outline"}
+                    key={allergy.id}
+                    variant={editForm.allergies.includes(allergy.id) ? "default" : "outline"}
                     className="cursor-pointer"
                     onClick={() => {
-                      if (editForm.allergies.includes(allergy)) {
+                      if (editForm.allergies.includes(allergy.id)) {
                         setEditForm({
                           ...editForm,
-                          allergies: editForm.allergies.filter((a) => a !== allergy),
+                          allergies: editForm.allergies.filter((a) => a !== allergy.id),
                         });
                       } else {
                         setEditForm({
                           ...editForm,
-                          allergies: [...editForm.allergies, allergy],
+                          allergies: [...editForm.allergies, allergy.id],
                         });
                       }
                     }}
-                    data-testid={`badge-edit-allergy-${allergy.toLowerCase()}`}
+                    data-testid={`badge-edit-allergy-${allergy.id}`}
                   >
-                    {allergy}
+                    {allergy.label}
                   </Badge>
                 ))}
               </div>

@@ -169,8 +169,17 @@ export function usePdfExport(props: UsePdfExportProps) {
         }
       }
 
+      // Convert allergy IDs to labels for PDF display
+      const patientWithAllergyLabels = {
+        ...props.patient,
+        allergies: props.patient.allergies?.map((allergyId: string) => {
+          const allergyItem = props.anesthesiaSettings?.allergyList?.find((a: { id: string; label: string }) => a.id === allergyId);
+          return allergyItem?.label || allergyId;
+        }) || [],
+      };
+
       generateAnesthesiaRecordPDF({
-        patient: props.patient,
+        patient: patientWithAllergyLabels,
         surgery: props.surgery,
         anesthesiaRecord: props.anesthesiaRecord || null,
         preOpAssessment: props.preOpAssessment || null,

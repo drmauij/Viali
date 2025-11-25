@@ -4,10 +4,10 @@ import { useActiveHospital } from "./useActiveHospital";
 export type HospitalAnesthesiaSettings = {
   id: string;
   hospitalId: string;
-  allergyList?: string[];
+  allergyList?: Array<{ id: string; label: string }>;
   medicationLists?: {
-    anticoagulation?: string[];
-    general?: string[];
+    anticoagulation?: Array<{ id: string; label: string }>;
+    general?: Array<{ id: string; label: string }>;
   };
   illnessLists?: {
     cardiovascular?: Array<{ id: string; label: string }>;

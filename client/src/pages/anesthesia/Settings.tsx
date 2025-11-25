@@ -338,26 +338,28 @@ export default function AnesthesiaSettings() {
   const addAllergy = () => {
     if (!newItemInput.trim() || !anesthesiaSettings) return;
     const currentList = anesthesiaSettings.allergyList || [];
-    if (!currentList.includes(newItemInput.trim())) {
+    const autoId = generateIdFromLabel(newItemInput);
+    const newItem = { id: autoId, label: newItemInput.trim() };
+    if (!currentList.find((item) => item.id === newItem.id)) {
       updateSettingsMutation.mutate({
-        allergyList: [...currentList, newItemInput.trim()],
+        allergyList: [...currentList, newItem],
       });
       setNewItemInput('');
     }
   };
 
-  const removeAllergy = (allergy: string) => {
+  const removeAllergy = (allergyId: string) => {
     if (!anesthesiaSettings) return;
     updateSettingsMutation.mutate({
-      allergyList: (anesthesiaSettings.allergyList || []).filter(a => a !== allergy),
+      allergyList: (anesthesiaSettings.allergyList || []).filter(a => a.id !== allergyId),
     });
   };
 
-  const editAllergy = (oldValue: string, newValue: string) => {
-    if (!anesthesiaSettings || !newValue.trim()) return;
+  const editAllergy = (oldId: string, newLabel: string) => {
+    if (!anesthesiaSettings || !newLabel.trim()) return;
     const currentList = anesthesiaSettings.allergyList || [];
     updateSettingsMutation.mutate({
-      allergyList: currentList.map(a => a === oldValue ? newValue.trim() : a),
+      allergyList: currentList.map(a => a.id === oldId ? { id: a.id, label: newLabel.trim() } : a),
     });
   };
 
@@ -365,35 +367,39 @@ export default function AnesthesiaSettings() {
     if (!newItemInput.trim() || !anesthesiaSettings) return;
     const currentLists = anesthesiaSettings.medicationLists || {};
     const currentList = currentLists[category] || [];
-    if (!currentList.includes(newItemInput.trim())) {
+    const autoId = generateIdFromLabel(newItemInput);
+    const newItem = { id: autoId, label: newItemInput.trim() };
+    if (!currentList.find((item) => item.id === newItem.id)) {
       updateSettingsMutation.mutate({
         medicationLists: {
           ...currentLists,
-          [category]: [...currentList, newItemInput.trim()],
+          [category]: [...currentList, newItem],
         },
       });
       setNewItemInput('');
     }
   };
 
-  const removeMedication = (category: 'anticoagulation' | 'general', medication: string) => {
+  const removeMedication = (category: 'anticoagulation' | 'general', medicationId: string) => {
     if (!anesthesiaSettings) return;
     const currentLists = anesthesiaSettings.medicationLists || {};
     updateSettingsMutation.mutate({
       medicationLists: {
         ...currentLists,
-        [category]: (currentLists[category] || []).filter(m => m !== medication),
+        [category]: (currentLists[category] || []).filter(m => m.id !== medicationId),
       },
     });
   };
 
-  const editMedication = (category: 'anticoagulation' | 'general', oldValue: string, newValue: string) => {
-    if (!anesthesiaSettings || !newValue.trim()) return;
+  const editMedication = (category: 'anticoagulation' | 'general', oldId: string, newLabel: string) => {
+    if (!anesthesiaSettings || !newLabel.trim()) return;
     const currentLists = anesthesiaSettings.medicationLists || {};
     updateSettingsMutation.mutate({
       medicationLists: {
         ...currentLists,
-        [category]: (currentLists[category] || []).map(m => m === oldValue ? newValue.trim() : m),
+        [category]: (currentLists[category] || []).map(m => 
+          m.id === oldId ? { id: m.id, label: newLabel.trim() } : m
+        ),
       },
     });
   };
@@ -457,10 +463,10 @@ export default function AnesthesiaSettings() {
   const handleSaveListItem = () => {
     if (!editingListItem || !listItemFormValue.trim()) return;
     
-    if (editingListItem.type === 'allergy') {
-      editAllergy(editingListItem.oldValue, listItemFormValue);
-    } else if (editingListItem.type === 'medication' && editingListItem.category) {
-      editMedication(editingListItem.category as 'anticoagulation' | 'general', editingListItem.oldValue, listItemFormValue);
+    if (editingListItem.type === 'allergy' && editingListItem.oldId) {
+      editAllergy(editingListItem.oldId, listItemFormValue);
+    } else if (editingListItem.type === 'medication' && editingListItem.category && editingListItem.oldId) {
+      editMedication(editingListItem.category as 'anticoagulation' | 'general', editingListItem.oldId, listItemFormValue);
     } else if (editingListItem.type === 'illness' && editingListItem.category && editingListItem.oldId) {
       editIllness(editingListItem.category, editingListItem.oldId, listItemFormValue);
     } else if (editingListItem.type === 'checklist' && editingListItem.category && editingListItem.oldId) {
@@ -483,11 +489,11 @@ export default function AnesthesiaSettings() {
       let items: string[] = [];
       
       if (section === 'allergies') {
-        items = anesthesiaSettings.allergyList || [];
+        items = (anesthesiaSettings.allergyList || []).map((i) => i.label);
       } else if (section === 'anticoagulation') {
-        items = anesthesiaSettings.medicationLists?.anticoagulation || [];
+        items = (anesthesiaSettings.medicationLists?.anticoagulation || []).map((i) => i.label);
       } else if (section === 'general') {
-        items = anesthesiaSettings.medicationLists?.general || [];
+        items = (anesthesiaSettings.medicationLists?.general || []).map((i) => i.label);
       } else if (section === 'illness' && category) {
         items = ((anesthesiaSettings.illnessLists as any)?.[category] || []).map((i: any) => i.label);
       } else if (section === 'checklist' && category) {
@@ -508,19 +514,34 @@ export default function AnesthesiaSettings() {
       const translatedItems: string[] = data.translations;
       
       if (section === 'allergies') {
-        updateSettingsMutation.mutate({ allergyList: translatedItems });
+        const currentItems = anesthesiaSettings.allergyList || [];
+        const updatedItems = currentItems.map((item, index) => ({
+          id: item.id,
+          label: translatedItems[index] || item.label,
+        }));
+        updateSettingsMutation.mutate({ allergyList: updatedItems });
       } else if (section === 'anticoagulation') {
+        const currentItems = anesthesiaSettings.medicationLists?.anticoagulation || [];
+        const updatedItems = currentItems.map((item, index) => ({
+          id: item.id,
+          label: translatedItems[index] || item.label,
+        }));
         updateSettingsMutation.mutate({
           medicationLists: {
             ...anesthesiaSettings.medicationLists,
-            anticoagulation: translatedItems,
+            anticoagulation: updatedItems,
           },
         });
       } else if (section === 'general') {
+        const currentItems = anesthesiaSettings.medicationLists?.general || [];
+        const updatedItems = currentItems.map((item, index) => ({
+          id: item.id,
+          label: translatedItems[index] || item.label,
+        }));
         updateSettingsMutation.mutate({
           medicationLists: {
             ...anesthesiaSettings.medicationLists,
-            general: translatedItems,
+            general: updatedItems,
           },
         });
       } else if (section === 'illness' && category) {
@@ -1033,29 +1054,29 @@ export default function AnesthesiaSettings() {
             ) : (
               (anesthesiaSettings?.allergyList || []).map((allergy) => (
                 <div
-                  key={allergy}
+                  key={allergy.id}
                   className="flex items-center justify-between p-3 border-b last:border-b-0 hover:bg-muted/50"
-                  data-testid={`allergy-item-${allergy}`}
+                  data-testid={`allergy-item-${allergy.id}`}
                 >
-                  <span>{allergy}</span>
+                  <span>{allergy.label}</span>
                   <div className="flex items-center gap-1">
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => {
-                        setEditingListItem({ type: 'allergy', oldValue: allergy });
-                        setListItemFormValue(allergy);
+                        setEditingListItem({ type: 'allergy', oldId: allergy.id, oldValue: allergy.label });
+                        setListItemFormValue(allergy.label);
                         setListItemDialogOpen(true);
                       }}
-                      data-testid={`button-edit-allergy-${allergy}`}
+                      data-testid={`button-edit-allergy-${allergy.id}`}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => removeAllergy(allergy)}
-                      data-testid={`button-remove-allergy-${allergy}`}
+                      onClick={() => removeAllergy(allergy.id)}
+                      data-testid={`button-remove-allergy-${allergy.id}`}
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -1112,29 +1133,29 @@ export default function AnesthesiaSettings() {
               <div className="border rounded-lg">
                 {(anesthesiaSettings?.medicationLists?.anticoagulation || []).map((med) => (
                   <div
-                    key={med}
+                    key={med.id}
                     className="flex items-center justify-between p-3 border-b last:border-b-0 hover:bg-muted/50"
-                    data-testid={`anticoag-item-${med}`}
+                    data-testid={`anticoag-item-${med.id}`}
                   >
-                    <span>{med}</span>
+                    <span>{med.label}</span>
                     <div className="flex items-center gap-1">
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => {
-                          setEditingListItem({ type: 'medication', category: 'anticoagulation', oldValue: med });
-                          setListItemFormValue(med);
+                          setEditingListItem({ type: 'medication', category: 'anticoagulation', oldId: med.id, oldValue: med.label });
+                          setListItemFormValue(med.label);
                           setListItemDialogOpen(true);
                         }}
-                        data-testid={`button-edit-anticoag-${med}`}
+                        data-testid={`button-edit-anticoag-${med.id}`}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => removeMedication('anticoagulation', med)}
-                        data-testid={`button-remove-anticoag-${med}`}
+                        onClick={() => removeMedication('anticoagulation', med.id)}
+                        data-testid={`button-remove-anticoag-${med.id}`}
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -1181,29 +1202,29 @@ export default function AnesthesiaSettings() {
               <div className="border rounded-lg">
                 {(anesthesiaSettings?.medicationLists?.general || []).map((med) => (
                   <div
-                    key={med}
+                    key={med.id}
                     className="flex items-center justify-between p-3 border-b last:border-b-0 hover:bg-muted/50"
-                    data-testid={`general-med-item-${med}`}
+                    data-testid={`general-med-item-${med.id}`}
                   >
-                    <span>{med}</span>
+                    <span>{med.label}</span>
                     <div className="flex items-center gap-1">
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => {
-                          setEditingListItem({ type: 'medication', category: 'general', oldValue: med });
-                          setListItemFormValue(med);
+                          setEditingListItem({ type: 'medication', category: 'general', oldId: med.id, oldValue: med.label });
+                          setListItemFormValue(med.label);
                           setListItemDialogOpen(true);
                         }}
-                        data-testid={`button-edit-general-med-${med}`}
+                        data-testid={`button-edit-general-med-${med.id}`}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => removeMedication('general', med)}
-                        data-testid={`button-remove-general-med-${med}`}
+                        onClick={() => removeMedication('general', med.id)}
+                        data-testid={`button-remove-general-med-${med.id}`}
                       >
                         <X className="h-4 w-4" />
                       </Button>

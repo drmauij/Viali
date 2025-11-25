@@ -5,6 +5,7 @@ import { FileText, ClipboardList, Activity, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
+import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 
 interface SurgerySummaryDialogProps {
   open: boolean;
@@ -25,6 +26,7 @@ export default function SurgerySummaryDialog({
 }: SurgerySummaryDialogProps) {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
+  const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings();
 
   const { data: surgery } = useQuery<any>({
     queryKey: [`/api/anesthesia/surgeries/${surgeryId}`],
@@ -143,15 +145,19 @@ export default function SurgerySummaryDialog({
                   <div className="mb-2">
                     <span className="text-xs font-medium text-muted-foreground">{t('anesthesia.surgerySummary.allergies')}</span>
                     <div className="mt-1 flex flex-wrap gap-1">
-                      {patient.allergies.map((allergy: string) => (
-                        <span 
-                          key={allergy}
-                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                          data-testid={`badge-summary-allergy-${allergy.toLowerCase()}`}
-                        >
-                          {allergy}
-                        </span>
-                      ))}
+                      {patient.allergies.map((allergyId: string) => {
+                        const allergyItem = anesthesiaSettings?.allergyList?.find(a => a.id === allergyId);
+                        const displayLabel = allergyItem?.label || allergyId;
+                        return (
+                          <span 
+                            key={allergyId}
+                            className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                            data-testid={`badge-summary-allergy-${allergyId}`}
+                          >
+                            {displayLabel}
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

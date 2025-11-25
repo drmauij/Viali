@@ -180,16 +180,101 @@ export async function migrateChecklistsToIdBased() {
   }
 }
 
+export async function migrateAllergiesAndMedsToIdBased() {
+  console.log('[SETTINGS-MIGRATION] Starting allergies and medications migration...');
+  
+  try {
+    const settings = await db.execute(sql`
+      SELECT id, hospital_id, allergy_list, medication_lists 
+      FROM hospital_anesthesia_settings 
+    `);
+    
+    console.log(`[SETTINGS-MIGRATION] Found ${settings.rows.length} hospital settings to check`);
+    
+    let migratedCount = 0;
+    
+    for (const setting of settings.rows) {
+      const allergyList = setting.allergy_list as any[] | null;
+      const medicationLists = setting.medication_lists as { anticoagulation?: any[]; general?: any[] } | null;
+      
+      let needsMigration = false;
+      let newAllergyList = allergyList;
+      let newMedicationLists = medicationLists;
+      
+      // Check if allergyList needs migration (old format: string[], new format: {id, label}[])
+      if (allergyList && allergyList.length > 0 && typeof allergyList[0] === 'string') {
+        needsMigration = true;
+        newAllergyList = allergyList.map((label: string) => ({
+          id: generateIdFromLabel(label),
+          label: label,
+        }));
+        console.log(`[SETTINGS-MIGRATION] Hospital ${setting.hospital_id}: migrating ${allergyList.length} allergies`);
+      }
+      
+      // Check if medicationLists needs migration
+      if (medicationLists) {
+        if (medicationLists.anticoagulation && medicationLists.anticoagulation.length > 0 && 
+            typeof medicationLists.anticoagulation[0] === 'string') {
+          needsMigration = true;
+          newMedicationLists = {
+            ...newMedicationLists,
+            anticoagulation: medicationLists.anticoagulation.map((label: string) => ({
+              id: generateIdFromLabel(label),
+              label: label,
+            })),
+          };
+          console.log(`[SETTINGS-MIGRATION] Hospital ${setting.hospital_id}: migrating ${medicationLists.anticoagulation.length} anticoagulation meds`);
+        }
+        
+        if (medicationLists.general && medicationLists.general.length > 0 && 
+            typeof medicationLists.general[0] === 'string') {
+          needsMigration = true;
+          newMedicationLists = {
+            ...newMedicationLists,
+            general: medicationLists.general.map((label: string) => ({
+              id: generateIdFromLabel(label),
+              label: label,
+            })),
+          };
+          console.log(`[SETTINGS-MIGRATION] Hospital ${setting.hospital_id}: migrating ${medicationLists.general.length} general meds`);
+        }
+      }
+      
+      if (needsMigration) {
+        await db.execute(sql`
+          UPDATE hospital_anesthesia_settings 
+          SET allergy_list = ${newAllergyList ? JSON.stringify(newAllergyList) : null}::jsonb,
+              medication_lists = ${newMedicationLists ? JSON.stringify(newMedicationLists) : null}::jsonb,
+              updated_at = NOW()
+          WHERE id = ${setting.id}
+        `);
+        migratedCount++;
+        console.log(`[SETTINGS-MIGRATION] Migrated settings for hospital ${setting.hospital_id}`);
+      }
+    }
+    
+    console.log(`[SETTINGS-MIGRATION] Migration complete! Migrated ${migratedCount} hospitals`);
+    return { success: true, migratedCount };
+    
+  } catch (error) {
+    console.error('[SETTINGS-MIGRATION] Migration failed:', error);
+    throw error;
+  }
+}
+
 const isMain = import.meta.url === `file://${process.argv[1]}`;
 
 if (isMain) {
-  migrateChecklistsToIdBased()
-    .then((result) => {
-      console.log('[CHECKLIST-MIGRATION] Result:', result);
+  Promise.all([
+    migrateChecklistsToIdBased(),
+    migrateAllergiesAndMedsToIdBased(),
+  ])
+    .then((results) => {
+      console.log('[MIGRATION] All migrations complete:', results);
       process.exit(0);
     })
     .catch((error) => {
-      console.error('[CHECKLIST-MIGRATION] Error:', error);
+      console.error('[MIGRATION] Error:', error);
       process.exit(1);
     });
 }
