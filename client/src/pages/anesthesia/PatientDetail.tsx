@@ -25,6 +25,7 @@ import { formatDate, formatDateTimeForInput } from "@/lib/dateUtils";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 import SignaturePad from "@/components/SignaturePad";
 import { generateAnesthesiaRecordPDF } from "@/lib/anesthesiaRecordPdf";
+import { HiddenChartExporter, type HiddenChartExporterRef } from "@/components/anesthesia/HiddenChartExporter";
 
 type Patient = {
   id: string;
@@ -63,6 +64,7 @@ export default function PatientDetail() {
   const [selectedCaseId, setSelectedCaseId] = useState<string>("");
   const [isPatientCardVisible, setIsPatientCardVisible] = useState(true);
   const patientCardRef = useRef<HTMLDivElement>(null);
+  const hiddenChartRef = useRef<HiddenChartExporterRef>(null);
   const activeHospital = useActiveHospital();
   const { user } = useAuth();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -947,6 +949,22 @@ export default function PatientDetail() {
         }
       }
 
+      // Export chart image using hidden chart exporter
+      let chartImage: string | null = null;
+      if (clinicalSnapshot && hiddenChartRef.current) {
+        try {
+          console.log("[PDF-EXPORT] Exporting chart image...");
+          chartImage = await hiddenChartRef.current.exportChart(clinicalSnapshot);
+          if (chartImage) {
+            console.log("[PDF-EXPORT] Chart image exported successfully");
+          } else {
+            console.warn("[PDF-EXPORT] Chart export returned null");
+          }
+        } catch (error) {
+          console.error("[PDF-EXPORT] Failed to export chart:", error);
+        }
+      }
+
       // Generate PDF
       generateAnesthesiaRecordPDF({
         patient: {
@@ -976,6 +994,7 @@ export default function PatientDetail() {
         positions,
         timeMarkers: (anesthesiaRecord?.timeMarkers as any[]) || [],
         checklistSettings: anesthesiaSettings?.checklistItems || null,
+        chartImage,
       });
 
       toast({
@@ -1154,6 +1173,9 @@ export default function PatientDetail() {
 
   return (
     <div className="container mx-auto p-4 pb-20">
+      {/* Hidden chart exporter for PDF generation */}
+      <HiddenChartExporter ref={hiddenChartRef} />
+      
       {/* Sticky Patient Header */}
       {!isPatientCardVisible && (
         <div 

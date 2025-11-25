@@ -303,11 +303,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           return null;
         }
         
-        // Export chart as PNG data URL with white background
+        // Export chart as PNG data URL with white background (always light theme for PDF)
         const dataURL = chartInstance.getDataURL({
           type: 'png',
           pixelRatio: 2, // Higher resolution for better quality
-          backgroundColor: isDark ? '#1a1a1a' : '#ffffff',
+          backgroundColor: '#ffffff', // Always use white for PDF export
         });
         
         console.log('[CHART-EXPORT] Chart exported successfully');
@@ -317,7 +317,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         return null;
       }
     },
-  }), [isChartReady, isDark]);
+  }), [isChartReady]);
 
   // Fetch configured anesthesia items from inventory
   const { data: allAnesthesiaItems = [] } = useQuery<AnesthesiaItem[]>({
