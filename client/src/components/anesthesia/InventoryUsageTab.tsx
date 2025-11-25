@@ -4,10 +4,11 @@ import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Package, Minus, Plus, Folder, RotateCcw, CheckCircle, History, Undo, ChevronDown, ChevronRight } from "lucide-react";
+import { Package, Minus, Plus, Folder, RotateCcw, CheckCircle, History, Undo, ChevronDown, ChevronRight, Search } from "lucide-react";
 import { ControlledItemsCommitDialog } from "./ControlledItemsCommitDialog";
 import { formatDate } from "@/lib/dateUtils";
 
@@ -28,6 +29,7 @@ interface Item {
   folderId: string;
   controlled: boolean;
   trackExactQuantity: boolean;
+  unit?: string | null;
 }
 
 interface FolderType {
@@ -60,6 +62,7 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
   // State for controlling folder expansion (using Set for instant lookups)
   const [openFolders, setOpenFolders] = useState<Set<string>>(() => new Set());
   const [showCommitDialog, setShowCommitDialog] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Toggle folder expansion
   const toggleFolder = (folderId: string) => {
@@ -172,10 +175,33 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
     return map;
   }, [inventoryUsage]);
 
+  // Filter items: exclude pack items without trackExactQuantity
+  const filteredItems = useMemo(() => {
+    return items.filter(item => {
+      const normalizedUnit = item.unit?.toLowerCase() || '';
+      // Check if it's a pack-type unit (covers 'pack', 'pack/box', etc.)
+      const isPack = normalizedUnit.startsWith('pack');
+      // If it's a pack item without trackExactQuantity, filter it out
+      if (isPack && !item.trackExactQuantity) {
+        return false;
+      }
+      return true;
+    });
+  }, [items]);
+
+  // Apply search filter
+  const searchFilteredItems = useMemo(() => {
+    if (!searchTerm) return filteredItems;
+    const lowerSearch = searchTerm.toLowerCase();
+    return filteredItems.filter(item => 
+      item.name.toLowerCase().includes(lowerSearch)
+    );
+  }, [filteredItems, searchTerm]);
+
   // Group items by folder
   const groupedItems = useMemo(() => {
     const groups: Record<string, Item[]> = {};
-    items.forEach(item => {
+    searchFilteredItems.forEach(item => {
       // Use the item's folderId if it exists, otherwise 'uncategorized'
       // Don't validate against folders list to avoid race conditions
       const folderId = item.folderId || 'uncategorized';
@@ -185,7 +211,7 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
       groups[folderId].push(item);
     });
     return groups;
-  }, [items]);
+  }, [searchFilteredItems]);
 
   // Get sorted folder IDs (by sortOrder, then by name) to match inventory list order
   const sortedFolderIds = useMemo(() => {
@@ -247,24 +273,22 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
     return Math.max(0, Math.round(getFinalQty(itemId)));
   };
 
-  // Get items to commit (uncommitted quantities)
+  // Get items to commit (uncommitted quantities) - based on filteredItems, not affected by search
   const itemsToCommit = useMemo(() => {
     const toCommit: CommitItem[] = [];
-    Object.keys(groupedItems).forEach(folderId => {
-      groupedItems[folderId].forEach(item => {
-        const qty = getUncommittedQty(item.id);
-        if (qty > 0) {
-          toCommit.push({
-            itemId: item.id,
-            itemName: item.name,
-            quantity: qty,
-            isControlled: item.controlled || false,
-          });
-        }
-      });
+    filteredItems.forEach(item => {
+      const qty = getUncommittedQty(item.id);
+      if (qty > 0) {
+        toCommit.push({
+          itemId: item.id,
+          itemName: item.name,
+          quantity: qty,
+          isControlled: item.controlled || false,
+        });
+      }
     });
     return toCommit;
-  }, [groupedItems, autoCalcMap, overrideMap]);
+  }, [filteredItems, autoCalcMap, overrideMap]);
 
   // Mutation to create or update inventory usage quantity
   const overrideMutation = useMutation({
@@ -417,6 +441,17 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
     });
   }, [foldersWithUsedItems]);
 
+  // Auto-expand folders containing search results
+  useEffect(() => {
+    if (searchTerm) {
+      // When searching, expand all folders that have matching items
+      const foldersWithResults = Object.keys(groupedItems).filter(
+        folderId => groupedItems[folderId].length > 0
+      );
+      setOpenFolders(new Set(foldersWithResults));
+    }
+  }, [searchTerm, groupedItems]);
+
   if (!anesthesiaRecordId) {
     return (
       <Card>
@@ -441,6 +476,18 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
           <CheckCircle className="h-4 w-4 mr-2" />
           {t('anesthesia.op.commitUsedItems')}
         </Button>
+      </div>
+
+      {/* Search Field */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder={t('anesthesia.op.searchItems')}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10"
+          data-testid="inventory-search"
+        />
       </div>
 
       {/* Commit History */}
