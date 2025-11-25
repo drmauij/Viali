@@ -1,11 +1,27 @@
 import { generateAnesthesiaRecordPDF } from "@/lib/anesthesiaRecordPdf";
-import type { Surgery, Patient, HospitalAnesthesiaSettings } from "@shared/schema";
+import type { Surgery, Patient } from "@shared/schema";
+
+interface AllergyItem {
+  id: string;
+  label: string;
+}
+
+interface ChecklistItems {
+  signIn?: { id: string; label: string }[];
+  timeOut?: { id: string; label: string }[];
+  signOut?: { id: string; label: string }[];
+}
+
+interface AnesthesiaSettingsForPdf {
+  allergyList?: AllergyItem[] | null;
+  checklistItems?: ChecklistItems | null;
+}
 
 interface DownloadPdfOptions {
   surgery: Surgery;
   patient: Patient;
   hospitalId: string;
-  anesthesiaSettings?: HospitalAnesthesiaSettings | null;
+  anesthesiaSettings?: AnesthesiaSettingsForPdf | null;
   hiddenChartRef?: React.RefObject<{ exportChart: (snapshot: any) => Promise<string | null> }>;
 }
 
@@ -106,6 +122,17 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
     }
 
     // Convert allergy IDs to labels for PDF display
+    // IMPORTANT: Keep null/undefined intact so PDF shows "No allergies known" fallback text
+    let convertedAllergies: string[] | null = null;
+    if (patient.allergies && patient.allergies.length > 0) {
+      convertedAllergies = patient.allergies.map((allergyId: string) => {
+        const allergyItem = anesthesiaSettings?.allergyList?.find(
+          (a: { id: string; label: string }) => a.id === allergyId
+        );
+        return allergyItem?.label || allergyId;
+      });
+    }
+
     const patientWithAllergyLabels = {
       ...patient,
       email: patient.email ?? null,
@@ -120,13 +147,7 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
       updatedAt: patient.updatedAt ? new Date(patient.updatedAt) : null,
       deletedAt: null,
       otherAllergies: patient.otherAllergies ?? null,
-      // Convert allergy IDs to human-readable labels
-      allergies: patient.allergies?.map((allergyId: string) => {
-        const allergyItem = anesthesiaSettings?.allergyList?.find(
-          (a: { id: string; label: string }) => a.id === allergyId
-        );
-        return allergyItem?.label || allergyId;
-      }) || [],
+      allergies: convertedAllergies,
     };
 
     // Generate PDF

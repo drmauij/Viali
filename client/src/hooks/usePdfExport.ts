@@ -170,12 +170,18 @@ export function usePdfExport(props: UsePdfExportProps) {
       }
 
       // Convert allergy IDs to labels for PDF display
-      const patientWithAllergyLabels = {
-        ...props.patient,
-        allergies: props.patient.allergies?.map((allergyId: string) => {
+      // IMPORTANT: Keep null/undefined intact so PDF shows "No allergies known" fallback text
+      let convertedAllergies: string[] | null = null;
+      if (props.patient.allergies && props.patient.allergies.length > 0) {
+        convertedAllergies = props.patient.allergies.map((allergyId: string) => {
           const allergyItem = props.anesthesiaSettings?.allergyList?.find((a: { id: string; label: string }) => a.id === allergyId);
           return allergyItem?.label || allergyId;
-        }) || [],
+        });
+      }
+
+      const patientWithAllergyLabels = {
+        ...props.patient,
+        allergies: convertedAllergies,
       };
 
       generateAnesthesiaRecordPDF({
