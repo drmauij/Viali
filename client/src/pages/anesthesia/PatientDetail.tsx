@@ -2851,53 +2851,7 @@ export default function PatientDetail() {
                   <CardTitle>{t('anesthesia.patientDetail.assessmentCompletion')}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>{t('anesthesia.patientDetail.assessmentDate')}</Label>
-                      <Input
-                        type="date"
-                        value={assessmentData.assessmentDate}
-                        onChange={(e) => setAssessmentData({...assessmentData, assessmentDate: e.target.value})}
-                        data-testid="input-assessment-date"
-                      />
-                      {assessmentData.assessmentDate && (
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(assessmentData.assessmentDate)}
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{t('anesthesia.patientDetail.doctorName')}</Label>
-                      <Input
-                        value={assessmentData.doctorName}
-                        onChange={(e) => setAssessmentData({...assessmentData, doctorName: e.target.value})}
-                        placeholder={t('anesthesia.patientDetail.enterYourName')}
-                        data-testid="input-doctor-name"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>{t('anesthesia.patientDetail.doctorSignature')}</Label>
-                    <div
-                      className="border-2 border-dashed rounded-lg p-6 cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => setShowAssessmentSignaturePad(true)}
-                      data-testid="assessment-signature-trigger"
-                    >
-                      {assessmentData.doctorSignature ? (
-                        <div className="flex flex-col items-center gap-2">
-                          <img src={assessmentData.doctorSignature} alt="Doctor signature" className="h-16 max-w-full" />
-                          <p className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.clickToChangeSignature')}</p>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                          <i className="fas fa-signature text-2xl"></i>
-                          <p className="text-sm">{t('anesthesia.patientDetail.clickToAddSignature')}</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
+                  {/* Surgical Approval Status - moved to top */}
                   <div className="space-y-2">
                     <Label className="text-base font-semibold">{t('anesthesia.patientDetail.surgicalApprovalStatus')}</Label>
                     <div className="space-y-2">
@@ -2976,6 +2930,55 @@ export default function PatientDetail() {
                           {t('anesthesia.patientDetail.notApproved')}
                         </Label>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Assessment Date and Doctor Name */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{t('anesthesia.patientDetail.assessmentDate')}</Label>
+                      <Input
+                        type="date"
+                        value={assessmentData.assessmentDate}
+                        onChange={(e) => setAssessmentData({...assessmentData, assessmentDate: e.target.value})}
+                        data-testid="input-assessment-date"
+                      />
+                      {assessmentData.assessmentDate && (
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(assessmentData.assessmentDate)}
+                        </p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t('anesthesia.patientDetail.doctorName')}</Label>
+                      <Input
+                        value={assessmentData.doctorName}
+                        onChange={(e) => setAssessmentData({...assessmentData, doctorName: e.target.value})}
+                        placeholder={t('anesthesia.patientDetail.enterYourName')}
+                        data-testid="input-doctor-name"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Doctor Signature */}
+                  <div className="space-y-2">
+                    <Label>{t('anesthesia.patientDetail.doctorSignature')}</Label>
+                    <div
+                      className="border-2 border-dashed rounded-lg p-6 cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => setShowAssessmentSignaturePad(true)}
+                      data-testid="assessment-signature-trigger"
+                    >
+                      {assessmentData.doctorSignature ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <img src={assessmentData.doctorSignature} alt="Doctor signature" className="h-16 max-w-full" />
+                          <p className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.clickToChangeSignature')}</p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                          <i className="fas fa-signature text-2xl"></i>
+                          <p className="text-sm">{t('anesthesia.patientDetail.clickToAddSignature')}</p>
+                        </div>
+                      )}
                     </div>
                   </div>
 
