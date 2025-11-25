@@ -493,6 +493,7 @@ export function MedicationConfigDialog({
                       <SelectItem value="mg">mg ({t("anesthesia.timeline.milligrams")})</SelectItem>
                       <SelectItem value="g">g ({t("anesthesia.timeline.grams")})</SelectItem>
                       <SelectItem value="ml">ml ({t("anesthesia.timeline.milliliters")})</SelectItem>
+                      <SelectItem value="Tbl">Tbl ({t("anesthesia.timeline.tablet")})</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
