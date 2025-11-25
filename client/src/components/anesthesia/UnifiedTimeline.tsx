@@ -2843,8 +2843,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       // Step 1: Preprocess image (resize and compress only - skip grayscale for performance)
       const { preprocessImage } = await import('@/lib/imagePreprocessing');
       const preprocessed = await preprocessImage(imageBase64, {
-        maxWidth: 512, // Reduced from 768 for faster mobile processing
-        quality: 0.6,  // Reduced from 0.75 for faster compression
+        maxWidth: 1280, // Increased for better AI vision accuracy on medical monitors
+        quality: 0.85,  // Higher quality preserves critical numeric details
         grayscale: false, // Skip pixel-by-pixel grayscale conversion - not needed for modern OCR/AI
       });
       

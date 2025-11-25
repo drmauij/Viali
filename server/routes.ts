@@ -1900,7 +1900,10 @@ Example - German ventilation monitor:
               { type: "text", text: prompt },
               {
                 type: "image_url",
-                image_url: { url: `data:image/jpeg;base64,${image}` }
+                image_url: { 
+                  url: `data:image/jpeg;base64,${image}`,
+                  detail: "high"
+                }
               }
             ]
           }
