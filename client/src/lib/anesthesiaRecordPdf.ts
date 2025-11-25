@@ -1706,7 +1706,10 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
   }
 
   // ==================== SAVE PDF ====================
-  const fileName = `AnesthesiaRecord_${data.patient.patientNumber}_${data.surgery.plannedDate.toString().split('T')[0]}.pdf`;
+  // Include patient name in filename (sanitize to remove special characters)
+  const patientName = `${data.patient.surname}_${data.patient.firstName}`.replace(/[^a-zA-Z0-9_-]/g, '');
+  const dateStr = data.surgery.plannedDate.toString().split('T')[0];
+  const fileName = `AnesthesiaRecord_${patientName}_${data.patient.patientNumber}_${dateStr}.pdf`;
   doc.save(fileName);
 }
 

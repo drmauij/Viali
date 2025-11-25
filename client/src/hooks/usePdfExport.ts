@@ -2,6 +2,7 @@ import { useToast } from "@/hooks/use-toast";
 import { generateAnesthesiaRecordPDF } from "@/lib/anesthesiaRecordPdf";
 import { useTranslation } from "react-i18next";
 import type { UnifiedTimelineRef } from "@/components/anesthesia/UnifiedTimeline";
+import type { HiddenChartExporterRef } from "@/components/anesthesia/HiddenChartExporter";
 import type { RefObject } from "react";
 
 interface UsePdfExportProps {
@@ -18,6 +19,7 @@ interface UsePdfExportProps {
   positions: any[];
   anesthesiaSettings: any;
   timelineRef: RefObject<UnifiedTimelineRef>;
+  hiddenChartRef?: RefObject<HiddenChartExporterRef>;
   isRecordLoading: boolean;
   isVitalsLoading: boolean;
   isMedicationsLoading: boolean;
@@ -135,18 +137,35 @@ export function usePdfExport(props: UsePdfExportProps) {
     }
 
     try {
-      // Export chart image from timeline
       let chartImage: string | null = null;
+      
+      // Try to export chart image from timeline first (when visible)
       if (props.timelineRef.current) {
         try {
+          console.log('[PDF-EXPORT] Attempting to export chart from visible timeline...');
           chartImage = await props.timelineRef.current.getChartImage();
           if (chartImage) {
-            console.log('[PDF-EXPORT] Chart image exported successfully');
+            console.log('[PDF-EXPORT] Chart image exported from timeline successfully');
           } else {
-            console.warn('[PDF-EXPORT] Chart image export returned null');
+            console.warn('[PDF-EXPORT] Timeline chart export returned null');
           }
         } catch (error) {
-          console.error('[PDF-EXPORT] Failed to export chart image:', error);
+          console.error('[PDF-EXPORT] Failed to export chart from timeline:', error);
+        }
+      }
+      
+      // Fallback to hidden chart exporter if timeline export failed
+      if (!chartImage && props.hiddenChartRef?.current && props.clinicalSnapshot) {
+        try {
+          console.log('[PDF-EXPORT] Falling back to hidden chart exporter...');
+          chartImage = await props.hiddenChartRef.current.exportChart(props.clinicalSnapshot);
+          if (chartImage) {
+            console.log('[PDF-EXPORT] Chart image exported from hidden exporter successfully');
+          } else {
+            console.warn('[PDF-EXPORT] Hidden chart export returned null');
+          }
+        } catch (error) {
+          console.error('[PDF-EXPORT] Failed to export chart from hidden exporter:', error);
         }
       }
 

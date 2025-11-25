@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { useTranslation } from 'react-i18next';
 import { UnifiedTimeline, type UnifiedTimelineRef, type UnifiedTimelineData, type TimelineVitals, type TimelineEvent, type VitalPoint } from "@/components/anesthesia/UnifiedTimeline";
+import { HiddenChartExporter, type HiddenChartExporterRef } from "@/components/anesthesia/HiddenChartExporter";
 import { PreOpOverview } from "@/components/anesthesia/PreOpOverview";
 import { 
   InstallationsSection,
@@ -87,6 +88,7 @@ export default function Op() {
   const { toast } = useToast();
   const hasAttemptedCreate = useRef(false);
   const timelineRef = useRef<UnifiedTimelineRef>(null);
+  const hiddenChartRef = useRef<HiddenChartExporterRef>(null);
 
   // Determine mode based on route (PACU mode if URL contains /pacu)
   const isPacuMode = location.includes('/pacu');
@@ -471,6 +473,7 @@ export default function Op() {
     positions,
     anesthesiaSettings,
     timelineRef,
+    hiddenChartRef,
     isRecordLoading,
     isVitalsLoading,
     isMedicationsLoading,
@@ -1313,6 +1316,9 @@ export default function Op() {
       }}
       title="Sign Out Signature"
     />
+
+    {/* Hidden Chart Exporter for PDF export fallback */}
+    <HiddenChartExporter ref={hiddenChartRef} />
     </>
   );
 }
