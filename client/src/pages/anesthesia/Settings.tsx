@@ -136,6 +136,16 @@ export default function AnesthesiaSettings() {
   const [newItemId, setNewItemId] = useState('');
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
 
+  // State for editing list items (allergies, medications, illnesses)
+  const [listItemDialogOpen, setListItemDialogOpen] = useState(false);
+  const [editingListItem, setEditingListItem] = useState<{
+    type: 'allergy' | 'medication' | 'illness';
+    category?: string;
+    oldValue: string;
+    oldId?: string;
+  } | null>(null);
+  const [listItemFormValue, setListItemFormValue] = useState('');
+
   // Split items into available and selected
   const anesthesiaItemIds = new Set(anesthesiaItems.map(item => item.id));
   const availableItems = allItems.filter((item: Item) => !anesthesiaItemIds.has(item.id));
@@ -340,6 +350,14 @@ export default function AnesthesiaSettings() {
     });
   };
 
+  const editAllergy = (oldValue: string, newValue: string) => {
+    if (!anesthesiaSettings || !newValue.trim()) return;
+    const currentList = anesthesiaSettings.allergyList || [];
+    updateSettingsMutation.mutate({
+      allergyList: currentList.map(a => a === oldValue ? newValue.trim() : a),
+    });
+  };
+
   const addMedication = (category: 'anticoagulation' | 'general') => {
     if (!newItemInput.trim() || !anesthesiaSettings) return;
     const currentLists = anesthesiaSettings.medicationLists || {};
@@ -362,6 +380,17 @@ export default function AnesthesiaSettings() {
       medicationLists: {
         ...currentLists,
         [category]: (currentLists[category] || []).filter(m => m !== medication),
+      },
+    });
+  };
+
+  const editMedication = (category: 'anticoagulation' | 'general', oldValue: string, newValue: string) => {
+    if (!anesthesiaSettings || !newValue.trim()) return;
+    const currentLists = anesthesiaSettings.medicationLists || {};
+    updateSettingsMutation.mutate({
+      medicationLists: {
+        ...currentLists,
+        [category]: (currentLists[category] || []).map(m => m === oldValue ? newValue.trim() : m),
       },
     });
   };
@@ -406,6 +435,37 @@ export default function AnesthesiaSettings() {
         [category]: ((currentLists as any)[category] || []).filter((i: any) => i.id !== illnessId),
       },
     });
+  };
+
+  const editIllness = (category: string, oldId: string, newLabel: string) => {
+    if (!anesthesiaSettings || !newLabel.trim()) return;
+    const currentLists = anesthesiaSettings.illnessLists || {};
+    const newId = generateIdFromLabel(newLabel);
+    updateSettingsMutation.mutate({
+      illnessLists: {
+        ...currentLists,
+        [category]: ((currentLists as any)[category] || []).map((i: any) => 
+          i.id === oldId ? { id: newId, label: newLabel.trim() } : i
+        ),
+      },
+    });
+  };
+
+  // Handler for saving list item edits
+  const handleSaveListItem = () => {
+    if (!editingListItem || !listItemFormValue.trim()) return;
+    
+    if (editingListItem.type === 'allergy') {
+      editAllergy(editingListItem.oldValue, listItemFormValue);
+    } else if (editingListItem.type === 'medication' && editingListItem.category) {
+      editMedication(editingListItem.category as 'anticoagulation' | 'general', editingListItem.oldValue, listItemFormValue);
+    } else if (editingListItem.type === 'illness' && editingListItem.category && editingListItem.oldId) {
+      editIllness(editingListItem.category, editingListItem.oldId, listItemFormValue);
+    }
+    
+    setListItemDialogOpen(false);
+    setEditingListItem(null);
+    setListItemFormValue('');
   };
 
   const addChecklistItem = (category: 'signIn' | 'timeOut' | 'signOut') => {
@@ -850,14 +910,28 @@ export default function AnesthesiaSettings() {
                   data-testid={`allergy-item-${allergy}`}
                 >
                   <span>{allergy}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeAllergy(allergy)}
-                    data-testid={`button-remove-allergy-${allergy}`}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setEditingListItem({ type: 'allergy', oldValue: allergy });
+                        setListItemFormValue(allergy);
+                        setListItemDialogOpen(true);
+                      }}
+                      data-testid={`button-edit-allergy-${allergy}`}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeAllergy(allergy)}
+                      data-testid={`button-remove-allergy-${allergy}`}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ))
             )}
@@ -899,14 +973,28 @@ export default function AnesthesiaSettings() {
                     data-testid={`anticoag-item-${med}`}
                   >
                     <span>{med}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeMedication('anticoagulation', med)}
-                      data-testid={`button-remove-anticoag-${med}`}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setEditingListItem({ type: 'medication', category: 'anticoagulation', oldValue: med });
+                          setListItemFormValue(med);
+                          setListItemDialogOpen(true);
+                        }}
+                        data-testid={`button-edit-anticoag-${med}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeMedication('anticoagulation', med)}
+                        data-testid={`button-remove-anticoag-${med}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -938,14 +1026,28 @@ export default function AnesthesiaSettings() {
                     data-testid={`general-med-item-${med}`}
                   >
                     <span>{med}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeMedication('general', med)}
-                      data-testid={`button-remove-general-med-${med}`}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setEditingListItem({ type: 'medication', category: 'general', oldValue: med });
+                          setListItemFormValue(med);
+                          setListItemDialogOpen(true);
+                        }}
+                        data-testid={`button-edit-general-med-${med}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeMedication('general', med)}
+                        data-testid={`button-remove-general-med-${med}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1001,15 +1103,30 @@ export default function AnesthesiaSettings() {
                       data-testid={`illness-item-${key}-${illness.id}`}
                     >
                       <span className="text-sm">{illness.label}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => removeIllness(key, illness.id)}
-                        data-testid={`button-remove-illness-${key}-${illness.id}`}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => {
+                            setEditingListItem({ type: 'illness', category: key, oldValue: illness.label, oldId: illness.id });
+                            setListItemFormValue(illness.label);
+                            setListItemDialogOpen(true);
+                          }}
+                          data-testid={`button-edit-illness-${key}-${illness.id}`}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => removeIllness(key, illness.id)}
+                          data-testid={`button-remove-illness-${key}-${illness.id}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1506,6 +1623,44 @@ export default function AnesthesiaSettings() {
               data-testid="button-save-room"
             >
               {editingRoom ? updateRoomMutation.isPending ? t('anesthesia.settings.updating') : t('anesthesia.settings.update') : createRoomMutation.isPending ? t('anesthesia.settings.creating') : t('anesthesia.settings.create')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* List Item Edit Dialog (Allergies, Medications, Illnesses) */}
+      <Dialog open={listItemDialogOpen} onOpenChange={setListItemDialogOpen}>
+        <DialogContent data-testid="dialog-list-item-form">
+          <DialogHeader>
+            <DialogTitle>
+              {editingListItem?.type === 'allergy' && t('anesthesia.settings.editAllergy')}
+              {editingListItem?.type === 'medication' && t('anesthesia.settings.editMedication')}
+              {editingListItem?.type === 'illness' && t('anesthesia.settings.editCondition')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="list-item-value">{t('common.name')}</Label>
+              <Input
+                id="list-item-value"
+                value={listItemFormValue}
+                onChange={(e) => setListItemFormValue(e.target.value)}
+                placeholder={t('anesthesia.settings.enterName')}
+                onKeyPress={(e) => e.key === 'Enter' && handleSaveListItem()}
+                data-testid="input-list-item-value"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setListItemDialogOpen(false)} data-testid="button-cancel-list-item">
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={handleSaveListItem}
+              disabled={!listItemFormValue.trim() || updateSettingsMutation.isPending}
+              data-testid="button-save-list-item"
+            >
+              {updateSettingsMutation.isPending ? t('anesthesia.settings.updating') : t('anesthesia.settings.update')}
             </Button>
           </DialogFooter>
         </DialogContent>
