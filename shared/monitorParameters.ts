@@ -31,7 +31,7 @@ export const PARAMETER_MAPPINGS: ParameterAlias[] = [
   },
   {
     standardName: 'SysBP',
-    aliases: ['SYS', 'Systolic', 'Systolisch', 'NIBP Sys', 'ABP Sys'],
+    aliases: ['SYS', 'Sys', 'Systolic', 'Systolisch', 'NIBP Sys', 'ABP Sys', 'BP Sys', 'Systol', 'S', 'ART Sys', 'Art sys'],
     category: 'vitals',
     unit: 'mmHg',
     min: 40,
@@ -39,7 +39,7 @@ export const PARAMETER_MAPPINGS: ParameterAlias[] = [
   },
   {
     standardName: 'DiaBP',
-    aliases: ['DIA', 'Diastolic', 'Diastolisch', 'NIBP Dia', 'ABP Dia'],
+    aliases: ['DIA', 'Dia', 'Diastolic', 'Diastolisch', 'NIBP Dia', 'ABP Dia', 'BP Dia', 'Diastol', 'D', 'ART Dia', 'Art dia'],
     category: 'vitals',
     unit: 'mmHg',
     min: 20,
