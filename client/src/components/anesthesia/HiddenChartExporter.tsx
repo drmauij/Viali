@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallback } from "react";
 import ReactECharts from "echarts-for-react";
+import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
 
 export interface HiddenChartExporterRef {
   exportChart: (snapshotData: any) => Promise<string | null>;
@@ -10,6 +11,83 @@ interface Props {
 }
 
 const EMPTY_DATA_URL_PREFIX = "data:image/png;base64,";
+
+type VitalPoint = [number, number];
+
+function createPdfIconSeries(
+  name: string,
+  data: VitalPoint[],
+  iconPath: string,
+  color: string,
+  yAxisIndex: number,
+  size: number = 20,
+  zLevel: number = 20,
+  isCircleDot: boolean = false
+) {
+  return {
+    type: 'custom',
+    name,
+    xAxisIndex: 0,
+    yAxisIndex,
+    data,
+    zlevel: zLevel,
+    z: 10,
+    renderItem: (params: any, api: any) => {
+      const point = api.coord([api.value(0), api.value(1)]);
+      const scale = size / 24;
+      
+      if (isCircleDot) {
+        return {
+          type: 'group',
+          x: point[0],
+          y: point[1],
+          children: [
+            {
+              type: 'circle',
+              x: 0,
+              y: 0,
+              shape: { r: 10 * scale },
+              style: {
+                fill: 'none',
+                stroke: color,
+                lineWidth: 3,
+              },
+            },
+            {
+              type: 'circle',
+              x: 0,
+              y: 0,
+              shape: { r: 2 * scale },
+              style: {
+                fill: color,
+                stroke: color,
+                lineWidth: 2,
+              },
+            },
+          ],
+        };
+      }
+      
+      return {
+        type: 'path',
+        x: point[0] - size / 2,
+        y: point[1] - size / 2,
+        shape: {
+          pathData: iconPath,
+          width: 24,
+          height: 24,
+        },
+        style: {
+          fill: 'none',
+          stroke: color,
+          lineWidth: 3,
+        },
+        scaleX: scale,
+        scaleY: scale,
+      };
+    },
+  };
+}
 
 export const HiddenChartExporter = forwardRef<HiddenChartExporterRef, Props>(
   function HiddenChartExporter({ onReady }, ref) {
@@ -60,11 +138,10 @@ export const HiddenChartExporter = forwardRef<HiddenChartExporterRef, Props>(
 
         const dataUrl = chartInstance.getDataURL({
           type: "png",
-          pixelRatio: 3, // Higher resolution for better print quality
+          pixelRatio: 3,
           backgroundColor: "#ffffff",
         });
 
-        // Validate the data URL is not empty (just the prefix)
         const isValidDataUrl = dataUrl && dataUrl.length > EMPTY_DATA_URL_PREFIX.length + 100;
         
         if (!isValidDataUrl) {
@@ -101,7 +178,6 @@ export const HiddenChartExporter = forwardRef<HiddenChartExporterRef, Props>(
       
       if (!isExporting) return;
 
-      // Wait longer for the chart to fully render
       setTimeout(() => {
         captureChart();
       }, 800);
@@ -111,7 +187,6 @@ export const HiddenChartExporter = forwardRef<HiddenChartExporterRef, Props>(
       exportChart: async (snapshotData: any): Promise<string | null> => {
         console.log("[HIDDEN-CHART] exportChart called");
         
-        // Extract the nested data structure
         const data = snapshotData?.data || snapshotData;
         
         console.log("[HIDDEN-CHART] Data structure check:", {
@@ -130,7 +205,6 @@ export const HiddenChartExporter = forwardRef<HiddenChartExporterRef, Props>(
             return;
           }
           
-          // Check if there's actually data to display
           const hasData = 
             (data?.hr?.length > 0) ||
             (data?.bp?.length > 0) ||
@@ -154,7 +228,6 @@ export const HiddenChartExporter = forwardRef<HiddenChartExporterRef, Props>(
     const buildChartOption = useCallback(() => {
       if (!chartData) return {};
 
-      // Clinical snapshot data is nested inside .data property
       const snapshotData = chartData.data || chartData;
 
       console.log("[HIDDEN-CHART] Building chart option with data:", {
@@ -164,29 +237,27 @@ export const HiddenChartExporter = forwardRef<HiddenChartExporterRef, Props>(
         tempCount: (snapshotData.temp || []).length,
       });
 
-      const hrData = (snapshotData.hr || []).map((p: any) => [
-        new Date(p.timestamp).getTime(),
-        p.value,
-      ]);
-      const bpData = (snapshotData.bp || []).map((p: any) => ({
+      const hrData: VitalPoint[] = (snapshotData.hr || [])
+        .map((p: any) => [new Date(p.timestamp).getTime(), p.value] as VitalPoint)
+        .sort((a: VitalPoint, b: VitalPoint) => a[0] - b[0]);
+      
+      const bpRaw = (snapshotData.bp || []).map((p: any) => ({
         time: new Date(p.timestamp).getTime(),
         sys: p.sys,
         dia: p.dia,
-      }));
-      const spo2Data = (snapshotData.spo2 || []).map((p: any) => [
-        new Date(p.timestamp).getTime(),
-        p.value,
-      ]);
-      const tempData = (snapshotData.temp || []).map((p: any) => [
-        new Date(p.timestamp).getTime(),
-        p.value,
-      ]);
+      })).sort((a: any, b: any) => a.time - b.time);
+      
+      const sysData: VitalPoint[] = bpRaw.map((d: any) => [d.time, d.sys] as VitalPoint);
+      const diaData: VitalPoint[] = bpRaw.map((d: any) => [d.time, d.dia] as VitalPoint);
+      
+      const spo2Data: VitalPoint[] = (snapshotData.spo2 || [])
+        .map((p: any) => [new Date(p.timestamp).getTime(), p.value] as VitalPoint)
+        .sort((a: VitalPoint, b: VitalPoint) => a[0] - b[0]);
 
       const allTimes = [
-        ...hrData.map((d: any) => d[0]),
-        ...bpData.map((d: any) => d.time),
-        ...spo2Data.map((d: any) => d[0]),
-        ...tempData.map((d: any) => d[0]),
+        ...hrData.map((d) => d[0]),
+        ...sysData.map((d) => d[0]),
+        ...spo2Data.map((d) => d[0]),
       ].filter(Boolean);
 
       if (allTimes.length === 0) {
@@ -196,8 +267,6 @@ export const HiddenChartExporter = forwardRef<HiddenChartExporterRef, Props>(
 
       const minTime = Math.min(...allTimes);
       const maxTime = Math.max(...allTimes);
-      
-      // Add 5% padding to time range
       const timeRange = maxTime - minTime;
       const paddedMin = minTime - timeRange * 0.02;
       const paddedMax = maxTime + timeRange * 0.02;
@@ -208,28 +277,191 @@ export const HiddenChartExporter = forwardRef<HiddenChartExporterRef, Props>(
         rangeMinutes: Math.round(timeRange / 60000),
       });
 
-      // Professional medical chart styling - matching app appearance
       const colors = {
-        hr: "#3b82f6",      // Blue for heart rate
-        bpSys: "#dc2626",   // Red for BP systolic
-        bpDia: "#f87171",   // Light red for BP diastolic  
-        spo2: "#22c55e",    // Green for SpO2
-        temp: "#f97316",    // Orange for temperature
+        hr: "#ef4444",
+        bp: "#000000",
+        spo2: "#8b5cf6",
       };
       
       const textColor = "#1f2937";
       const gridColor = "#e5e7eb";
 
+      const series: any[] = [];
+
+      if (hrData.length > 0) {
+        series.push({
+          type: 'line',
+          name: 'HR',
+          xAxisIndex: 0,
+          yAxisIndex: 0,
+          data: hrData,
+          lineStyle: { color: colors.hr, width: 2.5 },
+          symbol: 'none',
+          z: 15,
+        });
+
+        series.push(
+          createPdfIconSeries(
+            'Heart Rate',
+            hrData,
+            VITAL_ICON_PATHS.heart.path,
+            colors.hr,
+            0,
+            20,
+            100
+          )
+        );
+      }
+
+      if (sysData.length > 0 && diaData.length > 0) {
+        series.push({
+          type: 'line',
+          name: 'Diastolic Base',
+          xAxisIndex: 0,
+          yAxisIndex: 0,
+          data: diaData,
+          symbol: 'none',
+          lineStyle: { color: colors.bp, width: 1, opacity: 0.3 },
+          stack: 'bp',
+          z: 7,
+        });
+
+        const diffData = sysData.map((sysPoint, idx) => {
+          const diaPoint = diaData[idx];
+          if (diaPoint && sysPoint[0] === diaPoint[0]) {
+            return [sysPoint[0], sysPoint[1] - diaPoint[1]] as VitalPoint;
+          }
+          return null;
+        }).filter((p): p is VitalPoint => p !== null);
+
+        series.push({
+          type: 'line',
+          name: 'BP Range',
+          xAxisIndex: 0,
+          yAxisIndex: 0,
+          data: diffData,
+          symbol: 'none',
+          lineStyle: { color: colors.bp, width: 1, opacity: 0.3 },
+          stack: 'bp',
+          areaStyle: {
+            color: {
+              type: 'linear',
+              x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [
+                { offset: 0, color: 'rgba(0, 0, 0, 0.12)' },
+                { offset: 1, color: 'rgba(0, 0, 0, 0.06)' }
+              ]
+            }
+          },
+          z: 8,
+        });
+      }
+
+      if (sysData.length > 0) {
+        series.push(
+          createPdfIconSeries(
+            'Systolic BP',
+            sysData,
+            VITAL_ICON_PATHS.chevronDown.path,
+            colors.bp,
+            0,
+            20,
+            30
+          )
+        );
+      }
+
+      if (diaData.length > 0) {
+        series.push(
+          createPdfIconSeries(
+            'Diastolic BP',
+            diaData,
+            VITAL_ICON_PATHS.chevronUp.path,
+            colors.bp,
+            0,
+            20,
+            30
+          )
+        );
+      }
+
+      if (spo2Data.length > 0) {
+        series.push({
+          type: 'line',
+          name: 'SpO2',
+          xAxisIndex: 0,
+          yAxisIndex: 1,
+          data: spo2Data,
+          symbol: 'none',
+          lineStyle: { color: colors.spo2, width: 2 },
+          z: 9,
+        });
+
+        series.push(
+          createPdfIconSeries(
+            'SpO2 Points',
+            spo2Data,
+            '',
+            colors.spo2,
+            1,
+            18,
+            30,
+            true
+          )
+        );
+      }
+
+      const leftAxisValues = [20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220];
+      const rightAxisValues = [50, 60, 70, 80, 90, 100];
+
+      const yAxisLabels: any[] = [];
+      
+      leftAxisValues.forEach((val) => {
+        const yPercent = ((240 - val) / 240) * 100;
+        yAxisLabels.push({
+          type: "text",
+          left: 55,
+          top: `${14 + (yPercent / 100) * 72}%`,
+          style: {
+            text: val.toString(),
+            fontSize: 14,
+            fontFamily: "Arial, sans-serif",
+            fill: textColor,
+            textAlign: "right",
+          },
+          silent: true,
+          z: 100,
+        });
+      });
+
+      rightAxisValues.forEach((val) => {
+        const yPercent = ((105 - val) / 60) * 100;
+        yAxisLabels.push({
+          type: "text",
+          right: 55,
+          top: `${14 + (yPercent / 100) * 72}%`,
+          style: {
+            text: val.toString(),
+            fontSize: 14,
+            fontFamily: "Arial, sans-serif",
+            fill: colors.spo2,
+            textAlign: "left",
+          },
+          silent: true,
+          z: 100,
+        });
+      });
+
       return {
         backgroundColor: "#ffffff",
-        animation: false, // Disable animation for faster capture
+        animation: false,
         title: {
           text: "Vital Signs Timeline",
           left: "center",
-          top: 10,
+          top: 15,
           textStyle: { 
             color: textColor, 
-            fontSize: 24, 
+            fontSize: 28, 
             fontWeight: "bold",
             fontFamily: "Arial, sans-serif",
           },
@@ -239,23 +471,30 @@ export const HiddenChartExporter = forwardRef<HiddenChartExporterRef, Props>(
           axisPointer: { type: "cross" },
         },
         legend: {
-          data: ["HR (bpm)", "BP Sys (mmHg)", "BP Dia (mmHg)", "SpO2 (%)", "Temp (°C)"],
-          bottom: 20,
+          data: [
+            { name: 'HR', icon: 'path://' + VITAL_ICON_PATHS.heart.path, itemStyle: { color: colors.hr } },
+            { name: 'Systolic BP', icon: 'path://' + VITAL_ICON_PATHS.chevronDown.path, itemStyle: { color: colors.bp } },
+            { name: 'Diastolic BP', icon: 'path://' + VITAL_ICON_PATHS.chevronUp.path, itemStyle: { color: colors.bp } },
+            { name: 'SpO2', icon: 'circle', itemStyle: { color: colors.spo2 } },
+          ],
+          bottom: 25,
           textStyle: { 
             color: textColor, 
-            fontSize: 14,
+            fontSize: 16,
             fontFamily: "Arial, sans-serif",
           },
-          itemGap: 30,
-          icon: "roundRect",
+          itemGap: 40,
+          itemWidth: 24,
+          itemHeight: 16,
         },
         grid: {
           left: 80,
-          right: 60,
+          right: 80,
           top: 80,
           bottom: 100,
-          containLabel: true,
+          containLabel: false,
         },
+        graphic: yAxisLabels,
         xAxis: {
           type: "time",
           min: paddedMin,
@@ -266,7 +505,7 @@ export const HiddenChartExporter = forwardRef<HiddenChartExporterRef, Props>(
               return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
             },
             color: textColor,
-            fontSize: 14,
+            fontSize: 16,
             fontFamily: "Arial, sans-serif",
             rotate: 0,
           },
@@ -281,88 +520,62 @@ export const HiddenChartExporter = forwardRef<HiddenChartExporterRef, Props>(
           },
           name: "Time",
           nameLocation: "middle",
-          nameGap: 40,
+          nameGap: 45,
           nameTextStyle: {
             color: textColor,
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: "bold",
-          },
-        },
-        yAxis: {
-          type: "value",
-          axisLabel: { 
-            color: textColor, 
-            fontSize: 14,
             fontFamily: "Arial, sans-serif",
           },
-          axisLine: { 
-            show: true,
-            lineStyle: { color: "#9ca3af", width: 2 } 
-          },
-          splitLine: { 
-            lineStyle: { color: gridColor, type: "dashed" } 
-          },
-          name: "Value",
-          nameLocation: "middle",
-          nameGap: 50,
-          nameTextStyle: {
-            color: textColor,
-            fontSize: 14,
-            fontWeight: "bold",
-          },
         },
-        series: [
+        yAxis: [
           {
-            name: "HR (bpm)",
-            type: "line",
-            data: hrData,
-            symbol: "circle",
-            symbolSize: 10,
-            lineStyle: { color: colors.hr, width: 3 },
-            itemStyle: { color: colors.hr },
-            emphasis: { focus: "series" },
+            type: "value",
+            name: "BP / HR",
+            nameLocation: "middle",
+            nameGap: 50,
+            nameTextStyle: {
+              color: textColor,
+              fontSize: 16,
+              fontWeight: "bold",
+              fontFamily: "Arial, sans-serif",
+            },
+            min: 0,
+            max: 240,
+            interval: 20,
+            axisLabel: { show: false },
+            axisLine: { 
+              show: true,
+              lineStyle: { color: "#9ca3af", width: 2 } 
+            },
+            splitLine: { 
+              show: true,
+              lineStyle: { color: gridColor, type: "dashed" } 
+            },
           },
           {
-            name: "BP Sys (mmHg)",
-            type: "line",
-            data: bpData.map((d: any) => [d.time, d.sys]),
-            symbol: "triangle",
-            symbolSize: 10,
-            lineStyle: { color: colors.bpSys, width: 3 },
-            itemStyle: { color: colors.bpSys },
-            emphasis: { focus: "series" },
-          },
-          {
-            name: "BP Dia (mmHg)",
-            type: "line",
-            data: bpData.map((d: any) => [d.time, d.dia]),
-            symbol: "emptyTriangle",
-            symbolSize: 10,
-            lineStyle: { color: colors.bpDia, width: 2, type: "dashed" },
-            itemStyle: { color: colors.bpDia },
-            emphasis: { focus: "series" },
-          },
-          {
-            name: "SpO2 (%)",
-            type: "line",
-            data: spo2Data,
-            symbol: "diamond",
-            symbolSize: 10,
-            lineStyle: { color: colors.spo2, width: 3 },
-            itemStyle: { color: colors.spo2 },
-            emphasis: { focus: "series" },
-          },
-          {
-            name: "Temp (°C)",
-            type: "line",
-            data: tempData,
-            symbol: "rect",
-            symbolSize: 10,
-            lineStyle: { color: colors.temp, width: 3 },
-            itemStyle: { color: colors.temp },
-            emphasis: { focus: "series" },
+            type: "value",
+            name: "SpO₂ %",
+            nameLocation: "middle",
+            nameGap: 50,
+            nameTextStyle: {
+              color: colors.spo2,
+              fontSize: 16,
+              fontWeight: "bold",
+              fontFamily: "Arial, sans-serif",
+            },
+            min: 45,
+            max: 105,
+            interval: 10,
+            axisLabel: { show: false },
+            axisLine: { 
+              show: true,
+              lineStyle: { color: colors.spo2, width: 2 } 
+            },
+            splitLine: { show: false },
           },
         ],
+        series,
       };
     }, [chartData]);
 
@@ -372,13 +585,12 @@ export const HiddenChartExporter = forwardRef<HiddenChartExporterRef, Props>(
           position: "fixed",
           left: "-9999px",
           top: "-9999px",
-          width: "1800px",  // Larger for better resolution
+          width: "1800px",
           height: "900px",
           visibility: "hidden",
           pointerEvents: "none",
           overflow: "hidden",
         }}
-        data-testid="hidden-chart-exporter"
       >
         {isExporting && chartData && (
           <ReactECharts
