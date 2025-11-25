@@ -1,0 +1,1 @@
+ALTER TABLE "hospital_anesthesia_settings" ALTER COLUMN "allergy_list" SET DATA TYPE jsonb;
