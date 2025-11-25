@@ -464,8 +464,8 @@ export default function AnesthesiaSettings() {
       editMedication(editingListItem.category as 'anticoagulation' | 'general', editingListItem.oldValue, listItemFormValue);
     } else if (editingListItem.type === 'illness' && editingListItem.category && editingListItem.oldId) {
       editIllness(editingListItem.category, editingListItem.oldId, listItemFormValue);
-    } else if (editingListItem.type === 'checklist' && editingListItem.category) {
-      editChecklistItem(editingListItem.category as 'signIn' | 'timeOut' | 'signOut', editingListItem.oldValue, listItemFormValue);
+    } else if (editingListItem.type === 'checklist' && editingListItem.category && editingListItem.oldId) {
+      editChecklistItem(editingListItem.category as 'signIn' | 'timeOut' | 'signOut', editingListItem.oldId, listItemFormValue);
     }
     
     setListItemDialogOpen(false);
@@ -492,7 +492,7 @@ export default function AnesthesiaSettings() {
       } else if (section === 'illness' && category) {
         items = ((anesthesiaSettings.illnessLists as any)?.[category] || []).map((i: any) => i.label);
       } else if (section === 'checklist' && category) {
-        items = anesthesiaSettings.checklistItems?.[category as 'signIn' | 'timeOut' | 'signOut'] || [];
+        items = (anesthesiaSettings.checklistItems?.[category as 'signIn' | 'timeOut' | 'signOut'] || []).map((i) => i.label);
       }
       
       if (items.length === 0) {
@@ -538,10 +538,15 @@ export default function AnesthesiaSettings() {
           },
         });
       } else if (section === 'checklist' && category) {
+        const currentItems = anesthesiaSettings.checklistItems?.[category as 'signIn' | 'timeOut' | 'signOut'] || [];
+        const updatedItems = currentItems.map((item, index) => ({
+          id: item.id,
+          label: translatedItems[index] || item.label,
+        }));
         updateSettingsMutation.mutate({
           checklistItems: {
             ...anesthesiaSettings.checklistItems,
-            [category]: translatedItems,
+            [category]: updatedItems,
           },
         });
       }
@@ -565,35 +570,39 @@ export default function AnesthesiaSettings() {
     if (!newItemInput.trim() || !anesthesiaSettings) return;
     const currentItems = anesthesiaSettings.checklistItems || {};
     const currentList = currentItems[category] || [];
-    if (!currentList.includes(newItemInput.trim())) {
+    const autoId = generateIdFromLabel(newItemInput);
+    const newItem = { id: autoId, label: newItemInput.trim() };
+    if (!currentList.find((item) => item.id === newItem.id)) {
       updateSettingsMutation.mutate({
         checklistItems: {
           ...currentItems,
-          [category]: [...currentList, newItemInput.trim()],
+          [category]: [...currentList, newItem],
         },
       });
       setNewItemInput('');
     }
   };
 
-  const removeChecklistItem = (category: 'signIn' | 'timeOut' | 'signOut', item: string) => {
+  const removeChecklistItem = (category: 'signIn' | 'timeOut' | 'signOut', itemId: string) => {
     if (!anesthesiaSettings) return;
     const currentItems = anesthesiaSettings.checklistItems || {};
     updateSettingsMutation.mutate({
       checklistItems: {
         ...currentItems,
-        [category]: (currentItems[category] || []).filter(i => i !== item),
+        [category]: (currentItems[category] || []).filter(i => i.id !== itemId),
       },
     });
   };
 
-  const editChecklistItem = (category: 'signIn' | 'timeOut' | 'signOut', oldValue: string, newValue: string) => {
-    if (!anesthesiaSettings || !newValue.trim()) return;
+  const editChecklistItem = (category: 'signIn' | 'timeOut' | 'signOut', oldId: string, newLabel: string) => {
+    if (!anesthesiaSettings || !newLabel.trim()) return;
     const currentItems = anesthesiaSettings.checklistItems || {};
     updateSettingsMutation.mutate({
       checklistItems: {
         ...currentItems,
-        [category]: (currentItems[category] || []).map(i => i === oldValue ? newValue.trim() : i),
+        [category]: (currentItems[category] || []).map(i => 
+          i.id === oldId ? { id: i.id, label: newLabel.trim() } : i
+        ),
       },
     });
   };
@@ -1355,22 +1364,22 @@ export default function AnesthesiaSettings() {
                 <div className="space-y-1">
                   {(anesthesiaSettings?.checklistItems?.[key] || []).map((item) => (
                     <div
-                      key={item}
+                      key={item.id}
                       className="flex items-center justify-between p-2 rounded hover:bg-muted/50"
-                      data-testid={`checklist-item-${key}-${item}`}
+                      data-testid={`checklist-item-${key}-${item.id}`}
                     >
-                      <span className="text-sm">{item}</span>
+                      <span className="text-sm">{item.label}</span>
                       <div className="flex items-center gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6"
                           onClick={() => {
-                            setEditingListItem({ type: 'checklist', category: key, oldValue: item });
-                            setListItemFormValue(item);
+                            setEditingListItem({ type: 'checklist', category: key, oldId: item.id, oldValue: item.label });
+                            setListItemFormValue(item.label);
                             setListItemDialogOpen(true);
                           }}
-                          data-testid={`button-edit-checklist-${key}-${item}`}
+                          data-testid={`button-edit-checklist-${key}-${item.id}`}
                         >
                           <Pencil className="h-3 w-3" />
                         </Button>
@@ -1378,8 +1387,8 @@ export default function AnesthesiaSettings() {
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6"
-                          onClick={() => removeChecklistItem(key, item)}
-                          data-testid={`button-remove-checklist-${key}-${item}`}
+                          onClick={() => removeChecklistItem(key, item.id)}
+                          data-testid={`button-remove-checklist-${key}-${item.id}`}
                         >
                           <X className="h-3 w-3" />
                         </Button>
