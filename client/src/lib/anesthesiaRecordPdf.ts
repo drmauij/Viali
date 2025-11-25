@@ -1106,32 +1106,55 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
       value: p.value
     }));
 
-    // Draw Vitals Chart - use actual chart image if available, otherwise use simplified chart
-    if (data.chartImage) {
-      // Embed the actual timeline chart image
+    // Draw Vitals Chart - use actual chart image if available and valid, otherwise use simplified chart
+    const EMPTY_DATA_URL_PREFIX = "data:image/png;base64,";
+    const isValidChartImage = data.chartImage && 
+      data.chartImage.length > EMPTY_DATA_URL_PREFIX.length + 100;
+    
+    if (isValidChartImage) {
+      // Embed the actual timeline chart image with larger dimensions
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
       doc.text(i18next.t("anesthesia.pdf.vitalSignsTimeline"), 20, yPos);
       yPos += 8;
       
       try {
-        // Calculate dimensions to fit the chart on the page
-        const maxWidth = 170;
-        const maxHeight = 120;
+        // Use ~85% page width for better readability (A4 = 210mm, margins = 20mm each side)
+        // Available width: 210 - 40 = 170mm, 85% = ~145mm, but we'll use full width
+        const chartWidth = 175; // Almost full page width
+        const chartHeight = 90; // Height proportional to maintain aspect ratio (1800:900 = 2:1)
         
-        // Add the chart image
-        doc.addImage(data.chartImage, 'PNG', 20, yPos, maxWidth, maxHeight);
-        yPos += maxHeight + 10;
+        // Check if we need a page break for the chart
+        const pageHeight = doc.internal.pageSize.getHeight();
+        if (yPos + chartHeight > pageHeight - 20) {
+          doc.addPage();
+          yPos = 20;
+        }
+        
+        // Add the chart image (chartImage is validated as non-null above)
+        doc.addImage(data.chartImage!, 'PNG', 17, yPos, chartWidth, chartHeight);
+        yPos += chartHeight + 10;
+        console.log('[PDF] Chart image embedded successfully:', chartWidth, 'x', chartHeight, 'mm');
       } catch (error) {
         console.error('[PDF] Error embedding chart image:', error);
-        // Fall back to text message
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "italic");
-        doc.text(i18next.t("anesthesia.pdf.chartNotAvailable"), 20, yPos);
-        yPos += 10;
+        // Fall back to simplified line chart on error
+        yPos = drawTimelineChart(
+          doc,
+          i18next.t("anesthesia.pdf.vitalSignsTimeline"),
+          [
+            { name: i18next.t("anesthesia.pdf.hrBpm"), data: hrData, color: [59, 130, 246] },
+            { name: i18next.t("anesthesia.pdf.bpSys"), data: bpSysData, color: [220, 38, 38] },
+            { name: i18next.t("anesthesia.pdf.bpDia"), data: bpDiaData, color: [239, 68, 68] },
+            { name: i18next.t("anesthesia.pdf.spo2Percent"), data: spo2Data, color: [34, 197, 94] },
+            { name: i18next.t("anesthesia.pdf.tempCelsius"), data: tempData, color: [251, 146, 60] },
+          ],
+          yPos,
+          { yLabel: i18next.t("anesthesia.pdf.value"), height: 80 }
+        );
       }
     } else {
-      // Fallback to simplified line chart
+      // Fallback to simplified line chart when no valid chart image
+      console.log('[PDF] No valid chart image, using simplified chart. Image length:', data.chartImage?.length || 0);
       yPos = drawTimelineChart(
         doc,
         i18next.t("anesthesia.pdf.vitalSignsTimeline"),
