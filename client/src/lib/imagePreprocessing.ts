@@ -19,19 +19,19 @@ export interface PreprocessingResult {
 }
 
 /**
- * Preprocess an image for faster AI analysis
- * - Resize to max width (default 768px)
- * - Convert to grayscale for better OCR
- * - Compress to JPEG quality 0.75
+ * Preprocess an image for AI analysis
+ * - Resize to max width (default 1280px for high accuracy)
+ * - Optional grayscale for OCR
+ * - Compress to JPEG quality 0.85 for readability
  */
 export async function preprocessImage(
   base64Image: string,
   options: PreprocessingOptions = {}
 ): Promise<PreprocessingResult> {
   const {
-    maxWidth = 768,
-    quality = 0.75,
-    grayscale = true,
+    maxWidth = 1280,
+    quality = 0.85,
+    grayscale = false,
   } = options;
 
   return new Promise((resolve, reject) => {
