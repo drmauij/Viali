@@ -443,12 +443,11 @@ export default function AnesthesiaSettings() {
   const editIllness = (category: string, oldId: string, newLabel: string) => {
     if (!anesthesiaSettings || !newLabel.trim()) return;
     const currentLists = anesthesiaSettings.illnessLists || {};
-    const newId = generateIdFromLabel(newLabel);
     updateSettingsMutation.mutate({
       illnessLists: {
         ...currentLists,
         [category]: ((currentLists as any)[category] || []).map((i: any) => 
-          i.id === oldId ? { id: newId, label: newLabel.trim() } : i
+          i.id === oldId ? { id: i.id, label: newLabel.trim() } : i
         ),
       },
     });
@@ -528,7 +527,7 @@ export default function AnesthesiaSettings() {
         const currentLists = anesthesiaSettings.illnessLists || {};
         const currentItems = (currentLists as any)[category] || [];
         const updatedItems = currentItems.map((item: any, index: number) => ({
-          id: generateIdFromLabel(translatedItems[index] || item.label),
+          id: item.id,
           label: translatedItems[index] || item.label,
         }));
         updateSettingsMutation.mutate({

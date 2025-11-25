@@ -180,7 +180,9 @@ export async function migrateChecklistsToIdBased() {
   }
 }
 
-if (require.main === module) {
+const isMain = import.meta.url === `file://${process.argv[1]}`;
+
+if (isMain) {
   migrateChecklistsToIdBased()
     .then((result) => {
       console.log('[CHECKLIST-MIGRATION] Result:', result);
