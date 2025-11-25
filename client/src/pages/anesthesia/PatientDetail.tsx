@@ -884,6 +884,31 @@ export default function PatientDetail() {
     });
   };
 
+  // Handle moving completed assessment back to draft
+  const handleMoveToDraft = async () => {
+    if (!existingAssessment?.id) return;
+
+    try {
+      await apiRequest("PATCH", `/api/anesthesia/preop/${existingAssessment.id}`, {
+        status: "draft",
+      });
+      
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${activeHospital?.id}`] });
+      
+      toast({
+        title: t('anesthesia.patientDetail.movedToDraft'),
+        description: t('anesthesia.patientDetail.movedToDraftDesc'),
+      });
+    } catch (error: any) {
+      toast({
+        title: t('anesthesia.patientDetail.errorMovingToDraft'),
+        description: error.message || t('anesthesia.patientDetail.errorMovingToDraftDesc'),
+        variant: "destructive",
+      });
+    }
+  };
+
   // Handle PDF download for a surgery - uses centralized PDF generation utility
   const handleDownloadPDF = async (surgery: Surgery) => {
     if (!patient) {
@@ -1749,11 +1774,27 @@ export default function PatientDetail() {
               ) : (
                 <UserRound className="h-8 w-8 text-pink-500" data-testid="icon-preop-sex-female" />
               )}
-              <div className="text-left">
+              <div className="text-left flex-1">
                 <p className="font-semibold text-base text-left" data-testid="text-preop-patient-name">{patient.surname}, {patient.firstName}</p>
                 <p className="text-xs text-muted-foreground text-left" data-testid="text-preop-patient-info">
                   {formatDate(patient.birthday)} ({calculateAge(patient.birthday)} y) • ID: {patient.patientNumber}
                 </p>
+                {(patient.phone || patient.email) && (
+                  <div className="flex items-center gap-3 mt-1 flex-wrap">
+                    {patient.phone && (
+                      <a href={`tel:${patient.phone}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1" data-testid="text-preop-patient-phone">
+                        <Phone className="h-3 w-3" />
+                        {patient.phone}
+                      </a>
+                    )}
+                    {patient.email && (
+                      <a href={`mailto:${patient.email}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1" data-testid="text-preop-patient-email">
+                        <Mail className="h-3 w-3" />
+                        {patient.email}
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </DialogHeader>
@@ -3008,6 +3049,19 @@ export default function PatientDetail() {
                       t('anesthesia.patientDetail.saveDraft')
                     )}
                   </Button>
+
+                  {/* Move to Draft button - only shown when assessment is completed */}
+                  {existingAssessment?.status === "completed" && (
+                    <Button 
+                      variant="destructive"
+                      size="lg" 
+                      className="w-full mt-3"
+                      onClick={handleMoveToDraft}
+                      data-testid="button-move-to-draft"
+                    >
+                      {t('anesthesia.patientDetail.moveToDraft')}
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
