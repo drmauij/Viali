@@ -25,9 +25,9 @@ export type HospitalAnesthesiaSettings = {
     children?: Array<{ id: string; label: string }>;
   };
   checklistItems?: {
-    signIn?: string[];
-    timeOut?: string[];
-    signOut?: string[];
+    signIn?: Array<{ id: string; label: string }>;
+    timeOut?: Array<{ id: string; label: string }>;
+    signOut?: Array<{ id: string; label: string }>;
   };
   createdAt: string;
   updatedAt: string;

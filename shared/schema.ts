@@ -438,10 +438,11 @@ export const hospitalAnesthesiaSettings = pgTable("hospital_anesthesia_settings"
   }>(),
   
   // Customizable WHO checklist items (JSONB for flexibility)
+  // Each item has a stable ID and translatable label
   checklistItems: jsonb("checklist_items").$type<{
-    signIn?: string[];
-    timeOut?: string[];
-    signOut?: string[];
+    signIn?: Array<{ id: string; label: string }>;
+    timeOut?: Array<{ id: string; label: string }>;
+    signOut?: Array<{ id: string; label: string }>;
   }>(),
   
   createdAt: timestamp("created_at").defaultNow(),
