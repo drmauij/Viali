@@ -1794,7 +1794,10 @@ export class DatabaseStorage implements IStorage {
     dateFrom?: Date;
     dateTo?: Date;
   }): Promise<Surgery[]> {
-    const conditions = [eq(surgeries.hospitalId, hospitalId)];
+    const conditions = [
+      eq(surgeries.hospitalId, hospitalId),
+      isNull(patients.deletedAt)
+    ];
     
     if (filters?.caseId) conditions.push(eq(surgeries.caseId, filters.caseId));
     if (filters?.patientId) conditions.push(eq(surgeries.patientId, filters.patientId));
@@ -1804,12 +1807,13 @@ export class DatabaseStorage implements IStorage {
     if (filters?.dateTo) conditions.push(lte(surgeries.plannedDate, filters.dateTo));
 
     const result = await db
-      .select()
+      .select({ surgery: surgeries })
       .from(surgeries)
+      .innerJoin(patients, eq(surgeries.patientId, patients.id))
       .where(and(...conditions))
       .orderBy(desc(surgeries.plannedDate));
     
-    return result;
+    return result.map(r => r.surgery);
   }
 
   async getSurgery(id: string): Promise<Surgery | undefined> {
@@ -2004,8 +2008,13 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(surgeries)
       .leftJoin(preOpAssessments, eq(surgeries.id, preOpAssessments.surgeryId))
-      .leftJoin(patients, eq(surgeries.patientId, patients.id))
-      .where(eq(surgeries.hospitalId, hospitalId))
+      .innerJoin(patients, eq(surgeries.patientId, patients.id))
+      .where(
+        and(
+          eq(surgeries.hospitalId, hospitalId),
+          isNull(patients.deletedAt)
+        )
+      )
       .orderBy(desc(surgeries.plannedDate));
 
     return results.map(row => {
