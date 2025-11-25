@@ -1400,6 +1400,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reorder administration groups (must be before :groupId route)
+  app.put('/api/administration-groups/reorder', isAuthenticated, async (req: any, res) => {
+    try {
+      const { groupIds } = req.body;
+      
+      if (!Array.isArray(groupIds)) {
+        return res.status(400).json({ message: "groupIds must be an array" });
+      }
+
+      await storage.reorderAdministrationGroups(groupIds);
+      res.status(200).json({ message: "Groups reordered successfully" });
+    } catch (error: any) {
+      console.error("Error reordering administration groups:", error);
+      res.status(500).json({ message: "Failed to reorder administration groups" });
+    }
+  });
+
   // Update an administration group
   app.put('/api/administration-groups/:groupId', isAuthenticated, async (req: any, res) => {
     try {
@@ -1427,23 +1444,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error deleting administration group:", error);
       res.status(500).json({ message: "Failed to delete administration group" });
-    }
-  });
-
-  // Reorder administration groups
-  app.put('/api/administration-groups/reorder', isAuthenticated, async (req: any, res) => {
-    try {
-      const { groupIds } = req.body;
-      
-      if (!Array.isArray(groupIds)) {
-        return res.status(400).json({ message: "groupIds must be an array" });
-      }
-
-      await storage.reorderAdministrationGroups(groupIds);
-      res.status(200).json({ message: "Groups reordered successfully" });
-    } catch (error: any) {
-      console.error("Error reordering administration groups:", error);
-      res.status(500).json({ message: "Failed to reorder administration groups" });
     }
   });
 
