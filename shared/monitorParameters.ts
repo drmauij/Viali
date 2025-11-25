@@ -77,6 +77,44 @@ export const PARAMETER_MAPPINGS: ParameterAlias[] = [
     min: 4,
     max: 60
   },
+  {
+    standardName: 'MAP',
+    aliases: ['MAP', 'MAD', 'Mean', 'Mean Arterial Pressure', 'Mittlerer arterieller Druck', 'MBP'],
+    category: 'vitals',
+    unit: 'mmHg',
+    min: 30,
+    max: 180
+  },
+  {
+    standardName: 'PI',
+    aliases: ['PI', 'Perfusion Index', 'Perfusionsindex', 'PI%'],
+    category: 'vitals',
+    unit: '%',
+    min: 0,
+    max: 20
+  },
+  {
+    standardName: 'ST',
+    aliases: ['ST', 'ST Segment', 'ST-Hebung', 'ST-Senkung', 'ST II', 'ST V'],
+    category: 'vitals',
+    unit: 'mm',
+    min: -10,
+    max: 10
+  },
+  {
+    standardName: 'EKG',
+    aliases: ['EKG', 'ECG', 'Elektrokardiogramm', 'Electrocardiogram'],
+    category: 'vitals',
+    unit: 'mV'
+  },
+  {
+    standardName: 'Resp',
+    aliases: ['Resp', 'RF', 'RF(Imped.)', 'Impedance Resp', 'Resp Rate'],
+    category: 'vitals',
+    unit: '/min',
+    min: 4,
+    max: 60
+  },
 
   // VENTILATION PARAMETERS
   {
@@ -137,7 +175,7 @@ export const PARAMETER_MAPPINGS: ParameterAlias[] = [
   },
   {
     standardName: 'Compliance',
-    aliases: ['Compliance', 'C', 'Compliance dyn', 'Cdyn'],
+    aliases: ['Compliance', 'C', 'Compliance dyn', 'Cdyn', 'C dyn', 'Dynamic Compliance', 'Cstat', 'Static Compliance', 'ml/mbar', 'mL/cmH2O'],
     category: 'ventilation',
     unit: 'mL/cmH2O',
     min: 0,
@@ -145,7 +183,7 @@ export const PARAMETER_MAPPINGS: ParameterAlias[] = [
   },
   {
     standardName: 'Resistance',
-    aliases: ['Resistance', 'R', 'Atemwegswiderstand', 'Raw'],
+    aliases: ['Resistance', 'R', 'Resist', 'Resist.', 'Atemwegswiderstand', 'Raw', 'mbar/l/s', 'cmH2O/L/s', 'Airway Resistance'],
     category: 'ventilation',
     unit: 'cmH2O/L/s',
     min: 0,
@@ -159,7 +197,7 @@ export const PARAMETER_MAPPINGS: ParameterAlias[] = [
   },
   {
     standardName: 'Flow',
-    aliases: ['Flow', 'Flowrate', 'L/min'],
+    aliases: ['Flow', 'Flowrate', 'L/min', 'Fluss', 'Gas Flow', 'Gasfluss'],
     category: 'ventilation',
     unit: 'L/min',
     min: 0,
@@ -180,6 +218,108 @@ export const PARAMETER_MAPPINGS: ParameterAlias[] = [
     unit: 'cmH2O',
     min: 0,
     max: 60
+  },
+  {
+    standardName: 'Pplateau',
+    aliases: ['Pplateau', 'Plateau', 'P Plateau', 'Plateau Pressure', 'Plat', 'P plat'],
+    category: 'ventilation',
+    unit: 'cmH2O',
+    min: 0,
+    max: 50
+  },
+  {
+    standardName: 'TInsp',
+    aliases: ['TInsp', 'T Insp', 'Ti', 'Inspiratory Time', 'Inspirationszeit', 'I-Time'],
+    category: 'ventilation',
+    unit: 's',
+    min: 0.2,
+    max: 5
+  },
+  {
+    standardName: 'TExp',
+    aliases: ['TExp', 'T Exp', 'Te', 'Expiratory Time', 'Exspirationszeit', 'E-Time'],
+    category: 'ventilation',
+    unit: 's',
+    min: 0.5,
+    max: 10
+  },
+  {
+    standardName: 'Trigger',
+    aliases: ['Trigger', 'Trig', 'Trigger Sensitivity', 'Flow Trigger', 'Pressure Trigger'],
+    category: 'ventilation',
+    unit: 'L/min',
+    min: 0,
+    max: 20
+  },
+  {
+    standardName: 'MAC',
+    aliases: ['MAC', 'Minimum Alveolar Concentration', 'MAC Age', 'Et MAC', 'Fi MAC'],
+    category: 'ventilation',
+    unit: '',
+    min: 0,
+    max: 3
+  },
+  {
+    standardName: 'InspCO2',
+    aliases: ['Insp CO2', 'InspCO2', 'FiCO2', 'Inspired CO2', 'Insp.'],
+    category: 'ventilation',
+    unit: 'mmHg',
+    min: 0,
+    max: 10
+  },
+  {
+    standardName: 'ExpCO2',
+    aliases: ['Exp CO2', 'ExpCO2', 'Exp.', 'Expired CO2'],
+    category: 'ventilation',
+    unit: 'mmHg',
+    min: 0,
+    max: 80
+  },
+  {
+    standardName: 'InspO2',
+    aliases: ['Insp O2', 'InspO2', 'FiO2 measured', 'Inspired O2'],
+    category: 'ventilation',
+    unit: '%',
+    min: 21,
+    max: 100
+  },
+  {
+    standardName: 'ExpO2',
+    aliases: ['Exp O2', 'ExpO2', 'FeO2', 'Expired O2'],
+    category: 'ventilation',
+    unit: '%',
+    min: 15,
+    max: 100
+  },
+  {
+    standardName: 'O2Consumption',
+    aliases: ['O2 Effektiv', 'O2 Consumption', 'VO2', 'O2 Verbrauch'],
+    category: 'ventilation',
+    unit: 'mL/min',
+    min: 0,
+    max: 1000
+  },
+  {
+    standardName: 'AirPressure',
+    aliases: ['Air', 'Air Pressure', 'Compressed Air', 'Druckluft'],
+    category: 'ventilation',
+    unit: 'kPa',
+    min: 0,
+    max: 10
+  },
+  {
+    standardName: 'O2Pressure',
+    aliases: ['O2 Pressure', 'O2 Supply', 'Sauerstoffdruck'],
+    category: 'ventilation',
+    unit: 'kPa',
+    min: 0,
+    max: 10
+  },
+  {
+    standardName: 'VentMode',
+    aliases: ['Mode', 'Vent Mode', 'Ventilation Mode', 'S-IMV', 'PC-BIPAP', 'SIMV', 'PCV', 'PSV', 'MAN/SPONT', 'IMV'],
+    category: 'ventilation',
+    unit: 'text'
   },
 
   // TOF (Train-of-Four)
