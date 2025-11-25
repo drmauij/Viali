@@ -75,155 +75,18 @@ import { eq, and, inArray, sql, asc, desc } from "drizzle-orm";
 import OpenAI from "openai";
 import crypto from "crypto";
 
-async function getUserUnitForHospital(userId: string, hospitalId: string, activeUnitId?: string): Promise<string | null> {
-  const hospitals = await storage.getUserHospitals(userId);
-  
-  // If activeUnitId is provided (from X-Active-Unit-Id header), use it if user has access
-  if (activeUnitId) {
-    const hasAccess = hospitals.some(h => h.id === hospitalId && h.unitId === activeUnitId);
-    if (hasAccess) {
-      return activeUnitId;
-    }
-  }
-  
-  // Fallback to first unit for this hospital
-  const hospital = hospitals.find(h => h.id === hospitalId);
-  return hospital?.unitId || null;
-}
-
-function getActiveUnitIdFromRequest(req: Request): string | null {
-  return (req.headers as any)['x-active-unit-id'] || null;
-}
-
-async function getUserRole(userId: string, hospitalId: string): Promise<string | null> {
-  const hospitals = await storage.getUserHospitals(userId);
-  const matchingHospitals = hospitals.filter(h => h.id === hospitalId);
-  
-  if (matchingHospitals.length === 0) {
-    return null;
-  }
-  
-  // If user has multiple roles for the same hospital, return the highest privilege role
-  // Priority: admin > doctor > nurse
-  const roles = matchingHospitals.map(h => h.role).filter(Boolean);
-  
-  if (roles.includes('admin')) return 'admin';
-  if (roles.includes('doctor')) return 'doctor';
-  if (roles.includes('nurse')) return 'nurse';
-  
-  return roles[0] || null;
-}
-
-async function verifyUserHospitalUnitAccess(userId: string, hospitalId: string, unitId: string): Promise<{ hasAccess: boolean; role: string | null }> {
-  const hospitals = await storage.getUserHospitals(userId);
-  const match = hospitals.find(h => h.id === hospitalId && h.unitId === unitId);
-  return {
-    hasAccess: !!match,
-    role: match?.role || null
-  };
-}
-
-function getLicenseLimit(licenseType: string): number {
-  switch (licenseType) {
-    case "free":
-      return 10;
-    case "basic":
-      return 200;
-    default:
-      return 10;
-  }
-}
-
-function getBulkImportImageLimit(licenseType: string): number {
-  // Async job queue system allows higher limits without timeout constraints
-  // Background worker processes images within 30s timeout per job
-  switch (licenseType) {
-    case "basic":
-      return 50;  // Basic accounts: up to 50 images
-    case "free":
-    default:
-      return 10;  // Free accounts: up to 10 images
-  }
-}
-
-async function checkLicenseLimit(hospitalId: string): Promise<{ allowed: boolean; currentCount: number; limit: number; licenseType: string }> {
-  const hospital = await storage.getHospital(hospitalId);
-  if (!hospital) {
-    throw new Error("Hospital not found");
-  }
-  
-  const licenseType = hospital.licenseType || "free";
-  const limit = getLicenseLimit(licenseType);
-  
-  const [result] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(items)
-    .where(eq(items.hospitalId, hospitalId));
-  
-  const currentCount = result?.count || 0;
-  
-  return {
-    allowed: currentCount < limit,
-    currentCount,
-    limit,
-    licenseType,
-  };
-}
-
-// Encryption utilities for patient data
-if (!process.env.ENCRYPTION_SECRET) {
-  throw new Error("ENCRYPTION_SECRET environment variable is required for patient data encryption");
-}
-
-const ENCRYPTION_KEY = crypto.scryptSync(
-  process.env.ENCRYPTION_SECRET,
-  "salt",
-  32
-);
-const IV_LENGTH = 16;
-
-function encryptPatientData(text: string): string {
-  const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv("aes-256-cbc", ENCRYPTION_KEY, iv);
-  let encrypted = cipher.update(text, "utf8", "hex");
-  encrypted += cipher.final("hex");
-  return iv.toString("hex") + ":" + encrypted;
-}
-
-function decryptPatientData(text: string): string {
-  // Check if data is encrypted (has IV:encrypted format)
-  if (!text.includes(":")) {
-    // Data is not encrypted, return as-is (backward compatibility)
-    return text;
-  }
-  
-  const parts = text.split(":");
-  
-  // Validate format
-  if (parts.length !== 2 || !parts[0] || !parts[1]) {
-    console.warn("Invalid encrypted data format, returning as-is");
-    return text;
-  }
-  
-  // Validate IV length (should be 32 hex chars = 16 bytes)
-  if (parts[0].length !== 32) {
-    console.warn(`Invalid IV length: ${parts[0].length}, expected 32. Returning as-is`);
-    return text;
-  }
-  
-  try {
-    const iv = Buffer.from(parts[0], "hex");
-    const encrypted = parts[1];
-    const decipher = crypto.createDecipheriv("aes-256-cbc", ENCRYPTION_KEY, iv);
-    let decrypted = decipher.update(encrypted, "hex", "utf8");
-    decrypted += decipher.final("utf8");
-    return decrypted;
-  } catch (error) {
-    console.error("Failed to decrypt data:", error);
-    // Return original text if decryption fails
-    return text;
-  }
-}
+import {
+  encryptPatientData,
+  decryptPatientData,
+  ENCRYPTION_KEY,
+  getUserUnitForHospital,
+  getActiveUnitIdFromRequest,
+  getUserRole,
+  verifyUserHospitalUnitAccess,
+  getLicenseLimit,
+  getBulkImportImageLimit,
+  checkLicenseLimit
+} from "./utils";
 
 // Authenticated encryption for notes (AES-256-GCM provides both confidentiality and integrity)
 const GCM_IV_LENGTH = 12; // 96 bits recommended for GCM
