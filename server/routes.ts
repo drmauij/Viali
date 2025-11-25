@@ -1387,7 +1387,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Hospital ID and name are required" });
       }
 
-      const newGroup = await storage.createAdministrationGroup({ hospitalId, name, sortOrder: 0 });
+      // Get existing groups to determine next sortOrder
+      const existingGroups = await storage.getAdministrationGroups(hospitalId);
+      const maxSortOrder = existingGroups.reduce((max, g) => Math.max(max, g.sortOrder ?? 0), -1);
+      const nextSortOrder = maxSortOrder + 1;
+
+      const newGroup = await storage.createAdministrationGroup({ hospitalId, name, sortOrder: nextSortOrder });
       res.status(201).json(newGroup);
     } catch (error: any) {
       console.error("Error creating administration group:", error);

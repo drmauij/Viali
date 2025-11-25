@@ -208,6 +208,9 @@ export default function AnesthesiaSettings() {
         title: t('anesthesia.settings.groupCreated'),
         description: t('anesthesia.settings.administrationGroupAdded'),
       });
+      setGroupDialogOpen(false);
+      setEditingGroup(null);
+      setGroupFormName('');
     },
   });
 
