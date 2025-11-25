@@ -26,6 +26,7 @@ interface TimelineItem extends TimelineItemBase<number> {
 interface TimelineWeekViewProps {
   surgeryRooms: any[];
   surgeries: any[];
+  patients?: any[];
   selectedDate: Date;
   onEventClick?: (surgeryId: string, patientId: string) => void;
   onEventDrop?: (surgeryId: string, newStart: Date, newEnd: Date, newRoomId: string) => void;
@@ -35,6 +36,7 @@ interface TimelineWeekViewProps {
 export default function TimelineWeekView({
   surgeryRooms,
   surgeries,
+  patients = [],
   selectedDate,
   onEventClick,
   onEventDrop,
@@ -119,6 +121,10 @@ export default function TimelineWeekView({
         ? new Date(surgery.actualEndTime)
         : new Date(plannedDate.getTime() + 3 * 60 * 60 * 1000); // Default 3 hours
       
+      // Look up patient name from patients array
+      const patient = patients.find((p: any) => p.id === surgery.patientId);
+      const patientName = patient ? `${patient.surname}, ${patient.firstName}` : "Unknown Patient";
+      
       // Determine status class based on time markers
       let statusClass = 'timeline-item-active'; // default blue
       
@@ -142,7 +148,7 @@ export default function TimelineWeekView({
       return {
         id: surgery.id,
         group: surgery.surgeryRoomId || surgeryRooms[0]?.id || "unassigned",
-        title: `${surgery.plannedSurgery || 'Surgery'}\n${surgery.patientName || 'Unknown'}`,
+        title: `${surgery.plannedSurgery || 'Surgery'}\n${patientName}`,
         start_time: moment(plannedDate).valueOf(),
         end_time: moment(endTime).valueOf(),
         itemProps: {
@@ -152,7 +158,7 @@ export default function TimelineWeekView({
         },
       };
     });
-  }, [surgeries, surgeryRooms, onEventClick]);
+  }, [surgeries, surgeryRooms, patients, onEventClick]);
 
   const handleItemMove = (itemId: string | number, dragTime: number, newGroupOrder: number) => {
     if (!onEventDrop) return;

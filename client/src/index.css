@@ -706,6 +706,119 @@
   z-index: 10;
 }
 
+/* Ensure timeline items have lower z-index than dialogs */
+.timeline-week-view .rct-items {
+  z-index: 1;
+}
+
+/* Ensure calendar container has lower z-index than dialogs */
+.calendar-container {
+  position: relative;
+  z-index: 1;
+}
+
+/* Ensure dialogs appear above calendar items */
+.calendar-container ~ [data-radix-popper-content-wrapper],
+[data-radix-dialog-overlay],
+[data-radix-dialog-content] {
+  z-index: 50 !important;
+}
+
+/* React Calendar Timeline Item Styling */
+.react-calendar-timeline .rct-item.timeline-item-active {
+  background-color: hsl(217, 91%, 60%) !important;
+  border: none !important;
+  border-radius: 4px !important;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-active .rct-item-content {
+  background-color: hsl(217, 91%, 60%);
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: pre-line;
+  line-height: 1.3;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-active:hover {
+  background-color: hsl(217, 91%, 55%) !important;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-cancelled {
+  background-color: hsl(0, 0%, 60%) !important;
+  border: none !important;
+  border-radius: 4px !important;
+  opacity: 0.6;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-cancelled .rct-item-content {
+  background-color: hsl(0, 0%, 60%);
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  text-decoration: line-through;
+  white-space: pre-line;
+  line-height: 1.3;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-running {
+  background-color: hsl(0, 84%, 60%) !important;
+  border: none !important;
+  border-radius: 4px !important;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-running .rct-item-content {
+  background-color: hsl(0, 84%, 60%);
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: pre-line;
+  line-height: 1.3;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-running:hover {
+  background-color: hsl(0, 84%, 55%) !important;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-suture {
+  background-color: hsl(38, 92%, 50%) !important;
+  border: none !important;
+  border-radius: 4px !important;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-suture .rct-item-content {
+  background-color: hsl(38, 92%, 50%);
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: pre-line;
+  line-height: 1.3;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-suture:hover {
+  background-color: hsl(38, 92%, 45%) !important;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-completed {
+  background-color: hsl(160, 84%, 39%) !important;
+  border: none !important;
+  border-radius: 4px !important;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-completed .rct-item-content {
+  background-color: hsl(160, 84%, 39%);
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: pre-line;
+  line-height: 1.3;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-completed:hover {
+  background-color: hsl(160, 84%, 34%) !important;
+}
+
+/* Legacy classes for backwards compatibility */
 .timeline-item-active {
   background-color: hsl(217, 91%, 60%);
   border: none;

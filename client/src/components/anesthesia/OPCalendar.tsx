@@ -564,6 +564,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             <TimelineWeekView
               surgeryRooms={surgeryRooms}
               surgeries={surgeries}
+              patients={allPatients}
               selectedDate={selectedDate}
               onEventClick={(surgeryId) => {
                 const surgery = surgeries.find(s => s.id === surgeryId);
