@@ -3258,7 +3258,7 @@ export default function PatientDetail() {
                       className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800" 
                       size="lg" 
                       onClick={handleCompleteAssessment}
-                      disabled={createPreOpMutation.isPending || updatePreOpMutation.isPending || existingAssessment?.status === "completed"}
+                      disabled={createPreOpMutation.isPending || updatePreOpMutation.isPending || existingAssessment?.status === "completed" || (!consentData.patientSignature && !consentData.emergencyNoSignature)}
                       data-testid="button-complete-consent"
                     >
                       {existingAssessment?.status === "completed" ? (
