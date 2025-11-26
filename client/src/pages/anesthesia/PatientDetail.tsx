@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Trash2, Download } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Trash2, Download, CheckCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
@@ -3103,6 +3103,29 @@ export default function PatientDetail() {
                       t('anesthesia.patientDetail.saveDraft')
                     )}
                   </Button>
+
+                  {/* Complete button for Not Approved cases - only requires Pre-Op Assessment signature */}
+                  {assessmentData.surgicalApprovalStatus === "not-approved" && existingAssessment?.status !== "completed" && (
+                    <Button 
+                      className="w-full mt-3 bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800" 
+                      size="lg" 
+                      onClick={handleCompleteAssessment}
+                      disabled={createPreOpMutation.isPending || updatePreOpMutation.isPending || !assessmentData.doctorSignature}
+                      data-testid="button-complete-not-approved"
+                    >
+                      {(createPreOpMutation.isPending || updatePreOpMutation.isPending) ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          {t('anesthesia.patientDetail.completing')}
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          {t('anesthesia.patientDetail.complete')}
+                        </>
+                      )}
+                    </Button>
+                  )}
 
                   {/* Move to Draft button - only shown when assessment is completed */}
                   {existingAssessment?.status === "completed" && (
