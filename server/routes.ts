@@ -526,17 +526,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/folders/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
-      const { unitId } = req.query;
+      const { unitId, module: moduleType } = req.query;
       const userId = req.user.id;
       
-      // Verify user has access to this hospital and unit
+      // Verify user has access to this hospital
       const userHospitals = await storage.getUserHospitals(userId);
-      const hasAccess = userHospitals.some(h => h.id === hospitalId && h.unitId === unitId);
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied to this hospital or unit" });
+      const hasHospitalAccess = userHospitals.some(h => h.id === hospitalId);
+      if (!hasHospitalAccess) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
-      const folders = await storage.getFolders(hospitalId, unitId);
+      // Determine which unitId to use based on module parameter or direct unitId
+      let effectiveUnitId = unitId;
+      
+      if (moduleType) {
+        // Find the unit with the matching module flag
+        const units = await storage.getUnits(hospitalId);
+        if (moduleType === 'anesthesia') {
+          const anesthesiaUnit = units.find(u => u.isAnesthesiaModule);
+          if (anesthesiaUnit) {
+            effectiveUnitId = anesthesiaUnit.id;
+          }
+        } else if (moduleType === 'surgery') {
+          const surgeryUnit = units.find(u => u.isSurgeryModule);
+          if (surgeryUnit) {
+            effectiveUnitId = surgeryUnit.id;
+          }
+        }
+      }
+      
+      // If still no unitId, verify direct unit access
+      if (!moduleType && unitId) {
+        const hasUnitAccess = userHospitals.some(h => h.id === hospitalId && h.unitId === unitId);
+        if (!hasUnitAccess) {
+          return res.status(403).json({ message: "Access denied to this unit" });
+        }
+      }
+      
+      const folders = await storage.getFolders(hospitalId, effectiveUnitId);
       res.json(folders);
     } catch (error) {
       console.error("Error fetching folders:", error);
@@ -650,14 +677,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/items/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
-      const { critical, controlled, belowMin, expiring, unitId } = req.query;
+      const { critical, controlled, belowMin, expiring, unitId, module: moduleType } = req.query;
       const userId = req.user.id;
       
-      // Verify user has access to this hospital and unit
+      // Verify user has access to this hospital
       const userHospitals = await storage.getUserHospitals(userId);
-      const hasAccess = userHospitals.some(h => h.id === hospitalId && h.unitId === unitId);
-      if (!hasAccess) {
-        return res.status(403).json({ message: "Access denied to this hospital or unit" });
+      const hasHospitalAccess = userHospitals.some(h => h.id === hospitalId);
+      if (!hasHospitalAccess) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Determine which unitId to use based on module parameter or direct unitId
+      let effectiveUnitId = unitId;
+      
+      if (moduleType) {
+        // Find the unit with the matching module flag
+        const units = await storage.getUnits(hospitalId);
+        if (moduleType === 'anesthesia') {
+          const anesthesiaUnit = units.find(u => u.isAnesthesiaModule);
+          if (anesthesiaUnit) {
+            effectiveUnitId = anesthesiaUnit.id;
+          }
+        } else if (moduleType === 'surgery') {
+          const surgeryUnit = units.find(u => u.isSurgeryModule);
+          if (surgeryUnit) {
+            effectiveUnitId = surgeryUnit.id;
+          }
+        }
+      }
+      
+      // If still no unitId, verify direct unit access
+      if (!moduleType && unitId) {
+        const hasUnitAccess = userHospitals.some(h => h.id === hospitalId && h.unitId === unitId);
+        if (!hasUnitAccess) {
+          return res.status(403).json({ message: "Access denied to this unit" });
+        }
       }
       
       const filters = {
@@ -672,7 +726,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         Object.entries(filters).filter(([_, value]) => value)
       );
       
-      const items = await storage.getItems(hospitalId, unitId, Object.keys(activeFilters).length > 0 ? activeFilters : undefined);
+      const items = await storage.getItems(hospitalId, effectiveUnitId, Object.keys(activeFilters).length > 0 ? activeFilters : undefined);
       res.json(items);
     } catch (error) {
       console.error("Error fetching items:", error);

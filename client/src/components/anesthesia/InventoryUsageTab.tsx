@@ -56,12 +56,6 @@ interface InventoryCommit {
   rollbackReason: string | null;
 }
 
-interface UnitType {
-  id: string;
-  name: string;
-  isAnesthesiaModule?: boolean;
-  isSurgeryModule?: boolean;
-}
 
 export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: InventoryUsageTabProps) {
   const { t } = useTranslation();
@@ -86,34 +80,20 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
     });
   };
 
-  // Fetch hospital units to find the appropriate one based on module
-  const { data: units = [] } = useQuery<UnitType[]>({
-    queryKey: [`/api/units/${activeHospital?.id}`],
+  // Determine module type for API filtering
+  const moduleType = activeModule === 'surgery' ? 'surgery' : 'anesthesia';
+
+  // Fetch ALL inventory items from the hospital based on module type
+  // The backend will find the correct unit based on the module flag
+  const { data: items = [] } = useQuery<Item[]>({
+    queryKey: [`/api/items/${activeHospital?.id}?module=${moduleType}`, moduleType],
     enabled: !!activeHospital?.id,
   });
 
-  // Determine which unitId to use based on active module
-  const effectiveUnitId = useMemo(() => {
-    if (activeModule === 'surgery') {
-      // Find the OR/surgery unit
-      const surgeryUnit = units.find(u => u.isSurgeryModule);
-      return surgeryUnit?.id || activeHospital?.unitId;
-    }
-    // Default to anesthesia unit or current user's unit
-    const anesthesiaUnit = units.find(u => u.isAnesthesiaModule);
-    return anesthesiaUnit?.id || activeHospital?.unitId;
-  }, [activeModule, units, activeHospital?.unitId]);
-
-  // Fetch ALL inventory items from the hospital/unit based on module
-  const { data: items = [] } = useQuery<Item[]>({
-    queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId],
-    enabled: !!activeHospital?.id && !!effectiveUnitId,
-  });
-
-  // Fetch folders - MUST include unitId parameter
+  // Fetch folders based on module type
   const { data: folders = [] } = useQuery<FolderType[]>({
-    queryKey: [`/api/folders/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId],
-    enabled: !!activeHospital?.id && !!effectiveUnitId,
+    queryKey: [`/api/folders/${activeHospital?.id}?module=${moduleType}`, moduleType],
+    enabled: !!activeHospital?.id,
   });
 
   // Fetch auto-calculated usage
