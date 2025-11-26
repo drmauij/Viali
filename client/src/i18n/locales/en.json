@@ -1844,7 +1844,12 @@
       "sutureType": "Type",
       "sizes": "Sizes Used",
       "sizePlaceholder": "e.g., 4-0, 2-0 CT-1",
-      "signatures": "Documentation Signatures"
+      "signatures": "Documentation Signatures",
+      "itemName": "Item Name",
+      "itemNamePlaceholder": "e.g., Suture set, Implant...",
+      "lotNumber": "Lot Number",
+      "lotNumberPlaceholder": "Enter lot/batch number",
+      "quantity": "Quantity"
     }
   }
 }

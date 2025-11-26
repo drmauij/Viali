@@ -24,7 +24,7 @@ import { usePdfExport } from "@/hooks/usePdfExport";
 import { useInventoryTracking } from "@/hooks/useInventoryTracking";
 import { useTimelineData } from "@/hooks/useTimelineData";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -293,6 +293,33 @@ export default function Op() {
   // Temporary state for dialog editing
   const [tempAllergies, setTempAllergies] = useState("");
   const [tempCave, setTempCave] = useState("");
+
+  // Sterile items state
+  const [showAddSterileItemDialog, setShowAddSterileItemDialog] = useState(false);
+  const [sterileItems, setSterileItems] = useState<Array<{id: string; name: string; lotNumber: string; quantity: number}>>([]);
+  const [newSterileItemName, setNewSterileItemName] = useState("");
+  const [newSterileItemLot, setNewSterileItemLot] = useState("");
+  const [newSterileItemQty, setNewSterileItemQty] = useState(1);
+
+  const handleAddSterileItem = () => {
+    if (!newSterileItemName.trim()) return;
+    
+    setSterileItems(prev => [...prev, {
+      id: `sterile-${Date.now()}`,
+      name: newSterileItemName.trim(),
+      lotNumber: newSterileItemLot.trim(),
+      quantity: newSterileItemQty
+    }]);
+    
+    setNewSterileItemName("");
+    setNewSterileItemLot("");
+    setNewSterileItemQty(1);
+    setShowAddSterileItemDialog(false);
+  };
+
+  const handleRemoveSterileItem = (id: string) => {
+    setSterileItems(prev => prev.filter(item => item.id !== id));
+  };
 
   // Update allergies from patient table and CAVE from preOp assessment
   useEffect(() => {
@@ -1433,17 +1460,49 @@ export default function Op() {
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between">
                     <CardTitle>{t('surgery.sterile.items')}</CardTitle>
-                    <Button size="sm" variant="outline" data-testid="button-add-sterile-item">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => setShowAddSterileItemDialog(true)}
+                      data-testid="button-add-sterile-item"
+                    >
                       <Plus className="h-4 w-4 mr-1" />
                       {t('surgery.sterile.addItem')}
                     </Button>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                      <p>{t('surgery.sterile.noItems')}</p>
-                      <p className="text-sm">{t('surgery.sterile.scanOrAdd')}</p>
-                    </div>
+                    {sterileItems.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                        <p>{t('surgery.sterile.noItems')}</p>
+                        <p className="text-sm">{t('surgery.sterile.scanOrAdd')}</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {sterileItems.map((item) => (
+                          <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div className="flex-1">
+                              <div className="font-medium">{item.name}</div>
+                              {item.lotNumber && (
+                                <div className="text-sm text-muted-foreground">Lot: {item.lotNumber}</div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <Badge variant="secondary">{item.quantity}x</Badge>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                onClick={() => handleRemoveSterileItem(item.id)}
+                                data-testid={`button-remove-sterile-${item.id}`}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -1548,6 +1607,64 @@ export default function Op() {
               {t('anesthesia.op.save')}
             </Button>
           </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* Add Sterile Item Dialog */}
+    <Dialog open={showAddSterileItemDialog} onOpenChange={setShowAddSterileItemDialog}>
+      <DialogContent className="sm:max-w-[400px]">
+        <DialogHeader>
+          <DialogTitle>{t('surgery.sterile.addItem')}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="sterile-item-name">{t('surgery.sterile.itemName')}</Label>
+            <Input
+              id="sterile-item-name"
+              placeholder={t('surgery.sterile.itemNamePlaceholder')}
+              value={newSterileItemName}
+              onChange={(e) => setNewSterileItemName(e.target.value)}
+              data-testid="input-sterile-item-name"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="sterile-item-lot">{t('surgery.sterile.lotNumber')}</Label>
+            <Input
+              id="sterile-item-lot"
+              placeholder={t('surgery.sterile.lotNumberPlaceholder')}
+              value={newSterileItemLot}
+              onChange={(e) => setNewSterileItemLot(e.target.value)}
+              data-testid="input-sterile-item-lot"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="sterile-item-qty">{t('surgery.sterile.quantity')}</Label>
+            <Input
+              id="sterile-item-qty"
+              type="number"
+              min={1}
+              value={newSterileItemQty}
+              onChange={(e) => setNewSterileItemQty(parseInt(e.target.value) || 1)}
+              data-testid="input-sterile-item-qty"
+            />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowAddSterileItemDialog(false)}
+            data-testid="button-cancel-sterile-item"
+          >
+            {t('anesthesia.op.cancel')}
+          </Button>
+          <Button
+            onClick={handleAddSterileItem}
+            disabled={!newSterileItemName.trim()}
+            data-testid="button-confirm-sterile-item"
+          >
+            {t('surgery.sterile.addItem')}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

@@ -1844,7 +1844,12 @@
       "sutureType": "Typ",
       "sizes": "Verwendete Größen",
       "sizePlaceholder": "z.B. 4-0, 2-0 CT-1",
-      "signatures": "Dokumentations-Unterschriften"
+      "signatures": "Dokumentations-Unterschriften",
+      "itemName": "Artikelname",
+      "itemNamePlaceholder": "z.B. Naht-Set, Implantat...",
+      "lotNumber": "Chargennummer",
+      "lotNumberPlaceholder": "Chargen-/Losnummer eingeben",
+      "quantity": "Menge"
     }
   }
 }
