@@ -2558,7 +2558,7 @@ export default function Items() {
                       </div>
                     ) : (
                       <div className="flex gap-2 flex-1">
-                        <div className="w-24">
+                        <div className="w-32">
                           <Label className="text-xs">{t('items.unitType')}</Label>
                           <Select
                             value={bulkEditItems[item.id]?.trackExactQuantity !== undefined 
@@ -2580,7 +2580,25 @@ export default function Items() {
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="flex-1">
+                        {(bulkEditItems[item.id]?.trackExactQuantity !== undefined ? bulkEditItems[item.id].trackExactQuantity : item.trackExactQuantity) && (
+                          <div className="w-20">
+                            <Label className="text-xs">{t('items.packSize')}</Label>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={bulkEditItems[item.id]?.packSize !== undefined ? bulkEditItems[item.id].packSize : (item.packSize || 1)}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 1;
+                                setBulkEditItems(prev => ({
+                                  ...prev,
+                                  [item.id]: { ...prev[item.id], packSize: val }
+                                }));
+                              }}
+                              data-testid={`bulk-edit-pack-size-${item.id}`}
+                            />
+                          </div>
+                        )}
+                        <div className="w-24">
                           <Label className="text-xs">
                             {(bulkEditItems[item.id]?.trackExactQuantity !== undefined ? bulkEditItems[item.id].trackExactQuantity : item.trackExactQuantity) ? t('items.currentUnits') : t('items.stock')}
                           </Label>
@@ -2608,8 +2626,8 @@ export default function Items() {
                             data-testid={`bulk-edit-${item.trackExactQuantity ? 'units' : 'stock'}-${item.id}`}
                           />
                         </div>
-                        <div className="flex-1">
-                          <Label className="text-xs">{t('items.min')}</Label>
+                        <div className="w-20">
+                          <Label className="text-xs">{t('items.minThreshold')}</Label>
                           <Input
                             type="number"
                             value={bulkEditItems[item.id]?.minThreshold !== undefined ? bulkEditItems[item.id].minThreshold : (item.minThreshold || 0)}
@@ -2623,8 +2641,8 @@ export default function Items() {
                             data-testid={`bulk-edit-min-${item.id}`}
                           />
                         </div>
-                        <div className="flex-1">
-                          <Label className="text-xs">{t('items.max')}</Label>
+                        <div className="w-20">
+                          <Label className="text-xs">{t('items.maxThreshold')}</Label>
                           <Input
                             type="number"
                             value={bulkEditItems[item.id]?.maxThreshold !== undefined ? bulkEditItems[item.id].maxThreshold : (item.maxThreshold || 0)}
