@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState, useEffect, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -289,8 +290,10 @@ export default function PatientDetail() {
     },
     installationsOther: "",
     
-    // Surgical Approval Status
-    surgicalApprovalStatus: "", // "approved", "standby-ekg", "standby-labs", "standby-other", "not-approved"
+    // Stand-By Status
+    standBy: false,
+    standByReason: "", // "signature_missing", "consent_required", "waiting_exams", "other"
+    standByReasonNote: "",
     
     // Doctor Info
     assessmentDate: new Date().toISOString().split('T')[0],
@@ -552,7 +555,9 @@ export default function PatientDetail() {
           arterialLine: false, centralLine: false, epiduralCatheter: false, urinaryCatheter: false, nasogastricTube: false, peripheralIV: false,
         },
         installationsOther: existingAssessment.installationsOther || "",
-        surgicalApprovalStatus: existingAssessment.surgicalApproval || "",
+        standBy: existingAssessment.standBy || false,
+        standByReason: existingAssessment.standByReason || "",
+        standByReasonNote: existingAssessment.standByReasonNote || "",
         assessmentDate: existingAssessment.assessmentDate || new Date().toISOString().split('T')[0],
         doctorName: existingAssessment.doctorName || currentUserName,
         doctorSignature: existingAssessment.doctorSignature || "",
@@ -762,7 +767,9 @@ export default function PatientDetail() {
     const data = {
       ...assessmentData,
       ...overrideData, // Allow overriding specific fields (like signature)
-      surgicalApproval: assessmentData.surgicalApprovalStatus,
+      standBy: assessmentData.standBy,
+      standByReason: assessmentData.standByReason,
+      standByReasonNote: assessmentData.standByReasonNote,
       // Format consent data fields
       consentGiven: consentData.general,
       consentRegional: consentData.regional,
@@ -1025,7 +1032,7 @@ export default function PatientDetail() {
            assessmentData.anesthesiaOther.trim() !== "" ||
            Object.values(assessmentData.installations).some(v => v) ||
            assessmentData.installationsOther.trim() !== "" ||
-           assessmentData.surgicalApprovalStatus.trim() !== "";
+           assessmentData.standBy;
   };
   
   const hasGeneralData = () => {
@@ -2783,7 +2790,7 @@ export default function PatientDetail() {
                                     })}
                                     data-testid="checkbox-post-op-icu"
                                   />
-                                  <Label htmlFor="postOpICU" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.postOpICU')}</Label>
+                                  <Label htmlFor="postOpICU" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.postOpIcu')}</Label>
                                 </div>
                               </div>
                             </div>
@@ -2903,86 +2910,72 @@ export default function PatientDetail() {
                   <CardTitle>{t('anesthesia.patientDetail.assessmentCompletion')}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Surgical Approval Status - moved to top */}
-                  <div className="space-y-2">
-                    <Label className="text-base font-semibold">{t('anesthesia.patientDetail.surgicalApprovalStatus')}</Label>
-                    <div className="space-y-2">
-                      <div className={`flex items-center space-x-2 p-2 rounded-lg ${assessmentData.surgicalApprovalStatus === "approved" ? "bg-green-50 dark:bg-green-950" : ""}`}>
-                        <Checkbox
-                          id="approved"
-                          checked={assessmentData.surgicalApprovalStatus === "approved"}
-                          onCheckedChange={(checked) => setAssessmentData({
-                            ...assessmentData,
-                            surgicalApprovalStatus: checked ? "approved" : ""
-                          })}
-                          data-testid="checkbox-approved"
-                          className={assessmentData.surgicalApprovalStatus === "approved" ? "border-green-600 data-[state=checked]:bg-green-600" : ""}
-                        />
-                        <Label htmlFor="approved" className={`cursor-pointer font-normal text-sm flex-1 ${assessmentData.surgicalApprovalStatus === "approved" ? "text-green-700 dark:text-green-300 font-semibold" : ""}`}>
-                          {t('anesthesia.patientDetail.approvedForSurgery')}
-                        </Label>
-                      </div>
-                      <div className={`flex items-center space-x-2 p-2 rounded-lg ${assessmentData.surgicalApprovalStatus === "standby-ekg" ? "bg-yellow-50 dark:bg-yellow-950" : ""}`}>
-                        <Checkbox
-                          id="standby-ekg"
-                          checked={assessmentData.surgicalApprovalStatus === "standby-ekg"}
-                          onCheckedChange={(checked) => setAssessmentData({
-                            ...assessmentData,
-                            surgicalApprovalStatus: checked ? "standby-ekg" : ""
-                          })}
-                          data-testid="checkbox-standby-ekg"
-                          className={assessmentData.surgicalApprovalStatus === "standby-ekg" ? "border-yellow-600 data-[state=checked]:bg-yellow-600" : ""}
-                        />
-                        <Label htmlFor="standby-ekg" className={`cursor-pointer font-normal text-sm flex-1 ${assessmentData.surgicalApprovalStatus === "standby-ekg" ? "text-yellow-700 dark:text-yellow-300 font-semibold" : ""}`}>
-                          {t('anesthesia.patientDetail.standbyWaitingEkg')}
-                        </Label>
-                      </div>
-                      <div className={`flex items-center space-x-2 p-2 rounded-lg ${assessmentData.surgicalApprovalStatus === "standby-labs" ? "bg-yellow-50 dark:bg-yellow-950" : ""}`}>
-                        <Checkbox
-                          id="standby-labs"
-                          checked={assessmentData.surgicalApprovalStatus === "standby-labs"}
-                          onCheckedChange={(checked) => setAssessmentData({
-                            ...assessmentData,
-                            surgicalApprovalStatus: checked ? "standby-labs" : ""
-                          })}
-                          data-testid="checkbox-standby-labs"
-                          className={assessmentData.surgicalApprovalStatus === "standby-labs" ? "border-yellow-600 data-[state=checked]:bg-yellow-600" : ""}
-                        />
-                        <Label htmlFor="standby-labs" className={`cursor-pointer font-normal text-sm flex-1 ${assessmentData.surgicalApprovalStatus === "standby-labs" ? "text-yellow-700 dark:text-yellow-300 font-semibold" : ""}`}>
-                          {t('anesthesia.patientDetail.standbyWaitingLabs')}
-                        </Label>
-                      </div>
-                      <div className={`flex items-center space-x-2 p-2 rounded-lg ${assessmentData.surgicalApprovalStatus === "standby-other" ? "bg-yellow-50 dark:bg-yellow-950" : ""}`}>
-                        <Checkbox
-                          id="standby-other"
-                          checked={assessmentData.surgicalApprovalStatus === "standby-other"}
-                          onCheckedChange={(checked) => setAssessmentData({
-                            ...assessmentData,
-                            surgicalApprovalStatus: checked ? "standby-other" : ""
-                          })}
-                          data-testid="checkbox-standby-other"
-                          className={assessmentData.surgicalApprovalStatus === "standby-other" ? "border-yellow-600 data-[state=checked]:bg-yellow-600" : ""}
-                        />
-                        <Label htmlFor="standby-other" className={`cursor-pointer font-normal text-sm flex-1 ${assessmentData.surgicalApprovalStatus === "standby-other" ? "text-yellow-700 dark:text-yellow-300 font-semibold" : ""}`}>
-                          {t('anesthesia.patientDetail.standbyWaitingOtherExams')}
-                        </Label>
-                      </div>
-                      <div className={`flex items-center space-x-2 p-2 rounded-lg ${assessmentData.surgicalApprovalStatus === "not-approved" ? "bg-red-50 dark:bg-red-950" : ""}`}>
-                        <Checkbox
-                          id="not-approved"
-                          checked={assessmentData.surgicalApprovalStatus === "not-approved"}
-                          onCheckedChange={(checked) => setAssessmentData({
-                            ...assessmentData,
-                            surgicalApprovalStatus: checked ? "not-approved" : ""
-                          })}
-                          data-testid="checkbox-not-approved"
-                          className={assessmentData.surgicalApprovalStatus === "not-approved" ? "border-red-600 data-[state=checked]:bg-red-600" : ""}
-                        />
-                        <Label htmlFor="not-approved" className={`cursor-pointer font-normal text-sm flex-1 ${assessmentData.surgicalApprovalStatus === "not-approved" ? "text-red-700 dark:text-red-300 font-semibold" : ""}`}>
-                          {t('anesthesia.patientDetail.notApproved')}
-                        </Label>
-                      </div>
+                  {/* Stand-By Status */}
+                  <div className={`space-y-4 p-4 rounded-lg border ${assessmentData.standBy ? "bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-700" : "border-muted"}`}>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="standby-toggle" className={`text-base font-semibold cursor-pointer ${assessmentData.standBy ? "text-amber-700 dark:text-amber-300" : ""}`}>
+                        {t('anesthesia.patientDetail.standByLabel')}
+                      </Label>
+                      <Switch
+                        id="standby-toggle"
+                        checked={assessmentData.standBy}
+                        onCheckedChange={(checked) => setAssessmentData({
+                          ...assessmentData,
+                          standBy: checked,
+                          standByReason: checked ? assessmentData.standByReason : "",
+                          standByReasonNote: checked ? assessmentData.standByReasonNote : ""
+                        })}
+                        data-testid="switch-standby"
+                        className={assessmentData.standBy ? "data-[state=checked]:bg-amber-600" : ""}
+                      />
                     </div>
+                    
+                    {assessmentData.standBy && (
+                      <div className="space-y-4 pt-2 border-t border-amber-200 dark:border-amber-800">
+                        <div className="space-y-2">
+                          <Label htmlFor="standby-reason" className="text-sm font-medium">
+                            {t('anesthesia.patientDetail.standByReasonLabel')}
+                          </Label>
+                          <Select
+                            value={assessmentData.standByReason}
+                            onValueChange={(value) => setAssessmentData({
+                              ...assessmentData,
+                              standByReason: value,
+                              standByReasonNote: value !== "other" ? "" : assessmentData.standByReasonNote
+                            })}
+                          >
+                            <SelectTrigger data-testid="select-standby-reason">
+                              <SelectValue placeholder={t('anesthesia.patientDetail.selectReason')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="signature_missing">{t('anesthesia.patientDetail.standByReasons.signatureMissing')}</SelectItem>
+                              <SelectItem value="consent_required">{t('anesthesia.patientDetail.standByReasons.consentRequired')}</SelectItem>
+                              <SelectItem value="waiting_exams">{t('anesthesia.patientDetail.standByReasons.waitingExams')}</SelectItem>
+                              <SelectItem value="other">{t('anesthesia.patientDetail.standByReasons.other')}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        {assessmentData.standByReason === "other" && (
+                          <div className="space-y-2">
+                            <Label htmlFor="standby-note" className="text-sm font-medium">
+                              {t('anesthesia.patientDetail.standByReasonNote')}
+                            </Label>
+                            <Textarea
+                              id="standby-note"
+                              value={assessmentData.standByReasonNote}
+                              onChange={(e) => setAssessmentData({
+                                ...assessmentData,
+                                standByReasonNote: e.target.value
+                              })}
+                              placeholder={t('anesthesia.patientDetail.standByReasonNotePlaceholder')}
+                              rows={2}
+                              data-testid="textarea-standby-note"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Assessment Date and Doctor Name */}
