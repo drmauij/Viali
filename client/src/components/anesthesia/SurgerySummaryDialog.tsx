@@ -215,150 +215,154 @@ export default function SurgerySummaryDialog({
               </CardContent>
             </Card>
 
-            {/* Pre-OP Assessment */}
-            <Card 
-              className="cursor-pointer hover:bg-accent transition-colors"
-              onClick={onOpenPreOp}
-              data-testid="card-open-preop"
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg shrink-0">
-                      <ClipboardList className="h-5 w-5 text-green-600 dark:text-green-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold mb-2">{t('anesthesia.surgerySummary.preOpAssessment')}</div>
-                      {isLoadingPreOp ? (
-                        <div className="text-sm text-muted-foreground">
-                          {t('anesthesia.surgerySummary.loading')}
-                        </div>
-                      ) : isRealError ? (
-                        <div className="text-sm text-destructive">
-                          {t('anesthesia.surgerySummary.errorLoading')}
-                        </div>
-                      ) : hasPreOpData ? (
-                        <div className="text-sm">
-                          {(() => {
-                            const parts = [];
-                            
-                            // General Data
-                            if (preOpAssessment.asa != null) {
-                              parts.push(`ASA ${preOpAssessment.asa}`);
-                            }
-                            if (preOpAssessment.weight != null) {
-                              parts.push(`${preOpAssessment.weight}kg`);
-                            }
-                            if (preOpAssessment.height != null) {
-                              parts.push(`${preOpAssessment.height}cm`);
-                            }
-                            if (preOpAssessment.heartRate != null) {
-                              parts.push(`HR ${preOpAssessment.heartRate}`);
-                            }
-                            if (preOpAssessment.bloodPressureSystolic != null && preOpAssessment.bloodPressureDiastolic != null) {
-                              parts.push(`BP ${preOpAssessment.bloodPressureSystolic}/${preOpAssessment.bloodPressureDiastolic}`);
-                            }
-                            if (preOpAssessment.cave != null) {
-                              parts.push(`CAVE: ${preOpAssessment.cave}`);
-                            }
-                            
-                            // Anesthesia Techniques with sub-options
-                            if (preOpAssessment.anesthesiaTechniques) {
-                              const techniques = [];
-                              const at = preOpAssessment.anesthesiaTechniques;
+            {/* Pre-OP Assessment - Only shown in anesthesia module */}
+            {activeModule !== 'surgery' && (
+              <Card 
+                className="cursor-pointer hover:bg-accent transition-colors"
+                onClick={onOpenPreOp}
+                data-testid="card-open-preop"
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3 flex-1">
+                      <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg shrink-0">
+                        <ClipboardList className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold mb-2">{t('anesthesia.surgerySummary.preOpAssessment')}</div>
+                        {isLoadingPreOp ? (
+                          <div className="text-sm text-muted-foreground">
+                            {t('anesthesia.surgerySummary.loading')}
+                          </div>
+                        ) : isRealError ? (
+                          <div className="text-sm text-destructive">
+                            {t('anesthesia.surgerySummary.errorLoading')}
+                          </div>
+                        ) : hasPreOpData ? (
+                          <div className="text-sm">
+                            {(() => {
+                              const parts = [];
                               
-                              if (at.general) {
-                                const generalSubs = at.generalOptions ? Object.entries(at.generalOptions)
-                                  .filter(([_, value]) => value)
-                                  .map(([key]) => key.toUpperCase())
-                                  : [];
-                                techniques.push(generalSubs.length > 0 ? `General (${generalSubs.join(', ')})` : 'General');
+                              // General Data
+                              if (preOpAssessment.asa != null) {
+                                parts.push(`ASA ${preOpAssessment.asa}`);
                               }
-                              if (at.spinal) techniques.push('Spinal');
-                              if (at.epidural) {
-                                const epiduralSubs = at.epiduralOptions ? Object.entries(at.epiduralOptions)
+                              if (preOpAssessment.weight != null) {
+                                parts.push(`${preOpAssessment.weight}kg`);
+                              }
+                              if (preOpAssessment.height != null) {
+                                parts.push(`${preOpAssessment.height}cm`);
+                              }
+                              if (preOpAssessment.heartRate != null) {
+                                parts.push(`HR ${preOpAssessment.heartRate}`);
+                              }
+                              if (preOpAssessment.bloodPressureSystolic != null && preOpAssessment.bloodPressureDiastolic != null) {
+                                parts.push(`BP ${preOpAssessment.bloodPressureSystolic}/${preOpAssessment.bloodPressureDiastolic}`);
+                              }
+                              if (preOpAssessment.cave != null) {
+                                parts.push(`CAVE: ${preOpAssessment.cave}`);
+                              }
+                              
+                              // Anesthesia Techniques with sub-options
+                              if (preOpAssessment.anesthesiaTechniques) {
+                                const techniques = [];
+                                const at = preOpAssessment.anesthesiaTechniques;
+                                
+                                if (at.general) {
+                                  const generalSubs = at.generalOptions ? Object.entries(at.generalOptions)
+                                    .filter(([_, value]) => value)
+                                    .map(([key]) => key.toUpperCase())
+                                    : [];
+                                  techniques.push(generalSubs.length > 0 ? `General (${generalSubs.join(', ')})` : 'General');
+                                }
+                                if (at.spinal) techniques.push('Spinal');
+                                if (at.epidural) {
+                                  const epiduralSubs = at.epiduralOptions ? Object.entries(at.epiduralOptions)
+                                    .filter(([_, value]) => value)
+                                    .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
+                                    : [];
+                                  techniques.push(epiduralSubs.length > 0 ? `Epidural (${epiduralSubs.join(', ')})` : 'Epidural');
+                                }
+                                if (at.regional) {
+                                  const regionalSubs = at.regionalOptions ? Object.entries(at.regionalOptions)
+                                    .filter(([_, value]) => value)
+                                    .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
+                                    : [];
+                                  techniques.push(regionalSubs.length > 0 ? `Regional (${regionalSubs.join(', ')})` : 'Regional');
+                                }
+                                if (at.sedation) techniques.push('Sedation');
+                                if (at.combined) techniques.push('Combined');
+                                
+                                if (techniques.length > 0) {
+                                  parts.push(techniques.join(', '));
+                                }
+                              }
+                              
+                              // Installations
+                              if (preOpAssessment.installations && Object.keys(preOpAssessment.installations).length > 0) {
+                                const installations = Object.entries(preOpAssessment.installations)
                                   .filter(([_, value]) => value)
                                   .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
-                                  : [];
-                                techniques.push(epiduralSubs.length > 0 ? `Epidural (${epiduralSubs.join(', ')})` : 'Epidural');
+                                  .join(', ');
+                                if (installations) {
+                                  parts.push(installations);
+                                }
                               }
-                              if (at.regional) {
-                                const regionalSubs = at.regionalOptions ? Object.entries(at.regionalOptions)
-                                  .filter(([_, value]) => value)
-                                  .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
-                                  : [];
-                                techniques.push(regionalSubs.length > 0 ? `Regional (${regionalSubs.join(', ')})` : 'Regional');
-                              }
-                              if (at.sedation) techniques.push('Sedation');
-                              if (at.combined) techniques.push('Combined');
                               
-                              if (techniques.length > 0) {
-                                parts.push(techniques.join(', '));
+                              // Post-OP ICU
+                              if (preOpAssessment.postOpICU) {
+                                parts.push('Post-OP ICU planned');
                               }
-                            }
-                            
-                            // Installations
-                            if (preOpAssessment.installations && Object.keys(preOpAssessment.installations).length > 0) {
-                              const installations = Object.entries(preOpAssessment.installations)
-                                .filter(([_, value]) => value)
-                                .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
-                                .join(', ');
-                              if (installations) {
-                                parts.push(installations);
+                              
+                              // Other notes
+                              if (preOpAssessment.specialNotes != null) {
+                                parts.push(preOpAssessment.specialNotes);
                               }
-                            }
-                            
-                            // Post-OP ICU
-                            if (preOpAssessment.postOpICU) {
-                              parts.push('Post-OP ICU planned');
-                            }
-                            
-                            // Other notes
-                            if (preOpAssessment.specialNotes != null) {
-                              parts.push(preOpAssessment.specialNotes);
-                            }
-                            if (preOpAssessment.anesthesiaOther != null) {
-                              parts.push(preOpAssessment.anesthesiaOther);
-                            }
-                            
-                            return parts.join(', ');
-                          })()}
-                        </div>
-                      ) : (
-                        <div className="text-sm text-muted-foreground">
-                          {t('anesthesia.surgerySummary.notYetCompleted')}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 mt-1" />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Anesthesia Record */}
-            <Card 
-              className="cursor-pointer hover:bg-accent transition-colors"
-              onClick={onOpenAnesthesia}
-              data-testid="card-open-anesthesia"
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-red-100 dark:bg-red-900 rounded-lg">
-                      <Activity className="h-5 w-5 text-red-600 dark:text-red-400" />
-                    </div>
-                    <div>
-                      <div className="font-semibold">{t('anesthesia.surgerySummary.anesthesiaRecord')}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {t('anesthesia.surgerySummary.viewManage')}
+                              if (preOpAssessment.anesthesiaOther != null) {
+                                parts.push(preOpAssessment.anesthesiaOther);
+                              }
+                              
+                              return parts.join(', ');
+                            })()}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-muted-foreground">
+                            {t('anesthesia.surgerySummary.notYetCompleted')}
+                          </div>
+                        )}
                       </div>
                     </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 mt-1" />
                   </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Anesthesia Record - Only shown in anesthesia module */}
+            {activeModule !== 'surgery' && (
+              <Card 
+                className="cursor-pointer hover:bg-accent transition-colors"
+                onClick={onOpenAnesthesia}
+                data-testid="card-open-anesthesia"
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-red-100 dark:bg-red-900 rounded-lg">
+                        <Activity className="h-5 w-5 text-red-600 dark:text-red-400" />
+                      </div>
+                      <div>
+                        <div className="font-semibold">{t('anesthesia.surgerySummary.anesthesiaRecord')}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {t('anesthesia.surgerySummary.viewManage')}
+                        </div>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Surgery Nursing Documentation - Only shown in surgery module */}
             {activeModule === 'surgery' && onOpenSurgeryDocumentation && (
