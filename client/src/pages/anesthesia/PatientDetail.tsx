@@ -2918,7 +2918,6 @@ export default function PatientDetail() {
                 <CardContent className="space-y-4">
                   {/* Surgical Approval Status */}
                   <div className="space-y-2">
-                    <Label className="text-base font-semibold">{t('anesthesia.patientDetail.surgicalApprovalStatus')}</Label>
                     <div className="space-y-2">
                       <div className={`flex items-center space-x-2 p-2 rounded-lg ${assessmentData.surgicalApprovalStatus === "approved" ? "bg-green-50 dark:bg-green-950" : ""}`}>
                         <Checkbox
