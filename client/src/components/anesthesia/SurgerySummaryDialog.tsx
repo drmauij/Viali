@@ -367,7 +367,7 @@ export default function SurgerySummaryDialog({
             {/* Surgery Nursing Documentation - Only shown in surgery module */}
             {activeModule === 'surgery' && onOpenSurgeryDocumentation && (
               <Card 
-                className="cursor-pointer hover:bg-accent transition-colors border-2 border-green-500/50"
+                className="cursor-pointer hover:bg-accent transition-colors"
                 onClick={onOpenSurgeryDocumentation}
                 data-testid="card-open-surgery-documentation"
               >
