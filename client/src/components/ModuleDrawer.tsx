@@ -43,7 +43,7 @@ export default function ModuleDrawer() {
       icon: "fas fa-heartbeat",
       title: t('modules.anesthesia.title'),
       description: t('modules.anesthesia.description'),
-      route: "/anesthesia/patients",
+      route: "/anesthesia/op",
       color: "bg-red-500",
     },
     {

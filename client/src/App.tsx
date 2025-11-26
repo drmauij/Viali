@@ -49,7 +49,7 @@ function HomeRedirect() {
     
     // If user has a saved preference, use it
     if (savedModule === "anesthesia") {
-      navigate("/anesthesia/patients", { replace: true });
+      navigate("/anesthesia/op", { replace: true });
       return;
     } else if (savedModule === "admin") {
       navigate("/admin", { replace: true });
@@ -74,7 +74,7 @@ function HomeRedirect() {
 
       // If user's unit has anesthesia module enabled, default to anesthesia module
       if (activeHospital.isAnesthesiaModule) {
-        navigate("/anesthesia/patients", { replace: true });
+        navigate("/anesthesia/op", { replace: true });
         return;
       }
     }
