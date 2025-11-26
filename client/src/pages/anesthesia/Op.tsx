@@ -825,24 +825,41 @@ export default function Op() {
                     </>
                   )}
 
-                  {/* Shared Tabs - Visible in Both Modules */}
-                  {!isPacuMode && (
-                    <TabsTrigger value="checklists" data-testid="tab-checklists" className="text-xs sm:text-sm whitespace-nowrap">
-                      {t('anesthesia.op.checklists')}
-                    </TabsTrigger>
+                  {/* Surgery Module: Inventory before Checklists */}
+                  {isSurgeryMode && (
+                    <>
+                      <TabsTrigger value="inventory" data-testid="tab-inventory" className="text-xs sm:text-sm whitespace-nowrap">
+                        {t('anesthesia.op.inventory')}
+                      </TabsTrigger>
+                      <TabsTrigger value="checklists" data-testid="tab-checklists" className="text-xs sm:text-sm whitespace-nowrap">
+                        {t('anesthesia.op.checklists')}
+                      </TabsTrigger>
+                      <TabsTrigger value="preop" data-testid="tab-preop" className="text-xs sm:text-sm whitespace-nowrap">
+                        {t('anesthesia.op.preOp')}
+                      </TabsTrigger>
+                    </>
                   )}
-                  <TabsTrigger value="preop" data-testid="tab-preop" className="text-xs sm:text-sm whitespace-nowrap">
-                    {t('anesthesia.op.preOp')}
-                  </TabsTrigger>
-                  <TabsTrigger value="inventory" data-testid="tab-inventory" className="text-xs sm:text-sm whitespace-nowrap">
-                    {t('anesthesia.op.inventory')}
-                  </TabsTrigger>
 
-                  {/* Anesthesia Module Only - Post-Op */}
-                  {!isSurgeryMode && !isPacuMode && (
-                    <TabsTrigger value="postop" data-testid="tab-postop" className="text-xs sm:text-sm whitespace-nowrap">
-                      {t('anesthesia.op.postOp')}
-                    </TabsTrigger>
+                  {/* Anesthesia Module: Checklists before Inventory (original order) */}
+                  {!isSurgeryMode && (
+                    <>
+                      {!isPacuMode && (
+                        <TabsTrigger value="checklists" data-testid="tab-checklists" className="text-xs sm:text-sm whitespace-nowrap">
+                          {t('anesthesia.op.checklists')}
+                        </TabsTrigger>
+                      )}
+                      <TabsTrigger value="preop" data-testid="tab-preop" className="text-xs sm:text-sm whitespace-nowrap">
+                        {t('anesthesia.op.preOp')}
+                      </TabsTrigger>
+                      <TabsTrigger value="inventory" data-testid="tab-inventory" className="text-xs sm:text-sm whitespace-nowrap">
+                        {t('anesthesia.op.inventory')}
+                      </TabsTrigger>
+                      {!isPacuMode && (
+                        <TabsTrigger value="postop" data-testid="tab-postop" className="text-xs sm:text-sm whitespace-nowrap">
+                          {t('anesthesia.op.postOp')}
+                        </TabsTrigger>
+                      )}
+                    </>
                   )}
                 </TabsList>
               </div>
