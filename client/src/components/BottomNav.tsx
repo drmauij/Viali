@@ -125,6 +125,14 @@ export default function BottomNav() {
       ];
     }
     
+    if (activeModule === "surgery") {
+      return [
+        { id: "patients", icon: "fas fa-users", label: t('bottomNav.surgery.patients'), path: "/surgery/patients" },
+        { id: "op", icon: "fas fa-user-nurse", label: t('bottomNav.surgery.op'), path: "/surgery/op" },
+        { id: "settings", icon: "fas fa-cog", label: t('bottomNav.surgery.settings'), path: "/surgery/settings" },
+      ];
+    }
+    
     if (activeModule === "admin") {
       return [
         { id: "admin-hospital", icon: "fas fa-hospital", label: t('bottomNav.admin.hospital'), path: "/admin" },

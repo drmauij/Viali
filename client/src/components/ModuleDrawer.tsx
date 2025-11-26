@@ -47,6 +47,14 @@ export default function ModuleDrawer() {
       color: "bg-red-500",
     },
     {
+      id: "surgery",
+      icon: "fas fa-user-nurse",
+      title: t('modules.surgery.title'),
+      description: t('modules.surgery.description'),
+      route: "/surgery/op",
+      color: "bg-teal-500",
+    },
+    {
       id: "inventory",
       icon: "fas fa-boxes",
       title: t('modules.inventory.title'),
@@ -73,8 +81,9 @@ export default function ModuleDrawer() {
   const modules = allModules.filter(module => {
     // Admin modules only for admins
     if (module.adminOnly && !isAdmin) return false;
-    // Anesthesia module only if configured and user has access
+    // Anesthesia and Surgery modules only if configured and user has access
     if (module.id === "anesthesia" && !hasAnesthesiaAccess) return false;
+    if (module.id === "surgery" && !hasAnesthesiaAccess) return false;
     return true;
   });
 
@@ -135,7 +144,7 @@ export default function ModuleDrawer() {
                           <i className="fas fa-check-circle"></i> {t('modules.active')}
                         </span>
                       )}
-                      {module.id === "anesthesia" && (
+                      {(module.id === "anesthesia" || module.id === "surgery") && (
                         <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 border border-yellow-300 dark:border-yellow-700">
                           <i className="fas fa-flask mr-1 text-[10px]"></i>
                           POC / In Development

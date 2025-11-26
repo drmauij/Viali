@@ -63,7 +63,12 @@
     "anesthesia.pacu": "AWR",
     "anesthesia.settings": "Einstellungen",
     "admin.hospital": "Krankenhaus",
-    "admin.users": "Benutzer"
+    "admin.users": "Benutzer",
+    "surgery": {
+      "patients": "Patienten",
+      "op": "OP",
+      "settings": "Einstellungen"
+    }
   },
   "modules": {
     "title": "Modul auswählen",
@@ -75,6 +80,10 @@
     "anesthesia": {
       "title": "Anästhesie-Aufzeichnungen",
       "description": "Verwalten Sie Patientenfälle, präoperative Bewertungen und Anästhesiedokumentation"
+    },
+    "surgery": {
+      "title": "OP-Pflege",
+      "description": "Intraoperative Pflegedokumentation, Zählkontrolle und Sterilguterfassung"
     },
     "admin": {
       "title": "Verwaltung",
@@ -1749,6 +1758,93 @@
       "invalidSurgeryDate": "Ungültiges OP-Datum",
       "invalidStartTime": "Ungültige Startzeit",
       "missingProcedure": "Eingriff fehlt"
+    }
+  },
+  "surgery": {
+    "opList": {
+      "title": "OP-Plan",
+      "subtitle": "Klicken Sie auf eine OP, um die Pflegedokumentation zu öffnen"
+    },
+    "patients": {
+      "title": "Heutige Patienten",
+      "subtitle": "Patienten mit geplanter OP heute",
+      "searchPlaceholder": "Patienten suchen...",
+      "noTodaySurgeries": "Keine OPs für heute geplant"
+    },
+    "settings": {
+      "title": "OP-Einstellungen",
+      "comingSoon": "Demnächst verfügbar",
+      "comingSoonDescription": "OP-Modul-Einstellungen werden in einem zukünftigen Update verfügbar sein."
+    },
+    "opDetail": {
+      "title": "OP-Dokumentation",
+      "saveDraft": "Entwurf speichern",
+      "tabs": {
+        "intraop": "Intraoperativ",
+        "counts": "Zählung & Sicherheit",
+        "sterile": "Sterilgut"
+      }
+    },
+    "intraop": {
+      "positioning": "Lagerung",
+      "disinfection": "Desinfektion",
+      "kodanColored": "Kodan (gefärbt)",
+      "kodanColorless": "Kodan (farblos)",
+      "performedBy": "Ausgeführt von",
+      "performedByPlaceholder": "Name eingeben...",
+      "equipment": "Geräte",
+      "koagulation": "Koagulation",
+      "neutralElectrode": "Neutralelektrode",
+      "shoulder": "Schulter",
+      "abdomen": "Bauch",
+      "thigh": "Oberschenkel",
+      "back": "Rücken",
+      "pathology": "Pathologie",
+      "histologie": "Histologie",
+      "mikrobio": "Mikrobiologie",
+      "equipmentNotes": "Gerätenotizen",
+      "equipmentNotesPlaceholder": "z.B. Erbe, Olympus...",
+      "irrigationMeds": "Spülung & Medikamente",
+      "irrigation": "Spülung",
+      "infiltration": "Infiltration",
+      "tumorSolution": "Tumoressenzlösung",
+      "medications": "Medikamente",
+      "contrast": "Kontrastmittel",
+      "ointments": "Salben",
+      "dressing": "Verband",
+      "otherDressing": "Anderer Verband...",
+      "drainage": "Drainage",
+      "drainageType": "Typ",
+      "other": "Andere",
+      "count": "Anzahl",
+      "signatures": "Unterschriften",
+      "signatureZudienung": "Zudienung",
+      "signatureInstrum": "Instrumenteur",
+      "tapToSign": "Tippen zum Unterschreiben"
+    },
+    "counts": {
+      "title": "Zählkontrolle",
+      "item": "Artikel",
+      "count1": "1. Zählung",
+      "count2": "2. Zählung",
+      "countFinal": "End-Zählung",
+      "whoChecklist": "WHO Surgical Safety Checklist",
+      "pending": "Ausstehend",
+      "whoIntegrationNote": "Integriert mit Anästhesie WHO-Checklisten-Phasen",
+      "signatures": "Unterschriften zur Zählverifikation"
+    },
+    "sterile": {
+      "items": "Sterilgut",
+      "addItem": "Artikel hinzufügen",
+      "noItems": "Keine Sterilgüter erfasst",
+      "scanOrAdd": "Barcode scannen oder manuell hinzufügen",
+      "expiry": "Ablauf",
+      "description": "Beschreibung",
+      "sutures": "Nahtmaterial",
+      "sutureType": "Typ",
+      "sizes": "Verwendete Größen",
+      "sizePlaceholder": "z.B. 4-0, 2-0 CT-1",
+      "signatures": "Dokumentations-Unterschriften"
     }
   }
 }

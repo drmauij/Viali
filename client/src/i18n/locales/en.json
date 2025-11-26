@@ -63,7 +63,12 @@
     "anesthesia.pacu": "PACU",
     "anesthesia.settings": "Settings",
     "admin.hospital": "Hospital",
-    "admin.users": "Users"
+    "admin.users": "Users",
+    "surgery": {
+      "patients": "Patients",
+      "op": "OP",
+      "settings": "Settings"
+    }
   },
   "modules": {
     "title": "Select Module",
@@ -75,6 +80,10 @@
     "anesthesia": {
       "title": "Anesthesia Records",
       "description": "Manage patient cases, pre-op assessments, and anesthesia documentation"
+    },
+    "surgery": {
+      "title": "Surgery Nursing",
+      "description": "Intraoperative nursing documentation, surgical counts, and sterile goods tracking"
     },
     "admin": {
       "title": "Administration",
@@ -1749,6 +1758,93 @@
       "invalidSurgeryDate": "Invalid surgery date",
       "invalidStartTime": "Invalid start time",
       "missingProcedure": "Missing procedure name"
+    }
+  },
+  "surgery": {
+    "opList": {
+      "title": "Surgery Schedule",
+      "subtitle": "Click on a surgery to open nursing documentation"
+    },
+    "patients": {
+      "title": "Today's Patients",
+      "subtitle": "Patients scheduled for surgery today",
+      "searchPlaceholder": "Search patients...",
+      "noTodaySurgeries": "No surgeries scheduled for today"
+    },
+    "settings": {
+      "title": "Surgery Settings",
+      "comingSoon": "Coming Soon",
+      "comingSoonDescription": "Surgery module settings will be available in a future update."
+    },
+    "opDetail": {
+      "title": "Surgery Documentation",
+      "saveDraft": "Save Draft",
+      "tabs": {
+        "intraop": "Intraoperative",
+        "counts": "Counts & Safety",
+        "sterile": "Sterile Goods"
+      }
+    },
+    "intraop": {
+      "positioning": "Positioning",
+      "disinfection": "Disinfection",
+      "kodanColored": "Kodan (colored)",
+      "kodanColorless": "Kodan (colorless)",
+      "performedBy": "Performed by",
+      "performedByPlaceholder": "Enter name...",
+      "equipment": "Equipment",
+      "koagulation": "Coagulation",
+      "neutralElectrode": "Neutral Electrode Placement",
+      "shoulder": "Shoulder",
+      "abdomen": "Abdomen",
+      "thigh": "Thigh",
+      "back": "Back",
+      "pathology": "Pathology",
+      "histologie": "Histology",
+      "mikrobio": "Microbiology",
+      "equipmentNotes": "Equipment Notes",
+      "equipmentNotesPlaceholder": "e.g., Erbe, Olympus...",
+      "irrigationMeds": "Irrigation & Medications",
+      "irrigation": "Irrigation",
+      "infiltration": "Infiltration",
+      "tumorSolution": "Tumor Solution",
+      "medications": "Medications",
+      "contrast": "Contrast",
+      "ointments": "Ointments",
+      "dressing": "Dressing",
+      "otherDressing": "Other dressing...",
+      "drainage": "Drainage",
+      "drainageType": "Type",
+      "other": "Other",
+      "count": "Count",
+      "signatures": "Signatures",
+      "signatureZudienung": "Circulating Nurse (Zudienung)",
+      "signatureInstrum": "Scrub Nurse (Instrumenteur)",
+      "tapToSign": "Tap to sign"
+    },
+    "counts": {
+      "title": "Surgical Counts",
+      "item": "Item",
+      "count1": "1st Count",
+      "count2": "2nd Count",
+      "countFinal": "Final",
+      "whoChecklist": "WHO Surgical Safety Checklist",
+      "pending": "Pending",
+      "whoIntegrationNote": "Integrated with anesthesia WHO checklist phases",
+      "signatures": "Count Verification Signatures"
+    },
+    "sterile": {
+      "items": "Sterile Items",
+      "addItem": "Add Item",
+      "noItems": "No sterile items recorded",
+      "scanOrAdd": "Scan barcode or add manually",
+      "expiry": "Expiry",
+      "description": "Description",
+      "sutures": "Suture Materials",
+      "sutureType": "Type",
+      "sizes": "Sizes Used",
+      "sizePlaceholder": "e.g., 4-0, 2-0 CT-1",
+      "signatures": "Documentation Signatures"
     }
   }
 }
