@@ -48,6 +48,7 @@ import {
   updateTimeOutDataSchema,
   updateSignOutDataSchema,
   updatePostOpDataSchema,
+  updateSurgeryStaffSchema,
   orderLines, 
   items, 
   stockLevels, 
@@ -5391,6 +5392,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error updating post-op data:", error);
       res.status(500).json({ message: "Failed to update post-op data" });
+    }
+  });
+
+  // Update Surgery Staff data (OR team documentation)
+  app.patch('/api/anesthesia/records/:id/surgery-staff', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      const record = await storage.getAnesthesiaRecordById(id);
+      
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      // Verify user has access
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Cannot update closed or amended records
+      if (record.caseStatus === 'closed' || record.caseStatus === 'amended') {
+        return res.status(400).json({ message: "Cannot update closed or amended records. Use amend endpoint instead." });
+      }
+
+      // Validate request body
+      const validated = updateSurgeryStaffSchema.parse(req.body);
+
+      // Merge with existing surgery staff data to preserve all fields
+      const mergedSurgeryStaff = {
+        ...(record.surgeryStaff ?? {}),
+        ...validated,
+      };
+
+      // Update surgery staff data
+      const updatedRecord = await storage.updateAnesthesiaRecord(id, { surgeryStaff: mergedSurgeryStaff });
+      
+      res.json(updatedRecord);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      console.error("Error updating surgery staff data:", error);
+      res.status(500).json({ message: "Failed to update surgery staff data" });
     }
   });
 

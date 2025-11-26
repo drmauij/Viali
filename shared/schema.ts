@@ -612,6 +612,16 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
     regionalPeripheral?: boolean;
   }>(),
   
+  // Surgery Staff - OR team documentation
+  surgeryStaff: jsonb("surgery_staff").$type<{
+    instrumentNurse?: string;      // Instrumentierende (scrub nurse)
+    circulatingNurse?: string;     // Zudienung (circulating nurse)
+    surgeon?: string;              // Operateur
+    surgicalAssistant?: string;    // Assistenz
+    anesthesiologist?: string;     // Anästhesie
+    anesthesiaNurse?: string;      // Anä-Pflege
+  }>(),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -1491,6 +1501,16 @@ export const updatePostOpDataSchema = z.object({
   paracetamolTime: medicationTimeSchema.optional().nullable(),
   nsarTime: medicationTimeSchema.optional().nullable(),
   novalginTime: medicationTimeSchema.optional().nullable(),
+});
+
+// Surgery Staff validation schema (OR team documentation)
+export const updateSurgeryStaffSchema = z.object({
+  instrumentNurse: z.string().optional().nullable(),      // Instrumentierende (scrub nurse)
+  circulatingNurse: z.string().optional().nullable(),     // Zudienung (circulating nurse)
+  surgeon: z.string().optional().nullable(),              // Operateur
+  surgicalAssistant: z.string().optional().nullable(),    // Assistenz
+  anesthesiologist: z.string().optional().nullable(),     // Anästhesie
+  anesthesiaNurse: z.string().optional().nullable(),      // Anä-Pflege
 });
 
 export const insertPreOpAssessmentSchema = createInsertSchema(preOpAssessments).omit({

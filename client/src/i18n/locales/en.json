@@ -1813,6 +1813,17 @@
       }
     },
     "intraop": {
+      "staff": "OR Team",
+      "staffRoles": {
+        "instrumentNurse": "Scrub Nurse",
+        "circulatingNurse": "Circulating Nurse",
+        "surgeon": "Surgeon",
+        "surgicalAssistant": "Surgical Assistant",
+        "anesthesiologist": "Anesthesiologist",
+        "anesthesiaNurse": "Anesthesia Nurse"
+      },
+      "selectStaff": "Select person...",
+      "typeOrSelect": "Type or select",
       "positioning": "Positioning",
       "positions": {
         "supine": "Supine Position (Rückenlage)",

@@ -1813,6 +1813,17 @@
       }
     },
     "intraop": {
+      "staff": "OP-Team",
+      "staffRoles": {
+        "instrumentNurse": "Instrumentierung",
+        "circulatingNurse": "Zudienung",
+        "surgeon": "Operateur",
+        "surgicalAssistant": "Assistenz",
+        "anesthesiologist": "Anästhesie",
+        "anesthesiaNurse": "Anä-Pflege"
+      },
+      "selectStaff": "Person auswählen...",
+      "typeOrSelect": "Tippen oder auswählen",
       "positioning": "Lagerung",
       "positions": {
         "supine": "Rückenlage",
