@@ -1883,7 +1883,11 @@
       "itemNamePlaceholder": "e.g., Suture set, Implant...",
       "lotNumber": "Lot Number",
       "lotNumberPlaceholder": "Enter lot/batch number",
-      "quantity": "Quantity"
+      "quantity": "Quantity",
+      "stickerDocumentation": "Sticker Documentation",
+      "stickerDocumentationDesc": "Take a photo of the sticker sheet for quick documentation",
+      "takePhoto": "Take Photo",
+      "noPhotos": "No photos yet"
     }
   }
 }

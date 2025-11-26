@@ -1883,7 +1883,11 @@
       "itemNamePlaceholder": "z.B. Naht-Set, Implantat...",
       "lotNumber": "Chargennummer",
       "lotNumberPlaceholder": "Chargen-/Losnummer eingeben",
-      "quantity": "Menge"
+      "quantity": "Menge",
+      "stickerDocumentation": "Aufkleber-Dokumentation",
+      "stickerDocumentationDesc": "Foto vom Aufkleberblatt für schnelle Dokumentation aufnehmen",
+      "takePhoto": "Foto aufnehmen",
+      "noPhotos": "Noch keine Fotos"
     }
   }
 }
