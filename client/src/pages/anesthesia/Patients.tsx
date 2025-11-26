@@ -17,13 +17,18 @@ import { useToast } from "@/hooks/use-toast";
 import type { Patient } from "@shared/schema";
 import { formatDate } from "@/lib/dateUtils";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
+import { useModule } from "@/contexts/ModuleContext";
 
 export default function Patients() {
   const { t } = useTranslation();
   const [, setLocation] = useLocation();
   const activeHospital = useActiveHospital();
   const { toast } = useToast();
+  const { activeModule } = useModule();
   const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings();
+  
+  // Module-aware base path for navigation
+  const moduleBasePath = activeModule === "surgery" ? "/surgery" : "/anesthesia";
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newPatient, setNewPatient] = useState({
@@ -417,7 +422,7 @@ export default function Patients() {
                 key={patient.id}
                 className="p-4 cursor-pointer hover:bg-accent/50 transition-colors"
                 data-testid={`patient-item-${patient.id}`}
-                onClick={() => setLocation(`/anesthesia/patients/${patient.id}`)}
+                onClick={() => setLocation(`${moduleBasePath}/patients/${patient.id}`)}
               >
                 <div className="flex items-center gap-2">
                   {patient.sex === "M" ? (

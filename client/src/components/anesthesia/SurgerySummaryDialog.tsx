@@ -1,11 +1,12 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, ClipboardList, Activity, ChevronRight } from "lucide-react";
+import { FileText, ClipboardList, Activity, ChevronRight, UserRoundCog } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
+import type { Module } from "@/contexts/ModuleContext";
 
 interface SurgerySummaryDialogProps {
   open: boolean;
@@ -14,6 +15,8 @@ interface SurgerySummaryDialogProps {
   onEditSurgery: () => void;
   onOpenPreOp: () => void;
   onOpenAnesthesia: () => void;
+  onOpenSurgeryDocumentation?: () => void;
+  activeModule?: Module;
 }
 
 export default function SurgerySummaryDialog({
@@ -23,6 +26,8 @@ export default function SurgerySummaryDialog({
   onEditSurgery,
   onOpenPreOp,
   onOpenAnesthesia,
+  onOpenSurgeryDocumentation,
+  activeModule,
 }: SurgerySummaryDialogProps) {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
@@ -354,6 +359,32 @@ export default function SurgerySummaryDialog({
                 </div>
               </CardContent>
             </Card>
+
+            {/* Surgery Nursing Documentation - Only shown in surgery module */}
+            {activeModule === 'surgery' && onOpenSurgeryDocumentation && (
+              <Card 
+                className="cursor-pointer hover:bg-accent transition-colors border-2 border-green-500/50"
+                onClick={onOpenSurgeryDocumentation}
+                data-testid="card-open-surgery-documentation"
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+                        <UserRoundCog className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div>
+                        <div className="font-semibold">{t('surgery.opDetail.title')}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {t('surgery.opList.subtitle')}
+                        </div>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
 

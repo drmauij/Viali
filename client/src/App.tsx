@@ -34,9 +34,6 @@ import Op from "@/pages/anesthesia/Op";
 import Pacu from "@/pages/anesthesia/Pacu";
 import AnesthesiaReports from "@/pages/anesthesia/Reports";
 import AnesthesiaSettings from "@/pages/anesthesia/Settings";
-import SurgeryOpList from "@/pages/surgery/SurgeryOpList";
-import SurgeryOpDetail from "@/pages/surgery/SurgeryOpDetail";
-import SurgeryPatients from "@/pages/surgery/SurgeryPatients";
 import SurgerySettings from "@/pages/surgery/SurgerySettings";
 import EditableValuesDemo from "@/pages/EditableValuesDemo";
 import "@/i18n/config";
@@ -136,11 +133,11 @@ function Router() {
             <Route path="/anesthesia/cases/:id/pacu" component={Op} />
             <Route path="/anesthesia/reports" component={AnesthesiaReports} />
             <Route path="/anesthesia/settings" component={AnesthesiaSettings} />
-            {/* Surgery Module */}
-            <Route path="/surgery" component={SurgeryOpList} />
-            <Route path="/surgery/patients" component={SurgeryPatients} />
-            <Route path="/surgery/op" component={SurgeryOpList} />
-            <Route path="/surgery/op/:id" component={SurgeryOpDetail} />
+            {/* Surgery Module - shares components with Anesthesia */}
+            <Route path="/surgery" component={OpList} />
+            <Route path="/surgery/patients" component={Patients} />
+            <Route path="/surgery/op" component={OpList} />
+            <Route path="/surgery/op/:id" component={Op} />
             <Route path="/surgery/settings" component={SurgerySettings} />
             {/* Admin Module */}
             <Route path="/admin" component={AdminHospital} />

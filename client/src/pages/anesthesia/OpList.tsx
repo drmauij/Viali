@@ -4,12 +4,14 @@ import { useTranslation } from "react-i18next";
 import OPCalendar from "@/components/anesthesia/OPCalendar";
 import SurgerySummaryDialog from "@/components/anesthesia/SurgerySummaryDialog";
 import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
+import { useModule } from "@/contexts/ModuleContext";
 
 const SURGERY_CONTEXT_KEY = "oplist_surgery_context";
 
 export default function OpList() {
   const { t } = useTranslation();
   const [, setLocation] = useLocation();
+  const { activeModule } = useModule();
   const [selectedSurgeryId, setSelectedSurgeryId] = useState<string | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -66,6 +68,18 @@ export default function OpList() {
     }
   };
 
+  const handleOpenSurgeryDocumentation = () => {
+    if (selectedSurgeryId && selectedPatientId) {
+      // Save context before navigating away
+      sessionStorage.setItem(SURGERY_CONTEXT_KEY, JSON.stringify({
+        surgeryId: selectedSurgeryId,
+        patientId: selectedPatientId
+      }));
+      setSummaryOpen(false);
+      setLocation(`/surgery/op/${selectedSurgeryId}`);
+    }
+  };
+
   return (
     <div className="container mx-auto px-0 py-6 pb-24">
       {/* Header */}
@@ -90,6 +104,8 @@ export default function OpList() {
           onEditSurgery={handleEditSurgery}
           onOpenPreOp={handleOpenPreOp}
           onOpenAnesthesia={handleOpenAnesthesia}
+          onOpenSurgeryDocumentation={handleOpenSurgeryDocumentation}
+          activeModule={activeModule}
         />
       )}
 
