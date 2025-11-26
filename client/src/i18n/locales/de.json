@@ -689,6 +689,7 @@
       "plannedAnesthesia": "Geplante Anästhesie",
       "plannedAnesthesiaPlaceholder": "z.B. Vollnarkose mit ETT, Spinal, Regional...",
       "postOpICUPlanned": "Post-OP Intensivstation geplant",
+      "postOpICU": "Post-OP Intensivstation geplant",
       "installations": "Installationen",
       "plannedInstallations": "Geplante Installationen",
       "plannedInstallationsPlaceholder": "z.B. Arterienleitung, ZVK, Blasenkatheter...",

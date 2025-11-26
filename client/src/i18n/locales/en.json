@@ -689,6 +689,7 @@
       "plannedAnesthesia": "Planned Anesthesia",
       "plannedAnesthesiaPlaceholder": "e.g., GA with ETT, Spinal, Regional...",
       "postOpICUPlanned": "Post-op ICU Planned",
+      "postOpICU": "Post-op ICU Planned",
       "installations": "Installations",
       "plannedInstallations": "Planned Installations",
       "plannedInstallationsPlaceholder": "e.g., Arterial line, CVC, urinary catheter...",
