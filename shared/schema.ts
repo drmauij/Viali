@@ -923,8 +923,10 @@ export const preOpAssessments = pgTable("preop_assessments", {
   installations: jsonb("installations").$type<Record<string, boolean>>(),
   installationsOther: text("installations_other"),
   
-  // Approval
-  surgicalApproval: text("surgical_approval"),
+  // Stand-By Status
+  standBy: boolean("stand_by").default(false),
+  standByReason: varchar("stand_by_reason"), // 'signature_missing' | 'consent_required' | 'waiting_exams' | 'other'
+  standByReasonNote: text("stand_by_reason_note"), // Free text when reason is 'other'
   
   // Assessment metadata
   assessmentDate: varchar("assessment_date"),
