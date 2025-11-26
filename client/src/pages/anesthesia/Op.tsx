@@ -775,11 +775,8 @@ export default function Op() {
                       <TabsTrigger value="intraop" data-testid="tab-intraop" className="text-xs sm:text-sm whitespace-nowrap">
                         {t('surgery.opDetail.tabs.intraop')}
                       </TabsTrigger>
-                      <TabsTrigger value="counts" data-testid="tab-counts" className="text-xs sm:text-sm whitespace-nowrap">
-                        {t('surgery.opDetail.tabs.counts')}
-                      </TabsTrigger>
-                      <TabsTrigger value="sterile" data-testid="tab-sterile" className="text-xs sm:text-sm whitespace-nowrap">
-                        {t('surgery.opDetail.tabs.sterile')}
+                      <TabsTrigger value="countsSterile" data-testid="tab-counts-sterile" className="text-xs sm:text-sm whitespace-nowrap">
+                        {t('surgery.opDetail.tabs.countsSterile')}
                       </TabsTrigger>
                     </>
                   )}
@@ -1584,8 +1581,9 @@ export default function Op() {
                 </Card>
               </TabsContent>
 
-              {/* Counts & Safety Tab */}
-              <TabsContent value="counts" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0" data-testid="tab-content-counts">
+              {/* Counts & Sterile Goods Tab (Combined) */}
+              <TabsContent value="countsSterile" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0" data-testid="tab-content-counts-sterile">
+                {/* Surgical Counts Section */}
                 <Card>
                   <CardHeader>
                     <CardTitle>{t('surgery.counts.title')}</CardTitle>
@@ -1616,29 +1614,7 @@ export default function Op() {
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{t('surgery.counts.signatures')}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>{t('surgery.intraop.signatureZudienung')}</Label>
-                      <div className="h-20 border-2 border-dashed rounded-lg flex items-center justify-center text-muted-foreground cursor-pointer hover:bg-accent/50" data-testid="signature-pad-count-zudienung">
-                        {t('surgery.intraop.tapToSign')}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>{t('surgery.intraop.signatureInstrum')}</Label>
-                      <div className="h-20 border-2 border-dashed rounded-lg flex items-center justify-center text-muted-foreground cursor-pointer hover:bg-accent/50" data-testid="signature-pad-count-instrum">
-                        {t('surgery.intraop.tapToSign')}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Sterile Goods Tab */}
-              <TabsContent value="sterile" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0" data-testid="tab-content-sterile">
+                {/* Sterile Items Section */}
                 <Card>
                   <CardHeader className="pb-3">
                     <div className="flex items-center gap-2 p-1 bg-muted rounded-lg w-fit">

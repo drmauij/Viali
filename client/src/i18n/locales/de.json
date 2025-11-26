@@ -1808,8 +1808,7 @@
       "saveDraft": "Entwurf speichern",
       "tabs": {
         "intraop": "Intraoperativ",
-        "counts": "Zählung & Sicherheit",
-        "sterile": "Sterilgut"
+        "countsSterile": "Zählung & Sterilgut"
       }
     },
     "intraop": {
