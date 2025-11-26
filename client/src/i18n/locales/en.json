@@ -118,6 +118,7 @@
     "ampulle": "Ampulle/Vial",
     "singleUnit": "Single unit",
     "packSize": "Pack Size",
+    "packSizeHelp": "Number of units per pack/box",
     "trackExactQuantity": "Track exact quantity",
     "currentUnits": "Current Units",
     "currentUnitsHelp": "Total individual units across all packs",

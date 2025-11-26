@@ -118,6 +118,7 @@
     "ampulle": "Ampulle/Flasche",
     "singleUnit": "Einzelstück",
     "packSize": "Packungsgröße",
+    "packSizeHelp": "Anzahl der Einheiten pro Packung/Box",
     "trackExactQuantity": "Genaue Menge verfolgen",
     "currentUnits": "Aktuelle Einheiten",
     "currentUnitsHelp": "Gesamtzahl der einzelnen Einheiten über alle Packungen",
