@@ -758,7 +758,7 @@
       "anesthesia": "Anästhesie",
       "pacu": "Aufwachraum",
       "sendToPacu": "Zum Aufwachraum senden",
-      "loading": "Lädt Anästhesieaufzeichnung...",
+      "loading": "Lädt...",
       "loadingData": "Lädt...",
       "noRecord": "Keine Anästhesieaufzeichnung",
       "createRecord": "Aufzeichnung erstellen",

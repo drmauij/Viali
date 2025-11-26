@@ -758,7 +758,7 @@
       "anesthesia": "Anesthesia",
       "pacu": "PACU",
       "sendToPacu": "Send to PACU",
-      "loading": "Loading anesthesia record...",
+      "loading": "Loading...",
       "loadingData": "Loading...",
       "noRecord": "No anesthesia record",
       "createRecord": "Create Record",
