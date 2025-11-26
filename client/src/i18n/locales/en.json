@@ -623,7 +623,19 @@
       "status": {
         "planned": "Planned",
         "draft": "Draft",
+        "standBy": "Stand-By",
         "completed": "Completed"
+      },
+      "tabStandBy": "Stand-By",
+      "standByLabel": "Put Case on Stand-By",
+      "standByReasonLabel": "Reason",
+      "standByReasonNote": "Additional Notes",
+      "standByReasonNotePlaceholder": "Enter additional details...",
+      "standByReasons": {
+        "signatureMissing": "Patient signature missing",
+        "consentRequired": "Consent talk required",
+        "waitingExams": "Waiting for exam results",
+        "other": "Other"
       },
       "createAssessment": "Create Assessment",
       "viewAssessment": "View Assessment",
