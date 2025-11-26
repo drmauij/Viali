@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, UserCircle, UserRound, Calendar, User, ClipboardList, FileCheck, FileEdit, CalendarPlus, Loader2 } from "lucide-react";
+import { Search, UserCircle, UserRound, Calendar, User, ClipboardList, FileCheck, FileEdit, CalendarPlus, PauseCircle, Loader2 } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 
@@ -14,7 +14,7 @@ export default function PreOpList() {
   const { t } = useTranslation();
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState<"all" | "planned" | "draft" | "completed">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "planned" | "draft" | "standby" | "completed">("all");
 
   // Get active hospital
   const activeHospital = useActiveHospital();
@@ -38,13 +38,29 @@ export default function PreOpList() {
 
   const groupedByStatus = {
     planned: filteredAssessments.filter((item) => item.status === 'planned'),
-    draft: filteredAssessments.filter((item) => item.status === 'draft'),
+    draft: filteredAssessments.filter((item) => item.status === 'draft' && !item.standBy),
+    standby: filteredAssessments.filter((item) => item.standBy),
     completed: filteredAssessments.filter((item) => item.status === 'completed'),
   };
 
   const displayedAssessments = activeTab === 'all' 
     ? filteredAssessments 
     : groupedByStatus[activeTab];
+
+  const getStandByReasonLabel = (reason: string) => {
+    switch (reason) {
+      case 'signature_missing':
+        return t('anesthesia.preop.standByReasons.signatureMissing');
+      case 'consent_required':
+        return t('anesthesia.preop.standByReasons.consentRequired');
+      case 'waiting_exams':
+        return t('anesthesia.preop.standByReasons.waitingExams');
+      case 'other':
+        return t('anesthesia.preop.standByReasons.other');
+      default:
+        return reason;
+    }
+  };
 
   const calculateAge = (birthday: string) => {
     if (!birthday) return null;
@@ -58,10 +74,18 @@ export default function PreOpList() {
     return age;
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
+  const getStatusBadge = (item: any) => {
+    if (item.standBy) {
+      return (
+        <Badge variant="outline" className="bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700">
+          <PauseCircle className="h-3 w-3 mr-1" />
+          {t('anesthesia.preop.status.standBy')}
+        </Badge>
+      );
+    }
+    switch (item.status) {
       case 'planned':
-        return <Badge variant="outline" className="bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700">
+        return <Badge variant="outline" className="bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700">
           <CalendarPlus className="h-3 w-3 mr-1" />
           {t('anesthesia.preop.status.planned')}
         </Badge>;
@@ -103,7 +127,7 @@ export default function PreOpList() {
       {/* Status Tabs */}
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="mb-6">
         <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-          <TabsList className="inline-flex w-auto min-w-full md:grid md:grid-cols-4 md:w-full">
+          <TabsList className="inline-flex w-auto min-w-full md:grid md:grid-cols-5 md:w-full">
             <TabsTrigger value="all" data-testid="tab-all" className="whitespace-nowrap">
               {t('anesthesia.preop.tabAll')} ({filteredAssessments.length})
             </TabsTrigger>
@@ -114,6 +138,10 @@ export default function PreOpList() {
             <TabsTrigger value="draft" data-testid="tab-draft" className="whitespace-nowrap">
               <FileEdit className="h-4 w-4 mr-1 hidden sm:inline-block" />
               {t('anesthesia.preop.tabInProgress')} ({groupedByStatus.draft.length})
+            </TabsTrigger>
+            <TabsTrigger value="standby" data-testid="tab-standby" className="whitespace-nowrap">
+              <PauseCircle className="h-4 w-4 mr-1 hidden sm:inline-block" />
+              {t('anesthesia.preop.tabStandBy')} ({groupedByStatus.standby.length})
             </TabsTrigger>
             <TabsTrigger value="completed" data-testid="tab-completed" className="whitespace-nowrap">
               <FileCheck className="h-4 w-4 mr-1 hidden sm:inline-block" />
@@ -207,9 +235,16 @@ export default function PreOpList() {
                     </div>
                   </div>
 
-                  {/* Status Badge */}
-                  <div data-testid={`badge-status-${surgery.id}`}>
-                    {getStatusBadge(item.status)}
+                  {/* Status Badge & Stand-By Reason */}
+                  <div className="flex flex-col items-end gap-1" data-testid={`badge-status-${surgery.id}`}>
+                    {getStatusBadge(item)}
+                    {item.standBy && item.standByReason && (
+                      <span className="text-xs text-amber-600 dark:text-amber-400 max-w-[180px] text-right">
+                        {item.standByReason === 'other' && item.standByReasonNote 
+                          ? item.standByReasonNote 
+                          : getStandByReasonLabel(item.standByReason)}
+                      </span>
+                    )}
                   </div>
                 </div>
               </Card>
