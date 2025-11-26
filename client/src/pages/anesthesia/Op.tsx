@@ -117,6 +117,7 @@ export default function Op() {
   
   // Staff role popover state (tracks which combobox is open)
   const [openStaffPopover, setOpenStaffPopover] = useState<string | null>(null);
+  const [staffSearchInput, setStaffSearchInput] = useState("");
 
   // Get surgeryId from params
   const surgeryId = params.id;
@@ -175,6 +176,30 @@ export default function Op() {
     surgeryId: surgeryId || "",
     activeHospitalId: activeHospital?.id || "",
   });
+
+  // Helper to get user display name from various possible fields
+  const getUserDisplayName = (user: any): string => {
+    if (!user) return "";
+    // Try various combinations of name fields
+    if (user.displayName) return user.displayName;
+    if (user.name) return user.name;
+    const firstName = user.firstName || user.firstname || "";
+    const lastName = user.lastName || user.surname || user.lastname || "";
+    if (firstName || lastName) return `${firstName} ${lastName}`.trim();
+    if (user.email) return user.email;
+    return "";
+  };
+  
+  // Create filtered list of staff options with display names
+  const staffOptions = useMemo(() => {
+    if (!hospitalUsers) return [];
+    return hospitalUsers
+      .map((user: any) => ({
+        id: user.id,
+        label: getUserDisplayName(user)
+      }))
+      .filter((opt: { id: string; label: string }) => opt.label.trim().length > 0);
+  }, [hospitalUsers]);
 
   // Auto-create anesthesia record if it doesn't exist (404 only)
   useEffect(() => {
@@ -1401,75 +1426,108 @@ export default function Op() {
                         { key: 'surgicalAssistant', label: t('surgery.intraop.staffRoles.surgicalAssistant') },
                         { key: 'anesthesiologist', label: t('surgery.intraop.staffRoles.anesthesiologist') },
                         { key: 'anesthesiaNurse', label: t('surgery.intraop.staffRoles.anesthesiaNurse') },
-                      ].map((role) => (
-                        <div key={role.key} className="space-y-2">
-                          <Label htmlFor={`staff-${role.key}`}>{role.label}</Label>
-                          <Popover 
-                            open={openStaffPopover === role.key} 
-                            onOpenChange={(open) => setOpenStaffPopover(open ? role.key : null)}
-                          >
-                            <PopoverTrigger asChild>
-                              <Button
-                                variant="outline"
-                                role="combobox"
-                                aria-expanded={openStaffPopover === role.key}
-                                className="w-full justify-between font-normal"
-                                disabled={!anesthesiaRecord?.id}
-                                data-testid={`combobox-staff-${role.key}`}
-                              >
-                                {surgeryStaff[role.key as keyof typeof surgeryStaff] || t('surgery.intraop.selectStaff')}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[250px] p-0" align="start">
-                              <Command>
-                                <CommandInput 
-                                  placeholder={t('surgery.intraop.typeOrSelect')} 
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      const input = e.currentTarget.value.trim();
-                                      if (input) {
-                                        const updated = { ...surgeryStaff, [role.key]: input };
-                                        setSurgeryStaff(updated);
-                                        surgeryStaffAutoSave.mutate(updated);
-                                        setOpenStaffPopover(null);
+                      ].map((role) => {
+                        const currentValue = surgeryStaff[role.key as keyof typeof surgeryStaff] || "";
+                        const showAddCustom = staffSearchInput.trim() && 
+                          !staffOptions.some((opt: { label: string }) => 
+                            opt.label.toLowerCase() === staffSearchInput.trim().toLowerCase()
+                          );
+                        
+                        const handleSelectStaff = (value: string) => {
+                          const updated = { ...surgeryStaff, [role.key]: value };
+                          setSurgeryStaff(updated);
+                          surgeryStaffAutoSave.mutate(updated);
+                          setOpenStaffPopover(null);
+                          setStaffSearchInput("");
+                        };
+                        
+                        return (
+                          <div key={role.key} className="space-y-2">
+                            <Label htmlFor={`staff-${role.key}`}>{role.label}</Label>
+                            <Popover 
+                              open={openStaffPopover === role.key} 
+                              onOpenChange={(open) => {
+                                setOpenStaffPopover(open ? role.key : null);
+                                if (!open) setStaffSearchInput("");
+                              }}
+                            >
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  aria-expanded={openStaffPopover === role.key}
+                                  className="w-full justify-between font-normal"
+                                  disabled={!anesthesiaRecord?.id}
+                                  data-testid={`combobox-staff-${role.key}`}
+                                >
+                                  {currentValue || t('surgery.intraop.selectStaff')}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-[250px] p-0" align="start">
+                                <Command shouldFilter={true}>
+                                  <CommandInput 
+                                    placeholder={t('surgery.intraop.typeOrSelect')} 
+                                    value={staffSearchInput}
+                                    onValueChange={setStaffSearchInput}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' && staffSearchInput.trim()) {
+                                        e.preventDefault();
+                                        handleSelectStaff(staffSearchInput.trim());
                                       }
-                                    }
-                                  }}
-                                />
-                                <CommandList>
-                                  <CommandEmpty>
-                                    <span className="text-sm text-muted-foreground">{t('surgery.intraop.typeOrSelect')}</span>
-                                  </CommandEmpty>
-                                  <CommandGroup>
-                                    {hospitalUsers?.map((user: any) => (
-                                      <CommandItem
-                                        key={user.id}
-                                        value={user.name}
-                                        onSelect={(value) => {
-                                          const updated = { ...surgeryStaff, [role.key]: value };
-                                          setSurgeryStaff(updated);
-                                          surgeryStaffAutoSave.mutate(updated);
-                                          setOpenStaffPopover(null);
-                                        }}
-                                        data-testid={`staff-option-${role.key}-${user.id}`}
-                                      >
-                                        <Check
-                                          className={cn(
-                                            "mr-2 h-4 w-4",
-                                            surgeryStaff[role.key as keyof typeof surgeryStaff] === user.name ? "opacity-100" : "opacity-0"
-                                          )}
-                                        />
-                                        {user.name}
-                                      </CommandItem>
-                                    ))}
-                                  </CommandGroup>
-                                </CommandList>
-                              </Command>
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                      ))}
+                                    }}
+                                  />
+                                  <CommandList>
+                                    <CommandEmpty>
+                                      {staffSearchInput.trim() ? (
+                                        <button
+                                          className="w-full px-2 py-3 text-left text-sm hover:bg-accent rounded cursor-pointer flex items-center gap-2"
+                                          onClick={() => handleSelectStaff(staffSearchInput.trim())}
+                                          data-testid={`add-custom-staff-${role.key}`}
+                                        >
+                                          <Plus className="h-4 w-4" />
+                                          {t('surgery.intraop.useCustomName', { name: staffSearchInput.trim() })}
+                                        </button>
+                                      ) : (
+                                        <span className="text-sm text-muted-foreground">{t('surgery.intraop.noStaffFound')}</span>
+                                      )}
+                                    </CommandEmpty>
+                                    <CommandGroup>
+                                      {showAddCustom && staffSearchInput.trim() && (
+                                        <CommandItem
+                                          value={`__custom__${staffSearchInput.trim()}`}
+                                          onSelect={() => handleSelectStaff(staffSearchInput.trim())}
+                                          className="text-primary"
+                                          data-testid={`add-custom-staff-${role.key}`}
+                                        >
+                                          <Plus className="mr-2 h-4 w-4" />
+                                          {t('surgery.intraop.useCustomName', { name: staffSearchInput.trim() })}
+                                        </CommandItem>
+                                      )}
+                                      {staffOptions.map((opt: { id: string; label: string }) => (
+                                        <CommandItem
+                                          key={opt.id}
+                                          value={opt.label}
+                                          onSelect={() => handleSelectStaff(opt.label)}
+                                          data-testid={`staff-option-${role.key}-${opt.id}`}
+                                        >
+                                          <Check
+                                            className={cn(
+                                              "mr-2 h-4 w-4",
+                                              currentValue === opt.label ? "opacity-100" : "opacity-0"
+                                            )}
+                                          />
+                                          {opt.label}
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>

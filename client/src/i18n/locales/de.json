@@ -1823,6 +1823,8 @@
       },
       "selectStaff": "Person auswählen...",
       "typeOrSelect": "Tippen oder auswählen",
+      "useCustomName": "\"{{name}}\" verwenden",
+      "noStaffFound": "Keine Mitarbeiter gefunden",
       "positioning": "Lagerung",
       "positions": {
         "supine": "Rückenlage",

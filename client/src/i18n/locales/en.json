@@ -1823,6 +1823,8 @@
       },
       "selectStaff": "Select person...",
       "typeOrSelect": "Type or select",
+      "useCustomName": "Use \"{{name}}\"",
+      "noStaffFound": "No staff found",
       "positioning": "Positioning",
       "positions": {
         "supine": "Supine Position (Rückenlage)",
