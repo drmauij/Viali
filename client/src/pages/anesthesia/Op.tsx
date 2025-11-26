@@ -333,6 +333,10 @@ export default function Op() {
   // Sterile items state
   const [showAddSterileItemDialog, setShowAddSterileItemDialog] = useState(false);
   const [sterileItems, setSterileItems] = useState<Array<{id: string; name: string; lotNumber: string; quantity: number}>>([]);
+  
+  // Signature pad dialogs for surgery module
+  const [showIntraOpSignaturePad, setShowIntraOpSignaturePad] = useState<'circulating' | 'instrument' | null>(null);
+  const [showCountsSterileSignaturePad, setShowCountsSterileSignaturePad] = useState<'instrumenteur' | 'circulating' | null>(null);
   const [newSterileItemName, setNewSterileItemName] = useState("");
   const [newSterileItemLot, setNewSterileItemLot] = useState("");
   const [newSterileItemQty, setNewSterileItemQty] = useState(1);
@@ -536,6 +540,57 @@ export default function Op() {
     queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
   });
 
+  // Intraoperative Data state (Surgery module)
+  const [intraOpData, setIntraOpData] = useState<{
+    positioning?: { RL?: boolean; SL?: boolean; BL?: boolean; SSL?: boolean; EXT?: boolean };
+    disinfection?: { kodanColored?: boolean; kodanColorless?: boolean; performedBy?: string };
+    equipment?: { 
+      monopolar?: boolean; 
+      bipolar?: boolean; 
+      neutralElectrodeLocation?: string;
+      pathology?: { histology?: boolean; microbiology?: boolean };
+      notes?: string;
+    };
+    irrigationMeds?: {
+      irrigation?: string;
+      infiltration?: string;
+      tumorSolution?: string;
+      medications?: string;
+      contrast?: string;
+      ointments?: string;
+    };
+    dressing?: { type?: string; other?: string };
+    drainage?: { type?: string; count?: number };
+    signatures?: { circulatingNurse?: string; instrumentNurse?: string };
+  }>({});
+
+  // Auto-save mutation for Intra-Op data
+  const intraOpAutoSave = useAutoSaveMutation({
+    mutationFn: async (data: typeof intraOpData) => {
+      if (!anesthesiaRecord?.id) throw new Error("No anesthesia record");
+      return apiRequest('PATCH', `/api/anesthesia/records/${anesthesiaRecord.id}/intra-op`, data);
+    },
+    queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
+  });
+
+  // Counts & Sterile Goods Data state (Surgery module)
+  const [countsSterileData, setCountsSterileData] = useState<{
+    surgicalCounts?: Array<{ id: string; name: string; count1?: number | null; count2?: number | null; countFinal?: number | null }>;
+    sterileItems?: Array<{ id: string; name: string; lotNumber?: string; quantity: number }>;
+    sutures?: Record<string, string>;
+    stickerDocs?: Array<{ id: string; type: 'photo' | 'pdf'; data: string; filename?: string; mimeType?: string; createdAt?: number; createdBy?: string }>;
+    signatures?: { instrumenteur?: string; circulating?: string };
+  }>({});
+
+  // Auto-save mutation for Counts & Sterile data
+  const countsSterileAutoSave = useAutoSaveMutation({
+    mutationFn: async (data: typeof countsSterileData) => {
+      if (!anesthesiaRecord?.id) throw new Error("No anesthesia record");
+      return apiRequest('PATCH', `/api/anesthesia/records/${anesthesiaRecord.id}/counts-sterile`, data);
+    },
+    queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
+  });
+
   // Fetch items for inventory tracking - filtered by current unit
   const { data: items = [] } = useQuery<any[]>({
     queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId],
@@ -601,6 +656,30 @@ export default function Op() {
     const surgeryStaffValue = (anesthesiaRecord as any).surgeryStaff || (anesthesiaRecord as any).surgery_staff;
     if (surgeryStaffValue) {
       setSurgeryStaff(surgeryStaffValue);
+    }
+  }, [anesthesiaRecord]);
+
+  // Initialize Intra-Op data from anesthesia record
+  useEffect(() => {
+    if (!anesthesiaRecord) return;
+    
+    const intraOpValue = (anesthesiaRecord as any).intraOpData || (anesthesiaRecord as any).intra_op_data;
+    if (intraOpValue) {
+      setIntraOpData(intraOpValue);
+    }
+  }, [anesthesiaRecord]);
+
+  // Initialize Counts & Sterile data from anesthesia record
+  useEffect(() => {
+    if (!anesthesiaRecord) return;
+    
+    const countsSterileValue = (anesthesiaRecord as any).countsSterileData || (anesthesiaRecord as any).counts_sterile_data;
+    if (countsSterileValue) {
+      setCountsSterileData(countsSterileValue);
+      // Sync sterileItems state with data from backend
+      if (countsSterileValue.sterileItems) {
+        setSterileItems(countsSterileValue.sterileItems);
+      }
     }
   }, [anesthesiaRecord]);
 
@@ -1563,7 +1642,22 @@ export default function Op() {
                         { id: "EXT", label: t('surgery.intraop.positions.extension') }
                       ].map((pos) => (
                         <div key={pos.id} className="flex items-center space-x-2">
-                          <Checkbox id={`pos-${pos.id}`} data-testid={`checkbox-position-${pos.id}`} />
+                          <Checkbox 
+                            id={`pos-${pos.id}`} 
+                            data-testid={`checkbox-position-${pos.id}`}
+                            checked={intraOpData.positioning?.[pos.id as keyof typeof intraOpData.positioning] ?? false}
+                            onCheckedChange={(checked) => {
+                              const updated = {
+                                ...intraOpData,
+                                positioning: {
+                                  ...intraOpData.positioning,
+                                  [pos.id]: checked === true
+                                }
+                              };
+                              setIntraOpData(updated);
+                              intraOpAutoSave.mutate(updated);
+                            }}
+                          />
                           <Label htmlFor={`pos-${pos.id}`}>{pos.label}</Label>
                         </div>
                       ))}
@@ -1578,17 +1672,62 @@ export default function Op() {
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="flex items-center space-x-2">
-                        <Checkbox id="kodan-colored" data-testid="checkbox-kodan-colored" />
+                        <Checkbox 
+                          id="kodan-colored" 
+                          data-testid="checkbox-kodan-colored"
+                          checked={intraOpData.disinfection?.kodanColored ?? false}
+                          onCheckedChange={(checked) => {
+                            const updated = {
+                              ...intraOpData,
+                              disinfection: {
+                                ...intraOpData.disinfection,
+                                kodanColored: checked === true
+                              }
+                            };
+                            setIntraOpData(updated);
+                            intraOpAutoSave.mutate(updated);
+                          }}
+                        />
                         <Label htmlFor="kodan-colored">{t('surgery.intraop.kodanColored')}</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Checkbox id="kodan-colorless" data-testid="checkbox-kodan-colorless" />
+                        <Checkbox 
+                          id="kodan-colorless" 
+                          data-testid="checkbox-kodan-colorless"
+                          checked={intraOpData.disinfection?.kodanColorless ?? false}
+                          onCheckedChange={(checked) => {
+                            const updated = {
+                              ...intraOpData,
+                              disinfection: {
+                                ...intraOpData.disinfection,
+                                kodanColorless: checked === true
+                              }
+                            };
+                            setIntraOpData(updated);
+                            intraOpAutoSave.mutate(updated);
+                          }}
+                        />
                         <Label htmlFor="kodan-colorless">{t('surgery.intraop.kodanColorless')}</Label>
                       </div>
                     </div>
                     <div className="space-y-2">
                       <Label>{t('surgery.intraop.performedBy')}</Label>
-                      <Input placeholder={t('surgery.intraop.performedByPlaceholder')} data-testid="input-disinfection-by" />
+                      <Input 
+                        placeholder={t('surgery.intraop.performedByPlaceholder')} 
+                        data-testid="input-disinfection-by"
+                        value={intraOpData.disinfection?.performedBy ?? ""}
+                        onChange={(e) => {
+                          const updated = {
+                            ...intraOpData,
+                            disinfection: {
+                              ...intraOpData.disinfection,
+                              performedBy: e.target.value
+                            }
+                          };
+                          setIntraOpData(updated);
+                        }}
+                        onBlur={() => intraOpAutoSave.mutate(intraOpData)}
+                      />
                     </div>
                   </CardContent>
                 </Card>
@@ -1600,11 +1739,41 @@ export default function Op() {
                   <CardContent className="space-y-4">
                     <div className="space-y-3">
                       <div className="flex items-center space-x-2">
-                        <Checkbox id="koag-mono" data-testid="checkbox-koag-mono" />
+                        <Checkbox 
+                          id="koag-mono" 
+                          data-testid="checkbox-koag-mono"
+                          checked={intraOpData.equipment?.monopolar ?? false}
+                          onCheckedChange={(checked) => {
+                            const updated = {
+                              ...intraOpData,
+                              equipment: {
+                                ...intraOpData.equipment,
+                                monopolar: checked === true
+                              }
+                            };
+                            setIntraOpData(updated);
+                            intraOpAutoSave.mutate(updated);
+                          }}
+                        />
                         <Label htmlFor="koag-mono">Monopolar</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Checkbox id="koag-bi" data-testid="checkbox-koag-bi" />
+                        <Checkbox 
+                          id="koag-bi" 
+                          data-testid="checkbox-koag-bi"
+                          checked={intraOpData.equipment?.bipolar ?? false}
+                          onCheckedChange={(checked) => {
+                            const updated = {
+                              ...intraOpData,
+                              equipment: {
+                                ...intraOpData.equipment,
+                                bipolar: checked === true
+                              }
+                            };
+                            setIntraOpData(updated);
+                            intraOpAutoSave.mutate(updated);
+                          }}
+                        />
                         <Label htmlFor="koag-bi">Bipolar</Label>
                       </div>
                     </div>
@@ -1613,7 +1782,22 @@ export default function Op() {
                       <div className="grid grid-cols-2 gap-2">
                         {["shoulder", "abdomen", "thigh", "back"].map((loc) => (
                           <div key={loc} className="flex items-center space-x-2">
-                            <Checkbox id={`electrode-${loc}`} data-testid={`checkbox-electrode-${loc}`} />
+                            <Checkbox 
+                              id={`electrode-${loc}`} 
+                              data-testid={`checkbox-electrode-${loc}`}
+                              checked={intraOpData.equipment?.neutralElectrodeLocation === loc}
+                              onCheckedChange={(checked) => {
+                                const updated = {
+                                  ...intraOpData,
+                                  equipment: {
+                                    ...intraOpData.equipment,
+                                    neutralElectrodeLocation: checked ? loc : undefined
+                                  }
+                                };
+                                setIntraOpData(updated);
+                                intraOpAutoSave.mutate(updated);
+                              }}
+                            />
                             <Label htmlFor={`electrode-${loc}`}>{t(`surgery.intraop.${loc}`)}</Label>
                           </div>
                         ))}
@@ -1623,11 +1807,47 @@ export default function Op() {
                       <Label>{t('surgery.intraop.pathology')}</Label>
                       <div className="flex gap-4">
                         <div className="flex items-center space-x-2">
-                          <Checkbox id="path-histo" data-testid="checkbox-path-histo" />
+                          <Checkbox 
+                            id="path-histo" 
+                            data-testid="checkbox-path-histo"
+                            checked={intraOpData.equipment?.pathology?.histology ?? false}
+                            onCheckedChange={(checked) => {
+                              const updated = {
+                                ...intraOpData,
+                                equipment: {
+                                  ...intraOpData.equipment,
+                                  pathology: {
+                                    ...intraOpData.equipment?.pathology,
+                                    histology: checked === true
+                                  }
+                                }
+                              };
+                              setIntraOpData(updated);
+                              intraOpAutoSave.mutate(updated);
+                            }}
+                          />
                           <Label htmlFor="path-histo">{t('surgery.intraop.histologie')}</Label>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <Checkbox id="path-mikro" data-testid="checkbox-path-mikro" />
+                          <Checkbox 
+                            id="path-mikro" 
+                            data-testid="checkbox-path-mikro"
+                            checked={intraOpData.equipment?.pathology?.microbiology ?? false}
+                            onCheckedChange={(checked) => {
+                              const updated = {
+                                ...intraOpData,
+                                equipment: {
+                                  ...intraOpData.equipment,
+                                  pathology: {
+                                    ...intraOpData.equipment?.pathology,
+                                    microbiology: checked === true
+                                  }
+                                }
+                              };
+                              setIntraOpData(updated);
+                              intraOpAutoSave.mutate(updated);
+                            }}
+                          />
                           <Label htmlFor="path-mikro">{t('surgery.intraop.mikrobio')}</Label>
                         </div>
                       </div>
@@ -1642,18 +1862,68 @@ export default function Op() {
                   <CardContent className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>{t('surgery.intraop.signatureZudienung')}</Label>
-                      <div className="h-20 border-2 border-dashed rounded-lg flex items-center justify-center text-muted-foreground cursor-pointer hover:bg-accent/50" data-testid="signature-pad-zudienung">
-                        {t('surgery.intraop.tapToSign')}
+                      <div 
+                        className="h-20 border-2 border-dashed rounded-lg flex items-center justify-center text-muted-foreground cursor-pointer hover:bg-accent/50 overflow-hidden"
+                        onClick={() => setShowIntraOpSignaturePad('circulating')}
+                        data-testid="signature-pad-zudienung"
+                      >
+                        {intraOpData.signatures?.circulatingNurse ? (
+                          <img src={intraOpData.signatures.circulatingNurse} alt="Signature" className="h-full w-full object-contain" />
+                        ) : (
+                          t('surgery.intraop.tapToSign')
+                        )}
                       </div>
                     </div>
                     <div className="space-y-2">
                       <Label>{t('surgery.intraop.signatureInstrum')}</Label>
-                      <div className="h-20 border-2 border-dashed rounded-lg flex items-center justify-center text-muted-foreground cursor-pointer hover:bg-accent/50" data-testid="signature-pad-instrum">
-                        {t('surgery.intraop.tapToSign')}
+                      <div 
+                        className="h-20 border-2 border-dashed rounded-lg flex items-center justify-center text-muted-foreground cursor-pointer hover:bg-accent/50 overflow-hidden"
+                        onClick={() => setShowIntraOpSignaturePad('instrument')}
+                        data-testid="signature-pad-instrum"
+                      >
+                        {intraOpData.signatures?.instrumentNurse ? (
+                          <img src={intraOpData.signatures.instrumentNurse} alt="Signature" className="h-full w-full object-contain" />
+                        ) : (
+                          t('surgery.intraop.tapToSign')
+                        )}
                       </div>
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Intra-Op Signature Pad Dialogs */}
+                <SignaturePad
+                  isOpen={showIntraOpSignaturePad === 'circulating'}
+                  onClose={() => setShowIntraOpSignaturePad(null)}
+                  onSave={(signature) => {
+                    const updated = {
+                      ...intraOpData,
+                      signatures: {
+                        ...intraOpData.signatures,
+                        circulatingNurse: signature
+                      }
+                    };
+                    setIntraOpData(updated);
+                    intraOpAutoSave.mutate(updated);
+                  }}
+                  title={t('surgery.intraop.signatureZudienung')}
+                />
+                <SignaturePad
+                  isOpen={showIntraOpSignaturePad === 'instrument'}
+                  onClose={() => setShowIntraOpSignaturePad(null)}
+                  onSave={(signature) => {
+                    const updated = {
+                      ...intraOpData,
+                      signatures: {
+                        ...intraOpData.signatures,
+                        instrumentNurse: signature
+                      }
+                    };
+                    setIntraOpData(updated);
+                    intraOpAutoSave.mutate(updated);
+                  }}
+                  title={t('surgery.intraop.signatureInstrum')}
+                />
               </TabsContent>
 
               {/* Counts & Sterile Goods Tab (Combined) */}
