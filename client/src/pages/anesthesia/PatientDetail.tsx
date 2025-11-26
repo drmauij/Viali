@@ -3380,7 +3380,10 @@ export default function PatientDetail() {
                             {t('anesthesia.patientDetail.completing')}
                           </>
                         ) : (
-                          t('anesthesia.patientDetail.completeAndSign')
+                          <>
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            {t('anesthesia.patientDetail.completeAndSign')}
+                          </>
                         )
                       )}
                     </Button>
