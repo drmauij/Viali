@@ -2926,7 +2926,10 @@ export default function PatientDetail() {
                           checked={assessmentData.surgicalApprovalStatus === "approved"}
                           onCheckedChange={(checked) => setAssessmentData({
                             ...assessmentData,
-                            surgicalApprovalStatus: checked ? "approved" : ""
+                            surgicalApprovalStatus: checked ? "approved" : "",
+                            standBy: checked ? false : assessmentData.standBy,
+                            standByReason: checked ? "" : assessmentData.standByReason,
+                            standByReasonNote: checked ? "" : assessmentData.standByReasonNote
                           })}
                           data-testid="checkbox-approved"
                           className={assessmentData.surgicalApprovalStatus === "approved" ? "border-green-600 data-[state=checked]:bg-green-600" : ""}
@@ -2941,7 +2944,10 @@ export default function PatientDetail() {
                           checked={assessmentData.surgicalApprovalStatus === "not-approved"}
                           onCheckedChange={(checked) => setAssessmentData({
                             ...assessmentData,
-                            surgicalApprovalStatus: checked ? "not-approved" : ""
+                            surgicalApprovalStatus: checked ? "not-approved" : "",
+                            standBy: checked ? false : assessmentData.standBy,
+                            standByReason: checked ? "" : assessmentData.standByReason,
+                            standByReasonNote: checked ? "" : assessmentData.standByReasonNote
                           })}
                           data-testid="checkbox-not-approved"
                           className={assessmentData.surgicalApprovalStatus === "not-approved" ? "border-red-600 data-[state=checked]:bg-red-600" : ""}
