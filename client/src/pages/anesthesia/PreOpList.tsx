@@ -38,8 +38,8 @@ export default function PreOpList() {
 
   const groupedByStatus = {
     planned: filteredAssessments.filter((item) => item.status === 'planned'),
-    draft: filteredAssessments.filter((item) => item.status === 'draft' && !item.standBy),
-    standby: filteredAssessments.filter((item) => item.standBy),
+    draft: filteredAssessments.filter((item) => item.status === 'draft' && !item.assessment?.standBy),
+    standby: filteredAssessments.filter((item) => item.assessment?.standBy),
     completed: filteredAssessments.filter((item) => item.status === 'completed'),
   };
 
@@ -75,7 +75,7 @@ export default function PreOpList() {
   };
 
   const getStatusBadge = (item: any) => {
-    if (item.standBy) {
+    if (item.assessment?.standBy) {
       return (
         <Badge variant="outline" className="bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700">
           <PauseCircle className="h-3 w-3 mr-1" />
@@ -238,11 +238,11 @@ export default function PreOpList() {
                   {/* Status Badge & Stand-By Reason */}
                   <div className="flex flex-col items-end gap-1" data-testid={`badge-status-${surgery.id}`}>
                     {getStatusBadge(item)}
-                    {item.standBy && item.standByReason && (
+                    {item.assessment?.standBy && item.assessment?.standByReason && (
                       <span className="text-xs text-amber-600 dark:text-amber-400 max-w-[180px] text-right">
-                        {item.standByReason === 'other' && item.standByReasonNote 
-                          ? item.standByReasonNote 
-                          : getStandByReasonLabel(item.standByReason)}
+                        {item.assessment?.standByReason === 'other' && item.assessment?.standByReasonNote 
+                          ? item.assessment?.standByReasonNote 
+                          : getStandByReasonLabel(item.assessment?.standByReason)}
                       </span>
                     )}
                   </div>
