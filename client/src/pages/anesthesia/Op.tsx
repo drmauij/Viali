@@ -1306,11 +1306,17 @@ export default function Op() {
                     <CardTitle>{t('surgery.intraop.positioning')}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      {["RL", "SL", "BL", "SSL", "EXT"].map((pos) => (
-                        <div key={pos} className="flex items-center space-x-2">
-                          <Checkbox id={`pos-${pos}`} data-testid={`checkbox-position-${pos}`} />
-                          <Label htmlFor={`pos-${pos}`}>{pos}</Label>
+                    <div className="grid grid-cols-1 gap-3">
+                      {[
+                        { id: "RL", label: t('surgery.intraop.positions.supine') },
+                        { id: "SL", label: t('surgery.intraop.positions.lateral') },
+                        { id: "BL", label: t('surgery.intraop.positions.prone') },
+                        { id: "SSL", label: t('surgery.intraop.positions.lithotomy') },
+                        { id: "EXT", label: t('surgery.intraop.positions.extension') }
+                      ].map((pos) => (
+                        <div key={pos.id} className="flex items-center space-x-2">
+                          <Checkbox id={`pos-${pos.id}`} data-testid={`checkbox-position-${pos.id}`} />
+                          <Label htmlFor={`pos-${pos.id}`}>{pos.label}</Label>
                         </div>
                       ))}
                     </div>

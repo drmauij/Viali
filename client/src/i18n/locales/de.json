@@ -1787,6 +1787,13 @@
     },
     "intraop": {
       "positioning": "Lagerung",
+      "positions": {
+        "supine": "Rückenlage",
+        "lateral": "Seitenlage",
+        "prone": "Bauchlage",
+        "lithotomy": "Steinschnittlage",
+        "extension": "Extensionslage"
+      },
       "disinfection": "Desinfektion",
       "kodanColored": "Kodan (gefärbt)",
       "kodanColorless": "Kodan (farblos)",
