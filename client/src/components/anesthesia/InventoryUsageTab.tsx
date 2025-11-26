@@ -11,9 +11,11 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Package, Minus, Plus, Folder, RotateCcw, CheckCircle, History, Undo, ChevronDown, ChevronRight, Search, X } from "lucide-react";
 import { ControlledItemsCommitDialog } from "./ControlledItemsCommitDialog";
 import { formatDate } from "@/lib/dateUtils";
+import type { Module } from "@/contexts/ModuleContext";
 
 interface InventoryUsageTabProps {
   anesthesiaRecordId: string;
+  activeModule?: Module;
 }
 
 interface InventoryUsage {
@@ -54,7 +56,14 @@ interface InventoryCommit {
   rollbackReason: string | null;
 }
 
-export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps) {
+interface UnitType {
+  id: string;
+  name: string;
+  isAnesthesiaModule?: boolean;
+  isSurgeryModule?: boolean;
+}
+
+export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: InventoryUsageTabProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
@@ -77,16 +86,34 @@ export function InventoryUsageTab({ anesthesiaRecordId }: InventoryUsageTabProps
     });
   };
 
-  // Fetch ALL inventory items from the hospital/unit
+  // Fetch hospital units to find the appropriate one based on module
+  const { data: units = [] } = useQuery<UnitType[]>({
+    queryKey: [`/api/units/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id,
+  });
+
+  // Determine which unitId to use based on active module
+  const effectiveUnitId = useMemo(() => {
+    if (activeModule === 'surgery') {
+      // Find the OR/surgery unit
+      const surgeryUnit = units.find(u => u.isSurgeryModule);
+      return surgeryUnit?.id || activeHospital?.unitId;
+    }
+    // Default to anesthesia unit or current user's unit
+    const anesthesiaUnit = units.find(u => u.isAnesthesiaModule);
+    return anesthesiaUnit?.id || activeHospital?.unitId;
+  }, [activeModule, units, activeHospital?.unitId]);
+
+  // Fetch ALL inventory items from the hospital/unit based on module
   const { data: items = [] } = useQuery<Item[]>({
-    queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId],
-    enabled: !!activeHospital?.id && !!activeHospital?.unitId,
+    queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId],
+    enabled: !!activeHospital?.id && !!effectiveUnitId,
   });
 
   // Fetch folders - MUST include unitId parameter
   const { data: folders = [] } = useQuery<FolderType[]>({
-    queryKey: [`/api/folders/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId],
-    enabled: !!activeHospital?.id && !!activeHospital?.unitId,
+    queryKey: [`/api/folders/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId],
+    enabled: !!activeHospital?.id && !!effectiveUnitId,
   });
 
   // Fetch auto-calculated usage

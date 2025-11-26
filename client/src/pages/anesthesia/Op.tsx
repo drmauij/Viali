@@ -656,8 +656,8 @@ export default function Op() {
             <div className="flex items-center gap-2 sm:gap-4 mb-4">
               <div className="flex-1 overflow-x-auto">
                 <TabsList className="inline-flex w-auto min-w-full">
-                  {/* Surgery Module Tabs */}
-                  {isSurgeryMode ? (
+                  {/* Surgery Module Specific Tabs */}
+                  {isSurgeryMode && (
                     <>
                       <TabsTrigger value="intraop" data-testid="tab-intraop" className="text-xs sm:text-sm whitespace-nowrap">
                         {t('surgery.opDetail.tabs.intraop')}
@@ -669,9 +669,11 @@ export default function Op() {
                         {t('surgery.opDetail.tabs.sterile')}
                       </TabsTrigger>
                     </>
-                  ) : (
+                  )}
+
+                  {/* Anesthesia Module Specific Tabs */}
+                  {!isSurgeryMode && (
                     <>
-                      {/* Anesthesia Module Tabs */}
                       <TabsTrigger value="vitals" data-testid="tab-vitals" className="text-xs sm:text-sm whitespace-nowrap">
                         {t('anesthesia.op.vitals')}
                       </TabsTrigger>
@@ -685,23 +687,27 @@ export default function Op() {
                           {t('anesthesia.op.anesthesia')}
                         </TabsTrigger>
                       )}
-                      {!isPacuMode && (
-                        <TabsTrigger value="checklists" data-testid="tab-checklists" className="text-xs sm:text-sm whitespace-nowrap">
-                          {t('anesthesia.op.checklists')}
-                        </TabsTrigger>
-                      )}
-                      <TabsTrigger value="preop" data-testid="tab-preop" className="text-xs sm:text-sm whitespace-nowrap">
-                        {t('anesthesia.op.preOp')}
-                      </TabsTrigger>
-                      <TabsTrigger value="inventory" data-testid="tab-inventory" className="text-xs sm:text-sm whitespace-nowrap">
-                        {t('anesthesia.op.inventory')}
-                      </TabsTrigger>
-                      {!isPacuMode && (
-                        <TabsTrigger value="postop" data-testid="tab-postop" className="text-xs sm:text-sm whitespace-nowrap">
-                          {t('anesthesia.op.postOp')}
-                        </TabsTrigger>
-                      )}
                     </>
+                  )}
+
+                  {/* Shared Tabs - Visible in Both Modules */}
+                  {!isPacuMode && (
+                    <TabsTrigger value="checklists" data-testid="tab-checklists" className="text-xs sm:text-sm whitespace-nowrap">
+                      {t('anesthesia.op.checklists')}
+                    </TabsTrigger>
+                  )}
+                  <TabsTrigger value="preop" data-testid="tab-preop" className="text-xs sm:text-sm whitespace-nowrap">
+                    {t('anesthesia.op.preOp')}
+                  </TabsTrigger>
+                  <TabsTrigger value="inventory" data-testid="tab-inventory" className="text-xs sm:text-sm whitespace-nowrap">
+                    {t('anesthesia.op.inventory')}
+                  </TabsTrigger>
+
+                  {/* Anesthesia Module Only - Post-Op */}
+                  {!isSurgeryMode && !isPacuMode && (
+                    <TabsTrigger value="postop" data-testid="tab-postop" className="text-xs sm:text-sm whitespace-nowrap">
+                      {t('anesthesia.op.postOp')}
+                    </TabsTrigger>
                   )}
                 </TabsList>
               </div>
@@ -892,7 +898,7 @@ export default function Op() {
             )}
           </TabsContent>
 
-          {/* Inventory Tab */}
+          {/* Inventory Tab - Shared between modules, shows unit-specific items */}
           <TabsContent value="inventory" className="flex-1 overflow-y-auto px-6 pb-6 mt-0" data-testid="tab-content-inventory">
             <OpInventory 
               anesthesiaRecord={anesthesiaRecord}
@@ -901,6 +907,7 @@ export default function Op() {
               inventoryItems={inventoryItems}
               onNavigateToInventoryTab={() => setActiveTab("inventory")}
               onClearA3Marker={handleClearA3Marker}
+              activeModule={activeModule}
             />
           </TabsContent>
 
@@ -1397,36 +1404,6 @@ export default function Op() {
                         </tbody>
                       </table>
                     </div>
-                  </CardContent>
-                </Card>
-
-                {/* WHO Checklist - Shared with Anesthesia */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{t('surgery.counts.whoChecklist')}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="p-3 border rounded-lg text-center">
-                        <div className="font-medium">Sign In</div>
-                        <Badge variant={signInState.signature ? "default" : "outline"} className="mt-1">
-                          {signInState.signature ? "Complete" : t('surgery.counts.pending')}
-                        </Badge>
-                      </div>
-                      <div className="p-3 border rounded-lg text-center">
-                        <div className="font-medium">Time Out</div>
-                        <Badge variant={timeOutState.signature ? "default" : "outline"} className="mt-1">
-                          {timeOutState.signature ? "Complete" : t('surgery.counts.pending')}
-                        </Badge>
-                      </div>
-                      <div className="p-3 border rounded-lg text-center">
-                        <div className="font-medium">Sign Out</div>
-                        <Badge variant={signOutState.signature ? "default" : "outline"} className="mt-1">
-                          {signOutState.signature ? "Complete" : t('surgery.counts.pending')}
-                        </Badge>
-                      </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground text-center">{t('surgery.counts.whoIntegrationNote')}</p>
                   </CardContent>
                 </Card>
 
