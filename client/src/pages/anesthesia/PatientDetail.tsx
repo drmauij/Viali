@@ -71,6 +71,8 @@ export default function PatientDetail() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   // Track if Pre-OP dialog was opened via URL navigation (should use history.back()) or button click (just close)
   const preOpOpenedViaUrl = useRef(false);
+  // Track if we're currently saving to prevent useEffect from resetting form data
+  const isSavingRef = useRef(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState({
     surname: "",
@@ -506,7 +508,7 @@ export default function PatientDetail() {
       ? `${(user as any).firstName} ${(user as any).lastName}` 
       : (user as any)?.email || "";
     
-    if (existingAssessment && isPreOpOpen) {
+    if (existingAssessment && isPreOpOpen && !isSavingRef.current) {
       setAssessmentData({
         height: existingAssessment.height || "",
         weight: existingAssessment.weight || "",
@@ -621,6 +623,8 @@ export default function PatientDetail() {
       });
     },
     onSuccess: () => {
+      // Clear saving flag after a short delay to allow React to settle
+      setTimeout(() => { isSavingRef.current = false; }, 500);
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${activeHospital?.id}`] });
       toast({
@@ -629,6 +633,7 @@ export default function PatientDetail() {
       });
     },
     onError: (error: any) => {
+      isSavingRef.current = false;
       toast({
         title: t('anesthesia.patientDetail.error'),
         description: error.message || t('anesthesia.patientDetail.errorSaveAssessment'),
@@ -643,6 +648,8 @@ export default function PatientDetail() {
       return await apiRequest("PATCH", `/api/anesthesia/preop/${existingAssessment?.id}`, data);
     },
     onSuccess: () => {
+      // Clear saving flag after a short delay to allow React to settle
+      setTimeout(() => { isSavingRef.current = false; }, 500);
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${activeHospital?.id}`] });
       toast({
@@ -651,6 +658,7 @@ export default function PatientDetail() {
       });
     },
     onError: (error: any) => {
+      isSavingRef.current = false;
       toast({
         title: t('anesthesia.patientDetail.error'),
         description: error.message || t('anesthesia.patientDetail.errorUpdateAssessment'),
@@ -768,6 +776,9 @@ export default function PatientDetail() {
   };
 
   const handleSavePreOpAssessment = async (markAsCompleted = false, overrideData: any = {}) => {
+    // Set flag to prevent useEffect from resetting form data during save
+    isSavingRef.current = true;
+    
     const data = {
       ...assessmentData,
       ...overrideData, // Allow overriding specific fields (like signature)
