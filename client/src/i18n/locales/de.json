@@ -1899,7 +1899,12 @@
       "stickerDocumentation": "Aufkleber-Dokumentation",
       "stickerDocumentationDesc": "Foto vom Aufkleberblatt für schnelle Dokumentation aufnehmen",
       "takePhoto": "Foto aufnehmen",
-      "noPhotos": "Noch keine Fotos"
+      "uploadFile": "Datei hochladen",
+      "noPhotos": "Noch keine Fotos",
+      "invalidFileType": "Ungültiger Dateityp",
+      "allowedFormats": "Bitte JPEG, PNG, GIF Bilder oder PDF Dateien hochladen",
+      "fileTooLarge": "Datei zu groß",
+      "maxFileSize": "Maximale Dateigröße ist 5MB"
     }
   }
 }

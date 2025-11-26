@@ -1637,6 +1637,10 @@ export const updateIntraOpDataSchema = z.object({
 });
 
 // Counts & Sterile Goods Data validation schema (Surgery module)
+// Max base64 size: ~7MB (5MB file * 1.37 base64 overhead + data URL prefix)
+const MAX_BASE64_SIZE = 7 * 1024 * 1024;
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
+
 export const updateCountsSterileDataSchema = z.object({
   surgicalCounts: z.array(z.object({
     id: z.string(),
@@ -1655,9 +1659,12 @@ export const updateCountsSterileDataSchema = z.object({
   stickerDocs: z.array(z.object({
     id: z.string(),
     type: z.enum(['photo', 'pdf']),
-    data: z.string(), // base64
+    data: z.string().max(MAX_BASE64_SIZE, 'File too large (max 5MB)'), // base64 with size limit
     filename: z.string().optional().nullable(),
-    mimeType: z.string().optional().nullable(),
+    mimeType: z.string().refine(
+      (val) => !val || ALLOWED_MIME_TYPES.includes(val),
+      { message: 'Invalid file type. Allowed: JPEG, PNG, GIF, PDF' }
+    ).optional().nullable(),
     createdAt: z.number().optional(),
     createdBy: z.string().optional().nullable(),
   })).optional(),

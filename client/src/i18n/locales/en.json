@@ -1899,7 +1899,12 @@
       "stickerDocumentation": "Sticker Documentation",
       "stickerDocumentationDesc": "Take a photo of the sticker sheet for quick documentation",
       "takePhoto": "Take Photo",
-      "noPhotos": "No photos yet"
+      "uploadFile": "Upload File",
+      "noPhotos": "No photos yet",
+      "invalidFileType": "Invalid File Type",
+      "allowedFormats": "Please upload JPEG, PNG, GIF images or PDF files",
+      "fileTooLarge": "File Too Large",
+      "maxFileSize": "Maximum file size is 5MB"
     }
   }
 }

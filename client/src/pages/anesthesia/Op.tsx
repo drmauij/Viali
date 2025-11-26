@@ -42,7 +42,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useAutoSaveMutation } from "@/hooks/useAutoSaveMutation";
-import { Minus, Folder, Package, Loader2, MapPin, FileText, AlertTriangle, Pill } from "lucide-react";
+import { Minus, Folder, Package, Loader2, MapPin, FileText, AlertTriangle, Pill, Upload } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -94,6 +94,7 @@ export default function Op() {
   const activeHospital = useActiveHospital();
   const { toast } = useToast();
   const { activeModule } = useModule();
+  const { user } = useAuth();
   
   // Check if in surgery module mode
   const isSurgeryMode = activeModule === "surgery" || location.startsWith("/surgery");
@@ -337,6 +338,10 @@ export default function Op() {
   // Signature pad dialogs for surgery module
   const [showIntraOpSignaturePad, setShowIntraOpSignaturePad] = useState<'circulating' | 'instrument' | null>(null);
   const [showCountsSterileSignaturePad, setShowCountsSterileSignaturePad] = useState<'instrumenteur' | 'circulating' | null>(null);
+  
+  // Sticker documentation state
+  const [showCameraCapture, setShowCameraCapture] = useState(false);
+  const stickerFileInputRef = useRef<HTMLInputElement>(null);
   const [newSterileItemName, setNewSterileItemName] = useState("");
   const [newSterileItemLot, setNewSterileItemLot] = useState("");
   const [newSterileItemQty, setNewSterileItemQty] = useState(1);
@@ -378,6 +383,67 @@ export default function Op() {
       ...countsSterileData,
       sterileItems: updatedItems
     };
+    setCountsSterileData(updated);
+    countsSterileAutoSave.mutate(updated);
+  };
+
+  // Handle sticker documentation file upload
+  const handleStickerFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: t('surgery.sterile.invalidFileType'),
+        description: t('surgery.sterile.allowedFormats'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast({
+        title: t('surgery.sterile.fileTooLarge'),
+        description: t('surgery.sterile.maxFileSize'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      const newDoc = {
+        id: `sticker-${Date.now()}`,
+        type: (file.type === 'application/pdf' ? 'pdf' : 'photo') as 'photo' | 'pdf',
+        data: base64,
+        filename: file.name,
+        mimeType: file.type,
+        createdAt: Date.now(),
+        createdBy: user ? getUserDisplayName(user) : undefined,
+      };
+
+      const updatedDocs = [...(countsSterileData.stickerDocs || []), newDoc];
+      const updated = { ...countsSterileData, stickerDocs: updatedDocs };
+      setCountsSterileData(updated);
+      countsSterileAutoSave.mutate(updated);
+    };
+    reader.readAsDataURL(file);
+
+    // Reset input
+    if (event.target) {
+      event.target.value = '';
+    }
+  };
+
+  // Handle removing a sticker document
+  const handleRemoveStickerDoc = (id: string) => {
+    const updatedDocs = (countsSterileData.stickerDocs || []).filter(doc => doc.id !== id);
+    const updated = { ...countsSterileData, stickerDocs: updatedDocs };
     setCountsSterileData(updated);
     countsSterileAutoSave.mutate(updated);
   };
@@ -2112,16 +2178,82 @@ export default function Op() {
                           {t('surgery.sterile.stickerDocumentationDesc')}
                         </p>
                         <div className="flex items-center gap-3 mb-4">
-                          <Button variant="outline" className="flex items-center gap-2" data-testid="button-take-sticker-photo">
+                          <input
+                            type="file"
+                            ref={stickerFileInputRef}
+                            onChange={handleStickerFileUpload}
+                            accept="image/jpeg,image/png,image/gif,application/pdf"
+                            className="hidden"
+                            data-testid="input-sticker-file"
+                          />
+                          <Button 
+                            variant="outline" 
+                            className="flex items-center gap-2" 
+                            onClick={() => {
+                              // Use capture attribute for camera
+                              if (stickerFileInputRef.current) {
+                                stickerFileInputRef.current.setAttribute('capture', 'environment');
+                                stickerFileInputRef.current.click();
+                              }
+                            }}
+                            data-testid="button-take-sticker-photo"
+                          >
                             <Camera className="h-4 w-4" />
                             {t('surgery.sterile.takePhoto')}
                           </Button>
+                          <Button 
+                            variant="outline" 
+                            className="flex items-center gap-2" 
+                            onClick={() => {
+                              // Remove capture attribute for gallery
+                              if (stickerFileInputRef.current) {
+                                stickerFileInputRef.current.removeAttribute('capture');
+                                stickerFileInputRef.current.click();
+                              }
+                            }}
+                            data-testid="button-upload-sticker-file"
+                          >
+                            <Upload className="h-4 w-4" />
+                            {t('surgery.sterile.uploadFile')}
+                          </Button>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                          <div className="relative aspect-[4/3] border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-muted-foreground bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors" data-testid="sticker-photo-placeholder">
-                            <Image className="h-8 w-8 mb-2 opacity-50" />
-                            <span className="text-xs">{t('surgery.sterile.noPhotos')}</span>
-                          </div>
+                          {(countsSterileData.stickerDocs || []).map((doc) => (
+                            <div key={doc.id} className="relative aspect-[4/3] border rounded-lg overflow-hidden group">
+                              {doc.type === 'photo' ? (
+                                <img src={doc.data} alt={doc.filename || 'Sticker'} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex flex-col items-center justify-center bg-muted">
+                                  <FileText className="h-8 w-8 mb-2 text-muted-foreground" />
+                                  <span className="text-xs text-muted-foreground truncate max-w-full px-2">{doc.filename || 'PDF'}</span>
+                                </div>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => handleRemoveStickerDoc(doc.id)}
+                                data-testid={`button-remove-sticker-${doc.id}`}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                          {(!countsSterileData.stickerDocs || countsSterileData.stickerDocs.length === 0) && (
+                            <div 
+                              className="relative aspect-[4/3] border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-muted-foreground bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
+                              onClick={() => {
+                                if (stickerFileInputRef.current) {
+                                  stickerFileInputRef.current.removeAttribute('capture');
+                                  stickerFileInputRef.current.click();
+                                }
+                              }}
+                              data-testid="sticker-photo-placeholder"
+                            >
+                              <Image className="h-8 w-8 mb-2 opacity-50" />
+                              <span className="text-xs">{t('surgery.sterile.noPhotos')}</span>
+                            </div>
+                          )}
                         </div>
                       </>
                     )}
