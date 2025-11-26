@@ -1474,9 +1474,9 @@ export default function Op() {
                           {["Bauchtücher", "Kompressen", "Tupfer", "Tupferli", "Gummibändli", "Nadeln"].map((item, idx) => (
                             <tr key={item} className="border-b">
                               <td className="py-2 px-3 font-medium">{item}</td>
-                              <td className="py-1 px-3"><Input className="w-16 text-center" data-testid={`input-count1-${idx}`} /></td>
-                              <td className="py-1 px-3"><Input className="w-16 text-center" data-testid={`input-count2-${idx}`} /></td>
-                              <td className="py-1 px-3"><Input className="w-16 text-center" data-testid={`input-countfinal-${idx}`} /></td>
+                              <td className="py-1 px-3 text-center"><Input className="w-16 text-center mx-auto" data-testid={`input-count1-${idx}`} /></td>
+                              <td className="py-1 px-3 text-center"><Input className="w-16 text-center mx-auto" data-testid={`input-count2-${idx}`} /></td>
+                              <td className="py-1 px-3 text-center"><Input className="w-16 text-center mx-auto" data-testid={`input-countfinal-${idx}`} /></td>
                             </tr>
                           ))}
                         </tbody>
