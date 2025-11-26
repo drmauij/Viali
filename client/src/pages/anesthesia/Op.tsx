@@ -345,12 +345,23 @@ export default function Op() {
   const handleAddSterileItem = () => {
     if (!newSterileItemName.trim()) return;
     
-    setSterileItems(prev => [...prev, {
+    const newItem = {
       id: `sterile-${Date.now()}`,
       name: newSterileItemName.trim(),
       lotNumber: newSterileItemLot.trim(),
       quantity: newSterileItemQty
-    }]);
+    };
+    
+    const updatedItems = [...sterileItems, newItem];
+    setSterileItems(updatedItems);
+    
+    // Also update countsSterileData and auto-save
+    const updated = {
+      ...countsSterileData,
+      sterileItems: updatedItems
+    };
+    setCountsSterileData(updated);
+    countsSterileAutoSave.mutate(updated);
     
     setNewSterileItemName("");
     setNewSterileItemLot("");
@@ -359,7 +370,16 @@ export default function Op() {
   };
 
   const handleRemoveSterileItem = (id: string) => {
-    setSterileItems(prev => prev.filter(item => item.id !== id));
+    const updatedItems = sterileItems.filter(item => item.id !== id);
+    setSterileItems(updatedItems);
+    
+    // Also update countsSterileData and auto-save
+    const updated = {
+      ...countsSterileData,
+      sterileItems: updatedItems
+    };
+    setCountsSterileData(updated);
+    countsSterileAutoSave.mutate(updated);
   };
 
   // Update allergies from patient table and CAVE from preOp assessment
@@ -1945,14 +1965,68 @@ export default function Op() {
                           </tr>
                         </thead>
                         <tbody>
-                          {["Bauchtücher", "Kompressen", "Tupfer", "Tupferli", "Gummibändli", "Nadeln"].map((item, idx) => (
-                            <tr key={item} className="border-b">
-                              <td className="py-2 px-3 font-medium">{item}</td>
-                              <td className="py-1 px-3 text-center"><Input className="w-16 text-center mx-auto" data-testid={`input-count1-${idx}`} /></td>
-                              <td className="py-1 px-3 text-center"><Input className="w-16 text-center mx-auto" data-testid={`input-count2-${idx}`} /></td>
-                              <td className="py-1 px-3 text-center"><Input className="w-16 text-center mx-auto" data-testid={`input-countfinal-${idx}`} /></td>
-                            </tr>
-                          ))}
+                          {(() => {
+                            const defaultItems = ["Bauchtücher", "Kompressen", "Tupfer", "Tupferli", "Gummibändli", "Nadeln"];
+                            const existingCounts = countsSterileData.surgicalCounts || [];
+                            
+                            return defaultItems.map((itemName, idx) => {
+                              const itemId = `count-${idx}`;
+                              const existing = existingCounts.find(c => c.id === itemId);
+                              const count1 = existing?.count1 ?? null;
+                              const count2 = existing?.count2 ?? null;
+                              const countFinal = existing?.countFinal ?? null;
+                              
+                              const updateCount = (field: 'count1' | 'count2' | 'countFinal', value: string) => {
+                                const numValue = value === '' ? null : parseInt(value, 10);
+                                if (value !== '' && isNaN(numValue as number)) return;
+                                
+                                const newCounts = [...(countsSterileData.surgicalCounts || [])];
+                                const existingIdx = newCounts.findIndex(c => c.id === itemId);
+                                
+                                if (existingIdx >= 0) {
+                                  newCounts[existingIdx] = { ...newCounts[existingIdx], [field]: numValue };
+                                } else {
+                                  newCounts.push({ id: itemId, name: itemName, [field]: numValue });
+                                }
+                                
+                                const updated = { ...countsSterileData, surgicalCounts: newCounts };
+                                setCountsSterileData(updated);
+                              };
+                              
+                              return (
+                                <tr key={itemName} className="border-b">
+                                  <td className="py-2 px-3 font-medium">{itemName}</td>
+                                  <td className="py-1 px-3 text-center">
+                                    <Input 
+                                      className="w-16 text-center mx-auto" 
+                                      data-testid={`input-count1-${idx}`}
+                                      value={count1 ?? ''}
+                                      onChange={(e) => updateCount('count1', e.target.value)}
+                                      onBlur={() => countsSterileAutoSave.mutate(countsSterileData)}
+                                    />
+                                  </td>
+                                  <td className="py-1 px-3 text-center">
+                                    <Input 
+                                      className="w-16 text-center mx-auto" 
+                                      data-testid={`input-count2-${idx}`}
+                                      value={count2 ?? ''}
+                                      onChange={(e) => updateCount('count2', e.target.value)}
+                                      onBlur={() => countsSterileAutoSave.mutate(countsSterileData)}
+                                    />
+                                  </td>
+                                  <td className="py-1 px-3 text-center">
+                                    <Input 
+                                      className="w-16 text-center mx-auto" 
+                                      data-testid={`input-countfinal-${idx}`}
+                                      value={countFinal ?? ''}
+                                      onChange={(e) => updateCount('countFinal', e.target.value)}
+                                      onBlur={() => countsSterileAutoSave.mutate(countsSterileData)}
+                                    />
+                                  </td>
+                                </tr>
+                              );
+                            });
+                          })()}
                         </tbody>
                       </table>
                     </div>
@@ -2068,14 +2142,32 @@ export default function Op() {
                           </tr>
                         </thead>
                         <tbody>
-                          {["Vicryl", "V-Lock", "Prolene", "Ethilon", "Monocryl", "Stratafix"].map((type) => (
-                            <tr key={type} className="border-b">
-                              <td className="py-2 px-3 font-medium">{type}</td>
-                              <td className="py-1 px-3">
-                                <Input placeholder={t('surgery.sterile.sizePlaceholder')} data-testid={`input-suture-${type.toLowerCase()}`} />
-                              </td>
-                            </tr>
-                          ))}
+                          {["Vicryl", "V-Lock", "Prolene", "Ethilon", "Monocryl", "Stratafix"].map((type) => {
+                            const key = type.toLowerCase().replace('-', '');
+                            return (
+                              <tr key={type} className="border-b">
+                                <td className="py-2 px-3 font-medium">{type}</td>
+                                <td className="py-1 px-3">
+                                  <Input 
+                                    placeholder={t('surgery.sterile.sizePlaceholder')} 
+                                    data-testid={`input-suture-${type.toLowerCase()}`}
+                                    value={countsSterileData.sutures?.[key] ?? ''}
+                                    onChange={(e) => {
+                                      const updated = {
+                                        ...countsSterileData,
+                                        sutures: {
+                                          ...countsSterileData.sutures,
+                                          [key]: e.target.value
+                                        }
+                                      };
+                                      setCountsSterileData(updated);
+                                    }}
+                                    onBlur={() => countsSterileAutoSave.mutate(countsSterileData)}
+                                  />
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -2089,18 +2181,68 @@ export default function Op() {
                   <CardContent className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>{t('surgery.intraop.signatureZudienung')}</Label>
-                      <div className="h-20 border-2 border-dashed rounded-lg flex items-center justify-center text-muted-foreground cursor-pointer hover:bg-accent/50" data-testid="signature-pad-sterile-zudienung">
-                        {t('surgery.intraop.tapToSign')}
+                      <div 
+                        className="h-20 border-2 border-dashed rounded-lg flex items-center justify-center text-muted-foreground cursor-pointer hover:bg-accent/50 overflow-hidden"
+                        onClick={() => setShowCountsSterileSignaturePad('circulating')}
+                        data-testid="signature-pad-sterile-zudienung"
+                      >
+                        {countsSterileData.signatures?.circulating ? (
+                          <img src={countsSterileData.signatures.circulating} alt="Signature" className="h-full w-full object-contain" />
+                        ) : (
+                          t('surgery.intraop.tapToSign')
+                        )}
                       </div>
                     </div>
                     <div className="space-y-2">
                       <Label>{t('surgery.intraop.signatureInstrum')}</Label>
-                      <div className="h-20 border-2 border-dashed rounded-lg flex items-center justify-center text-muted-foreground cursor-pointer hover:bg-accent/50" data-testid="signature-pad-sterile-instrum">
-                        {t('surgery.intraop.tapToSign')}
+                      <div 
+                        className="h-20 border-2 border-dashed rounded-lg flex items-center justify-center text-muted-foreground cursor-pointer hover:bg-accent/50 overflow-hidden"
+                        onClick={() => setShowCountsSterileSignaturePad('instrumenteur')}
+                        data-testid="signature-pad-sterile-instrum"
+                      >
+                        {countsSterileData.signatures?.instrumenteur ? (
+                          <img src={countsSterileData.signatures.instrumenteur} alt="Signature" className="h-full w-full object-contain" />
+                        ) : (
+                          t('surgery.intraop.tapToSign')
+                        )}
                       </div>
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Counts & Sterile Signature Pad Dialogs */}
+                <SignaturePad
+                  isOpen={showCountsSterileSignaturePad === 'circulating'}
+                  onClose={() => setShowCountsSterileSignaturePad(null)}
+                  onSave={(signature) => {
+                    const updated = {
+                      ...countsSterileData,
+                      signatures: {
+                        ...countsSterileData.signatures,
+                        circulating: signature
+                      }
+                    };
+                    setCountsSterileData(updated);
+                    countsSterileAutoSave.mutate(updated);
+                  }}
+                  title={t('surgery.intraop.signatureZudienung')}
+                />
+                <SignaturePad
+                  isOpen={showCountsSterileSignaturePad === 'instrumenteur'}
+                  onClose={() => setShowCountsSterileSignaturePad(null)}
+                  onSave={(signature) => {
+                    const updated = {
+                      ...countsSterileData,
+                      signatures: {
+                        ...countsSterileData.signatures,
+                        instrumenteur: signature
+                      }
+                    };
+                    setCountsSterileData(updated);
+                    countsSterileAutoSave.mutate(updated);
+                  }}
+                  title={t('surgery.intraop.signatureInstrum')}
+                />
               </TabsContent>
             </>
           )}
