@@ -49,6 +49,8 @@ import {
   updateSignOutDataSchema,
   updatePostOpDataSchema,
   updateSurgeryStaffSchema,
+  updateIntraOpDataSchema,
+  updateCountsSterileDataSchema,
   orderLines, 
   items, 
   stockLevels, 
@@ -5444,6 +5446,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("Error updating surgery staff data:", error);
       res.status(500).json({ message: "Failed to update surgery staff data" });
+    }
+  });
+
+  // Update intra-operative data (Surgery module)
+  app.patch('/api/anesthesia/records/:id/intra-op', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      const record = await storage.getAnesthesiaRecordById(id);
+      
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      // Verify user has access
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Cannot update closed or amended records
+      if (record.caseStatus === 'closed' || record.caseStatus === 'amended') {
+        return res.status(400).json({ message: "Cannot update closed or amended records. Use amend endpoint instead." });
+      }
+
+      // Validate request body
+      const validated = updateIntraOpDataSchema.parse(req.body);
+
+      // Deep merge with existing intra-op data to preserve all nested fields
+      const existingData = record.intraOpData ?? {};
+      const mergedIntraOpData = {
+        ...existingData,
+        ...validated,
+        positioning: { ...(existingData.positioning ?? {}), ...(validated.positioning ?? {}) },
+        disinfection: { ...(existingData.disinfection ?? {}), ...(validated.disinfection ?? {}) },
+        equipment: { 
+          ...(existingData.equipment ?? {}), 
+          ...(validated.equipment ?? {}),
+          pathology: {
+            ...((existingData.equipment as any)?.pathology ?? {}),
+            ...((validated.equipment as any)?.pathology ?? {}),
+          },
+        },
+        irrigationMeds: { ...(existingData.irrigationMeds ?? {}), ...(validated.irrigationMeds ?? {}) },
+        dressing: { ...(existingData.dressing ?? {}), ...(validated.dressing ?? {}) },
+        drainage: { ...(existingData.drainage ?? {}), ...(validated.drainage ?? {}) },
+        signatures: { ...(existingData.signatures ?? {}), ...(validated.signatures ?? {}) },
+      };
+
+      // Update intra-op data
+      const updatedRecord = await storage.updateAnesthesiaRecord(id, { intraOpData: mergedIntraOpData });
+      
+      res.json(updatedRecord);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      console.error("Error updating intra-op data:", error);
+      res.status(500).json({ message: "Failed to update intra-op data" });
+    }
+  });
+
+  // Update counts & sterile goods data (Surgery module)
+  app.patch('/api/anesthesia/records/:id/counts-sterile', isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      const record = await storage.getAnesthesiaRecordById(id);
+      
+      if (!record) {
+        return res.status(404).json({ message: "Anesthesia record not found" });
+      }
+
+      // Verify user has access
+      const surgery = await storage.getSurgery(record.surgeryId);
+      if (!surgery) {
+        return res.status(404).json({ message: "Surgery not found" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Cannot update closed or amended records
+      if (record.caseStatus === 'closed' || record.caseStatus === 'amended') {
+        return res.status(400).json({ message: "Cannot update closed or amended records. Use amend endpoint instead." });
+      }
+
+      // Validate request body
+      const validated = updateCountsSterileDataSchema.parse(req.body);
+
+      // Merge with existing counts-sterile data
+      // Arrays are replaced entirely (surgicalCounts, sterileItems, stickerDocs)
+      // Objects are merged (sutures, signatures)
+      const existingData = record.countsSterileData ?? {};
+      const mergedCountsSterileData = {
+        ...existingData,
+        ...validated,
+        // Replace arrays entirely if provided, keep existing otherwise
+        surgicalCounts: validated.surgicalCounts !== undefined ? validated.surgicalCounts : existingData.surgicalCounts,
+        sterileItems: validated.sterileItems !== undefined ? validated.sterileItems : existingData.sterileItems,
+        stickerDocs: validated.stickerDocs !== undefined ? validated.stickerDocs : existingData.stickerDocs,
+        // Merge objects
+        sutures: { ...(existingData.sutures ?? {}), ...(validated.sutures ?? {}) },
+        signatures: { ...(existingData.signatures ?? {}), ...(validated.signatures ?? {}) },
+      };
+
+      // Update counts-sterile data
+      const updatedRecord = await storage.updateAnesthesiaRecord(id, { countsSterileData: mergedCountsSterileData });
+      
+      res.json(updatedRecord);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Validation error", errors: error.errors });
+      }
+      console.error("Error updating counts-sterile data:", error);
+      res.status(500).json({ message: "Failed to update counts-sterile data" });
     }
   });
 

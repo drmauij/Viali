@@ -622,6 +622,83 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
     anesthesiaNurse?: string;      // Anä-Pflege
   }>(),
   
+  // Surgery Intraoperative Documentation
+  intraOpData: jsonb("intra_op_data").$type<{
+    positioning?: {
+      RL?: boolean;   // Rückenlage (Supine)
+      SL?: boolean;   // Seitenlage (Lateral)
+      BL?: boolean;   // Bauchlage (Prone)
+      SSL?: boolean;  // Steinschnittlage (Lithotomy)
+      EXT?: boolean;  // Extension
+    };
+    disinfection?: {
+      kodanColored?: boolean;
+      kodanColorless?: boolean;
+      performedBy?: string;
+    };
+    equipment?: {
+      monopolar?: boolean;
+      bipolar?: boolean;
+      neutralElectrodeLocation?: string; // shoulder, abdomen, thigh, back
+      pathology?: {
+        histology?: boolean;
+        microbiology?: boolean;
+      };
+      notes?: string;
+    };
+    irrigationMeds?: {
+      irrigation?: string;
+      infiltration?: string;
+      tumorSolution?: string;
+      medications?: string;
+      contrast?: string;
+      ointments?: string;
+    };
+    dressing?: {
+      type?: string;
+      other?: string;
+    };
+    drainage?: {
+      type?: string;
+      count?: number;
+    };
+    signatures?: {
+      circulatingNurse?: string;  // base64 signature
+      instrumentNurse?: string;   // base64 signature
+    };
+  }>(),
+  
+  // Surgery Counts & Sterile Goods Documentation
+  countsSterileData: jsonb("counts_sterile_data").$type<{
+    surgicalCounts?: Array<{
+      id: string;
+      name: string;
+      count1?: number | null;
+      count2?: number | null;
+      countFinal?: number | null;
+    }>;
+    sterileItems?: Array<{
+      id: string;
+      name: string;
+      lotNumber?: string;
+      quantity: number;
+    }>;
+    sutures?: Record<string, string>; // e.g., { vicryl: "2-0", prolene: "3-0" }
+    stickerDocs?: Array<{
+      id: string;
+      type: 'photo' | 'pdf';
+      data: string;  // base64
+      filename?: string;
+      mimeType?: string;
+      createdAt?: number;
+      createdBy?: string;
+    }>;
+    signatures?: {
+      instrumenteur?: string;   // base64 signature
+      circulating?: string;     // base64 signature
+    };
+  }>(),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -1511,6 +1588,83 @@ export const updateSurgeryStaffSchema = z.object({
   surgicalAssistant: z.string().optional().nullable(),    // Assistenz
   anesthesiologist: z.string().optional().nullable(),     // Anästhesie
   anesthesiaNurse: z.string().optional().nullable(),      // Anä-Pflege
+});
+
+// Intraoperative Data validation schema (Surgery module)
+export const updateIntraOpDataSchema = z.object({
+  positioning: z.object({
+    RL: z.boolean().optional(),
+    SL: z.boolean().optional(),
+    BL: z.boolean().optional(),
+    SSL: z.boolean().optional(),
+    EXT: z.boolean().optional(),
+  }).optional(),
+  disinfection: z.object({
+    kodanColored: z.boolean().optional(),
+    kodanColorless: z.boolean().optional(),
+    performedBy: z.string().optional().nullable(),
+  }).optional(),
+  equipment: z.object({
+    monopolar: z.boolean().optional(),
+    bipolar: z.boolean().optional(),
+    neutralElectrodeLocation: z.string().optional().nullable(),
+    pathology: z.object({
+      histology: z.boolean().optional(),
+      microbiology: z.boolean().optional(),
+    }).optional(),
+    notes: z.string().optional().nullable(),
+  }).optional(),
+  irrigationMeds: z.object({
+    irrigation: z.string().optional().nullable(),
+    infiltration: z.string().optional().nullable(),
+    tumorSolution: z.string().optional().nullable(),
+    medications: z.string().optional().nullable(),
+    contrast: z.string().optional().nullable(),
+    ointments: z.string().optional().nullable(),
+  }).optional(),
+  dressing: z.object({
+    type: z.string().optional().nullable(),
+    other: z.string().optional().nullable(),
+  }).optional(),
+  drainage: z.object({
+    type: z.string().optional().nullable(),
+    count: z.number().int().min(0).optional().nullable(),
+  }).optional(),
+  signatures: z.object({
+    circulatingNurse: z.string().optional().nullable(),
+    instrumentNurse: z.string().optional().nullable(),
+  }).optional(),
+});
+
+// Counts & Sterile Goods Data validation schema (Surgery module)
+export const updateCountsSterileDataSchema = z.object({
+  surgicalCounts: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    count1: z.number().int().min(0).optional().nullable(),
+    count2: z.number().int().min(0).optional().nullable(),
+    countFinal: z.number().int().min(0).optional().nullable(),
+  })).optional(),
+  sterileItems: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    lotNumber: z.string().optional().nullable(),
+    quantity: z.number().int().min(1),
+  })).optional(),
+  sutures: z.record(z.string(), z.string()).optional(),
+  stickerDocs: z.array(z.object({
+    id: z.string(),
+    type: z.enum(['photo', 'pdf']),
+    data: z.string(), // base64
+    filename: z.string().optional().nullable(),
+    mimeType: z.string().optional().nullable(),
+    createdAt: z.number().optional(),
+    createdBy: z.string().optional().nullable(),
+  })).optional(),
+  signatures: z.object({
+    instrumenteur: z.string().optional().nullable(),
+    circulating: z.string().optional().nullable(),
+  }).optional(),
 });
 
 export const insertPreOpAssessmentSchema = createInsertSchema(preOpAssessments).omit({
