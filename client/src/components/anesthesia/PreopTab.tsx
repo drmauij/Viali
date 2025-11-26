@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import SignaturePad from "@/components/SignaturePad";
 import { Loader2, Save, CheckCircle2, AlertCircle } from "lucide-react";
@@ -52,7 +53,9 @@ const preOpFormSchema = z.object({
   postOpICU: z.boolean().optional(),
   anesthesiaOther: z.string().optional(),
   installationsOther: z.string().optional(),
-  surgicalApproval: z.string().optional(),
+  standBy: z.boolean().optional(),
+  standByReason: z.string().optional(),
+  standByReasonNote: z.string().optional(),
   assessmentDate: z.string().optional(),
   doctorName: z.string().optional(),
   doctorSignature: z.string().optional(),
@@ -108,7 +111,9 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
       postOpICU: false,
       anesthesiaOther: "",
       installationsOther: "",
-      surgicalApproval: "",
+      standBy: false,
+      standByReason: "",
+      standByReasonNote: "",
       assessmentDate: "",
       doctorName: "",
       doctorSignature: "",
@@ -151,7 +156,9 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
         postOpICU: assessment.postOpICU || false,
         anesthesiaOther: assessment.anesthesiaOther || "",
         installationsOther: assessment.installationsOther || "",
-        surgicalApproval: assessment.surgicalApproval || "",
+        standBy: assessment.standBy || false,
+        standByReason: assessment.standByReason || "",
+        standByReasonNote: assessment.standByReasonNote || "",
         assessmentDate: assessment.assessmentDate || "",
         doctorName: assessment.doctorName || "",
         doctorSignature: assessment.doctorSignature || "",
@@ -202,7 +209,9 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
           postOpICU: data.postOpICU,
           anesthesiaOther: data.anesthesiaOther,
           installationsOther: data.installationsOther,
-          surgicalApproval: data.surgicalApproval,
+          standBy: data.standBy,
+          standByReason: data.standByReason,
+          standByReasonNote: data.standByReasonNote,
           assessmentDate: data.assessmentDate,
           doctorName: data.doctorName,
           doctorSignature: data.doctorSignature,
@@ -268,7 +277,9 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
           postOpICU: data.postOpICU,
           anesthesiaOther: data.anesthesiaOther,
           installationsOther: data.installationsOther,
-          surgicalApproval: data.surgicalApproval,
+          standBy: data.standBy,
+          standByReason: data.standByReason,
+          standByReasonNote: data.standByReasonNote,
           assessmentDate: data.assessmentDate,
           doctorName: data.doctorName,
           doctorSignature: data.doctorSignature,
@@ -806,20 +817,67 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Surgical Approval</CardTitle>
+              <CardTitle>Stand-By Status</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="surgicalApproval">Surgical Approval / Clearance</Label>
-                <Textarea 
-                  id="surgicalApproval" 
-                  {...form.register("surgicalApproval")}
+              <div className="flex items-center space-x-2">
+                <Switch 
+                  id="standBy"
+                  checked={form.watch("standBy") || false}
+                  onCheckedChange={(checked) => {
+                    form.setValue("standBy", checked);
+                    if (!checked) {
+                      form.setValue("standByReason", "");
+                      form.setValue("standByReasonNote", "");
+                    }
+                  }}
                   disabled={isCompleted}
-                  placeholder="Any surgical clearances or approvals..."
-                  rows={2}
-                  data-testid="textarea-surgical-approval" 
+                  data-testid="switch-stand-by"
                 />
+                <Label htmlFor="standBy">Stand-By</Label>
               </div>
+              
+              {form.watch("standBy") && (
+                <div className="space-y-4 pl-8 border-l-2 border-amber-500/50">
+                  <div className="space-y-2">
+                    <Label htmlFor="standByReason">Reason</Label>
+                    <Select
+                      value={form.watch("standByReason") || ""}
+                      onValueChange={(value) => {
+                        form.setValue("standByReason", value);
+                        if (value !== "other") {
+                          form.setValue("standByReasonNote", "");
+                        }
+                      }}
+                      disabled={isCompleted}
+                    >
+                      <SelectTrigger data-testid="select-stand-by-reason">
+                        <SelectValue placeholder="Select reason..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="signature_missing">Patient informed, only signature missing</SelectItem>
+                        <SelectItem value="consent_required">Only written, consent talk required</SelectItem>
+                        <SelectItem value="waiting_exams">Waiting for EKG/Labs/Other exams</SelectItem>
+                        <SelectItem value="other">Other reason</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  {form.watch("standByReason") === "other" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="standByReasonNote">Please specify</Label>
+                      <Textarea 
+                        id="standByReasonNote" 
+                        {...form.register("standByReasonNote")}
+                        disabled={isCompleted}
+                        placeholder="Enter the reason..."
+                        rows={2}
+                        data-testid="textarea-stand-by-reason-note" 
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 
