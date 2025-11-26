@@ -287,11 +287,13 @@ export default function Op() {
 
   // Dialog state for editing allergies and CAVE
   const [isAllergiesDialogOpen, setIsAllergiesDialogOpen] = useState(false);
-  const [allergies, setAllergies] = useState("");
+  const [selectedAllergies, setSelectedAllergies] = useState<string[]>([]);
+  const [otherAllergies, setOtherAllergies] = useState("");
   const [cave, setCave] = useState("");
   
   // Temporary state for dialog editing
-  const [tempAllergies, setTempAllergies] = useState("");
+  const [tempSelectedAllergies, setTempSelectedAllergies] = useState<string[]>([]);
+  const [tempOtherAllergies, setTempOtherAllergies] = useState("");
   const [tempCave, setTempCave] = useState("");
 
   // Sterile items state
@@ -325,10 +327,8 @@ export default function Op() {
   useEffect(() => {
     // Allergies come from patient table (single source of truth)
     if (patient) {
-      const patientAllergies = (patient as any).allergies?.join(", ") || "";
-      const otherAllergies = (patient as any).otherAllergies || "";
-      const combinedAllergies = [patientAllergies, otherAllergies].filter(Boolean).join(", ");
-      setAllergies(combinedAllergies);
+      setSelectedAllergies((patient as any).allergies || []);
+      setOtherAllergies((patient as any).otherAllergies || "");
     }
     // CAVE comes from preOp assessment
     if (preOpAssessment) {
@@ -344,15 +344,58 @@ export default function Op() {
   }, [anesthesiaRecord?.postOpData]);
   
   const handleOpenAllergiesDialog = () => {
-    setTempAllergies(allergies);
+    setTempSelectedAllergies([...selectedAllergies]);
+    setTempOtherAllergies(otherAllergies);
     setTempCave(cave);
     setIsAllergiesDialogOpen(true);
   };
   
-  const handleSaveAllergies = () => {
-    setAllergies(tempAllergies);
-    setCave(tempCave);
-    setIsAllergiesDialogOpen(false);
+  const handleSaveAllergies = async () => {
+    try {
+      // Update local state
+      setSelectedAllergies(tempSelectedAllergies);
+      setOtherAllergies(tempOtherAllergies);
+      setCave(tempCave);
+      
+      // Save allergies to patient
+      if (patient?.id) {
+        await apiRequest('PATCH', `/api/patients/${patient.id}`, {
+          allergies: tempSelectedAllergies,
+          otherAllergies: tempOtherAllergies,
+        });
+        queryClient.invalidateQueries({ queryKey: [`/api/patients/${patient.id}`] });
+      }
+      
+      // Save CAVE to preOp assessment
+      if (preOpAssessment?.id) {
+        await apiRequest('PATCH', `/api/anesthesia/preop/${preOpAssessment.id}`, {
+          cave: tempCave,
+        });
+        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/${surgeryId}`] });
+      }
+      
+      setIsAllergiesDialogOpen(false);
+      toast({
+        title: t('common.saved'),
+        description: t('anesthesia.op.allergiesSaved'),
+      });
+    } catch (error) {
+      console.error('Error saving allergies/CAVE:', error);
+      toast({
+        title: t('anesthesia.op.error'),
+        description: t('anesthesia.op.errorSaving'),
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Toggle allergy selection in dialog
+  const handleToggleAllergy = (allergyId: string) => {
+    setTempSelectedAllergies(prev => 
+      prev.includes(allergyId) 
+        ? prev.filter(id => id !== allergyId)
+        : [...prev, allergyId]
+    );
   };
 
   // PACU mode data filtering
@@ -668,8 +711,10 @@ export default function Op() {
           patient={patient}
           surgery={surgery}
           preOpAssessment={preOpAssessment}
-          allergies={allergies}
+          selectedAllergies={selectedAllergies}
+          otherAllergies={otherAllergies}
           cave={cave}
+          allergyList={anesthesiaSettings?.allergyList || []}
           patientAge={patientAge}
           isPreOpLoading={isPreOpLoading}
           onDownloadPDF={handleDownloadPDF}
@@ -1568,29 +1613,57 @@ export default function Op() {
 
     {/* Allergies & CAVE Edit Dialog */}
     <Dialog open={isAllergiesDialogOpen} onOpenChange={setIsAllergiesDialogOpen}>
-      <DialogContent className="sm:max-w-[500px]">
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-lg font-semibold mb-4">{t('anesthesia.op.editAllergiesCave')}</h3>
+      <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{t('anesthesia.op.editAllergiesCave')}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          {/* Allergies List - Checkboxes from Anesthesia Settings */}
+          <div className="space-y-2">
+            <Label>{t('anesthesia.op.allergies')}</Label>
+            <div className="border rounded-lg p-3 space-y-2 max-h-[200px] overflow-y-auto">
+              {anesthesiaSettings?.allergyList && anesthesiaSettings.allergyList.length > 0 ? (
+                anesthesiaSettings.allergyList.map((allergy: { id: string; label: string }) => (
+                  <div key={allergy.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`allergy-${allergy.id}`}
+                      checked={tempSelectedAllergies.includes(allergy.id)}
+                      onCheckedChange={() => handleToggleAllergy(allergy.id)}
+                      data-testid={`checkbox-allergy-${allergy.id}`}
+                    />
+                    <Label 
+                      htmlFor={`allergy-${allergy.id}`}
+                      className="text-sm font-normal cursor-pointer"
+                    >
+                      {allergy.label}
+                    </Label>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">{t('anesthesia.op.noAllergyOptionsConfigured')}</p>
+              )}
+            </div>
           </div>
 
+          {/* Other Allergies - Free Text */}
           <div className="space-y-2">
-            <Label htmlFor="allergies">{t('anesthesia.op.allergies')}</Label>
+            <Label htmlFor="otherAllergies">{t('anesthesia.op.otherAllergies')}</Label>
             <Textarea
-              id="allergies"
-              rows={3}
-              placeholder={t('anesthesia.op.enterAllergies')}
-              value={tempAllergies}
-              onChange={(e) => setTempAllergies(e.target.value)}
-              data-testid="textarea-edit-allergies"
+              id="otherAllergies"
+              rows={2}
+              placeholder={t('anesthesia.op.enterOtherAllergies')}
+              value={tempOtherAllergies}
+              onChange={(e) => setTempOtherAllergies(e.target.value)}
+              data-testid="textarea-edit-other-allergies"
             />
           </div>
 
+          {/* CAVE - Free Text */}
           <div className="space-y-2">
             <Label htmlFor="cave">{t('anesthesia.op.cave')}</Label>
             <Textarea
               id="cave"
-              rows={3}
+              rows={2}
               placeholder={t('anesthesia.op.enterContraindications')}
               value={tempCave}
               onChange={(e) => setTempCave(e.target.value)}
@@ -1598,7 +1671,7 @@ export default function Op() {
             />
           </div>
 
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 pt-2">
             <Button
               variant="outline"
               onClick={() => setIsAllergiesDialogOpen(false)}
