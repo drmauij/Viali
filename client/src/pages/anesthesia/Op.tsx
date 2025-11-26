@@ -76,7 +76,9 @@ import {
   CheckCircle,
   MinusCircle,
   MessageSquareText,
-  BedDouble
+  BedDouble,
+  Camera,
+  Image
 } from "lucide-react";
 
 export default function Op() {
@@ -1554,6 +1556,29 @@ export default function Op() {
                         ))}
                       </div>
                     )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t('surgery.sterile.stickerDocumentation') || 'Sticker Documentation'}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {t('surgery.sterile.stickerDocumentationDesc') || 'Take a photo of the sticker sheet for quick documentation'}
+                    </p>
+                    <div className="flex items-center gap-3 mb-4">
+                      <Button variant="outline" className="flex items-center gap-2" data-testid="button-take-sticker-photo">
+                        <Camera className="h-4 w-4" />
+                        {t('surgery.sterile.takePhoto') || 'Take Photo'}
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      <div className="relative aspect-[4/3] border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-muted-foreground bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors" data-testid="sticker-photo-placeholder">
+                        <Image className="h-8 w-8 mb-2 opacity-50" />
+                        <span className="text-xs">{t('surgery.sterile.noPhotos') || 'No photos yet'}</span>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
 
