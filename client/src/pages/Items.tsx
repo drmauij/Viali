@@ -2307,8 +2307,8 @@ export default function Items() {
                                       <span className="text-sm">{t('items.controlledNoBulkEdit')}</span>
                                     </div>
                                   ) : (
-                                    <div className="flex gap-2 flex-1 flex-wrap">
-                                      <div className="w-32">
+                                    <div className="grid grid-cols-4 gap-2 w-full">
+                                      <div>
                                         <Label className="text-xs">{t('items.unitType')}</Label>
                                         <Select
                                           value={bulkEditItems[item.id]?.trackExactQuantity !== undefined 
@@ -2330,8 +2330,8 @@ export default function Items() {
                                           </SelectContent>
                                         </Select>
                                       </div>
-                                      {(bulkEditItems[item.id]?.trackExactQuantity !== undefined ? bulkEditItems[item.id].trackExactQuantity : item.trackExactQuantity) && (
-                                        <div className="w-20">
+                                      {(bulkEditItems[item.id]?.trackExactQuantity !== undefined ? bulkEditItems[item.id].trackExactQuantity : item.trackExactQuantity) ? (
+                                        <div>
                                           <Label className="text-xs">{t('items.packSize')}</Label>
                                           <Input
                                             type="number"
@@ -2347,8 +2347,10 @@ export default function Items() {
                                             data-testid={`bulk-edit-pack-size-${item.id}`}
                                           />
                                         </div>
+                                      ) : (
+                                        <div></div>
                                       )}
-                                      <div className="w-24">
+                                      <div>
                                         <Label className="text-xs">
                                           {(bulkEditItems[item.id]?.trackExactQuantity !== undefined ? bulkEditItems[item.id].trackExactQuantity : item.trackExactQuantity) ? t('items.currentUnits') : t('items.stock')}
                                         </Label>
@@ -2376,33 +2378,35 @@ export default function Items() {
                                           data-testid={`bulk-edit-${item.trackExactQuantity ? 'units' : 'stock'}-${item.id}`}
                                         />
                                       </div>
-                                      <div className="w-20">
-                                        <Label className="text-xs">{t('items.minThreshold')}</Label>
-                                        <Input
-                                          type="number"
-                                          value={bulkEditItems[item.id]?.minThreshold !== undefined ? bulkEditItems[item.id].minThreshold : (item.minThreshold || 0)}
-                                          onChange={(e) => {
-                                            setBulkEditItems(prev => ({
-                                              ...prev,
-                                              [item.id]: { ...prev[item.id], minThreshold: parseInt(e.target.value) || 0 }
-                                            }));
-                                          }}
-                                          data-testid={`bulk-edit-min-${item.id}`}
-                                        />
-                                      </div>
-                                      <div className="w-20">
-                                        <Label className="text-xs">{t('items.maxThreshold')}</Label>
-                                        <Input
-                                          type="number"
-                                          value={bulkEditItems[item.id]?.maxThreshold !== undefined ? bulkEditItems[item.id].maxThreshold : (item.maxThreshold || 0)}
-                                          onChange={(e) => {
-                                            setBulkEditItems(prev => ({
-                                              ...prev,
-                                              [item.id]: { ...prev[item.id], maxThreshold: parseInt(e.target.value) || 0 }
-                                            }));
-                                          }}
-                                          data-testid={`bulk-edit-max-${item.id}`}
-                                        />
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                          <Label className="text-xs">{t('items.minThreshold')}</Label>
+                                          <Input
+                                            type="number"
+                                            value={bulkEditItems[item.id]?.minThreshold !== undefined ? bulkEditItems[item.id].minThreshold : (item.minThreshold || 0)}
+                                            onChange={(e) => {
+                                              setBulkEditItems(prev => ({
+                                                ...prev,
+                                                [item.id]: { ...prev[item.id], minThreshold: parseInt(e.target.value) || 0 }
+                                              }));
+                                            }}
+                                            data-testid={`bulk-edit-min-${item.id}`}
+                                          />
+                                        </div>
+                                        <div>
+                                          <Label className="text-xs">{t('items.maxThreshold')}</Label>
+                                          <Input
+                                            type="number"
+                                            value={bulkEditItems[item.id]?.maxThreshold !== undefined ? bulkEditItems[item.id].maxThreshold : (item.maxThreshold || 0)}
+                                            onChange={(e) => {
+                                              setBulkEditItems(prev => ({
+                                                ...prev,
+                                                [item.id]: { ...prev[item.id], maxThreshold: parseInt(e.target.value) || 0 }
+                                              }));
+                                            }}
+                                            data-testid={`bulk-edit-max-${item.id}`}
+                                          />
+                                        </div>
                                       </div>
                                     </div>
                                   )
@@ -2575,8 +2579,8 @@ export default function Items() {
                         <span className="text-sm">{t('items.controlledNoBulkEdit')}</span>
                       </div>
                     ) : (
-                      <div className="flex gap-2 flex-1">
-                        <div className="w-32">
+                      <div className="grid grid-cols-4 gap-2 w-full">
+                        <div>
                           <Label className="text-xs">{t('items.unitType')}</Label>
                           <Select
                             value={bulkEditItems[item.id]?.trackExactQuantity !== undefined 
@@ -2598,8 +2602,8 @@ export default function Items() {
                             </SelectContent>
                           </Select>
                         </div>
-                        {(bulkEditItems[item.id]?.trackExactQuantity !== undefined ? bulkEditItems[item.id].trackExactQuantity : item.trackExactQuantity) && (
-                          <div className="w-20">
+                        {(bulkEditItems[item.id]?.trackExactQuantity !== undefined ? bulkEditItems[item.id].trackExactQuantity : item.trackExactQuantity) ? (
+                          <div>
                             <Label className="text-xs">{t('items.packSize')}</Label>
                             <Input
                               type="number"
@@ -2615,8 +2619,10 @@ export default function Items() {
                               data-testid={`bulk-edit-pack-size-${item.id}`}
                             />
                           </div>
+                        ) : (
+                          <div></div>
                         )}
-                        <div className="w-24">
+                        <div>
                           <Label className="text-xs">
                             {(bulkEditItems[item.id]?.trackExactQuantity !== undefined ? bulkEditItems[item.id].trackExactQuantity : item.trackExactQuantity) ? t('items.currentUnits') : t('items.stock')}
                           </Label>
@@ -2644,35 +2650,37 @@ export default function Items() {
                             data-testid={`bulk-edit-${item.trackExactQuantity ? 'units' : 'stock'}-${item.id}`}
                           />
                         </div>
-                        <div className="w-20">
-                          <Label className="text-xs">{t('items.minThreshold')}</Label>
-                          <Input
-                            type="number"
-                            value={bulkEditItems[item.id]?.minThreshold !== undefined ? bulkEditItems[item.id].minThreshold : (item.minThreshold || 0)}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value) || 0;
-                              setBulkEditItems(prev => ({
-                                ...prev,
-                                [item.id]: { ...prev[item.id], minThreshold: val }
-                              }));
-                            }}
-                            data-testid={`bulk-edit-min-${item.id}`}
-                          />
-                        </div>
-                        <div className="w-20">
-                          <Label className="text-xs">{t('items.maxThreshold')}</Label>
-                          <Input
-                            type="number"
-                            value={bulkEditItems[item.id]?.maxThreshold !== undefined ? bulkEditItems[item.id].maxThreshold : (item.maxThreshold || 0)}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value) || 0;
-                              setBulkEditItems(prev => ({
-                                ...prev,
-                                [item.id]: { ...prev[item.id], maxThreshold: val }
-                              }));
-                            }}
-                            data-testid={`bulk-edit-max-${item.id}`}
-                          />
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-xs">{t('items.minThreshold')}</Label>
+                            <Input
+                              type="number"
+                              value={bulkEditItems[item.id]?.minThreshold !== undefined ? bulkEditItems[item.id].minThreshold : (item.minThreshold || 0)}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0;
+                                setBulkEditItems(prev => ({
+                                  ...prev,
+                                  [item.id]: { ...prev[item.id], minThreshold: val }
+                                }));
+                              }}
+                              data-testid={`bulk-edit-min-${item.id}`}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">{t('items.maxThreshold')}</Label>
+                            <Input
+                              type="number"
+                              value={bulkEditItems[item.id]?.maxThreshold !== undefined ? bulkEditItems[item.id].maxThreshold : (item.maxThreshold || 0)}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0;
+                                setBulkEditItems(prev => ({
+                                  ...prev,
+                                  [item.id]: { ...prev[item.id], maxThreshold: val }
+                                }));
+                              }}
+                              data-testid={`bulk-edit-max-${item.id}`}
+                            />
+                          </div>
                         </div>
                       </div>
                     )
