@@ -42,6 +42,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useAutoSaveMutation } from "@/hooks/useAutoSaveMutation";
+import { useDebouncedAutoSave } from "@/hooks/useDebouncedAutoSave";
 import { Minus, Folder, Package, Loader2, MapPin, FileText, AlertTriangle, Pill, Upload } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -650,13 +651,14 @@ export default function Op() {
     signatures?: { circulatingNurse?: string; instrumentNurse?: string };
   }>({});
 
-  // Auto-save mutation for Intra-Op data
-  const intraOpAutoSave = useAutoSaveMutation({
+  // Auto-save mutation for Intra-Op data (debounced to reduce lag)
+  const intraOpAutoSave = useDebouncedAutoSave({
     mutationFn: async (data: typeof intraOpData) => {
       if (!anesthesiaRecord?.id) throw new Error("No anesthesia record");
       return apiRequest('PATCH', `/api/anesthesia/records/${anesthesiaRecord.id}/intra-op`, data);
     },
     queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
+    debounceMs: 800,
   });
 
   // Counts & Sterile Goods Data state (Surgery module)
@@ -668,13 +670,14 @@ export default function Op() {
     signatures?: { instrumenteur?: string; circulating?: string };
   }>({});
 
-  // Auto-save mutation for Counts & Sterile data
-  const countsSterileAutoSave = useAutoSaveMutation({
+  // Auto-save mutation for Counts & Sterile data (debounced to reduce lag)
+  const countsSterileAutoSave = useDebouncedAutoSave({
     mutationFn: async (data: typeof countsSterileData) => {
       if (!anesthesiaRecord?.id) throw new Error("No anesthesia record");
       return apiRequest('PATCH', `/api/anesthesia/records/${anesthesiaRecord.id}/counts-sterile`, data);
     },
     queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
+    debounceMs: 800,
   });
 
   // Fetch items for inventory tracking - filtered by current unit
