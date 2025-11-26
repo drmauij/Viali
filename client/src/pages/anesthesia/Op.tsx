@@ -304,6 +304,7 @@ export default function Op() {
   const [newSterileItemName, setNewSterileItemName] = useState("");
   const [newSterileItemLot, setNewSterileItemLot] = useState("");
   const [newSterileItemQty, setNewSterileItemQty] = useState(1);
+  const [sterileDocMode, setSterileDocMode] = useState<'items' | 'photo'>('items');
 
   const handleAddSterileItem = () => {
     if (!newSterileItemName.trim()) return;
@@ -1511,74 +1512,96 @@ export default function Op() {
               {/* Sterile Goods Tab */}
               <TabsContent value="sterile" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0" data-testid="tab-content-sterile">
                 <Card>
-                  <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle>{t('surgery.sterile.items')}</CardTitle>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      onClick={() => setShowAddSterileItemDialog(true)}
-                      data-testid="button-add-sterile-item"
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      {t('surgery.sterile.addItem')}
-                    </Button>
-                  </CardHeader>
-                  <CardContent>
-                    {sterileItems.length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                        <p>{t('surgery.sterile.noItems')}</p>
-                        <p className="text-sm">{t('surgery.sterile.scanOrAdd')}</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {sterileItems.map((item) => (
-                          <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
-                            <div className="flex-1">
-                              <div className="font-medium">{item.name}</div>
-                              {item.lotNumber && (
-                                <div className="text-sm text-muted-foreground">Lot: {item.lotNumber}</div>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <Badge variant="secondary">{item.quantity}x</Badge>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                onClick={() => handleRemoveSterileItem(item.id)}
-                                data-testid={`button-remove-sterile-${item.id}`}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>{t('surgery.sterile.stickerDocumentation') || 'Sticker Documentation'}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      {t('surgery.sterile.stickerDocumentationDesc') || 'Take a photo of the sticker sheet for quick documentation'}
-                    </p>
-                    <div className="flex items-center gap-3 mb-4">
-                      <Button variant="outline" className="flex items-center gap-2" data-testid="button-take-sticker-photo">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-2 p-1 bg-muted rounded-lg w-fit">
+                      <Button
+                        size="sm"
+                        variant={sterileDocMode === 'items' ? 'default' : 'ghost'}
+                        className="flex items-center gap-2"
+                        onClick={() => setSterileDocMode('items')}
+                        data-testid="button-sterile-items-tab"
+                      >
+                        <Package className="h-4 w-4" />
+                        {t('surgery.sterile.items')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={sterileDocMode === 'photo' ? 'default' : 'ghost'}
+                        className="flex items-center gap-2"
+                        onClick={() => setSterileDocMode('photo')}
+                        data-testid="button-sticker-photo-tab"
+                      >
                         <Camera className="h-4 w-4" />
-                        {t('surgery.sterile.takePhoto') || 'Take Photo'}
+                        {t('surgery.sterile.stickerDocumentation')}
                       </Button>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      <div className="relative aspect-[4/3] border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-muted-foreground bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors" data-testid="sticker-photo-placeholder">
-                        <Image className="h-8 w-8 mb-2 opacity-50" />
-                        <span className="text-xs">{t('surgery.sterile.noPhotos') || 'No photos yet'}</span>
-                      </div>
-                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {sterileDocMode === 'items' ? (
+                      <>
+                        <div className="flex justify-end mb-4">
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => setShowAddSterileItemDialog(true)}
+                            data-testid="button-add-sterile-item"
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            {t('surgery.sterile.addItem')}
+                          </Button>
+                        </div>
+                        {sterileItems.length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                            <p>{t('surgery.sterile.noItems')}</p>
+                            <p className="text-sm">{t('surgery.sterile.scanOrAdd')}</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {sterileItems.map((item) => (
+                              <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                <div className="flex-1">
+                                  <div className="font-medium">{item.name}</div>
+                                  {item.lotNumber && (
+                                    <div className="text-sm text-muted-foreground">Lot: {item.lotNumber}</div>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <Badge variant="secondary">{item.quantity}x</Badge>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                    onClick={() => handleRemoveSterileItem(item.id)}
+                                    data-testid={`button-remove-sterile-${item.id}`}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          {t('surgery.sterile.stickerDocumentationDesc')}
+                        </p>
+                        <div className="flex items-center gap-3 mb-4">
+                          <Button variant="outline" className="flex items-center gap-2" data-testid="button-take-sticker-photo">
+                            <Camera className="h-4 w-4" />
+                            {t('surgery.sterile.takePhoto')}
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          <div className="relative aspect-[4/3] border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-muted-foreground bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors" data-testid="sticker-photo-placeholder">
+                            <Image className="h-8 w-8 mb-2 opacity-50" />
+                            <span className="text-xs">{t('surgery.sterile.noPhotos')}</span>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
 
