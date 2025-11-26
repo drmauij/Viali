@@ -110,23 +110,18 @@ export function PatientInfoHeader({
             >
               <AlertCircle className="h-4 w-4 md:h-5 md:w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
               <div className="flex gap-4 flex-wrap flex-1">
-                {selectedAllergies.length > 0 && (
+                {(selectedAllergies.length > 0 || otherAllergies) && (
                   <div className="flex-1 min-w-[120px]">
                     <p className="text-xs font-medium text-amber-700 dark:text-amber-300">{t('anesthesia.op.allergies').toUpperCase()}</p>
                     <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
                       {isPreOpLoading ? <Skeleton className="h-4 w-20" /> : 
-                        selectedAllergies.map(id => 
-                          allergyList.find(a => a.id === id)?.label || id
-                        ).join(", ")
+                        [
+                          ...selectedAllergies.map(id => 
+                            allergyList.find(a => a.id === id)?.label || id
+                          ),
+                          ...(otherAllergies ? [otherAllergies] : [])
+                        ].join(", ")
                       }
-                    </p>
-                  </div>
-                )}
-                {otherAllergies && (
-                  <div className="flex-1 min-w-[120px]">
-                    <p className="text-xs font-medium text-amber-700 dark:text-amber-300">{t('anesthesia.op.otherAllergies').toUpperCase()}</p>
-                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                      {isPreOpLoading ? <Skeleton className="h-4 w-20" /> : otherAllergies}
                     </p>
                   </div>
                 )}
