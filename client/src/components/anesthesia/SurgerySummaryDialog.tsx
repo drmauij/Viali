@@ -146,32 +146,35 @@ export default function SurgerySummaryDialog({
             {/* Patient Allergies from Patient Record */}
             {((patient.allergies && patient.allergies.length > 0) || patient.otherAllergies) && (
               <div className="pt-2 border-t border-border/50">
-                {patient.allergies && patient.allergies.length > 0 && (
-                  <div className="mb-2">
-                    <span className="text-xs font-medium text-muted-foreground">{t('anesthesia.surgerySummary.allergies')}</span>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {patient.allergies.map((allergyId: string) => {
-                        const allergyItem = anesthesiaSettings?.allergyList?.find(a => a.id === allergyId);
-                        const displayLabel = allergyItem?.label || allergyId;
-                        return (
-                          <span 
-                            key={allergyId}
-                            className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                            data-testid={`badge-summary-allergy-${allergyId}`}
-                          >
-                            {displayLabel}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                {patient.otherAllergies && (
-                  <div>
-                    <span className="text-xs font-medium text-muted-foreground">{t('anesthesia.surgerySummary.otherAllergies')}</span>
-                    <p className="text-sm mt-0.5" data-testid="text-summary-other-allergies">{patient.otherAllergies}</p>
-                  </div>
-                )}
+                <span className="text-xs font-medium text-muted-foreground">{t('anesthesia.surgerySummary.allergies')}</span>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {patient.allergies?.map((allergyId: string) => {
+                    const allergyItem = anesthesiaSettings?.allergyList?.find(a => a.id === allergyId);
+                    const displayLabel = allergyItem?.label || allergyId;
+                    return (
+                      <span 
+                        key={allergyId}
+                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                        data-testid={`badge-summary-allergy-${allergyId}`}
+                      >
+                        {displayLabel}
+                      </span>
+                    );
+                  })}
+                  {patient.otherAllergies && patient.otherAllergies.split(',').map((allergy: string, index: number) => {
+                    const trimmed = allergy.trim();
+                    if (!trimmed) return null;
+                    return (
+                      <span 
+                        key={`other-${index}`}
+                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                        data-testid={`badge-summary-other-allergy-${index}`}
+                      >
+                        {trimmed}
+                      </span>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

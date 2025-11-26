@@ -1245,23 +1245,25 @@ export default function PatientDetail() {
                   <AlertCircle className="h-5 w-5 text-red-500" />
                   {t('anesthesia.patientDetail.allergies')}
                 </h3>
-                <div className="space-y-2">
-                  {patient.allergies && patient.allergies.length > 0 && (
-                    <div className="flex flex-wrap gap-2" data-testid="container-allergies">
-                      {patient.allergies.map((allergyId) => {
-                        const allergyItem = anesthesiaSettings?.allergyList?.find(a => a.id === allergyId);
-                        const displayLabel = allergyItem?.label || allergyId;
-                        return (
-                          <Badge key={allergyId} variant="destructive" className="text-xs" data-testid={`badge-allergy-${allergyId}`}>
-                            {displayLabel}
-                          </Badge>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {patient.otherAllergies && (
-                    <p className="text-sm text-muted-foreground" data-testid="text-other-allergies">{patient.otherAllergies}</p>
-                  )}
+                <div className="flex flex-wrap gap-2" data-testid="container-allergies">
+                  {patient.allergies?.map((allergyId) => {
+                    const allergyItem = anesthesiaSettings?.allergyList?.find(a => a.id === allergyId);
+                    const displayLabel = allergyItem?.label || allergyId;
+                    return (
+                      <Badge key={allergyId} variant="destructive" className="text-xs" data-testid={`badge-allergy-${allergyId}`}>
+                        {displayLabel}
+                      </Badge>
+                    );
+                  })}
+                  {patient.otherAllergies?.split(',').map((allergy, index) => {
+                    const trimmed = allergy.trim();
+                    if (!trimmed) return null;
+                    return (
+                      <Badge key={`other-${index}`} variant="destructive" className="text-xs" data-testid={`badge-other-allergy-${index}`}>
+                        {trimmed}
+                      </Badge>
+                    );
+                  })}
                 </div>
               </div>
             )}
