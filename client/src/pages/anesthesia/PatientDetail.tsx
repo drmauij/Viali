@@ -2982,7 +2982,8 @@ export default function PatientDetail() {
                           ...assessmentData,
                           standBy: checked,
                           standByReason: checked ? assessmentData.standByReason : "",
-                          standByReasonNote: checked ? assessmentData.standByReasonNote : ""
+                          standByReasonNote: checked ? assessmentData.standByReasonNote : "",
+                          surgicalApprovalStatus: checked ? "" : assessmentData.surgicalApprovalStatus
                         })}
                         data-testid="switch-standby"
                         className={assessmentData.standBy ? "data-[state=checked]:bg-amber-600" : ""}
