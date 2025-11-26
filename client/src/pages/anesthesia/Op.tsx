@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { useTranslation } from 'react-i18next';
+import { useModule } from "@/contexts/ModuleContext";
 import { UnifiedTimeline, type UnifiedTimelineRef, type UnifiedTimelineData, type TimelineVitals, type TimelineEvent, type VitalPoint } from "@/components/anesthesia/UnifiedTimeline";
 import { HiddenChartExporter, type HiddenChartExporterRef } from "@/components/anesthesia/HiddenChartExporter";
 import { PreOpOverview } from "@/components/anesthesia/PreOpOverview";
@@ -86,6 +87,10 @@ export default function Op() {
   const [openEventsPanel, setOpenEventsPanel] = useState(false);
   const activeHospital = useActiveHospital();
   const { toast } = useToast();
+  const { activeModule } = useModule();
+  
+  // Check if in surgery module mode
+  const isSurgeryMode = activeModule === "surgery" || location.startsWith("/surgery");
   const hasAttemptedCreate = useRef(false);
   const timelineRef = useRef<UnifiedTimelineRef>(null);
   const hiddenChartRef = useRef<HiddenChartExporterRef>(null);
@@ -93,8 +98,13 @@ export default function Op() {
   // Determine mode based on route (PACU mode if URL contains /pacu)
   const isPacuMode = location.includes('/pacu');
   
-  // Active tab state
-  const [activeTab, setActiveTab] = useState(isPacuMode ? "pacu" : "vitals");
+  // Active tab state - default based on module
+  const getDefaultTab = () => {
+    if (isSurgeryMode) return "intraop";
+    if (isPacuMode) return "pacu";
+    return "vitals";
+  };
+  const [activeTab, setActiveTab] = useState(getDefaultTab());
   
   // Weight dialog state
   const [showWeightDialog, setShowWeightDialog] = useState(false);
@@ -269,11 +279,11 @@ export default function Op() {
         if (window.history.length > 1) {
           window.history.back();
         } else {
-          setLocation('/anesthesia/op');
+          setLocation(isSurgeryMode ? '/surgery/op' : '/anesthesia/op');
         }
       }, 100);
     }
-  }, [surgery, surgeryError, isSurgeryLoading, setLocation]);
+  }, [surgery, surgeryError, isSurgeryLoading, setLocation, isSurgeryMode]);
 
   // Dialog state for editing allergies and CAVE
   const [isAllergiesDialogOpen, setIsAllergiesDialogOpen] = useState(false);
@@ -505,7 +515,7 @@ export default function Op() {
         if (window.history.length > 1) {
           window.history.back();
         } else {
-          setLocation('/anesthesia/op');
+          setLocation(isSurgeryMode ? '/surgery/op' : '/anesthesia/op');
         }
       }, 100);
     }
@@ -646,50 +656,70 @@ export default function Op() {
             <div className="flex items-center gap-2 sm:gap-4 mb-4">
               <div className="flex-1 overflow-x-auto">
                 <TabsList className="inline-flex w-auto min-w-full">
-                  <TabsTrigger value="vitals" data-testid="tab-vitals" className="text-xs sm:text-sm whitespace-nowrap">
-                    {t('anesthesia.op.vitals')}
-                  </TabsTrigger>
-                  {isPacuMode && (
-                    <TabsTrigger value="pacu" data-testid="tab-pacu" className="text-xs sm:text-sm whitespace-nowrap">
-                      {t('anesthesia.op.pacu')}
-                    </TabsTrigger>
-                  )}
-                  {!isPacuMode && (
-                    <TabsTrigger value="anesthesia" data-testid="tab-anesthesia" className="text-xs sm:text-sm whitespace-nowrap">
-                      {t('anesthesia.op.anesthesia')}
-                    </TabsTrigger>
-                  )}
-                  {!isPacuMode && (
-                    <TabsTrigger value="checklists" data-testid="tab-checklists" className="text-xs sm:text-sm whitespace-nowrap">
-                      {t('anesthesia.op.checklists')}
-                    </TabsTrigger>
-                  )}
-                  <TabsTrigger value="preop" data-testid="tab-preop" className="text-xs sm:text-sm whitespace-nowrap">
-                    {t('anesthesia.op.preOp')}
-                  </TabsTrigger>
-                  <TabsTrigger value="inventory" data-testid="tab-inventory" className="text-xs sm:text-sm whitespace-nowrap">
-                    {t('anesthesia.op.inventory')}
-                  </TabsTrigger>
-                  {!isPacuMode && (
-                    <TabsTrigger value="postop" data-testid="tab-postop" className="text-xs sm:text-sm whitespace-nowrap">
-                      {t('anesthesia.op.postOp')}
-                    </TabsTrigger>
+                  {/* Surgery Module Tabs */}
+                  {isSurgeryMode ? (
+                    <>
+                      <TabsTrigger value="intraop" data-testid="tab-intraop" className="text-xs sm:text-sm whitespace-nowrap">
+                        {t('surgery.opDetail.tabs.intraop')}
+                      </TabsTrigger>
+                      <TabsTrigger value="counts" data-testid="tab-counts" className="text-xs sm:text-sm whitespace-nowrap">
+                        {t('surgery.opDetail.tabs.counts')}
+                      </TabsTrigger>
+                      <TabsTrigger value="sterile" data-testid="tab-sterile" className="text-xs sm:text-sm whitespace-nowrap">
+                        {t('surgery.opDetail.tabs.sterile')}
+                      </TabsTrigger>
+                    </>
+                  ) : (
+                    <>
+                      {/* Anesthesia Module Tabs */}
+                      <TabsTrigger value="vitals" data-testid="tab-vitals" className="text-xs sm:text-sm whitespace-nowrap">
+                        {t('anesthesia.op.vitals')}
+                      </TabsTrigger>
+                      {isPacuMode && (
+                        <TabsTrigger value="pacu" data-testid="tab-pacu" className="text-xs sm:text-sm whitespace-nowrap">
+                          {t('anesthesia.op.pacu')}
+                        </TabsTrigger>
+                      )}
+                      {!isPacuMode && (
+                        <TabsTrigger value="anesthesia" data-testid="tab-anesthesia" className="text-xs sm:text-sm whitespace-nowrap">
+                          {t('anesthesia.op.anesthesia')}
+                        </TabsTrigger>
+                      )}
+                      {!isPacuMode && (
+                        <TabsTrigger value="checklists" data-testid="tab-checklists" className="text-xs sm:text-sm whitespace-nowrap">
+                          {t('anesthesia.op.checklists')}
+                        </TabsTrigger>
+                      )}
+                      <TabsTrigger value="preop" data-testid="tab-preop" className="text-xs sm:text-sm whitespace-nowrap">
+                        {t('anesthesia.op.preOp')}
+                      </TabsTrigger>
+                      <TabsTrigger value="inventory" data-testid="tab-inventory" className="text-xs sm:text-sm whitespace-nowrap">
+                        {t('anesthesia.op.inventory')}
+                      </TabsTrigger>
+                      {!isPacuMode && (
+                        <TabsTrigger value="postop" data-testid="tab-postop" className="text-xs sm:text-sm whitespace-nowrap">
+                          {t('anesthesia.op.postOp')}
+                        </TabsTrigger>
+                      )}
+                    </>
                   )}
                 </TabsList>
               </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="flex items-center gap-1 sm:gap-2 shrink-0"
-                data-testid="button-toggle-events"
-                onClick={() => {
-                  setActiveTab("vitals");
-                  setOpenEventsPanel(true);
-                }}
-              >
-                <MessageSquareText className="h-4 w-4" />
-                <span className="hidden sm:inline">{t('anesthesia.op.events')}</span>
-              </Button>
+              {!isSurgeryMode && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="flex items-center gap-1 sm:gap-2 shrink-0"
+                  data-testid="button-toggle-events"
+                  onClick={() => {
+                    setActiveTab("vitals");
+                    setOpenEventsPanel(true);
+                  }}
+                >
+                  <MessageSquareText className="h-4 w-4" />
+                  <span className="hidden sm:inline">{t('anesthesia.op.events')}</span>
+                </Button>
+              )}
             </div>
           </div>
 
@@ -1230,6 +1260,265 @@ export default function Op() {
               </CardContent>
             </Card>
           </TabsContent>
+          )}
+
+          {/* Surgery Module Tab Contents */}
+          {isSurgeryMode && (
+            <>
+              {/* Intraoperative Tab */}
+              <TabsContent value="intraop" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0" data-testid="tab-content-intraop">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t('surgery.intraop.positioning')}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      {["RL", "SL", "BL", "SSL", "EXT"].map((pos) => (
+                        <div key={pos} className="flex items-center space-x-2">
+                          <Checkbox id={`pos-${pos}`} data-testid={`checkbox-position-${pos}`} />
+                          <Label htmlFor={`pos-${pos}`}>{pos}</Label>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t('surgery.intraop.disinfection')}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox id="kodan-colored" data-testid="checkbox-kodan-colored" />
+                        <Label htmlFor="kodan-colored">{t('surgery.intraop.kodanColored')}</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox id="kodan-colorless" data-testid="checkbox-kodan-colorless" />
+                        <Label htmlFor="kodan-colorless">{t('surgery.intraop.kodanColorless')}</Label>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t('surgery.intraop.performedBy')}</Label>
+                      <Input placeholder={t('surgery.intraop.performedByPlaceholder')} data-testid="input-disinfection-by" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t('surgery.intraop.equipment')}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox id="koag-mono" data-testid="checkbox-koag-mono" />
+                        <Label htmlFor="koag-mono">Monopolar</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox id="koag-bi" data-testid="checkbox-koag-bi" />
+                        <Label htmlFor="koag-bi">Bipolar</Label>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t('surgery.intraop.neutralElectrode')}</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {["shoulder", "abdomen", "thigh", "back"].map((loc) => (
+                          <div key={loc} className="flex items-center space-x-2">
+                            <Checkbox id={`electrode-${loc}`} data-testid={`checkbox-electrode-${loc}`} />
+                            <Label htmlFor={`electrode-${loc}`}>{t(`surgery.intraop.${loc}`)}</Label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t('surgery.intraop.pathology')}</Label>
+                      <div className="flex gap-4">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox id="path-histo" data-testid="checkbox-path-histo" />
+                          <Label htmlFor="path-histo">{t('surgery.intraop.histologie')}</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox id="path-mikro" data-testid="checkbox-path-mikro" />
+                          <Label htmlFor="path-mikro">{t('surgery.intraop.mikrobio')}</Label>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t('surgery.intraop.signatures')}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{t('surgery.intraop.signatureZudienung')}</Label>
+                      <div className="h-20 border-2 border-dashed rounded-lg flex items-center justify-center text-muted-foreground cursor-pointer hover:bg-accent/50" data-testid="signature-pad-zudienung">
+                        {t('surgery.intraop.tapToSign')}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t('surgery.intraop.signatureInstrum')}</Label>
+                      <div className="h-20 border-2 border-dashed rounded-lg flex items-center justify-center text-muted-foreground cursor-pointer hover:bg-accent/50" data-testid="signature-pad-instrum">
+                        {t('surgery.intraop.tapToSign')}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Counts & Safety Tab */}
+              <TabsContent value="counts" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0" data-testid="tab-content-counts">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t('surgery.counts.title')}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left py-2 px-3">{t('surgery.counts.item')}</th>
+                            <th className="text-center py-2 px-3">{t('surgery.counts.count1')}</th>
+                            <th className="text-center py-2 px-3">{t('surgery.counts.count2')}</th>
+                            <th className="text-center py-2 px-3">{t('surgery.counts.countFinal')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {["Bauchtücher", "Kompressen", "Tupfer", "Tupferli", "Gummibändli", "Nadeln"].map((item, idx) => (
+                            <tr key={item} className="border-b">
+                              <td className="py-2 px-3 font-medium">{item}</td>
+                              <td className="py-1 px-3"><Input className="w-16 text-center" data-testid={`input-count1-${idx}`} /></td>
+                              <td className="py-1 px-3"><Input className="w-16 text-center" data-testid={`input-count2-${idx}`} /></td>
+                              <td className="py-1 px-3"><Input className="w-16 text-center" data-testid={`input-countfinal-${idx}`} /></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* WHO Checklist - Shared with Anesthesia */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t('surgery.counts.whoChecklist')}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="p-3 border rounded-lg text-center">
+                        <div className="font-medium">Sign In</div>
+                        <Badge variant={signInState.signature ? "default" : "outline"} className="mt-1">
+                          {signInState.signature ? "Complete" : t('surgery.counts.pending')}
+                        </Badge>
+                      </div>
+                      <div className="p-3 border rounded-lg text-center">
+                        <div className="font-medium">Time Out</div>
+                        <Badge variant={timeOutState.signature ? "default" : "outline"} className="mt-1">
+                          {timeOutState.signature ? "Complete" : t('surgery.counts.pending')}
+                        </Badge>
+                      </div>
+                      <div className="p-3 border rounded-lg text-center">
+                        <div className="font-medium">Sign Out</div>
+                        <Badge variant={signOutState.signature ? "default" : "outline"} className="mt-1">
+                          {signOutState.signature ? "Complete" : t('surgery.counts.pending')}
+                        </Badge>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground text-center">{t('surgery.counts.whoIntegrationNote')}</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t('surgery.counts.signatures')}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{t('surgery.intraop.signatureZudienung')}</Label>
+                      <div className="h-20 border-2 border-dashed rounded-lg flex items-center justify-center text-muted-foreground cursor-pointer hover:bg-accent/50" data-testid="signature-pad-count-zudienung">
+                        {t('surgery.intraop.tapToSign')}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t('surgery.intraop.signatureInstrum')}</Label>
+                      <div className="h-20 border-2 border-dashed rounded-lg flex items-center justify-center text-muted-foreground cursor-pointer hover:bg-accent/50" data-testid="signature-pad-count-instrum">
+                        {t('surgery.intraop.tapToSign')}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Sterile Goods Tab */}
+              <TabsContent value="sterile" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0" data-testid="tab-content-sterile">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>{t('surgery.sterile.items')}</CardTitle>
+                    <Button size="sm" variant="outline" data-testid="button-add-sterile-item">
+                      <Plus className="h-4 w-4 mr-1" />
+                      {t('surgery.sterile.addItem')}
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                      <p>{t('surgery.sterile.noItems')}</p>
+                      <p className="text-sm">{t('surgery.sterile.scanOrAdd')}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t('surgery.sterile.sutures')}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left py-2 px-3">{t('surgery.sterile.sutureType')}</th>
+                            <th className="text-left py-2 px-3">{t('surgery.sterile.sizes')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {["Vicryl", "V-Lock", "Prolene", "Ethilon", "Monocryl", "Stratafix"].map((type) => (
+                            <tr key={type} className="border-b">
+                              <td className="py-2 px-3 font-medium">{type}</td>
+                              <td className="py-1 px-3">
+                                <Input placeholder={t('surgery.sterile.sizePlaceholder')} data-testid={`input-suture-${type.toLowerCase()}`} />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{t('surgery.sterile.signatures')}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{t('surgery.intraop.signatureZudienung')}</Label>
+                      <div className="h-20 border-2 border-dashed rounded-lg flex items-center justify-center text-muted-foreground cursor-pointer hover:bg-accent/50" data-testid="signature-pad-sterile-zudienung">
+                        {t('surgery.intraop.tapToSign')}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>{t('surgery.intraop.signatureInstrum')}</Label>
+                      <div className="h-20 border-2 border-dashed rounded-lg flex items-center justify-center text-muted-foreground cursor-pointer hover:bg-accent/50" data-testid="signature-pad-sterile-instrum">
+                        {t('surgery.intraop.tapToSign')}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </>
           )}
         </Tabs>
       </DialogContent>
