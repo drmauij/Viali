@@ -1260,6 +1260,7 @@
       "preOp": "Prä-OP",
       "op": "OP",
       "pacu": "Aufwachraum",
+      "surgeryDocumentation": "OP-Dokumentation",
       "collapseAll": "Alle einklappen",
       "expandAll": "Alle ausklappen",
       "preOpAssessment": "Prä-OP Assessment",

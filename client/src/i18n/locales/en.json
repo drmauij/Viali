@@ -1260,6 +1260,7 @@
       "preOp": "Pre-OP",
       "op": "OP",
       "pacu": "PACU",
+      "surgeryDocumentation": "Surgery Documentation",
       "collapseAll": "Collapse All",
       "expandAll": "Expand All",
       "preOpAssessment": "Pre-OP Assessment",

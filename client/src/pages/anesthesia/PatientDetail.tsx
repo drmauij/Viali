@@ -22,6 +22,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import type { Surgery } from "@shared/schema";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useAuth } from "@/hooks/useAuth";
+import { useModule } from "@/contexts/ModuleContext";
 import { formatDate, formatDateTimeForInput } from "@/lib/dateUtils";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 import SignaturePad from "@/components/SignaturePad";
@@ -71,6 +72,9 @@ export default function PatientDetail() {
   const hiddenChartRef = useRef<HiddenChartExporterRef>(null);
   const activeHospital = useActiveHospital();
   const { user } = useAuth();
+  const { activeModule } = useModule();
+  const isSurgeryModule = activeModule === "surgery";
+  const moduleBasePath = isSurgeryModule ? "/surgery" : "/anesthesia";
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   // Track if Pre-OP dialog was opened via URL navigation (should use history.back()) or button click (just close)
   const preOpOpenedViaUrl = useRef(false);
@@ -1705,48 +1709,60 @@ export default function PatientDetail() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-3 gap-3 pt-2">
-                  <Button
-                    variant="outline"
-                    className="h-auto py-4 flex-col gap-2"
-                    onClick={() => {
-                      setSelectedCaseId(surgery.id);
-                      // Auto-fill allergies from patient
-                      setAssessmentData(prev => ({
-                        ...prev,
-                        allergies: patient.allergies || [],
-                      }));
-                      // Mark that this was opened via button click, not URL
-                      preOpOpenedViaUrl.current = false;
-                      setIsPreOpOpen(true);
-                    }}
-                    data-testid={`button-preop-${surgery.id}`}
-                  >
-                    <ClipboardList className="h-10 w-10 text-primary" />
-                    <span className="text-sm font-medium">{t('anesthesia.patientDetail.preOp')}</span>
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    className="h-auto py-4 flex-col gap-2"
-                    onClick={() => setLocation(`/anesthesia/cases/${surgery.id}/op`)}
-                    data-testid={`button-op-${surgery.id}`}
-                  >
-                    <Activity className="h-10 w-10 text-primary" />
-                    <span className="text-sm font-medium">{t('anesthesia.patientDetail.op')}</span>
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    className="h-auto py-4 flex-col gap-2"
-                    onClick={() => setLocation(`/anesthesia/cases/${surgery.id}/pacu`)}
-                    disabled={!(surgery as any).timeMarkers?.find((m: any) => m.code === 'A2' && m.time !== null)}
-                    data-testid={`button-pacu-${surgery.id}`}
-                  >
-                    <BedDouble className={`h-10 w-10 ${(surgery as any).timeMarkers?.find((m: any) => m.code === 'A2' && m.time !== null) ? 'text-primary' : 'text-muted-foreground'}`} />
-                    <span className="text-sm font-medium">{t('anesthesia.patientDetail.pacu')}</span>
-                  </Button>
-                </div>
+                {isSurgeryModule ? (
+                  <div className="pt-2">
+                    <Button
+                      variant="outline"
+                      className="w-full h-auto py-4 flex-col gap-2"
+                      onClick={() => setLocation(`${moduleBasePath}/op/${surgery.id}`)}
+                      data-testid={`button-surgery-doc-${surgery.id}`}
+                    >
+                      <FileText className="h-10 w-10 text-primary" />
+                      <span className="text-sm font-medium">{t('anesthesia.patientDetail.surgeryDocumentation')}</span>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-3 pt-2">
+                    <Button
+                      variant="outline"
+                      className="h-auto py-4 flex-col gap-2"
+                      onClick={() => {
+                        setSelectedCaseId(surgery.id);
+                        setAssessmentData(prev => ({
+                          ...prev,
+                          allergies: patient.allergies || [],
+                        }));
+                        preOpOpenedViaUrl.current = false;
+                        setIsPreOpOpen(true);
+                      }}
+                      data-testid={`button-preop-${surgery.id}`}
+                    >
+                      <ClipboardList className="h-10 w-10 text-primary" />
+                      <span className="text-sm font-medium">{t('anesthesia.patientDetail.preOp')}</span>
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      className="h-auto py-4 flex-col gap-2"
+                      onClick={() => setLocation(`/anesthesia/cases/${surgery.id}/op`)}
+                      data-testid={`button-op-${surgery.id}`}
+                    >
+                      <Activity className="h-10 w-10 text-primary" />
+                      <span className="text-sm font-medium">{t('anesthesia.patientDetail.op')}</span>
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      className="h-auto py-4 flex-col gap-2"
+                      onClick={() => setLocation(`/anesthesia/cases/${surgery.id}/pacu`)}
+                      disabled={!(surgery as any).timeMarkers?.find((m: any) => m.code === 'A2' && m.time !== null)}
+                      data-testid={`button-pacu-${surgery.id}`}
+                    >
+                      <BedDouble className={`h-10 w-10 ${(surgery as any).timeMarkers?.find((m: any) => m.code === 'A2' && m.time !== null) ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <span className="text-sm font-medium">{t('anesthesia.patientDetail.pacu')}</span>
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
