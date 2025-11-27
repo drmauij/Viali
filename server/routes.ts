@@ -3335,10 +3335,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
+      // Only show actual administrations and manual adjustments in controlled log
+      // Exclude 'count' actions which are triggered by item edits and shouldn't appear in controlled register
       const activities = await storage.getActivities({
         hospitalId,
         unitId,
         controlled: true,
+        actions: ['use', 'adjust'],
         limit: 50,
       });
       

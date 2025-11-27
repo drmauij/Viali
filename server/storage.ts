@@ -913,12 +913,18 @@ export class DatabaseStorage implements IStorage {
     itemId?: string;
     userId?: string;
     controlled?: boolean;
+    actions?: string[];
     limit?: number;
   }): Promise<(Activity & { user: User; item?: Item })[]> {
     const conditions = [];
     
     if (filters.itemId) conditions.push(eq(activities.itemId, filters.itemId));
     if (filters.userId) conditions.push(eq(activities.userId, filters.userId));
+    
+    // Filter by specific action types (e.g., 'use', 'adjust' for controlled substances)
+    if (filters.actions && filters.actions.length > 0) {
+      conditions.push(inArray(activities.action, filters.actions));
+    }
     
     // For controlled substance filtering, check if the item is controlled
     // This includes both administrations (with patientId) and adjustments (without patientId)
