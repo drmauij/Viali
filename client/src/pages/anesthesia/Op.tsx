@@ -1892,22 +1892,133 @@ export default function Op() {
                     </div>
                     <div className="space-y-2">
                       <Label>{t('surgery.intraop.performedBy')}</Label>
-                      <Input 
-                        placeholder={t('surgery.intraop.performedByPlaceholder')} 
-                        data-testid="input-disinfection-by"
-                        value={intraOpData.disinfection?.performedBy ?? ""}
-                        onChange={(e) => {
-                          const updated = {
-                            ...intraOpData,
-                            disinfection: {
-                              ...intraOpData.disinfection,
-                              performedBy: e.target.value
-                            }
-                          };
-                          setIntraOpData(updated);
+                      <Popover 
+                        open={openStaffPopover === 'performedBy'} 
+                        onOpenChange={(open) => {
+                          setOpenStaffPopover(open ? 'performedBy' : null);
+                          if (!open) setStaffSearchInput("");
                         }}
-                        onBlur={() => intraOpAutoSave.mutate(intraOpData)}
-                      />
+                      >
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={openStaffPopover === 'performedBy'}
+                            className="w-full justify-between font-normal"
+                            disabled={!anesthesiaRecord?.id}
+                            data-testid="combobox-disinfection-by"
+                          >
+                            {intraOpData.disinfection?.performedBy || t('surgery.intraop.selectStaff')}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[250px] p-0" align="start">
+                          <Command shouldFilter={true}>
+                            <CommandInput 
+                              placeholder={t('surgery.intraop.typeOrSelect')} 
+                              value={staffSearchInput}
+                              onValueChange={setStaffSearchInput}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && staffSearchInput.trim()) {
+                                  e.preventDefault();
+                                  const updated = {
+                                    ...intraOpData,
+                                    disinfection: {
+                                      ...intraOpData.disinfection,
+                                      performedBy: staffSearchInput.trim()
+                                    }
+                                  };
+                                  setIntraOpData(updated);
+                                  intraOpAutoSave.mutate(updated);
+                                  setOpenStaffPopover(null);
+                                  setStaffSearchInput("");
+                                }
+                              }}
+                            />
+                            <CommandList>
+                              <CommandEmpty>
+                                {staffSearchInput.trim() ? (
+                                  <button
+                                    className="w-full px-2 py-3 text-left text-sm hover:bg-accent rounded cursor-pointer flex items-center gap-2"
+                                    onClick={() => {
+                                      const updated = {
+                                        ...intraOpData,
+                                        disinfection: {
+                                          ...intraOpData.disinfection,
+                                          performedBy: staffSearchInput.trim()
+                                        }
+                                      };
+                                      setIntraOpData(updated);
+                                      intraOpAutoSave.mutate(updated);
+                                      setOpenStaffPopover(null);
+                                      setStaffSearchInput("");
+                                    }}
+                                    data-testid="add-custom-disinfection-by"
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                    {t('surgery.intraop.useCustomName', { name: staffSearchInput.trim() })}
+                                  </button>
+                                ) : (
+                                  <span className="text-sm text-muted-foreground">{t('surgery.intraop.noStaffFound')}</span>
+                                )}
+                              </CommandEmpty>
+                              <CommandGroup>
+                                {staffSearchInput.trim() && !surgeryNurses.some(n => n.name.toLowerCase() === staffSearchInput.trim().toLowerCase()) && (
+                                  <CommandItem
+                                    value={`__custom__${staffSearchInput.trim()}`}
+                                    onSelect={() => {
+                                      const updated = {
+                                        ...intraOpData,
+                                        disinfection: {
+                                          ...intraOpData.disinfection,
+                                          performedBy: staffSearchInput.trim()
+                                        }
+                                      };
+                                      setIntraOpData(updated);
+                                      intraOpAutoSave.mutate(updated);
+                                      setOpenStaffPopover(null);
+                                      setStaffSearchInput("");
+                                    }}
+                                    className="text-primary"
+                                    data-testid="add-custom-disinfection-by"
+                                  >
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    {t('surgery.intraop.useCustomName', { name: staffSearchInput.trim() })}
+                                  </CommandItem>
+                                )}
+                                {surgeryNurses.map((nurse) => (
+                                  <CommandItem
+                                    key={nurse.id}
+                                    value={nurse.name}
+                                    onSelect={() => {
+                                      const updated = {
+                                        ...intraOpData,
+                                        disinfection: {
+                                          ...intraOpData.disinfection,
+                                          performedBy: nurse.name
+                                        }
+                                      };
+                                      setIntraOpData(updated);
+                                      intraOpAutoSave.mutate(updated);
+                                      setOpenStaffPopover(null);
+                                      setStaffSearchInput("");
+                                    }}
+                                    data-testid={`disinfection-by-option-${nurse.id}`}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        intraOpData.disinfection?.performedBy === nurse.name ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {nurse.name}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </CardContent>
                 </Card>
