@@ -1786,7 +1786,9 @@
       "invalidDOB": "Ungültiges Geburtsdatum",
       "invalidSurgeryDate": "Ungültiges OP-Datum",
       "invalidStartTime": "Ungültige Startzeit",
-      "missingProcedure": "Eingriff fehlt"
+      "missingProcedure": "Eingriff fehlt",
+      "surgeonMatched": "Zugeordnet",
+      "surgeonUnmatched": "Nicht zugeordnet"
     }
   },
   "surgery": {

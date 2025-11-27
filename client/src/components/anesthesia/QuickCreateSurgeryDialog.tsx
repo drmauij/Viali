@@ -63,7 +63,7 @@ export default function QuickCreateSurgeryDialog({
   const [plannedDate, setPlannedDate] = useState(formatDateTimeLocal(initialDate));
   const [duration, setDuration] = useState<number>(getDefaultDuration());
   const [plannedSurgery, setPlannedSurgery] = useState("");
-  const [surgeon, setSurgeon] = useState("");
+  const [surgeonId, setSurgeonId] = useState("");
   const [notes, setNotes] = useState("");
   
   // New patient form state
@@ -223,7 +223,7 @@ export default function QuickCreateSurgeryDialog({
     setPlannedDate(formatDateTimeLocal(initialDate));
     setDuration(getDefaultDuration());
     setPlannedSurgery("");
-    setSurgeon("");
+    setSurgeonId("");
     setNotes("");
     setShowNewPatientForm(false);
     setNewPatientFirstName("");
@@ -286,6 +286,8 @@ export default function QuickCreateSurgeryDialog({
     const endDate = new Date(startDate);
     endDate.setMinutes(endDate.getMinutes() + duration);
 
+    const matchedSurgeon = surgeons.find(s => s.id === surgeonId);
+    
     createSurgeryMutation.mutate({
       hospitalId,
       patientId: selectedPatientId,
@@ -293,7 +295,8 @@ export default function QuickCreateSurgeryDialog({
       plannedDate: startDate.toISOString(),
       actualEndTime: endDate.toISOString(),
       plannedSurgery: plannedSurgery.trim(),
-      surgeon: surgeon.trim() || undefined,
+      surgeon: matchedSurgeon?.name || undefined,
+      surgeonId: surgeonId || undefined,
       notes: notes.trim() || undefined,
       status: "planned",
     });
@@ -513,8 +516,8 @@ export default function QuickCreateSurgeryDialog({
           <div className="space-y-2">
             <Label htmlFor="surgeon">{t('anesthesia.quickSchedule.surgeon')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.surgeonOptional')})</span></Label>
             <Select 
-              value={surgeon || "none"} 
-              onValueChange={(value) => setSurgeon(value === "none" ? "" : value)}
+              value={surgeonId || "none"} 
+              onValueChange={(value) => setSurgeonId(value === "none" ? "" : value)}
               disabled={isLoadingSurgeons}
             >
               <SelectTrigger id="surgeon" data-testid="select-surgeon">
@@ -533,9 +536,9 @@ export default function QuickCreateSurgeryDialog({
                     {t('anesthesia.quickSchedule.noSurgeonsAvailable')}
                   </SelectItem>
                 ) : (
-                  surgeons.map((surgeon) => (
-                    <SelectItem key={surgeon.id} value={surgeon.name}>
-                      {surgeon.name}
+                  surgeons.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
                     </SelectItem>
                   ))
                 )}

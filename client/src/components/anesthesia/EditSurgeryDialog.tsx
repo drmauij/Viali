@@ -27,7 +27,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const [duration, setDuration] = useState(90);
   const [plannedSurgery, setPlannedSurgery] = useState("");
   const [surgeryRoomId, setSurgeryRoomId] = useState("");
-  const [surgeon, setSurgeon] = useState("");
+  const [surgeonId, setSurgeonId] = useState("");
   const [notes, setNotes] = useState("");
 
   // Fetch surgery details
@@ -80,7 +80,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
 
       setPlannedSurgery(surgery.plannedSurgery || "");
       setSurgeryRoomId(surgery.surgeryRoomId || "");
-      setSurgeon(surgery.surgeon || "");
+      setSurgeonId(surgery.surgeonId || "");
       setNotes(surgery.notes || "");
     }
   }, [surgery]);
@@ -97,12 +97,15 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       const endDate = new Date(startDate);
       endDate.setMinutes(endDate.getMinutes() + duration);
 
+      const matchedSurgeon = surgeons.find((s: any) => s.id === surgeonId);
+      
       const response = await apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
         plannedDate: startDate.toISOString(),
         actualEndTime: endDate.toISOString(),
         plannedSurgery,
         surgeryRoomId,
-        surgeon: surgeon || null,
+        surgeon: matchedSurgeon?.name || null,
+        surgeonId: surgeonId || null,
         notes: notes || null,
       });
       return response.json();
@@ -281,8 +284,8 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
               <div className="space-y-2">
                 <Label htmlFor="edit-surgeon">{t('anesthesia.editSurgery.surgeon')} <span className="text-xs text-muted-foreground">({t('anesthesia.editSurgery.surgeonOptional')})</span></Label>
                 <Select 
-                  value={surgeon || "none"} 
-                  onValueChange={(value) => setSurgeon(value === "none" ? "" : value)}
+                  value={surgeonId || "none"} 
+                  onValueChange={(value) => setSurgeonId(value === "none" ? "" : value)}
                 >
                   <SelectTrigger id="edit-surgeon" data-testid="select-edit-surgeon">
                     <SelectValue placeholder="Select surgeon (optional)" />

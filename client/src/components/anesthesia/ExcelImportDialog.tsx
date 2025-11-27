@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, FileSpreadsheet, Check, AlertCircle, User, Calendar } from "lucide-react";
+import { Loader2, FileSpreadsheet, Check, AlertCircle, User, Calendar, Stethoscope, UserCheck, UserX } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -31,6 +31,12 @@ type SurgeryRoom = {
   name: string;
 };
 
+type Surgeon = {
+  id: string;
+  name: string;
+  email?: string;
+};
+
 type ParsedRow = {
   patientId: string;
   lastName: string;
@@ -42,6 +48,7 @@ type ParsedRow = {
   procedure: string;
   notes: string;
   surgeon: string;
+  matchedSurgeon: Surgeon | null;
   existingPatient: Patient | null;
   valid: boolean;
   error?: string;
@@ -82,6 +89,31 @@ export default function ExcelImportDialog({
     queryKey: [`/api/patients?hospitalId=${hospitalId}`],
     enabled: !!hospitalId && open,
   });
+
+  const { data: surgeons = [] } = useQuery<Surgeon[]>({
+    queryKey: [`/api/surgeons?hospitalId=${hospitalId}`],
+    enabled: !!hospitalId && open,
+  });
+
+  const matchSurgeon = (surgeonName: string): Surgeon | null => {
+    if (!surgeonName.trim()) return null;
+    
+    const normalized = surgeonName.toLowerCase().trim();
+    
+    for (const surgeon of surgeons) {
+      const surgeonNameLower = surgeon.name.toLowerCase();
+      const nameParts = surgeonNameLower.split(/\s+/);
+      const lastName = nameParts[nameParts.length - 1];
+      const firstName = nameParts[0];
+      
+      if (surgeonNameLower === normalized) return surgeon;
+      if (lastName === normalized) return surgeon;
+      if (firstName === normalized) return surgeon;
+      if (normalized.includes(lastName) || lastName.includes(normalized)) return surgeon;
+    }
+    
+    return null;
+  };
 
   const parseDateDDMMYYYY = (dateStr: string): string | null => {
     if (!dateStr) return null;
@@ -189,6 +221,7 @@ export default function ExcelImportDialog({
           procedure: '',
           notes: '',
           surgeon: '',
+          matchedSurgeon: null,
           existingPatient: null,
           valid: false,
           error: t('anesthesia.excelImport.notEnoughColumns', { count: columns.length }),
@@ -216,6 +249,7 @@ export default function ExcelImportDialog({
       if (!procedure) errors.push(t('anesthesia.excelImport.missingProcedure'));
 
       const existingPatient = dob ? findExistingPatient(firstName, lastName, dob) : null;
+      const matchedSurgeon = matchSurgeon(surgeon);
 
       parsed.push({
         patientId,
@@ -228,6 +262,7 @@ export default function ExcelImportDialog({
         procedure,
         notes,
         surgeon,
+        matchedSurgeon,
         existingPatient,
         valid: errors.length === 0,
         error: errors.length > 0 ? errors.join(', ') : undefined,
@@ -311,7 +346,8 @@ export default function ExcelImportDialog({
           plannedDate: plannedDateStr,
           actualEndTime: endDateStr,
           plannedSurgery: row.procedure,
-          surgeon: row.surgeon || undefined,
+          surgeon: row.matchedSurgeon?.name || row.surgeon || undefined,
+          surgeonId: row.matchedSurgeon?.id || undefined,
           notes: row.notes || undefined,
           status: "planned",
         });
@@ -471,9 +507,26 @@ export default function ExcelImportDialog({
                             <span className="mr-3">{row.duration} min</span>
                             <span className="font-medium">{row.procedure}</span>
                           </div>
-                          {row.surgeon && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {t('anesthesia.excelImport.surgeon')}: {row.surgeon}
+                          {(row.surgeon || row.matchedSurgeon) && (
+                            <div className="text-xs mt-1 flex items-center gap-1">
+                              <Stethoscope className="h-3 w-3" />
+                              {row.matchedSurgeon ? (
+                                <span className="flex items-center gap-1">
+                                  <span className="text-green-600 dark:text-green-400">{row.matchedSurgeon.name}</span>
+                                  <span className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 px-1.5 py-0.5 rounded text-xs flex items-center gap-0.5">
+                                    <UserCheck className="h-3 w-3" />
+                                    {t('anesthesia.excelImport.surgeonMatched')}
+                                  </span>
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1">
+                                  <span className="text-muted-foreground">{row.surgeon}</span>
+                                  <span className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300 px-1.5 py-0.5 rounded text-xs flex items-center gap-0.5">
+                                    <UserX className="h-3 w-3" />
+                                    {t('anesthesia.excelImport.surgeonUnmatched')}
+                                  </span>
+                                </span>
+                              )}
                             </div>
                           )}
                           {row.error && (

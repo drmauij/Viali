@@ -1786,7 +1786,9 @@
       "invalidDOB": "Invalid date of birth",
       "invalidSurgeryDate": "Invalid surgery date",
       "invalidStartTime": "Invalid start time",
-      "missingProcedure": "Missing procedure name"
+      "missingProcedure": "Missing procedure name",
+      "surgeonMatched": "Matched",
+      "surgeonUnmatched": "Unmatched"
     }
   },
   "surgery": {
