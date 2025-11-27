@@ -143,7 +143,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     return { start, end };
   }, [selectedDate, currentView]);
 
-  // Fetch surgeries for the date range
+  // Fetch surgeries for the date range with background polling every 30 seconds
   const { data: surgeries = [] } = useQuery<any[]>({
     queryKey: [`/api/anesthesia/surgeries`, activeHospital?.id, dateRange.start.toISOString(), dateRange.end.toISOString()],
     queryFn: async () => {
@@ -157,6 +157,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       return response.json();
     },
     enabled: !!activeHospital?.id,
+    refetchInterval: 30000, // Poll every 30 seconds for updates
   });
 
   // Fetch patients for surgeries
