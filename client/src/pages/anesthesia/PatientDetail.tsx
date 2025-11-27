@@ -58,7 +58,10 @@ type Surgeon = {
 
 export default function PatientDetail() {
   const { t } = useTranslation();
-  const [, params] = useRoute("/anesthesia/patients/:id");
+  // Support both anesthesia and surgery module routes
+  const [, anesthesiaParams] = useRoute("/anesthesia/patients/:id");
+  const [, surgeryParams] = useRoute("/surgery/patients/:id");
+  const params = anesthesiaParams || surgeryParams;
   const [, setLocation] = useLocation();
   const [isCreateCaseOpen, setIsCreateCaseOpen] = useState(false);
   const [isPreOpOpen, setIsPreOpOpen] = useState(false);

@@ -137,6 +137,7 @@ function Router() {
             {/* Surgery Module - shares components with Anesthesia */}
             <Route path="/surgery" component={OpList} />
             <Route path="/surgery/patients" component={Patients} />
+            <Route path="/surgery/patients/:id" component={PatientDetail} />
             <Route path="/surgery/op" component={OpList} />
             <Route path="/surgery/op/:id" component={Op} />
             <Route path="/surgery/settings" component={SurgerySettings} />
