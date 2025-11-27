@@ -97,6 +97,11 @@ import {
   parseDrugCommand
 } from "./services/aiMonitorAnalysis";
 
+// Helper to extract client session ID from request for real-time sync
+function getClientSessionId(req: Request): string | undefined {
+  return req.headers['x-client-session-id'] as string | undefined;
+}
+
 // Authenticated encryption for notes (AES-256-GCM provides both confidentiality and integrity)
 const GCM_IV_LENGTH = 12; // 96 bits recommended for GCM
 const GCM_TAG_LENGTH = 16; // 128 bits auth tag
@@ -5243,6 +5248,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: updatedRecord,
         timestamp: Date.now(),
         userId,
+        clientSessionId: getClientSessionId(req),
       });
       
       res.json(updatedRecord);
@@ -5304,6 +5310,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: updatedRecord,
         timestamp: Date.now(),
         userId,
+        clientSessionId: getClientSessionId(req),
       });
       
       res.json(updatedRecord);
@@ -5365,6 +5372,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: updatedRecord,
         timestamp: Date.now(),
         userId,
+        clientSessionId: getClientSessionId(req),
       });
       
       res.json(updatedRecord);
@@ -5477,6 +5485,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: updatedRecord,
         timestamp: Date.now(),
         userId,
+        clientSessionId: getClientSessionId(req),
       });
       
       res.json(updatedRecord);
@@ -5552,6 +5561,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: updatedRecord,
         timestamp: Date.now(),
         userId,
+        clientSessionId: getClientSessionId(req),
       });
       
       res.json(updatedRecord);
@@ -5622,6 +5632,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: updatedRecord,
         timestamp: Date.now(),
         userId,
+        clientSessionId: getClientSessionId(req),
       });
       
       res.json(updatedRecord);
@@ -6075,6 +6086,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: updatedSnapshot,
         timestamp: Date.now(),
         userId,
+        clientSessionId: getClientSessionId(req),
       });
       
       res.status(201).json(updatedSnapshot);
@@ -6130,6 +6142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: updatedSnapshot,
         timestamp: Date.now(),
         userId,
+        clientSessionId: getClientSessionId(req),
       });
       
       res.status(201).json(updatedSnapshot);
@@ -6166,6 +6179,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: updatedSnapshot,
         timestamp: Date.now(),
         userId,
+        clientSessionId: getClientSessionId(req),
       });
 
       res.json(updatedSnapshot);
@@ -6202,6 +6216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: updatedSnapshot,
         timestamp: Date.now(),
         userId,
+        clientSessionId: getClientSessionId(req),
       });
 
       res.json(updatedSnapshot);
@@ -6233,6 +6248,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: updatedSnapshot,
         timestamp: Date.now(),
         userId,
+        clientSessionId: getClientSessionId(req),
       });
 
       res.json(updatedSnapshot);
@@ -6593,6 +6609,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: updatedSnapshot,
         timestamp: Date.now(),
         userId,
+        clientSessionId: getClientSessionId(req),
       });
       
       res.status(201).json(updatedSnapshot);
@@ -6655,6 +6672,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: updatedSnapshot,
         timestamp: Date.now(),
         userId,
+        clientSessionId: getClientSessionId(req),
       });
 
       res.json(updatedSnapshot);
@@ -6708,6 +6726,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: updatedSnapshot,
         timestamp: Date.now(),
         userId,
+        clientSessionId: getClientSessionId(req),
       });
 
       res.json(updatedSnapshot);
@@ -6981,6 +7000,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: newMedication,
         timestamp: Date.now(),
         userId,
+        clientSessionId: getClientSessionId(req),
       });
       
       res.status(201).json(newMedication);
@@ -7047,6 +7067,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: updatedMedication,
         timestamp: Date.now(),
         userId,
+        clientSessionId: getClientSessionId(req),
       });
       
       res.json(updatedMedication);
@@ -7097,6 +7118,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: { deleted: id },
         timestamp: Date.now(),
         userId,
+        clientSessionId: getClientSessionId(req),
       });
       
       res.status(204).send();
@@ -7176,6 +7198,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: newEvent,
         timestamp: Date.now(),
         userId,
+        clientSessionId: getClientSessionId(req),
       });
       
       res.status(201).json(newEvent);
@@ -7234,6 +7257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: updated,
         timestamp: Date.now(),
         userId,
+        clientSessionId: getClientSessionId(req),
       });
       
       res.json(updated);
@@ -7284,6 +7308,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: { deleted: id },
         timestamp: Date.now(),
         userId,
+        clientSessionId: getClientSessionId(req),
       });
       
       res.status(204).send();
