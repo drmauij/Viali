@@ -313,6 +313,13 @@ export default function Op() {
     initialData: anesthesiaRecord?.signOutData,
   });
 
+  // Refetch anesthesia record when visiting checklists tab to get latest data
+  useEffect(() => {
+    if (activeTab === 'checklists' && surgeryId) {
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+    }
+  }, [activeTab, surgeryId]);
+
   // Debug: Log medications data
   useEffect(() => {
     console.log('[OP-MEDS] Medications data changed:', {
