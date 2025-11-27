@@ -7,7 +7,13 @@ import { storage } from "../storage";
 import { Pool } from "pg";
 import { seedHospitalData } from "../seed-hospital";
 
+let sessionMiddleware: ReturnType<typeof session> | null = null;
+
 export function getSession() {
+  if (sessionMiddleware) {
+    return sessionMiddleware;
+  }
+  
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const pgStore = connectPg(session);
   
@@ -30,7 +36,7 @@ export function getSession() {
   // Only use secure cookies when actually using HTTPS
   const isHttps = process.env.PRODUCTION_URL?.startsWith('https://') || false;
   
-  return session({
+  sessionMiddleware = session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
     resave: false,
@@ -42,6 +48,12 @@ export function getSession() {
       maxAge: sessionTtl,
     },
   });
+  
+  return sessionMiddleware;
+}
+
+export function getSessionMiddleware() {
+  return getSession();
 }
 
 async function upsertUser(profile: any) {
