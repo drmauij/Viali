@@ -5192,6 +5192,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update time markers
       const updatedRecord = await storage.updateAnesthesiaRecord(id, { timeMarkers });
       
+      broadcastAnesthesiaUpdate({
+        recordId: id,
+        section: 'timeMarkers',
+        data: updatedRecord,
+        timestamp: Date.now(),
+        userId,
+        clientSessionId: getClientSessionId(req),
+      });
+      
       res.json(updatedRecord);
     } catch (error) {
       console.error("Error updating time markers:", error);
@@ -6766,6 +6775,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         validatedData.ventilationMode || null,
         validatedData.parameters
       );
+      
+      broadcastAnesthesiaUpdate({
+        recordId: validatedData.anesthesiaRecordId,
+        section: 'ventilationParams',
+        data: updatedSnapshot,
+        timestamp: Date.now(),
+        userId,
+        clientSessionId: getClientSessionId(req),
+      });
       
       res.status(201).json(updatedSnapshot);
     } catch (error) {

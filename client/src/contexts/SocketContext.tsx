@@ -8,6 +8,7 @@ export type AnesthesiaDataSection =
   | 'vitals'
   | 'medications'
   | 'ventilation'
+  | 'ventilationParams'
   | 'events'
   | 'positions'
   | 'staff'
@@ -20,7 +21,8 @@ export type AnesthesiaDataSection =
   | 'inventoryUsage'
   | 'output'
   | 'rhythm'
-  | 'tof';
+  | 'tof'
+  | 'timeMarkers';
 
 interface AnesthesiaUpdatePayload {
   recordId: string;
@@ -57,6 +59,7 @@ const SECTION_TO_QUERY_KEY: Record<AnesthesiaDataSection, (recordId: string) => 
   vitals: (recordId) => [`/api/anesthesia/vitals/${recordId}`],
   medications: (recordId) => [`/api/anesthesia/medications/${recordId}`],
   ventilation: (recordId) => [`/api/anesthesia/ventilation-modes/${recordId}`],
+  ventilationParams: (recordId) => [`/api/anesthesia/vitals/snapshot/${recordId}`],
   events: (recordId) => [`/api/anesthesia/events/${recordId}`],
   positions: (recordId) => [`/api/anesthesia/positions/${recordId}`],
   staff: (recordId) => [`/api/anesthesia/staff/${recordId}`],
@@ -70,6 +73,7 @@ const SECTION_TO_QUERY_KEY: Record<AnesthesiaDataSection, (recordId: string) => 
   output: (recordId) => [`/api/anesthesia/vitals/snapshot/${recordId}`],
   rhythm: (recordId) => [`/api/anesthesia/vitals/${recordId}`],
   tof: (recordId) => [`/api/anesthesia/tof/${recordId}`],
+  timeMarkers: (recordId) => [`/api/anesthesia/records/surgery`],
 };
 
 interface SocketProviderProps {
