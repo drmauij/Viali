@@ -1832,10 +1832,10 @@
       "noStaffFound": "No staff found",
       "positioning": "Positioning",
       "positions": {
-        "supine": "Supine Position (Rückenlage)",
-        "lateral": "Lateral Position (Seitenlage)",
-        "prone": "Prone Position (Bauchlage)",
-        "lithotomy": "Lithotomy Position (Steinschnittlage)",
+        "supine": "Supine Position",
+        "lateral": "Lateral Position",
+        "prone": "Prone Position",
+        "lithotomy": "Lithotomy Position",
         "extension": "Extension Position"
       },
       "disinfection": "Disinfection",
