@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useRef } f
 import { io, Socket } from 'socket.io-client';
 import { queryClient } from '@/lib/queryClient';
 import { useAuth } from '@/hooks/useAuth';
+import { clientSessionId } from '@/utils/sessionId';
 
 export type AnesthesiaDataSection = 
   | 'vitals'
@@ -27,6 +28,7 @@ interface AnesthesiaUpdatePayload {
   data: unknown;
   timestamp: number;
   userId?: string;
+  clientSessionId?: string;
 }
 
 interface SocketContextValue {
@@ -137,8 +139,10 @@ export function SocketProvider({ children }: SocketProviderProps) {
     socketInstance.on('anesthesia-update', (payload: AnesthesiaUpdatePayload) => {
       console.log('[Socket] Received update:', payload.section, 'for record:', payload.recordId);
       
-      if (payload.userId === (user as any)?.id) {
-        console.log('[Socket] Ignoring own update');
+      // Filter by client session ID to allow cross-device sync for same user
+      // while avoiding redundant refetches on the originating tab
+      if (payload.clientSessionId && payload.clientSessionId === clientSessionId) {
+        console.log('[Socket] Ignoring own session update');
         return;
       }
       
