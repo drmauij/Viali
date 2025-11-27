@@ -37,10 +37,10 @@ export default function PreOpList() {
   });
 
   const groupedByStatus = {
-    planned: filteredAssessments.filter((item) => item.status === 'planned'),
+    planned: filteredAssessments.filter((item) => item.status === 'planned' && !item.assessment?.standBy),
     draft: filteredAssessments.filter((item) => item.status === 'draft' && !item.assessment?.standBy),
     standby: filteredAssessments.filter((item) => item.assessment?.standBy),
-    completed: filteredAssessments.filter((item) => item.status === 'completed'),
+    completed: filteredAssessments.filter((item) => item.status === 'completed' && !item.assessment?.standBy),
   };
 
   const displayedAssessments = activeTab === 'all' 
