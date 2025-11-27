@@ -518,7 +518,8 @@ export const surgeries = pgTable("surgeries", {
   // Planning
   plannedDate: timestamp("planned_date").notNull(),
   plannedSurgery: varchar("planned_surgery").notNull(),
-  surgeon: varchar("surgeon"),
+  surgeon: varchar("surgeon"), // Display name / fallback for unmatched surgeons
+  surgeonId: varchar("surgeon_id").references(() => users.id), // Foreign key to users table for proper linking
   notes: text("notes"),
   
   // Actual execution
@@ -534,6 +535,7 @@ export const surgeries = pgTable("surgeries", {
   index("idx_surgeries_hospital").on(table.hospitalId),
   index("idx_surgeries_patient").on(table.patientId),
   index("idx_surgeries_room").on(table.surgeryRoomId),
+  index("idx_surgeries_surgeon").on(table.surgeonId),
   index("idx_surgeries_status").on(table.status),
   index("idx_surgeries_planned_date").on(table.plannedDate),
 ]);
