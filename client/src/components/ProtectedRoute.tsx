@@ -1,6 +1,6 @@
-import { useMemo } from "react";
 import { Redirect } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -15,23 +15,14 @@ export function ProtectedRoute({
   requireSurgery,
   requireAdmin 
 }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+  const activeHospital = useActiveHospital();
 
-  // Check if user has access to any hospital with the required module/role
-  // This prevents bypassing by switching active hospital in localStorage
-  const userHospitals = (user as any)?.hospitals || [];
-
-  const hasAnesthesiaAccess = useMemo(() => {
-    return userHospitals.some((h: any) => h.isAnesthesiaModule === true);
-  }, [userHospitals]);
-
-  const hasSurgeryAccess = useMemo(() => {
-    return userHospitals.some((h: any) => h.isSurgeryModule === true);
-  }, [userHospitals]);
-
-  const hasAdminAccess = useMemo(() => {
-    return userHospitals.some((h: any) => h.role === "admin");
-  }, [userHospitals]);
+  // Module access is based on the ACTIVE unit selection
+  // When user switches units, available modules change accordingly
+  const hasAnesthesiaAccess = activeHospital?.isAnesthesiaModule === true;
+  const hasSurgeryAccess = activeHospital?.isSurgeryModule === true;
+  const hasAdminAccess = activeHospital?.role === "admin";
 
   if (isLoading) {
     return (
@@ -45,17 +36,17 @@ export function ProtectedRoute({
     return <Redirect to="/" />;
   }
 
-  // Check anesthesia module access - user must be assigned to an anesthesia unit
+  // Check anesthesia module access - active unit must be anesthesia module
   if (requireAnesthesia && !hasAnesthesiaAccess) {
     return <Redirect to="/inventory/items" />;
   }
 
-  // Check surgery module access - user must be assigned to a surgery unit
+  // Check surgery module access - active unit must be surgery module
   if (requireSurgery && !hasSurgeryAccess) {
     return <Redirect to="/inventory/items" />;
   }
 
-  // Check admin access - user must have admin role in at least one hospital
+  // Check admin access - active unit role must be admin
   if (requireAdmin && !hasAdminAccess) {
     return <Redirect to="/inventory/items" />;
   }

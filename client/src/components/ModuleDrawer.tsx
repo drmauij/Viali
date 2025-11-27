@@ -20,24 +20,27 @@ export default function ModuleDrawer() {
   const { t } = useTranslation();
   const { user } = useAuth();
 
-  // Get all user hospital assignments for secure access checks
-  const userHospitals = useMemo(() => {
-    return (user as any)?.hospitals || [];
+  // Get the active hospital for module access checks
+  const activeHospital = useMemo(() => {
+    const userHospitals = (user as any)?.hospitals;
+    if (!userHospitals || userHospitals.length === 0) return null;
+    
+    const savedHospitalKey = localStorage.getItem('activeHospital');
+    if (savedHospitalKey) {
+      const saved = userHospitals.find((h: any) => 
+        `${h.id}-${h.unitId}-${h.role}` === savedHospitalKey
+      );
+      if (saved) return saved;
+    }
+    
+    return userHospitals[0];
   }, [user]);
 
-  // Check access based on user's actual assignments (not localStorage)
-  // This prevents bypassing by switching active hospital
-  const hasAnesthesiaAccess = useMemo(() => {
-    return userHospitals.some((h: any) => h.isAnesthesiaModule === true);
-  }, [userHospitals]);
-
-  const hasSurgeryAccess = useMemo(() => {
-    return userHospitals.some((h: any) => h.isSurgeryModule === true);
-  }, [userHospitals]);
-
-  const isAdmin = useMemo(() => {
-    return userHospitals.some((h: any) => h.role === "admin");
-  }, [userHospitals]);
+  // Module access is based on the ACTIVE unit selection
+  // When user switches units, available modules change accordingly
+  const hasAnesthesiaAccess = activeHospital?.isAnesthesiaModule === true;
+  const hasSurgeryAccess = activeHospital?.isSurgeryModule === true;
+  const isAdmin = activeHospital?.role === "admin";
 
   const allModules: ModuleCard[] = [
     {
