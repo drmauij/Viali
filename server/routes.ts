@@ -6810,6 +6810,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         validatedData.value
       );
       
+      broadcastAnesthesiaUpdate({
+        recordId: validatedData.anesthesiaRecordId,
+        section: 'output',
+        data: updatedSnapshot,
+        timestamp: Date.now(),
+        userId,
+        clientSessionId: getClientSessionId(req),
+      });
+      
       res.status(201).json(updatedSnapshot);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -6865,6 +6874,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Output point not found" });
       }
 
+      broadcastAnesthesiaUpdate({
+        recordId: validatedData.anesthesiaRecordId,
+        section: 'output',
+        data: updatedSnapshot,
+        timestamp: Date.now(),
+        userId,
+        clientSessionId: getClientSessionId(req),
+      });
+
       res.json(updatedSnapshot);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -6911,6 +6929,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!updatedSnapshot) {
         return res.status(404).json({ message: "Output point not found" });
       }
+
+      broadcastAnesthesiaUpdate({
+        recordId: anesthesiaRecordId,
+        section: 'output',
+        data: updatedSnapshot,
+        timestamp: Date.now(),
+        userId,
+        clientSessionId: getClientSessionId(req),
+      });
 
       res.json(updatedSnapshot);
     } catch (error) {
@@ -7384,6 +7411,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdBy: userId,
       });
       
+      broadcastAnesthesiaUpdate({
+        recordId: validatedData.anesthesiaRecordId,
+        section: 'positions',
+        data: newPosition,
+        timestamp: Date.now(),
+        userId,
+        clientSessionId: getClientSessionId(req),
+      });
+      
       res.status(201).json(newPosition);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -7439,6 +7475,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const updated = await storage.updateAnesthesiaPosition(id, validatedUpdates, userId);
       
+      broadcastAnesthesiaUpdate({
+        recordId: position.anesthesiaRecordId,
+        section: 'positions',
+        data: updated,
+        timestamp: Date.now(),
+        userId,
+        clientSessionId: getClientSessionId(req),
+      });
+      
       res.json(updated);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -7480,6 +7525,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       await storage.deleteAnesthesiaPosition(id, userId);
+      
+      broadcastAnesthesiaUpdate({
+        recordId: position.anesthesiaRecordId,
+        section: 'positions',
+        data: { deleted: id },
+        timestamp: Date.now(),
+        userId,
+        clientSessionId: getClientSessionId(req),
+      });
       
       res.status(204).send();
     } catch (error) {
@@ -7554,6 +7608,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdBy: userId,
       });
       
+      broadcastAnesthesiaUpdate({
+        recordId: validatedData.anesthesiaRecordId,
+        section: 'staff',
+        data: newStaff,
+        timestamp: Date.now(),
+        userId,
+        clientSessionId: getClientSessionId(req),
+      });
+      
       res.status(201).json(newStaff);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -7611,6 +7674,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Only pass validated fields to storage (prevents anesthesiaRecordId mutation)
       const updated = await storage.updateAnesthesiaStaff(id, validatedUpdates, userId);
       
+      broadcastAnesthesiaUpdate({
+        recordId: staff.anesthesiaRecordId,
+        section: 'staff',
+        data: updated,
+        timestamp: Date.now(),
+        userId,
+        clientSessionId: getClientSessionId(req),
+      });
+      
       res.json(updated);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -7652,6 +7724,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       await storage.deleteAnesthesiaStaff(id, userId);
+      
+      broadcastAnesthesiaUpdate({
+        recordId: staff.anesthesiaRecordId,
+        section: 'staff',
+        data: { deleted: id },
+        timestamp: Date.now(),
+        userId,
+        clientSessionId: getClientSessionId(req),
+      });
       
       res.status(204).send();
     } catch (error) {

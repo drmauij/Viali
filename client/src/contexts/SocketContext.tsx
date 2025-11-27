@@ -67,7 +67,7 @@ const SECTION_TO_QUERY_KEY: Record<AnesthesiaDataSection, (recordId: string) => 
   countsSterile: (recordId) => [`/api/anesthesia/records/surgery`],
   surgeryStaff: (recordId) => [`/api/anesthesia/records/surgery`],
   inventoryUsage: (recordId) => [`/api/anesthesia/inventory/${recordId}`],
-  output: (recordId) => [`/api/anesthesia/output/${recordId}`],
+  output: (recordId) => [`/api/anesthesia/vitals/snapshot/${recordId}`],
   rhythm: (recordId) => [`/api/anesthesia/vitals/${recordId}`],
   tof: (recordId) => [`/api/anesthesia/tof/${recordId}`],
 };
