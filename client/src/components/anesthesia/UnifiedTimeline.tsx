@@ -1693,7 +1693,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     // Check all configured anesthesia items across all administration groups
     administrationGroups.forEach((group) => {
       const groupItems = itemsByAdminGroup[group.id] || [];
-      groupItems.forEach((item, index) => {
+      groupItems.forEach((item) => {
         const itemDisplayName = formatItemDisplayName(item);
         const medDrugName = extractDrugName(itemDisplayName);
         const score = calculateSimilarity(voiceDrugName, medDrugName);
@@ -1701,7 +1701,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         if (score > bestScore && score >= threshold) {
           bestScore = score;
           bestMatch = {
-            swimlaneId: `admingroup-${group.id}-item-${index}`,
+            swimlaneId: `admingroup-${group.id}-item-${item.id}`,
             fullName: itemDisplayName,
             isNew: false,
             score
@@ -1785,8 +1785,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             
             // Add child lanes for items in this group
             const groupItems = itemsByAdminGroup[group.id] || [];
-            groupItems.forEach((item, index) => {
-              const swimlaneId = `admingroup-${group.id}-item-${index}`;
+            groupItems.forEach((item) => {
+              const swimlaneId = `admingroup-${group.id}-item-${item.id}`;
               
               // Calculate dynamic height for free-flow infusions based on parallel tracks
               let laneHeight = 38; // Default height
@@ -4017,7 +4017,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     }
     
     // Get item ID from swimlane
-    const item = anesthesiaItems.find(i => `admingroup-${i.administrationGroup}-item-${i.medicationSortOrder}` === swimlaneId);
+    const item = anesthesiaItems.find(i => `admingroup-${i.administrationGroup}-item-${i.id}` === swimlaneId);
     if (!item) {
       toast({
         title: "Error",
@@ -4107,7 +4107,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     }
     
     // Get item ID from swimlane
-    const item = anesthesiaItems.find(i => `admingroup-${i.administrationGroup}-item-${i.medicationSortOrder}` === swimlaneId);
+    const item = anesthesiaItems.find(i => `admingroup-${i.administrationGroup}-item-${i.id}` === swimlaneId);
     if (!item) {
       toast({
         title: "Error",
