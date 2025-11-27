@@ -15,7 +15,7 @@ export function ProtectedRoute({
   requireSurgery,
   requireAdmin 
 }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const activeHospital = useActiveHospital();
 
   // Module access is based on the ACTIVE unit selection
@@ -24,7 +24,8 @@ export function ProtectedRoute({
   const hasSurgeryAccess = activeHospital?.isSurgeryModule === true;
   const hasAdminAccess = activeHospital?.role === "admin";
 
-  if (isLoading) {
+  // Show loading while auth is loading or user data isn't available yet
+  if (isLoading || (isAuthenticated && !user)) {
     return (
       <div className="min-h-screen w-full flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100" data-testid="loading-spinner" />
@@ -34,6 +35,16 @@ export function ProtectedRoute({
 
   if (!isAuthenticated) {
     return <Redirect to="/" />;
+  }
+
+  // Wait for hospital data to be available before checking module access
+  const userHospitals = (user as any)?.hospitals;
+  if (!userHospitals || userHospitals.length === 0) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100" data-testid="loading-spinner" />
+      </div>
+    );
   }
 
   // Check anesthesia module access - active unit must be anesthesia module
