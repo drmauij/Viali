@@ -1769,6 +1769,23 @@ export default function Op() {
                                       )}
                                     </CommandEmpty>
                                     <CommandGroup>
+                                      {currentValue && !staffSearchInput.trim() && (
+                                        <CommandItem
+                                          value="__clear__"
+                                          onSelect={() => {
+                                            const updated = { ...surgeryStaff, [role.key]: "" };
+                                            setSurgeryStaff(updated);
+                                            surgeryStaffAutoSave.mutate(updated);
+                                            setOpenStaffPopover(null);
+                                            setStaffSearchInput("");
+                                          }}
+                                          className="text-destructive"
+                                          data-testid={`clear-staff-${role.key}`}
+                                        >
+                                          <X className="mr-2 h-4 w-4" />
+                                          {t('surgery.intraop.clearSelection')}
+                                        </CommandItem>
+                                      )}
                                       {showAddCustom && staffSearchInput.trim() && (
                                         <CommandItem
                                           value={`__custom__${staffSearchInput.trim()}`}
@@ -1963,6 +1980,29 @@ export default function Op() {
                                 )}
                               </CommandEmpty>
                               <CommandGroup>
+                                {intraOpData.disinfection?.performedBy && !staffSearchInput.trim() && (
+                                  <CommandItem
+                                    value="__clear__"
+                                    onSelect={() => {
+                                      const updated = {
+                                        ...intraOpData,
+                                        disinfection: {
+                                          ...intraOpData.disinfection,
+                                          performedBy: ""
+                                        }
+                                      };
+                                      setIntraOpData(updated);
+                                      intraOpAutoSave.mutate(updated);
+                                      setOpenStaffPopover(null);
+                                      setStaffSearchInput("");
+                                    }}
+                                    className="text-destructive"
+                                    data-testid="clear-disinfection-by"
+                                  >
+                                    <X className="mr-2 h-4 w-4" />
+                                    {t('surgery.intraop.clearSelection')}
+                                  </CommandItem>
+                                )}
                                 {staffSearchInput.trim() && !surgeryNurses.some(n => n.name.toLowerCase() === staffSearchInput.trim().toLowerCase()) && (
                                   <CommandItem
                                     value={`__custom__${staffSearchInput.trim()}`}

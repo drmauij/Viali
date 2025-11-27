@@ -1830,6 +1830,7 @@
       "typeOrSelect": "Tippen oder auswählen",
       "useCustomName": "\"{{name}}\" verwenden",
       "noStaffFound": "Keine Mitarbeiter gefunden",
+      "clearSelection": "Auswahl löschen",
       "positioning": "Lagerung",
       "positions": {
         "supine": "Rückenlage",
