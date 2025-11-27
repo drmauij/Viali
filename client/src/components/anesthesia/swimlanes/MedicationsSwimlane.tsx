@@ -1089,28 +1089,23 @@ export function MedicationsSwimlane({
                       if (lane.defaultDose) {
                         console.log('[FREE-FLOW-CLICK] Has default dose, creating session:', lane.defaultDose);
                         
-                        // Extract group ID and item index from swimlane id
+                        // Extract group ID and item ID from swimlane id
                         // UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-                        const groupMatch = lane.id.match(/admingroup-([a-f0-9-]+)-item-(\d+)/);
+                        const groupMatch = lane.id.match(/admingroup-([a-f0-9-]+)-item-([a-f0-9-]+)/);
                         if (!groupMatch || !anesthesiaRecordId) {
                           console.log('[FREE-FLOW-CLICK] Failed to match swimlane ID or missing recordId');
                           return;
                         }
                         
                         const groupId = groupMatch[1];
-                        const itemIndex = parseInt(groupMatch[2], 10);
-                        console.log('[FREE-FLOW-CLICK] Extracted:', { groupId, itemIndex });
+                        const itemId = groupMatch[2];
+                        console.log('[FREE-FLOW-CLICK] Extracted:', { groupId, itemId });
                         
-                        // Find all items in this administration group and get the item at index
-                        // Note: Items are already sorted by buildItemToSwimlaneMap
-                        const groupItems = anesthesiaItems
-                          .filter(item => item.administrationGroup === groupId);
+                        // Find item by ID directly
+                        const item = anesthesiaItems.find(i => i.id === itemId);
                         
-                        console.log('[FREE-FLOW-CLICK] Group items:', groupItems.length);
-                        
-                        const item = groupItems[itemIndex];
                         if (!item) {
-                          console.log('[FREE-FLOW-CLICK] Item not found at index', itemIndex);
+                          console.log('[FREE-FLOW-CLICK] Item not found with ID', itemId);
                           return;
                         }
                         
@@ -1259,21 +1254,20 @@ export function MedicationsSwimlane({
                       // SCENARIO 1: No session clicked - start a new infusion with the default dose
                       console.log('[RATE-INFUSION-CLICK] No session clicked - starting new infusion');
                       
-                      // Extract group ID and item index from swimlane id
-                      const groupMatch = lane.id.match(/admingroup-([a-f0-9-]+)-item-(\d+)/);
+                      // Extract group ID and item ID from swimlane id
+                      const groupMatch = lane.id.match(/admingroup-([a-f0-9-]+)-item-([a-f0-9-]+)/);
                       if (!groupMatch || !anesthesiaRecordId) {
                         console.error('[RATE-INFUSION-CLICK] Failed to match swimlane ID or missing recordId');
                         return;
                       }
                       
                       const groupId = groupMatch[1];
-                      const itemIndex = parseInt(groupMatch[2], 10);
+                      const itemId = groupMatch[2];
                       
-                      // Find all items in this administration group and get the item at index
-                      const groupItems = anesthesiaItems.filter(item => item.administrationGroup === groupId);
-                      const item = groupItems[itemIndex];
+                      // Find item by ID directly
+                      const item = anesthesiaItems.find(i => i.id === itemId);
                       if (!item) {
-                        console.error('[RATE-INFUSION-CLICK] Item not found at index', itemIndex);
+                        console.error('[RATE-INFUSION-CLICK] Item not found with ID', itemId);
                         return;
                       }
                       

@@ -5865,7 +5865,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 const newStartTime = clickTime + 60000; // 1 minute gap
                 
                 // Extract item ID from swimlane ID
-                const groupMatch = session.swimlaneId.match(/admingroup-([a-f0-9-]+)-item-(\d+)/);
+                const groupMatch = session.swimlaneId.match(/admingroup-([a-f0-9-]+)-item-([a-f0-9-]+)/);
                 if (!groupMatch) {
                   toast({
                     variant: "destructive",
@@ -5875,10 +5875,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                   return;
                 }
                 
-                const groupId = groupMatch[1];
-                const itemIndex = parseInt(groupMatch[2], 10);
-                const groupItems = anesthesiaItems.filter(item => item.administrationGroup === groupId);
-                const item = groupItems[itemIndex];
+                const itemId = groupMatch[2];
+                const item = anesthesiaItems.find(i => i.id === itemId);
                 
                 if (!item) {
                   toast({
@@ -6017,7 +6015,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 
                 // DUPLICATE action: Create a parallel infusion (keep current running)
                 // Extract item ID from swimlane ID
-                const groupMatch = session.swimlaneId.match(/admingroup-([a-f0-9-]+)-item-(\d+)/);
+                const groupMatch = session.swimlaneId.match(/admingroup-([a-f0-9-]+)-item-([a-f0-9-]+)/);
                 if (!groupMatch) {
                   toast({
                     variant: "destructive",
@@ -6027,10 +6025,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                   return;
                 }
                 
-                const groupId = groupMatch[1];
-                const itemIndex = parseInt(groupMatch[2], 10);
-                const groupItems = anesthesiaItems.filter(item => item.administrationGroup === groupId);
-                const item = groupItems[itemIndex];
+                const itemId = groupMatch[2];
+                const item = anesthesiaItems.find(i => i.id === itemId);
                 
                 if (!item) {
                   toast({
@@ -6251,14 +6247,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 }, {
                   onSuccess: () => {
                     // 2. Find the item for this session
-                    const groupMatch = session.swimlaneId.match(/admingroup-([a-f0-9-]+)-item-(\d+)/);
+                    const groupMatch = session.swimlaneId.match(/admingroup-([a-f0-9-]+)-item-([a-f0-9-]+)/);
                     if (!groupMatch) return;
                     
-                    const groupId = groupMatch[1];
-                    const itemIndex = parseInt(groupMatch[2], 10);
-                    
-                    const groupItems = anesthesiaItems.filter(item => item.administrationGroup === groupId);
-                    const item = groupItems[itemIndex];
+                    const itemId = groupMatch[2];
+                    const item = anesthesiaItems.find(i => i.id === itemId);
                     if (!item) return;
                     
                     // 3. Get the last segment to continue with same rate

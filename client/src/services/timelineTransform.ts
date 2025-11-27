@@ -43,8 +43,8 @@ export function buildItemToSwimlaneMap(
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .forEach(group => {
       const groupItems = itemsByAdminGroup[group.id] || [];
-      groupItems.forEach((item, index) => {
-        const swimlaneId = `admingroup-${group.id}-item-${index}`;
+      groupItems.forEach((item) => {
+        const swimlaneId = `admingroup-${group.id}-item-${item.id}`;
         map.set(item.id, swimlaneId);
       });
     });
