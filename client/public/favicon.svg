@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Vial body -->
+  <rect x="12" y="16" width="40" height="44" rx="8" ry="8" fill="none" stroke="#3B9EE8" stroke-width="4"/>
+  <!-- Vial cap -->
+  <rect x="16" y="8" width="32" height="12" rx="3" ry="3" fill="#3B9EE8"/>
+  <!-- Drop inside vial -->
+  <path d="M32 32 Q26 42 32 50 Q38 42 32 32" fill="#3B9EE8"/>
+</svg>
