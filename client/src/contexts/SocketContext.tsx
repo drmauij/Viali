@@ -52,22 +52,22 @@ export function useSocket() {
 }
 
 const SECTION_TO_QUERY_KEY: Record<AnesthesiaDataSection, (recordId: string) => string[]> = {
-  vitals: (recordId) => ['/api/anesthesia/vitals', recordId],
-  medications: (recordId) => ['/api/anesthesia/medications', recordId],
-  ventilation: (recordId) => ['/api/anesthesia/ventilation-modes', recordId],
-  events: (recordId) => ['/api/anesthesia/events', recordId],
-  positions: (recordId) => ['/api/anesthesia/positions', recordId],
-  staff: (recordId) => ['/api/anesthesia/staff', recordId],
-  checklists: (recordId) => [`/api/anesthesia/records/surgery`, recordId],
-  technique: (recordId) => ['/api/anesthesia/technique', recordId],
-  airway: (recordId) => ['/api/anesthesia/airway', recordId],
-  intraOp: (recordId) => [`/api/anesthesia/records/surgery`, recordId],
-  countsSterile: (recordId) => [`/api/anesthesia/records/surgery`, recordId],
-  surgeryStaff: (recordId) => [`/api/anesthesia/records/surgery`, recordId],
-  inventoryUsage: (recordId) => ['/api/anesthesia/inventory-usage', recordId],
-  output: (recordId) => ['/api/anesthesia/output', recordId],
-  rhythm: (recordId) => ['/api/anesthesia/vitals', recordId],
-  tof: (recordId) => ['/api/anesthesia/tof', recordId],
+  vitals: (recordId) => [`/api/anesthesia/vitals/${recordId}`],
+  medications: (recordId) => [`/api/anesthesia/medications/${recordId}`],
+  ventilation: (recordId) => [`/api/anesthesia/ventilation-modes/${recordId}`],
+  events: (recordId) => [`/api/anesthesia/events/${recordId}`],
+  positions: (recordId) => [`/api/anesthesia/positions/${recordId}`],
+  staff: (recordId) => [`/api/anesthesia/staff/${recordId}`],
+  checklists: (recordId) => [`/api/anesthesia/records/surgery`],
+  technique: (recordId) => [`/api/anesthesia/${recordId}/general-technique`],
+  airway: (recordId) => [`/api/anesthesia/${recordId}/airway`],
+  intraOp: (recordId) => [`/api/anesthesia/records/surgery`],
+  countsSterile: (recordId) => [`/api/anesthesia/records/surgery`],
+  surgeryStaff: (recordId) => [`/api/anesthesia/records/surgery`],
+  inventoryUsage: (recordId) => [`/api/anesthesia/inventory/${recordId}`],
+  output: (recordId) => [`/api/anesthesia/output/${recordId}`],
+  rhythm: (recordId) => [`/api/anesthesia/vitals/${recordId}`],
+  tof: (recordId) => [`/api/anesthesia/tof/${recordId}`],
 };
 
 interface SocketProviderProps {
@@ -135,9 +135,10 @@ export function SocketProvider({ children }: SocketProviderProps) {
     });
 
     socketInstance.on('anesthesia-update', (payload: AnesthesiaUpdatePayload) => {
-      console.log('[Socket] Received update:', payload.section, payload.recordId);
+      console.log('[Socket] Received update:', payload.section, 'for record:', payload.recordId);
       
       if (payload.userId === (user as any)?.id) {
+        console.log('[Socket] Ignoring own update');
         return;
       }
       
@@ -146,11 +147,20 @@ export function SocketProvider({ children }: SocketProviderProps) {
       const getQueryKey = SECTION_TO_QUERY_KEY[payload.section];
       if (getQueryKey) {
         const queryKey = getQueryKey(payload.recordId);
+        console.log('[Socket] Invalidating query:', queryKey);
         
         queryClient.invalidateQueries({ 
           queryKey,
           refetchType: 'active',
         });
+        
+        // Also invalidate vitals snapshot when vitals are updated
+        if (payload.section === 'vitals' || payload.section === 'rhythm') {
+          queryClient.invalidateQueries({
+            queryKey: [`/api/anesthesia/vitals/snapshot/${payload.recordId}`],
+            refetchType: 'active',
+          });
+        }
         
         if (['checklists', 'intraOp', 'countsSterile', 'surgeryStaff'].includes(payload.section)) {
           queryClient.invalidateQueries({
