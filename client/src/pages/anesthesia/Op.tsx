@@ -43,6 +43,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useAutoSaveMutation } from "@/hooks/useAutoSaveMutation";
 import { useDebouncedAutoSave } from "@/hooks/useDebouncedAutoSave";
+import { useSocket } from "@/contexts/SocketContext";
 import { Minus, Folder, Package, Loader2, MapPin, FileText, AlertTriangle, Pill, Upload } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";

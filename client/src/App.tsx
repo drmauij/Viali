@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import { ModuleProvider, useModule } from "@/contexts/ModuleContext";
 import { EditValueProvider } from "@/components/EditableValue";
+import { SocketProvider } from "@/contexts/SocketContext";
 import { useAuth } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
 import NotFound from "@/pages/not-found";
@@ -161,20 +162,22 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <LanguageProvider>
-          <ModuleProvider>
-            <EditValueProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Layout>
-                  <Router />
-                </Layout>
-              </TooltipProvider>
-            </EditValueProvider>
-          </ModuleProvider>
-        </LanguageProvider>
-      </ThemeProvider>
+      <SocketProvider>
+        <ThemeProvider>
+          <LanguageProvider>
+            <ModuleProvider>
+              <EditValueProvider>
+                <TooltipProvider>
+                  <Toaster />
+                  <Layout>
+                    <Router />
+                  </Layout>
+                </TooltipProvider>
+              </EditValueProvider>
+            </ModuleProvider>
+          </LanguageProvider>
+        </ThemeProvider>
+      </SocketProvider>
     </QueryClientProvider>
   );
 }
