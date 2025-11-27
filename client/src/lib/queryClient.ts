@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { clientSessionId } from "@/utils/sessionId";
 
 function getActiveUnitId(): string | null {
   const activeHospitalKey = localStorage.getItem('activeHospital');
@@ -53,6 +54,9 @@ export async function apiRequest(
   if (activeUnitId) {
     headers["X-Active-Unit-Id"] = activeUnitId;
   }
+  
+  // Add client session ID for real-time sync filtering
+  headers["X-Client-Session-Id"] = clientSessionId;
   
   const res = await fetch(url, {
     method,

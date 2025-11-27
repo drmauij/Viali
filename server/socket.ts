@@ -33,6 +33,7 @@ export interface AnesthesiaUpdatePayload {
   data: unknown;
   timestamp: number;
   userId?: string;
+  clientSessionId?: string;
 }
 
 let io: SocketIOServer | null = null;
