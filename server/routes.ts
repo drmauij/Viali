@@ -3811,6 +3811,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get users filtered by module type and role (for OR Team dropdowns)
+  app.get('/api/hospitals/:hospitalId/users-by-module', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const { module, role } = req.query;
+      
+      // Verify user has access to this hospital
+      const userId = req.user.id;
+      const userHospitals = await storage.getUserHospitals(userId);
+      const hasAccess = userHospitals.some(h => h.id === hospitalId);
+      
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Get all users for the hospital
+      const allUsers = await storage.getHospitalUsers(hospitalId);
+      
+      // Filter users by module and role
+      const filteredUsers = allUsers.filter(u => {
+        // Filter by module type
+        if (module === 'anesthesia' && !u.unit.isAnesthesiaModule) return false;
+        if (module === 'surgery' && !u.unit.isSurgeryModule) return false;
+        
+        // Filter by role
+        if (role && u.role !== role) return false;
+        
+        return true;
+      });
+      
+      // Return sanitized user data with display names
+      const result = filteredUsers.map(u => ({
+        id: u.user.id,
+        name: `${u.user.lastName || ''} ${u.user.firstName || ''}`.trim() || u.user.email || 'Unknown',
+        firstName: u.user.firstName,
+        lastName: u.user.lastName,
+        email: u.user.email,
+        role: u.role,
+        unitId: u.unitId,
+        unitName: u.unit.name,
+      }));
+      
+      // Sort by last name
+      result.sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''));
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching users by module:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
   app.get('/api/admin/users/search', isAuthenticated, async (req: any, res) => {
     try {
       const { email, hospitalId } = req.query;
