@@ -3309,7 +3309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notes: notes || `Manual adjustment: ${currentUnits} → ${newCurrentUnits} units`,
         attachmentPhoto: attachmentPhoto || null,
         signatures: [signature],
-        controlledVerified: true, // Manual adjustments are verified by signature
+        controlledVerified: false, // Manual adjustments require second signature verification
         metadata: { beforeQty, afterQty },
       });
       
