@@ -97,6 +97,7 @@ export default function Op() {
   const { toast } = useToast();
   const { activeModule } = useModule();
   const { user } = useAuth();
+  const { joinSurgery, leaveSurgery, isConnected, viewers } = useSocket();
   
   // Check if in surgery module mode
   const isSurgeryMode = activeModule === "surgery" || location.startsWith("/surgery");
@@ -179,6 +180,35 @@ export default function Op() {
     surgeryId: surgeryId || "",
     activeHospitalId: activeHospital?.id || "",
   });
+
+  // Track current room for cleanup
+  const currentRoomIdRef = useRef<string | null>(null);
+  
+  // Join/leave surgery room for real-time sync
+  useEffect(() => {
+    const recordId = anesthesiaRecord?.id;
+    
+    if (recordId && recordId !== currentRoomIdRef.current) {
+      // Leave previous room if different
+      if (currentRoomIdRef.current) {
+        leaveSurgery(currentRoomIdRef.current);
+        console.log('[Op] Left previous surgery room:', currentRoomIdRef.current);
+      }
+      
+      // Join new room
+      joinSurgery(recordId);
+      currentRoomIdRef.current = recordId;
+      console.log('[Op] Joined surgery room:', recordId);
+    }
+    
+    return () => {
+      if (currentRoomIdRef.current) {
+        leaveSurgery(currentRoomIdRef.current);
+        console.log('[Op] Left surgery room on unmount:', currentRoomIdRef.current);
+        currentRoomIdRef.current = null;
+      }
+    };
+  }, [anesthesiaRecord?.id, joinSurgery, leaveSurgery]);
 
   // Helper to get user display name from various possible fields
   const getUserDisplayName = (user: any): string => {
