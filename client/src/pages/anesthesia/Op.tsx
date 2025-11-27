@@ -223,7 +223,7 @@ export default function Op() {
     return "";
   };
   
-  // Create filtered list of staff options with display names
+  // Create filtered list of staff options with display names (legacy fallback)
   const staffOptions = useMemo(() => {
     if (!hospitalUsers) return [];
     return hospitalUsers
@@ -233,6 +233,57 @@ export default function Op() {
       }))
       .filter((opt: { id: string; label: string }) => opt.label.trim().length > 0);
   }, [hospitalUsers]);
+
+  // Fetch filtered user lists for OR Team dropdowns based on module and role
+  const { data: anesthesiaDoctors = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: [`/api/hospitals/${activeHospital?.id}/users-by-module`, 'anesthesia', 'doctor'],
+    queryFn: async () => {
+      const res = await fetch(`/api/hospitals/${activeHospital?.id}/users-by-module?module=anesthesia&role=doctor`, { credentials: 'include' });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!activeHospital?.id && isSurgeryMode,
+  });
+
+  const { data: anesthesiaNurses = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: [`/api/hospitals/${activeHospital?.id}/users-by-module`, 'anesthesia', 'nurse'],
+    queryFn: async () => {
+      const res = await fetch(`/api/hospitals/${activeHospital?.id}/users-by-module?module=anesthesia&role=nurse`, { credentials: 'include' });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!activeHospital?.id && isSurgeryMode,
+  });
+
+  const { data: surgeryDoctors = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: [`/api/hospitals/${activeHospital?.id}/users-by-module`, 'surgery', 'doctor'],
+    queryFn: async () => {
+      const res = await fetch(`/api/hospitals/${activeHospital?.id}/users-by-module?module=surgery&role=doctor`, { credentials: 'include' });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!activeHospital?.id && isSurgeryMode,
+  });
+
+  const { data: surgeryNurses = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: [`/api/hospitals/${activeHospital?.id}/users-by-module`, 'surgery', 'nurse'],
+    queryFn: async () => {
+      const res = await fetch(`/api/hospitals/${activeHospital?.id}/users-by-module?module=surgery&role=nurse`, { credentials: 'include' });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!activeHospital?.id && isSurgeryMode,
+  });
+
+  // Map role keys to filtered user lists
+  const staffOptionsByRole: Record<string, { id: string; label: string }[]> = useMemo(() => ({
+    anesthesiologist: anesthesiaDoctors.map(u => ({ id: u.id, label: u.name })),
+    anesthesiaNurse: anesthesiaNurses.map(u => ({ id: u.id, label: u.name })),
+    surgeon: surgeryDoctors.map(u => ({ id: u.id, label: u.name })),
+    surgicalAssistant: surgeryDoctors.map(u => ({ id: u.id, label: u.name })),
+    instrumentNurse: surgeryNurses.map(u => ({ id: u.id, label: u.name })),
+    circulatingNurse: surgeryNurses.map(u => ({ id: u.id, label: u.name })),
+  }), [anesthesiaDoctors, anesthesiaNurses, surgeryDoctors, surgeryNurses]);
 
   // Auto-create anesthesia record if it doesn't exist (404 only)
   useEffect(() => {
@@ -1651,8 +1702,10 @@ export default function Op() {
                         { key: 'anesthesiaNurse', label: t('surgery.intraop.staffRoles.anesthesiaNurse') },
                       ].map((role) => {
                         const currentValue = surgeryStaff[role.key as keyof typeof surgeryStaff] || "";
+                        // Get role-specific user list, fallback to empty array
+                        const roleOptions = staffOptionsByRole[role.key] || [];
                         const showAddCustom = staffSearchInput.trim() && 
-                          !staffOptions.some((opt: { label: string }) => 
+                          !roleOptions.some((opt: { label: string }) => 
                             opt.label.toLowerCase() === staffSearchInput.trim().toLowerCase()
                           );
                         
@@ -1727,7 +1780,7 @@ export default function Op() {
                                           {t('surgery.intraop.useCustomName', { name: staffSearchInput.trim() })}
                                         </CommandItem>
                                       )}
-                                      {staffOptions.map((opt: { id: string; label: string }) => (
+                                      {roleOptions.map((opt: { id: string; label: string }) => (
                                         <CommandItem
                                           key={opt.id}
                                           value={opt.label}
