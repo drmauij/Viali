@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,10 +29,10 @@ interface HeartRhythmDialogProps {
   onHeartRhythmDeleted?: () => void;
 }
 
-const PRESET_RHYTHMS = [
-  'SR', 'SVES', 'VES', 'VHF', 'Vorhofflattern', 'Schrittmacher', 
-  'AV Block III', 'Kammerflimmern', 'Torsade de pointes', 'Defibrillator'
-];
+const RHYTHM_KEYS = [
+  'sr', 'sves', 'ves', 'af', 'afl', 'pacemaker', 
+  'avBlock3', 'vf', 'torsade', 'defibrillator'
+] as const;
 
 export function HeartRhythmDialog({
   open,
@@ -43,15 +44,19 @@ export function HeartRhythmDialog({
   onHeartRhythmUpdated,
   onHeartRhythmDeleted,
 }: HeartRhythmDialogProps) {
+  const { t } = useTranslation();
   const [heartRhythmInput, setHeartRhythmInput] = useState("");
   const [heartRhythmEditTime, setHeartRhythmEditTime] = useState<number>(0);
 
-  // Initialize mutation hooks
   const addRhythmPoint = useAddRhythmPoint(anesthesiaRecordId || undefined);
   const updateRhythmPoint = useUpdateRhythmPoint(anesthesiaRecordId || undefined);
   const deleteRhythmPoint = useDeleteRhythmPoint(anesthesiaRecordId || undefined);
 
-  // Sync editing data to form
+  const rhythmOptions = RHYTHM_KEYS.map(key => ({
+    key,
+    label: t(`anesthesia.timeline.heartRhythmDialog.rhythms.${key}`)
+  }));
+
   useEffect(() => {
     if (editingHeartRhythm) {
       setHeartRhythmInput(editingHeartRhythm.rhythm);
@@ -68,7 +73,6 @@ export function HeartRhythmDialog({
     if (!anesthesiaRecordId) return;
 
     if (editingHeartRhythm) {
-      // Editing existing value - call update mutation
       const newTimestamp = heartRhythmEditTime;
 
       updateRhythmPoint.mutate(
@@ -85,7 +89,6 @@ export function HeartRhythmDialog({
         }
       );
     } else if (pendingHeartRhythm) {
-      // Adding new value - call add mutation
       addRhythmPoint.mutate(
         {
           timestamp: new Date(pendingHeartRhythm.time).toISOString(),
@@ -118,38 +121,43 @@ export function HeartRhythmDialog({
     setHeartRhythmInput("");
   };
 
+  const isPresetRhythm = (value: string) => {
+    return rhythmOptions.some(opt => opt.label === value);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]" data-testid="dialog-heart-rhythm">
         <DialogHeader>
-          <DialogTitle>Heart Rhythm</DialogTitle>
+          <DialogTitle>{t('anesthesia.timeline.heartRhythmDialog.title')}</DialogTitle>
           <DialogDescription>
-            {editingHeartRhythm ? 'Edit or delete the rhythm' : 'Select a heart rhythm to add'}
+            {editingHeartRhythm 
+              ? t('anesthesia.timeline.heartRhythmDialog.editRhythm') 
+              : t('anesthesia.timeline.heartRhythmDialog.selectRhythm')}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
           <div className="grid gap-2">
-            <Label>Select Rhythm</Label>
+            <Label>{t('anesthesia.timeline.heartRhythmDialog.selectLabel')}</Label>
             <div className="grid gap-1">
               {editingHeartRhythm ? (
-                // When editing, show buttons to select new rhythm but require Save
                 <>
-                  {PRESET_RHYTHMS.map((rhythm) => (
+                  {rhythmOptions.map((rhythm) => (
                     <Button
-                      key={rhythm}
-                      variant={heartRhythmInput === rhythm ? 'default' : 'outline'}
+                      key={rhythm.key}
+                      variant={heartRhythmInput === rhythm.label ? 'default' : 'outline'}
                       className="justify-start h-12 text-left"
                       onClick={() => {
-                        setHeartRhythmInput(rhythm);
+                        setHeartRhythmInput(rhythm.label);
                       }}
-                      data-testid={`button-rhythm-${rhythm.toLowerCase().replace(/\s+/g, '-')}`}
+                      data-testid={`button-rhythm-${rhythm.key}`}
                     >
-                      {rhythm}
+                      {rhythm.label}
                     </Button>
                   ))}
                   <Input
-                    placeholder="Custom value..."
-                    value={heartRhythmInput && !PRESET_RHYTHMS.includes(heartRhythmInput) ? heartRhythmInput : ''}
+                    placeholder={t('anesthesia.timeline.heartRhythmDialog.customPlaceholder')}
+                    value={heartRhythmInput && !isPresetRhythm(heartRhythmInput) ? heartRhythmInput : ''}
                     onChange={(e) => setHeartRhythmInput(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && heartRhythmInput.trim()) {
@@ -161,23 +169,22 @@ export function HeartRhythmDialog({
                   />
                 </>
               ) : (
-                // When adding new, preset buttons immediately save
                 <>
-                  {PRESET_RHYTHMS.map((rhythm) => (
+                  {rhythmOptions.map((rhythm) => (
                     <Button
-                      key={rhythm}
+                      key={rhythm.key}
                       variant="outline"
                       className="justify-start h-12 text-left"
                       onClick={() => {
-                        handleSave(rhythm);
+                        handleSave(rhythm.label);
                       }}
-                      data-testid={`button-rhythm-${rhythm.toLowerCase().replace(/\s+/g, '-')}`}
+                      data-testid={`button-rhythm-${rhythm.key}`}
                     >
-                      {rhythm}
+                      {rhythm.label}
                     </Button>
                   ))}
                   <Input
-                    placeholder="Custom value..."
+                    placeholder={t('anesthesia.timeline.heartRhythmDialog.customPlaceholder')}
                     value={heartRhythmInput}
                     onChange={(e) => setHeartRhythmInput(e.target.value)}
                     onKeyDown={(e) => {
@@ -201,7 +208,7 @@ export function HeartRhythmDialog({
           onCancel={handleClose}
           onSave={() => handleSave()}
           saveDisabled={!heartRhythmInput.trim()}
-          saveLabel={editingHeartRhythm ? 'Save' : 'Add'}
+          saveLabel={editingHeartRhythm ? t('anesthesia.timeline.heartRhythmDialog.save', 'Save') : t('anesthesia.timeline.heartRhythmDialog.add', 'Add')}
         />
       </DialogContent>
     </Dialog>

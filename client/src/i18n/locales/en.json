@@ -1618,6 +1618,27 @@
       "times": "Times",
       "events": "Events",
       "heartRhythm": "Heart Rhythm",
+      "heartRhythmDialog": {
+        "title": "Heart Rhythm",
+        "selectRhythm": "Select a heart rhythm to add",
+        "editRhythm": "Edit or delete the rhythm",
+        "selectLabel": "Select Rhythm",
+        "customPlaceholder": "Custom value...",
+        "rhythms": {
+          "sr": "SR (Sinus Rhythm)",
+          "sves": "SVES (Supraventricular Extrasystoles)",
+          "ves": "VES (Ventricular Extrasystoles)",
+          "af": "AF (Atrial Fibrillation)",
+          "afl": "AFL (Atrial Flutter)",
+          "pacemaker": "Pacemaker",
+          "avBlock3": "AV Block III",
+          "vf": "VF (Ventricular Fibrillation)",
+          "torsade": "Torsade de Pointes",
+          "defibrillator": "Defibrillator"
+        },
+        "save": "Save",
+        "add": "Add"
+      },
       "medications": "Medications",
       "position": "Position",
       "staff": "Staff",

@@ -1618,6 +1618,27 @@
       "times": "Zeiten",
       "events": "Ereignisse",
       "heartRhythm": "Herzrhythmus",
+      "heartRhythmDialog": {
+        "title": "Herzrhythmus",
+        "selectRhythm": "Herzrhythmus auswählen",
+        "editRhythm": "Rhythmus bearbeiten oder löschen",
+        "selectLabel": "Rhythmus auswählen",
+        "customPlaceholder": "Eigener Wert...",
+        "rhythms": {
+          "sr": "SR (Sinusrhythmus)",
+          "sves": "SVES (Supraventrikuläre Extrasystolen)",
+          "ves": "VES (Ventrikuläre Extrasystolen)",
+          "af": "VHF (Vorhofflimmern)",
+          "afl": "Vorhofflattern",
+          "pacemaker": "Schrittmacher",
+          "avBlock3": "AV-Block III",
+          "vf": "Kammerflimmern",
+          "torsade": "Torsade de Pointes",
+          "defibrillator": "Defibrillator"
+        },
+        "save": "Speichern",
+        "add": "Hinzufügen"
+      },
       "medications": "Medikamente",
       "position": "Lagerung",
       "staff": "Personal",
