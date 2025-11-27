@@ -1419,6 +1419,8 @@
       "postoperativeIcuAdmission": "Postoperative Intensivstationsaufnahme",
       "postoperativeIcuDescription": "Verlegung auf die Intensivstation zur engmaschigen Überwachung nach der Operation.",
       "postoperativeIcuPurpose": "Zweck: Engmaschige hämodynamische Überwachung, Atemunterstützung, Schmerzmanagement und frühzeitige Erkennung von Komplikationen.",
+      "consentNotes": "Anmerkungen",
+      "consentNotesPlaceholder": "z.B. Aufklärung telefonisch, Patient benötigt Dolmetscher, Vormund anwesend...",
       "date": "Datum",
       "patientSignature": "Patientenunterschrift",
       "emergencyNoSignature": "Notfall OP / Patient kann nicht unterschreiben",

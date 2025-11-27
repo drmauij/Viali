@@ -200,6 +200,7 @@ export default function PatientDetail() {
     regional: false,
     installations: false,
     icuAdmission: false,
+    notes: "",
     date: new Date().toISOString().split('T')[0],
     doctorSignature: "",
     patientSignature: "",
@@ -574,6 +575,7 @@ export default function PatientDetail() {
         regional: existingAssessment.consentRegional || false,
         installations: existingAssessment.consentInstallations || false,
         icuAdmission: existingAssessment.consentICU || false,
+        notes: existingAssessment.consentNotes || "",
         date: existingAssessment.consentDate || new Date().toISOString().split('T')[0],
         doctorSignature: existingAssessment.consentDoctorSignature || "",
         patientSignature: existingAssessment.patientSignature || "",
@@ -791,6 +793,7 @@ export default function PatientDetail() {
       consentRegional: consentData.regional,
       consentInstallations: consentData.installations,
       consentICU: consentData.icuAdmission,
+      consentNotes: consentData.notes,
       consentDate: consentData.date,
       consentDoctorSignature: consentData.doctorSignature,
       patientSignature: consentData.patientSignature,
@@ -3229,6 +3232,20 @@ export default function PatientDetail() {
                           {t('anesthesia.patientDetail.postoperativeIcuPurpose')}
                         </p>
                       </div>
+                    </div>
+                    
+                    <div className="space-y-2 p-4 border rounded-lg bg-muted/30">
+                      <Label htmlFor="consentNotes" className="font-semibold text-base">
+                        {t('anesthesia.patientDetail.consentNotes')}
+                      </Label>
+                      <Textarea
+                        id="consentNotes"
+                        value={consentData.notes}
+                        onChange={(e) => setConsentData({...consentData, notes: e.target.value})}
+                        placeholder={t('anesthesia.patientDetail.consentNotesPlaceholder')}
+                        className="min-h-[80px] resize-none"
+                        data-testid="textarea-consent-notes"
+                      />
                     </div>
                   </div>
 

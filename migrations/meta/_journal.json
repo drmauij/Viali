@@ -36,6 +36,13 @@
       "when": 1764152247995,
       "tag": "0004_illegal_vulture",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1764232361135,
+      "tag": "0005_closed_silver_surfer",
+      "breakpoints": true
     }
   ]
 }

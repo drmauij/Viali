@@ -1419,6 +1419,8 @@
       "postoperativeIcuAdmission": "Postoperative ICU Admission",
       "postoperativeIcuDescription": "Transfer to Intensive Care Unit for close monitoring after surgery.",
       "postoperativeIcuPurpose": "Purpose: Close hemodynamic monitoring, respiratory support, pain management, and early detection of complications.",
+      "consentNotes": "Notes",
+      "consentNotesPlaceholder": "e.g., Consent given via phone call, patient needs translator, legal guardian present...",
       "date": "Date",
       "patientSignature": "Patient Signature",
       "emergencyNoSignature": "Emergency OP / Patient cannot sign",
