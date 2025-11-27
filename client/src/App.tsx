@@ -11,6 +11,7 @@ import { ModuleProvider, useModule } from "@/contexts/ModuleContext";
 import { EditValueProvider } from "@/components/EditableValue";
 import { SocketProvider } from "@/contexts/SocketContext";
 import { useAuth } from "@/hooks/useAuth";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Layout from "@/components/Layout";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/Landing";
@@ -121,29 +122,30 @@ function Router() {
             <Route path="/inventory/alerts" component={Alerts} />
             <Route path="/inventory/controlled" component={ControlledLog} />
             <Route path="/inventory/checklists" component={Checklists} />
-            {/* Anesthesia Module */}
-            <Route path="/anesthesia" component={Patients} />
-            <Route path="/anesthesia/patients" component={Patients} />
-            <Route path="/anesthesia/patients/:id" component={PatientDetail} />
-            <Route path="/anesthesia/cases/:id" component={CaseDetail} />
-            <Route path="/anesthesia/preop" component={PreOpList} />
-            <Route path="/anesthesia/op" component={OpList} />
-            <Route path="/anesthesia/op/:id" component={Op} />
-            <Route path="/anesthesia/cases/:id/op" component={Op} />
-            <Route path="/anesthesia/pacu" component={Pacu} />
-            <Route path="/anesthesia/cases/:id/pacu" component={Op} />
-            <Route path="/anesthesia/reports" component={AnesthesiaReports} />
-            <Route path="/anesthesia/settings" component={AnesthesiaSettings} />
-            {/* Surgery Module - shares components with Anesthesia */}
-            <Route path="/surgery" component={OpList} />
-            <Route path="/surgery/patients" component={Patients} />
-            <Route path="/surgery/patients/:id" component={PatientDetail} />
-            <Route path="/surgery/op" component={OpList} />
-            <Route path="/surgery/op/:id" component={Op} />
-            <Route path="/surgery/settings" component={SurgerySettings} />
-            {/* Admin Module */}
-            <Route path="/admin" component={AdminHospital} />
-            <Route path="/admin/users" component={AdminUsers} />
+            {/* Anesthesia Module - requires anesthesia unit access */}
+            <Route path="/anesthesia">{() => <ProtectedRoute requireAnesthesia><Patients /></ProtectedRoute>}</Route>
+            <Route path="/anesthesia/patients">{() => <ProtectedRoute requireAnesthesia><Patients /></ProtectedRoute>}</Route>
+            <Route path="/anesthesia/patients/:id">{() => <ProtectedRoute requireAnesthesia><PatientDetail /></ProtectedRoute>}</Route>
+            <Route path="/anesthesia/cases/:id">{() => <ProtectedRoute requireAnesthesia><CaseDetail /></ProtectedRoute>}</Route>
+            <Route path="/anesthesia/preop">{() => <ProtectedRoute requireAnesthesia><PreOpList /></ProtectedRoute>}</Route>
+            <Route path="/anesthesia/op">{() => <ProtectedRoute requireAnesthesia><OpList /></ProtectedRoute>}</Route>
+            <Route path="/anesthesia/op/:id">{() => <ProtectedRoute requireAnesthesia><Op /></ProtectedRoute>}</Route>
+            <Route path="/anesthesia/cases/:id/op">{() => <ProtectedRoute requireAnesthesia><Op /></ProtectedRoute>}</Route>
+            <Route path="/anesthesia/pacu">{() => <ProtectedRoute requireAnesthesia><Pacu /></ProtectedRoute>}</Route>
+            <Route path="/anesthesia/cases/:id/pacu">{() => <ProtectedRoute requireAnesthesia><Op /></ProtectedRoute>}</Route>
+            <Route path="/anesthesia/reports">{() => <ProtectedRoute requireAnesthesia><AnesthesiaReports /></ProtectedRoute>}</Route>
+            <Route path="/anesthesia/settings">{() => <ProtectedRoute requireAnesthesia><AnesthesiaSettings /></ProtectedRoute>}</Route>
+            <Route path="/anesthesia/schedule">{() => <ProtectedRoute requireAnesthesia><OpList /></ProtectedRoute>}</Route>
+            {/* Surgery Module - requires surgery unit access */}
+            <Route path="/surgery">{() => <ProtectedRoute requireSurgery><OpList /></ProtectedRoute>}</Route>
+            <Route path="/surgery/patients">{() => <ProtectedRoute requireSurgery><Patients /></ProtectedRoute>}</Route>
+            <Route path="/surgery/patients/:id">{() => <ProtectedRoute requireSurgery><PatientDetail /></ProtectedRoute>}</Route>
+            <Route path="/surgery/op">{() => <ProtectedRoute requireSurgery><OpList /></ProtectedRoute>}</Route>
+            <Route path="/surgery/op/:id">{() => <ProtectedRoute requireSurgery><Op /></ProtectedRoute>}</Route>
+            <Route path="/surgery/settings">{() => <ProtectedRoute requireSurgery><SurgerySettings /></ProtectedRoute>}</Route>
+            {/* Admin Module - requires admin role */}
+            <Route path="/admin">{() => <ProtectedRoute requireAdmin><AdminHospital /></ProtectedRoute>}</Route>
+            <Route path="/admin/users">{() => <ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>}</Route>
             <Route path="/signup" component={Signup} />
             {/* Demo/Testing Routes */}
             <Route path="/demo/editable-values" component={EditableValuesDemo} />

@@ -20,22 +20,24 @@ export default function ModuleDrawer() {
   const { t } = useTranslation();
   const { user } = useAuth();
 
-  const activeHospital = useMemo(() => {
-    const userHospitals = (user as any)?.hospitals;
-    if (!userHospitals || userHospitals.length === 0) return null;
-    
-    const savedHospitalKey = localStorage.getItem('activeHospital');
-    if (savedHospitalKey) {
-      const saved = userHospitals.find((h: any) => 
-        `${h.id}-${h.unitId}-${h.role}` === savedHospitalKey
-      );
-      if (saved) return saved;
-    }
-    
-    return userHospitals[0];
+  // Get all user hospital assignments for secure access checks
+  const userHospitals = useMemo(() => {
+    return (user as any)?.hospitals || [];
   }, [user]);
 
-  const isAdmin = activeHospital?.role === "admin";
+  // Check access based on user's actual assignments (not localStorage)
+  // This prevents bypassing by switching active hospital
+  const hasAnesthesiaAccess = useMemo(() => {
+    return userHospitals.some((h: any) => h.isAnesthesiaModule === true);
+  }, [userHospitals]);
+
+  const hasSurgeryAccess = useMemo(() => {
+    return userHospitals.some((h: any) => h.isSurgeryModule === true);
+  }, [userHospitals]);
+
+  const isAdmin = useMemo(() => {
+    return userHospitals.some((h: any) => h.role === "admin");
+  }, [userHospitals]);
 
   const allModules: ModuleCard[] = [
     {
@@ -73,17 +75,13 @@ export default function ModuleDrawer() {
     },
   ];
 
-  // Check if user has access to anesthesia module
-  const hasAnesthesiaAccess = useMemo(() => {
-    return !!(activeHospital as any)?.isAnesthesiaModule;
-  }, [activeHospital]);
-
   const modules = allModules.filter(module => {
     // Admin modules only for admins
     if (module.adminOnly && !isAdmin) return false;
-    // Anesthesia and Surgery modules only if configured and user has access
+    // Anesthesia module only for anesthesia staff (assigned to anesthesia unit)
     if (module.id === "anesthesia" && !hasAnesthesiaAccess) return false;
-    if (module.id === "surgery" && !hasAnesthesiaAccess) return false;
+    // Surgery module only for OR staff (assigned to surgery unit)
+    if (module.id === "surgery" && !hasSurgeryAccess) return false;
     return true;
   });
 

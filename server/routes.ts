@@ -8475,12 +8475,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Commit inventory usage to inventory system
+  // Commit inventory usage to inventory system (module-scoped)
+  // SECURITY: module parameter is REQUIRED to enforce unit separation
   app.post('/api/anesthesia/inventory/:recordId/commit', isAuthenticated, async (req: any, res) => {
     try {
       const { recordId } = req.params;
-      const { signature } = req.body;
+      const { signature, module: moduleType } = req.body;
       const userId = req.user.id;
+
+      // SECURITY: Require module type to enforce module-scoped commits
+      if (!moduleType || (moduleType !== 'anesthesia' && moduleType !== 'surgery')) {
+        return res.status(400).json({ message: "Module type is required (anesthesia or surgery)" });
+      }
 
       // Verify access
       const record = await storage.getAnesthesiaRecordById(recordId);
@@ -8500,13 +8506,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
 
-      // Commit inventory (using surgery's patientId)
+      // Resolve the canonical unit for this module
+      const units = await storage.getUnits(surgery.hospitalId);
+      let targetUnitId: string | null = null;
+
+      if (moduleType === 'anesthesia') {
+        const anesthesiaUnit = units.find(u => u.isAnesthesiaModule);
+        if (!anesthesiaUnit) {
+          return res.status(400).json({ message: "No anesthesia unit configured for this hospital" });
+        }
+        targetUnitId = anesthesiaUnit.id;
+      } else if (moduleType === 'surgery') {
+        const surgeryUnit = units.find(u => u.isSurgeryModule);
+        if (!surgeryUnit) {
+          return res.status(400).json({ message: "No surgery unit configured for this hospital" });
+        }
+        targetUnitId = surgeryUnit.id;
+      }
+
+      // SECURITY: Verify user has assignment to the resolved module's unit
+      // AND that their assignment has the matching module flag
+      // This prevents forging module parameter to access another module's inventory
+      const hasModuleAccess = hospitals.some(h => {
+        if (h.id !== surgery.hospitalId || h.unitId !== targetUnitId) return false;
+        
+        // Verify the user's assignment has the correct module flag
+        if (moduleType === 'anesthesia' && !h.isAnesthesiaModule) return false;
+        if (moduleType === 'surgery' && !h.isSurgeryModule) return false;
+        
+        return true;
+      });
+      if (!hasModuleAccess) {
+        return res.status(403).json({ message: "Access denied: You are not authorized for this module" });
+      }
+
+      // Commit inventory (module-scoped, using surgery's patientId)
       const commit = await storage.commitInventoryUsage(
         recordId,
         userId,
         signature,
-        surgery.patientId, // Use patientId as name (can be enhanced later)
-        surgery.patientId
+        surgery.patientId,
+        surgery.patientId,
+        targetUnitId // Pass resolved unit to filter items by module
       );
 
       res.json(commit);

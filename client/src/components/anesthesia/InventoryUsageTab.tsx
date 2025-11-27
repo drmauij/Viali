@@ -343,11 +343,12 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
     },
   });
 
-  // Commit mutation
+  // Commit mutation (module-scoped - only commits items from the current module's unit)
   const commitMutation = useMutation({
     mutationFn: async (signature: string | null) => {
       const response = await apiRequest('POST', `/api/anesthesia/inventory/${anesthesiaRecordId}/commit`, {
         signature,
+        module: moduleType, // Pass module type (anesthesia/surgery) to scope the commit
       });
       return response.json();
     },

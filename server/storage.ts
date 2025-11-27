@@ -439,7 +439,7 @@ export interface IStorage {
   updateInventoryUsage(id: string, quantityUsed: number): Promise<InventoryUsage>;
   
   // Inventory Commit operations
-  commitInventoryUsage(anesthesiaRecordId: string, userId: string, signature: string | null, patientName: string | null, patientId: string | null): Promise<any>;
+  commitInventoryUsage(anesthesiaRecordId: string, userId: string, signature: string | null, patientName: string | null, patientId: string | null, unitId?: string | null): Promise<any>;
   getInventoryCommits(anesthesiaRecordId: string): Promise<any[]>;
   getInventoryCommitById(commitId: string): Promise<any | null>;
   rollbackInventoryCommit(commitId: string, userId: string, reason: string): Promise<any>;
@@ -3877,13 +3877,14 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  // Inventory Commit operations
+  // Inventory Commit operations (unit-scoped)
   async commitInventoryUsage(
     anesthesiaRecordId: string,
     userId: string,
     signature: string | null,
     patientName: string | null,
-    patientId: string | null
+    patientId: string | null,
+    unitId?: string | null
   ): Promise<InventoryCommit> {
     // Get all current inventory usage (calculated + overrides)
     // Note: calculateInventoryUsage already filters to only include post-commit usage
@@ -3904,6 +3905,7 @@ export class DatabaseStorage implements IStorage {
 
     // Build items to commit - since calculateInventoryUsage filters by timestamp,
     // the current quantities already represent uncommitted items only
+    // Also filter by unitId if provided to ensure unit-scoped commits
     const itemsToCommit: Array<{
       itemId: string;
       itemName: string;
@@ -3914,6 +3916,11 @@ export class DatabaseStorage implements IStorage {
     for (const usageRecord of usage) {
       const item = itemsMap.get(usageRecord.itemId);
       if (!item) continue;
+
+      // Filter by unitId if provided - only commit items from the user's unit
+      if (unitId && item.unitId !== unitId) {
+        continue; // Skip items that don't belong to the user's unit
+      }
 
       const currentQty = parseFloat(String(usageRecord.overrideQty || usageRecord.calculatedQty));
       const qtyToCommit = Math.max(0, Math.round(currentQty));
