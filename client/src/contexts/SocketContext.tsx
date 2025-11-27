@@ -170,7 +170,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
           });
         }
         
-        if (['checklists', 'intraOp', 'countsSterile', 'surgeryStaff'].includes(payload.section)) {
+        if (['checklists', 'intraOp', 'countsSterile', 'surgeryStaff', 'timeMarkers'].includes(payload.section)) {
           queryClient.invalidateQueries({
             predicate: (query) => {
               const key = query.queryKey;
