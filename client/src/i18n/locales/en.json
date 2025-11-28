@@ -1961,6 +1961,7 @@
       "disinfection": "Disinfection",
       "kodanColored": "Kodan (colored)",
       "kodanColorless": "Kodan (colorless)",
+      "octanisept": "Octanisept",
       "performedBy": "Performed by",
       "performedByPlaceholder": "Enter name...",
       "equipment": "Equipment",
@@ -1973,18 +1974,49 @@
       "pathology": "Pathology",
       "histologie": "Histology",
       "mikrobio": "Microbiology",
+      "devices": "Devices",
+      "devicesPlaceholder": "e.g., C-arm, laser, ultrasound...",
       "equipmentNotes": "Equipment Notes",
       "equipmentNotesPlaceholder": "e.g., Erbe, Olympus...",
-      "irrigationMeds": "Irrigation & Medications",
       "irrigation": "Irrigation",
+      "irrigationOptions": {
+        "nacl": "NaCl",
+        "betadine": "Betadine",
+        "hydrogenPeroxide": "Hydrogen Peroxide"
+      },
+      "irrigationOther": "Other irrigation...",
       "infiltration": "Infiltration",
-      "tumorSolution": "Tumor Solution",
+      "infiltrationOptions": {
+        "tumorSolution": "Tumor Essence Solution"
+      },
+      "infiltrationOther": "Other infiltration...",
       "medications": "Medications",
-      "contrast": "Contrast",
-      "ointments": "Ointments",
+      "medicationOptions": {
+        "ropivacain": "Ropivacain",
+        "bupivacain": "Bupivacain",
+        "contrast": "Contrast Medium",
+        "ointments": "Ointments"
+      },
+      "medicationsOther": "Other medications...",
       "dressing": "Dressing",
-      "otherDressing": "Other dressing...",
+      "dressingOptions": {
+        "elasticBandage": "Elastic Bandage",
+        "abdominalBelt": "Abdominal Belt",
+        "bra": "Bra",
+        "faceLiftMask": "Face Lift Mask",
+        "steristrips": "Steristrips",
+        "comfeel": "Comfeel",
+        "opsite": "OPSITE",
+        "compresses": "Compresses",
+        "mefix": "Mefix"
+      },
+      "dressingOther": "Other dressing...",
       "drainage": "Drainage",
+      "drainageOptions": {
+        "redonCH": "Redon CH",
+        "redonCount": "Count"
+      },
+      "drainageOther": "Other drainage...",
       "drainageType": "Type",
       "other": "Other",
       "count": "Count",

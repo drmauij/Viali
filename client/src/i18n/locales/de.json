@@ -1961,6 +1961,7 @@
       "disinfection": "Desinfektion",
       "kodanColored": "Kodan (gefärbt)",
       "kodanColorless": "Kodan (farblos)",
+      "octanisept": "Octanisept",
       "performedBy": "Ausgeführt von",
       "performedByPlaceholder": "Name eingeben...",
       "equipment": "Geräte",
@@ -1973,18 +1974,49 @@
       "pathology": "Pathologie",
       "histologie": "Histologie",
       "mikrobio": "Mikrobiologie",
+      "devices": "Geräte",
+      "devicesPlaceholder": "z.B. C-Bogen, Laser, Ultraschall...",
       "equipmentNotes": "Gerätenotizen",
       "equipmentNotesPlaceholder": "z.B. Erbe, Olympus...",
-      "irrigationMeds": "Spülung & Medikamente",
       "irrigation": "Spülung",
+      "irrigationOptions": {
+        "nacl": "NaCl",
+        "betadine": "Betadine",
+        "hydrogenPeroxide": "Wasserstoffperoxid"
+      },
+      "irrigationOther": "Andere Spülung...",
       "infiltration": "Infiltration",
-      "tumorSolution": "Tumoressenzlösung",
+      "infiltrationOptions": {
+        "tumorSolution": "Tumoressenzlösung"
+      },
+      "infiltrationOther": "Andere Infiltration...",
       "medications": "Medikamente",
-      "contrast": "Kontrastmittel",
-      "ointments": "Salben",
+      "medicationOptions": {
+        "ropivacain": "Ropivacain",
+        "bupivacain": "Bupivacain",
+        "contrast": "Kontrastmittel",
+        "ointments": "Salben"
+      },
+      "medicationsOther": "Andere Medikamente...",
       "dressing": "Verband",
-      "otherDressing": "Anderer Verband...",
+      "dressingOptions": {
+        "elasticBandage": "el. Binden",
+        "abdominalBelt": "Bauchgurt",
+        "bra": "BH",
+        "faceLiftMask": "Face-Lift-Maske",
+        "steristrips": "Steristrips",
+        "comfeel": "Comfeel",
+        "opsite": "OPSITE",
+        "compresses": "Kompressen",
+        "mefix": "Mefix"
+      },
+      "dressingOther": "Anderer Verband...",
       "drainage": "Drainage",
+      "drainageOptions": {
+        "redonCH": "Redon CH",
+        "redonCount": "Anzahl"
+      },
+      "drainageOther": "Andere Drainage...",
       "drainageType": "Typ",
       "other": "Andere",
       "count": "Anzahl",
