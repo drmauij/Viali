@@ -8582,10 +8582,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get commit history for an anesthesia record
+  // Get commit history for an anesthesia record (module-scoped)
   app.get('/api/anesthesia/inventory/:recordId/commits', isAuthenticated, async (req: any, res) => {
     try {
       const { recordId } = req.params;
+      const { unitId } = req.query; // Optional: filter by unit/module
       const userId = req.user.id;
 
       // Verify access
@@ -8606,7 +8607,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
 
-      const commits = await storage.getInventoryCommits(recordId);
+      // If unitId is provided, verify the user has access to that unit
+      if (unitId) {
+        const hasUnitAccess = hospitals.some(h => h.id === surgery.hospitalId && h.unitId === unitId);
+        if (!hasUnitAccess) {
+          return res.status(403).json({ message: "Access denied to this unit" });
+        }
+      }
+
+      // Fetch commits filtered by unitId (module-scoped)
+      const commits = await storage.getInventoryCommits(recordId, unitId as string | undefined);
       res.json(commits);
     } catch (error) {
       console.error("Error fetching commit history:", error);
@@ -8614,7 +8624,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Rollback an inventory commit
+  // Rollback an inventory commit (module-scoped access control)
   app.post('/api/anesthesia/inventory/commits/:commitId/rollback', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { commitId } = req.params;
@@ -8643,6 +8653,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!hasAccess) {
         return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Module-scoped access control: Users can only rollback commits from their unit
+      if (commit.unitId) {
+        const hasUnitAccess = hospitals.some(h => h.id === surgery.hospitalId && h.unitId === commit.unitId);
+        if (!hasUnitAccess) {
+          return res.status(403).json({ message: "Access denied: You can only rollback commits from your own module/unit" });
+        }
       }
 
       // Rollback commit

@@ -1,13 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useMemo } from "react";
+import { useActiveHospital } from "./useActiveHospital";
 
 /**
  * Hook to manage inventory commit state for anesthesia timeline
  * Provides pending commits detection and related helpers
+ * Now filtered by current unit/module for proper access control
  */
 export function useInventoryCommitState(anesthesiaRecordId: string | null) {
   // Ref to track if X2 reminder has been shown (persists across renders)
   const x2ReminderShownRef = useRef(false);
+  const activeHospital = useActiveHospital();
 
   // Fetch inventory usage data
   const {
@@ -19,13 +22,22 @@ export function useInventoryCommitState(anesthesiaRecordId: string | null) {
     enabled: !!anesthesiaRecordId,
   });
 
-  // Fetch existing commits
+  // Fetch existing commits (filtered by current unit/module)
   const {
     data: existingCommits = [],
     isLoading: commitsLoading,
     isError: commitsError,
   } = useQuery<any[]>({
-    queryKey: ['/api/anesthesia/inventory', anesthesiaRecordId, 'commits'],
+    queryKey: ['/api/anesthesia/inventory', anesthesiaRecordId, 'commits', activeHospital?.unitId],
+    queryFn: async () => {
+      if (!anesthesiaRecordId) return [];
+      const url = activeHospital?.unitId
+        ? `/api/anesthesia/inventory/${anesthesiaRecordId}/commits?unitId=${activeHospital.unitId}`
+        : `/api/anesthesia/inventory/${anesthesiaRecordId}/commits`;
+      const response = await fetch(url, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch commits');
+      return response.json();
+    },
     enabled: !!anesthesiaRecordId,
   });
 

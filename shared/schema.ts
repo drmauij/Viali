@@ -1268,6 +1268,9 @@ export const inventoryCommits = pgTable("inventory_commits", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: 'cascade' }),
   
+  // Module/Unit tracking - which unit created this commit
+  unitId: varchar("unit_id").references(() => units.id),
+  
   // Commit metadata
   committedAt: timestamp("committed_at", { withTimezone: true }).defaultNow().notNull(),
   committedBy: varchar("committed_by").notNull().references(() => users.id),
@@ -1295,6 +1298,7 @@ export const inventoryCommits = pgTable("inventory_commits", {
   index("idx_inventory_commits_record").on(table.anesthesiaRecordId),
   index("idx_inventory_commits_committed_at").on(table.committedAt),
   index("idx_inventory_commits_committed_by").on(table.committedBy),
+  index("idx_inventory_commits_unit").on(table.unitId),
 ]);
 
 // Audit Trail (Immutable log of all changes for compliance)

@@ -102,9 +102,17 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
     enabled: !!anesthesiaRecordId,
   });
 
-  // Fetch commit history
+  // Fetch commit history (filtered by current unit/module)
   const { data: commits = [] } = useQuery<InventoryCommit[]>({
-    queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}/commits`],
+    queryKey: ['/api/anesthesia/inventory', anesthesiaRecordId, 'commits', activeHospital?.unitId],
+    queryFn: async () => {
+      const url = activeHospital?.unitId
+        ? `/api/anesthesia/inventory/${anesthesiaRecordId}/commits?unitId=${activeHospital.unitId}`
+        : `/api/anesthesia/inventory/${anesthesiaRecordId}/commits`;
+      const response = await fetch(url, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch commits');
+      return response.json();
+    },
     enabled: !!anesthesiaRecordId,
   });
 

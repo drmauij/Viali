@@ -440,7 +440,7 @@ export interface IStorage {
   
   // Inventory Commit operations
   commitInventoryUsage(anesthesiaRecordId: string, userId: string, signature: string | null, patientName: string | null, patientId: string | null, unitId?: string | null): Promise<any>;
-  getInventoryCommits(anesthesiaRecordId: string): Promise<any[]>;
+  getInventoryCommits(anesthesiaRecordId: string, unitId?: string | null): Promise<any[]>;
   getInventoryCommitById(commitId: string): Promise<any | null>;
   rollbackInventoryCommit(commitId: string, userId: string, reason: string): Promise<any>;
   
@@ -3945,11 +3945,12 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Signature required for controlled items");
     }
 
-    // Create commit record
+    // Create commit record with unitId for module-scoped filtering
     const [commit] = await db
       .insert(inventoryCommits)
       .values({
         anesthesiaRecordId,
+        unitId: unitId || null,
         committedBy: userId,
         signature,
         patientName,
@@ -4006,11 +4007,19 @@ export class DatabaseStorage implements IStorage {
     return commit;
   }
 
-  async getInventoryCommits(anesthesiaRecordId: string): Promise<InventoryCommit[]> {
+  async getInventoryCommits(anesthesiaRecordId: string, unitId?: string | null): Promise<InventoryCommit[]> {
+    // Build conditions array for filtering
+    const conditions = [eq(inventoryCommits.anesthesiaRecordId, anesthesiaRecordId)];
+    
+    // If unitId is provided, filter to only show commits from that unit
+    if (unitId) {
+      conditions.push(eq(inventoryCommits.unitId, unitId));
+    }
+    
     const commits = await db
       .select()
       .from(inventoryCommits)
-      .where(eq(inventoryCommits.anesthesiaRecordId, anesthesiaRecordId))
+      .where(and(...conditions))
       .orderBy(desc(inventoryCommits.committedAt));
 
     return commits;
