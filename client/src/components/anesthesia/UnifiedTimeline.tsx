@@ -3111,44 +3111,71 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         addedItems.push('BP');
       }
       
-      // Process ventilation parameters - add to swimlane events
+      // Process ventilation parameters - use bulk API for persistence
       const ventParams = parameters.filter((p: any) => p.category === 'ventilation');
-      if (ventParams.length > 0) {
+      if (ventParams.length > 0 && anesthesiaRecordId) {
+        // Build parameters object for bulk API
+        const bulkParams: Record<string, number> = {};
+        const addedVentParams: string[] = [];
+        
         ventParams.forEach((param: any) => {
-          // Find matching ventilation swimlane ID
-          const paramIndex = ventilationParams.findIndex(vp => 
-            vp.includes(param.standardName) || 
-            (param.standardName === 'RR' && vp.includes('Respiratory Rate')) ||
-            (param.standardName === 'TidalVolume' && vp.includes('Tidal Volume')) ||
-            (param.standardName === 'EtCO2' && vp.includes('etCO2')) ||
-            (param.standardName === 'FiO2' && vp.includes('FiO2')) ||
-            (param.standardName === 'PEEP' && vp.includes('PEEP')) ||
-            (param.standardName === 'PIP' && vp.includes('P insp'))
-          );
+          if (typeof param.value !== 'number') {
+            console.warn(`[Ventilation] Skipped ${param.standardName}: value type=${typeof param.value}`);
+            return;
+          }
           
-          if (paramIndex !== -1) {
-            const swimlaneId = `ventilation-${paramIndex}`;
-            
-            // Map standardName to state key
-            const paramKey = param.standardName === 'EtCO2' ? 'etCO2' :
-                             param.standardName === 'PIP' ? 'pip' :
-                             param.standardName === 'PEEP' ? 'peep' :
-                             param.standardName === 'TidalVolume' ? 'tidalVolume' :
-                             param.standardName === 'RR' ? 'respiratoryRate' :
-                             param.standardName === 'MinuteVolume' ? 'minuteVolume' :
-                             param.standardName === 'FiO2' ? 'fiO2' : null;
-            
-            if (paramKey && typeof param.value === 'number') {
-              setVentilationData(prev => ({
-                ...prev,
-                [paramKey]: [...prev[paramKey as keyof typeof prev], [timestamp, param.value as number]]
-              }));
-              addedItems.push(param.standardName);
-            } else {
-              console.warn(`[Ventilation] Skipped ${param.standardName}: paramKey=${paramKey}, value type=${typeof param.value}`);
-            }
+          // Map standardName to API parameter key (matching bulk API format)
+          if (param.standardName === 'EtCO2') {
+            bulkParams.etco2 = param.value;
+            addedVentParams.push('EtCO2');
+          } else if (param.standardName === 'PIP') {
+            bulkParams.pip = param.value;
+            addedVentParams.push('PIP');
+          } else if (param.standardName === 'PEEP') {
+            bulkParams.peep = param.value;
+            addedVentParams.push('PEEP');
+          } else if (param.standardName === 'TidalVolume') {
+            bulkParams.tidalVolume = param.value;
+            addedVentParams.push('TidalVolume');
+          } else if (param.standardName === 'RR') {
+            bulkParams.respiratoryRate = param.value;
+            addedVentParams.push('RR');
+          } else if (param.standardName === 'MinuteVolume') {
+            bulkParams.minuteVolume = param.value;
+            addedVentParams.push('MinuteVolume');
+          } else if (param.standardName === 'FiO2') {
+            bulkParams.fio2 = param.value;
+            addedVentParams.push('FiO2');
           }
         });
+        
+        // Calculate Minute Volume if not directly detected but RR and TidalVolume are present
+        if (!bulkParams.minuteVolume && bulkParams.respiratoryRate && bulkParams.tidalVolume) {
+          // MV = RR * TV / 1000 (convert ml to L)
+          bulkParams.minuteVolume = Math.round((bulkParams.respiratoryRate * bulkParams.tidalVolume / 1000) * 10) / 10;
+          addedVentParams.push('MinuteVolume (calc)');
+        }
+        
+        // Call bulk API if we have any valid parameters
+        if (Object.keys(bulkParams).length > 0) {
+          try {
+            await apiRequest('POST', '/api/anesthesia/ventilation/bulk', {
+              anesthesiaRecordId,
+              timestamp: new Date(timestamp).toISOString(),
+              ventilationMode: null, // Don't change mode from AI capture
+              parameters: bulkParams,
+            });
+            addedItems.push(...addedVentParams);
+            
+            // Invalidate the snapshot cache to refresh data
+            queryClient.invalidateQueries({ 
+              queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`] 
+            });
+          } catch (error) {
+            console.error('[AI-Ventilation] Error saving via bulk API:', error);
+            warningItems.push('Ventilation save failed');
+          }
+        }
       }
       
       // Process TOF parameters

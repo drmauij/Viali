@@ -20,20 +20,6 @@ interface PendingStaff {
   role: 'doctor' | 'nurse' | 'assistant';
 }
 
-interface HospitalUser {
-  id: string;
-  userId: string;
-  hospitalId: string;
-  unitId: string;
-  role: string;
-  user: {
-    id: string;
-    email: string;
-    firstName: string | null;
-    lastName: string | null;
-  };
-}
-
 interface StaffDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -66,23 +52,25 @@ export function StaffDialog({
   // Get the current role (from editing or pending)
   const currentRole = editingStaff?.role || pendingStaff?.role;
 
-  // Fetch users from the hospital
-  const { data: allUsers = [] } = useQuery<HospitalUser[]>({
-    queryKey: [`/api/admin/${hospitalId}/users`],
+  // Fetch users from the hospital using non-admin endpoint (accessible by all authenticated users)
+  const { data: allModuleUsers = [] } = useQuery<Array<{
+    id: string;
+    name: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string;
+    role: string;
+    unitId: string;
+    unitName: string;
+  }>>({
+    queryKey: [`/api/hospitals/${hospitalId}/users-by-module?module=anesthesia&role=${currentRole}`],
     enabled: !!hospitalId && !!open && currentRole !== 'assistant',
   });
 
-  // Filter users by anesthesia unit and role, then sort by surname
-  const filteredUsers = allUsers
-    .filter(user => 
-      user.unitId === anesthesiaUnitId && 
-      user.role === currentRole
-    )
-    .sort((a, b) => {
-      const lastNameA = a.user.lastName?.toLowerCase() || '';
-      const lastNameB = b.user.lastName?.toLowerCase() || '';
-      return lastNameA.localeCompare(lastNameB);
-    });
+  // Filter by anesthesiaUnitId to scope to the specific unit
+  const filteredUsers = anesthesiaUnitId 
+    ? allModuleUsers.filter(user => user.unitId === anesthesiaUnitId)
+    : allModuleUsers;
 
   // Initialize mutation hooks
   const createStaff = useCreateStaff(anesthesiaRecordId || undefined);
@@ -197,9 +185,10 @@ export function StaffDialog({
               <Label>Select {currentRole}</Label>
               <div className="grid grid-cols-1 gap-2">
                 {filteredUsers.map((hospitalUser) => {
-                  const displayName = [hospitalUser.user.firstName, hospitalUser.user.lastName]
-                    .filter(Boolean)
-                    .join(' ') || hospitalUser.user.email;
+                  // Use name from endpoint (already formatted as "lastName firstName") or fallback
+                  const displayName = hospitalUser.name || 
+                    [hospitalUser.firstName, hospitalUser.lastName].filter(Boolean).join(' ') || 
+                    hospitalUser.email;
                   
                   return (
                     <Button
@@ -243,7 +232,7 @@ export function StaffDialog({
                           );
                         }
                       }}
-                      data-testid={`button-staff-${hospitalUser.user.id}`}
+                      data-testid={`button-staff-${hospitalUser.id}`}
                     >
                       {displayName}
                     </Button>
