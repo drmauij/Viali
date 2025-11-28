@@ -1,7 +1,7 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { X, MessageSquare, Clock } from "lucide-react";
-import { formatTime } from "@/lib/dateUtils";
+import { formatTime, formatElapsedTime } from "@/lib/dateUtils";
 import { Badge } from "@/components/ui/badge";
 
 interface EventComment {
@@ -151,6 +151,11 @@ export function EventsTimesPanel({
                               <span className="text-xs text-muted-foreground">
                                 {marker.time && formatTime(new Date(marker.time))}
                               </span>
+                              {marker.time && (
+                                <Badge variant="secondary" className="text-xs font-normal" data-testid={`elapsed-time-panel-${marker.code}`}>
+                                  {formatElapsedTime(marker.time)}
+                                </Badge>
+                              )}
                             </div>
                             <p className="text-sm font-medium">{marker.label}</p>
                           </div>

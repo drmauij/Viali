@@ -171,3 +171,46 @@ export const formatShortDate = (date: string | Date | null | undefined): string 
     return "Invalid date";
   }
 };
+
+/**
+ * Calculate elapsed time from a timestamp to now and return human-readable format
+ * e.g. "2h 15min", "45min", "3min", "just now"
+ */
+export const formatElapsedTime = (timestamp: number | Date | null | undefined): string => {
+  if (!timestamp) return "";
+  
+  try {
+    const time = typeof timestamp === "number" ? timestamp : timestamp.getTime();
+    const now = Date.now();
+    const diffMs = now - time;
+    
+    // Handle future times
+    if (diffMs < 0) {
+      const absDiff = Math.abs(diffMs);
+      const hours = Math.floor(absDiff / (1000 * 60 * 60));
+      const minutes = Math.floor((absDiff % (1000 * 60 * 60)) / (1000 * 60));
+      
+      if (hours > 0) {
+        return `in ${hours}h ${minutes}min`;
+      } else if (minutes > 0) {
+        return `in ${minutes}min`;
+      } else {
+        return "now";
+      }
+    }
+    
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hours > 0) {
+      return `${hours}h ${minutes}min`;
+    } else if (minutes > 0) {
+      return `${minutes}min`;
+    } else {
+      return "just now";
+    }
+  } catch (error) {
+    console.error("Error calculating elapsed time:", error);
+    return "";
+  }
+};

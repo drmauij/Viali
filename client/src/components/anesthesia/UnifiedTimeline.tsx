@@ -85,7 +85,7 @@ import type { MonitorAnalysisResult } from "@shared/monitorParameters";
 import { TimelineContextProvider } from "./TimelineContext";
 import { VITAL_ICON_PATHS } from "@/lib/vitalIconPaths";
 import { TimeAdjustInput } from "./TimeAdjustInput";
-import { formatTime } from "@/lib/dateUtils";
+import { formatTime, formatElapsedTime } from "@/lib/dateUtils";
 import { calculateMaxTracks, assignInfusionTracks } from "@/lib/infusionTrackAssignment";
 import {
   ONE_MINUTE,
@@ -6749,9 +6749,16 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                   {marker.code}
                 </div>
                 <div className="grid gap-1">
-                  <Label className="text-sm font-medium">
-                    {marker.label}
-                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-medium">
+                      {marker.label}
+                    </Label>
+                    {marker.time !== null && (
+                      <Badge variant="outline" className="text-xs font-normal text-muted-foreground" data-testid={`elapsed-time-${marker.code}`}>
+                        {formatElapsedTime(marker.time)}
+                      </Badge>
+                    )}
+                  </div>
                   {marker.time !== null ? (
                     <TimeAdjustInput
                       value={marker.time}
@@ -6882,12 +6889,19 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 >
                   {editingTimeMarker.marker.code}
                 </div>
-                <div>
+                <div className="flex-1">
                   <div className="font-medium">{editingTimeMarker.marker.label}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {editingTimeMarker.marker.time 
-                      ? formatTime(editingTimeMarker.marker.time)
-                      : 'Not set'}
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span>
+                      {editingTimeMarker.marker.time 
+                        ? formatTime(editingTimeMarker.marker.time)
+                        : 'Not set'}
+                    </span>
+                    {editingTimeMarker.marker.time && (
+                      <Badge variant="secondary" className="text-xs font-normal" data-testid="elapsed-time-single">
+                        {formatElapsedTime(editingTimeMarker.marker.time)}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </div>
