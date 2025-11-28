@@ -15,22 +15,23 @@ function getPreOpSummary(assessment: any, t: (key: string) => string): string | 
   
   const parts: string[] = [];
   
-  if (assessment.asa != null) {
+  if (assessment.asa != null && assessment.asa !== '') {
     parts.push(`ASA ${assessment.asa}`);
   }
-  if (assessment.weight != null) {
+  if (assessment.weight != null && assessment.weight !== '' && assessment.weight !== 0) {
     parts.push(`${assessment.weight}kg`);
   }
-  if (assessment.height != null) {
+  if (assessment.height != null && assessment.height !== '' && assessment.height !== 0) {
     parts.push(`${assessment.height}cm`);
   }
-  if (assessment.heartRate != null) {
+  if (assessment.heartRate != null && assessment.heartRate !== '' && assessment.heartRate !== 0) {
     parts.push(`HR ${assessment.heartRate}`);
   }
-  if (assessment.bloodPressureSystolic != null && assessment.bloodPressureDiastolic != null) {
+  if (assessment.bloodPressureSystolic != null && assessment.bloodPressureDiastolic != null && 
+      assessment.bloodPressureSystolic !== 0 && assessment.bloodPressureDiastolic !== 0) {
     parts.push(`BP ${assessment.bloodPressureSystolic}/${assessment.bloodPressureDiastolic}`);
   }
-  if (assessment.cave != null) {
+  if (assessment.cave != null && assessment.cave !== '') {
     parts.push(`CAVE: ${assessment.cave}`);
   }
   
