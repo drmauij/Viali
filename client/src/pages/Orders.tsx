@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useCanWrite } from "@/hooks/useCanWrite";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
@@ -63,6 +64,7 @@ export default function Orders() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const activeHospital = useActiveHospital();
+  const canWrite = useCanWrite();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [newOrderDialogOpen, setNewOrderDialogOpen] = useState(false);
@@ -700,10 +702,12 @@ export default function Orders() {
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">{t('orders.title')}</h1>
-        <Button size="sm" onClick={handleNewOrder} data-testid="add-order-button">
-          <i className="fas fa-plus mr-2"></i>
-          {t('orders.newOrder')}
-        </Button>
+        {canWrite && (
+          <Button size="sm" onClick={handleNewOrder} data-testid="add-order-button">
+            <i className="fas fa-plus mr-2"></i>
+            {t('orders.newOrder')}
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
@@ -763,7 +767,7 @@ export default function Orders() {
                       >
                         <i className="fas fa-file-pdf"></i>
                       </Button>
-                      {canEditOrder(order) && (
+                      {canWrite && canEditOrder(order) && (
                         <Button
                           size="sm"
                           className="flex-1"
@@ -988,7 +992,7 @@ export default function Orders() {
               </div>
 
               {/* Order Notes */}
-              {(selectedOrder.status === 'draft' || selectedOrder.status === 'sent') && canEditOrder(selectedOrder) && (
+              {canWrite && (selectedOrder.status === 'draft' || selectedOrder.status === 'sent') && canEditOrder(selectedOrder) && (
                 <div className="p-3 bg-muted/20 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-sm font-medium text-foreground">
@@ -1067,7 +1071,7 @@ export default function Orders() {
                     const displayQty = line.qty;
                     const displayUnit = line.item.unit;
                     
-                    const canToggleOffline = (selectedOrder.status === 'draft' || selectedOrder.status === 'sent') && canEditOrder(selectedOrder) && !line.received;
+                    const canToggleOffline = canWrite && (selectedOrder.status === 'draft' || selectedOrder.status === 'sent') && canEditOrder(selectedOrder) && !line.received;
                     
                     return (
                     <div key={line.id} className={`flex flex-col gap-2 p-3 border border-border rounded-lg transition-colors ${canToggleOffline ? (line.offlineWorked ? 'bg-green-50 dark:bg-green-950/20' : '') : ''}`} data-testid={`order-line-${line.id}`}>
@@ -1162,7 +1166,7 @@ export default function Orders() {
                               <p className="text-lg font-semibold text-foreground">{displayQty}</p>
                               <p className="text-xs text-muted-foreground">{displayUnit}</p>
                             </div>
-                            {selectedOrder.status === 'sent' && canEditOrder(selectedOrder) && (
+                            {canWrite && selectedOrder.status === 'sent' && canEditOrder(selectedOrder) && (
                               <>
                                 <Button
                                   size="sm"
@@ -1206,7 +1210,7 @@ export default function Orders() {
                                 </Button>
                               </>
                             )}
-                            {selectedOrder.status === 'draft' && canEditOrder(selectedOrder) && (
+                            {canWrite && selectedOrder.status === 'draft' && canEditOrder(selectedOrder) && (
                               <>
                                 <Button
                                   size="sm"
@@ -1251,7 +1255,7 @@ export default function Orders() {
                       </div>
 
                       {/* Line Item Notes */}
-                      {(selectedOrder.status === 'draft' || selectedOrder.status === 'sent') && canEditOrder(selectedOrder) && !line.received && (
+                      {canWrite && (selectedOrder.status === 'draft' || selectedOrder.status === 'sent') && canEditOrder(selectedOrder) && !line.received && (
                         <div className="pt-2 border-t border-border/50">
                           {editingLineNotes === line.id ? (
                             <div className="space-y-2">
@@ -1323,7 +1327,7 @@ export default function Orders() {
               </div>
 
               <div className="flex justify-between gap-2 pt-4 border-t border-border">
-                {canEditOrder(selectedOrder) && (
+                {canWrite && canEditOrder(selectedOrder) && (
                   <Button
                     variant="destructive"
                     onClick={handleDeleteOrder}
@@ -1341,7 +1345,7 @@ export default function Orders() {
                   >
                     {t('common.close')}
                   </Button>
-                  {selectedOrder.status === 'draft' && canEditOrder(selectedOrder) && (
+                  {canWrite && selectedOrder.status === 'draft' && canEditOrder(selectedOrder) && (
                     <Button
                       onClick={() => {
                         handleStatusUpdate(selectedOrder.id, "sent");

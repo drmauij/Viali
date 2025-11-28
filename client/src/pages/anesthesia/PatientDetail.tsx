@@ -22,6 +22,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import type { Surgery } from "@shared/schema";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useAuth } from "@/hooks/useAuth";
+import { useCanWrite } from "@/hooks/useCanWrite";
 import { useModule } from "@/contexts/ModuleContext";
 import { formatDate, formatDateTimeForInput } from "@/lib/dateUtils";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
@@ -72,6 +73,7 @@ export default function PatientDetail() {
   const hiddenChartRef = useRef<HiddenChartExporterRef>(null);
   const activeHospital = useActiveHospital();
   const { user } = useAuth();
+  const canWrite = useCanWrite();
   const { activeModule } = useModule();
   const isSurgeryModule = activeModule === "surgery";
   const moduleBasePath = isSurgeryModule ? "/surgery" : "/anesthesia";
@@ -1206,41 +1208,43 @@ export default function PatientDetail() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => {
-                    setEditForm({
-                      surname: patient.surname,
-                      firstName: patient.firstName,
-                      birthday: patient.birthday,
-                      sex: patient.sex,
-                      email: patient.email || "",
-                      phone: patient.phone || "",
-                      address: patient.address || "",
-                      emergencyContact: patient.emergencyContact || "",
-                      insuranceProvider: patient.insuranceProvider || "",
-                      insuranceNumber: patient.insuranceNumber || "",
-                      allergies: patient.allergies || [],
-                      otherAllergies: patient.otherAllergies || "",
-                      internalNotes: patient.internalNotes || "",
-                    });
-                    setIsEditDialogOpen(true);
-                  }}
-                  data-testid="button-edit-patient"
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  onClick={() => setIsDeleteDialogOpen(true)}
-                  data-testid="button-delete-patient"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+              {canWrite && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      setEditForm({
+                        surname: patient.surname,
+                        firstName: patient.firstName,
+                        birthday: patient.birthday,
+                        sex: patient.sex,
+                        email: patient.email || "",
+                        phone: patient.phone || "",
+                        address: patient.address || "",
+                        emergencyContact: patient.emergencyContact || "",
+                        insuranceProvider: patient.insuranceProvider || "",
+                        insuranceNumber: patient.insuranceNumber || "",
+                        allergies: patient.allergies || [],
+                        otherAllergies: patient.otherAllergies || "",
+                        internalNotes: patient.internalNotes || "",
+                      });
+                      setIsEditDialogOpen(true);
+                    }}
+                    data-testid="button-edit-patient"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    onClick={() => setIsDeleteDialogOpen(true)}
+                    data-testid="button-delete-patient"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -1318,13 +1322,14 @@ export default function PatientDetail() {
 
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('anesthesia.patientDetail.surgeries')} ({surgeries?.length || 0})</h2>
-        <Dialog open={isCreateCaseOpen} onOpenChange={setIsCreateCaseOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2" data-testid="button-create-case">
-              <Plus className="h-4 w-4" />
-              {t('anesthesia.patientDetail.newSurgery')}
-            </Button>
-          </DialogTrigger>
+        {canWrite && (
+          <Dialog open={isCreateCaseOpen} onOpenChange={setIsCreateCaseOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2" data-testid="button-create-case">
+                <Plus className="h-4 w-4" />
+                {t('anesthesia.patientDetail.newSurgery')}
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{t('anesthesia.patientDetail.createNewSurgery')}</DialogTitle>
@@ -1454,7 +1459,8 @@ export default function PatientDetail() {
               </Button>
             </div>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        )}
       </div>
 
       {/* Edit Surgery Dialog */}
@@ -1657,22 +1663,26 @@ export default function PatientDetail() {
                     >
                       <Download className="h-4 w-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEditCase(surgery)}
-                      data-testid={`button-edit-surgery-${surgery.id}`}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setDeleteDialogSurgeryId(surgery.id)}
-                      data-testid={`button-delete-surgery-${surgery.id}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {canWrite && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditCase(surgery)}
+                          data-testid={`button-edit-surgery-${surgery.id}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeleteDialogSurgeryId(surgery.id)}
+                          data-testid={`button-delete-surgery-${surgery.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
                 

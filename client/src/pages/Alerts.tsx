@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useCanWrite } from "@/hooks/useCanWrite";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
@@ -20,6 +21,7 @@ export default function Alerts() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const activeHospital = useActiveHospital();
+  const canWrite = useCanWrite();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
@@ -204,7 +206,7 @@ export default function Alerts() {
     <div className="p-4 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">{t("alerts.title")}</h1>
-        {alerts.length > 0 && (
+        {canWrite && alerts.length > 0 && (
           <Button variant="outline" size="sm" data-testid="acknowledge-all-button">
             {t("alerts.acknowledgeAll")}
           </Button>
@@ -232,7 +234,7 @@ export default function Alerts() {
                 <i className={`${getAlertIcon(type)} ${getAlertIconColor(type)}`}></i>
                 {getSectionTitle(type, typeAlerts.length)}
               </h3>
-              {typeAlerts.length > 1 && (
+              {canWrite && typeAlerts.length > 1 && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -278,24 +280,26 @@ export default function Alerts() {
                       </p>
                     </div>
 
-                    <div className="flex flex-col gap-2 ml-4">
-                      <button
-                        className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20 transition-colors"
-                        onClick={() => handleAcknowledge(alert.id)}
-                        disabled={acknowledgeMutation.isPending}
-                        data-testid={`ack-alert-${alert.id}`}
-                      >
-                        <i className="fas fa-check"></i>
-                      </button>
-                      <button
-                        className="w-9 h-9 rounded-lg bg-muted text-muted-foreground flex items-center justify-center hover:bg-muted/80 transition-colors"
-                        onClick={() => handleSnooze(alert.id)}
-                        disabled={snoozeMutation.isPending}
-                        data-testid={`snooze-alert-${alert.id}`}
-                      >
-                        <i className="fas fa-clock"></i>
-                      </button>
-                    </div>
+                    {canWrite && (
+                      <div className="flex flex-col gap-2 ml-4">
+                        <button
+                          className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20 transition-colors"
+                          onClick={() => handleAcknowledge(alert.id)}
+                          disabled={acknowledgeMutation.isPending}
+                          data-testid={`ack-alert-${alert.id}`}
+                        >
+                          <i className="fas fa-check"></i>
+                        </button>
+                        <button
+                          className="w-9 h-9 rounded-lg bg-muted text-muted-foreground flex items-center justify-center hover:bg-muted/80 transition-colors"
+                          onClick={() => handleSnooze(alert.id)}
+                          disabled={snoozeMutation.isPending}
+                          data-testid={`snooze-alert-${alert.id}`}
+                        >
+                          <i className="fas fa-clock"></i>
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {alert.severity === "critical" && (

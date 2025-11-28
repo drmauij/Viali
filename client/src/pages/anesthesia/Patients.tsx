@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Search, UserPlus, ScanBarcode, UserCircle, UserRound, Loader2 } from "lucide-react";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useCanWrite } from "@/hooks/useCanWrite";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Patient } from "@shared/schema";
@@ -23,6 +24,7 @@ export default function Patients() {
   const { t } = useTranslation();
   const [, setLocation] = useLocation();
   const activeHospital = useActiveHospital();
+  const canWrite = useCanWrite();
   const { toast } = useToast();
   const { activeModule } = useModule();
   const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings();
@@ -224,13 +226,14 @@ export default function Patients() {
           </p>
         </div>
         
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2" data-testid="button-create-patient">
-              <UserPlus className="h-4 w-4" />
-              {t('anesthesia.patients.createPatient')}
-            </Button>
-          </DialogTrigger>
+        {canWrite && (
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2" data-testid="button-create-patient">
+                <UserPlus className="h-4 w-4" />
+                {t('anesthesia.patients.createPatient')}
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{t('anesthesia.patients.createPatient')}</DialogTitle>
@@ -378,7 +381,8 @@ export default function Patients() {
               </Button>
             </div>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        )}
       </div>
 
       <div className="mb-6">

@@ -10,6 +10,7 @@ interface ItemQuickPanelProps {
   } | null;
   onStockUpdate?: (itemId: string, newQty: number) => void;
   onControlledDispense?: (item: Item) => void;
+  canWrite?: boolean;
 }
 
 export default function ItemQuickPanel({
@@ -18,6 +19,7 @@ export default function ItemQuickPanel({
   item,
   onStockUpdate,
   onControlledDispense,
+  canWrite = true,
 }: ItemQuickPanelProps) {
   const [adjustmentQty, setAdjustmentQty] = useState<string>("");
 
@@ -159,76 +161,80 @@ export default function ItemQuickPanel({
 
         {/* Quick Actions */}
         <div className="space-y-3">
-          <div className="grid grid-cols-3 gap-3">
-            <button
-              className="action-button btn-outline flex-col h-20"
-              onClick={() => handleQuantityChange("subtract")}
-              data-testid="qty-decrease"
-            >
-              <i className="fas fa-minus text-xl"></i>
-              <span className="text-xs mt-1">-1</span>
-            </button>
-            <div className="flex flex-col h-20 gap-1">
-              <input
-                type="number"
-                placeholder="New qty"
-                value={adjustmentQty}
-                onChange={(e) => setAdjustmentQty(e.target.value)}
-                className="flex-1 px-2 py-1 rounded border border-input bg-background text-foreground text-center text-sm"
-                data-testid="qty-input"
-              />
+          {canWrite && (
+            <>
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  className="action-button btn-outline flex-col h-20"
+                  onClick={() => handleQuantityChange("subtract")}
+                  data-testid="qty-decrease"
+                >
+                  <i className="fas fa-minus text-xl"></i>
+                  <span className="text-xs mt-1">-1</span>
+                </button>
+                <div className="flex flex-col h-20 gap-1">
+                  <input
+                    type="number"
+                    placeholder="New qty"
+                    value={adjustmentQty}
+                    onChange={(e) => setAdjustmentQty(e.target.value)}
+                    className="flex-1 px-2 py-1 rounded border border-input bg-background text-foreground text-center text-sm"
+                    data-testid="qty-input"
+                  />
+                  <button
+                    className="action-button btn-primary text-xs py-1"
+                    onClick={handleSetCount}
+                    disabled={!adjustmentQty}
+                    data-testid="set-count-button"
+                  >
+                    Set
+                  </button>
+                </div>
+                <button
+                  className="action-button btn-outline flex-col h-20"
+                  onClick={() => handleQuantityChange("add")}
+                  data-testid="qty-increase"
+                >
+                  <i className="fas fa-plus text-xl"></i>
+                  <span className="text-xs mt-1">+1</span>
+                </button>
+              </div>
+
               <button
-                className="action-button btn-primary text-xs py-1"
-                onClick={handleSetCount}
-                disabled={!adjustmentQty}
-                data-testid="set-count-button"
+                className="action-button btn-outline w-full"
+                data-testid="add-lot-button"
               >
-                Set
+                <i className="fas fa-calendar-plus"></i>
+                <span>Add Lot / Expiry</span>
               </button>
-            </div>
-            <button
-              className="action-button btn-outline flex-col h-20"
-              onClick={() => handleQuantityChange("add")}
-              data-testid="qty-increase"
-            >
-              <i className="fas fa-plus text-xl"></i>
-              <span className="text-xs mt-1">+1</span>
-            </button>
-          </div>
 
-          <button
-            className="action-button btn-outline w-full"
-            data-testid="add-lot-button"
-          >
-            <i className="fas fa-calendar-plus"></i>
-            <span>Add Lot / Expiry</span>
-          </button>
+              <button
+                className="action-button btn-outline w-full"
+                data-testid="move-stock-button"
+              >
+                <i className="fas fa-exchange-alt"></i>
+                <span>Move Stock</span>
+              </button>
 
-          <button
-            className="action-button btn-outline w-full"
-            data-testid="move-stock-button"
-          >
-            <i className="fas fa-exchange-alt"></i>
-            <span>Move Stock</span>
-          </button>
+              <button
+                className="action-button btn-destructive w-full"
+                data-testid="mark-expired-button"
+              >
+                <i className="fas fa-times-circle"></i>
+                <span>Mark Expired / Damaged</span>
+              </button>
 
-          <button
-            className="action-button btn-destructive w-full"
-            data-testid="mark-expired-button"
-          >
-            <i className="fas fa-times-circle"></i>
-            <span>Mark Expired / Damaged</span>
-          </button>
-
-          {isControlled && (
-            <button
-              className="action-button btn-secondary w-full"
-              onClick={() => onControlledDispense?.(item)}
-              data-testid="record-administration-button"
-            >
-              <i className="fas fa-shield-halved"></i>
-              <span>Record Administration</span>
-            </button>
+              {isControlled && (
+                <button
+                  className="action-button btn-secondary w-full"
+                  onClick={() => onControlledDispense?.(item)}
+                  data-testid="record-administration-button"
+                >
+                  <i className="fas fa-shield-halved"></i>
+                  <span>Record Administration</span>
+                </button>
+              )}
+            </>
           )}
         </div>
 

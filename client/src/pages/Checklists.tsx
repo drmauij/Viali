@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useAuth } from "@/hooks/useAuth";
+import { useCanWrite } from "@/hooks/useCanWrite";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ export default function Checklists() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const activeHospital = useActiveHospital();
+  const canWrite = useCanWrite();
   const { toast } = useToast();
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<PendingChecklist | null>(null);
@@ -265,6 +267,7 @@ export default function Checklists() {
                       </div>
                       <Button 
                         onClick={() => handleCompleteChecklist(checklist)}
+                        disabled={!canWrite}
                         data-testid={`button-complete-${checklist.id}`}
                       >
                         {t("checklists.complete")}

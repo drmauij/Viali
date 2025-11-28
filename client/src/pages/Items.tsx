@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useCanWrite } from "@/hooks/useCanWrite";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -101,6 +102,7 @@ export default function Items() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const activeHospital = useActiveHospital();
+  const canWrite = useCanWrite();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [sortBy, setSortBy] = useState("name");
@@ -888,7 +890,7 @@ export default function Items() {
     setActiveItemId(null);
     setDropIndicator(null);
 
-    if (!over || active.id === over.id) {
+    if (!over || active.id === over.id || !canWrite) {
       return;
     }
 
@@ -2027,25 +2029,6 @@ export default function Items() {
               </>
             ) : (
               <>
-                <Button variant="outline" size="sm" onClick={() => { setIsBulkDeleteMode(true); setSelectedItems(new Set()); }} data-testid="bulk-delete-button" className="flex-1 sm:flex-initial">
-                  <i className="fas fa-trash mr-2"></i>
-                  Bulk Delete
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => { setIsBulkEditMode(true); setBulkEditItems({}); }} data-testid="bulk-edit-button" className="flex-1 sm:flex-initial">
-                  <i className="fas fa-edit mr-2"></i>
-                  {t('items.bulkEdit')}
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => setBulkImportOpen(true)} 
-                  disabled={importJob?.status === 'processing'}
-                  data-testid="bulk-import-button" 
-                  className="flex-1 sm:flex-initial"
-                >
-                  <i className="fas fa-upload mr-2"></i>
-                  {t('items.bulkImport')}
-                </Button>
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -2057,10 +2040,33 @@ export default function Items() {
                   <i className="fas fa-download mr-2"></i>
                   Download List
                 </Button>
-                <Button size="sm" onClick={() => setAddDialogOpen(true)} data-testid="add-item-button" className="flex-1 sm:flex-initial">
-                  <i className="fas fa-plus mr-2"></i>
-                  {t('items.addItem')}
-                </Button>
+                {canWrite && (
+                  <>
+                    <Button variant="outline" size="sm" onClick={() => { setIsBulkDeleteMode(true); setSelectedItems(new Set()); }} data-testid="bulk-delete-button" className="flex-1 sm:flex-initial">
+                      <i className="fas fa-trash mr-2"></i>
+                      Bulk Delete
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => { setIsBulkEditMode(true); setBulkEditItems({}); }} data-testid="bulk-edit-button" className="flex-1 sm:flex-initial">
+                      <i className="fas fa-edit mr-2"></i>
+                      {t('items.bulkEdit')}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setBulkImportOpen(true)} 
+                      disabled={importJob?.status === 'processing'}
+                      data-testid="bulk-import-button" 
+                      className="flex-1 sm:flex-initial"
+                    >
+                      <i className="fas fa-upload mr-2"></i>
+                      {t('items.bulkImport')}
+                    </Button>
+                    <Button size="sm" onClick={() => setAddDialogOpen(true)} data-testid="add-item-button" className="flex-1 sm:flex-initial">
+                      <i className="fas fa-plus mr-2"></i>
+                      {t('items.addItem')}
+                    </Button>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -2127,15 +2133,17 @@ export default function Items() {
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm text-muted-foreground">{t('items.itemsCount', { count: filteredItems.length })}</span>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCreateFolder}
-            data-testid="create-folder-button"
-          >
-            <FolderPlus className="w-4 h-4 mr-1" />
-            {t('items.newFolder')}
-          </Button>
+          {canWrite && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCreateFolder}
+              data-testid="create-folder-button"
+            >
+              <FolderPlus className="w-4 h-4 mr-1" />
+              {t('items.newFolder')}
+            </Button>
+          )}
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
@@ -2187,20 +2195,24 @@ export default function Items() {
                         <FolderIcon className="w-5 h-5 text-primary" />
                         <span className="flex-1 font-medium text-foreground">{folder.name}</span>
                         <span className="text-sm text-muted-foreground">({folderItems.length})</span>
-                        <button
-                          onClick={(e) => handleEditFolder(e, folder)}
-                          className="p-1 hover:bg-muted rounded"
-                          data-testid={`edit-folder-${folder.id}`}
-                        >
-                          <Edit2 className="w-4 h-4 text-muted-foreground" />
-                        </button>
-                        <button
-                          onClick={(e) => handleDeleteFolder(e, folder.id)}
-                          className="p-1 hover:bg-destructive/10 rounded"
-                          data-testid={`delete-folder-${folder.id}`}
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </button>
+                        {canWrite && (
+                          <>
+                            <button
+                              onClick={(e) => handleEditFolder(e, folder)}
+                              className="p-1 hover:bg-muted rounded"
+                              data-testid={`edit-folder-${folder.id}`}
+                            >
+                              <Edit2 className="w-4 h-4 text-muted-foreground" />
+                            </button>
+                            <button
+                              onClick={(e) => handleDeleteFolder(e, folder.id)}
+                              className="p-1 hover:bg-destructive/10 rounded"
+                              data-testid={`delete-folder-${folder.id}`}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </DroppableFolder>
                   </DraggableItem>
@@ -2212,11 +2224,11 @@ export default function Items() {
                         const currentQty = item.stockLevel?.qtyOnHand || 0;
 
                         return (
-                          <DraggableItem key={item.id} id={item.id} disabled={isBulkEditMode || isBulkDeleteMode}>
+                          <DraggableItem key={item.id} id={item.id} disabled={isBulkEditMode || isBulkDeleteMode || !canWrite}>
                             <div
                               className="item-row"
-                              onClick={!isBulkEditMode && !isBulkDeleteMode ? () => handleEditItem(item) : undefined}
-                              style={!isBulkEditMode && !isBulkDeleteMode ? { cursor: 'pointer' } : undefined}
+                              onClick={canWrite && !isBulkEditMode && !isBulkDeleteMode ? () => handleEditItem(item) : undefined}
+                              style={canWrite && !isBulkEditMode && !isBulkDeleteMode ? { cursor: 'pointer' } : undefined}
                               data-testid={`item-${item.id}`}
                             >
                               <div className="flex items-start justify-between mb-3">
@@ -2486,11 +2498,11 @@ export default function Items() {
                     const currentQty = item.stockLevel?.qtyOnHand || 0;
 
                     return (
-                      <DraggableItem key={item.id} id={item.id} disabled={isBulkEditMode || isBulkDeleteMode}>
+                      <DraggableItem key={item.id} id={item.id} disabled={isBulkEditMode || isBulkDeleteMode || !canWrite}>
                         <div 
                           className="item-row"
-                          onClick={!isBulkEditMode && !isBulkDeleteMode ? () => handleEditItem(item) : undefined}
-                          style={!isBulkEditMode && !isBulkDeleteMode ? { cursor: 'pointer' } : undefined}
+                          onClick={canWrite && !isBulkEditMode && !isBulkDeleteMode ? () => handleEditItem(item) : undefined}
+                          style={canWrite && !isBulkEditMode && !isBulkDeleteMode ? { cursor: 'pointer' } : undefined}
                           data-testid={`item-${item.id}`}
                         >
                 <div className="flex items-start justify-between mb-3">

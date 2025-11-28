@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useCanWrite } from "@/hooks/useCanWrite";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest } from "@/lib/queryClient";
@@ -73,6 +74,7 @@ export default function ControlledLog() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const activeHospital = useActiveHospital();
+  const canWrite = useCanWrite();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showAdministrationModal, setShowAdministrationModal] = useState(false);
@@ -830,24 +832,26 @@ export default function ControlledLog() {
         <TabsContent value="administrations" className="space-y-4 mt-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <h2 className="text-lg font-semibold text-foreground">{t('controlled.administrationLog')}</h2>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                className="bg-accent hover:bg-accent/90 text-accent-foreground flex-1 sm:flex-none"
-                onClick={handleOpenAdministrationModal}
-                data-testid="record-administration-button"
-              >
-                <i className="fas fa-plus mr-2"></i>
-                {t('controlled.recordAdministration')}
-              </Button>
-              <Button
-                className="bg-orange-500 hover:bg-orange-600 text-white flex-1 sm:flex-none"
-                onClick={() => setShowManualAdjustmentModal(true)}
-                data-testid="manual-adjustment-button"
-              >
-                <i className="fas fa-edit mr-2"></i>
-                Manual Adjustment
-              </Button>
-            </div>
+            {canWrite && (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  className="bg-accent hover:bg-accent/90 text-accent-foreground flex-1 sm:flex-none"
+                  onClick={handleOpenAdministrationModal}
+                  data-testid="record-administration-button"
+                >
+                  <i className="fas fa-plus mr-2"></i>
+                  {t('controlled.recordAdministration')}
+                </Button>
+                <Button
+                  className="bg-orange-500 hover:bg-orange-600 text-white flex-1 sm:flex-none"
+                  onClick={() => setShowManualAdjustmentModal(true)}
+                  data-testid="manual-adjustment-button"
+                >
+                  <i className="fas fa-edit mr-2"></i>
+                  Manual Adjustment
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="bg-card border border-border rounded-lg p-4">
@@ -1020,17 +1024,19 @@ export default function ControlledLog() {
                   <div className="flex gap-2 mt-3">
                     {!activity.controlledVerified ? (
                       <>
-                        <Button 
-                          size="sm" 
-                          className="flex-1" 
-                          onClick={() => {
-                            setActivityToVerify(activity.id);
-                            setShowVerifySignaturePad(true);
-                          }}
-                          data-testid={`sign-verify-${activity.id}`}
-                        >
-                          Sign & Verify
-                        </Button>
+                        {canWrite && (
+                          <Button 
+                            size="sm" 
+                            className="flex-1" 
+                            onClick={() => {
+                              setActivityToVerify(activity.id);
+                              setShowVerifySignaturePad(true);
+                            }}
+                            data-testid={`sign-verify-${activity.id}`}
+                          >
+                            Sign & Verify
+                          </Button>
+                        )}
                         <Button 
                           variant="outline" 
                           size="sm" 
@@ -1061,14 +1067,16 @@ export default function ControlledLog() {
         <TabsContent value="checks" className="space-y-4 mt-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-foreground">{t('controlled.routineVerification')}</h2>
-            <Button
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
-              onClick={handleOpenRoutineCheckModal}
-              data-testid="perform-routine-check-button"
-            >
-              <i className="fas fa-clipboard-check mr-2"></i>
-              {t('controlled.performRoutineCheck')}
-            </Button>
+            {canWrite && (
+              <Button
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                onClick={handleOpenRoutineCheckModal}
+                data-testid="perform-routine-check-button"
+              >
+                <i className="fas fa-clipboard-check mr-2"></i>
+                {t('controlled.performRoutineCheck')}
+              </Button>
+            )}
           </div>
 
           <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">

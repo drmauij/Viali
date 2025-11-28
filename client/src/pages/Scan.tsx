@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useCanWrite } from "@/hooks/useCanWrite";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import BarcodeScanner from "@/components/BarcodeScanner";
@@ -29,6 +30,7 @@ interface ExternalProduct {
 export default function Scan() {
   const { user } = useAuth();
   const activeHospital = useActiveHospital();
+  const canWrite = useCanWrite();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -95,11 +97,19 @@ export default function Scan() {
     onSuccess: (product: ExternalProduct) => {
       setExternalProduct(product);
       setShowScanner(false);
-      setShowAddDialog(true);
-      toast({
-        title: "Product Found",
-        description: `${product.name} found in external database.`,
-      });
+      if (canWrite) {
+        setShowAddDialog(true);
+        toast({
+          title: "Product Found",
+          description: `${product.name} found in external database.`,
+        });
+      } else {
+        toast({
+          title: "Item Not Found",
+          description: "This barcode is not in your inventory. Contact an admin to add it.",
+          variant: "destructive",
+        });
+      }
     },
     onError: (error) => {
       toast({
@@ -358,8 +368,9 @@ export default function Scan() {
             qtyOnHand: scannedItem.stockLevel.qtyOnHand || 0
           } : undefined
         } : null}
-        onStockUpdate={handleStockUpdate}
-        onControlledDispense={handleControlledDispense}
+        onStockUpdate={canWrite ? handleStockUpdate : undefined}
+        onControlledDispense={canWrite ? handleControlledDispense : undefined}
+        canWrite={canWrite}
       />
 
       {/* Add Item from External Lookup Dialog */}
