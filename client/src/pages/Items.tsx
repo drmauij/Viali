@@ -2713,7 +2713,7 @@ export default function Items() {
                         </span>
                       </div>
                       <div className="flex gap-1 items-center">
-                        {(item.trackExactQuantity || item.unit.toLowerCase() === 'single unit') && !item.controlled && 
+                        {canWrite && (item.trackExactQuantity || item.unit.toLowerCase() === 'single unit') && !item.controlled && 
                          (item.trackExactQuantity ? (item.currentUnits || 0) > 0 : currentQty > 0) && (
                           <Button 
                             variant="outline" 
@@ -2726,7 +2726,7 @@ export default function Items() {
                             -1
                           </Button>
                         )}
-                        {currentQty <= (item.minThreshold || 0) && currentQty < (item.maxThreshold || Infinity) && (
+                        {canWrite && currentQty <= (item.minThreshold || 0) && currentQty < (item.maxThreshold || Infinity) && (
                           openOrderItems[item.id] ? (
                             <Button variant="outline" size="sm" disabled data-testid={`quick-ordered-${item.id}`}>
                               <i className="fas fa-check mr-1"></i>
