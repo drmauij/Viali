@@ -8904,9 +8904,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Note not found" });
       }
 
-      // Only the note creator can update it
-      if (note.userId !== userId) {
-        return res.status(403).json({ message: "You can only edit your own notes" });
+      // Check edit permissions based on note scope
+      let canEditNote = false;
+      
+      // Creator can always edit their own notes
+      if (note.userId === userId) {
+        canEditNote = true;
+      } 
+      // For unit notes, members of the same unit can edit
+      else if (note.scope === 'unit' && note.unitId) {
+        const { hasAccess } = await verifyUserHospitalUnitAccess(userId, note.hospitalId, note.unitId);
+        canEditNote = hasAccess;
+      }
+      // For hospital notes, admins can edit
+      else if (note.scope === 'hospital') {
+        const role = await getUserRole(userId, note.hospitalId);
+        canEditNote = role === 'admin';
+      }
+
+      if (!canEditNote) {
+        return res.status(403).json({ message: "You don't have permission to edit this note" });
       }
 
       // Encrypt content before storing (using AES-GCM for authenticated encryption)
@@ -8952,9 +8969,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Note not found" });
       }
 
-      // Only the note creator can delete it
-      if (note.userId !== userId) {
-        return res.status(403).json({ message: "You can only delete your own notes" });
+      // Check delete permissions based on note scope
+      let canDeleteNote = false;
+      
+      // Creator can always delete their own notes
+      if (note.userId === userId) {
+        canDeleteNote = true;
+      } 
+      // For unit notes, members of the same unit can delete
+      else if (note.scope === 'unit' && note.unitId) {
+        const { hasAccess } = await verifyUserHospitalUnitAccess(userId, note.hospitalId, note.unitId);
+        canDeleteNote = hasAccess;
+      }
+      // For hospital notes, admins can delete
+      else if (note.scope === 'hospital') {
+        const role = await getUserRole(userId, note.hospitalId);
+        canDeleteNote = role === 'admin';
+      }
+
+      if (!canDeleteNote) {
+        return res.status(403).json({ message: "You don't have permission to delete this note" });
       }
 
       // Delete the note

@@ -256,7 +256,13 @@ export default function NotesPanel({ isOpen, onClose, activeHospital }: NotesPan
                         </div>
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <span>{note.createdAt && format(new Date(note.createdAt), "MMM d, yyyy h:mm a")}</span>
-                          {note.userId === (user as any)?.id && (
+                          {/* Show edit/delete buttons based on permissions:
+                              - Personal notes: only the creator
+                              - Unit notes: creator OR any user in the same unit (unitId matches)
+                              - Hospital notes: only the creator (admins handled by backend)
+                          */}
+                          {(note.userId === (user as any)?.id || 
+                            (note.scope === 'unit' && note.unitId === activeHospital?.unitId)) && (
                             <div className="flex gap-2">
                               <button
                                 onClick={() => handleEditNote(note)}
