@@ -169,6 +169,35 @@ export async function requireHospitalAccess(req: any, res: Response, next: NextF
   }
 }
 
+// Helper to get the active role from request headers, validated against database
+async function getActiveRoleFromRequest(req: any, userId: string, hospitalId: string): Promise<string | null> {
+  const headerRole = req.headers['x-active-role'] as string | undefined;
+  
+  // Get the user's actual roles for this hospital from the database
+  const hospitals = await storage.getUserHospitals(userId);
+  const matchingHospitals = hospitals.filter(h => h.id === hospitalId);
+  
+  if (matchingHospitals.length === 0) {
+    return null;
+  }
+  
+  // Get all roles user has for this hospital
+  const availableRoles = matchingHospitals.map(h => h.role).filter(Boolean);
+  
+  // If header specifies a role, verify user actually has it
+  if (headerRole && availableRoles.includes(headerRole)) {
+    return headerRole;
+  }
+  
+  // Fall back to highest role if header role is invalid or not provided
+  if (availableRoles.includes('admin')) return 'admin';
+  if (availableRoles.includes('doctor')) return 'doctor';
+  if (availableRoles.includes('nurse')) return 'nurse';
+  if (availableRoles.includes('guest')) return 'guest';
+  
+  return availableRoles[0] || null;
+}
+
 // Middleware to verify user has write access (non-guest role) to the hospital
 export async function requireWriteAccess(req: any, res: Response, next: NextFunction) {
   try {
@@ -180,16 +209,27 @@ export async function requireWriteAccess(req: any, res: Response, next: NextFunc
     const hospitalId = await resolveHospitalIdFromRequest(req);
     
     if (!hospitalId) {
-      // If we can't determine hospitalId, check if user has write access to ANY hospital
-      // This is only for routes that don't have any hospital context
-      const hospitals = await storage.getUserHospitals(userId);
-      const hasAnyWriteAccess = hospitals.some(h => canWrite(h.role));
+      // If we can't determine hospitalId, check if the active role from header allows writes
+      const headerRole = req.headers['x-active-role'] as string | undefined;
       
-      if (!hasAnyWriteAccess) {
+      if (headerRole && !canWrite(headerRole)) {
         return res.status(403).json({ 
           message: "Insufficient permissions. Guest users have read-only access.",
           code: "READ_ONLY_ACCESS"
         });
+      }
+      
+      // If no header role, fall back to checking if user has write access to any hospital
+      if (!headerRole) {
+        const hospitals = await storage.getUserHospitals(userId);
+        const hasAnyWriteAccess = hospitals.some(h => canWrite(h.role));
+        
+        if (!hasAnyWriteAccess) {
+          return res.status(403).json({ 
+            message: "Insufficient permissions. Guest users have read-only access.",
+            code: "READ_ONLY_ACCESS"
+          });
+        }
       }
       
       console.warn(`[Access Control] Could not resolve hospitalId for write check on ${req.method} ${req.path}`);
@@ -205,8 +245,8 @@ export async function requireWriteAccess(req: any, res: Response, next: NextFunc
       });
     }
     
-    // Then verify user has write access (non-guest role)
-    const role = await getUserRole(userId, hospitalId);
+    // Get the active role (from header if valid, otherwise highest role)
+    const role = await getActiveRoleFromRequest(req, userId, hospitalId);
     
     if (!canWrite(role)) {
       return res.status(403).json({ 
@@ -215,8 +255,9 @@ export async function requireWriteAccess(req: any, res: Response, next: NextFunc
       });
     }
     
-    // Store the resolved hospitalId for use by route handlers
+    // Store the resolved hospitalId and role for use by route handlers
     req.resolvedHospitalId = hospitalId;
+    req.resolvedRole = role;
     next();
   } catch (error) {
     console.error("Error checking write access:", error);

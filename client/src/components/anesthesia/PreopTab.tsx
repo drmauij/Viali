@@ -13,9 +13,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import SignaturePad from "@/components/SignaturePad";
-import { Loader2, Save, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, Save, CheckCircle2, AlertCircle, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useCanWrite } from "@/hooks/useCanWrite";
 import type { PreOpAssessment } from "@shared/schema";
 
 interface PreopTabProps {
@@ -69,6 +70,7 @@ type PreOpFormData = z.infer<typeof preOpFormSchema>;
 
 export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
   const { toast } = useToast();
+  const canWrite = useCanWrite();
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [doctorSignatureModalOpen, setDoctorSignatureModalOpen] = useState(false);
@@ -172,65 +174,53 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
 
   const createMutation = useMutation({
     mutationFn: async (data: Partial<PreOpFormData>) => {
-      const response = await fetch('/api/anesthesia/preop', {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          surgeryId,
-          height: data.height,
-          weight: data.weight,
-          allergies: data.allergies || [],
-          allergiesOther: data.allergiesOther,
-          cave: data.cave,
-          asa: data.asa,
-          specialNotes: data.specialNotes,
-          anticoagulationMeds: data.anticoagulationMeds || [],
-          anticoagulationMedsOther: data.anticoagulationMedsOther,
-          generalMeds: data.generalMeds || [],
-          generalMedsOther: data.generalMedsOther,
-          medicationsNotes: data.medicationsNotes,
-          heartNotes: data.heartNotes,
-          lungNotes: data.lungNotes,
-          giKidneyMetabolicNotes: data.giKidneyMetabolicNotes,
-          neuroPsychSkeletalNotes: data.neuroPsychSkeletalNotes,
-          womanNotes: data.womanNotes,
-          noxenNotes: data.noxenNotes,
-          childrenNotes: data.childrenNotes,
-          mallampati: data.mallampati,
-          mouthOpening: data.mouthOpening,
-          dentition: data.dentition,
-          airwayDifficult: data.airwayDifficult,
-          airwayNotes: data.airwayNotes,
-          lastSolids: data.lastSolids,
-          lastClear: data.lastClear,
-          postOpICU: data.postOpICU,
-          anesthesiaOther: data.anesthesiaOther,
-          installationsOther: data.installationsOther,
-          standBy: data.standBy,
-          standByReason: data.standByReason,
-          standByReasonNote: data.standByReasonNote,
-          assessmentDate: data.assessmentDate,
-          doctorName: data.doctorName,
-          doctorSignature: data.doctorSignature,
-          consentGiven: data.consentGiven,
-          consentText: data.consentText,
-          patientSignature: data.patientSignature,
-          consentDate: data.consentDate,
-          status: (data.doctorSignature && data.patientSignature) ? "completed" : "draft",
-        }),
+      const response = await apiRequest("POST", '/api/anesthesia/preop', {
+        surgeryId,
+        height: data.height,
+        weight: data.weight,
+        allergies: data.allergies || [],
+        allergiesOther: data.allergiesOther,
+        cave: data.cave,
+        asa: data.asa,
+        specialNotes: data.specialNotes,
+        anticoagulationMeds: data.anticoagulationMeds || [],
+        anticoagulationMedsOther: data.anticoagulationMedsOther,
+        generalMeds: data.generalMeds || [],
+        generalMedsOther: data.generalMedsOther,
+        medicationsNotes: data.medicationsNotes,
+        heartNotes: data.heartNotes,
+        lungNotes: data.lungNotes,
+        giKidneyMetabolicNotes: data.giKidneyMetabolicNotes,
+        neuroPsychSkeletalNotes: data.neuroPsychSkeletalNotes,
+        womanNotes: data.womanNotes,
+        noxenNotes: data.noxenNotes,
+        childrenNotes: data.childrenNotes,
+        mallampati: data.mallampati,
+        mouthOpening: data.mouthOpening,
+        dentition: data.dentition,
+        airwayDifficult: data.airwayDifficult,
+        airwayNotes: data.airwayNotes,
+        lastSolids: data.lastSolids,
+        lastClear: data.lastClear,
+        postOpICU: data.postOpICU,
+        anesthesiaOther: data.anesthesiaOther,
+        installationsOther: data.installationsOther,
+        standBy: data.standBy,
+        standByReason: data.standByReason,
+        standByReasonNote: data.standByReasonNote,
+        assessmentDate: data.assessmentDate,
+        doctorName: data.doctorName,
+        doctorSignature: data.doctorSignature,
+        consentGiven: data.consentGiven,
+        consentText: data.consentText,
+        patientSignature: data.patientSignature,
+        consentDate: data.consentDate,
+        status: (data.doctorSignature && data.patientSignature) ? "completed" : "draft",
       });
-      
-      if (!response.ok) {
-        throw new Error("Failed to create assessment");
-      }
       
       return response.json();
     },
     onSuccess: (newAssessment) => {
-      // Immediately update cache with new assessment to prevent duplicate creates
       queryClient.setQueryData([`/api/anesthesia/preop/surgery/${surgeryId}`], newAssessment);
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${hospitalId}`] });
       setLastSaved(new Date());
@@ -241,59 +231,48 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
     mutationFn: async (data: Partial<PreOpFormData>) => {
       if (!assessment?.id) throw new Error("No assessment ID");
       
-      const response = await fetch(`/api/anesthesia/preop/${assessment.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          height: data.height,
-          weight: data.weight,
-          allergies: data.allergies,
-          allergiesOther: data.allergiesOther,
-          cave: data.cave,
-          asa: data.asa,
-          specialNotes: data.specialNotes,
-          anticoagulationMeds: data.anticoagulationMeds,
-          anticoagulationMedsOther: data.anticoagulationMedsOther,
-          generalMeds: data.generalMeds,
-          generalMedsOther: data.generalMedsOther,
-          medicationsNotes: data.medicationsNotes,
-          heartNotes: data.heartNotes,
-          lungNotes: data.lungNotes,
-          giKidneyMetabolicNotes: data.giKidneyMetabolicNotes,
-          neuroPsychSkeletalNotes: data.neuroPsychSkeletalNotes,
-          womanNotes: data.womanNotes,
-          noxenNotes: data.noxenNotes,
-          childrenNotes: data.childrenNotes,
-          mallampati: data.mallampati,
-          mouthOpening: data.mouthOpening,
-          dentition: data.dentition,
-          airwayDifficult: data.airwayDifficult,
-          airwayNotes: data.airwayNotes,
-          lastSolids: data.lastSolids,
-          lastClear: data.lastClear,
-          postOpICU: data.postOpICU,
-          anesthesiaOther: data.anesthesiaOther,
-          installationsOther: data.installationsOther,
-          standBy: data.standBy,
-          standByReason: data.standByReason,
-          standByReasonNote: data.standByReasonNote,
-          assessmentDate: data.assessmentDate,
-          doctorName: data.doctorName,
-          doctorSignature: data.doctorSignature,
-          consentGiven: data.consentGiven,
-          consentText: data.consentText,
-          patientSignature: data.patientSignature,
-          consentDate: data.consentDate,
-          status: (data.doctorSignature && data.patientSignature) ? "completed" : "draft",
-        }),
+      const response = await apiRequest("PATCH", `/api/anesthesia/preop/${assessment.id}`, {
+        height: data.height,
+        weight: data.weight,
+        allergies: data.allergies,
+        allergiesOther: data.allergiesOther,
+        cave: data.cave,
+        asa: data.asa,
+        specialNotes: data.specialNotes,
+        anticoagulationMeds: data.anticoagulationMeds,
+        anticoagulationMedsOther: data.anticoagulationMedsOther,
+        generalMeds: data.generalMeds,
+        generalMedsOther: data.generalMedsOther,
+        medicationsNotes: data.medicationsNotes,
+        heartNotes: data.heartNotes,
+        lungNotes: data.lungNotes,
+        giKidneyMetabolicNotes: data.giKidneyMetabolicNotes,
+        neuroPsychSkeletalNotes: data.neuroPsychSkeletalNotes,
+        womanNotes: data.womanNotes,
+        noxenNotes: data.noxenNotes,
+        childrenNotes: data.childrenNotes,
+        mallampati: data.mallampati,
+        mouthOpening: data.mouthOpening,
+        dentition: data.dentition,
+        airwayDifficult: data.airwayDifficult,
+        airwayNotes: data.airwayNotes,
+        lastSolids: data.lastSolids,
+        lastClear: data.lastClear,
+        postOpICU: data.postOpICU,
+        anesthesiaOther: data.anesthesiaOther,
+        installationsOther: data.installationsOther,
+        standBy: data.standBy,
+        standByReason: data.standByReason,
+        standByReasonNote: data.standByReasonNote,
+        assessmentDate: data.assessmentDate,
+        doctorName: data.doctorName,
+        doctorSignature: data.doctorSignature,
+        consentGiven: data.consentGiven,
+        consentText: data.consentText,
+        patientSignature: data.patientSignature,
+        consentDate: data.consentDate,
+        status: (data.doctorSignature && data.patientSignature) ? "completed" : "draft",
       });
-      
-      if (!response.ok) {
-        throw new Error("Failed to update assessment");
-      }
       
       return response.json();
     },
@@ -307,6 +286,8 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
   const isCompleted = assessment?.status === "completed";
 
   const autoSave = useCallback(async () => {
+    // Don't auto-save for guest users (read-only)
+    if (!canWrite) return;
     if (form.formState.isSubmitting || isCompleted) return;
     
     // Only auto-save if form has been modified (prevents empty assessments)
@@ -326,17 +307,18 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
     } finally {
       setIsSaving(false);
     }
-  }, [assessment?.id, form, createMutation, updateMutation, isCompleted]);
+  }, [assessment?.id, form, createMutation, updateMutation, isCompleted, canWrite]);
 
   useEffect(() => {
-    if (isCompleted) return;
+    // Don't set up auto-save interval for guest users
+    if (isCompleted || !canWrite) return;
     
     const interval = setInterval(() => {
       autoSave();
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [isCompleted, autoSave]);
+  }, [isCompleted, autoSave, canWrite]);
 
   const handleManualSave = async () => {
     const formData = form.getValues();
@@ -396,12 +378,26 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
     );
   }
 
+  // Combine readonly conditions
+  const isReadOnly = isCompleted || !canWrite;
+
   return (
     <div className="space-y-6">
+      {/* Read-only banner for guests */}
+      {!canWrite && (
+        <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-4 flex items-center gap-3">
+          <Eye className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+          <div>
+            <p className="font-medium text-amber-800 dark:text-amber-200">View Only Mode</p>
+            <p className="text-sm text-amber-600 dark:text-amber-400">You have read-only access. Contact an administrator to request edit permissions.</p>
+          </div>
+        </div>
+      )}
+      
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Pre-operative Assessment</h2>
-          {lastSaved && (
+          {lastSaved && canWrite && (
             <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
               {isSaving ? (
                 <>
@@ -424,7 +420,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
               Completed
             </Badge>
           )}
-          {!isCompleted && (
+          {!isCompleted && canWrite && (
             <>
               <Button
                 variant="outline"
@@ -461,7 +457,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                   <Input 
                     id="height" 
                     {...form.register("height")}
-                    disabled={isCompleted}
+                    disabled={isReadOnly}
                     data-testid="input-height" 
                   />
                 </div>
@@ -470,7 +466,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                   <Input 
                     id="weight" 
                     {...form.register("weight")}
-                    disabled={isCompleted}
+                    disabled={isReadOnly}
                     data-testid="input-weight" 
                   />
                 </div>
@@ -480,7 +476,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Select 
                   value={form.watch("asa") || ""}
                   onValueChange={(value) => form.setValue("asa", value)}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                 >
                   <SelectTrigger data-testid="select-asa">
                     <SelectValue placeholder="Select ASA class" />
@@ -500,7 +496,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Textarea 
                   id="specialNotes" 
                   {...form.register("specialNotes")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   rows={3}
                   data-testid="textarea-special-notes" 
                 />
@@ -518,7 +514,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Textarea 
                   id="allergiesOther" 
                   {...form.register("allergiesOther")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   placeholder="List any allergies..."
                   rows={3}
                   data-testid="textarea-allergies" 
@@ -529,7 +525,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Textarea 
                   id="cave" 
                   {...form.register("cave")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   placeholder="Any contraindications or warnings..."
                   rows={3}
                   data-testid="textarea-cave" 
@@ -548,7 +544,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Textarea 
                   id="anticoagulationMedsOther" 
                   {...form.register("anticoagulationMedsOther")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   placeholder="List anticoagulation medications..."
                   rows={2}
                   data-testid="textarea-anticoagulation-meds" 
@@ -559,7 +555,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Textarea 
                   id="generalMedsOther" 
                   {...form.register("generalMedsOther")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   placeholder="List other medications..."
                   rows={3}
                   data-testid="textarea-general-meds" 
@@ -570,7 +566,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Textarea 
                   id="medicationsNotes" 
                   {...form.register("medicationsNotes")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   placeholder="Additional medication notes..."
                   rows={2}
                   data-testid="textarea-medications-notes" 
@@ -591,7 +587,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Textarea 
                   id="heartNotes" 
                   {...form.register("heartNotes")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   placeholder="HTN, CHD, arrhythmia, etc..."
                   rows={2}
                   data-testid="textarea-heart-notes" 
@@ -602,7 +598,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Textarea 
                   id="lungNotes" 
                   {...form.register("lungNotes")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   placeholder="Asthma, COPD, sleep apnea, etc..."
                   rows={2}
                   data-testid="textarea-lung-notes" 
@@ -613,7 +609,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Textarea 
                   id="giKidneyMetabolicNotes" 
                   {...form.register("giKidneyMetabolicNotes")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   placeholder="Diabetes, CKD, liver disease, reflux, etc..."
                   rows={2}
                   data-testid="textarea-gi-kidney-metabolic-notes" 
@@ -624,7 +620,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Textarea 
                   id="neuroPsychSkeletalNotes" 
                   {...form.register("neuroPsychSkeletalNotes")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   placeholder="Stroke, epilepsy, arthritis, depression, etc..."
                   rows={2}
                   data-testid="textarea-neuro-psych-skeletal-notes" 
@@ -635,7 +631,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Textarea 
                   id="womanNotes" 
                   {...form.register("womanNotes")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   placeholder="Pregnancy, breastfeeding, menopause, etc..."
                   rows={2}
                   data-testid="textarea-woman-notes" 
@@ -646,7 +642,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Textarea 
                   id="noxenNotes" 
                   {...form.register("noxenNotes")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   placeholder="Nicotine, alcohol, drugs..."
                   rows={2}
                   data-testid="textarea-noxen-notes" 
@@ -657,7 +653,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Textarea 
                   id="childrenNotes" 
                   {...form.register("childrenNotes")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   placeholder="Prematurity, developmental delays, vaccinations, etc..."
                   rows={2}
                   data-testid="textarea-children-notes" 
@@ -676,7 +672,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Select 
                   value={form.watch("mallampati") || ""}
                   onValueChange={(value) => form.setValue("mallampati", value)}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                 >
                   <SelectTrigger data-testid="select-mallampati">
                     <SelectValue placeholder="Select class" />
@@ -694,7 +690,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Input 
                   id="mouthOpening" 
                   {...form.register("mouthOpening")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   placeholder="e.g., Normal, Reduced"
                   data-testid="input-mouth-opening" 
                 />
@@ -704,7 +700,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Input 
                   id="dentition" 
                   {...form.register("dentition")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   placeholder="e.g., Good, Poor, Dentures"
                   data-testid="input-dentition" 
                 />
@@ -714,7 +710,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Select 
                   value={form.watch("airwayDifficult") || ""}
                   onValueChange={(value) => form.setValue("airwayDifficult", value)}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                 >
                   <SelectTrigger data-testid="select-airway-difficult">
                     <SelectValue placeholder="Select" />
@@ -731,7 +727,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Textarea 
                   id="airwayNotes" 
                   {...form.register("airwayNotes")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   rows={2}
                   data-testid="textarea-airway-notes" 
                 />
@@ -750,7 +746,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                   id="lastSolids"
                   type="datetime-local"
                   {...form.register("lastSolids")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   data-testid="input-last-solids"
                 />
               </div>
@@ -760,7 +756,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                   id="lastClear"
                   type="datetime-local"
                   {...form.register("lastClear")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   data-testid="input-last-clear"
                 />
               </div>
@@ -777,7 +773,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Textarea 
                   id="anesthesiaOther" 
                   {...form.register("anesthesiaOther")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   placeholder="e.g., GA with ETT, Spinal, Regional..."
                   rows={3}
                   data-testid="textarea-planned-anesthesia" 
@@ -788,7 +784,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                   id="postOpICU"
                   checked={form.watch("postOpICU") || false}
                   onCheckedChange={(checked) => form.setValue("postOpICU", checked as boolean)}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   data-testid="checkbox-post-op-icu"
                 />
                 <Label htmlFor="postOpICU">Post-op ICU Planned</Label>
@@ -806,7 +802,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Textarea 
                   id="installationsOther" 
                   {...form.register("installationsOther")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   placeholder="e.g., Arterial line, CVC, urinary catheter..."
                   rows={3}
                   data-testid="textarea-installations" 
@@ -831,7 +827,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                       form.setValue("standByReasonNote", "");
                     }
                   }}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   data-testid="switch-stand-by"
                 />
                 <Label htmlFor="standBy">Stand-By</Label>
@@ -849,7 +845,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                           form.setValue("standByReasonNote", "");
                         }
                       }}
-                      disabled={isCompleted}
+                      disabled={isReadOnly}
                     >
                       <SelectTrigger data-testid="select-stand-by-reason">
                         <SelectValue placeholder="Select reason..." />
@@ -869,7 +865,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                       <Textarea 
                         id="standByReasonNote" 
                         {...form.register("standByReasonNote")}
-                        disabled={isCompleted}
+                        disabled={isReadOnly}
                         placeholder="Enter the reason..."
                         rows={2}
                         data-testid="textarea-stand-by-reason-note" 
@@ -892,7 +888,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                   id="assessmentDate"
                   type="date"
                   {...form.register("assessmentDate")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   data-testid="input-assessment-date"
                 />
               </div>
@@ -901,7 +897,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                 <Input 
                   id="doctorName" 
                   {...form.register("doctorName")}
-                  disabled={isCompleted}
+                  disabled={isReadOnly}
                   placeholder="Anesthesiologist name"
                   data-testid="input-doctor-name" 
                 />
@@ -946,7 +942,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                     id="consentGiven"
                     checked={form.watch("consentGiven") || false}
                     onCheckedChange={(checked) => form.setValue("consentGiven", checked as boolean)}
-                    disabled={isCompleted}
+                    disabled={isReadOnly}
                     data-testid="checkbox-consent-given"
                   />
                   <Label htmlFor="consentGiven">Patient Consent Given</Label>
@@ -960,7 +956,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                     <Textarea 
                       id="consentText" 
                       {...form.register("consentText")}
-                      disabled={isCompleted}
+                      disabled={isReadOnly}
                       placeholder="Details of consent discussion..."
                       rows={3}
                       data-testid="textarea-consent-text" 
@@ -973,7 +969,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                       id="consentDate"
                       type="date"
                       {...form.register("consentDate")}
-                      disabled={isCompleted}
+                      disabled={isReadOnly}
                       data-testid="input-consent-date"
                     />
                   </div>

@@ -1,21 +1,22 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { clientSessionId } from "@/utils/sessionId";
 
-function getActiveHospitalAndUnit(): { hospitalId: string | null; unitId: string | null } {
+function getActiveHospitalAndUnit(): { hospitalId: string | null; unitId: string | null; role: string | null } {
   const activeHospitalKey = localStorage.getItem('activeHospital');
-  if (!activeHospitalKey) return { hospitalId: null, unitId: null };
+  if (!activeHospitalKey) return { hospitalId: null, unitId: null, role: null };
   
   // activeHospitalKey format: "hospitalId-unitId-role"
   // Since UUIDs contain hyphens, we need to parse carefully
   // UUIDs are 36 chars (including hyphens), role is at the end
   // Format: <36 chars>-<36 chars>-<role>
   
-  if (activeHospitalKey.length < 73) return { hospitalId: null, unitId: null }; // At least 36 + 1 + 36 = 73 chars
+  if (activeHospitalKey.length < 73) return { hospitalId: null, unitId: null, role: null }; // At least 36 + 1 + 36 = 73 chars
   
   const hospitalId = activeHospitalKey.substring(0, 36);
   const unitId = activeHospitalKey.substring(37, 73);
+  const role = activeHospitalKey.substring(74); // After the second hyphen
   
-  return { hospitalId, unitId };
+  return { hospitalId, unitId, role };
 }
 
 function getActiveUnitId(): string | null {
@@ -53,13 +54,16 @@ export async function apiRequest(
 ): Promise<Response> {
   const headers: Record<string, string> = data ? { "Content-Type": "application/json" } : {};
   
-  // Add active hospital and unit ID headers if available
-  const { hospitalId, unitId } = getActiveHospitalAndUnit();
+  // Add active hospital, unit ID, and role headers if available
+  const { hospitalId, unitId, role } = getActiveHospitalAndUnit();
   if (hospitalId) {
     headers["X-Active-Hospital-Id"] = hospitalId;
   }
   if (unitId) {
     headers["X-Active-Unit-Id"] = unitId;
+  }
+  if (role) {
+    headers["X-Active-Role"] = role;
   }
   
   // Add client session ID for real-time sync filtering
@@ -84,13 +88,16 @@ export const getQueryFn: <T>(options: {
   async ({ queryKey }) => {
     const headers: Record<string, string> = {};
     
-    // Add active hospital and unit ID headers if available
-    const { hospitalId, unitId } = getActiveHospitalAndUnit();
+    // Add active hospital, unit ID, and role headers if available
+    const { hospitalId, unitId, role } = getActiveHospitalAndUnit();
     if (hospitalId) {
       headers["X-Active-Hospital-Id"] = hospitalId;
     }
     if (unitId) {
       headers["X-Active-Unit-Id"] = unitId;
+    }
+    if (role) {
+      headers["X-Active-Role"] = role;
     }
     
     const res = await fetch(queryKey[0] as string, {

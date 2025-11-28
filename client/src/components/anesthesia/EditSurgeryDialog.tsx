@@ -8,8 +8,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useCanWrite } from "@/hooks/useCanWrite";
 import { useState, useEffect } from "react";
-import { Loader2, Trash2, Save, X } from "lucide-react";
+import { Loader2, Trash2, Save, X, Eye } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 interface EditSurgeryDialogProps {
@@ -20,6 +21,7 @@ interface EditSurgeryDialogProps {
 export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const canWrite = useCanWrite();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Form state
@@ -205,6 +207,16 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
             </div>
           ) : (
             <div className="space-y-4 px-6 py-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0">
+              {/* Read-only banner for guests */}
+              {!canWrite && (
+                <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-4 flex items-center gap-3">
+                  <Eye className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  <div>
+                    <p className="font-medium text-amber-800 dark:text-amber-200">View Only Mode</p>
+                    <p className="text-sm text-amber-600 dark:text-amber-400">You have read-only access.</p>
+                  </div>
+                </div>
+              )}
               {/* Patient Information (Read-only) */}
               {patient && (
                 <div className="space-y-2">
@@ -229,7 +241,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
               {/* Surgery Room */}
               <div className="space-y-2">
                 <Label htmlFor="edit-surgery-room">{t('anesthesia.editSurgery.surgeryRoom')} *</Label>
-                <Select value={surgeryRoomId} onValueChange={setSurgeryRoomId}>
+                <Select value={surgeryRoomId} onValueChange={setSurgeryRoomId} disabled={!canWrite}>
                   <SelectTrigger id="edit-surgery-room" data-testid="select-edit-surgery-room">
                     <SelectValue placeholder="Select room..." />
                   </SelectTrigger>
@@ -252,6 +264,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     type="datetime-local"
                     value={plannedDate}
                     onChange={(e) => setPlannedDate(e.target.value)}
+                    disabled={!canWrite}
                     data-testid="input-edit-planned-date"
                   />
                 </div>
@@ -263,6 +276,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     min="1"
                     value={duration.toString()}
                     onChange={(e) => setDuration(Number(e.target.value) || 0)}
+                    disabled={!canWrite}
                     data-testid="input-edit-duration"
                   />
                 </div>
@@ -276,6 +290,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   placeholder="e.g., Laparoscopic cholecystectomy"
                   value={plannedSurgery}
                   onChange={(e) => setPlannedSurgery(e.target.value)}
+                  disabled={!canWrite}
                   data-testid="input-edit-planned-surgery"
                 />
               </div>
@@ -286,6 +301,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 <Select 
                   value={surgeonId || "none"} 
                   onValueChange={(value) => setSurgeonId(value === "none" ? "" : value)}
+                  disabled={!canWrite}
                 >
                   <SelectTrigger id="edit-surgeon" data-testid="select-edit-surgeon">
                     <SelectValue placeholder="Select surgeon (optional)" />
@@ -309,6 +325,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   placeholder={t('anesthesia.editSurgery.notesPlaceholder')}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
+                  disabled={!canWrite}
                   data-testid="textarea-edit-notes"
                   rows={3}
                 />
@@ -316,47 +333,61 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-2 pt-4">
-                <Button
-                  onClick={handleUpdate}
-                  disabled={updateMutation.isPending || deleteMutation.isPending}
-                  data-testid="button-update-surgery"
-                  className="w-full sm:flex-1"
-                >
-                  {updateMutation.isPending ? (
-                    <>{t('anesthesia.editSurgery.updating')}</>
-                  ) : (
-                    <>
-                      <Save className="mr-2 h-4 w-4" />
-                      {t('anesthesia.editSurgery.update')}
-                    </>
-                  )}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={onClose}
-                  disabled={deleteMutation.isPending || updateMutation.isPending}
-                  data-testid="button-cancel-surgery"
-                  className="w-full sm:flex-1"
-                >
-                  <X className="mr-2 h-4 w-4" />
-                  {t('common.cancel')}
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={handleDelete}
-                  disabled={deleteMutation.isPending || updateMutation.isPending}
-                  data-testid="button-delete-surgery"
-                  className="w-full sm:flex-1"
-                >
-                  {deleteMutation.isPending ? (
-                    <>{t('anesthesia.editSurgery.deleting')}</>
-                  ) : (
-                    <>
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      {t('anesthesia.editSurgery.deleteSurgery')}
-                    </>
-                  )}
-                </Button>
+                {canWrite ? (
+                  <>
+                    <Button
+                      onClick={handleUpdate}
+                      disabled={updateMutation.isPending || deleteMutation.isPending}
+                      data-testid="button-update-surgery"
+                      className="w-full sm:flex-1"
+                    >
+                      {updateMutation.isPending ? (
+                        <>{t('anesthesia.editSurgery.updating')}</>
+                      ) : (
+                        <>
+                          <Save className="mr-2 h-4 w-4" />
+                          {t('anesthesia.editSurgery.update')}
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={onClose}
+                      disabled={deleteMutation.isPending || updateMutation.isPending}
+                      data-testid="button-cancel-surgery"
+                      className="w-full sm:flex-1"
+                    >
+                      <X className="mr-2 h-4 w-4" />
+                      {t('common.cancel')}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={handleDelete}
+                      disabled={deleteMutation.isPending || updateMutation.isPending}
+                      data-testid="button-delete-surgery"
+                      className="w-full sm:flex-1"
+                    >
+                      {deleteMutation.isPending ? (
+                        <>{t('anesthesia.editSurgery.deleting')}</>
+                      ) : (
+                        <>
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          {t('anesthesia.editSurgery.deleteSurgery')}
+                        </>
+                      )}
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={onClose}
+                    data-testid="button-close-surgery"
+                    className="w-full"
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    {t('common.close')}
+                  </Button>
+                )}
               </div>
             </div>
           )}
