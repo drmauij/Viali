@@ -76,9 +76,30 @@ export async function requireWriteAccess(req: any, res: Response, next: NextFunc
       return res.status(401).json({ message: "Authentication required" });
     }
     
-    const hospitalId = req.params.hospitalId || req.body?.hospitalId || req.query?.hospitalId;
+    // Try to get hospitalId from various sources:
+    // 1. X-Active-Hospital-Id header (most reliable for anesthesia module)
+    // 2. URL params (hospitalId or id that might be a hospitalId)
+    // 3. Request body
+    // 4. Query params
+    const headerHospitalId = req.headers['x-active-hospital-id'];
+    const hospitalId = headerHospitalId || 
+                       req.params.hospitalId || 
+                       req.body?.hospitalId || 
+                       req.query?.hospitalId;
     
     if (!hospitalId) {
+      // If we still can't find hospitalId, check if user has write access to ANY hospital
+      // This is a fallback for routes that don't pass hospitalId
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAnyWriteAccess = hospitals.some(h => canWrite(h.role));
+      
+      if (!hasAnyWriteAccess) {
+        return res.status(403).json({ 
+          message: "Insufficient permissions. Guest users have read-only access.",
+          code: "READ_ONLY_ACCESS"
+        });
+      }
+      
       return next();
     }
     

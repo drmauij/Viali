@@ -1,21 +1,25 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { clientSessionId } from "@/utils/sessionId";
 
-function getActiveUnitId(): string | null {
+function getActiveHospitalAndUnit(): { hospitalId: string | null; unitId: string | null } {
   const activeHospitalKey = localStorage.getItem('activeHospital');
-  if (!activeHospitalKey) return null;
+  if (!activeHospitalKey) return { hospitalId: null, unitId: null };
   
   // activeHospitalKey format: "hospitalId-unitId-role"
   // Since UUIDs contain hyphens, we need to parse carefully
   // UUIDs are 36 chars (including hyphens), role is at the end
   // Format: <36 chars>-<36 chars>-<role>
   
-  if (activeHospitalKey.length < 73) return null; // At least 36 + 1 + 36 = 73 chars
+  if (activeHospitalKey.length < 73) return { hospitalId: null, unitId: null }; // At least 36 + 1 + 36 = 73 chars
   
   const hospitalId = activeHospitalKey.substring(0, 36);
   const unitId = activeHospitalKey.substring(37, 73);
   
-  return unitId;
+  return { hospitalId, unitId };
+}
+
+function getActiveUnitId(): string | null {
+  return getActiveHospitalAndUnit().unitId;
 }
 
 async function throwIfResNotOk(res: Response) {
@@ -49,10 +53,13 @@ export async function apiRequest(
 ): Promise<Response> {
   const headers: Record<string, string> = data ? { "Content-Type": "application/json" } : {};
   
-  // Add active unit ID header if available
-  const activeUnitId = getActiveUnitId();
-  if (activeUnitId) {
-    headers["X-Active-Unit-Id"] = activeUnitId;
+  // Add active hospital and unit ID headers if available
+  const { hospitalId, unitId } = getActiveHospitalAndUnit();
+  if (hospitalId) {
+    headers["X-Active-Hospital-Id"] = hospitalId;
+  }
+  if (unitId) {
+    headers["X-Active-Unit-Id"] = unitId;
   }
   
   // Add client session ID for real-time sync filtering
@@ -77,10 +84,13 @@ export const getQueryFn: <T>(options: {
   async ({ queryKey }) => {
     const headers: Record<string, string> = {};
     
-    // Add active unit ID header if available
-    const activeUnitId = getActiveUnitId();
-    if (activeUnitId) {
-      headers["X-Active-Unit-Id"] = activeUnitId;
+    // Add active hospital and unit ID headers if available
+    const { hospitalId, unitId } = getActiveHospitalAndUnit();
+    if (hospitalId) {
+      headers["X-Active-Hospital-Id"] = hospitalId;
+    }
+    if (unitId) {
+      headers["X-Active-Unit-Id"] = unitId;
     }
     
     const res = await fetch(queryKey[0] as string, {
