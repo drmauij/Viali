@@ -1639,6 +1639,7 @@ export const updateIntraOpDataSchema = z.object({
   disinfection: z.object({
     kodanColored: z.boolean().optional(),
     kodanColorless: z.boolean().optional(),
+    octanisept: z.boolean().optional(),
     performedBy: z.string().optional().nullable(),
   }).optional(),
   equipment: z.object({
@@ -1649,8 +1650,49 @@ export const updateIntraOpDataSchema = z.object({
       histology: z.boolean().optional(),
       microbiology: z.boolean().optional(),
     }).optional(),
+    devices: z.string().optional().nullable(),
     notes: z.string().optional().nullable(),
   }).optional(),
+  // New: Spülung (Irrigation) section with checkboxes
+  irrigation: z.object({
+    nacl: z.boolean().optional(),
+    betadine: z.boolean().optional(),
+    hydrogenPeroxide: z.boolean().optional(),
+    other: z.string().optional().nullable(),
+  }).optional(),
+  // New: Infiltration section with checkboxes
+  infiltration: z.object({
+    tumorSolution: z.boolean().optional(),
+    other: z.string().optional().nullable(),
+  }).optional(),
+  // New: Medications section with checkboxes
+  medications: z.object({
+    ropivacain: z.boolean().optional(),
+    bupivacain: z.boolean().optional(),
+    contrast: z.boolean().optional(),
+    ointments: z.boolean().optional(),
+    other: z.string().optional().nullable(),
+  }).optional(),
+  // New: Verband (Dressing) section with checkboxes
+  dressing: z.object({
+    elasticBandage: z.boolean().optional(),
+    abdominalBelt: z.boolean().optional(),
+    bra: z.boolean().optional(),
+    faceLiftMask: z.boolean().optional(),
+    steristrips: z.boolean().optional(),
+    comfeel: z.boolean().optional(),
+    opsite: z.boolean().optional(),
+    compresses: z.boolean().optional(),
+    mefix: z.boolean().optional(),
+    other: z.string().optional().nullable(),
+  }).optional(),
+  // New: Drainagen (Drainage) section with checkboxes
+  drainage: z.object({
+    redonCH: z.string().optional().nullable(),
+    redonCount: z.number().int().min(0).optional().nullable(),
+    other: z.string().optional().nullable(),
+  }).optional(),
+  // Legacy fields for backwards compatibility
   irrigationMeds: z.object({
     irrigation: z.string().optional().nullable(),
     infiltration: z.string().optional().nullable(),
@@ -1658,14 +1700,6 @@ export const updateIntraOpDataSchema = z.object({
     medications: z.string().optional().nullable(),
     contrast: z.string().optional().nullable(),
     ointments: z.string().optional().nullable(),
-  }).optional(),
-  dressing: z.object({
-    type: z.string().optional().nullable(),
-    other: z.string().optional().nullable(),
-  }).optional(),
-  drainage: z.object({
-    type: z.string().optional().nullable(),
-    count: z.number().int().min(0).optional().nullable(),
   }).optional(),
   signatures: z.object({
     circulatingNurse: z.string().optional().nullable(),
