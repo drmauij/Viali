@@ -317,7 +317,10 @@ export default function PreOpList() {
                       )}
                       {/* Pre-Op Assessment Summary */}
                       {getPreOpSummary(item.assessment, t) && (
-                        <div className="flex items-start gap-2 text-sm text-muted-foreground mt-2 pt-2 border-t border-border/50">
+                        <div 
+                          className="flex items-start gap-2 text-sm text-muted-foreground mt-2 pt-2 border-t border-border/50 select-text cursor-text"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <Stethoscope className="h-4 w-4 mt-0.5 shrink-0 text-green-600 dark:text-green-400" />
                           <span data-testid={`text-preop-summary-${surgery.id}`}>{getPreOpSummary(item.assessment, t)}</span>
                         </div>
