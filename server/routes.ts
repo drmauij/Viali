@@ -89,7 +89,9 @@ import {
   verifyUserHospitalUnitAccess,
   getLicenseLimit,
   getBulkImportImageLimit,
-  checkLicenseLimit
+  checkLicenseLimit,
+  requireWriteAccess,
+  canWrite
 } from "./utils";
 import {
   analyzeMonitorImage,
@@ -587,7 +589,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/folders', isAuthenticated, async (req: any, res) => {
+  app.post('/api/folders', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const folderData = insertFolderSchema.parse(req.body);
       const userId = req.user.id;
@@ -606,7 +608,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bulk update folder sort order - MUST be before :folderId route
-  app.patch('/api/folders/bulk-sort', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/folders/bulk-sort', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { folders: folderUpdates } = req.body;
       const userId = req.user.id;
@@ -642,7 +644,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/folders/:folderId', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/folders/:folderId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { folderId } = req.params;
       const updates = req.body;
@@ -666,7 +668,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/folders/:folderId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/folders/:folderId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { folderId } = req.params;
       const userId = req.user.id;
@@ -774,7 +776,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/items', isAuthenticated, async (req: any, res) => {
+  app.post('/api/items', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const itemData = insertItemSchema.parse(req.body);
       
@@ -832,7 +834,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bulk item update (must be before :itemId route to avoid conflict)
-  app.patch('/api/items/bulk-update', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/items/bulk-update', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { items: bulkItems } = req.body;
       const userId = req.user.id;
@@ -913,7 +915,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bulk update item sort order
-  app.patch('/api/items/bulk-sort', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/items/bulk-sort', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { items: itemUpdates } = req.body;
       const userId = req.user.id;
@@ -945,7 +947,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/items/:itemId', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/items/:itemId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { itemId } = req.params;
       const userId = req.user.id;
@@ -1029,7 +1031,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Quick reduce unit count (for trackExactQuantity or single unit items)
-  app.patch('/api/items/:itemId/reduce-unit', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/items/:itemId/reduce-unit', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { itemId } = req.params;
       const userId = req.user.id;
@@ -1099,7 +1101,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/items/:itemId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/items/:itemId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { itemId } = req.params;
       const userId = req.user.id;
@@ -1126,7 +1128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bulk delete items
-  app.post('/api/items/bulk-delete', isAuthenticated, async (req: any, res) => {
+  app.post('/api/items/bulk-delete', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { itemIds } = req.body;
       const userId = req.user.id;
@@ -1261,7 +1263,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update anesthesia configuration for an item
-  app.patch('/api/items/:itemId/anesthesia-config', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/items/:itemId/anesthesia-config', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { itemId } = req.params;
       const userId = req.user.id;
@@ -1356,7 +1358,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bulk reorder medications within administration groups
-  app.post('/api/anesthesia/items/reorder', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/items/reorder', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { items: itemsToReorder } = req.body;
       const userId = req.user.id;
@@ -1407,7 +1409,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create a new medication group
-  app.post('/api/medication-groups', isAuthenticated, async (req: any, res) => {
+  app.post('/api/medication-groups', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { hospitalId, name } = req.body;
       
@@ -1424,7 +1426,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a medication group
-  app.delete('/api/medication-groups/:groupId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/medication-groups/:groupId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { groupId } = req.params;
       await storage.deleteMedicationGroup(groupId);
@@ -1449,7 +1451,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create a new administration group
-  app.post('/api/administration-groups', isAuthenticated, async (req: any, res) => {
+  app.post('/api/administration-groups', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { hospitalId, name } = req.body;
       
@@ -1471,7 +1473,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reorder administration groups (must be before :groupId route)
-  app.put('/api/administration-groups/reorder', isAuthenticated, async (req: any, res) => {
+  app.put('/api/administration-groups/reorder', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { groupIds } = req.body;
       
@@ -1488,7 +1490,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update an administration group
-  app.put('/api/administration-groups/:groupId', isAuthenticated, async (req: any, res) => {
+  app.put('/api/administration-groups/:groupId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { groupId } = req.params;
       const { name } = req.body;
@@ -1506,7 +1508,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete an administration group
-  app.delete('/api/administration-groups/:groupId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/administration-groups/:groupId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { groupId } = req.params;
       await storage.deleteAdministrationGroup(groupId);
@@ -1531,7 +1533,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create a new surgery room
-  app.post('/api/surgery-rooms', isAuthenticated, async (req: any, res) => {
+  app.post('/api/surgery-rooms', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { hospitalId, name } = req.body;
       
@@ -1548,7 +1550,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update a surgery room
-  app.put('/api/surgery-rooms/:roomId', isAuthenticated, async (req: any, res) => {
+  app.put('/api/surgery-rooms/:roomId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { roomId } = req.params;
       const { name } = req.body;
@@ -1566,7 +1568,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a surgery room
-  app.delete('/api/surgery-rooms/:roomId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/surgery-rooms/:roomId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { roomId } = req.params;
       await storage.deleteSurgeryRoom(roomId);
@@ -1578,7 +1580,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reorder surgery rooms
-  app.put('/api/surgery-rooms/reorder', isAuthenticated, async (req: any, res) => {
+  app.put('/api/surgery-rooms/reorder', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { roomIds } = req.body;
       
@@ -1618,7 +1620,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // AI image analysis for item data extraction
-  app.post('/api/items/analyze-image', isAuthenticated, async (req: any, res) => {
+  app.post('/api/items/analyze-image', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { image } = req.body;
       if (!image) {
@@ -1639,7 +1641,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bulk AI image analysis for multiple items
-  app.post('/api/items/analyze-images', isAuthenticated, async (req: any, res) => {
+  app.post('/api/items/analyze-images', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       // Set a longer timeout for this endpoint (5 minutes)
       req.setTimeout(300000); // 5 minutes in milliseconds
@@ -1697,7 +1699,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // AI medical monitor analysis for anesthesia vitals and ventilation
-  app.post('/api/analyze-monitor', isAuthenticated, async (req: any, res) => {
+  app.post('/api/analyze-monitor', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { image } = req.body;
       if (!image) {
@@ -1713,7 +1715,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Voice transcription for drug administration commands
-  app.post('/api/transcribe-voice', isAuthenticated, async (req: any, res) => {
+  app.post('/api/transcribe-voice', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { audioData } = req.body;
       if (!audioData) {
@@ -1729,7 +1731,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Parse drug administration command
-  app.post('/api/parse-drug-command', isAuthenticated, async (req: any, res) => {
+  app.post('/api/parse-drug-command', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { transcription } = req.body;
       if (!transcription) {
@@ -1745,7 +1747,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Translate items between English and German
-  app.post('/api/translate', isAuthenticated, async (req: any, res) => {
+  app.post('/api/translate', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { items } = req.body;
       if (!items || !Array.isArray(items) || items.length === 0) {
@@ -1794,7 +1796,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bulk item creation
-  app.post('/api/items/bulk', isAuthenticated, async (req: any, res) => {
+  app.post('/api/items/bulk', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { items: bulkItems, hospitalId } = req.body;
       const userId = req.user.id;
@@ -2075,7 +2077,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Async Bulk Import - Create Job
-  app.post('/api/import-jobs', isAuthenticated, async (req: any, res) => {
+  app.post('/api/import-jobs', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { images, hospitalId } = req.body;
       const userId = req.user.id;
@@ -2277,7 +2279,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Barcode scanning
-  app.post('/api/scan/barcode', isAuthenticated, async (req: any, res) => {
+  app.post('/api/scan/barcode', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { barcode, hospitalId } = req.body;
       if (!barcode || !hospitalId) {
@@ -2303,7 +2305,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // External barcode lookup
-  app.post('/api/scan/lookup', isAuthenticated, async (req, res) => {
+  app.post('/api/scan/lookup', isAuthenticated, requireWriteAccess, async (req, res) => {
     try {
       const { barcode } = req.body;
       if (!barcode) {
@@ -2359,7 +2361,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Stock operations
-  app.post('/api/stock/update', isAuthenticated, async (req: any, res) => {
+  app.post('/api/stock/update', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { itemId, qty, delta, notes, activeUnitId } = req.body;
       const userId = req.user.id;
@@ -2466,7 +2468,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/orders', isAuthenticated, async (req: any, res) => {
+  app.post('/api/orders', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { hospitalId, vendorId, orderLines: lines } = req.body;
       const userId = req.user.id;
@@ -2503,7 +2505,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/orders/quick-add', isAuthenticated, async (req: any, res) => {
+  app.post('/api/orders/quick-add', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { hospitalId, unitId, itemId, vendorId, qty, packSize } = req.body;
       const userId = req.user.id;
@@ -2529,7 +2531,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/orders/:orderId/status', isAuthenticated, async (req: any, res) => {
+  app.post('/api/orders/:orderId/status', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { orderId } = req.params;
       const { status } = req.body;
@@ -2569,7 +2571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/orders/:orderId/notes', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/orders/:orderId/notes', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { orderId } = req.params;
       const { notes } = req.body;
@@ -2609,7 +2611,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/order-lines/:lineId', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/order-lines/:lineId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { lineId } = req.params;
       const { qty, notes } = req.body;
@@ -2670,7 +2672,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/order-lines/:lineId/move-to-secondary', isAuthenticated, async (req: any, res) => {
+  app.post('/api/order-lines/:lineId/move-to-secondary', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { lineId } = req.params;
       const userId = req.user.id;
@@ -2782,7 +2784,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/order-lines/:lineId/offline-worked', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/order-lines/:lineId/offline-worked', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { lineId } = req.params;
       const { offlineWorked } = req.body;
@@ -2830,7 +2832,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/order-lines/:lineId/receive', isAuthenticated, async (req: any, res) => {
+  app.post('/api/order-lines/:lineId/receive', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { lineId } = req.params;
       const { notes, signature } = req.body;
@@ -2968,7 +2970,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/order-lines/:lineId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/order-lines/:lineId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { lineId } = req.params;
       const userId = req.user.id;
@@ -3026,7 +3028,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/orders/:orderId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/orders/:orderId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { orderId } = req.params;
       const userId = req.user.id;
@@ -3073,7 +3075,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Controlled substances
-  app.post('/api/controlled/extract-patient-info', isAuthenticated, async (req: any, res) => {
+  app.post('/api/controlled/extract-patient-info', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { image } = req.body;
       
@@ -3131,7 +3133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/controlled/dispense', isAuthenticated, async (req: any, res) => {
+  app.post('/api/controlled/dispense', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const { items: dispenseItems, patientId, patientPhoto, notes, signatures } = req.body;
@@ -3232,7 +3234,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Manual adjustment of controlled substance inventory
-  app.post('/api/controlled/adjust', isAuthenticated, async (req: any, res) => {
+  app.post('/api/controlled/adjust', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const { itemId, newCurrentUnits, notes, signature, attachmentPhoto } = req.body;
@@ -3397,7 +3399,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/controlled/checks', isAuthenticated, async (req: any, res) => {
+  app.post('/api/controlled/checks', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const { hospitalId, unitId, signature, checkItems, notes } = req.body;
@@ -3448,7 +3450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/controlled/verify/:activityId', isAuthenticated, async (req: any, res) => {
+  app.post('/api/controlled/verify/:activityId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { activityId } = req.params;
       const { signature } = req.body;
@@ -3512,7 +3514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/alerts/:alertId/acknowledge', isAuthenticated, async (req: any, res) => {
+  app.post('/api/alerts/:alertId/acknowledge', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { alertId } = req.params;
       const userId = req.user.id;
@@ -3525,7 +3527,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/alerts/:alertId/snooze', isAuthenticated, async (req, res) => {
+  app.post('/api/alerts/:alertId/snooze', isAuthenticated, requireWriteAccess, async (req, res) => {
     try {
       const { alertId } = req.params;
       const { until } = req.body;
@@ -3750,7 +3752,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/admin/units/:unitId', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/admin/units/:unitId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { unitId } = req.params;
       const { name, type, parentId } = req.body;
@@ -3783,7 +3785,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/admin/units/:unitId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/admin/units/:unitId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { unitId } = req.params;
       const { hospitalId } = req.query;
@@ -3951,7 +3953,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/admin/users/:roleId', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/admin/users/:roleId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { roleId } = req.params;
       const { unitId, role, hospitalId } = req.body;
@@ -3976,7 +3978,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/admin/users/:roleId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/admin/users/:roleId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { roleId } = req.params;
       const { hospitalId } = req.query;
@@ -4067,7 +4069,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update user details (name)
-  app.patch('/api/admin/users/:userId/details', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/admin/users/:userId/details', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { userId } = req.params;
       const { firstName, lastName, hospitalId } = req.body;
@@ -4093,7 +4095,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete user entirely
-  app.delete('/api/admin/users/:userId/delete', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/admin/users/:userId/delete', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { userId } = req.params;
       const { hospitalId } = req.query;
@@ -4179,7 +4181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Checklist Template Routes
   
   // Create checklist template (admin only)
-  app.post('/api/checklists/templates', isAuthenticated, async (req: any, res) => {
+  app.post('/api/checklists/templates', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const templateData = req.body;
@@ -4261,7 +4263,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Update checklist template (admin only)
-  app.patch('/api/checklists/templates/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/checklists/templates/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -4310,7 +4312,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Delete checklist template (admin only)
-  app.delete('/api/checklists/templates/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/checklists/templates/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -4407,7 +4409,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Complete a checklist
-  app.post('/api/checklists/complete', isAuthenticated, async (req: any, res) => {
+  app.post('/api/checklists/complete', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const completionData = req.body;
@@ -4514,7 +4516,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Seed hospital with default data (admin only)
-  app.post('/api/hospitals/:id/seed', isAuthenticated, async (req: any, res) => {
+  app.post('/api/hospitals/:id/seed', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id: hospitalId } = req.params;
       const userId = req.user.id;
@@ -4549,7 +4551,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reset allergies, medications, and checklists to defaults (admin only)
-  app.post('/api/hospitals/:id/reset-lists', isAuthenticated, async (req: any, res) => {
+  app.post('/api/hospitals/:id/reset-lists', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id: hospitalId } = req.params;
       const userId = req.user.id;
@@ -4610,7 +4612,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update hospital anesthesia settings
-  app.patch('/api/anesthesia/settings/:hospitalId', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/settings/:hospitalId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
       const userId = req.user.id;
@@ -4695,7 +4697,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create patient
-  app.post('/api/patients', isAuthenticated, async (req: any, res) => {
+  app.post('/api/patients', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
 
@@ -4733,7 +4735,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update patient
-  app.patch('/api/patients/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/patients/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -4763,7 +4765,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete patient
-  app.delete('/api/patients/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/patients/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -4849,7 +4851,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create new case
-  app.post('/api/anesthesia/cases', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/cases', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
 
@@ -4876,7 +4878,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update case
-  app.patch('/api/anesthesia/cases/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/cases/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -4980,7 +4982,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create new surgery
-  app.post('/api/anesthesia/surgeries', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/surgeries', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
       
@@ -5012,7 +5014,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update surgery
-  app.patch('/api/anesthesia/surgeries/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -5053,7 +5055,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete surgery
-  app.delete('/api/anesthesia/surgeries/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -5164,7 +5166,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create new anesthesia record
-  app.post('/api/anesthesia/records', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/records', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
 
@@ -5197,7 +5199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update anesthesia record
-  app.patch('/api/anesthesia/records/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/records/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -5236,7 +5238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update time markers for anesthesia record
-  app.patch('/api/anesthesia/records/:id/time-markers', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/records/:id/time-markers', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const { timeMarkers } = req.body;
@@ -5286,7 +5288,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update Sign In checklist data
-  app.patch('/api/anesthesia/records/:id/checklist/sign-in', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/records/:id/checklist/sign-in', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -5348,7 +5350,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update Time Out checklist data
-  app.patch('/api/anesthesia/records/:id/checklist/time-out', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/records/:id/checklist/time-out', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -5410,7 +5412,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update Sign Out checklist data
-  app.patch('/api/anesthesia/records/:id/checklist/sign-out', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/records/:id/checklist/sign-out', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -5472,7 +5474,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update Post-Operative Information data
-  app.patch('/api/anesthesia/records/:id/postop', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/records/:id/postop', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -5524,7 +5526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update Surgery Staff data (OR team documentation)
-  app.patch('/api/anesthesia/records/:id/surgery-staff', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/records/:id/surgery-staff', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -5585,7 +5587,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update intra-operative data (Surgery module)
-  app.patch('/api/anesthesia/records/:id/intra-op', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/records/:id/intra-op', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -5661,7 +5663,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update counts & sterile goods data (Surgery module)
-  app.patch('/api/anesthesia/records/:id/counts-sterile', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/records/:id/counts-sterile', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -5732,7 +5734,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Close anesthesia record
-  app.post('/api/anesthesia/records/:id/close', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/records/:id/close', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -5771,7 +5773,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Amend closed anesthesia record
-  app.post('/api/anesthesia/records/:id/amend', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/records/:id/amend', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const { reason, updates } = req.body;
@@ -5923,7 +5925,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create pre-op assessment
-  app.post('/api/anesthesia/preop', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/preop', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
 
@@ -5971,7 +5973,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update pre-op assessment
-  app.patch('/api/anesthesia/preop/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/preop/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -6056,7 +6058,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create vitals snapshot
-  app.post('/api/anesthesia/vitals', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/vitals', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
       
@@ -6131,7 +6133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add a vital point (HR, SpO2, temp, etc.)
-  app.post('/api/anesthesia/vitals/:recordId/point', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/vitals/:recordId/point', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { recordId } = req.params;
       const userId = req.user.id;
@@ -6186,7 +6188,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add a BP point
-  app.post('/api/anesthesia/vitals/:recordId/bp', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/vitals/:recordId/bp', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { recordId } = req.params;
       const userId = req.user.id;
@@ -6242,7 +6244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update a vital point by ID
-  app.patch('/api/anesthesia/vitals/points/:pointId', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/vitals/points/:pointId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { pointId } = req.params;
       const userId = req.user.id;
@@ -6279,7 +6281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update a BP point by ID (special handling for sys/dia/mean)
-  app.patch('/api/anesthesia/vitals/bp/:pointId', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/vitals/bp/:pointId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { pointId } = req.params;
       const userId = req.user.id;
@@ -6316,7 +6318,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a vital point by ID
-  app.delete('/api/anesthesia/vitals/points/:pointId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/anesthesia/vitals/points/:pointId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { pointId } = req.params;
       const userId = req.user.id;
@@ -6347,7 +6349,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Heart Rhythm endpoints
   
   // Add a rhythm point
-  app.post('/api/anesthesia/rhythm', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/rhythm', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const validatedData = addRhythmPointSchema.parse(req.body);
@@ -6387,7 +6389,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update a rhythm point by ID
-  app.patch('/api/anesthesia/rhythm/:pointId', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/rhythm/:pointId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { pointId } = req.params;
       const userId = req.user.id;
@@ -6448,7 +6450,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a rhythm point by ID
-  app.delete('/api/anesthesia/rhythm/:pointId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/anesthesia/rhythm/:pointId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { pointId } = req.params;
       const userId = req.user.id;
@@ -6503,7 +6505,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // TOF (Train of Four) endpoints
   
   // Add a TOF point
-  app.post('/api/anesthesia/tof', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/tof', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const validatedData = addTOFPointSchema.parse(req.body);
@@ -6544,7 +6546,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update a TOF point by ID
-  app.patch('/api/anesthesia/tof/:pointId', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/tof/:pointId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { pointId } = req.params;
       const userId = req.user.id;
@@ -6605,7 +6607,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a TOF point by ID
-  app.delete('/api/anesthesia/tof/:pointId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/anesthesia/tof/:pointId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { pointId } = req.params;
       const userId = req.user.id;
@@ -6660,7 +6662,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // 7. Ventilation Modes
 
   // Add ventilation mode point
-  app.post('/api/anesthesia/ventilation-modes', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/ventilation-modes', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const validatedData = addVentilationModePointSchema.parse(req.body);
@@ -6709,7 +6711,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update a ventilation mode point by ID
-  app.patch('/api/anesthesia/ventilation-modes/:pointId', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/ventilation-modes/:pointId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { pointId } = req.params;
       const userId = req.user.id;
@@ -6772,7 +6774,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a ventilation mode point by ID
-  app.delete('/api/anesthesia/ventilation-modes/:pointId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/anesthesia/ventilation-modes/:pointId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { pointId } = req.params;
       const userId = req.user.id;
@@ -6823,7 +6825,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Bulk add ventilation parameters (optimized for ventilation bulk entry dialog)
-  app.post('/api/anesthesia/ventilation/bulk', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/ventilation/bulk', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const validatedData = addBulkVentilationSchema.parse(req.body);
@@ -6875,7 +6877,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // 8. Output Parameters
 
   // Add output point
-  app.post('/api/anesthesia/output', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/output', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const validatedData = addOutputPointSchema.parse(req.body);
@@ -6925,7 +6927,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update an output point by ID
-  app.patch('/api/anesthesia/output/:pointId', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/output/:pointId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { pointId } = req.params;
       const userId = req.user.id;
@@ -6989,7 +6991,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete an output point by ID
-  app.delete('/api/anesthesia/output/:pointId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/anesthesia/output/:pointId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { pointId } = req.params;
       const userId = req.user.id;
@@ -7078,7 +7080,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create medication entry
-  app.post('/api/anesthesia/medications', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/medications', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
       
@@ -7136,7 +7138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update medication
-  app.patch('/api/anesthesia/medications/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/medications/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -7200,7 +7202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete medication (creates audit trail)
-  app.delete('/api/anesthesia/medications/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/anesthesia/medications/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -7287,7 +7289,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create event
-  app.post('/api/anesthesia/events', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/events', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
 
@@ -7334,7 +7336,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update event
-  app.patch('/api/anesthesia/events/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/events/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -7393,7 +7395,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete event
-  app.delete('/api/anesthesia/events/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/anesthesia/events/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -7477,7 +7479,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create position
-  app.post('/api/anesthesia/positions', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/positions', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
 
@@ -7526,7 +7528,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update position
-  app.patch('/api/anesthesia/positions/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/positions/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -7590,7 +7592,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete position
-  app.delete('/api/anesthesia/positions/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/anesthesia/positions/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -7674,7 +7676,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create staff
-  app.post('/api/anesthesia/staff', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/staff', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
 
@@ -7723,7 +7725,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update staff
-  app.patch('/api/anesthesia/staff/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/staff/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -7789,7 +7791,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete staff
-  app.delete('/api/anesthesia/staff/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/anesthesia/staff/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -7858,7 +7860,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create installation
-  app.post('/api/anesthesia/installations', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/installations', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const validated = insertAnesthesiaInstallationSchema.parse(req.body);
       const record = await storage.getAnesthesiaRecordById(validated.anesthesiaRecordId);
@@ -7877,7 +7879,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update installation
-  app.patch('/api/anesthesia/installations/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/installations/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const validated = insertAnesthesiaInstallationSchema.partial().parse(req.body);
       const updated = await storage.updateAnesthesiaInstallation(req.params.id, validated);
@@ -7890,7 +7892,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete installation
-  app.delete('/api/anesthesia/installations/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/anesthesia/installations/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       await storage.deleteAnesthesiaInstallation(req.params.id);
       res.status(204).send();
@@ -7922,7 +7924,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upsert technique detail
-  app.post('/api/anesthesia/technique-details', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/technique-details', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const validated = insertAnesthesiaTechniqueDetailSchema.parse(req.body);
       const record = await storage.getAnesthesiaRecordById(validated.anesthesiaRecordId);
@@ -7962,7 +7964,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create/update airway management (upsert)
-  app.post('/api/anesthesia/:recordId/airway', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/:recordId/airway', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { recordId } = req.params;
       const validated = insertAnesthesiaAirwayManagementSchema.parse({ ...req.body, anesthesiaRecordId: recordId });
@@ -7982,7 +7984,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete airway management
-  app.delete('/api/anesthesia/:recordId/airway', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/anesthesia/:recordId/airway', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { recordId } = req.params;
       const userId = req.user.id;
@@ -8029,7 +8031,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Create/update difficult airway report (upsert)
-  app.post('/api/airway/:airwayId/difficult-airway-report', isAuthenticated, async (req: any, res) => {
+  app.post('/api/airway/:airwayId/difficult-airway-report', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { airwayId } = req.params;
       const userId = req.user.id;
@@ -8082,7 +8084,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create/update general technique (upsert)
-  app.post('/api/anesthesia/:recordId/general-technique', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/:recordId/general-technique', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { recordId } = req.params;
       const validated = insertAnesthesiaGeneralTechniqueSchema.parse({ ...req.body, anesthesiaRecordId: recordId });
@@ -8102,7 +8104,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete general technique
-  app.delete('/api/anesthesia/:recordId/general-technique', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/anesthesia/:recordId/general-technique', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { recordId } = req.params;
       const userId = req.user.id;
@@ -8143,7 +8145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create neuraxial block
-  app.post('/api/anesthesia/:recordId/neuraxial-blocks', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/:recordId/neuraxial-blocks', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { recordId } = req.params;
       const validated = insertAnesthesiaNeuraxialBlockSchema.parse({ ...req.body, anesthesiaRecordId: recordId });
@@ -8163,7 +8165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update neuraxial block
-  app.patch('/api/anesthesia/:recordId/neuraxial-blocks/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/:recordId/neuraxial-blocks/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { recordId, id } = req.params;
       const userId = req.user.id;
@@ -8184,7 +8186,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete neuraxial block
-  app.delete('/api/anesthesia/:recordId/neuraxial-blocks/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/anesthesia/:recordId/neuraxial-blocks/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { recordId, id } = req.params;
       const userId = req.user.id;
@@ -8225,7 +8227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create peripheral block
-  app.post('/api/anesthesia/:recordId/peripheral-blocks', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/:recordId/peripheral-blocks', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { recordId } = req.params;
       const validated = insertAnesthesiaPeripheralBlockSchema.parse({ ...req.body, anesthesiaRecordId: recordId });
@@ -8245,7 +8247,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update peripheral block
-  app.patch('/api/anesthesia/:recordId/peripheral-blocks/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/:recordId/peripheral-blocks/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { recordId, id } = req.params;
       const userId = req.user.id;
@@ -8266,7 +8268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete peripheral block
-  app.delete('/api/anesthesia/:recordId/peripheral-blocks/:id', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/anesthesia/:recordId/peripheral-blocks/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { recordId, id } = req.params;
       const userId = req.user.id;
@@ -8321,7 +8323,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Calculate and update inventory usage
-  app.post('/api/anesthesia/inventory/:recordId/calculate', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/inventory/:recordId/calculate', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { recordId } = req.params;
       const userId = req.user.id;
@@ -8355,7 +8357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create or update manual inventory usage
-  app.post('/api/anesthesia/inventory/:recordId/manual', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/inventory/:recordId/manual', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { recordId } = req.params;
       const userId = req.user.id;
@@ -8404,7 +8406,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Set manual override for inventory usage
-  app.patch('/api/anesthesia/inventory/:id/override', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/anesthesia/inventory/:id/override', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -8458,7 +8460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Clear manual override for inventory usage
-  app.delete('/api/anesthesia/inventory/:id/override', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/anesthesia/inventory/:id/override', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { id } = req.params;
       const userId = req.user.id;
@@ -8499,7 +8501,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Commit inventory usage to inventory system (module-scoped)
   // SECURITY: module parameter is REQUIRED to enforce unit separation
-  app.post('/api/anesthesia/inventory/:recordId/commit', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/inventory/:recordId/commit', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { recordId } = req.params;
       const { signature, module: moduleType } = req.body;
@@ -8612,7 +8614,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Rollback an inventory commit
-  app.post('/api/anesthesia/inventory/commits/:commitId/rollback', isAuthenticated, async (req: any, res) => {
+  app.post('/api/anesthesia/inventory/commits/:commitId/rollback', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { commitId } = req.params;
       const { reason } = req.body;
@@ -8847,7 +8849,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create a new note
-  app.post('/api/notes', isAuthenticated, async (req: any, res) => {
+  app.post('/api/notes', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const noteData = insertNoteSchema.parse(req.body);
@@ -8885,7 +8887,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update a note
-  app.patch('/api/notes/:noteId', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/notes/:noteId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const { noteId } = req.params;
@@ -8934,7 +8936,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a note
-  app.delete('/api/notes/:noteId', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/notes/:noteId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const { noteId } = req.params;

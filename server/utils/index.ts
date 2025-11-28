@@ -3,7 +3,11 @@ export {
   getUserUnitForHospital, 
   getActiveUnitIdFromRequest, 
   getUserRole, 
-  verifyUserHospitalUnitAccess 
+  verifyUserHospitalUnitAccess,
+  canWrite,
+  requireWriteAccess,
+  WRITE_ROLES,
+  READ_ONLY_ROLES
 } from "./accessControl";
 export { 
   getLicenseLimit, 
