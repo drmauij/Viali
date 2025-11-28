@@ -6,9 +6,92 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, UserCircle, UserRound, Calendar, User, ClipboardList, FileCheck, FileEdit, CalendarPlus, PauseCircle, Loader2 } from "lucide-react";
+import { Search, UserCircle, UserRound, Calendar, User, ClipboardList, FileCheck, FileEdit, CalendarPlus, PauseCircle, Loader2, Stethoscope } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+
+function getPreOpSummary(assessment: any, t: (key: string) => string): string | null {
+  if (!assessment) return null;
+  
+  const parts: string[] = [];
+  
+  if (assessment.asa != null) {
+    parts.push(`ASA ${assessment.asa}`);
+  }
+  if (assessment.weight != null) {
+    parts.push(`${assessment.weight}kg`);
+  }
+  if (assessment.height != null) {
+    parts.push(`${assessment.height}cm`);
+  }
+  if (assessment.heartRate != null) {
+    parts.push(`HR ${assessment.heartRate}`);
+  }
+  if (assessment.bloodPressureSystolic != null && assessment.bloodPressureDiastolic != null) {
+    parts.push(`BP ${assessment.bloodPressureSystolic}/${assessment.bloodPressureDiastolic}`);
+  }
+  if (assessment.cave != null) {
+    parts.push(`CAVE: ${assessment.cave}`);
+  }
+  
+  if (assessment.anesthesiaTechniques) {
+    const techniques: string[] = [];
+    const at = assessment.anesthesiaTechniques;
+    
+    if (at.general) {
+      const generalSubs = at.generalOptions ? Object.entries(at.generalOptions)
+        .filter(([_, value]) => value)
+        .map(([key]) => key.toUpperCase())
+        : [];
+      techniques.push(generalSubs.length > 0 ? `General (${generalSubs.join(', ')})` : 'General');
+    }
+    if (at.spinal) techniques.push('Spinal');
+    if (at.epidural) {
+      const epiduralSubs = at.epiduralOptions ? Object.entries(at.epiduralOptions)
+        .filter(([_, value]) => value)
+        .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
+        : [];
+      techniques.push(epiduralSubs.length > 0 ? `Epidural (${epiduralSubs.join(', ')})` : 'Epidural');
+    }
+    if (at.regional) {
+      const regionalSubs = at.regionalOptions ? Object.entries(at.regionalOptions)
+        .filter(([_, value]) => value)
+        .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
+        : [];
+      techniques.push(regionalSubs.length > 0 ? `Regional (${regionalSubs.join(', ')})` : 'Regional');
+    }
+    if (at.sedation) techniques.push('Sedation');
+    if (at.combined) techniques.push('Combined');
+    
+    if (techniques.length > 0) {
+      parts.push(techniques.join(', '));
+    }
+  }
+  
+  if (assessment.installations && Object.keys(assessment.installations).length > 0) {
+    const installations = Object.entries(assessment.installations)
+      .filter(([_, value]) => value)
+      .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
+      .join(', ');
+    if (installations) {
+      parts.push(installations);
+    }
+  }
+  
+  if (assessment.postOpICU) {
+    parts.push(t('anesthesia.preop.postOpICUPlanned'));
+  }
+  
+  if (assessment.specialNotes != null && assessment.specialNotes !== '') {
+    parts.push(assessment.specialNotes);
+  }
+  
+  if (assessment.anesthesiaOther != null && assessment.anesthesiaOther !== '') {
+    parts.push(assessment.anesthesiaOther);
+  }
+  
+  return parts.length > 0 ? parts.join(', ') : null;
+}
 
 export default function PreOpList() {
   const { t } = useTranslation();
@@ -230,6 +313,13 @@ export default function PreOpList() {
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Calendar className="h-4 w-4" />
                           <span>{formatDate(surgery.plannedDate)}</span>
+                        </div>
+                      )}
+                      {/* Pre-Op Assessment Summary */}
+                      {getPreOpSummary(item.assessment, t) && (
+                        <div className="flex items-start gap-2 text-sm text-muted-foreground mt-2 pt-2 border-t border-border/50">
+                          <Stethoscope className="h-4 w-4 mt-0.5 shrink-0 text-green-600 dark:text-green-400" />
+                          <span data-testid={`text-preop-summary-${surgery.id}`}>{getPreOpSummary(item.assessment, t)}</span>
                         </div>
                       )}
                     </div>
