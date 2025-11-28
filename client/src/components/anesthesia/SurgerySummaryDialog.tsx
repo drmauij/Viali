@@ -247,22 +247,23 @@ export default function SurgerySummaryDialog({
                               const parts = [];
                               
                               // General Data
-                              if (preOpAssessment.asa != null) {
+                              if (preOpAssessment.asa != null && preOpAssessment.asa !== '') {
                                 parts.push(`ASA ${preOpAssessment.asa}`);
                               }
-                              if (preOpAssessment.weight != null) {
+                              if (preOpAssessment.weight != null && preOpAssessment.weight !== '' && preOpAssessment.weight !== 0) {
                                 parts.push(`${preOpAssessment.weight}kg`);
                               }
-                              if (preOpAssessment.height != null) {
+                              if (preOpAssessment.height != null && preOpAssessment.height !== '' && preOpAssessment.height !== 0) {
                                 parts.push(`${preOpAssessment.height}cm`);
                               }
-                              if (preOpAssessment.heartRate != null) {
+                              if (preOpAssessment.heartRate != null && preOpAssessment.heartRate !== '' && preOpAssessment.heartRate !== 0) {
                                 parts.push(`HR ${preOpAssessment.heartRate}`);
                               }
-                              if (preOpAssessment.bloodPressureSystolic != null && preOpAssessment.bloodPressureDiastolic != null) {
+                              if (preOpAssessment.bloodPressureSystolic != null && preOpAssessment.bloodPressureDiastolic != null &&
+                                  preOpAssessment.bloodPressureSystolic !== 0 && preOpAssessment.bloodPressureDiastolic !== 0) {
                                 parts.push(`BP ${preOpAssessment.bloodPressureSystolic}/${preOpAssessment.bloodPressureDiastolic}`);
                               }
-                              if (preOpAssessment.cave != null) {
+                              if (preOpAssessment.cave != null && preOpAssessment.cave !== '') {
                                 parts.push(`CAVE: ${preOpAssessment.cave}`);
                               }
                               
@@ -318,10 +319,10 @@ export default function SurgerySummaryDialog({
                               }
                               
                               // Other notes
-                              if (preOpAssessment.specialNotes != null) {
+                              if (preOpAssessment.specialNotes != null && preOpAssessment.specialNotes !== '') {
                                 parts.push(preOpAssessment.specialNotes);
                               }
-                              if (preOpAssessment.anesthesiaOther != null) {
+                              if (preOpAssessment.anesthesiaOther != null && preOpAssessment.anesthesiaOther !== '') {
                                 parts.push(preOpAssessment.anesthesiaOther);
                               }
                               
