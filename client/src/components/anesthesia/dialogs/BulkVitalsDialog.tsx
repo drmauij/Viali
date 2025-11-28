@@ -12,6 +12,7 @@ interface BulkVitalsDialogProps {
   anesthesiaRecordId: string | null;
   initialTime: number;
   onVitalsCreated?: () => void;
+  readOnly?: boolean;
 }
 
 export function BulkVitalsDialog({
@@ -20,6 +21,7 @@ export function BulkVitalsDialog({
   anesthesiaRecordId,
   initialTime,
   onVitalsCreated,
+  readOnly = false,
 }: BulkVitalsDialogProps) {
   const [systolic, setSystolic] = useState("");
   const [diastolic, setDiastolic] = useState("");
@@ -61,6 +63,7 @@ export function BulkVitalsDialog({
   const handleKeyDown = (e: React.KeyboardEvent, nextRef?: React.RefObject<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      if (readOnly) return;
       if (nextRef?.current) {
         nextRef.current.focus();
       } else {
@@ -70,6 +73,7 @@ export function BulkVitalsDialog({
   };
 
   const handleSave = async () => {
+    if (readOnly) return;
     if (!anesthesiaRecordId) return;
 
     const timestamp = new Date(currentTime).toISOString();
@@ -186,6 +190,7 @@ export function BulkVitalsDialog({
                 onChange={(e) => setSystolic(e.target.value)}
                 onKeyDown={(e) => handleKeyDown(e, diastolicRef)}
                 placeholder="e.g., 120"
+                disabled={readOnly}
               />
             </div>
             <div className="grid gap-2">
@@ -199,6 +204,7 @@ export function BulkVitalsDialog({
                 onChange={(e) => setDiastolic(e.target.value)}
                 onKeyDown={(e) => handleKeyDown(e, heartRateRef)}
                 placeholder="e.g., 80"
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -214,6 +220,7 @@ export function BulkVitalsDialog({
                 onChange={(e) => setHeartRate(e.target.value)}
                 onKeyDown={(e) => handleKeyDown(e, oxygenRef)}
                 placeholder="e.g., 75"
+                disabled={readOnly}
               />
             </div>
             <div className="grid gap-2">
@@ -227,6 +234,7 @@ export function BulkVitalsDialog({
                 onChange={(e) => setOxygen(e.target.value)}
                 onKeyDown={(e) => handleKeyDown(e)}
                 placeholder="e.g., 98"
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -236,8 +244,8 @@ export function BulkVitalsDialog({
           onTimeChange={setCurrentTime}
           showDelete={false}
           onCancel={handleClose}
-          onSave={handleSave}
-          saveDisabled={!hasAnyValue || addVitalPointMutation.isPending}
+          onSave={!readOnly ? handleSave : undefined}
+          saveDisabled={!hasAnyValue || addVitalPointMutation.isPending || readOnly}
           saveLabel={addVitalPointMutation.isPending ? "Saving..." : "Save All"}
         />
       </DialogContent>

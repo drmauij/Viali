@@ -28,6 +28,7 @@ interface EventDialogProps {
   onEventCreated?: () => void;
   onEventUpdated?: () => void;
   onEventDeleted?: () => void;
+  readOnly?: boolean;
 }
 
 export function EventDialog({
@@ -39,6 +40,7 @@ export function EventDialog({
   onEventCreated,
   onEventUpdated,
   onEventDeleted,
+  readOnly = false,
 }: EventDialogProps) {
   const [eventTextInput, setEventTextInput] = useState("");
   const [eventEditTime, setEventEditTime] = useState<number>(Date.now());
@@ -167,7 +169,7 @@ export function EventDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          {!editingEvent && (
+          {!editingEvent && !readOnly && (
             <div className="grid gap-2">
               <Label>{t("anesthesia.timeline.commonEvents")}</Label>
               <div className="grid grid-cols-2 gap-2 max-h-[240px] overflow-y-auto p-1">
@@ -199,17 +201,18 @@ export function EventDialog({
               placeholder={t("anesthesia.timeline.enterEventDescription")}
               rows={4}
               autoFocus={!!editingEvent}
+              disabled={readOnly}
             />
           </div>
         </div>
         <DialogFooterWithTime
           time={editingEvent ? eventEditTime : pendingEvent?.time}
           onTimeChange={setEventEditTime}
-          showDelete={!!editingEvent}
-          onDelete={editingEvent ? handleDelete : undefined}
+          showDelete={!!editingEvent && !readOnly}
+          onDelete={editingEvent && !readOnly ? handleDelete : undefined}
           onCancel={handleClose}
           onSave={handleSave}
-          saveDisabled={!eventTextInput?.trim()}
+          saveDisabled={!eventTextInput?.trim() || readOnly}
           saveLabel={editingEvent ? "Save" : "Add"}
         />
       </DialogContent>

@@ -31,6 +31,7 @@ interface MedicationDoseDialogProps {
   onTimeChange?: (newTime: number) => void;
   onMedicationDoseCreated?: () => void;
   onLocalStateUpdate?: (swimlaneId: string, time: number, doseValue: string) => void;
+  readOnly?: boolean;
 }
 
 export function MedicationDoseDialog({
@@ -42,6 +43,7 @@ export function MedicationDoseDialog({
   onTimeChange,
   onMedicationDoseCreated,
   onLocalStateUpdate,
+  readOnly = false,
 }: MedicationDoseDialogProps) {
   const [medicationDoseInput, setMedicationDoseInput] = useState("");
   const { toast } = useToast();
@@ -186,7 +188,7 @@ export function MedicationDoseDialog({
         </DialogHeader>
         <div className="grid gap-4 py-4">
           {/* Quick-select buttons for range default doses */}
-          {pendingMedicationDose?.defaultDose?.includes('-') && (
+          {pendingMedicationDose?.defaultDose?.includes('-') && !readOnly && (
             <div className="grid gap-2">
               <Label>Quick Select</Label>
               <div className="flex gap-2 flex-wrap">
@@ -215,12 +217,13 @@ export function MedicationDoseDialog({
               value={medicationDoseInput}
               onChange={(e) => setMedicationDoseInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' && !readOnly) {
                   handleSave();
                 }
               }}
               placeholder="e.g., 5, 100, 2"
               autoFocus
+              disabled={readOnly}
             />
           </div>
         </div>
@@ -230,7 +233,7 @@ export function MedicationDoseDialog({
           showDelete={false}
           onCancel={handleClose}
           onSave={handleSave}
-          saveDisabled={!medicationDoseInput.trim()}
+          saveDisabled={!medicationDoseInput.trim() || readOnly}
           saveLabel="Add"
         />
       </DialogContent>

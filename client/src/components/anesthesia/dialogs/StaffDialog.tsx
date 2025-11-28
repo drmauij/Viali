@@ -31,6 +31,7 @@ interface StaffDialogProps {
   onStaffCreated?: () => void;
   onStaffUpdated?: () => void;
   onStaffDeleted?: () => void;
+  readOnly?: boolean;
 }
 
 export function StaffDialog({
@@ -44,6 +45,7 @@ export function StaffDialog({
   onStaffCreated,
   onStaffUpdated,
   onStaffDeleted,
+  readOnly = false,
 }: StaffDialogProps) {
   const [staffInput, setStaffInput] = useState("");
   const [staffEditTime, setStaffEditTime] = useState<number>(Date.now());
@@ -172,11 +174,12 @@ export function StaffDialog({
                 value={staffInput}
                 onChange={(e) => setStaffInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && staffInput.trim()) {
+                  if (e.key === 'Enter' && staffInput.trim() && !readOnly) {
                     handleSave();
                   }
                 }}
                 autoFocus
+                disabled={readOnly}
               />
             </div>
           ) : (
@@ -195,8 +198,9 @@ export function StaffDialog({
                       key={hospitalUser.id}
                       variant={staffInput === displayName ? 'default' : 'outline'}
                       className="justify-start h-auto py-3 text-left"
+                      disabled={readOnly}
                       onClick={() => {
-                        if (!anesthesiaRecordId) return;
+                        if (!anesthesiaRecordId || readOnly) return;
                         
                         // Update staffInput for variant highlighting
                         setStaffInput(displayName);
@@ -254,10 +258,11 @@ export function StaffDialog({
                   value={staffInput}
                   onChange={(e) => setStaffInput(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && staffInput.trim()) {
+                    if (e.key === 'Enter' && staffInput.trim() && !readOnly) {
                       handleSave();
                     }
                   }}
+                  disabled={readOnly}
                 />
               </div>
             </div>
@@ -266,11 +271,11 @@ export function StaffDialog({
         <DialogFooterWithTime
           time={editingStaff ? staffEditTime : pendingStaff?.time}
           onTimeChange={editingStaff ? setStaffEditTime : undefined}
-          showDelete={!!editingStaff}
-          onDelete={editingStaff ? handleDelete : undefined}
+          showDelete={!!editingStaff && !readOnly}
+          onDelete={editingStaff && !readOnly ? handleDelete : undefined}
           onCancel={handleClose}
           onSave={handleSave}
-          saveDisabled={!staffInput.trim()}
+          saveDisabled={!staffInput.trim() || readOnly}
           saveLabel={editingStaff ? 'Save' : 'Add'}
         />
       </DialogContent>

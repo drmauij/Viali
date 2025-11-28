@@ -21,6 +21,7 @@ interface OutputEditDialogProps {
   editingOutputValue: EditingOutputValue | null;
   onOutputUpdated?: () => void;
   onOutputDeleted?: () => void;
+  readOnly?: boolean;
 }
 
 export function OutputEditDialog({
@@ -30,6 +31,7 @@ export function OutputEditDialog({
   editingOutputValue,
   onOutputUpdated,
   onOutputDeleted,
+  readOnly = false,
 }: OutputEditDialogProps) {
   const [outputEditInput, setOutputEditInput] = useState("");
   const [outputEditTime, setOutputEditTime] = useState<number>(0);
@@ -51,6 +53,7 @@ export function OutputEditDialog({
   }, [open, editingOutputValue]);
 
   const handleSave = () => {
+    if (readOnly) return;
     if (!editingOutputValue || !outputEditInput.trim()) return;
     if (!anesthesiaRecordId) return;
     
@@ -78,6 +81,7 @@ export function OutputEditDialog({
   };
 
   const handleDelete = () => {
+    if (readOnly) return;
     if (!editingOutputValue) return;
     if (!anesthesiaRecordId) return;
     
@@ -124,23 +128,24 @@ export function OutputEditDialog({
               value={outputEditInput}
               onChange={(e) => setOutputEditInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' && !readOnly) {
                   handleSave();
                 }
               }}
               placeholder="Enter value"
               autoFocus
+              disabled={readOnly}
             />
           </div>
         </div>
         <DialogFooterWithTime
           time={outputEditTime}
           onTimeChange={setOutputEditTime}
-          showDelete={true}
-          onDelete={handleDelete}
+          showDelete={!readOnly}
+          onDelete={!readOnly ? handleDelete : undefined}
           onCancel={handleClose}
-          onSave={handleSave}
-          saveDisabled={!outputEditInput.trim()}
+          onSave={!readOnly ? handleSave : undefined}
+          saveDisabled={!outputEditInput.trim() || readOnly}
         />
       </DialogContent>
     </Dialog>

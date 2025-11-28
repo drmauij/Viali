@@ -22,6 +22,7 @@ interface VentilationEditDialogProps {
   editingVentilationValue: EditingVentilationValue | null;
   onVentilationUpdated?: () => void;
   onVentilationDeleted?: () => void;
+  readOnly?: boolean;
 }
 
 export function VentilationEditDialog({
@@ -31,6 +32,7 @@ export function VentilationEditDialog({
   editingVentilationValue,
   onVentilationUpdated,
   onVentilationDeleted,
+  readOnly = false,
 }: VentilationEditDialogProps) {
   const [ventilationEditInput, setVentilationEditInput] = useState("");
   const [ventilationEditTime, setVentilationEditTime] = useState<number>(0);
@@ -53,6 +55,7 @@ export function VentilationEditDialog({
   }, [editingVentilationValue]);
 
   const handleSave = () => {
+    if (readOnly) return;
     if (!editingVentilationValue || !ventilationEditInput.trim()) return;
     if (!anesthesiaRecordId) return;
     
@@ -86,6 +89,7 @@ export function VentilationEditDialog({
   };
 
   const handleDelete = () => {
+    if (readOnly) return;
     if (!editingVentilationValue) return;
     if (!anesthesiaRecordId) return;
     
@@ -126,23 +130,24 @@ export function VentilationEditDialog({
               value={ventilationEditInput}
               onChange={(e) => setVentilationEditInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' && !readOnly) {
                   handleSave();
                 }
               }}
               placeholder="Enter value"
               autoFocus
+              disabled={readOnly}
             />
           </div>
         </div>
         <DialogFooterWithTime
           time={ventilationEditTime}
           onTimeChange={setVentilationEditTime}
-          showDelete={true}
-          onDelete={handleDelete}
+          showDelete={!readOnly}
+          onDelete={!readOnly ? handleDelete : undefined}
           onCancel={handleClose}
-          onSave={handleSave}
-          saveDisabled={!ventilationEditInput.trim()}
+          onSave={!readOnly ? handleSave : undefined}
+          saveDisabled={!ventilationEditInput.trim() || readOnly}
         />
       </DialogContent>
     </Dialog>

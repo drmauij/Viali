@@ -27,6 +27,7 @@ interface PositionDialogProps {
   onPositionCreated?: () => void;
   onPositionUpdated?: () => void;
   onPositionDeleted?: () => void;
+  readOnly?: boolean;
 }
 
 const PRESET_POSITION_KEYS = ['Supine', 'Prone', 'Left Side', 'Right Side', 'Beach Chair', 'Lithotomy', 'Head Up', 'Head Down', 'Sitting for SPA/PDA', 'Other'];
@@ -40,6 +41,7 @@ export function PositionDialog({
   onPositionCreated,
   onPositionUpdated,
   onPositionDeleted,
+  readOnly = false,
 }: PositionDialogProps) {
   const { t } = useTranslation();
   const [positionInput, setPositionInput] = useState("");
@@ -149,8 +151,9 @@ export function PositionDialog({
                   key={pos.key}
                   variant={positionInput === pos.key ? 'default' : 'outline'}
                   className="justify-start h-12 text-left"
+                  disabled={readOnly}
                   onClick={() => {
-                    if (!anesthesiaRecordId) return;
+                    if (!anesthesiaRecordId || readOnly) return;
                     
                     if (editingPosition) {
                       updatePosition.mutate(
@@ -192,12 +195,13 @@ export function PositionDialog({
                 value={positionInput && !PRESET_POSITION_KEYS.includes(positionInput) ? positionInput : ''}
                 onChange={(e) => setPositionInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && positionInput.trim() && pendingPosition) {
+                  if (e.key === 'Enter' && positionInput.trim() && pendingPosition && !readOnly) {
                     handleSave();
                   }
                 }}
                 className="col-span-2"
                 data-testid="input-position-custom"
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -205,11 +209,11 @@ export function PositionDialog({
         <DialogFooterWithTime
           time={editingPosition ? positionEditTime : pendingPosition?.time}
           onTimeChange={editingPosition ? setPositionEditTime : undefined}
-          showDelete={!!editingPosition}
-          onDelete={editingPosition ? handleDelete : undefined}
+          showDelete={!!editingPosition && !readOnly}
+          onDelete={editingPosition && !readOnly ? handleDelete : undefined}
           onCancel={handleClose}
           onSave={handleSave}
-          saveDisabled={!positionInput.trim()}
+          saveDisabled={!positionInput.trim() || readOnly}
           saveLabel={editingPosition ? t('common.save') : t('anesthesia.timeline.add')}
         />
       </DialogContent>

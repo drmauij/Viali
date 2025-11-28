@@ -27,6 +27,7 @@ interface TOFDialogProps {
   onTOFCreated?: () => void;
   onTOFUpdated?: () => void;
   onTOFDeleted?: () => void;
+  readOnly?: boolean;
 }
 
 const TOF_FRACTIONS = ['0/4', '1/4', '2/4', '3/4', '4/4'];
@@ -40,6 +41,7 @@ export function TOFDialog({
   onTOFCreated,
   onTOFUpdated,
   onTOFDeleted,
+  readOnly = false,
 }: TOFDialogProps) {
   const [fractionValue, setFractionValue] = useState("");
   const [percentageValue, setPercentageValue] = useState("");
@@ -147,7 +149,11 @@ export function TOFDialog({
                     key={fraction}
                     variant={fractionValue === fraction ? 'default' : 'outline'}
                     className="h-12 text-base font-semibold"
-                    onClick={() => setFractionValue(fraction)}
+                    disabled={readOnly}
+                    onClick={() => {
+                      if (readOnly) return;
+                      setFractionValue(fraction);
+                    }}
                     data-testid={`button-tof-${fraction.replace('/', '-')}`}
                   >
                     {fraction}
@@ -159,7 +165,9 @@ export function TOFDialog({
                     key={fraction}
                     variant="outline"
                     className="h-12 text-base font-semibold"
+                    disabled={readOnly}
                     onClick={() => {
+                      if (readOnly) return;
                       if (!percentageValue) {
                         handleSave(fraction);
                       } else {
@@ -183,7 +191,7 @@ export function TOFDialog({
               value={percentageValue}
               onChange={(e) => setPercentageValue(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && isValid()) {
+                if (e.key === 'Enter' && isValid() && !readOnly) {
                   handleSave();
                 }
               }}
@@ -191,17 +199,18 @@ export function TOFDialog({
               max={100}
               step={1}
               data-testid="input-tof-percentage"
+              disabled={readOnly}
             />
           </div>
         </div>
         <DialogFooterWithTime
           time={editingTOF ? tofEditTime : pendingTOF?.time}
           onTimeChange={editingTOF ? setTofEditTime : undefined}
-          showDelete={!!editingTOF}
-          onDelete={editingTOF ? handleDelete : undefined}
+          showDelete={!!editingTOF && !readOnly}
+          onDelete={editingTOF && !readOnly ? handleDelete : undefined}
           onCancel={handleClose}
           onSave={() => handleSave()}
-          saveDisabled={!isValid()}
+          saveDisabled={!isValid() || readOnly}
           saveLabel={editingTOF ? 'Save' : 'Add'}
         />
       </DialogContent>

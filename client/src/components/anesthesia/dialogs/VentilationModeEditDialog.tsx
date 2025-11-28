@@ -19,6 +19,7 @@ interface VentilationModeEditDialogProps {
   editingVentilationMode: EditingVentilationMode | null;
   onVentilationModeUpdated?: () => void;
   onVentilationModeDeleted?: () => void;
+  readOnly?: boolean;
 }
 
 const VENTILATION_MODES = [
@@ -37,6 +38,7 @@ export function VentilationModeEditDialog({
   editingVentilationMode,
   onVentilationModeUpdated,
   onVentilationModeDeleted,
+  readOnly = false,
 }: VentilationModeEditDialogProps) {
   const [ventilationModeEditInput, setVentilationModeEditInput] = useState("");
   const [ventilationModeEditTime, setVentilationModeEditTime] = useState<number>(0);
@@ -55,6 +57,7 @@ export function VentilationModeEditDialog({
   }, [editingVentilationMode]);
 
   const handleSave = () => {
+    if (readOnly) return;
     if (!editingVentilationMode || !ventilationModeEditInput.trim()) return;
     if (!anesthesiaRecordId) return;
     
@@ -76,6 +79,7 @@ export function VentilationModeEditDialog({
   };
 
   const handleDelete = () => {
+    if (readOnly) return;
     if (!editingVentilationMode) return;
     if (!anesthesiaRecordId) return;
     
@@ -105,7 +109,7 @@ export function VentilationModeEditDialog({
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
             <Label htmlFor="mode-edit-value">Mode</Label>
-            <Select value={ventilationModeEditInput} onValueChange={setVentilationModeEditInput}>
+            <Select value={ventilationModeEditInput} onValueChange={setVentilationModeEditInput} disabled={readOnly}>
               <SelectTrigger id="mode-edit-value" data-testid="select-mode-edit-value">
                 <SelectValue />
               </SelectTrigger>
@@ -122,11 +126,11 @@ export function VentilationModeEditDialog({
         <DialogFooterWithTime
           time={ventilationModeEditTime}
           onTimeChange={setVentilationModeEditTime}
-          showDelete={true}
-          onDelete={handleDelete}
+          showDelete={!readOnly}
+          onDelete={!readOnly ? handleDelete : undefined}
           onCancel={handleClose}
-          onSave={handleSave}
-          saveDisabled={!ventilationModeEditInput.trim()}
+          onSave={!readOnly ? handleSave : undefined}
+          saveDisabled={!ventilationModeEditInput.trim() || readOnly}
         />
       </DialogContent>
     </Dialog>

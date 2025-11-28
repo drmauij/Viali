@@ -15,6 +15,7 @@ interface OutputBulkDialogProps {
   anesthesiaRecordId: string | null;
   pendingOutputBulk: PendingOutputBulk | null;
   onOutputBulkCreated?: () => void;
+  readOnly?: boolean;
 }
 
 export function OutputBulkDialog({
@@ -23,6 +24,7 @@ export function OutputBulkDialog({
   anesthesiaRecordId,
   pendingOutputBulk,
   onOutputBulkCreated,
+  readOnly = false,
 }: OutputBulkDialogProps) {
   const [bulkOutputParams, setBulkOutputParams] = useState({
     urine: "",
@@ -47,6 +49,7 @@ export function OutputBulkDialog({
   }, [open]);
 
   const handleSave = () => {
+    if (readOnly) return;
     if (!pendingOutputBulk) return;
     if (!anesthesiaRecordId) return;
     
@@ -106,6 +109,7 @@ export function OutputBulkDialog({
                 onChange={(e) => setBulkOutputParams(prev => ({ ...prev, urine: e.target.value }))}
                 data-testid="input-bulk-urine"
                 placeholder="Optional"
+                disabled={readOnly}
               />
             </div>
             <div className="grid gap-2">
@@ -118,6 +122,7 @@ export function OutputBulkDialog({
                 onChange={(e) => setBulkOutputParams(prev => ({ ...prev, blood: e.target.value }))}
                 data-testid="input-bulk-blood"
                 placeholder="Optional"
+                disabled={readOnly}
               />
             </div>
             <div className="grid gap-2">
@@ -130,6 +135,7 @@ export function OutputBulkDialog({
                 onChange={(e) => setBulkOutputParams(prev => ({ ...prev, gastricTube: e.target.value }))}
                 data-testid="input-bulk-gastrictube"
                 placeholder="Optional"
+                disabled={readOnly}
               />
             </div>
             <div className="grid gap-2">
@@ -142,6 +148,7 @@ export function OutputBulkDialog({
                 onChange={(e) => setBulkOutputParams(prev => ({ ...prev, drainage: e.target.value }))}
                 data-testid="input-bulk-drainage"
                 placeholder="Optional"
+                disabled={readOnly}
               />
             </div>
             <div className="grid gap-2">
@@ -154,6 +161,7 @@ export function OutputBulkDialog({
                 onChange={(e) => setBulkOutputParams(prev => ({ ...prev, vomit: e.target.value }))}
                 data-testid="input-bulk-vomit"
                 placeholder="Optional"
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -165,8 +173,9 @@ export function OutputBulkDialog({
           }}
           showDelete={false}
           onCancel={handleClose}
-          onSave={handleSave}
+          onSave={!readOnly ? handleSave : undefined}
           saveLabel="Add All"
+          saveDisabled={readOnly}
         />
       </DialogContent>
     </Dialog>

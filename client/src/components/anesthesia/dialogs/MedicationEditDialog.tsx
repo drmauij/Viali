@@ -28,6 +28,7 @@ interface MedicationEditDialogProps {
   activeSwimlanes: SwimlaneConfig[];
   onMedicationDoseUpdated?: () => void;
   onMedicationDoseDeleted?: () => void;
+  readOnly?: boolean;
 }
 
 export function MedicationEditDialog({
@@ -38,6 +39,7 @@ export function MedicationEditDialog({
   activeSwimlanes,
   onMedicationDoseUpdated,
   onMedicationDoseDeleted,
+  readOnly = false,
 }: MedicationEditDialogProps) {
   const [medicationEditInput, setMedicationEditInput] = useState("");
   const [medicationEditTime, setMedicationEditTime] = useState<number>(Date.now());
@@ -130,10 +132,14 @@ export function MedicationEditDialog({
                 {dosePresets.map((dose, idx) => (
                   <Button
                     key={idx}
-                    onClick={() => setMedicationEditInput(dose)}
+                    onClick={() => {
+                      if (readOnly) return;
+                      setMedicationEditInput(dose);
+                    }}
                     variant="outline"
                     className="h-12"
                     data-testid={`button-dose-preset-${dose}`}
+                    disabled={readOnly}
                   >
                     {dose}
                   </Button>
@@ -162,23 +168,24 @@ export function MedicationEditDialog({
               value={medicationEditInput}
               onChange={(e) => setMedicationEditInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' && !readOnly) {
                   handleSave();
                 }
               }}
               placeholder="e.g., 5, 100, 2"
               autoFocus
+              disabled={readOnly}
             />
           </div>
         </div>
         <DialogFooterWithTime
           time={medicationEditTime}
           onTimeChange={setMedicationEditTime}
-          showDelete={true}
-          onDelete={handleDelete}
+          showDelete={!readOnly}
+          onDelete={!readOnly ? handleDelete : undefined}
           onCancel={handleClose}
           onSave={handleSave}
-          saveDisabled={!medicationEditInput.trim()}
+          saveDisabled={!medicationEditInput.trim() || readOnly}
         />
       </DialogContent>
     </Dialog>

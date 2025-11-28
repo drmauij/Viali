@@ -25,6 +25,7 @@ interface BISDialogProps {
   onBISCreated?: () => void;
   onBISUpdated?: () => void;
   onBISDeleted?: () => void;
+  readOnly?: boolean;
 }
 
 export function BISDialog({
@@ -36,6 +37,7 @@ export function BISDialog({
   onBISCreated,
   onBISUpdated,
   onBISDeleted,
+  readOnly = false,
 }: BISDialogProps) {
   const [bisValue, setBisValue] = useState("");
   const [bisEditTime, setBisEditTime] = useState<number>(0);
@@ -131,7 +133,7 @@ export function BISDialog({
               value={bisValue}
               onChange={(e) => setBisValue(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && isValid()) {
+                if (e.key === 'Enter' && isValid() && !readOnly) {
                   handleSave();
                 }
               }}
@@ -140,17 +142,18 @@ export function BISDialog({
               step={1}
               autoFocus
               data-testid="input-bis-value"
+              disabled={readOnly}
             />
           </div>
         </div>
         <DialogFooterWithTime
           time={editingBIS ? bisEditTime : pendingBIS?.time}
           onTimeChange={editingBIS ? setBisEditTime : undefined}
-          showDelete={!!editingBIS}
-          onDelete={editingBIS ? handleDelete : undefined}
+          showDelete={!!editingBIS && !readOnly}
+          onDelete={editingBIS && !readOnly ? handleDelete : undefined}
           onCancel={handleClose}
           onSave={handleSave}
-          saveDisabled={!isValid()}
+          saveDisabled={!isValid() || readOnly}
           saveLabel={editingBIS ? 'Save' : 'Add'}
         />
       </DialogContent>

@@ -19,6 +19,7 @@ interface VentilationBulkDialogProps {
   ventilationModeData: any[];
   patientWeight?: number;
   onVentilationBulkCreated?: () => void;
+  readOnly?: boolean;
 }
 
 const VENTILATION_MODES = [
@@ -38,6 +39,7 @@ export function VentilationBulkDialog({
   ventilationModeData,
   patientWeight,
   onVentilationBulkCreated,
+  readOnly = false,
 }: VentilationBulkDialogProps) {
   const [ventilationMode, setVentilationMode] = useState("PCV - druckkontrolliert");
   const [isSpontaneousBreathing, setIsSpontaneousBreathing] = useState(false);
@@ -93,6 +95,7 @@ export function VentilationBulkDialog({
   }, [open, patientWeight, pendingVentilationBulk]);
 
   const handleSave = async () => {
+    if (readOnly) return;
     if (!anesthesiaRecordId) return;
     
     const timestamp = new Date(dialogTime).toISOString();
@@ -169,6 +172,7 @@ export function VentilationBulkDialog({
                   onChange={(e) => setOxygenFlowRate(e.target.value)}
                   placeholder="e.g., 2"
                   data-testid="input-bulk-o2-flow"
+                  disabled={readOnly}
                 />
               </div>
               <div className="grid gap-2">
@@ -181,6 +185,7 @@ export function VentilationBulkDialog({
                   onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, etCO2: e.target.value }))}
                   placeholder="Optional"
                   data-testid="input-bulk-etco2"
+                  disabled={readOnly}
                 />
               </div>
             </div>
@@ -189,7 +194,7 @@ export function VentilationBulkDialog({
             <>
               <div className="grid gap-2">
                 <Label htmlFor="vent-mode">Ventilation Mode</Label>
-                <Select value={ventilationMode} onValueChange={setVentilationMode}>
+                <Select value={ventilationMode} onValueChange={setVentilationMode} disabled={readOnly}>
                   <SelectTrigger id="vent-mode" data-testid="select-vent-mode">
                     <SelectValue />
                   </SelectTrigger>
@@ -212,6 +217,7 @@ export function VentilationBulkDialog({
                 value={bulkVentilationParams.peep}
                 onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, peep: e.target.value }))}
                 data-testid="input-bulk-peep"
+                disabled={readOnly}
               />
             </div>
             <div className="grid gap-2">
@@ -223,6 +229,7 @@ export function VentilationBulkDialog({
                 value={bulkVentilationParams.fiO2}
                 onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, fiO2: e.target.value }))}
                 data-testid="input-bulk-fio2"
+                disabled={readOnly}
               />
             </div>
             <div className="grid gap-2">
@@ -234,6 +241,7 @@ export function VentilationBulkDialog({
                 value={bulkVentilationParams.tidalVolume}
                 onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, tidalVolume: e.target.value }))}
                 data-testid="input-bulk-vt"
+                disabled={readOnly}
               />
             </div>
             <div className="grid gap-2">
@@ -245,6 +253,7 @@ export function VentilationBulkDialog({
                 value={bulkVentilationParams.respiratoryRate}
                 onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, respiratoryRate: e.target.value }))}
                 data-testid="input-bulk-rr"
+                disabled={readOnly}
               />
             </div>
             <div className="grid gap-2">
@@ -257,6 +266,7 @@ export function VentilationBulkDialog({
                 onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, minuteVolume: e.target.value }))}
                 placeholder="Optional"
                 data-testid="input-bulk-mv"
+                disabled={readOnly}
               />
             </div>
             <div className="grid gap-2">
@@ -269,6 +279,7 @@ export function VentilationBulkDialog({
                 onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, etCO2: e.target.value }))}
                 placeholder="Optional"
                 data-testid="input-bulk-etco2"
+                disabled={readOnly}
               />
             </div>
             <div className="grid gap-2">
@@ -281,6 +292,7 @@ export function VentilationBulkDialog({
                 onChange={(e) => setBulkVentilationParams(prev => ({ ...prev, pip: e.target.value }))}
                 placeholder="Optional"
                 data-testid="input-bulk-pip"
+                disabled={readOnly}
               />
             </div>
           </div>
@@ -294,6 +306,7 @@ export function VentilationBulkDialog({
               checked={isSpontaneousBreathing}
               onCheckedChange={(checked) => setIsSpontaneousBreathing(checked === true)}
               data-testid="checkbox-spontaneous-breathing"
+              disabled={readOnly}
             />
             <Label 
               htmlFor="spontaneous-breathing" 
@@ -308,8 +321,9 @@ export function VentilationBulkDialog({
           onTimeChange={setDialogTime}
           showDelete={false}
           onCancel={handleClose}
-          onSave={handleSave}
+          onSave={!readOnly ? handleSave : undefined}
           saveLabel="Add All"
+          saveDisabled={readOnly}
         />
       </DialogContent>
     </Dialog>

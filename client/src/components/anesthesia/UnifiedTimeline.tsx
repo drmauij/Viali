@@ -67,6 +67,7 @@ import { useVentilationState } from "@/hooks/useVentilationState";
 import { useEventState } from "@/hooks/useEventState";
 import { useOutputState } from "@/hooks/useOutputState";
 import { useInventoryCommitState } from "@/hooks/useInventoryCommitState";
+import { useCanWrite } from "@/hooks/useCanWrite";
 import { 
   useClinicalSnapshot, 
   useAddVitalPoint, 
@@ -287,6 +288,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const { user } = useAuth();
   const activeHospital = useActiveHospital();
   const { t } = useTranslation();
+  const canWrite = useCanWrite();
 
   // Expose chart image export function
   useImperativeHandle(ref, () => ({
@@ -5771,6 +5773,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             };
           });
         }}
+        readOnly={!canWrite}
       />
 
       {/* Medication Configuration Dialog (from timeline admin groups) */}
@@ -6747,6 +6750,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onOutputCreated={() => {
           setPendingOutputValue(null);
         }}
+        readOnly={!canWrite}
       />
 
       {/* Ventilation Parameter Entry Dialog */}
@@ -6758,6 +6762,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onVentilationCreated={() => {
           setPendingVentilationValue(null);
         }}
+        readOnly={!canWrite}
       />
 
       {/* Edit Value Dialog */}
@@ -7186,6 +7191,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onEventDeleted={() => {
           setEditingEvent(null);
         }}
+        readOnly={!canWrite}
       />
 
       {/* Medication Dose Edit Dialog */}
@@ -7201,6 +7207,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onMedicationDoseDeleted={() => {
           setEditingMedicationDose(null);
         }}
+        readOnly={!canWrite}
       />
 
       {/* Ventilation Value Edit Dialog */}
@@ -7215,6 +7222,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onVentilationDeleted={() => {
           setEditingVentilationValue(null);
         }}
+        readOnly={!canWrite}
       />
 
       {/* Ventilation Mode Edit Dialog */}
@@ -7229,6 +7237,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onVentilationModeDeleted={() => {
           setEditingVentilationMode(null);
         }}
+        readOnly={!canWrite}
       />
 
       {/* Heart Rhythm Dialog */}
@@ -7248,6 +7257,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onHeartRhythmDeleted={() => {
           setEditingHeartRhythm(null);
         }}
+        readOnly={!canWrite}
       />
 
       {/* BIS Dialog */}
@@ -7267,6 +7277,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onBISDeleted={() => {
           setEditingBIS(null);
         }}
+        readOnly={!canWrite}
       />
 
       {/* TOF Dialog */}
@@ -7286,6 +7297,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onTOFDeleted={() => {
           setEditingTOF(null);
         }}
+        readOnly={!canWrite}
       />
 
       {/* Staff Entry Dialog */}
@@ -7307,6 +7319,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onStaffDeleted={() => {
           setEditingStaff(null);
         }}
+        readOnly={!canWrite}
       />
 
       {/* Position Dialog */}
@@ -7326,6 +7339,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onPositionDeleted={() => {
           setEditingPosition(null);
         }}
+        readOnly={!canWrite}
       />
 
       {/* Ventilation Bulk Entry Dialog */}
@@ -7339,6 +7353,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onVentilationBulkCreated={() => {
           setPendingVentilationBulk(null);
         }}
+        readOnly={!canWrite}
       />
 
       {/* Output Bulk Entry Dialog */}
@@ -7350,6 +7365,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onOutputBulkCreated={() => {
           setPendingOutputBulk(null);
         }}
+        readOnly={!canWrite}
       />
 
       {/* Output Value Edit Dialog */}
@@ -7364,6 +7380,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onOutputDeleted={() => {
           setEditingOutputValue(null);
         }}
+        readOnly={!canWrite}
       />
 
       {/* Bulk Vitals Entry Dialog */}
@@ -7375,6 +7392,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onVitalsCreated={() => {
           setShowBulkVitalsDialog(false);
         }}
+        readOnly={!canWrite}
       />
 
       {/* Loading overlay for image processing */}

@@ -27,6 +27,7 @@ interface HeartRhythmDialogProps {
   onHeartRhythmCreated?: () => void;
   onHeartRhythmUpdated?: () => void;
   onHeartRhythmDeleted?: () => void;
+  readOnly?: boolean;
 }
 
 const RHYTHM_KEYS = [
@@ -43,6 +44,7 @@ export function HeartRhythmDialog({
   onHeartRhythmCreated,
   onHeartRhythmUpdated,
   onHeartRhythmDeleted,
+  readOnly = false,
 }: HeartRhythmDialogProps) {
   const { t } = useTranslation();
   const [heartRhythmInput, setHeartRhythmInput] = useState("");
@@ -147,7 +149,9 @@ export function HeartRhythmDialog({
                       key={rhythm.key}
                       variant={heartRhythmInput === rhythm.label ? 'default' : 'outline'}
                       className="justify-start h-12 text-left"
+                      disabled={readOnly}
                       onClick={() => {
+                        if (readOnly) return;
                         setHeartRhythmInput(rhythm.label);
                       }}
                       data-testid={`button-rhythm-${rhythm.key}`}
@@ -160,12 +164,13 @@ export function HeartRhythmDialog({
                     value={heartRhythmInput && !isPresetRhythm(heartRhythmInput) ? heartRhythmInput : ''}
                     onChange={(e) => setHeartRhythmInput(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && heartRhythmInput.trim()) {
+                      if (e.key === 'Enter' && heartRhythmInput.trim() && !readOnly) {
                         handleSave();
                       }
                     }}
                     className="mt-2"
                     data-testid="input-heart-rhythm-custom"
+                    disabled={readOnly}
                   />
                 </>
               ) : (
@@ -175,7 +180,9 @@ export function HeartRhythmDialog({
                       key={rhythm.key}
                       variant="outline"
                       className="justify-start h-12 text-left"
+                      disabled={readOnly}
                       onClick={() => {
+                        if (readOnly) return;
                         handleSave(rhythm.label);
                       }}
                       data-testid={`button-rhythm-${rhythm.key}`}
@@ -188,12 +195,13 @@ export function HeartRhythmDialog({
                     value={heartRhythmInput}
                     onChange={(e) => setHeartRhythmInput(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && heartRhythmInput.trim()) {
+                      if (e.key === 'Enter' && heartRhythmInput.trim() && !readOnly) {
                         handleSave();
                       }
                     }}
                     className="mt-2"
                     data-testid="input-heart-rhythm-custom"
+                    disabled={readOnly}
                   />
                 </>
               )}
@@ -203,11 +211,11 @@ export function HeartRhythmDialog({
         <DialogFooterWithTime
           time={editingHeartRhythm ? heartRhythmEditTime : pendingHeartRhythm?.time}
           onTimeChange={editingHeartRhythm ? setHeartRhythmEditTime : undefined}
-          showDelete={!!editingHeartRhythm}
-          onDelete={editingHeartRhythm ? handleDelete : undefined}
+          showDelete={!!editingHeartRhythm && !readOnly}
+          onDelete={editingHeartRhythm && !readOnly ? handleDelete : undefined}
           onCancel={handleClose}
           onSave={() => handleSave()}
-          saveDisabled={!heartRhythmInput.trim()}
+          saveDisabled={!heartRhythmInput.trim() || readOnly}
           saveLabel={editingHeartRhythm ? t('anesthesia.timeline.heartRhythmDialog.save', 'Save') : t('anesthesia.timeline.heartRhythmDialog.add', 'Add')}
         />
       </DialogContent>

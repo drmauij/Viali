@@ -18,6 +18,7 @@ interface VentilationDialogProps {
   anesthesiaRecordId: string | null;
   pendingVentilationValue: PendingVentilationValue | null;
   onVentilationCreated?: () => void;
+  readOnly?: boolean;
 }
 
 export function VentilationDialog({
@@ -26,6 +27,7 @@ export function VentilationDialog({
   anesthesiaRecordId,
   pendingVentilationValue,
   onVentilationCreated,
+  readOnly = false,
 }: VentilationDialogProps) {
   const [ventilationValueInput, setVentilationValueInput] = useState("");
   const { toast } = useToast();
@@ -94,12 +96,13 @@ export function VentilationDialog({
               value={ventilationValueInput}
               onChange={(e) => setVentilationValueInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' && !readOnly) {
                   handleSave();
                 }
               }}
               placeholder="e.g., 35, 12.5, 98"
               autoFocus
+              disabled={readOnly}
             />
           </div>
         </div>
@@ -112,7 +115,7 @@ export function VentilationDialog({
           showDelete={false}
           onCancel={handleClose}
           onSave={handleSave}
-          saveDisabled={!ventilationValueInput.trim()}
+          saveDisabled={!ventilationValueInput.trim() || readOnly}
           saveLabel="Add"
         />
       </DialogContent>

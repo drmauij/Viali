@@ -18,6 +18,7 @@ interface OutputDialogProps {
   anesthesiaRecordId: string | null;
   pendingOutputValue: PendingOutputValue | null;
   onOutputCreated?: () => void;
+  readOnly?: boolean;
 }
 
 export function OutputDialog({
@@ -26,6 +27,7 @@ export function OutputDialog({
   anesthesiaRecordId,
   pendingOutputValue,
   onOutputCreated,
+  readOnly = false,
 }: OutputDialogProps) {
   const [outputValueInput, setOutputValueInput] = useState("");
   const { toast } = useToast();
@@ -95,12 +97,13 @@ export function OutputDialog({
               value={outputValueInput}
               onChange={(e) => setOutputValueInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' && !readOnly) {
                   handleSave();
                 }
               }}
               placeholder="e.g., 50, 100, 200"
               autoFocus
+              disabled={readOnly}
             />
           </div>
         </div>
@@ -113,7 +116,7 @@ export function OutputDialog({
           showDelete={false}
           onCancel={handleClose}
           onSave={handleSave}
-          saveDisabled={!outputValueInput.trim()}
+          saveDisabled={!outputValueInput.trim() || readOnly}
           saveLabel="Add"
         />
       </DialogContent>
