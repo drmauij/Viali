@@ -3539,7 +3539,28 @@ export class DatabaseStorage implements IStorage {
     // Get item details and medication configs
     const itemIds = [...new Set(medications.map(m => m.itemId))];
     if (itemIds.length === 0) {
-      return [];
+      // No medications remaining - clean up all non-overridden inventory usage records
+      const existingUsage = await db
+        .select()
+        .from(inventoryUsage)
+        .where(eq(inventoryUsage.anesthesiaRecordId, anesthesiaRecordId));
+      
+      for (const existing of existingUsage) {
+        if (existing.overrideQty === null) {
+          // Item no longer has any usage - delete the record
+          await db
+            .delete(inventoryUsage)
+            .where(eq(inventoryUsage.id, existing.id));
+        }
+      }
+      
+      // Return any remaining records that have manual overrides
+      const remainingUsage = await db
+        .select()
+        .from(inventoryUsage)
+        .where(eq(inventoryUsage.anesthesiaRecordId, anesthesiaRecordId));
+      
+      return remainingUsage;
     }
 
     const itemsWithConfigs = await db
