@@ -904,7 +904,17 @@
       "anesthesiaEndReached": "Anästhesieende-Zeitmarker erreicht. Erwägen Sie, verbrauchte Artikel zu buchen.",
       "pacuEndReached": "Aufwachraum-Ende-Zeitmarker erreicht. Erwägen Sie, verbrauchte Artikel zu buchen.",
       "commitNow": "Jetzt buchen",
-      "later": "Später"
+      "later": "Später",
+      "connectionStatus": {
+        "connected": "Live",
+        "connecting": "Verbinde...",
+        "stale": "Verbinde neu...",
+        "disconnected": "Offline",
+        "connectedTooltip": "Echtzeit-Synchronisation aktiv",
+        "reconnectingTooltip": "Verbindungsversuch läuft...",
+        "disconnectedTooltip": "Klicken zum erneuten Verbinden",
+        "viewers": "Betrachter"
+      }
     },
     "pdf": {
       "documentTitle": "VOLLSTÄNDIGES ANÄSTHESIEPROTOKOLL",

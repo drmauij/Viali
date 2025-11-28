@@ -904,7 +904,17 @@
       "anesthesiaEndReached": "Anesthesia End time marker reached. Consider committing used items.",
       "pacuEndReached": "PACU End time marker reached. Consider committing used items.",
       "commitNow": "Commit Now",
-      "later": "Later"
+      "later": "Later",
+      "connectionStatus": {
+        "connected": "Live",
+        "connecting": "Connecting...",
+        "stale": "Reconnecting...",
+        "disconnected": "Offline",
+        "connectedTooltip": "Real-time sync active",
+        "reconnectingTooltip": "Attempting to reconnect...",
+        "disconnectedTooltip": "Click to reconnect",
+        "viewers": "viewers"
+      }
     },
     "pdf": {
       "documentTitle": "COMPLETE ANESTHESIA RECORD",

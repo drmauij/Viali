@@ -1,8 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { UserCircle, AlertCircle, Download, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { UserCircle, AlertCircle, Download, X, Wifi, WifiOff, RefreshCw, Users } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { useTranslation } from "react-i18next";
+
+type ConnectionState = 'connected' | 'connecting' | 'disconnected' | 'stale';
 
 interface PatientInfoHeaderProps {
   patient: any;
@@ -17,6 +21,9 @@ interface PatientInfoHeaderProps {
   onDownloadPDF: () => void;
   onClose: () => void;
   onOpenAllergiesDialog: () => void;
+  connectionState?: ConnectionState;
+  viewers?: number;
+  onForceReconnect?: () => void;
 }
 
 export function PatientInfoHeader({
@@ -32,13 +39,84 @@ export function PatientInfoHeader({
   onDownloadPDF,
   onClose,
   onOpenAllergiesDialog,
+  connectionState = 'disconnected',
+  viewers = 0,
+  onForceReconnect,
 }: PatientInfoHeaderProps) {
   const { t } = useTranslation();
+
+  const getConnectionIcon = () => {
+    switch (connectionState) {
+      case 'connected':
+        return <Wifi className="h-4 w-4 text-green-500" />;
+      case 'connecting':
+        return <RefreshCw className="h-4 w-4 text-yellow-500 animate-spin" />;
+      case 'stale':
+        return <WifiOff className="h-4 w-4 text-amber-500" />;
+      case 'disconnected':
+      default:
+        return <WifiOff className="h-4 w-4 text-red-500" />;
+    }
+  };
+
+  const getConnectionLabel = () => {
+    switch (connectionState) {
+      case 'connected':
+        return t('anesthesia.op.connectionStatus.connected', 'Live');
+      case 'connecting':
+        return t('anesthesia.op.connectionStatus.connecting', 'Connecting...');
+      case 'stale':
+        return t('anesthesia.op.connectionStatus.stale', 'Reconnecting...');
+      case 'disconnected':
+      default:
+        return t('anesthesia.op.connectionStatus.disconnected', 'Offline');
+    }
+  };
 
   return (
     <div className="shrink-0 bg-background relative">
       {/* Action Buttons - Fixed top-right */}
-      <div className="absolute right-2 top-2 md:right-4 md:top-4 z-10 flex gap-2">
+      <div className="absolute right-2 top-2 md:right-4 md:top-4 z-10 flex items-center gap-2">
+        {/* Connection Status Indicator */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div 
+              className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors ${
+                connectionState === 'connected' 
+                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' 
+                  : connectionState === 'connecting' || connectionState === 'stale'
+                    ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                    : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+              }`}
+              onClick={() => {
+                if (connectionState !== 'connected' && onForceReconnect) {
+                  onForceReconnect();
+                }
+              }}
+              data-testid="connection-status-indicator"
+            >
+              {getConnectionIcon()}
+              <span className="hidden sm:inline">{getConnectionLabel()}</span>
+              {connectionState === 'connected' && viewers > 1 && (
+                <span className="flex items-center gap-0.5 ml-1 text-muted-foreground">
+                  <Users className="h-3 w-3" />
+                  {viewers}
+                </span>
+              )}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>
+              {connectionState === 'connected' 
+                ? t('anesthesia.op.connectionStatus.connectedTooltip', 'Real-time sync active') + (viewers > 1 ? ` (${viewers} ${t('anesthesia.op.connectionStatus.viewers', 'viewers')})` : '')
+                : connectionState === 'connecting' || connectionState === 'stale'
+                  ? t('anesthesia.op.connectionStatus.reconnectingTooltip', 'Attempting to reconnect...')
+                  : t('anesthesia.op.connectionStatus.disconnectedTooltip', 'Click to reconnect')
+              }
+            </p>
+          </TooltipContent>
+        </Tooltip>
+
         <Button
           variant="ghost"
           size="icon"

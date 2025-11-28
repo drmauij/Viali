@@ -97,7 +97,7 @@ export default function Op() {
   const { toast } = useToast();
   const { activeModule } = useModule();
   const { user } = useAuth();
-  const { joinSurgery, leaveSurgery, isConnected, viewers } = useSocket();
+  const { joinSurgery, leaveSurgery, isConnected, connectionState, forceReconnect, viewers } = useSocket();
   
   // Check if in surgery module mode
   const isSurgeryMode = activeModule === "surgery" || location.startsWith("/surgery");
@@ -1043,6 +1043,9 @@ export default function Op() {
           onDownloadPDF={handleDownloadPDF}
           onClose={handleClose}
           onOpenAllergiesDialog={handleOpenAllergiesDialog}
+          connectionState={connectionState}
+          viewers={viewers}
+          onForceReconnect={forceReconnect}
         />
 
         {/* Tabbed Content */}

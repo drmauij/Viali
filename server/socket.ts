@@ -101,6 +101,10 @@ export function initSocketIO(server: HTTPServer, sessionMiddleware: any): Socket
       });
     });
 
+    socket.on('client:ping', (data: { timestamp: number }) => {
+      socket.emit('server:pong', { timestamp: data.timestamp });
+    });
+
     socket.on('disconnect', (reason) => {
       console.log(`[Socket.IO] Client disconnected: ${socket.id} (${reason})`);
     });
