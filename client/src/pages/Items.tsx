@@ -2227,8 +2227,8 @@ export default function Items() {
                           <DraggableItem key={item.id} id={item.id} disabled={isBulkEditMode || isBulkDeleteMode || !canWrite}>
                             <div
                               className="item-row"
-                              onClick={canWrite && !isBulkEditMode && !isBulkDeleteMode ? () => handleEditItem(item) : undefined}
-                              style={canWrite && !isBulkEditMode && !isBulkDeleteMode ? { cursor: 'pointer' } : undefined}
+                              onClick={!isBulkEditMode && !isBulkDeleteMode ? () => handleEditItem(item) : undefined}
+                              style={!isBulkEditMode && !isBulkDeleteMode ? { cursor: 'pointer' } : undefined}
                               data-testid={`item-${item.id}`}
                             >
                               <div className="flex items-start justify-between mb-3">
@@ -2501,8 +2501,8 @@ export default function Items() {
                       <DraggableItem key={item.id} id={item.id} disabled={isBulkEditMode || isBulkDeleteMode || !canWrite}>
                         <div 
                           className="item-row"
-                          onClick={canWrite && !isBulkEditMode && !isBulkDeleteMode ? () => handleEditItem(item) : undefined}
-                          style={canWrite && !isBulkEditMode && !isBulkDeleteMode ? { cursor: 'pointer' } : undefined}
+                          onClick={!isBulkEditMode && !isBulkDeleteMode ? () => handleEditItem(item) : undefined}
+                          style={!isBulkEditMode && !isBulkDeleteMode ? { cursor: 'pointer' } : undefined}
                           data-testid={`item-${item.id}`}
                         >
                 <div className="flex items-start justify-between mb-3">
@@ -3084,6 +3084,12 @@ export default function Items() {
               </TabsList>
               
               <TabsContent value="details" className="space-y-4 mt-4">
+                {!canWrite && (
+                  <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
+                    <i className="fas fa-eye mr-2"></i>
+                    {t('common.viewOnly')}
+                  </div>
+                )}
                 <div>
               <Label htmlFor="edit-name">{t('items.itemName')} *</Label>
               <Input 
@@ -3092,6 +3098,7 @@ export default function Items() {
                 value={editFormData.name}
                 onChange={(e) => setEditFormData(prev => ({ ...prev, name: e.target.value }))}
                 required
+                disabled={!canWrite}
                 data-testid="input-edit-name"
               />
             </div>
@@ -3103,6 +3110,7 @@ export default function Items() {
                 name="description" 
                 value={editFormData.description}
                 onChange={(e) => setEditFormData(prev => ({ ...prev, description: e.target.value }))}
+                disabled={!canWrite}
                 data-testid="input-edit-description" 
               />
             </div>
@@ -3115,9 +3123,10 @@ export default function Items() {
                   name="critical" 
                   checked={editFormData.critical}
                   onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, critical: checked === true }))}
+                  disabled={!canWrite}
                   data-testid="checkbox-edit-critical" 
                 />
-                <Label htmlFor="edit-critical" className="cursor-pointer">{t('items.critical')}</Label>
+                <Label htmlFor="edit-critical" className={!canWrite ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}>{t('items.critical')}</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox 
@@ -3125,9 +3134,10 @@ export default function Items() {
                   name="controlled"
                   checked={editFormData.controlled}
                   onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, controlled: checked === true }))}
+                  disabled={!canWrite}
                   data-testid="checkbox-edit-controlled" 
                 />
-                <Label htmlFor="edit-controlled" className="cursor-pointer">{t('items.controlled')}</Label>
+                <Label htmlFor="edit-controlled" className={!canWrite ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}>{t('items.controlled')}</Label>
               </div>
             </div>
 
@@ -3137,12 +3147,13 @@ export default function Items() {
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <button
                   type="button"
-                  onClick={() => setSelectedUnit("Pack")}
+                  onClick={() => canWrite && setSelectedUnit("Pack")}
+                  disabled={!canWrite}
                   className={`flex flex-col items-center py-3 px-2 rounded-lg border-2 transition-all ${
                     selectedUnit === "Pack" 
                       ? "border-primary bg-primary/10" 
                       : "border-border bg-background"
-                  }`}
+                  } ${!canWrite ? "opacity-50 cursor-not-allowed" : ""}`}
                   data-testid="edit-unit-pack"
                 >
                   <i className="fas fa-box text-xl mb-1"></i>
@@ -3150,12 +3161,13 @@ export default function Items() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setSelectedUnit("Single unit")}
+                  onClick={() => canWrite && setSelectedUnit("Single unit")}
+                  disabled={!canWrite}
                   className={`flex flex-col items-center py-3 px-2 rounded-lg border-2 transition-all ${
                     selectedUnit === "Single unit" 
                       ? "border-primary bg-primary/10" 
                       : "border-border bg-background"
-                  }`}
+                  } ${!canWrite ? "opacity-50 cursor-not-allowed" : ""}`}
                   data-testid="edit-unit-single"
                 >
                   <i className="fas fa-vial text-xl mb-1"></i>
@@ -3174,9 +3186,9 @@ export default function Items() {
                     checked={editFormData.trackExactQuantity}
                     onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, trackExactQuantity: checked === true }))}
                     data-testid="checkbox-edit-track-exact-quantity"
-                    disabled={editFormData.controlled}
+                    disabled={!canWrite || editFormData.controlled}
                   />
-                  <Label htmlFor="edit-trackExactQuantity" className={editFormData.controlled ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}>{t('items.trackExactQuantity')}</Label>
+                  <Label htmlFor="edit-trackExactQuantity" className={(!canWrite || editFormData.controlled) ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}>{t('items.trackExactQuantity')}</Label>
                 </div>
                 {editFormData.controlled && (
                   <p className="text-xs text-orange-600 dark:text-orange-400">
@@ -3203,6 +3215,7 @@ export default function Items() {
                     onFocus={handleNumberInputFocus}
                     data-testid="input-edit-pack-size" 
                     required
+                    disabled={!canWrite}
                   />
                   <p className="text-xs text-muted-foreground mt-1">{t('items.packSizeHelp')}</p>
                 </div>
@@ -3224,9 +3237,9 @@ export default function Items() {
                     onFocus={handleNumberInputFocus}
                     data-testid="input-edit-current-units" 
                     required
-                    disabled={editFormData.controlled}
-                    readOnly={editFormData.controlled}
-                    className={editFormData.controlled ? "bg-muted cursor-not-allowed" : ""}
+                    disabled={!canWrite || editFormData.controlled}
+                    readOnly={!canWrite || editFormData.controlled}
+                    className={(!canWrite || editFormData.controlled) ? "bg-muted cursor-not-allowed" : ""}
                   />
                   {editFormData.controlled ? (
                     <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
@@ -3269,8 +3282,8 @@ export default function Items() {
                 onFocus={handleNumberInputFocus}
                 data-testid="input-edit-actual-stock"
                 className="mt-2 text-lg font-medium"
-                disabled={editFormData.trackExactQuantity}
-                readOnly={editFormData.trackExactQuantity}
+                disabled={!canWrite || editFormData.trackExactQuantity}
+                readOnly={!canWrite || editFormData.trackExactQuantity}
               />
             </div>
 
@@ -3285,6 +3298,7 @@ export default function Items() {
                   value={editFormData.minThreshold}
                   onChange={(e) => setEditFormData(prev => ({ ...prev, minThreshold: e.target.value }))}
                   onFocus={handleNumberInputFocus}
+                  disabled={!canWrite}
                   data-testid="input-edit-min" 
                 />
               </div>
@@ -3298,6 +3312,7 @@ export default function Items() {
                   value={editFormData.maxThreshold}
                   onChange={(e) => setEditFormData(prev => ({ ...prev, maxThreshold: e.target.value }))}
                   onFocus={handleNumberInputFocus}
+                  disabled={!canWrite}
                   data-testid="input-edit-max" 
                 />
               </div>
@@ -3305,6 +3320,12 @@ export default function Items() {
               </TabsContent>
 
               <TabsContent value="photo" className="space-y-4 mt-4">
+                {!canWrite && (
+                  <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
+                    <i className="fas fa-eye mr-2"></i>
+                    {t('common.viewOnly')}
+                  </div>
+                )}
                 {editFormData.imageUrl && (
                   <div 
                     className="w-full rounded-lg overflow-hidden border-2 border-border cursor-pointer hover:border-primary transition-colors"
@@ -3332,6 +3353,7 @@ export default function Items() {
                   capture="environment"
                   onChange={handleEditImageUpload}
                   className="hidden"
+                  disabled={!canWrite}
                 />
                 <input
                   type="file"
@@ -3339,93 +3361,102 @@ export default function Items() {
                   accept="image/*"
                   onChange={handleEditImageUpload}
                   className="hidden"
+                  disabled={!canWrite}
                 />
-                <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => editFileInputRef.current?.click()}
-                      data-testid="button-camera-edit-image"
-                    >
-                      <i className="fas fa-camera mr-2"></i>
-                      {t('controlled.takePhoto')}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => editGalleryInputRef.current?.click()}
-                      data-testid="button-gallery-edit-image"
-                    >
-                      <i className="fas fa-images mr-2"></i>
-                      {t('items.uploadFromGallery')}
-                    </Button>
-                  </div>
-                  {editFormData.imageUrl && (
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      className="w-full"
-                      onClick={async () => {
-                        if (window.confirm(t('items.deleteImageConfirm'))) {
-                          setEditFormData(prev => ({ ...prev, imageUrl: "" }));
-                          
-                          // Auto-save the deletion immediately
-                          if (selectedItem) {
-                            try {
-                              await apiRequest("PATCH", `/api/items/${selectedItem.id}`, {
-                                imageUrl: null
-                              });
-                              
-                              queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
-                              
-                              toast({
-                                title: t('common.success'),
-                                description: t('items.imageDeletedSuccess'),
-                              });
-                            } catch (error) {
-                              console.error('Failed to delete image:', error);
-                              toast({
-                                title: t('common.error'),
-                                description: t('items.failedToDeleteImage'),
-                                variant: 'destructive',
-                              });
+                {canWrite && (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => editFileInputRef.current?.click()}
+                        data-testid="button-camera-edit-image"
+                      >
+                        <i className="fas fa-camera mr-2"></i>
+                        {t('controlled.takePhoto')}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => editGalleryInputRef.current?.click()}
+                        data-testid="button-gallery-edit-image"
+                      >
+                        <i className="fas fa-images mr-2"></i>
+                        {t('items.uploadFromGallery')}
+                      </Button>
+                    </div>
+                    {editFormData.imageUrl && (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        className="w-full"
+                        onClick={async () => {
+                          if (window.confirm(t('items.deleteImageConfirm'))) {
+                            setEditFormData(prev => ({ ...prev, imageUrl: "" }));
+                            
+                            // Auto-save the deletion immediately
+                            if (selectedItem) {
+                              try {
+                                await apiRequest("PATCH", `/api/items/${selectedItem.id}`, {
+                                  imageUrl: null
+                                });
+                                
+                                queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
+                                
+                                toast({
+                                  title: t('common.success'),
+                                  description: t('items.imageDeletedSuccess'),
+                                });
+                              } catch (error) {
+                                console.error('Failed to delete image:', error);
+                                toast({
+                                  title: t('common.error'),
+                                  description: t('items.failedToDeleteImage'),
+                                  variant: 'destructive',
+                                });
+                              }
                             }
                           }
-                        }
-                      }}
-                      data-testid="button-delete-image"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      {t('items.deleteImage')}
-                    </Button>
-                  )}
-                </div>
+                        }}
+                        data-testid="button-delete-image"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        {t('items.deleteImage')}
+                      </Button>
+                    )}
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
 
             {editDialogTab === "details" && (
               <div className="flex gap-2 justify-between pt-4">
-                <Button 
-                  type="button" 
-                  variant="destructive" 
-                  onClick={() => {
-                    if (selectedItem && window.confirm(t('items.deleteConfirm'))) {
-                      deleteItemMutation.mutate(selectedItem.id);
-                    }
-                  }}
-                  disabled={deleteItemMutation.isPending}
-                  data-testid="button-delete-item"
-                >
-                  {deleteItemMutation.isPending ? t('common.loading') : t('common.delete')}
-                </Button>
+                {canWrite ? (
+                  <Button 
+                    type="button" 
+                    variant="destructive" 
+                    onClick={() => {
+                      if (selectedItem && window.confirm(t('items.deleteConfirm'))) {
+                        deleteItemMutation.mutate(selectedItem.id);
+                      }
+                    }}
+                    disabled={deleteItemMutation.isPending}
+                    data-testid="button-delete-item"
+                  >
+                    {deleteItemMutation.isPending ? t('common.loading') : t('common.delete')}
+                  </Button>
+                ) : (
+                  <div></div>
+                )}
                 <div className="flex gap-2">
                   <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
-                    {t('common.cancel')}
+                    {canWrite ? t('common.cancel') : t('common.close')}
                   </Button>
-                  <Button type="submit" disabled={updateItemMutation.isPending} data-testid="button-update-item">
-                    {updateItemMutation.isPending ? t('common.loading') : t('common.save')}
-                  </Button>
+                  {canWrite && (
+                    <Button type="submit" disabled={updateItemMutation.isPending} data-testid="button-update-item">
+                      {updateItemMutation.isPending ? t('common.loading') : t('common.save')}
+                    </Button>
+                  )}
                 </div>
               </div>
             )}
