@@ -636,6 +636,7 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
     disinfection?: {
       kodanColored?: boolean;
       kodanColorless?: boolean;
+      octanisept?: boolean;       // New: Octanisept option
       performedBy?: string;
     };
     equipment?: {
@@ -646,8 +647,49 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
         histology?: boolean;
         microbiology?: boolean;
       };
+      devices?: string;           // New: Free text for Geräte (devices)
       notes?: string;
     };
+    // Enhanced: Spülung (Irrigation) section with checkboxes
+    irrigation?: {
+      nacl?: boolean;
+      betadine?: boolean;
+      hydrogenPeroxide?: boolean; // Wasserstoffperoxid
+      other?: string;             // Free text for custom entries
+    };
+    // Enhanced: Infiltration section with checkboxes
+    infiltration?: {
+      tumorSolution?: boolean;    // Tumoressenzlösung
+      other?: string;             // Free text for custom entries
+    };
+    // Enhanced: Medications section with checkboxes
+    medications?: {
+      ropivacain?: boolean;
+      bupivacain?: boolean;
+      contrast?: boolean;         // Kontrastmittel
+      ointments?: boolean;        // Salben
+      other?: string;             // Free text for custom entries
+    };
+    // Enhanced: Verband (Dressing) section with checkboxes
+    dressing?: {
+      elasticBandage?: boolean;   // el.Binden
+      abdominalBelt?: boolean;    // Bauchgurt
+      bra?: boolean;              // BH
+      faceLiftMask?: boolean;     // Face-Lift-Maske
+      steristrips?: boolean;
+      comfeel?: boolean;
+      opsite?: boolean;
+      compresses?: boolean;       // Kompressen
+      mefix?: boolean;
+      other?: string;             // Free text for custom entries
+    };
+    // Enhanced: Drainagen (Drainage) section with checkboxes
+    drainage?: {
+      redonCH?: string;           // Redon CH size
+      redonCount?: number;        // Anzahl (count)
+      other?: string;             // Free text for custom entries
+    };
+    // Legacy fields for backwards compatibility
     irrigationMeds?: {
       irrigation?: string;
       infiltration?: string;
@@ -655,14 +697,6 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
       medications?: string;
       contrast?: string;
       ointments?: string;
-    };
-    dressing?: {
-      type?: string;
-      other?: string;
-    };
-    drainage?: {
-      type?: string;
-      count?: number;
     };
     signatures?: {
       circulatingNurse?: string;  // base64 signature
