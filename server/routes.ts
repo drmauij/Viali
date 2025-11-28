@@ -91,6 +91,7 @@ import {
   getBulkImportImageLimit,
   checkLicenseLimit,
   requireWriteAccess,
+  requireHospitalAccess,
   canWrite
 } from "./utils";
 import {

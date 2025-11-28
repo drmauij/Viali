@@ -6,6 +6,9 @@ export {
   verifyUserHospitalUnitAccess,
   canWrite,
   requireWriteAccess,
+  requireHospitalAccess,
+  userHasHospitalAccess,
+  getHospitalIdFromResource,
   WRITE_ROLES,
   READ_ONLY_ROLES
 } from "./accessControl";
