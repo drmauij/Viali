@@ -511,6 +511,7 @@
     "roleAdmin": "Admin",
     "roleDoctor": "Arzt",
     "roleNurse": "Krankenschwester",
+    "roleGuest": "Gast",
     "add": "Hinzufügen",
     "allFieldsRequired": "Alle Felder sind erforderlich",
     "roleAndLocationRequired": "Rolle und Standort sind erforderlich",

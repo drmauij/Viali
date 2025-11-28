@@ -321,6 +321,7 @@ export default function Users() {
       case "admin": return t("admin.roleAdmin");
       case "doctor": return t("admin.roleDoctor");
       case "nurse": return t("admin.roleNurse");
+      case "guest": return t("admin.roleGuest");
       default: return role;
     }
   };
@@ -514,6 +515,7 @@ export default function Users() {
                   <SelectItem value="admin">{t("admin.roleAdmin")}</SelectItem>
                   <SelectItem value="doctor">{t("admin.roleDoctor")}</SelectItem>
                   <SelectItem value="nurse">{t("admin.roleNurse")}</SelectItem>
+                  <SelectItem value="guest">{t("admin.roleGuest")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -608,6 +610,7 @@ export default function Users() {
                     <SelectItem value="admin">{t("admin.roleAdmin")}</SelectItem>
                     <SelectItem value="doctor">{t("admin.roleDoctor")}</SelectItem>
                     <SelectItem value="nurse">{t("admin.roleNurse")}</SelectItem>
+                    <SelectItem value="guest">{t("admin.roleGuest")}</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select

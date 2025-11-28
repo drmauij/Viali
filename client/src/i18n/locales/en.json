@@ -511,6 +511,7 @@
     "roleAdmin": "Admin",
     "roleDoctor": "Doctor",
     "roleNurse": "Nurse",
+    "roleGuest": "Guest",
     "add": "Add",
     "allFieldsRequired": "All fields are required",
     "roleAndLocationRequired": "Role and location are required",
