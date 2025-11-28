@@ -25,9 +25,18 @@ interface ItemWithStock extends Item {
   stockLevel?: { qtyOnHand: number };
 }
 
+interface PatientInfo {
+  id: string;
+  firstName: string;
+  surname: string;
+  birthday: string;
+  patientNumber: string;
+}
+
 interface ControlledActivity extends Activity {
   user: User;
   item?: Item;
+  patient?: PatientInfo;
 }
 
 interface ControlledCheckWithUser extends ControlledCheck {
@@ -662,13 +671,23 @@ export default function ControlledLog() {
         const beforeQty = metadata?.beforeQty !== null && metadata?.beforeQty !== undefined ? metadata.beforeQty : "-";
         const afterQty = metadata?.afterQty !== null && metadata?.afterQty !== undefined ? metadata.afterQty : "-";
         
+        // Format patient display for PDF
+        let patientDisplay = "N/A";
+        if (activity.action === 'adjust') {
+          patientDisplay = "MANUAL ADJ";
+        } else if (activity.patient) {
+          patientDisplay = `${activity.patient.surname}, ${activity.patient.firstName} (${activity.patient.birthday})`;
+        } else if (activity.patientId) {
+          patientDisplay = activity.patientId;
+        }
+        
         return [
           activity.timestamp ? formatDate(activity.timestamp) : "N/A",
           activity.timestamp ? formatTime(activity.timestamp) : "N/A",
           beforeQty,
           qty,
           afterQty,
-          activity.patientId || (activity.action === 'adjust' ? 'MANUAL ADJ' : "N/A"),
+          patientDisplay,
           `${activity.user.firstName} ${activity.user.lastName}`,
           activity.controlledVerified ? "Yes" : "No",
           activity.notes || "-",
@@ -946,7 +965,15 @@ export default function ControlledLog() {
                         <div className="flex items-center gap-2">
                           <i className="fas fa-user-injured text-muted-foreground text-sm"></i>
                           <span className="text-sm text-foreground">
-                            {t('controlled.patient')} {activity.patientId || "Unknown"}
+                            {t('controlled.patient')}{' '}
+                            {activity.patient ? (
+                              <>
+                                <span className="font-medium">{activity.patient.surname}, {activity.patient.firstName}</span>
+                                {' '}({formatDate(activity.patient.birthday)})
+                              </>
+                            ) : (
+                              activity.patientId || "Unknown"
+                            )}
                           </span>
                         </div>
                         {activity.patientPhoto && (
@@ -1769,8 +1796,24 @@ export default function ControlledLog() {
                   <div className="flex items-start gap-3 p-3 bg-card border border-border rounded-lg">
                     <i className="fas fa-user-injured text-primary mt-1"></i>
                     <div className="flex-1">
-                      <p className="text-xs text-muted-foreground mb-1">Patient ID</p>
-                      <p className="font-medium text-foreground">{selectedActivity.patientId || "Not provided"}</p>
+                      <p className="text-xs text-muted-foreground mb-1">{t('controlled.patient')}</p>
+                      {selectedActivity.patient ? (
+                        <div>
+                          <p className="font-medium text-foreground">
+                            {selectedActivity.patient.surname}, {selectedActivity.patient.firstName}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {t('common.birthday')}: {formatDate(selectedActivity.patient.birthday)}
+                          </p>
+                          {selectedActivity.patient.patientNumber && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              ID: {selectedActivity.patient.patientNumber}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="font-medium text-foreground">{selectedActivity.patientId || "Not provided"}</p>
+                      )}
                       {selectedActivity.patientPhoto && (
                         <div className="mt-3">
                           <p className="text-xs text-muted-foreground mb-2">Patient Label Photo</p>

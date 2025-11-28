@@ -14,7 +14,8 @@
     "confirm": "Bestätigen",
     "yes": "Ja",
     "no": "Nein",
-    "optional": "Optional"
+    "optional": "Optional",
+    "birthday": "Geburtsdatum"
   },
   "auth": {
     "login": "Anmelden",

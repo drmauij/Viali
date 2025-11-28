@@ -3345,13 +3345,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         limit: 50,
       });
       
-      // Decrypt patient data for each activity
-      const decryptedActivities = activities.map((activity: any) => {
+      // UUID regex pattern to identify potential patient record IDs
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      
+      // Decrypt patient data for each activity and fetch patient records
+      const decryptedActivities = await Promise.all(activities.map(async (activity: any) => {
         const decrypted = { ...activity };
         
         if (activity.patientId) {
           try {
-            decrypted.patientId = decryptPatientData(activity.patientId);
+            const decryptedPatientId = decryptPatientData(activity.patientId);
+            decrypted.patientId = decryptedPatientId;
+            
+            // If the decrypted patientId looks like a UUID, try to fetch patient data
+            if (uuidRegex.test(decryptedPatientId)) {
+              try {
+                const patient = await storage.getPatient(decryptedPatientId);
+                if (patient) {
+                  decrypted.patient = {
+                    id: patient.id,
+                    firstName: patient.firstName,
+                    surname: patient.surname,
+                    birthday: patient.birthday,
+                    patientNumber: patient.patientNumber,
+                  };
+                }
+              } catch (patientError) {
+                // Patient lookup failed, continue with just the ID
+              }
+            }
           } catch (error) {
             console.error("Error decrypting patient ID:", error);
           }
@@ -3366,7 +3388,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         return decrypted;
-      });
+      }));
       
       res.json(decryptedActivities);
     } catch (error) {

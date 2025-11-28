@@ -14,7 +14,8 @@
     "confirm": "Confirm",
     "yes": "Yes",
     "no": "No",
-    "optional": "Optional"
+    "optional": "Optional",
+    "birthday": "Birthday"
   },
   "auth": {
     "login": "Login",
