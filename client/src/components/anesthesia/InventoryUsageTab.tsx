@@ -352,8 +352,18 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
       });
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}/commits`] });
+    onSuccess: async () => {
+      // Invalidate both commits and inventory usage queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}/commits`] }),
+        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}`] }),
+      ]);
+      // Also invalidate the hook's query keys (uses array-based keys)
+      queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/inventory', anesthesiaRecordId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/inventory', anesthesiaRecordId, 'commits'] });
+      // Trigger recalculation to get fresh data
+      await apiRequest('POST', `/api/anesthesia/inventory/${anesthesiaRecordId}/calculate`);
+      refetchInventory();
       toast({
         title: t('anesthesia.op.commitSuccess'),
         description: `${itemsToCommit.length} items committed`,
@@ -377,8 +387,18 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
       });
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}/commits`] });
+    onSuccess: async () => {
+      // Invalidate both commits and inventory usage queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}/commits`] }),
+        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}`] }),
+      ]);
+      // Also invalidate the hook's query keys (uses array-based keys)
+      queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/inventory', anesthesiaRecordId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/inventory', anesthesiaRecordId, 'commits'] });
+      // Trigger recalculation to get fresh data
+      await apiRequest('POST', `/api/anesthesia/inventory/${anesthesiaRecordId}/calculate`);
+      refetchInventory();
       toast({
         title: t('anesthesia.op.rollbackSuccess'),
       });
