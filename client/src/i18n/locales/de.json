@@ -1571,6 +1571,83 @@
       "addEntry": "Eintrag hinzufügen",
       "add": "Hinzufügen",
       "entry": "Eintrag",
+      "peripheralLocations": {
+        "rightHand": "Rechte Hand (Handrücken)",
+        "leftHand": "Linke Hand (Handrücken)",
+        "rightForearm": "Rechter Unterarm",
+        "leftForearm": "Linker Unterarm",
+        "rightAcFossa": "Rechte Ellenbeuge",
+        "leftAcFossa": "Linke Ellenbeuge"
+      },
+      "arterialLocations": {
+        "radialLeft": "Radial - Links",
+        "radialRight": "Radial - Rechts",
+        "femoralLeft": "Femoral - Links",
+        "femoralRight": "Femoral - Rechts",
+        "brachial": "Brachial"
+      },
+      "centralLocations": {
+        "rightIjv": "Rechte V. jugularis interna",
+        "leftIjv": "Linke V. jugularis interna",
+        "rightSubclavian": "Rechte V. subclavia",
+        "leftSubclavian": "Linke V. subclavia",
+        "rightFemoral": "Rechte V. femoralis",
+        "leftFemoral": "Linke V. femoralis"
+      },
+      "gauges": {
+        "14g": "14G (Orange)",
+        "16g": "16G (Grau)",
+        "18g": "18G (Grün)",
+        "20g": "20G (Rosa)",
+        "22g": "22G (Blau)",
+        "24g": "24G (Gelb)"
+      },
+      "techniques": {
+        "direct": "Direkt (Seldinger)",
+        "transfixion": "Transfixion",
+        "ultrasound": "Ultraschallgesteuert",
+        "landmark": "Landmarken-Technik"
+      },
+      "lumensOptions": {
+        "single": "1 Lumen",
+        "double": "2 Lumen",
+        "triple": "3 Lumen",
+        "quad": "4 Lumen"
+      },
+      "airwayDevices": {
+        "ett": "Endotrachealtubus (gerade)",
+        "spiralTube": "Spiraltubus (Flexometallic)",
+        "raeTube": "RAE-Tubus (rechtwinklig)",
+        "dltLeft": "Doppellumentubus - Links",
+        "dltRight": "Doppellumentubus - Rechts",
+        "lma": "Larynxmaske (klassisch)",
+        "lmaAuragain": "Larynxmaske AuraGain",
+        "facemask": "Gesichtsmaske",
+        "tracheostomy": "Tracheostomie"
+      },
+      "laryngoscopeTypes": {
+        "macintosh": "Macintosh (gebogen)",
+        "miller": "Miller (gerade)",
+        "mccoy": "McCoy (artikulierend)",
+        "video": "Videolaryngoskop",
+        "glidescope": "GlideScope",
+        "airtraq": "Airtraq",
+        "cmac": "C-MAC"
+      },
+      "laryngoscopeBlades": {
+        "blade1": "Spatel 1",
+        "blade2": "Spatel 2",
+        "blade3": "Spatel 3",
+        "blade4": "Spatel 4",
+        "blade5": "Spatel 5"
+      },
+      "cormackLehaneGrades": {
+        "grade1": "I - Vollständige Sicht auf Glottis",
+        "grade2a": "IIa - Teilweise Sicht auf Glottis",
+        "grade2b": "IIb - Nur Aryknorpel sichtbar",
+        "grade3": "III - Nur Epiglottis sichtbar",
+        "grade4": "IV - Keine Glottis-Strukturen sichtbar"
+      },
       "spinal": "Spinal",
       "spinelAnesthesia": "Spinalanästhesie",
       "addSpinal": "Spinal hinzufügen",
@@ -1638,6 +1715,25 @@
         },
         "save": "Speichern",
         "add": "Hinzufügen"
+      },
+      "positionDialog": {
+        "title": "Patientenlagerung",
+        "selectDescription": "Lagerung des Patienten auswählen",
+        "editDescription": "Lagerung bearbeiten oder löschen",
+        "selectLabel": "Lagerung auswählen",
+        "customPlaceholder": "Eigene Lagerung...",
+        "positions": {
+          "supine": "Rückenlage",
+          "prone": "Bauchlage",
+          "leftSide": "Linke Seitenlage",
+          "rightSide": "Rechte Seitenlage",
+          "beachChair": "Beach-Chair-Lagerung",
+          "lithotomy": "Steinschnittlage",
+          "headUp": "Oberkörperhochlagerung",
+          "headDown": "Trendelenburg-Lagerung",
+          "sittingSpaPda": "Sitzend für SPA/PDA",
+          "other": "Sonstiges"
+        }
       },
       "medications": "Medikamente",
       "position": "Lagerung",

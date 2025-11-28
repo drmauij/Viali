@@ -182,12 +182,12 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                   data-testid={`select-pv-location-${index + 1}`}
                 >
                   <option value="">{t('anesthesia.documentation.selectLocation')}</option>
-                  <option value="right-hand">Right Hand (Dorsum)</option>
-                  <option value="left-hand">Left Hand (Dorsum)</option>
-                  <option value="right-forearm">Right Forearm</option>
-                  <option value="left-forearm">Left Forearm</option>
-                  <option value="right-ac-fossa">Right Antecubital Fossa</option>
-                  <option value="left-ac-fossa">Left Antecubital Fossa</option>
+                  <option value="right-hand">{t('anesthesia.documentation.peripheralLocations.rightHand')}</option>
+                  <option value="left-hand">{t('anesthesia.documentation.peripheralLocations.leftHand')}</option>
+                  <option value="right-forearm">{t('anesthesia.documentation.peripheralLocations.rightForearm')}</option>
+                  <option value="left-forearm">{t('anesthesia.documentation.peripheralLocations.leftForearm')}</option>
+                  <option value="right-ac-fossa">{t('anesthesia.documentation.peripheralLocations.rightAcFossa')}</option>
+                  <option value="left-ac-fossa">{t('anesthesia.documentation.peripheralLocations.leftAcFossa')}</option>
                 </select>
               </div>
               <div className="space-y-2">
@@ -199,12 +199,12 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                   data-testid={`select-pv-gauge-${index + 1}`}
                 >
                   <option value="">{t('anesthesia.documentation.selectGauge')}</option>
-                  <option value="14G">14G (Orange)</option>
-                  <option value="16G">16G (Gray)</option>
-                  <option value="18G">18G (Green)</option>
-                  <option value="20G">20G (Pink)</option>
-                  <option value="22G">22G (Blue)</option>
-                  <option value="24G">24G (Yellow)</option>
+                  <option value="14G">{t('anesthesia.documentation.gauges.14g')}</option>
+                  <option value="16G">{t('anesthesia.documentation.gauges.16g')}</option>
+                  <option value="18G">{t('anesthesia.documentation.gauges.18g')}</option>
+                  <option value="20G">{t('anesthesia.documentation.gauges.20g')}</option>
+                  <option value="22G">{t('anesthesia.documentation.gauges.22g')}</option>
+                  <option value="24G">{t('anesthesia.documentation.gauges.24g')}</option>
                 </select>
               </div>
             </div>
@@ -286,11 +286,11 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                   data-testid="select-arterial-location"
                 >
                   <option value="">{t('anesthesia.documentation.selectLocation')}</option>
-                  <option value="radial-left">Radial - Left</option>
-                  <option value="radial-right">Radial - Right</option>
-                  <option value="femoral-left">Femoral - Left</option>
-                  <option value="femoral-right">Femoral - Right</option>
-                  <option value="brachial">Brachial</option>
+                  <option value="radial-left">{t('anesthesia.documentation.arterialLocations.radialLeft')}</option>
+                  <option value="radial-right">{t('anesthesia.documentation.arterialLocations.radialRight')}</option>
+                  <option value="femoral-left">{t('anesthesia.documentation.arterialLocations.femoralLeft')}</option>
+                  <option value="femoral-right">{t('anesthesia.documentation.arterialLocations.femoralRight')}</option>
+                  <option value="brachial">{t('anesthesia.documentation.arterialLocations.brachial')}</option>
                 </select>
               </div>
               <div className="space-y-2">
@@ -302,9 +302,9 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                   data-testid="select-arterial-gauge"
                 >
                   <option value="">{t('anesthesia.documentation.selectGauge')}</option>
-                  <option value="18G">18G</option>
-                  <option value="20G">20G</option>
-                  <option value="22G">22G</option>
+                  <option value="18G">{t('anesthesia.documentation.gauges.18g')}</option>
+                  <option value="20G">{t('anesthesia.documentation.gauges.20g')}</option>
+                  <option value="22G">{t('anesthesia.documentation.gauges.22g')}</option>
                 </select>
               </div>
             </div>
@@ -327,9 +327,9 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                   data-testid="select-arterial-technique"
                 >
                   <option value="">{t('anesthesia.documentation.selectTechnique')}</option>
-                  <option value="direct">Direct (Seldinger)</option>
-                  <option value="transfixion">Transfixion</option>
-                  <option value="ultrasound">Ultrasound-guided</option>
+                  <option value="direct">{t('anesthesia.documentation.techniques.direct')}</option>
+                  <option value="transfixion">{t('anesthesia.documentation.techniques.transfixion')}</option>
+                  <option value="ultrasound">{t('anesthesia.documentation.techniques.ultrasound')}</option>
                 </select>
               </div>
             </div>
@@ -408,11 +408,12 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                   data-testid="select-cvc-location"
                 >
                   <option value="">{t('anesthesia.documentation.selectLocation')}</option>
-                  <option value="right-ijv">Right Internal Jugular</option>
-                  <option value="left-ijv">Left Internal Jugular</option>
-                  <option value="right-subclavian">Right Subclavian</option>
-                  <option value="left-subclavian">Left Subclavian</option>
-                  <option value="femoral">Femoral</option>
+                  <option value="right-ijv">{t('anesthesia.documentation.centralLocations.rightIjv')}</option>
+                  <option value="left-ijv">{t('anesthesia.documentation.centralLocations.leftIjv')}</option>
+                  <option value="right-subclavian">{t('anesthesia.documentation.centralLocations.rightSubclavian')}</option>
+                  <option value="left-subclavian">{t('anesthesia.documentation.centralLocations.leftSubclavian')}</option>
+                  <option value="right-femoral">{t('anesthesia.documentation.centralLocations.rightFemoral')}</option>
+                  <option value="left-femoral">{t('anesthesia.documentation.centralLocations.leftFemoral')}</option>
                 </select>
               </div>
               <div className="space-y-2">
@@ -424,10 +425,10 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                   data-testid="select-cvc-lumens"
                 >
                   <option value="">{t('anesthesia.documentation.selectLumens')}</option>
-                  <option value="1">Single</option>
-                  <option value="2">Double</option>
-                  <option value="3">Triple</option>
-                  <option value="4">Quad</option>
+                  <option value="1">{t('anesthesia.documentation.lumensOptions.single')}</option>
+                  <option value="2">{t('anesthesia.documentation.lumensOptions.double')}</option>
+                  <option value="3">{t('anesthesia.documentation.lumensOptions.triple')}</option>
+                  <option value="4">{t('anesthesia.documentation.lumensOptions.quad')}</option>
                 </select>
               </div>
             </div>
@@ -451,8 +452,8 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                   data-testid="select-cvc-technique"
                 >
                   <option value="">{t('anesthesia.documentation.selectTechnique')}</option>
-                  <option value="landmark">Landmark</option>
-                  <option value="ultrasound">Ultrasound-guided</option>
+                  <option value="landmark">{t('anesthesia.documentation.techniques.landmark')}</option>
+                  <option value="ultrasound">{t('anesthesia.documentation.techniques.ultrasound')}</option>
                 </select>
               </div>
             </div>
@@ -887,15 +888,15 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                 data-testid="select-airway-device"
               >
                 <option value="">{t('anesthesia.documentation.selectDevice')}</option>
-                <option value="ett">Endotracheal Tube (Straight)</option>
-                <option value="spiral-tube">Spiral Tube (Flexometallic)</option>
-                <option value="rae-tube">RAE Tube (Right-Angle)</option>
-                <option value="dlt-left">Double-Lumen Tube - Left</option>
-                <option value="dlt-right">Double-Lumen Tube - Right</option>
-                <option value="lma">Laryngeal Mask Airway (Classic)</option>
-                <option value="lma-auragain">Laryngeal Mask AuraGain</option>
-                <option value="facemask">Face Mask</option>
-                <option value="tracheostomy">Tracheostomy</option>
+                <option value="ett">{t('anesthesia.documentation.airwayDevices.ett')}</option>
+                <option value="spiral-tube">{t('anesthesia.documentation.airwayDevices.spiralTube')}</option>
+                <option value="rae-tube">{t('anesthesia.documentation.airwayDevices.raeTube')}</option>
+                <option value="dlt-left">{t('anesthesia.documentation.airwayDevices.dltLeft')}</option>
+                <option value="dlt-right">{t('anesthesia.documentation.airwayDevices.dltRight')}</option>
+                <option value="lma">{t('anesthesia.documentation.airwayDevices.lma')}</option>
+                <option value="lma-auragain">{t('anesthesia.documentation.airwayDevices.lmaAuragain')}</option>
+                <option value="facemask">{t('anesthesia.documentation.airwayDevices.facemask')}</option>
+                <option value="tracheostomy">{t('anesthesia.documentation.airwayDevices.tracheostomy')}</option>
               </select>
             </div>
             <div className="space-y-2">
@@ -1017,13 +1018,13 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                       data-testid="select-laryngoscope-type"
                     >
                       <option value="">{t('anesthesia.documentation.selectType')}</option>
-                      <option value="macintosh">Macintosh (Curved)</option>
-                      <option value="miller">Miller (Straight)</option>
-                      <option value="mccoy">McCoy (Articulating)</option>
-                      <option value="video">Video Laryngoscope</option>
-                      <option value="glidescope">GlideScope</option>
-                      <option value="airtraq">Airtraq</option>
-                      <option value="cmac">C-MAC</option>
+                      <option value="macintosh">{t('anesthesia.documentation.laryngoscopeTypes.macintosh')}</option>
+                      <option value="miller">{t('anesthesia.documentation.laryngoscopeTypes.miller')}</option>
+                      <option value="mccoy">{t('anesthesia.documentation.laryngoscopeTypes.mccoy')}</option>
+                      <option value="video">{t('anesthesia.documentation.laryngoscopeTypes.video')}</option>
+                      <option value="glidescope">{t('anesthesia.documentation.laryngoscopeTypes.glidescope')}</option>
+                      <option value="airtraq">{t('anesthesia.documentation.laryngoscopeTypes.airtraq')}</option>
+                      <option value="cmac">{t('anesthesia.documentation.laryngoscopeTypes.cmac')}</option>
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -1039,11 +1040,11 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                       data-testid="select-laryngoscope-blade"
                     >
                       <option value="">{t('anesthesia.documentation.selectBlade')}</option>
-                      <option value="1">1</option>
-                      <option value="2">2</option>
-                      <option value="3">3</option>
-                      <option value="4">4</option>
-                      <option value="5">5</option>
+                      <option value="1">{t('anesthesia.documentation.laryngoscopeBlades.blade1')}</option>
+                      <option value="2">{t('anesthesia.documentation.laryngoscopeBlades.blade2')}</option>
+                      <option value="3">{t('anesthesia.documentation.laryngoscopeBlades.blade3')}</option>
+                      <option value="4">{t('anesthesia.documentation.laryngoscopeBlades.blade4')}</option>
+                      <option value="5">{t('anesthesia.documentation.laryngoscopeBlades.blade5')}</option>
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -1078,11 +1079,11 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                       data-testid="select-cormack-lehane"
                     >
                       <option value="">{t('anesthesia.documentation.selectGrade')}</option>
-                      <option value="I">I - Full view of glottis</option>
-                      <option value="IIa">IIa - Partial view of glottis</option>
-                      <option value="IIb">IIb - Only arytenoids visible</option>
-                      <option value="III">III - Only epiglottis visible</option>
-                      <option value="IV">IV - No glottic structures visible</option>
+                      <option value="I">{t('anesthesia.documentation.cormackLehaneGrades.grade1')}</option>
+                      <option value="IIa">{t('anesthesia.documentation.cormackLehaneGrades.grade2a')}</option>
+                      <option value="IIb">{t('anesthesia.documentation.cormackLehaneGrades.grade2b')}</option>
+                      <option value="III">{t('anesthesia.documentation.cormackLehaneGrades.grade3')}</option>
+                      <option value="IV">{t('anesthesia.documentation.cormackLehaneGrades.grade4')}</option>
                     </select>
                   </div>
                 </div>
@@ -1098,7 +1099,7 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
                     className="h-4 w-4"
                     data-testid="checkbox-difficult-airway"
                   />
-                  <span className="text-sm font-medium text-destructive">Difficult Airway</span>
+                  <span className="text-sm font-medium text-destructive">{t('anesthesia.documentation.difficultAirway')}</span>
                 </label>
                 
                 {difficultAirway && airwayManagement?.id && (

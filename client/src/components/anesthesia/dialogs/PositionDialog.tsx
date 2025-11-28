@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
 import { useCreatePosition, useUpdatePosition, useDeletePosition } from "@/hooks/usePositionQuery";
+import { useTranslation } from "react-i18next";
 
 interface EditingPosition {
   id: string;
@@ -28,20 +29,7 @@ interface PositionDialogProps {
   onPositionDeleted?: () => void;
 }
 
-const PRESET_POSITIONS = [
-  { key: 'Supine', label: 'Supine (Back)' },
-  { key: 'Prone', label: 'Prone (Belly)' },
-  { key: 'Left Side', label: 'Left Side' },
-  { key: 'Right Side', label: 'Right Side' },
-  { key: 'Beach Chair', label: 'Beach Chair' },
-  { key: 'Lithotomy', label: 'Lithotomy' },
-  { key: 'Head Up', label: 'Head Up' },
-  { key: 'Head Down', label: 'Head Down' },
-  { key: 'Sitting for SPA/PDA', label: 'Sitting for SPA/PDA' },
-  { key: 'Other', label: 'Other' },
-];
-
-const PRESET_POSITION_KEYS = PRESET_POSITIONS.map(p => p.key);
+const PRESET_POSITION_KEYS = ['Supine', 'Prone', 'Left Side', 'Right Side', 'Beach Chair', 'Lithotomy', 'Head Up', 'Head Down', 'Sitting for SPA/PDA', 'Other'];
 
 export function PositionDialog({
   open,
@@ -53,8 +41,22 @@ export function PositionDialog({
   onPositionUpdated,
   onPositionDeleted,
 }: PositionDialogProps) {
+  const { t } = useTranslation();
   const [positionInput, setPositionInput] = useState("");
   const [positionEditTime, setPositionEditTime] = useState<number>(Date.now());
+
+  const PRESET_POSITIONS = [
+    { key: 'Supine', label: t('anesthesia.timeline.positionDialog.positions.supine') },
+    { key: 'Prone', label: t('anesthesia.timeline.positionDialog.positions.prone') },
+    { key: 'Left Side', label: t('anesthesia.timeline.positionDialog.positions.leftSide') },
+    { key: 'Right Side', label: t('anesthesia.timeline.positionDialog.positions.rightSide') },
+    { key: 'Beach Chair', label: t('anesthesia.timeline.positionDialog.positions.beachChair') },
+    { key: 'Lithotomy', label: t('anesthesia.timeline.positionDialog.positions.lithotomy') },
+    { key: 'Head Up', label: t('anesthesia.timeline.positionDialog.positions.headUp') },
+    { key: 'Head Down', label: t('anesthesia.timeline.positionDialog.positions.headDown') },
+    { key: 'Sitting for SPA/PDA', label: t('anesthesia.timeline.positionDialog.positions.sittingSpaPda') },
+    { key: 'Other', label: t('anesthesia.timeline.positionDialog.positions.other') },
+  ];
 
   // Initialize mutation hooks
   const createPosition = useCreatePosition(anesthesiaRecordId || undefined);
@@ -133,14 +135,14 @@ export function PositionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]" data-testid="dialog-position">
         <DialogHeader>
-          <DialogTitle>Patient Position</DialogTitle>
+          <DialogTitle>{t('anesthesia.timeline.positionDialog.title')}</DialogTitle>
           <DialogDescription>
-            {editingPosition ? 'Edit or delete the patient position' : 'Select a patient position'}
+            {editingPosition ? t('anesthesia.timeline.positionDialog.editDescription') : t('anesthesia.timeline.positionDialog.selectDescription')}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
           <div className="grid gap-2">
-            <Label>Select Position</Label>
+            <Label>{t('anesthesia.timeline.positionDialog.selectLabel')}</Label>
             <div className="grid grid-cols-2 gap-2">
               {PRESET_POSITIONS.map((pos) => (
                 <Button
@@ -186,7 +188,7 @@ export function PositionDialog({
                 </Button>
               ))}
               <Input
-                placeholder="Custom position..."
+                placeholder={t('anesthesia.timeline.positionDialog.customPlaceholder')}
                 value={positionInput && !PRESET_POSITION_KEYS.includes(positionInput) ? positionInput : ''}
                 onChange={(e) => setPositionInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -208,7 +210,7 @@ export function PositionDialog({
           onCancel={handleClose}
           onSave={handleSave}
           saveDisabled={!positionInput.trim()}
-          saveLabel={editingPosition ? 'Save' : 'Add'}
+          saveLabel={editingPosition ? t('common.save') : t('anesthesia.timeline.add')}
         />
       </DialogContent>
     </Dialog>

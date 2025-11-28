@@ -1571,6 +1571,83 @@
       "addEntry": "Add Entry",
       "add": "Add",
       "entry": "Entry",
+      "peripheralLocations": {
+        "rightHand": "Right Hand (Dorsum)",
+        "leftHand": "Left Hand (Dorsum)",
+        "rightForearm": "Right Forearm",
+        "leftForearm": "Left Forearm",
+        "rightAcFossa": "Right Antecubital Fossa",
+        "leftAcFossa": "Left Antecubital Fossa"
+      },
+      "arterialLocations": {
+        "radialLeft": "Radial - Left",
+        "radialRight": "Radial - Right",
+        "femoralLeft": "Femoral - Left",
+        "femoralRight": "Femoral - Right",
+        "brachial": "Brachial"
+      },
+      "centralLocations": {
+        "rightIjv": "Right Internal Jugular",
+        "leftIjv": "Left Internal Jugular",
+        "rightSubclavian": "Right Subclavian",
+        "leftSubclavian": "Left Subclavian",
+        "rightFemoral": "Right Femoral",
+        "leftFemoral": "Left Femoral"
+      },
+      "gauges": {
+        "14g": "14G (Orange)",
+        "16g": "16G (Gray)",
+        "18g": "18G (Green)",
+        "20g": "20G (Pink)",
+        "22g": "22G (Blue)",
+        "24g": "24G (Yellow)"
+      },
+      "techniques": {
+        "direct": "Direct (Seldinger)",
+        "transfixion": "Transfixion",
+        "ultrasound": "Ultrasound-guided",
+        "landmark": "Landmark"
+      },
+      "lumensOptions": {
+        "single": "Single Lumen",
+        "double": "Double Lumen",
+        "triple": "Triple Lumen",
+        "quad": "Quad Lumen"
+      },
+      "airwayDevices": {
+        "ett": "Endotracheal Tube (Straight)",
+        "spiralTube": "Spiral Tube (Flexometallic)",
+        "raeTube": "RAE Tube (Right-Angle)",
+        "dltLeft": "Double-Lumen Tube - Left",
+        "dltRight": "Double-Lumen Tube - Right",
+        "lma": "Laryngeal Mask Airway (Classic)",
+        "lmaAuragain": "Laryngeal Mask AuraGain",
+        "facemask": "Face Mask",
+        "tracheostomy": "Tracheostomy"
+      },
+      "laryngoscopeTypes": {
+        "macintosh": "Macintosh (Curved)",
+        "miller": "Miller (Straight)",
+        "mccoy": "McCoy (Articulating)",
+        "video": "Video Laryngoscope",
+        "glidescope": "GlideScope",
+        "airtraq": "Airtraq",
+        "cmac": "C-MAC"
+      },
+      "laryngoscopeBlades": {
+        "blade1": "Blade 1",
+        "blade2": "Blade 2",
+        "blade3": "Blade 3",
+        "blade4": "Blade 4",
+        "blade5": "Blade 5"
+      },
+      "cormackLehaneGrades": {
+        "grade1": "I - Full view of glottis",
+        "grade2a": "IIa - Partial view of glottis",
+        "grade2b": "IIb - Only arytenoids visible",
+        "grade3": "III - Only epiglottis visible",
+        "grade4": "IV - No glottic structures visible"
+      },
       "spinal": "Spinal",
       "spinelAnesthesia": "Spinal Anesthesia",
       "addSpinal": "Add Spinal",
@@ -1638,6 +1715,25 @@
         },
         "save": "Save",
         "add": "Add"
+      },
+      "positionDialog": {
+        "title": "Patient Position",
+        "selectDescription": "Select a patient position",
+        "editDescription": "Edit or delete the patient position",
+        "selectLabel": "Select Position",
+        "customPlaceholder": "Custom position...",
+        "positions": {
+          "supine": "Supine (Back)",
+          "prone": "Prone (Belly)",
+          "leftSide": "Left Side",
+          "rightSide": "Right Side",
+          "beachChair": "Beach Chair",
+          "lithotomy": "Lithotomy",
+          "headUp": "Head Up",
+          "headDown": "Head Down",
+          "sittingSpaPda": "Sitting for SPA/PDA",
+          "other": "Other"
+        }
       },
       "medications": "Medications",
       "position": "Position",
