@@ -2837,186 +2837,115 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     }
   };
 
-  // Handle camera capture with hybrid detection
+  // Handle camera capture with AI-based detection
   const handleCameraCapture = async (imageBase64: string, timestamp: number) => {
     setIsProcessingImage(true);
     
     try {
-      // Step 1: Preprocess image (resize and compress only - skip grayscale for performance)
+      // Step 1: Preprocess image (resize and compress only)
       const { preprocessImage } = await import('@/lib/imagePreprocessing');
       const preprocessed = await preprocessImage(imageBase64, {
-        maxWidth: 1280, // Increased for better AI vision accuracy on medical monitors
-        quality: 0.85,  // Higher quality preserves critical numeric details
-        grayscale: false, // Skip pixel-by-pixel grayscale conversion - not needed for modern OCR/AI
+        maxWidth: 1280,
+        quality: 0.85,
+        grayscale: false,
       });
       
-      // Toast notification disabled (can be re-enabled later)
-      // toast({
-      //   title: "Image Preprocessed",
-      //   description: `Optimized: ${preprocessed.sizeReduction}% smaller`,
-      // });
+      // Step 2: Analyze with AI (always use AI for reliable recognition)
+      const { validateVitalRange, clampToRange } = await import('@/lib/sevenSegmentOCR');
       
-      // Step 2: Try fast seven-segment detection first
-      const { detectVitalsFromImage, validateVitalRange, clampToRange } = await import('@/lib/sevenSegmentOCR');
-      const localDetection = await detectVitalsFromImage(preprocessed.base64);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       
-      // Step 3: Determine if we need AI fallback
-      const highConfidenceThreshold = 0.9;
-      const needsAI = 
-        !localDetection.hr || localDetection.hr.confidence < highConfidenceThreshold ||
-        !localDetection.spo2 || localDetection.spo2.confidence < highConfidenceThreshold ||
-        !localDetection.sysBP || localDetection.sysBP.confidence < highConfidenceThreshold ||
-        !localDetection.diaBP || localDetection.diaBP.confidence < highConfidenceThreshold;
+      let aiData: MonitorAnalysisResult | any = {};
+      try {
+        const response = await fetch('/api/analyze-monitor', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: preprocessed.base64 }),
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error('Failed to analyze image with AI');
+        }
+        
+        aiData = await response.json();
       
-      let finalData: any = {};
-      
-      if (needsAI) {
-        // Step 4: Fall back to OpenAI Vision for low confidence or missing values
-        // Toast notification disabled (can be re-enabled later)
-        // toast({
-        //   title: "Analyzing with AI...",
-        //   description: "Using advanced detection for complex readings",
-        // });
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
         
-        // Add timeout to prevent hanging
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-        
-        let aiData: MonitorAnalysisResult | any = {};
-        try {
-          const response = await fetch('/api/analyze-monitor', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: preprocessed.base64 }),
-            signal: controller.signal,
-          });
-          
-          clearTimeout(timeoutId);
-          
-          if (!response.ok) {
-            throw new Error('Failed to analyze image with AI');
-          }
-          
-          aiData = await response.json();
-        
-        } catch (fetchError) {
-          clearTimeout(timeoutId);
-          
-          if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-            throw new Error('AI analysis timed out after 30 seconds. Please try again.');
-          }
-          throw fetchError;
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          throw new Error('AI analysis timed out after 30 seconds. Please try again.');
         }
-        
-        // Check if new API format (with parameters array) or old format
-        const isNewFormat = aiData.parameters && Array.isArray(aiData.parameters);
-        
-        let hr, sysBP, diaBP, spo2;
-        let transformedVitals: any = {};
-        let transformedVentilation: any = {};
-        
-        if (isNewFormat) {
-          // NEW FORMAT: Extract vitals from parameters array
-          const vitalParams = aiData.parameters.filter((p: any) => p.category === 'vitals');
-          const ventParams = aiData.parameters.filter((p: any) => p.category === 'ventilation');
-          
-          // Map vitals to old format
-          vitalParams.forEach((param: any) => {
-            if (param.standardName === 'HR') {
-              hr = param.value;
-            } else if (param.standardName === 'SysBP') {
-              sysBP = param.value;
-            } else if (param.standardName === 'DiaBP') {
-              diaBP = param.value;
-            } else if (param.standardName === 'SpO2') {
-              spo2 = param.value;
-            }
-          });
-          
-          // Map ventilation to old format
-          ventParams.forEach((param: any) => {
-            const key = param.standardName.charAt(0).toLowerCase() + param.standardName.slice(1);
-            transformedVentilation[key] = param.value;
-          });
-        } else {
-          // OLD FORMAT: Use directly
-          hr = aiData.vitals?.hr;
-          sysBP = aiData.vitals?.sysBP;
-          diaBP = aiData.vitals?.diaBP;
-          spo2 = aiData.vitals?.spo2;
-          transformedVentilation = aiData.ventilation || {};
-        }
-        
-        // Merge with local detection, preferring high-confidence local values
-        hr = (localDetection.hr && localDetection.hr.confidence >= highConfidenceThreshold) 
-          ? localDetection.hr.value 
-          : hr;
-        sysBP = (localDetection.sysBP && localDetection.sysBP.confidence >= highConfidenceThreshold)
-          ? localDetection.sysBP.value
-          : sysBP;
-        diaBP = (localDetection.diaBP && localDetection.diaBP.confidence >= highConfidenceThreshold)
-          ? localDetection.diaBP.value
-          : diaBP;
-        spo2 = (localDetection.spo2 && localDetection.spo2.confidence >= highConfidenceThreshold)
-          ? localDetection.spo2.value
-          : spo2;
-        
-        // Apply range validation and clamping
-        if (hr !== null && hr !== undefined && !validateVitalRange('hr', hr)) {
-          hr = clampToRange('hr', hr);
-        }
-        if (sysBP !== null && sysBP !== undefined && !validateVitalRange('sysBP', sysBP)) {
-          sysBP = clampToRange('sysBP', sysBP);
-        }
-        if (diaBP !== null && diaBP !== undefined && !validateVitalRange('diaBP', diaBP)) {
-          diaBP = clampToRange('diaBP', diaBP);
-        }
-        if (spo2 !== null && spo2 !== undefined && !validateVitalRange('spo2', spo2)) {
-          spo2 = clampToRange('spo2', spo2);
-        }
-        
-        finalData = {
-          vitals: { hr, sysBP, diaBP, spo2 },
-          ventilation: transformedVentilation,
-          tof: aiData.tof,
-          pumps: aiData.pumps,
-          detectionMethod: isNewFormat ? aiData.detectionMethod : 'hybrid-ai',
-          // Store new format data for enhanced confirmation dialog
-          ...(isNewFormat && {
-            monitorType: aiData.monitorType,
-            confidence: aiData.confidence,
-            parameters: aiData.parameters,
-          }),
-        };
-      } else {
-        // Use local detection only with range validation
-        let hr = localDetection.hr?.value;
-        let sysBP = localDetection.sysBP?.value;
-        let diaBP = localDetection.diaBP?.value;
-        let spo2 = localDetection.spo2?.value;
-        
-        // Apply range validation and clamping
-        if (hr !== null && hr !== undefined && !validateVitalRange('hr', hr)) {
-          hr = clampToRange('hr', hr);
-        }
-        if (sysBP !== null && sysBP !== undefined && !validateVitalRange('sysBP', sysBP)) {
-          sysBP = clampToRange('sysBP', sysBP);
-        }
-        if (diaBP !== null && diaBP !== undefined && !validateVitalRange('diaBP', diaBP)) {
-          diaBP = clampToRange('diaBP', diaBP);
-        }
-        if (spo2 !== null && spo2 !== undefined && !validateVitalRange('spo2', spo2)) {
-          spo2 = clampToRange('spo2', spo2);
-        }
-        
-        finalData = {
-          vitals: { hr, sysBP, diaBP, spo2 },
-          ventilation: null,
-          tof: null,
-          pumps: null,
-          detectionMethod: 'local-ocr',
-        };
+        throw fetchError;
       }
+      
+      // Check if new API format (with parameters array) or old format
+      const isNewFormat = aiData.parameters && Array.isArray(aiData.parameters);
+      
+      let hr, sysBP, diaBP, spo2;
+      let transformedVentilation: any = {};
+      
+      if (isNewFormat) {
+        // NEW FORMAT: Extract vitals from parameters array
+        const vitalParams = aiData.parameters.filter((p: any) => p.category === 'vitals');
+        const ventParams = aiData.parameters.filter((p: any) => p.category === 'ventilation');
+        
+        // Map vitals to old format
+        vitalParams.forEach((param: any) => {
+          if (param.standardName === 'HR') {
+            hr = param.value;
+          } else if (param.standardName === 'SysBP') {
+            sysBP = param.value;
+          } else if (param.standardName === 'DiaBP') {
+            diaBP = param.value;
+          } else if (param.standardName === 'SpO2') {
+            spo2 = param.value;
+          }
+        });
+        
+        // Map ventilation to old format
+        ventParams.forEach((param: any) => {
+          const key = param.standardName.charAt(0).toLowerCase() + param.standardName.slice(1);
+          transformedVentilation[key] = param.value;
+        });
+      } else {
+        // OLD FORMAT: Use directly
+        hr = aiData.vitals?.hr;
+        sysBP = aiData.vitals?.sysBP;
+        diaBP = aiData.vitals?.diaBP;
+        spo2 = aiData.vitals?.spo2;
+        transformedVentilation = aiData.ventilation || {};
+      }
+      
+      // Apply range validation and clamping
+      if (hr !== null && hr !== undefined && !validateVitalRange('hr', hr)) {
+        hr = clampToRange('hr', hr);
+      }
+      if (sysBP !== null && sysBP !== undefined && !validateVitalRange('sysBP', sysBP)) {
+        sysBP = clampToRange('sysBP', sysBP);
+      }
+      if (diaBP !== null && diaBP !== undefined && !validateVitalRange('diaBP', diaBP)) {
+        diaBP = clampToRange('diaBP', diaBP);
+      }
+      if (spo2 !== null && spo2 !== undefined && !validateVitalRange('spo2', spo2)) {
+        spo2 = clampToRange('spo2', spo2);
+      }
+      
+      const finalData = {
+        vitals: { hr, sysBP, diaBP, spo2 },
+        ventilation: transformedVentilation,
+        tof: aiData.tof,
+        pumps: aiData.pumps,
+        detectionMethod: isNewFormat ? aiData.detectionMethod : 'ai',
+        ...(isNewFormat && {
+          monitorType: aiData.monitorType,
+          confidence: aiData.confidence,
+          parameters: aiData.parameters,
+        }),
+      };
       
       setExtractedData({ ...finalData, timestamp });
       setConfirmationDialogOpen(true);
