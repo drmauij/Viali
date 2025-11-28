@@ -2444,7 +2444,7 @@ export default function Items() {
                                       )}
                                     </div>
                                     <div className="flex gap-1 items-center">
-                                      {(item.trackExactQuantity || item.unit.toLowerCase() === 'single unit') && !item.controlled && 
+                                      {canWrite && (item.trackExactQuantity || item.unit.toLowerCase() === 'single unit') && !item.controlled && 
                                        (item.trackExactQuantity ? (item.currentUnits || 0) > 0 : currentQty > 0) && (
                                         <button
                                           onClick={(e) => handleQuickReduce(e, item)}
@@ -2455,7 +2455,7 @@ export default function Items() {
                                           -1
                                         </button>
                                       )}
-                                      {currentQty <= (item.minThreshold || 0) && currentQty < (item.maxThreshold || Infinity) && (
+                                      {canWrite && currentQty <= (item.minThreshold || 0) && currentQty < (item.maxThreshold || Infinity) && (
                                         openOrderItems[item.id] ? (
                                           <button
                                             disabled
