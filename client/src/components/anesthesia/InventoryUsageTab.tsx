@@ -66,6 +66,8 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
   const [openFolders, setOpenFolders] = useState<Set<string>>(() => new Set());
   const [showCommitDialog, setShowCommitDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  // State for tracking which commits are expanded to show details
+  const [expandedCommits, setExpandedCommits] = useState<Set<string>>(() => new Set());
 
   // Toggle folder expansion
   const toggleFolder = (folderId: string) => {
@@ -75,6 +77,19 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
         newSet.delete(folderId);
       } else {
         newSet.add(folderId);
+      }
+      return newSet;
+    });
+  };
+
+  // Toggle commit details expansion
+  const toggleCommitDetails = (commitId: string) => {
+    setExpandedCommits(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(commitId)) {
+        newSet.delete(commitId);
+      } else {
+        newSet.add(commitId);
       }
       return newSet;
     });
@@ -514,7 +529,7 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
         </Button>
       </div>
 
-      {/* Commit History */}
+      {/* Commit History with Expandable Details */}
       {commits.length > 0 && (
         <Card className="mb-4">
           <CardContent className="pt-4">
@@ -523,45 +538,104 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
               <h4 className="font-semibold text-sm">{t('anesthesia.op.commitHistory')}</h4>
             </div>
             <div className="space-y-2">
-              {commits.map(commit => (
-                <div
-                  key={commit.id}
-                  className={`flex items-center justify-between p-3 rounded-lg border ${
-                    commit.rolledBackAt 
-                      ? 'bg-muted/50 opacity-60' 
-                      : 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
-                  }`}
-                  data-testid={`commit-${commit.id}`}
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">
-                        {commit.items.length} items committed
-                      </span>
-                      {commit.rolledBackAt && (
-                        <Badge variant="destructive" className="text-xs">
-                          {t('anesthesia.op.rolledBack')}
-                        </Badge>
+              {commits.map(commit => {
+                const isExpanded = expandedCommits.has(commit.id);
+                return (
+                  <div
+                    key={commit.id}
+                    className={`rounded-lg border ${
+                      commit.rolledBackAt 
+                        ? 'bg-muted/50 opacity-60' 
+                        : 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
+                    }`}
+                    data-testid={`commit-${commit.id}`}
+                  >
+                    {/* Header - Clickable to expand */}
+                    <div 
+                      className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/30 transition-colors"
+                      onClick={() => toggleCommitDetails(commit.id)}
+                      data-testid={`commit-header-${commit.id}`}
+                    >
+                      <div className="flex items-center gap-2 flex-1">
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                        )}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">
+                              {commit.items.length} {t('anesthesia.op.itemsCommitted')}
+                            </span>
+                            {commit.rolledBackAt && (
+                              <Badge variant="destructive" className="text-xs">
+                                {t('anesthesia.op.rolledBack')}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDate(new Date(commit.committedAt))}
+                          </p>
+                        </div>
+                      </div>
+                      {!commit.rolledBackAt && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRollback(commit.id);
+                          }}
+                          disabled={rollbackMutation.isPending}
+                          data-testid={`button-rollback-${commit.id}`}
+                        >
+                          <Undo className="h-4 w-4 mr-1" />
+                          {t('anesthesia.op.rollback')}
+                        </Button>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDate(new Date(commit.committedAt))}
-                    </p>
+                    
+                    {/* Expanded Details */}
+                    {isExpanded && (
+                      <div className="border-t px-4 py-3 bg-white/50 dark:bg-black/20" data-testid={`commit-details-${commit.id}`}>
+                        <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">
+                          {t('anesthesia.op.committedItems')}
+                        </div>
+                        <div className="space-y-1.5">
+                          {commit.items.map((item: CommitItem, idx: number) => (
+                            <div 
+                              key={`${commit.id}-${item.itemId}-${idx}`}
+                              className="flex items-center justify-between py-1.5 border-b last:border-0"
+                              data-testid={`commit-item-${commit.id}-${idx}`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm">{item.itemName}</span>
+                                {item.isControlled && (
+                                  <Badge variant="outline" className="text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-700">
+                                    {t('anesthesia.op.controlled')}
+                                  </Badge>
+                                )}
+                              </div>
+                              <span className="text-sm font-medium tabular-nums">
+                                x{item.quantity}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        {commit.rolledBackAt && (
+                          <div className="mt-3 pt-2 border-t text-xs text-muted-foreground">
+                            <span className="font-medium">{t('anesthesia.op.rolledBackOn')}:</span>{' '}
+                            {formatDate(new Date(commit.rolledBackAt))}
+                            {commit.rollbackReason && (
+                              <span className="ml-2">- {commit.rollbackReason}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  {!commit.rolledBackAt && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleRollback(commit.id)}
-                      disabled={rollbackMutation.isPending}
-                      data-testid={`button-rollback-${commit.id}`}
-                    >
-                      <Undo className="h-4 w-4 mr-1" />
-                      {t('anesthesia.op.rollback')}
-                    </Button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
