@@ -1295,7 +1295,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         req.body.administrationRoute || req.body.rateUnit !== undefined;
 
       if (hasMedicationConfig) {
-        // Prepare medication config data - all fields are optional
+        // Check if config exists first to preserve sortOrder
+        const existingConfig = await db
+          .select()
+          .from(medicationConfigs)
+          .where(eq(medicationConfigs.itemId, itemId))
+          .limit(1);
+
+        // Prepare medication config data - preserve existing sortOrder if not explicitly provided
         const configData: any = {
           itemId,
           medicationGroup: req.body.medicationGroup || null,
@@ -1305,21 +1312,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ampuleTotalContent: req.body.ampuleTotalContent || null,
           administrationRoute: req.body.administrationRoute || null,
           rateUnit: req.body.rateUnit || null,
-          sortOrder: req.body.sortOrder !== undefined ? req.body.sortOrder : 0,
+          // Preserve existing sortOrder when updating, only use 0 for new configs
+          sortOrder: req.body.sortOrder !== undefined 
+            ? req.body.sortOrder 
+            : (existingConfig.length > 0 ? existingConfig[0].sortOrder : 0),
         };
 
-        // Check if config exists
-        const existingConfig = await db
-          .select()
-          .from(medicationConfigs)
-          .where(eq(medicationConfigs.itemId, itemId))
-          .limit(1);
-
         if (existingConfig.length > 0) {
-          // Update existing config
+          // Update existing config - don't include sortOrder in update if not explicitly provided
+          const updateData = { ...configData };
+          if (req.body.sortOrder === undefined) {
+            delete updateData.sortOrder; // Don't update sortOrder if not provided
+          }
           await db
             .update(medicationConfigs)
-            .set(configData)
+            .set(updateData)
             .where(eq(medicationConfigs.itemId, itemId));
         } else {
           // Insert new config

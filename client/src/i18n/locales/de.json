@@ -1747,6 +1747,8 @@
       "ventilation": "Beatmung",
       "output": "Ausscheidung",
       "others": "Sonstiges",
+      "reorderMedications": "Medikamente sortieren",
+      "reorderMedicationsDescription": "Ziehen Sie Medikamente per Drag & Drop, um sie innerhalb jeder Gruppe neu zu ordnen",
       "addEvent": "Ereignis hinzufügen",
       "editEvent": "Ereignis bearbeiten",
       "commonEvents": "Häufige Ereignisse",
