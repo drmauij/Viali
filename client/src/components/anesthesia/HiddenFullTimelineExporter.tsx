@@ -44,15 +44,15 @@ export interface FullTimelineExportData {
     timestamp: string | Date;
   }>;
   ventilation?: {
-    pip?: Array<{ timestamp: string; value: number }>;
-    peep?: Array<{ timestamp: string; value: number }>;
-    tidalVolume?: Array<{ timestamp: string; value: number }>;
-    respiratoryRate?: Array<{ timestamp: string; value: number }>;
-    fio2?: Array<{ timestamp: string; value: number }>;
-    etco2?: Array<{ timestamp: string; value: number }>;
+    pip?: Array<{ timestamp: string; value: number } | [number | string, number]>;
+    peep?: Array<{ timestamp: string; value: number } | [number | string, number]>;
+    tidalVolume?: Array<{ timestamp: string; value: number } | [number | string, number]>;
+    respiratoryRate?: Array<{ timestamp: string; value: number } | [number | string, number]>;
+    fio2?: Array<{ timestamp: string; value: number } | [number | string, number]>;
+    etco2?: Array<{ timestamp: string; value: number } | [number | string, number]>;
   };
-  bis?: Array<{ timestamp: string; value: number }>;
-  tof?: Array<{ timestamp: string; value: number }>;
+  bis?: Array<{ timestamp: string; value: number } | [number | string, number]>;
+  tof?: Array<{ timestamp: string; value: number } | [number | string, number]>;
 }
 
 export interface HiddenFullTimelineExporterRef {
@@ -92,6 +92,28 @@ const SWIMLANE_HEIGHTS = {
   bis: 40,
   tof: 40,
 };
+
+// Helper function to normalize data points that can be either [timestamp, value] arrays or {timestamp, value} objects
+function normalizeDataPoints(
+  data: Array<{ timestamp: string; value: number } | [number | string, number]> | undefined
+): DataPoint[] {
+  if (!data || data.length === 0) return [];
+  
+  return data.map((item) => {
+    if (Array.isArray(item)) {
+      // Coerce first value (timestamp) to number if it's a string
+      const ts = typeof item[0] === 'string' 
+        ? new Date(item[0]).getTime() 
+        : item[0];
+      return [ts, item[1]] as DataPoint;
+    } else {
+      const ts = typeof item.timestamp === 'string' 
+        ? new Date(item.timestamp).getTime() 
+        : item.timestamp;
+      return [ts, item.value] as DataPoint;
+    }
+  });
+}
 
 function createIconSeries(
   name: string,
@@ -855,6 +877,199 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
         currentTop += SWIMLANE_HEIGHTS.positions + 20;
       }
 
+      // Ventilation swimlane
+      if (hasVentilation) {
+        grids.push({
+          left: gridLeft,
+          right: gridRight,
+          top: currentTop,
+          height: SWIMLANE_HEIGHTS.ventilation,
+        });
+
+        xAxes.push({
+          type: 'time',
+          gridIndex: gridIndex,
+          min: paddedMin,
+          max: paddedMax,
+          axisLabel: { show: false },
+          axisTick: { show: false },
+          axisLine: { show: false },
+          splitLine: { show: true, lineStyle: { color: '#e5e7eb', type: 'dashed' } },
+        });
+
+        yAxes.push({
+          type: 'value',
+          gridIndex: gridIndex,
+          name: 'Ventilation',
+          nameLocation: 'middle',
+          nameGap: 80,
+          min: 0,
+          max: 100,
+          axisLabel: { fontSize: 9 },
+          axisTick: { show: false },
+        });
+
+        // Add PIP line
+        const pipData = normalizeDataPoints(ventilation.pip);
+        if (pipData.length > 0) {
+          series.push({
+            type: 'line',
+            name: 'PIP',
+            xAxisIndex: gridIndex,
+            yAxisIndex: yAxisIndex,
+            data: pipData,
+            lineStyle: { color: '#22c55e', width: 2 },
+            symbol: 'circle',
+            symbolSize: 4,
+            itemStyle: { color: '#22c55e' },
+            z: 20,
+          });
+        }
+
+        // Add PEEP line
+        const peepData = normalizeDataPoints(ventilation.peep);
+        if (peepData.length > 0) {
+          series.push({
+            type: 'line',
+            name: 'PEEP',
+            xAxisIndex: gridIndex,
+            yAxisIndex: yAxisIndex,
+            data: peepData,
+            lineStyle: { color: '#3b82f6', width: 2 },
+            symbol: 'circle',
+            symbolSize: 4,
+            itemStyle: { color: '#3b82f6' },
+            z: 20,
+          });
+        }
+
+        // Add FiO2 line
+        const fio2Data = normalizeDataPoints(ventilation.fio2);
+        if (fio2Data.length > 0) {
+          series.push({
+            type: 'line',
+            name: 'FiO2',
+            xAxisIndex: gridIndex,
+            yAxisIndex: yAxisIndex,
+            data: fio2Data,
+            lineStyle: { color: '#f59e0b', width: 2 },
+            symbol: 'circle',
+            symbolSize: 4,
+            itemStyle: { color: '#f59e0b' },
+            z: 20,
+          });
+        }
+
+        yAxisIndex++;
+        gridIndex++;
+        currentTop += SWIMLANE_HEIGHTS.ventilation + 20;
+      }
+
+      // BIS swimlane (Bispectral Index - depth of anesthesia)
+      if (hasBIS) {
+        grids.push({
+          left: gridLeft,
+          right: gridRight,
+          top: currentTop,
+          height: SWIMLANE_HEIGHTS.bis,
+        });
+
+        xAxes.push({
+          type: 'time',
+          gridIndex: gridIndex,
+          min: paddedMin,
+          max: paddedMax,
+          axisLabel: { show: false },
+          axisTick: { show: false },
+          axisLine: { show: false },
+          splitLine: { show: true, lineStyle: { color: '#e5e7eb', type: 'dashed' } },
+        });
+
+        yAxes.push({
+          type: 'value',
+          gridIndex: gridIndex,
+          name: 'BIS',
+          nameLocation: 'middle',
+          nameGap: 80,
+          min: 0,
+          max: 100,
+          axisLabel: { fontSize: 9 },
+          axisTick: { show: false },
+        });
+
+        const bisData = normalizeDataPoints(bis);
+        series.push({
+          type: 'line',
+          name: 'BIS',
+          xAxisIndex: gridIndex,
+          yAxisIndex: yAxisIndex,
+          data: bisData,
+          lineStyle: { color: COLORS.bis, width: 2 },
+          areaStyle: { color: COLORS.bis, opacity: 0.2 },
+          symbol: 'circle',
+          symbolSize: 4,
+          itemStyle: { color: COLORS.bis },
+          z: 20,
+        });
+
+        yAxisIndex++;
+        gridIndex++;
+        currentTop += SWIMLANE_HEIGHTS.bis + 20;
+      }
+
+      // TOF swimlane (Train of Four - neuromuscular blockade)
+      if (hasTOF) {
+        grids.push({
+          left: gridLeft,
+          right: gridRight,
+          top: currentTop,
+          height: SWIMLANE_HEIGHTS.tof,
+        });
+
+        xAxes.push({
+          type: 'time',
+          gridIndex: gridIndex,
+          min: paddedMin,
+          max: paddedMax,
+          axisLabel: { 
+            show: true, 
+            formatter: formatTimeLabel,
+            fontSize: 10,
+          },
+          axisTick: { show: true },
+          axisLine: { show: true },
+          splitLine: { show: true, lineStyle: { color: '#e5e7eb', type: 'dashed' } },
+        });
+
+        yAxes.push({
+          type: 'value',
+          gridIndex: gridIndex,
+          name: 'TOF',
+          nameLocation: 'middle',
+          nameGap: 80,
+          min: 0,
+          max: 4,
+          axisLabel: { fontSize: 9 },
+          axisTick: { show: false },
+        });
+
+        const tofData = normalizeDataPoints(tof);
+        series.push({
+          type: 'line',
+          name: 'TOF',
+          xAxisIndex: gridIndex,
+          yAxisIndex: yAxisIndex,
+          data: tofData,
+          lineStyle: { color: COLORS.tof, width: 2, type: 'solid' },
+          symbol: 'circle',
+          symbolSize: 6,
+          itemStyle: { color: COLORS.tof },
+          z: 20,
+        });
+
+        currentTop += SWIMLANE_HEIGHTS.tof + 20;
+      }
+
       const totalHeight = currentTop + 40;
 
       return {
@@ -881,17 +1096,27 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
       return null;
     }
 
-    const { startTime, endTime, medications, events, staffMembers, positions } = chartData;
+    const { startTime, endTime, medications, events, staffMembers, positions, ventilation, bis, tof } = chartData;
     const hasMedications = medications && medications.length > 0;
     const hasEvents = events && events.length > 0;
     const hasStaff = staffMembers && staffMembers.length > 0;
     const hasPositions = positions && positions.length > 0;
+    const hasVentilation = ventilation && (
+      (ventilation.pip?.length || 0) > 0 ||
+      (ventilation.peep?.length || 0) > 0 ||
+      (ventilation.fio2?.length || 0) > 0
+    );
+    const hasBIS = bis && bis.length > 0;
+    const hasTOF = tof && tof.length > 0;
 
     let totalHeight = SWIMLANE_HEIGHTS.vitals + 100;
     if (hasMedications) totalHeight += SWIMLANE_HEIGHTS.medications + 20;
     if (hasEvents) totalHeight += SWIMLANE_HEIGHTS.events + 20;
     if (hasStaff) totalHeight += SWIMLANE_HEIGHTS.staff + 20;
-    if (hasPositions) totalHeight += SWIMLANE_HEIGHTS.positions + 40;
+    if (hasPositions) totalHeight += SWIMLANE_HEIGHTS.positions + 20;
+    if (hasVentilation) totalHeight += SWIMLANE_HEIGHTS.ventilation + 20;
+    if (hasBIS) totalHeight += SWIMLANE_HEIGHTS.bis + 20;
+    if (hasTOF) totalHeight += SWIMLANE_HEIGHTS.tof + 40;
 
     const option = buildChartOption();
 

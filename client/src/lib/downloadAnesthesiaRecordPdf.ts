@@ -143,15 +143,43 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
             ? new Date(surgery.actualEndTime).getTime()
             : startTime + (4 * 60 * 60 * 1000); // Default 4 hours if no end time
         
+        // Extract data from clinicalSnapshot - structure may be nested under 'data'
+        const snapshotData = clinicalSnapshot?.data || clinicalSnapshot;
+        
+        // Extract vitals (hr, bp, spo2, temp)
+        const vitals = snapshotData ? {
+          hr: snapshotData.hr || [],
+          bp: snapshotData.bp || [],
+          spo2: snapshotData.spo2 || [],
+          temp: snapshotData.temp || [],
+        } : undefined;
+        
+        // Extract ventilation data (pip, peep, tidalVolume, respiratoryRate, fio2, etco2)
+        const ventilation = snapshotData ? {
+          pip: snapshotData.pip || [],
+          peep: snapshotData.peep || [],
+          tidalVolume: snapshotData.tidalVolume || [],
+          respiratoryRate: snapshotData.respiratoryRate || [],
+          fio2: snapshotData.fio2 || [],
+          etco2: snapshotData.etco2 || [],
+        } : undefined;
+        
+        // Extract BIS and TOF data
+        const bis = snapshotData?.bis || [];
+        const tof = snapshotData?.tof || [];
+        
         const timelineData: FullTimelineExportData = {
           startTime,
           endTime,
-          vitals: clinicalSnapshot?.data || clinicalSnapshot,
+          vitals,
           events,
           medications,
           anesthesiaItems,
           staffMembers,
           positions,
+          ventilation,
+          bis,
+          tof,
         };
         
         fullTimelineImage = await hiddenTimelineRef.current.exportTimeline(timelineData);
