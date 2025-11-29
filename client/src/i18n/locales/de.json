@@ -2168,7 +2168,8 @@
   "business": {
     "dashboard": {
       "title": "Geschäfts-Dashboard",
-      "subtitle": "Übersicht über OP-Betrieb und Kosten für die Geschäftsführung"
+      "subtitle": "Übersicht über OP-Betrieb und Kosten für die Geschäftsführung",
+      "selectPeriod": "Zeitraum wählen"
     },
     "periods": {
       "week": "Diese Woche",
@@ -2193,7 +2194,9 @@
       "onTimeStart": "Pünktlicher Start",
       "startedWithin15min": "Innerhalb 15 Min gestartet",
       "cancellationRate": "Absagerate",
-      "ofPlannedSurgeries": "Der geplanten OPs"
+      "ofPlannedSurgeries": "Der geplanten OPs",
+      "staffCosts": "Personalkosten",
+      "hourlyStaffThisMonth": "Leihpersonal diesen Monat"
     },
     "charts": {
       "surgeryTrend": "OP-Volumen Trend",
@@ -2209,7 +2212,12 @@
       "roomUtilization": "OP-Saal Auslastung",
       "roomUtilizationDesc": "Nutzungsrate pro Operationssaal",
       "utilization": "Auslastung",
-      "target": "Ziel"
+      "target": "Ziel",
+      "staffCostTrend": "Personalkosten-Trend",
+      "staffCostTrendDesc": "Monatliche Personalkosten im Vergleich zum Budget",
+      "actualStaffCosts": "Tatsächliche Personalkosten",
+      "staffCostByRole": "Personalkosten nach Rolle",
+      "staffCostByRoleDesc": "Verteilung der Personalkosten nach verschiedenen Rollen"
     },
     "alerts": {
       "title": "Warnungen & Erkenntnisse",
@@ -2249,7 +2257,12 @@
       "turnoverTrend": "Zeigt Entwicklung der Wechselzeiten im Zeitverlauf. Ziel ist kontinuierliche Verbesserung unter die Ziellinie.",
       "phaseBreakdown": "Durchschnittliche Zeit in jeder Phase des OP-Prozesses. Identifiziert Engpässe und Verbesserungspotenziale.",
       "surgeonEfficiency": "Vergleicht Leistungsmetriken zwischen Chirurgen. Effizienz über 100% bedeutet schneller als geplant, darunter langsamer.",
-      "weeklyPattern": "Zeigt OP-Volumen und Dauer nach Wochentag. Hilft bei der Optimierung der Wochenplanung."
+      "weeklyPattern": "Zeigt OP-Volumen und Dauer nach Wochentag. Hilft bei der Optimierung der Wochenplanung.",
+      "staffCosts": "Gesamtkosten für Leih-/Stundenpersonal während Operationen. Beinhaltet Chirurgen, Pflegekräfte, Anästhesisten und Assistenten. Verfolgen Sie dies zur Kontrolle der Personalausgaben.",
+      "staffCostTrend": "Zeigt die Entwicklung der Personalkosten im Vergleich zum Budget. Nützlich zur Identifizierung von Personaleffizienz und Budgetplanung.",
+      "staffCostByRole": "Verteilung der Personalkosten nach Rolle (Chirurgen, Pflegekräfte, Anästhesisten, etc.). Hilft zu verstehen, wo Personalkosten konzentriert sind.",
+      "staffCostBreakdown": "Detaillierte Aufschlüsselung der Kosten pro Mitarbeiter, inkl. Stundensätze, geleistete Stunden und Gesamtkosten. Zur Identifizierung von Hochkostenpersonal und Optimierung der Planung.",
+      "avgCostPerSurgeryInclLabor": "Durchschnittliche Gesamtkosten pro OP inklusive Material und Personalkosten. Dies gibt ein vollständiges Bild der Kosten pro Eingriff."
     },
     "costs": {
       "title": "Kostenanalyse",
@@ -2259,8 +2272,10 @@
       "ofTotal": "des Gesamten",
       "medicationCosts": "Medikamentenkosten",
       "suppliesCosts": "Verbrauchsmaterialkosten",
+      "staffCosts": "Personalkosten",
       "avgCostPerSurgery": "Ø Kosten pro OP",
       "allProcedures": "Alle Eingriffe",
+      "inclLabor": "Inkl. Personal",
       "costByCategory": "Kosten nach Kategorie",
       "costByCategoryDesc": "Aufschlüsselung der Ausgaben nach Hauptkategorien",
       "monthlyBreakdown": "Monatliche Kostenaufschlüsselung",
@@ -2268,13 +2283,18 @@
       "supplies": "Verbrauchsmaterial",
       "medications": "Medikamente",
       "equipment": "Ausrüstung",
+      "staffLabel": "Personal",
       "other": "Sonstiges",
       "costPerSurgeryType": "Kosten pro Eingriffsart",
       "costPerSurgeryTypeDesc": "Entwicklung der durchschnittlichen Materialkosten nach Eingriffskategorie",
       "costBySurgeryType": "Kosten nach Eingriffsart",
       "costBySurgeryTypeDesc": "Kostenvergleich zwischen verschiedenen chirurgischen Eingriffen",
+      "costBySurgeryTypeDescWithLabor": "Vergleich von Material- und Personalkosten nach Eingriffsart",
       "surgeryType": "Eingriffsart",
       "avgCost": "Ø Kosten",
+      "avgMaterialCost": "Ø Material",
+      "avgLaborCost": "Ø Personal",
+      "avgTotalCost": "Ø Gesamt",
       "surgeryCount": "Anzahl OPs",
       "totalCost": "Gesamtkosten",
       "trend": "Trend",
@@ -2283,7 +2303,13 @@
       "itemName": "Artikel",
       "category": "Kategorie",
       "unitCost": "Stückpreis",
-      "usage": "Verbrauch"
+      "usage": "Verbrauch",
+      "staffCostBreakdown": "Personalkosten-Aufschlüsselung",
+      "staffCostBreakdownDesc": "Detaillierte Ansicht der Personalkosten pro Mitarbeiter",
+      "staffMember": "Mitarbeiter",
+      "role": "Rolle",
+      "hourlyRate": "Stundensatz",
+      "hoursWorked": "Geleistete Stunden"
     },
     "surgeryTypes": {
       "cardiac": "Kardiologie",

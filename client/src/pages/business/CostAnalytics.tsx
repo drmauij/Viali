@@ -13,7 +13,8 @@ import {
   Package,
   Pill,
   Scissors,
-  Activity
+  Activity,
+  Users
 } from "lucide-react";
 import {
   LineChart,
@@ -34,28 +35,40 @@ import {
 } from "recharts";
 
 const mockMonthlyCosts = [
-  { month: "Jan", medications: 85000, supplies: 120000, equipment: 45000, other: 35000 },
-  { month: "Feb", medications: 92000, supplies: 135000, equipment: 48000, other: 37000 },
-  { month: "Mar", medications: 88000, supplies: 125000, equipment: 46000, other: 39000 },
-  { month: "Apr", medications: 95000, supplies: 142000, equipment: 50000, other: 38000 },
-  { month: "May", medications: 102000, supplies: 148000, equipment: 52000, other: 40000 },
-  { month: "Jun", medications: 94000, supplies: 138000, equipment: 49000, other: 37000 },
+  { month: "Jan", medications: 85000, supplies: 120000, equipment: 45000, staff: 142000, other: 35000 },
+  { month: "Feb", medications: 92000, supplies: 135000, equipment: 48000, staff: 156000, other: 37000 },
+  { month: "Mar", medications: 88000, supplies: 125000, equipment: 46000, staff: 148000, other: 39000 },
+  { month: "Apr", medications: 95000, supplies: 142000, equipment: 50000, staff: 162000, other: 38000 },
+  { month: "May", medications: 102000, supplies: 148000, equipment: 52000, staff: 171000, other: 40000 },
+  { month: "Jun", medications: 94000, supplies: 138000, equipment: 49000, staff: 158000, other: 37000 },
 ];
 
 const mockCostByCategory = [
+  { name: "Staff Labor", value: 158000, color: "#8b5cf6", icon: "users" },
   { name: "Surgical Supplies", value: 138000, color: "#3b82f6", icon: "scissors" },
   { name: "Medications", value: 94000, color: "#10b981", icon: "pill" },
   { name: "Equipment", value: 49000, color: "#f59e0b", icon: "cog" },
-  { name: "Sterile Goods", value: 28000, color: "#8b5cf6", icon: "package" },
+  { name: "Sterile Goods", value: 28000, color: "#ec4899", icon: "package" },
   { name: "Other", value: 9450, color: "#6b7280", icon: "box" },
 ];
 
+const mockStaffCostBreakdown = [
+  { id: 1, name: "Dr. Anna Weber", role: "Surgeon", hourlyRate: 180, hoursWorked: 142, totalCost: 25560, trend: 5.2 },
+  { id: 2, name: "Dr. Thomas Müller", role: "Surgeon", hourlyRate: 175, hoursWorked: 128, totalCost: 22400, trend: -2.1 },
+  { id: 3, name: "Dr. Klaus Schmidt", role: "Anesthesiologist", hourlyRate: 160, hoursWorked: 156, totalCost: 24960, trend: 8.5 },
+  { id: 4, name: "Maria Hoffmann", role: "Surgery Nurse", hourlyRate: 55, hoursWorked: 186, totalCost: 10230, trend: 3.1 },
+  { id: 5, name: "Laura Fischer", role: "Surgery Nurse", hourlyRate: 52, hoursWorked: 178, totalCost: 9256, trend: -1.5 },
+  { id: 6, name: "Peter Bauer", role: "Anesthesia Nurse", hourlyRate: 58, hoursWorked: 165, totalCost: 9570, trend: 4.2 },
+  { id: 7, name: "Sandra Klein", role: "Surgical Assistant", hourlyRate: 45, hoursWorked: 192, totalCost: 8640, trend: 0 },
+  { id: 8, name: "Michael Braun", role: "Anesthesiologist", hourlyRate: 155, hoursWorked: 112, totalCost: 17360, trend: -3.8 },
+];
+
 const mockCostBySurgeryType = [
-  { type: "Cardiac", avgCost: 1850, count: 42, totalCost: 77700, trend: 5.2 },
-  { type: "Orthopedic", avgCost: 680, count: 156, totalCost: 106080, trend: -2.1 },
-  { type: "Neuro", avgCost: 1420, count: 38, totalCost: 53960, trend: 8.5 },
-  { type: "General", avgCost: 245, count: 218, totalCost: 53410, trend: -1.8 },
-  { type: "Plastic", avgCost: 520, count: 89, totalCost: 46280, trend: 0.5 },
+  { type: "Cardiac", avgMaterialCost: 1850, avgLaborCost: 2450, avgTotalCost: 4300, count: 42, totalCost: 180600, trend: 5.2 },
+  { type: "Orthopedic", avgMaterialCost: 680, avgLaborCost: 890, avgTotalCost: 1570, count: 156, totalCost: 244920, trend: -2.1 },
+  { type: "Neuro", avgMaterialCost: 1420, avgLaborCost: 1980, avgTotalCost: 3400, count: 38, totalCost: 129200, trend: 8.5 },
+  { type: "General", avgMaterialCost: 245, avgLaborCost: 420, avgTotalCost: 665, count: 218, totalCost: 144970, trend: -1.8 },
+  { type: "Plastic", avgMaterialCost: 520, avgLaborCost: 680, avgTotalCost: 1200, count: 89, totalCost: 106800, trend: 0.5 },
 ];
 
 const mockTopItems = [
@@ -194,7 +207,7 @@ export default function CostAnalytics() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <SummaryCard
           title={t('business.costs.totalSpending')}
           value={`€${totalCosts.toLocaleString()}`}
@@ -202,6 +215,15 @@ export default function CostAnalytics() {
           trend={2.4}
           helpText={t('business.help.totalSpending')}
           icon={<DollarSign className="h-4 w-4" />}
+        />
+        <SummaryCard
+          title={t('business.costs.staffCosts')}
+          value="€158,000"
+          subtitle={`${((158000/totalCosts)*100).toFixed(1)}% ${t('business.costs.ofTotal')}`}
+          trend={3.8}
+          helpText={t('business.help.staffCosts')}
+          icon={<Users className="h-4 w-4" />}
+          iconBg="bg-purple-500/10 text-purple-500"
         />
         <SummaryCard
           title={t('business.costs.medicationCosts')}
@@ -216,19 +238,19 @@ export default function CostAnalytics() {
           title={t('business.costs.suppliesCosts')}
           value="€138,000"
           subtitle={`${((138000/totalCosts)*100).toFixed(1)}% ${t('business.costs.ofTotal')}`}
-          trend={3.8}
+          trend={3.2}
           helpText={t('business.help.suppliesCosts')}
           icon={<Package className="h-4 w-4" />}
           iconBg="bg-blue-500/10 text-blue-500"
         />
         <SummaryCard
           title={t('business.costs.avgCostPerSurgery')}
-          value="€302"
-          subtitle={t('business.costs.allProcedures')}
+          value="€890"
+          subtitle={t('business.costs.inclLabor')}
           trend={-1.8}
-          helpText={t('business.help.avgCostPerSurgery')}
+          helpText={t('business.help.avgCostPerSurgeryInclLabor')}
           icon={<Scissors className="h-4 w-4" />}
-          iconBg="bg-purple-500/10 text-purple-500"
+          iconBg="bg-orange-500/10 text-orange-500"
         />
       </div>
 
@@ -293,6 +315,7 @@ export default function CostAnalytics() {
                     }}
                   />
                   <Legend />
+                  <Area type="monotone" dataKey="staff" stackId="1" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.6} name={t('business.costs.staffLabel')} />
                   <Area type="monotone" dataKey="supplies" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6} name={t('business.costs.supplies')} />
                   <Area type="monotone" dataKey="medications" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.6} name={t('business.costs.medications')} />
                   <Area type="monotone" dataKey="equipment" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.6} name={t('business.costs.equipment')} />
@@ -341,7 +364,7 @@ export default function CostAnalytics() {
               <HelpTooltip content={t('business.help.costBySurgeryType')} />
             </div>
           </div>
-          <CardDescription>{t('business.costs.costBySurgeryTypeDesc')}</CardDescription>
+          <CardDescription>{t('business.costs.costBySurgeryTypeDescWithLabor')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -349,7 +372,9 @@ export default function CostAnalytics() {
               <TableHeader>
                 <TableRow>
                   <TableHead>{t('business.costs.surgeryType')}</TableHead>
-                  <TableHead className="text-right">{t('business.costs.avgCost')}</TableHead>
+                  <TableHead className="text-right">{t('business.costs.avgMaterialCost')}</TableHead>
+                  <TableHead className="text-right">{t('business.costs.avgLaborCost')}</TableHead>
+                  <TableHead className="text-right">{t('business.costs.avgTotalCost')}</TableHead>
                   <TableHead className="text-right">{t('business.costs.surgeryCount')}</TableHead>
                   <TableHead className="text-right">{t('business.costs.totalCost')}</TableHead>
                   <TableHead className="text-right">{t('business.costs.trend')}</TableHead>
@@ -359,7 +384,9 @@ export default function CostAnalytics() {
                 {mockCostBySurgeryType.map((row) => (
                   <TableRow key={row.type}>
                     <TableCell className="font-medium">{row.type}</TableCell>
-                    <TableCell className="text-right">€{row.avgCost.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">€{row.avgMaterialCost.toLocaleString()}</TableCell>
+                    <TableCell className="text-right text-purple-600 dark:text-purple-400">€{row.avgLaborCost.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-semibold">€{row.avgTotalCost.toLocaleString()}</TableCell>
                     <TableCell className="text-right">{row.count}</TableCell>
                     <TableCell className="text-right font-medium">€{row.totalCost.toLocaleString()}</TableCell>
                     <TableCell className="text-right">
@@ -371,6 +398,65 @@ export default function CostAnalytics() {
                         ) : null}
                         <span className={row.trend > 0 ? "text-red-500" : row.trend < 0 ? "text-green-500" : ""}>
                           {row.trend > 0 ? "+" : ""}{row.trend}%
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center">
+            <CardTitle className="text-lg">{t('business.costs.staffCostBreakdown')}</CardTitle>
+            <HelpTooltip content={t('business.help.staffCostBreakdown')} />
+          </div>
+          <CardDescription>{t('business.costs.staffCostBreakdownDesc')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('business.costs.staffMember')}</TableHead>
+                  <TableHead>{t('business.costs.role')}</TableHead>
+                  <TableHead className="text-right">{t('business.costs.hourlyRate')}</TableHead>
+                  <TableHead className="text-right">{t('business.costs.hoursWorked')}</TableHead>
+                  <TableHead className="text-right">{t('business.costs.totalCost')}</TableHead>
+                  <TableHead className="text-right">{t('business.costs.trend')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {mockStaffCostBreakdown.map((staff) => (
+                  <TableRow key={staff.id}>
+                    <TableCell className="font-medium">{staff.name}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={
+                        staff.role === "Surgeon" ? "border-red-500/50 text-red-600 dark:text-red-400" :
+                        staff.role === "Anesthesiologist" ? "border-blue-500/50 text-blue-600 dark:text-blue-400" :
+                        staff.role === "Surgery Nurse" ? "border-green-500/50 text-green-600 dark:text-green-400" :
+                        staff.role === "Anesthesia Nurse" ? "border-orange-500/50 text-orange-600 dark:text-orange-400" :
+                        "border-purple-500/50 text-purple-600 dark:text-purple-400"
+                      }>{staff.role}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">€{staff.hourlyRate}/h</TableCell>
+                    <TableCell className="text-right">{staff.hoursWorked}h</TableCell>
+                    <TableCell className="text-right font-medium">€{staff.totalCost.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end">
+                        {staff.trend > 0 ? (
+                          <TrendingUp className="h-4 w-4 text-red-500 mr-1" />
+                        ) : staff.trend < 0 ? (
+                          <TrendingDown className="h-4 w-4 text-green-500 mr-1" />
+                        ) : (
+                          <Activity className="h-4 w-4 text-muted-foreground mr-1" />
+                        )}
+                        <span className={staff.trend > 0 ? "text-red-500" : staff.trend < 0 ? "text-green-500" : "text-muted-foreground"}>
+                          {staff.trend > 0 ? "+" : ""}{staff.trend}%
                         </span>
                       </div>
                     </TableCell>

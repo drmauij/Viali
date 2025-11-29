@@ -51,6 +51,15 @@ const mockCostTrend = [
   { month: "Jun", costs: 318000, budget: 340000 },
 ];
 
+const mockStaffCostTrend = [
+  { month: "Jan", staffCosts: 142000, budget: 150000 },
+  { month: "Feb", staffCosts: 156000, budget: 155000 },
+  { month: "Mar", staffCosts: 148000, budget: 152000 },
+  { month: "Apr", staffCosts: 162000, budget: 160000 },
+  { month: "May", staffCosts: 171000, budget: 165000 },
+  { month: "Jun", staffCosts: 158000, budget: 168000 },
+];
+
 const mockSurgeryByType = [
   { name: "Orthopedic", value: 245, color: "#3b82f6" },
   { name: "Cardiac", value: 128, color: "#ef4444" },
@@ -222,7 +231,16 @@ export default function BusinessDashboard() {
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <KPICard
+          title={t('business.kpi.staffCosts')}
+          value="€158,000"
+          subtitle={t('business.kpi.hourlyStaffThisMonth')}
+          trend={3.8}
+          trendLabel={t('business.kpi.vsLastMonth')}
+          helpText={t('business.help.staffCosts')}
+          icon={<Users className="h-4 w-4" />}
+        />
         <KPICard
           title={t('business.kpi.costPerSurgery')}
           value="€302"
@@ -349,37 +367,43 @@ export default function BusinessDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ChartCard
-          title={t('business.charts.surgeryByType')}
-          description={t('business.charts.surgeryByTypeDesc')}
-          helpText={t('business.help.surgeryByType')}
+          title={t('business.charts.staffCostTrend')}
+          description={t('business.charts.staffCostTrendDesc')}
+          helpText={t('business.help.staffCostTrend')}
         >
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={mockSurgeryByType}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={2}
-                  dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  labelLine={false}
-                >
-                  {mockSurgeryByType.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
+              <LineChart data={mockStaffCostTrend}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis dataKey="month" className="text-xs" />
+                <YAxis className="text-xs" tickFormatter={(value) => `€${(value/1000).toFixed(0)}k`} />
                 <RechartsTooltip 
-                  formatter={(value: number, name: string) => [value, name]}
+                  formatter={(value: number) => [`€${value.toLocaleString()}`, '']}
                   contentStyle={{ 
                     backgroundColor: 'hsl(var(--background))',
                     border: '1px solid hsl(var(--border))',
                     borderRadius: '8px'
                   }}
                 />
-              </PieChart>
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="staffCosts" 
+                  stroke="#8b5cf6" 
+                  strokeWidth={2}
+                  name={t('business.charts.actualStaffCosts')}
+                  dot={{ fill: '#8b5cf6' }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="budget" 
+                  stroke="#94a3b8" 
+                  strokeWidth={2}
+                  strokeDasharray="5 5"
+                  name={t('business.charts.budget')}
+                  dot={{ fill: '#94a3b8' }}
+                />
+              </LineChart>
             </ResponsiveContainer>
           </div>
         </ChartCard>
@@ -416,6 +440,92 @@ export default function BusinessDashboard() {
                   name={t('business.charts.target')}
                 />
               </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </ChartCard>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ChartCard
+          title={t('business.charts.surgeryByType')}
+          description={t('business.charts.surgeryByTypeDesc')}
+          helpText={t('business.help.surgeryByType')}
+        >
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={mockSurgeryByType}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  paddingAngle={2}
+                  dataKey="value"
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  labelLine={false}
+                >
+                  {mockSurgeryByType.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <RechartsTooltip 
+                  formatter={(value: number, name: string) => [value, name]}
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--background))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px'
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </ChartCard>
+
+        <ChartCard
+          title={t('business.charts.staffCostByRole')}
+          description={t('business.charts.staffCostByRoleDesc')}
+          helpText={t('business.help.staffCostByRole')}
+        >
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={[
+                    { name: "Surgeons", value: 68000, color: "#ef4444" },
+                    { name: "Anesthesiologists", value: 42000, color: "#3b82f6" },
+                    { name: "Surgery Nurses", value: 28000, color: "#10b981" },
+                    { name: "Anesthesia Nurses", value: 12000, color: "#f59e0b" },
+                    { name: "Assistants", value: 8000, color: "#8b5cf6" },
+                  ]}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  paddingAngle={2}
+                  dataKey="value"
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  labelLine={false}
+                >
+                  {[
+                    { name: "Surgeons", value: 68000, color: "#ef4444" },
+                    { name: "Anesthesiologists", value: 42000, color: "#3b82f6" },
+                    { name: "Surgery Nurses", value: 28000, color: "#10b981" },
+                    { name: "Anesthesia Nurses", value: 12000, color: "#f59e0b" },
+                    { name: "Assistants", value: 8000, color: "#8b5cf6" },
+                  ].map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <RechartsTooltip 
+                  formatter={(value: number) => [`€${value.toLocaleString()}`, '']}
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--background))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px'
+                  }}
+                />
+              </PieChart>
             </ResponsiveContainer>
           </div>
         </ChartCard>

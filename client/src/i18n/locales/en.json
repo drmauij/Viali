@@ -2168,7 +2168,8 @@
   "business": {
     "dashboard": {
       "title": "Business Dashboard",
-      "subtitle": "Executive overview of surgical operations and costs"
+      "subtitle": "Executive overview of surgical operations and costs",
+      "selectPeriod": "Select period"
     },
     "periods": {
       "week": "This Week",
@@ -2193,7 +2194,9 @@
       "onTimeStart": "On-Time Start",
       "startedWithin15min": "Started within 15 min",
       "cancellationRate": "Cancellation Rate",
-      "ofPlannedSurgeries": "Of planned surgeries"
+      "ofPlannedSurgeries": "Of planned surgeries",
+      "staffCosts": "Staff Costs",
+      "hourlyStaffThisMonth": "Hourly staff this month"
     },
     "charts": {
       "surgeryTrend": "Surgery Volume Trend",
@@ -2209,7 +2212,12 @@
       "roomUtilization": "OR Room Utilization",
       "roomUtilizationDesc": "Usage rate per operating room",
       "utilization": "Utilization",
-      "target": "Target"
+      "target": "Target",
+      "staffCostTrend": "Staff Cost Trend",
+      "staffCostTrendDesc": "Monthly staff labor costs compared to budget",
+      "actualStaffCosts": "Actual Staff Costs",
+      "staffCostByRole": "Staff Costs by Role",
+      "staffCostByRoleDesc": "Distribution of staff costs across different roles"
     },
     "alerts": {
       "title": "Alerts & Insights",
@@ -2234,7 +2242,12 @@
       "costTrend": "Tracks monthly spending against budget. Consistent overruns may indicate pricing issues or usage inefficiencies. Use this for financial planning and forecasting.",
       "surgeryByType": "Distribution of surgical procedures by category. Use this to understand your case mix and plan resources accordingly. Changes in mix affect staffing and supply needs.",
       "roomUtilization": "How efficiently each operating room is being used. Uneven distribution may indicate scheduling opportunities. Rooms consistently below target may need process review.",
-      "alerts": "Automated insights highlighting areas needing attention. Green alerts show positive trends, amber indicates caution, red requires immediate action."
+      "alerts": "Automated insights highlighting areas needing attention. Green alerts show positive trends, amber indicates caution, red requires immediate action.",
+      "staffCosts": "Total cost of hourly/rented staff working during surgeries. Includes surgeons, nurses, anesthesiologists, and assistants. Track this to manage labor expenses.",
+      "staffCostTrend": "Shows how staff labor costs change over time compared to budget. Useful for identifying staffing efficiency and planning future budgets.",
+      "staffCostByRole": "Distribution of staff costs by role (surgeons, nurses, anesthesiologists, etc.). Helps understand where labor costs are concentrated.",
+      "staffCostBreakdown": "Detailed breakdown of costs per staff member, including hourly rates, hours worked, and total costs. Use this to identify high-cost personnel and optimize scheduling.",
+      "avgCostPerSurgeryInclLabor": "Average total cost per surgery including both materials and staff labor. This gives a complete picture of per-procedure expenses."
     },
     "costs": {
       "title": "Cost Analytics",
@@ -2244,8 +2257,10 @@
       "ofTotal": "of total",
       "medicationCosts": "Medication Costs",
       "suppliesCosts": "Supplies Costs",
+      "staffCosts": "Staff Costs",
       "avgCostPerSurgery": "Avg. Cost per Surgery",
       "allProcedures": "All procedures",
+      "inclLabor": "Including labor",
       "costByCategory": "Cost by Category",
       "costByCategoryDesc": "Breakdown of spending across major categories",
       "monthlyBreakdown": "Monthly Cost Breakdown",
@@ -2253,13 +2268,18 @@
       "supplies": "Supplies",
       "medications": "Medications",
       "equipment": "Equipment",
+      "staffLabel": "Staff Labor",
       "other": "Other",
       "costPerSurgeryType": "Cost per Surgery Type",
       "costPerSurgeryTypeDesc": "Average material cost trends by procedure category",
       "costBySurgeryType": "Cost by Surgery Type",
       "costBySurgeryTypeDesc": "Comparing costs across different surgical procedures",
+      "costBySurgeryTypeDescWithLabor": "Comparing material and labor costs across different surgical procedures",
       "surgeryType": "Surgery Type",
       "avgCost": "Avg. Cost",
+      "avgMaterialCost": "Avg. Material",
+      "avgLaborCost": "Avg. Labor",
+      "avgTotalCost": "Avg. Total",
       "surgeryCount": "Surgeries",
       "totalCost": "Total Cost",
       "trend": "Trend",
@@ -2269,7 +2289,12 @@
       "category": "Category",
       "unitCost": "Unit Cost",
       "usage": "Usage",
-      "totalCost": "Total Cost"
+      "staffCostBreakdown": "Staff Cost Breakdown",
+      "staffCostBreakdownDesc": "Detailed view of labor costs by staff member",
+      "staffMember": "Staff Member",
+      "role": "Role",
+      "hourlyRate": "Hourly Rate",
+      "hoursWorked": "Hours Worked"
     },
     "surgeryTypes": {
       "cardiac": "Cardiac",
