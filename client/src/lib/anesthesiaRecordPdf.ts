@@ -411,7 +411,7 @@ function drawTimelineChart(
   return chartY + chartHeight + 5;
 }
 
-// Helper to draw medication timeline swimlanes
+// Helper to draw medication timeline swimlanes - shows ALL medications with proper page breaks
 function drawMedicationTimeline(
   doc: jsPDF,
   title: string,
@@ -419,10 +419,9 @@ function drawMedicationTimeline(
   anesthesiaItems: AnesthesiaItem[],
   yPos: number
 ): number {
-  const chartHeight = 60;
   const chartWidth = 170;
   const chartX = 20;
-  const chartY = yPos;
+  let chartY = yPos;
 
   // Draw title
   doc.setFontSize(12);
@@ -436,15 +435,22 @@ function drawMedicationTimeline(
     return chartY + 25;
   }
 
-  const plotY = chartY + 10;
+  let plotY = chartY + 10;
   const itemMap = new Map(anesthesiaItems.map(item => [item.id, item]));
 
-  // Group medications by item
+  // Group medications by item and sort by first timestamp
   const medsByItem = new Map<string, MedicationAdministration[]>();
   medications.forEach(med => {
     const meds = medsByItem.get(med.itemId) || [];
     meds.push(med);
     medsByItem.set(med.itemId, meds);
+  });
+
+  // Sort items by their first medication timestamp for consistent ordering
+  const sortedItems = Array.from(medsByItem.entries()).sort((a, b) => {
+    const aTime = new Date(a[1][0]?.timestamp || 0).getTime();
+    const bTime = new Date(b[1][0]?.timestamp || 0).getTime();
+    return aTime - bTime;
   });
 
   // Get time range
@@ -454,22 +460,31 @@ function drawMedicationTimeline(
 
   // Guard against single timestamp (prevents division by zero)
   if (maxTime === minTime) {
-    // Expand time range by ±1 hour (3600000 ms)
     minTime -= 3600000;
     maxTime += 3600000;
   }
 
-  // Draw swimlanes
+  // Draw swimlanes - NO LIMIT, show all medications with page breaks
   let currentY = plotY;
   const laneHeight = 8;
-  const maxLanes = Math.min(medsByItem.size, 6); // Limit to 6 lanes to fit in chart
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const maxY = pageHeight - 30; // Leave space for footer
 
-  let laneIndex = 0;
-  for (const [itemId, meds] of Array.from(medsByItem.entries())) {
-    if (laneIndex >= maxLanes) break;
+  for (const [itemId, meds] of sortedItems) {
+    // Check if we need a page break
+    if (currentY + laneHeight > maxY) {
+      doc.addPage();
+      currentY = 20;
+      // Redraw title on new page
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text(title + " " + i18next.t("anesthesia.pdf.continued", "(continued)"), chartX, currentY);
+      currentY += 10;
+    }
 
     const item = itemMap.get(itemId);
     const itemName = item?.name || i18next.t("anesthesia.pdf.unknownMedication");
+    const laneIndex = sortedItems.findIndex(([id]) => id === itemId);
 
     // Draw lane background
     doc.setFillColor(laneIndex % 2 === 0 ? 250 : 245, 250, 250);
@@ -502,7 +517,7 @@ function drawMedicationTimeline(
         const endX = chartX + 40 + ((endTime - minTime) / (maxTime - minTime)) * (chartWidth - 45);
 
         doc.setFillColor(16, 185, 129);
-        doc.rect(x, currentY + 2, endX - x, laneHeight - 4, "F");
+        doc.rect(x, currentY + 2, Math.max(endX - x, 2), laneHeight - 4, "F");
         // Add rate label
         doc.setFontSize(6);
         doc.setTextColor(255, 255, 255);
@@ -512,7 +527,6 @@ function drawMedicationTimeline(
     });
 
     currentY += laneHeight;
-    laneIndex++;
   }
 
   // Draw time axis
@@ -522,6 +536,137 @@ function drawMedicationTimeline(
   for (let i = 0; i <= numLabels; i++) {
     const time = minTime + ((maxTime - minTime) / numLabels) * i;
     const x = chartX + 40 + ((chartWidth - 45) / numLabels) * i;
+    doc.text(formatTimeFrom24h(time), x, currentY + 5, { align: "center" });
+  }
+
+  doc.setTextColor(0, 0, 0);
+  return currentY + 10;
+}
+
+// Helper to draw ventilation parameters as swimlanes (similar to medications)
+function drawVentilationSwimlanes(
+  doc: jsPDF,
+  title: string,
+  snapshotData: any,
+  yPos: number
+): number {
+  const chartWidth = 170;
+  const chartX = 20;
+  const chartY = yPos;
+
+  // Draw title
+  doc.setFontSize(12);
+  doc.setFont("helvetica", "bold");
+  doc.text(title, chartX, chartY);
+
+  // Define ventilation parameters to display
+  const ventParams = [
+    { key: "pip", label: i18next.t("anesthesia.pdf.pipCmH2O"), color: [59, 130, 246] as [number, number, number], unit: "cmH2O" },
+    { key: "peep", label: i18next.t("anesthesia.pdf.peepCmH2O"), color: [16, 185, 129] as [number, number, number], unit: "cmH2O" },
+    { key: "tidalVolume", label: i18next.t("anesthesia.pdf.tvMl"), color: [251, 146, 60] as [number, number, number], unit: "ml" },
+    { key: "respiratoryRate", label: i18next.t("anesthesia.pdf.rrPerMin"), color: [139, 92, 246] as [number, number, number], unit: "/min" },
+    { key: "fio2", label: i18next.t("anesthesia.pdf.fio2Percent"), color: [236, 72, 153] as [number, number, number], unit: "%" },
+    { key: "etco2", label: i18next.t("anesthesia.pdf.etco2MmHg"), color: [234, 179, 8] as [number, number, number], unit: "mmHg" },
+  ];
+
+  // Check if we have any ventilation data
+  const hasData = ventParams.some(p => snapshotData[p.key] && snapshotData[p.key].length > 0);
+  if (!hasData) {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "italic");
+    doc.text(i18next.t("anesthesia.pdf.noVentilationData", "No ventilation data available"), chartX + 5, chartY + 15);
+    return chartY + 25;
+  }
+
+  const plotY = chartY + 10;
+  let currentY = plotY;
+  const laneHeight = 10;
+
+  // Get time range from all parameters
+  const allTimes: number[] = [];
+  ventParams.forEach(p => {
+    (snapshotData[p.key] || []).forEach((point: any) => {
+      allTimes.push(new Date(point.timestamp).getTime());
+    });
+  });
+
+  if (allTimes.length === 0) {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "italic");
+    doc.text(i18next.t("anesthesia.pdf.noVentilationData", "No ventilation data available"), chartX + 5, chartY + 15);
+    return chartY + 25;
+  }
+
+  let minTime = Math.min(...allTimes);
+  let maxTime = Math.max(...allTimes);
+  if (maxTime === minTime) {
+    minTime -= 3600000;
+    maxTime += 3600000;
+  }
+
+  // Draw each ventilation parameter as a swimlane
+  ventParams.forEach((param, idx) => {
+    const data = snapshotData[param.key] || [];
+    if (data.length === 0) return;
+
+    // Draw lane background
+    doc.setFillColor(idx % 2 === 0 ? 250 : 245, 250, 250);
+    doc.rect(chartX, currentY, chartWidth, laneHeight, "F");
+
+    // Draw parameter label
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...param.color);
+    doc.text(param.label, chartX + 2, currentY + 6);
+
+    // Sort data by time
+    const sortedData = [...data].sort((a: any, b: any) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+
+    // Draw horizontal line connecting values
+    if (sortedData.length > 1) {
+      doc.setDrawColor(...param.color);
+      doc.setLineWidth(0.5);
+      
+      for (let i = 0; i < sortedData.length - 1; i++) {
+        const t1 = new Date(sortedData[i].timestamp).getTime();
+        const t2 = new Date(sortedData[i + 1].timestamp).getTime();
+        const x1 = chartX + 35 + ((t1 - minTime) / (maxTime - minTime)) * (chartWidth - 40);
+        const x2 = chartX + 35 + ((t2 - minTime) / (maxTime - minTime)) * (chartWidth - 40);
+        const y = currentY + laneHeight / 2;
+        doc.line(x1, y, x2, y);
+      }
+    }
+
+    // Draw value points with labels
+    sortedData.forEach((point: any, i: number) => {
+      const pointTime = new Date(point.timestamp).getTime();
+      const x = chartX + 35 + ((pointTime - minTime) / (maxTime - minTime)) * (chartWidth - 40);
+      
+      // Draw small circle at data point
+      doc.setFillColor(...param.color);
+      doc.circle(x, currentY + laneHeight / 2, 1.2, "F");
+
+      // Add value label (show for first, last, and every 3rd point to avoid clutter)
+      if (i === 0 || i === sortedData.length - 1 || i % 3 === 0) {
+        doc.setFontSize(6);
+        doc.setTextColor(0, 0, 0);
+        const valueStr = point.value.toString();
+        doc.text(valueStr, x, currentY + 3);
+      }
+    });
+
+    currentY += laneHeight;
+  });
+
+  // Draw time axis
+  doc.setFontSize(7);
+  doc.setTextColor(100, 100, 100);
+  const numLabels = 4;
+  for (let i = 0; i <= numLabels; i++) {
+    const time = minTime + ((maxTime - minTime) / numLabels) * i;
+    const x = chartX + 35 + ((chartWidth - 40) / numLabels) * i;
     doc.text(formatTimeFrom24h(time), x, currentY + 5, { align: "center" });
   }
 
@@ -1182,48 +1327,15 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
       );
     }
 
-    // ==================== VISUAL CHARTS: VENTILATION PARAMETERS ====================
+    // ==================== VISUAL CHARTS: VENTILATION PARAMETERS (SWIMLANES) ====================
     yPos = checkPageBreak(doc, yPos, 90);
-
-    const pipData = (snapshotData.pip || []).map((p: any) => ({
-      time: new Date(p.timestamp).getTime(),
-      value: p.value
-    }));
-    const peepData = (snapshotData.peep || []).map((p: any) => ({
-      time: new Date(p.timestamp).getTime(),
-      value: p.value
-    }));
-    const tidalVolumeData = (snapshotData.tidalVolume || []).map((p: any) => ({
-      time: new Date(p.timestamp).getTime(),
-      value: p.value
-    }));
-    const respRateData = (snapshotData.respiratoryRate || []).map((p: any) => ({
-      time: new Date(p.timestamp).getTime(),
-      value: p.value
-    }));
-    const fio2Data = (snapshotData.fio2 || []).map((p: any) => ({
-      time: new Date(p.timestamp).getTime(),
-      value: p.value
-    }));
-    const etco2Data = (snapshotData.etco2 || []).map((p: any) => ({
-      time: new Date(p.timestamp).getTime(),
-      value: p.value
-    }));
-
-    // Draw Ventilation Parameters Chart
-    yPos = drawTimelineChart(
+    
+    // Use new swimlanes visualization for ventilation parameters
+    yPos = drawVentilationSwimlanes(
       doc,
       i18next.t("anesthesia.pdf.ventilationParameters"),
-      [
-        { name: i18next.t("anesthesia.pdf.pipCmH2O"), data: pipData, color: [59, 130, 246] },
-        { name: i18next.t("anesthesia.pdf.peepCmH2O"), data: peepData, color: [16, 185, 129] },
-        { name: i18next.t("anesthesia.pdf.tvMl"), data: tidalVolumeData, color: [251, 146, 60] },
-        { name: i18next.t("anesthesia.pdf.rrPerMin"), data: respRateData, color: [139, 92, 246] },
-        { name: i18next.t("anesthesia.pdf.fio2Percent"), data: fio2Data, color: [236, 72, 153] },
-        { name: i18next.t("anesthesia.pdf.etco2MmHg"), data: etco2Data, color: [234, 179, 8] },
-      ],
-      yPos,
-      { yLabel: i18next.t("anesthesia.pdf.value"), height: 80 }
+      snapshotData,
+      yPos
     );
 
     // ==================== VISUAL CHARTS: FLUID BALANCE & OUTPUT ====================
