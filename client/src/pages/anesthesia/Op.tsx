@@ -20,7 +20,7 @@ import { PatientWeightDialog } from "@/components/anesthesia/dialogs/PatientWeig
 import { useOpData } from "@/hooks/useOpData";
 import { useChecklistState } from "@/hooks/useChecklistState";
 import { usePacuDataFiltering } from "@/hooks/usePacuDataFiltering";
-import { usePdfExport } from "@/hooks/usePdfExport";
+import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
 import { useInventoryTracking } from "@/hooks/useInventoryTracking";
 import { useTimelineData } from "@/hooks/useTimelineData";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,6 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from "@/lib/utils";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
-import { generateAnesthesiaRecordPDF } from "@/lib/anesthesiaRecordPdf";
 import {
   X,
   Gauge,
@@ -861,44 +860,49 @@ export default function Op() {
     }
   }, [anesthesiaRecord]);
 
-  // PDF export hook
-  const { handleDownloadPDF } = usePdfExport({
-    patient,
-    surgery,
-    activeHospital,
-    anesthesiaRecord,
-    preOpAssessment,
-    clinicalSnapshot,
-    eventsData,
-    medicationsData,
-    anesthesiaItems,
-    staffMembers,
-    positions,
-    anesthesiaSettings,
-    timelineRef,
-    hiddenChartRef,
-    isRecordLoading,
-    isVitalsLoading,
-    isMedicationsLoading,
-    isEventsLoading,
-    isAnesthesiaItemsLoading,
-    isClinicalSnapshotLoading,
-    isStaffLoading,
-    isPositionsLoading,
-    vitalsStatus,
-    medicationsStatus,
-    eventsStatus,
-    anesthesiaItemsStatus,
-    staffStatus,
-    positionsStatus,
-    isAnesthesiaItemsError,
-    isMedicationsError,
-    isEventsError,
-    isVitalsError,
-    isClinicalSnapshotError,
-    isStaffError,
-    isPositionsError,
-  });
+  // PDF download handler using centralized utility
+  const handleDownloadPDF = async () => {
+    if (!patient || !surgery) {
+      toast({
+        title: t('anesthesia.op.pdfCannotGenerate'),
+        description: t('anesthesia.op.pdfMissingData'),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!activeHospital?.id) {
+      toast({
+        title: t('anesthesia.op.pdfCannotGenerate'),
+        description: t('anesthesia.op.pdfHospitalNotSelected'),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const result = await downloadAnesthesiaRecordPdf({
+      surgery,
+      patient,
+      hospitalId: activeHospital.id,
+      anesthesiaSettings,
+      hiddenChartRef,
+    });
+
+    if (result.success) {
+      toast({
+        title: t('anesthesia.patientDetail.pdfGenerated'),
+        description: result.hasWarnings 
+          ? t('anesthesia.patientDetail.pdfGeneratedWithWarnings')
+          : t('anesthesia.patientDetail.pdfGeneratedSuccess'),
+      });
+    } else {
+      toast({
+        title: t('anesthesia.patientDetail.errorGeneratingPDF'),
+        description: result.error || t('anesthesia.patientDetail.errorGeneratingPDFDesc'),
+        variant: "destructive",
+      });
+    }
+  };
 
   // Handle dialog close and navigation
   const handleDialogChange = (open: boolean) => {
