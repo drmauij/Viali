@@ -1,5 +1,6 @@
 import { generateAnesthesiaRecordPDF } from "@/lib/anesthesiaRecordPdf";
 import type { Surgery, Patient } from "@shared/schema";
+import type { FullTimelineExportData, HiddenFullTimelineExporterRef } from "@/components/anesthesia/HiddenFullTimelineExporter";
 
 interface AllergyItem {
   id: string;
@@ -23,6 +24,7 @@ interface DownloadPdfOptions {
   hospitalId: string;
   anesthesiaSettings?: AnesthesiaSettingsForPdf | null;
   hiddenChartRef?: React.RefObject<{ exportChart: (snapshot: any) => Promise<string | null> }>;
+  hiddenTimelineRef?: React.RefObject<HiddenFullTimelineExporterRef>;
 }
 
 interface DownloadPdfResult {
@@ -39,7 +41,7 @@ interface DownloadPdfResult {
  * @returns Promise with success status and any warnings
  */
 export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): Promise<DownloadPdfResult> {
-  const { surgery, patient, hospitalId, anesthesiaSettings: providedSettings, hiddenChartRef } = options;
+  const { surgery, patient, hospitalId, anesthesiaSettings: providedSettings, hiddenChartRef, hiddenTimelineRef } = options;
 
   try {
     // Fetch critical data (anesthesia record, pre-op assessment, items, and settings if not provided)
@@ -118,19 +120,64 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
       }
     }
 
-    // Export chart image using hidden chart exporter
+    // Export full timeline image using hidden timeline exporter (preferred)
+    // Falls back to vitals-only chart if full timeline export fails
     let chartImage: string | null = null;
-    if (clinicalSnapshot && hiddenChartRef?.current) {
+    let fullTimelineImage: string | null = null;
+    
+    // Try full timeline export first (includes all swimlanes)
+    if (hiddenTimelineRef?.current && anesthesiaRecord) {
       try {
-        console.log("[PDF-EXPORT] Exporting chart image...");
-        chartImage = await hiddenChartRef.current.exportChart(clinicalSnapshot);
-        if (chartImage) {
-          console.log("[PDF-EXPORT] Chart image exported successfully");
+        console.log("[PDF-EXPORT] Exporting full timeline image...");
+        
+        // Calculate start/end time from anesthesia record or surgery
+        const startTime = anesthesiaRecord.anesthesiaStartTime 
+          ? new Date(anesthesiaRecord.anesthesiaStartTime).getTime()
+          : surgery.actualStartTime 
+            ? new Date(surgery.actualStartTime).getTime()
+            : new Date(surgery.plannedDate).getTime();
+        
+        const endTime = anesthesiaRecord.anesthesiaEndTime
+          ? new Date(anesthesiaRecord.anesthesiaEndTime).getTime()
+          : surgery.actualEndTime
+            ? new Date(surgery.actualEndTime).getTime()
+            : startTime + (4 * 60 * 60 * 1000); // Default 4 hours if no end time
+        
+        const timelineData: FullTimelineExportData = {
+          startTime,
+          endTime,
+          vitals: clinicalSnapshot?.data || clinicalSnapshot,
+          events,
+          medications,
+          anesthesiaItems,
+          staffMembers,
+          positions,
+        };
+        
+        fullTimelineImage = await hiddenTimelineRef.current.exportTimeline(timelineData);
+        if (fullTimelineImage) {
+          console.log("[PDF-EXPORT] Full timeline image exported successfully");
+          chartImage = fullTimelineImage;
         } else {
-          console.warn("[PDF-EXPORT] Chart export returned null");
+          console.warn("[PDF-EXPORT] Full timeline export returned null, falling back to vitals chart");
         }
       } catch (error) {
-        console.error("[PDF-EXPORT] Failed to export chart:", error);
+        console.error("[PDF-EXPORT] Failed to export full timeline:", error);
+      }
+    }
+    
+    // Fallback to vitals-only chart if full timeline failed
+    if (!chartImage && clinicalSnapshot && hiddenChartRef?.current) {
+      try {
+        console.log("[PDF-EXPORT] Exporting vitals chart image (fallback)...");
+        chartImage = await hiddenChartRef.current.exportChart(clinicalSnapshot);
+        if (chartImage) {
+          console.log("[PDF-EXPORT] Vitals chart image exported successfully");
+        } else {
+          console.warn("[PDF-EXPORT] Vitals chart export returned null");
+        }
+      } catch (error) {
+        console.error("[PDF-EXPORT] Failed to export vitals chart:", error);
       }
     }
 
