@@ -1415,7 +1415,7 @@ export default function ControlledLog() {
             <div className="space-y-4">
               <div>
                 <Label className="block text-sm font-medium mb-2">{t('controlled.controlledSubstances')}</Label>
-                <div className="space-y-2 max-h-96 overflow-y-auto">
+                <div className="space-y-2">
                   {routineCheckItems.map((item) => (
                     <div
                       key={item.itemId}
