@@ -478,6 +478,17 @@
     "locationPlaceholder": "e.g., OR 1, ICU, Pharmacy",
     "type": "Type",
     "typePlaceholder": "e.g., Operating Room, Storage",
+    "selectUnitType": "Select unit type",
+    "unitTypes": {
+      "or": "Operating Room",
+      "icu": "ICU",
+      "er": "Emergency Room",
+      "ward": "Ward",
+      "pharmacy": "Pharmacy",
+      "anesthesia": "Anesthesia",
+      "storage": "Storage / Warehouse",
+      "business": "Business / Admin"
+    },
     "noLocations": "No Locations",
     "noLocationsMessage": "Get started by adding your first location.",
     "locationCreatedSuccess": "Location created successfully",

@@ -12,10 +12,22 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Syringe, Stethoscope } from "lucide-react";
+import { CalendarIcon, Syringe, Stethoscope, Briefcase } from "lucide-react";
 import { format } from "date-fns";
 import { formatDateLong } from "@/lib/dateUtils";
 import type { Unit } from "@shared/schema";
+
+// Unit type options for dropdown
+const UNIT_TYPES = [
+  { value: "or", labelKey: "admin.unitTypes.or" },
+  { value: "icu", labelKey: "admin.unitTypes.icu" },
+  { value: "er", labelKey: "admin.unitTypes.er" },
+  { value: "ward", labelKey: "admin.unitTypes.ward" },
+  { value: "pharmacy", labelKey: "admin.unitTypes.pharmacy" },
+  { value: "anesthesia", labelKey: "admin.unitTypes.anesthesia" },
+  { value: "storage", labelKey: "admin.unitTypes.storage" },
+  { value: "business", labelKey: "admin.unitTypes.business" },
+] as const;
 
 export default function Hospital() {
   const { t } = useTranslation();
@@ -713,13 +725,21 @@ export default function Hospital() {
             </div>
             <div>
               <Label htmlFor="unit-type">{t("admin.type")}</Label>
-              <Input
-                id="unit-type"
+              <Select
                 value={unitForm.type}
-                onChange={(e) => setUnitForm({ ...unitForm, type: e.target.value })}
-                placeholder={t("admin.typePlaceholder")}
-                data-testid="input-unit-type"
-              />
+                onValueChange={(value) => setUnitForm({ ...unitForm, type: value })}
+              >
+                <SelectTrigger data-testid="select-unit-type">
+                  <SelectValue placeholder={t("admin.selectUnitType")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {UNIT_TYPES.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {t(type.labelKey)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setUnitDialogOpen(false)}>

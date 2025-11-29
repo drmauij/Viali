@@ -478,6 +478,17 @@
     "locationPlaceholder": "z.B. OP 1, Intensivstation, Apotheke",
     "type": "Typ",
     "typePlaceholder": "z.B. Operationssaal, Lager",
+    "selectUnitType": "Einheitentyp auswählen",
+    "unitTypes": {
+      "or": "Operationssaal",
+      "icu": "Intensivstation",
+      "er": "Notaufnahme",
+      "ward": "Station",
+      "pharmacy": "Apotheke",
+      "anesthesia": "Anästhesie",
+      "storage": "Lager",
+      "business": "Geschäftsleitung"
+    },
     "noLocations": "Keine Standorte",
     "noLocationsMessage": "Beginnen Sie mit dem Hinzufügen Ihres ersten Standorts.",
     "locationCreatedSuccess": "Standort erfolgreich erstellt",
