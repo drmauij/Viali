@@ -46,14 +46,13 @@ interface StaffMember {
   id: string;
   role: string;
   name: string;
-  startTime: string;
-  endTime: string | null;
+  timestamp: string | Date;
 }
 
 interface PositionEntry {
   id: string;
   position: string;
-  time: string;
+  timestamp: string | Date;
 }
 
 interface ChecklistSettings {
@@ -1412,38 +1411,29 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     yPos += 7;
 
     const staffData = data.staffMembers.map(staff => {
-      const startDate = new Date(staff.startTime);
-      const startTimeStr = isNaN(startDate.getTime()) 
+      const staffDate = new Date(staff.timestamp);
+      const timeStr = isNaN(staffDate.getTime()) 
         ? i18next.t("anesthesia.pdf.invalidTime")
-        : formatTimeFrom24h(startDate.getTime());
-      
-      const endTimeStr = staff.endTime 
-        ? (() => {
-            const endDate = new Date(staff.endTime);
-            return isNaN(endDate.getTime()) ? i18next.t("anesthesia.pdf.invalidTime") : formatTimeFrom24h(endDate.getTime());
-          })()
-        : i18next.t("anesthesia.pdf.ongoing");
+        : formatTimeFrom24h(staffDate.getTime());
 
       return [
         staff.role,
         staff.name,
-        startTimeStr,
-        endTimeStr
+        timeStr
       ];
     });
 
     autoTable(doc, {
       startY: yPos,
-      head: [[i18next.t("anesthesia.pdf.role"), i18next.t("anesthesia.pdf.name"), i18next.t("anesthesia.pdf.startTime"), i18next.t("anesthesia.pdf.endTime")]],
+      head: [[i18next.t("anesthesia.pdf.role"), i18next.t("anesthesia.pdf.name"), i18next.t("anesthesia.pdf.time")]],
       body: staffData,
       theme: "grid",
       styles: { fontSize: 9, cellPadding: 3 },
       headStyles: { fillColor: [59, 130, 246], textColor: 255 },
       columnStyles: {
-        0: { cellWidth: 40 },
-        1: { cellWidth: 60 },
+        0: { cellWidth: 50 },
+        1: { cellWidth: 80 },
         2: { cellWidth: 30 },
-        3: { cellWidth: 30 },
       },
     });
     yPos = (doc as any).lastAutoTable.finalY + 10;
@@ -1459,7 +1449,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     yPos += 7;
 
     const positionData = data.positions.map(pos => {
-      const posDate = new Date(pos.time);
+      const posDate = new Date(pos.timestamp);
       const timeStr = isNaN(posDate.getTime()) 
         ? i18next.t("anesthesia.pdf.invalidTime")
         : formatTimeFrom24h(posDate.getTime());
