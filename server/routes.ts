@@ -482,6 +482,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         parentId: null,
         isAnesthesiaModule: true,
         isSurgeryModule: false,
+        isBusinessModule: false,
       });
       
       await storage.createUnit({
@@ -491,6 +492,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         parentId: null,
         isAnesthesiaModule: false,
         isSurgeryModule: true,
+        isBusinessModule: false,
       });
       
       await storage.createUnit({
@@ -500,6 +502,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         parentId: null,
         isAnesthesiaModule: false,
         isSurgeryModule: false,
+        isBusinessModule: false,
       });
       
       await storage.createUnit({
@@ -509,6 +512,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         parentId: null,
         isAnesthesiaModule: false,
         isSurgeryModule: false,
+        isBusinessModule: false,
       });
 
       // Assign user as admin to the first unit (Anesthesia)
@@ -3745,13 +3749,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Unit name is required" });
       }
       
+      // Automatically set module flags based on unit type
+      const isAnesthesiaModule = type === 'anesthesia';
+      const isSurgeryModule = type === 'or';
+      const isBusinessModule = type === 'business';
+
       const unit = await storage.createUnit({
         hospitalId,
         name,
         type: type || null,
         parentId: parentId || null,
-        isAnesthesiaModule: false,
-        isSurgeryModule: false,
+        isAnesthesiaModule,
+        isSurgeryModule,
+        isBusinessModule,
       });
       res.status(201).json(unit);
     } catch (error) {
@@ -3782,7 +3792,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const updates: any = {};
       if (name !== undefined) updates.name = name;
-      if (type !== undefined) updates.type = type;
+      if (type !== undefined) {
+        updates.type = type;
+        // Automatically update module flags based on new type
+        updates.isAnesthesiaModule = type === 'anesthesia';
+        updates.isSurgeryModule = type === 'or';
+        updates.isBusinessModule = type === 'business';
+      }
       if (parentId !== undefined) updates.parentId = parentId;
       
       const updated = await storage.updateUnit(unitId, updates);

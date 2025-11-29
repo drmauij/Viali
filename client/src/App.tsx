@@ -56,6 +56,9 @@ function HomeRedirect() {
     if (savedModule === "anesthesia") {
       navigate("/anesthesia/op", { replace: true });
       return;
+    } else if (savedModule === "business") {
+      navigate("/business", { replace: true });
+      return;
     } else if (savedModule === "admin") {
       navigate("/admin", { replace: true });
       return;
@@ -77,9 +80,21 @@ function HomeRedirect() {
         if (saved) activeHospital = saved;
       }
 
+      // If user's unit has business module enabled, default to business module
+      if (activeHospital.isBusinessModule) {
+        navigate("/business", { replace: true });
+        return;
+      }
+
       // If user's unit has anesthesia module enabled, default to anesthesia module
       if (activeHospital.isAnesthesiaModule) {
         navigate("/anesthesia/op", { replace: true });
+        return;
+      }
+
+      // If user's unit has surgery module enabled, default to surgery module
+      if (activeHospital.isSurgeryModule) {
+        navigate("/surgery/op", { replace: true });
         return;
       }
     }
