@@ -762,6 +762,8 @@
       "patient": "Patient",
       "surgeryInfo": "OP-Informationen",
       "downloadPDF": "PDF herunterladen",
+      "downloadPdf": "PDF herunterladen",
+      "generatingPdf": "PDF wird generiert...",
       "downloadCompleteRecordPDF": "Vollständige Aufzeichnung als PDF herunterladen",
       "timeline": "Zeitverlauf",
       "vitals": "Vitalwerte",

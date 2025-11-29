@@ -1,12 +1,17 @@
+import { useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, ClipboardList, Activity, ChevronRight, UserRoundCog } from "lucide-react";
+import { FileText, ClipboardList, Activity, ChevronRight, UserRoundCog, Download, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
+import { useToast } from "@/hooks/use-toast";
 import type { Module } from "@/contexts/ModuleContext";
+import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
+import { HiddenChartExporter, type HiddenChartExporterRef } from "@/components/anesthesia/HiddenChartExporter";
+import { HiddenFullTimelineExporter, type HiddenFullTimelineExporterRef } from "@/components/anesthesia/HiddenFullTimelineExporter";
 
 interface SurgerySummaryDialogProps {
   open: boolean;
@@ -30,8 +35,13 @@ export default function SurgerySummaryDialog({
   activeModule,
 }: SurgerySummaryDialogProps) {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const activeHospital = useActiveHospital();
   const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings();
+  
+  const hiddenChartRef = useRef<HiddenChartExporterRef>(null);
+  const hiddenTimelineRef = useRef<HiddenFullTimelineExporterRef>(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const { data: surgery } = useQuery<any>({
     queryKey: [`/api/anesthesia/surgeries/${surgeryId}`],
@@ -109,6 +119,55 @@ export default function SurgerySummaryDialog({
   const duration = surgery.endDate ? 
     Math.round((new Date(surgery.endDate).getTime() - new Date(surgery.plannedDate).getTime()) / 60000) : 
     null;
+
+  const handleDownloadPDF = async () => {
+    if (!patient || !surgery) {
+      toast({
+        title: t('anesthesia.op.pdfCannotGenerate'),
+        description: t('anesthesia.op.pdfMissingData'),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!activeHospital?.id) {
+      toast({
+        title: t('anesthesia.op.pdfCannotGenerate'),
+        description: t('anesthesia.op.pdfHospitalNotSelected'),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsDownloadingPdf(true);
+    try {
+      const result = await downloadAnesthesiaRecordPdf({
+        surgery,
+        patient: patient as any,
+        hospitalId: activeHospital.id,
+        anesthesiaSettings,
+        hiddenChartRef,
+        hiddenTimelineRef,
+      });
+
+      if (result.success) {
+        toast({
+          title: t('anesthesia.patientDetail.pdfGenerated'),
+          description: result.hasWarnings 
+            ? t('anesthesia.patientDetail.pdfGeneratedWithWarnings')
+            : t('anesthesia.patientDetail.pdfGeneratedSuccess'),
+        });
+      } else {
+        toast({
+          title: t('anesthesia.op.pdfCannotGenerate'),
+          description: result.error || t('anesthesia.op.pdfGenerationFailed'),
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -396,8 +455,26 @@ export default function SurgerySummaryDialog({
           </div>
         </div>
 
-        {/* Footer with Cancel Button */}
-        <div className="shrink-0 bg-background border-t px-6 py-4 flex justify-end">
+        {/* Footer with Buttons */}
+        <div className="shrink-0 bg-background border-t px-6 py-4 flex justify-between">
+          <Button
+            variant="outline"
+            onClick={handleDownloadPDF}
+            disabled={isDownloadingPdf}
+            data-testid="button-download-pdf-summary"
+          >
+            {isDownloadingPdf ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                {t('anesthesia.op.generatingPdf')}
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4 mr-2" />
+                {t('anesthesia.op.downloadPdf')}
+              </>
+            )}
+          </Button>
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
@@ -407,6 +484,10 @@ export default function SurgerySummaryDialog({
           </Button>
         </div>
       </DialogContent>
+      
+      {/* Hidden exporters for PDF generation */}
+      <HiddenChartExporter ref={hiddenChartRef} />
+      <HiddenFullTimelineExporter ref={hiddenTimelineRef} />
     </Dialog>
   );
 }

@@ -762,6 +762,8 @@
       "patient": "Patient",
       "surgeryInfo": "Surgery Information",
       "downloadPDF": "Download PDF",
+      "downloadPdf": "Download PDF",
+      "generatingPdf": "Generating PDF...",
       "downloadCompleteRecordPDF": "Download Complete Record PDF",
       "timeline": "Timeline",
       "vitals": "Vitals",
