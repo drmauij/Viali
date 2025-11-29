@@ -1,4 +1,4 @@
-import { Users, ArrowDown, ArrowUp, Eye, Sun, MessageSquareText } from 'lucide-react';
+import { Users, ArrowDown, ArrowUp, Eye, Sun, MessageSquareText, UserCheck } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 /**
@@ -17,6 +17,7 @@ export const COMMON_EVENTS: CommonEvent[] = [
   { label: "Extubation", icon: ArrowUp, type: "extubation" },
   { label: "Eye Protection", icon: Eye, type: "eye_protection" },
   { label: "Warm Touch", icon: Sun, type: "warm_touch" },
+  { label: "Position Proofed", icon: UserCheck, type: "position_proofed" },
 ];
 
 /**

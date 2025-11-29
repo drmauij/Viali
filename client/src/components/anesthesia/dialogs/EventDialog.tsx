@@ -129,6 +129,7 @@ export function EventDialog({
       'extubation': t('anesthesia.timeline.extubation'),
       'eye_protection': t('anesthesia.timeline.eyeProtection'),
       'warm_touch': t('anesthesia.timeline.warmTouch'),
+      'position_proofed': t('anesthesia.timeline.positionProofed'),
     };
     return eventTypeMap[eventType] || eventType;
   };
