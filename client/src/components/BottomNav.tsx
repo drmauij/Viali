@@ -164,6 +164,11 @@ export default function BottomNav() {
     if (path === "/admin") {
       return location === "/admin";
     }
+    // Business dashboard is at "/business" but costs is "/business/costs" and time is "/business/time"
+    // Need exact match for "/business" to avoid matching "/business/costs" or "/business/time"
+    if (path === "/business") {
+      return location === "/business" || location === "/business/dashboard";
+    }
     return location?.startsWith(path);
   };
 
