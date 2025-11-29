@@ -366,7 +366,8 @@
       "admin": "Admin",
       "staff": "Staff",
       "nurse": "Nurse",
-      "doctor": "Doctor"
+      "doctor": "Doctor",
+      "manager": "Manager"
     }
   },
   "controlled": {

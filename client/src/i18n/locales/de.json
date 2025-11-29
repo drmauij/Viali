@@ -366,7 +366,8 @@
       "admin": "Admin",
       "staff": "Personal",
       "nurse": "Krankenschwester",
-      "doctor": "Arzt"
+      "doctor": "Arzt",
+      "manager": "Manager"
     }
   },
   "controlled": {
