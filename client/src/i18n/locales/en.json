@@ -15,7 +15,9 @@
     "yes": "Yes",
     "no": "No",
     "optional": "Optional",
-    "birthday": "Birthday"
+    "birthday": "Birthday",
+    "viewOnlyMode": "View Only Mode",
+    "viewOnlyModeDescription": "You are viewing this content as a guest. Editing is disabled."
   },
   "auth": {
     "login": "Login",

@@ -15,7 +15,9 @@
     "yes": "Ja",
     "no": "Nein",
     "optional": "Optional",
-    "birthday": "Geburtsdatum"
+    "birthday": "Geburtsdatum",
+    "viewOnlyMode": "Nur-Lese-Modus",
+    "viewOnlyModeDescription": "Sie sehen diesen Inhalt als Gast. Bearbeitung ist deaktiviert."
   },
   "auth": {
     "login": "Anmelden",
