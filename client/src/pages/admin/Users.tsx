@@ -513,6 +513,7 @@ export default function Users() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">{t("admin.roleAdmin")}</SelectItem>
+                  <SelectItem value="manager">{t("admin.roleManager")}</SelectItem>
                   <SelectItem value="doctor">{t("admin.roleDoctor")}</SelectItem>
                   <SelectItem value="nurse">{t("admin.roleNurse")}</SelectItem>
                   <SelectItem value="guest">{t("admin.roleGuest")}</SelectItem>
@@ -608,6 +609,7 @@ export default function Users() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="admin">{t("admin.roleAdmin")}</SelectItem>
+                    <SelectItem value="manager">{t("admin.roleManager")}</SelectItem>
                     <SelectItem value="doctor">{t("admin.roleDoctor")}</SelectItem>
                     <SelectItem value="nurse">{t("admin.roleNurse")}</SelectItem>
                     <SelectItem value="guest">{t("admin.roleGuest")}</SelectItem>
