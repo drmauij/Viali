@@ -317,17 +317,110 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
         positionsCount: positions?.length || 0,
       });
 
-      const timeRange = endTime - startTime;
-      const paddedMin = startTime - timeRange * 0.01;
-      const paddedMax = endTime + timeRange * 0.01;
+      // Calculate actual data range from all data points to trim empty periods
+      const allTimestamps: number[] = [];
+      
+      // Collect timestamps from vitals
+      const addVitalTimestamps = (data: DataPoint[] | undefined) => {
+        if (data) data.forEach(point => allTimestamps.push(point[0]));
+      };
+      addVitalTimestamps(normalizeDataPoints(vitals?.hr));
+      // BP data has different structure {timestamp, sys, dia}, handle separately
+      if (vitals?.bp) {
+        vitals.bp.forEach((bp: any) => {
+          const ts = typeof bp.timestamp === 'string' 
+            ? new Date(bp.timestamp).getTime() 
+            : bp.timestamp;
+          if (ts && !isNaN(ts)) allTimestamps.push(ts);
+        });
+      }
+      addVitalTimestamps(normalizeDataPoints(vitals?.spo2));
+      addVitalTimestamps(normalizeDataPoints(vitals?.temp));
+      
+      // Collect timestamps from events
+      if (events) {
+        events.forEach((event: any) => {
+          const ts = typeof event.timestamp === 'string' 
+            ? new Date(event.timestamp).getTime() 
+            : event.timestamp;
+          if (ts && !isNaN(ts)) allTimestamps.push(ts);
+        });
+      }
+      
+      // Collect timestamps from medications
+      if (medications) {
+        medications.forEach((med: any) => {
+          const ts = typeof med.timestamp === 'string' 
+            ? new Date(med.timestamp).getTime() 
+            : med.timestamp;
+          if (ts && !isNaN(ts)) allTimestamps.push(ts);
+          if (med.endTimestamp) {
+            const endTs = typeof med.endTimestamp === 'string' 
+              ? new Date(med.endTimestamp).getTime() 
+              : med.endTimestamp;
+            if (endTs && !isNaN(endTs)) allTimestamps.push(endTs);
+          }
+        });
+      }
+      
+      // Collect timestamps from staff and positions
+      if (staffMembers) {
+        staffMembers.forEach((s: any) => {
+          const ts = typeof s.timestamp === 'string' 
+            ? new Date(s.timestamp).getTime() 
+            : s.timestamp;
+          if (ts && !isNaN(ts)) allTimestamps.push(ts);
+        });
+      }
+      if (positions) {
+        positions.forEach((p: any) => {
+          const ts = typeof p.timestamp === 'string' 
+            ? new Date(p.timestamp).getTime() 
+            : p.timestamp;
+          if (ts && !isNaN(ts)) allTimestamps.push(ts);
+        });
+      }
+      
+      // Collect timestamps from ventilation, BIS, TOF
+      addVitalTimestamps(normalizeDataPoints(ventilation?.pip));
+      addVitalTimestamps(normalizeDataPoints(ventilation?.peep));
+      addVitalTimestamps(normalizeDataPoints(ventilation?.fio2));
+      addVitalTimestamps(normalizeDataPoints(bis));
+      addVitalTimestamps(normalizeDataPoints(tof));
+      
+      // Calculate actual range from data, or fall back to provided times
+      let actualMin = startTime;
+      let actualMax = endTime;
+      
+      if (allTimestamps.length > 0) {
+        actualMin = Math.min(...allTimestamps);
+        actualMax = Math.max(...allTimestamps);
+      }
+      
+      // Add 5% padding on each side for visual clarity
+      const timeRange = actualMax - actualMin;
+      const padding = Math.max(timeRange * 0.05, 5 * 60 * 1000); // At least 5 minutes padding
+      const paddedMin = actualMin - padding;
+      const paddedMax = actualMax + padding;
+      
+      console.log("[FULL-TIMELINE-EXPORT] Time range calculated:", {
+        providedStart: new Date(startTime).toISOString(),
+        providedEnd: new Date(endTime).toISOString(),
+        actualDataStart: new Date(actualMin).toISOString(),
+        actualDataEnd: new Date(actualMax).toISOString(),
+        dataPoints: allTimestamps.length,
+      });
 
       const hasMedications = medications && medications.length > 0;
       const hasEvents = events && events.length > 0;
       const hasStaff = staffMembers && staffMembers.length > 0;
       const hasPositions = positions && positions.length > 0;
       const hasVentilation = ventilation && (
+        (ventilation.etco2?.length || 0) > 0 ||
         (ventilation.pip?.length || 0) > 0 ||
         (ventilation.peep?.length || 0) > 0 ||
+        (ventilation.tidalVolume?.length || 0) > 0 ||
+        (ventilation.respiratoryRate?.length || 0) > 0 ||
         (ventilation.fio2?.length || 0) > 0
       );
       const hasBIS = bis && bis.length > 0;
@@ -877,92 +970,79 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
         currentTop += SWIMLANE_HEIGHTS.positions + 20;
       }
 
-      // Ventilation swimlane
+      // Ventilation parameters swimlane - numeric text display (like in the app)
       if (hasVentilation) {
-        grids.push({
-          left: gridLeft,
-          right: gridRight,
-          top: currentTop,
-          height: SWIMLANE_HEIGHTS.ventilation,
-        });
+        // Define ventilation parameters to display
+        const ventParams = [
+          { key: 'etco2', label: 'etCO2', data: normalizeDataPoints(ventilation.etco2), color: '#6366f1' },
+          { key: 'pip', label: 'P insp', data: normalizeDataPoints(ventilation.pip), color: '#22c55e' },
+          { key: 'peep', label: 'PEEP', data: normalizeDataPoints(ventilation.peep), color: '#3b82f6' },
+          { key: 'tidalVolume', label: 'TV', data: normalizeDataPoints(ventilation.tidalVolume), color: '#8b5cf6' },
+          { key: 'respiratoryRate', label: 'RR', data: normalizeDataPoints(ventilation.respiratoryRate), color: '#ec4899' },
+          { key: 'fio2', label: 'FiO2', data: normalizeDataPoints(ventilation.fio2), color: '#f59e0b' },
+        ].filter(p => p.data.length > 0);
+        
+        const ventRowHeight = 20;
+        const ventTotalHeight = ventParams.length * ventRowHeight;
+        
+        // Create a grid for each ventilation parameter row
+        ventParams.forEach((param, idx) => {
+          grids.push({
+            left: gridLeft,
+            right: gridRight,
+            top: currentTop + (idx * ventRowHeight),
+            height: ventRowHeight,
+          });
 
-        xAxes.push({
-          type: 'time',
-          gridIndex: gridIndex,
-          min: paddedMin,
-          max: paddedMax,
-          axisLabel: { show: false },
-          axisTick: { show: false },
-          axisLine: { show: false },
-          splitLine: { show: true, lineStyle: { color: '#e5e7eb', type: 'dashed' } },
-        });
+          xAxes.push({
+            type: 'time',
+            gridIndex: gridIndex + idx,
+            min: paddedMin,
+            max: paddedMax,
+            axisLabel: { show: idx === ventParams.length - 1, formatter: formatTimeLabel, fontSize: 9 },
+            axisTick: { show: idx === ventParams.length - 1 },
+            axisLine: { show: idx === ventParams.length - 1 },
+            splitLine: { show: true, lineStyle: { color: '#f3f4f6', type: 'dashed' } },
+          });
 
-        yAxes.push({
-          type: 'value',
-          gridIndex: gridIndex,
-          name: 'Ventilation',
-          nameLocation: 'middle',
-          nameGap: 80,
-          min: 0,
-          max: 100,
-          axisLabel: { fontSize: 9 },
-          axisTick: { show: false },
-        });
+          yAxes.push({
+            type: 'category',
+            gridIndex: gridIndex + idx,
+            data: [param.label],
+            axisLabel: { fontSize: 10, fontWeight: 'bold', color: param.color },
+            axisTick: { show: false },
+            axisLine: { show: false },
+          });
 
-        // Add PIP line
-        const pipData = normalizeDataPoints(ventilation.pip);
-        if (pipData.length > 0) {
+          // Create value map for this parameter
+          const valuesMap = new Map(param.data.map(([time, val]) => [time, val]));
+          
+          // Add scatter series with text labels for numeric values
           series.push({
-            type: 'line',
-            name: 'PIP',
-            xAxisIndex: gridIndex,
-            yAxisIndex: yAxisIndex,
-            data: pipData,
-            lineStyle: { color: '#22c55e', width: 2 },
-            symbol: 'circle',
-            symbolSize: 4,
-            itemStyle: { color: '#22c55e' },
+            type: 'scatter',
+            name: param.label,
+            xAxisIndex: gridIndex + idx,
+            yAxisIndex: yAxisIndex + idx,
+            data: param.data.map(([time]) => [time, param.label]),
+            symbol: 'none',
+            label: {
+              show: true,
+              formatter: (params: any) => {
+                const timestamp = params.value[0];
+                return valuesMap.get(timestamp)?.toString() || '';
+              },
+              fontSize: 11,
+              fontWeight: '600',
+              fontFamily: 'monospace',
+              color: param.color,
+            },
             z: 20,
           });
-        }
+        });
 
-        // Add PEEP line
-        const peepData = normalizeDataPoints(ventilation.peep);
-        if (peepData.length > 0) {
-          series.push({
-            type: 'line',
-            name: 'PEEP',
-            xAxisIndex: gridIndex,
-            yAxisIndex: yAxisIndex,
-            data: peepData,
-            lineStyle: { color: '#3b82f6', width: 2 },
-            symbol: 'circle',
-            symbolSize: 4,
-            itemStyle: { color: '#3b82f6' },
-            z: 20,
-          });
-        }
-
-        // Add FiO2 line
-        const fio2Data = normalizeDataPoints(ventilation.fio2);
-        if (fio2Data.length > 0) {
-          series.push({
-            type: 'line',
-            name: 'FiO2',
-            xAxisIndex: gridIndex,
-            yAxisIndex: yAxisIndex,
-            data: fio2Data,
-            lineStyle: { color: '#f59e0b', width: 2 },
-            symbol: 'circle',
-            symbolSize: 4,
-            itemStyle: { color: '#f59e0b' },
-            z: 20,
-          });
-        }
-
-        yAxisIndex++;
-        gridIndex++;
-        currentTop += SWIMLANE_HEIGHTS.ventilation + 20;
+        yAxisIndex += ventParams.length;
+        gridIndex += ventParams.length;
+        currentTop += ventTotalHeight + 20;
       }
 
       // BIS swimlane (Bispectral Index - depth of anesthesia)
@@ -1101,11 +1181,18 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
     const hasEvents = events && events.length > 0;
     const hasStaff = staffMembers && staffMembers.length > 0;
     const hasPositions = positions && positions.length > 0;
-    const hasVentilation = ventilation && (
-      (ventilation.pip?.length || 0) > 0 ||
-      (ventilation.peep?.length || 0) > 0 ||
-      (ventilation.fio2?.length || 0) > 0
-    );
+    
+    // Count ventilation parameters that have data
+    const ventParamsWithData = ventilation ? [
+      (ventilation.etco2?.length || 0) > 0,
+      (ventilation.pip?.length || 0) > 0,
+      (ventilation.peep?.length || 0) > 0,
+      (ventilation.tidalVolume?.length || 0) > 0,
+      (ventilation.respiratoryRate?.length || 0) > 0,
+      (ventilation.fio2?.length || 0) > 0,
+    ].filter(Boolean).length : 0;
+    const hasVentilation = ventParamsWithData > 0;
+    
     const hasBIS = bis && bis.length > 0;
     const hasTOF = tof && tof.length > 0;
 
@@ -1114,7 +1201,7 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
     if (hasEvents) totalHeight += SWIMLANE_HEIGHTS.events + 20;
     if (hasStaff) totalHeight += SWIMLANE_HEIGHTS.staff + 20;
     if (hasPositions) totalHeight += SWIMLANE_HEIGHTS.positions + 20;
-    if (hasVentilation) totalHeight += SWIMLANE_HEIGHTS.ventilation + 20;
+    if (hasVentilation) totalHeight += (ventParamsWithData * 20) + 20;
     if (hasBIS) totalHeight += SWIMLANE_HEIGHTS.bis + 20;
     if (hasTOF) totalHeight += SWIMLANE_HEIGHTS.tof + 40;
 
