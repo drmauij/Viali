@@ -27,6 +27,21 @@ export function ProtectedRoute({
   const hasAdminAccess = activeHospital?.role === "admin";
   const hasBusinessAccess = activeHospital?.isBusinessModule === true;
 
+  // Determine the default redirect path based on active unit's module
+  const getDefaultRedirect = (): string => {
+    if (hasBusinessAccess) {
+      return "/business/dashboard";
+    }
+    if (hasAnesthesiaAccess) {
+      return "/anesthesia/patients";
+    }
+    if (hasSurgeryAccess) {
+      return "/surgery/or-schedule";
+    }
+    // Default fallback for inventory/standard units
+    return "/inventory/items";
+  };
+
   // Show loading while auth is loading or user data isn't available yet
   if (isLoading || (isAuthenticated && !user)) {
     return (
@@ -50,24 +65,26 @@ export function ProtectedRoute({
     );
   }
 
+  const defaultRedirect = getDefaultRedirect();
+
   // Check anesthesia module access - active unit must be anesthesia module
   if (requireAnesthesia && !hasAnesthesiaAccess) {
-    return <Redirect to="/inventory/items" />;
+    return <Redirect to={defaultRedirect} />;
   }
 
   // Check surgery module access - active unit must be surgery module
   if (requireSurgery && !hasSurgeryAccess) {
-    return <Redirect to="/inventory/items" />;
+    return <Redirect to={defaultRedirect} />;
   }
 
   // Check admin access - active unit role must be admin
   if (requireAdmin && !hasAdminAccess) {
-    return <Redirect to="/inventory/items" />;
+    return <Redirect to={defaultRedirect} />;
   }
 
   // Check business module access - active unit must be business module
   if (requireBusiness && !hasBusinessAccess) {
-    return <Redirect to="/inventory/items" />;
+    return <Redirect to={defaultRedirect} />;
   }
 
   return <>{children}</>;
