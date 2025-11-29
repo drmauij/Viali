@@ -29,6 +29,7 @@ import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSett
 import SignaturePad from "@/components/SignaturePad";
 import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
 import { HiddenChartExporter, type HiddenChartExporterRef } from "@/components/anesthesia/HiddenChartExporter";
+import { HiddenFullTimelineExporter, type HiddenFullTimelineExporterRef } from "@/components/anesthesia/HiddenFullTimelineExporter";
 
 type Patient = {
   id: string;
@@ -71,6 +72,7 @@ export default function PatientDetail() {
   const [isPatientCardVisible, setIsPatientCardVisible] = useState(true);
   const patientCardRef = useRef<HTMLDivElement>(null);
   const hiddenChartRef = useRef<HiddenChartExporterRef>(null);
+  const hiddenTimelineRef = useRef<HiddenFullTimelineExporterRef>(null);
   const activeHospital = useActiveHospital();
   const { user } = useAuth();
   const canWrite = useCanWrite();
@@ -971,6 +973,7 @@ export default function PatientDetail() {
       hospitalId: activeHospital.id,
       anesthesiaSettings,
       hiddenChartRef,
+      hiddenTimelineRef,
     });
 
     if (result.success) {
@@ -1157,8 +1160,10 @@ export default function PatientDetail() {
 
   return (
     <div className="container mx-auto p-4 pb-20">
-      {/* Hidden chart exporter for PDF generation */}
+      {/* Hidden chart exporter for PDF generation (fallback) */}
       <HiddenChartExporter ref={hiddenChartRef} />
+      {/* Hidden full timeline exporter for PDF generation (primary) */}
+      <HiddenFullTimelineExporter ref={hiddenTimelineRef} />
       
       {/* Sticky Patient Header */}
       {!isPatientCardVisible && (
