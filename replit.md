@@ -6,6 +6,8 @@ Viali is a mobile-first web application designed to optimize hospital operations
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+**Deployment Environment**: The application is deployed to a custom server on **Exoscale** (Ubuntu-based VPS), NOT on Replit. Do not search Replit documentation for deployment-related issues. The user has sudo access and full control over the server environment.
+
 ## System Architecture
 
 ### Frontend
