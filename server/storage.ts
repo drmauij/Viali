@@ -4032,9 +4032,15 @@ export class DatabaseStorage implements IStorage {
     // Build conditions array for filtering
     const conditions = [eq(inventoryCommits.anesthesiaRecordId, anesthesiaRecordId)];
     
-    // If unitId is provided, filter to only show commits from that unit
+    // If unitId is provided, filter to show commits from that unit OR legacy commits with null unitId
+    // This ensures backward compatibility with commits made before unit_id was introduced
     if (unitId) {
-      conditions.push(eq(inventoryCommits.unitId, unitId));
+      conditions.push(
+        or(
+          eq(inventoryCommits.unitId, unitId),
+          isNull(inventoryCommits.unitId) // Include legacy commits without unit_id
+        )!
+      );
     }
     
     const commits = await db

@@ -22,6 +22,12 @@ export function useInventoryCommitState(anesthesiaRecordId: string | null) {
     isError: inventoryError,
   } = useQuery<any[]>({
     queryKey: ['/api/anesthesia/inventory', anesthesiaRecordId],
+    queryFn: async () => {
+      if (!anesthesiaRecordId) return [];
+      const response = await fetch(`/api/anesthesia/inventory/${anesthesiaRecordId}`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch inventory usage');
+      return response.json();
+    },
     enabled: !!anesthesiaRecordId,
   });
 
@@ -92,9 +98,7 @@ export function useInventoryCommitState(anesthesiaRecordId: string | null) {
       // Calculate uncommitted quantity
       const uncommitted = finalQty - totalCommitted;
       
-      const hasPending = uncommitted > 0;
-      
-      return hasPending;
+      return uncommitted > 0;
     });
   }, [inventoryUsage, allCommits, inventoryLoading, allCommitsLoading, inventoryError, allCommitsError]);
 
