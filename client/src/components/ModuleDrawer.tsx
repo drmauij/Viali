@@ -89,6 +89,10 @@ export default function ModuleDrawer() {
     },
   ];
 
+  // Business-only users (manager role in business unit without anesthesia/surgery access)
+  // should only see the Business module
+  const isBusinessOnly = hasBusinessAccess && !hasAnesthesiaAccess && !hasSurgeryAccess && !isAdmin;
+
   const modules = allModules.filter(module => {
     // Admin modules only for admins
     if (module.adminOnly && !isAdmin) return false;
@@ -98,6 +102,8 @@ export default function ModuleDrawer() {
     if (module.id === "anesthesia" && !hasAnesthesiaAccess) return false;
     // Surgery module only for OR staff (assigned to surgery unit)
     if (module.id === "surgery" && !hasSurgeryAccess) return false;
+    // Business-only users should not see Inventory
+    if (module.id === "inventory" && isBusinessOnly) return false;
     return true;
   });
 
