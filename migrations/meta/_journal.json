@@ -57,6 +57,13 @@
       "when": 1764334382110,
       "tag": "0007_cooing_daimon_hellstrom",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1764432273953,
+      "tag": "0008_petite_vengeance",
+      "breakpoints": true
     }
   ]
 }

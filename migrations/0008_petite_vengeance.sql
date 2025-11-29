@@ -1,0 +1,1 @@
+ALTER TABLE "units" ADD COLUMN "is_business_module" boolean DEFAULT false;
