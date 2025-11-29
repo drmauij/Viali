@@ -1256,32 +1256,38 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
       data.chartImage.length > EMPTY_DATA_URL_PREFIX.length + 100;
     
     if (isValidChartImage) {
-      // Embed the actual timeline chart image with larger dimensions
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.text(i18next.t("anesthesia.pdf.vitalSignsTimeline"), 20, yPos);
-      yPos += 8;
+      // Add a new dedicated page for the timeline chart in LANDSCAPE orientation
+      // This gives maximum space for the comprehensive timeline visualization
+      doc.addPage('a4', 'landscape');
       
+      // Landscape A4 dimensions: 297mm x 210mm
+      const landscapeWidth = 297;
+      const landscapeHeight = 210;
+      const margin = 10;
+      
+      // Title on landscape page
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text(i18next.t("anesthesia.pdf.vitalSignsTimeline"), margin, 15);
+      
+      let chartSucceeded = false;
       try {
-        // Use ~85% page width for better readability (A4 = 210mm, margins = 20mm each side)
-        // Available width: 210 - 40 = 170mm, 85% = ~145mm, but we'll use full width
-        const chartWidth = 175; // Almost full page width
-        const chartHeight = 90; // Height proportional to maintain aspect ratio (1800:900 = 2:1)
-        
-        // Check if we need a page break for the chart
-        const pageHeight = doc.internal.pageSize.getHeight();
-        if (yPos + chartHeight > pageHeight - 20) {
-          doc.addPage();
-          yPos = 20;
-        }
+        // Use nearly full landscape page for the chart
+        // Available width: 297 - 20 (margins) = 277mm
+        // Available height: 210 - 25 (title + margin) - 10 (bottom margin) = 175mm
+        const chartWidth = landscapeWidth - (margin * 2); // 277mm
+        const chartHeight = landscapeHeight - 35; // 175mm - gives excellent vertical space
         
         // Add the chart image (chartImage is validated as non-null above)
-        doc.addImage(data.chartImage!, 'PNG', 17, yPos, chartWidth, chartHeight);
-        yPos += chartHeight + 10;
-        console.log('[PDF] Chart image embedded successfully:', chartWidth, 'x', chartHeight, 'mm');
+        doc.addImage(data.chartImage!, 'PNG', margin, 22, chartWidth, chartHeight);
+        console.log('[PDF] Chart image embedded in landscape page:', chartWidth, 'x', chartHeight, 'mm');
+        chartSucceeded = true;
+        
       } catch (error) {
         console.error('[PDF] Error embedding chart image:', error);
-        // Fall back to simplified line chart on error
+        // On error, add portrait page and use simplified chart
+        doc.addPage();
+        yPos = 20;
         yPos = drawTimelineChart(
           doc,
           i18next.t("anesthesia.pdf.vitalSignsTimeline"),
@@ -1295,6 +1301,28 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
           yPos,
           { yLabel: i18next.t("anesthesia.pdf.value"), height: 80 }
         );
+      }
+      
+      // Only add a portrait page if the chart succeeded (we're on landscape) and there's more content
+      if (chartSucceeded) {
+        // Check if there's more content to render after the timeline chart
+        // Note: Ventilation swimlanes and output chart always render within clinical snapshot block,
+        // so we only need to check if we're in the snapshot block (which we are if chart succeeded)
+        // Additionally check for sections outside the snapshot block
+        const hasMoreContent = 
+          // Content inside clinical snapshot block (always renders if we have snapshot data)
+          snapshotData ||
+          // Content outside clinical snapshot block
+          data.anesthesiaRecord?.postOpData ||
+          (data.staffMembers && data.staffMembers.length > 0) ||
+          (data.positions && data.positions.length > 0) ||
+          (data.medications && data.medications.length > 0);
+        
+        if (hasMoreContent) {
+          // Add portrait page for remaining content (ventilation, output charts, etc.)
+          doc.addPage('a4', 'portrait');
+          yPos = 20;
+        }
       }
     } else {
       // Fallback to simplified line chart when no valid chart image

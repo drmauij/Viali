@@ -83,18 +83,18 @@ const COLORS = {
 };
 
 const SWIMLANE_HEIGHTS = {
-  vitals: 280,
-  medications: 180,
-  events: 60,
-  staff: 80,
-  positions: 50,
-  ventilation: 120,
-  bis: 60,
-  tof: 60,
+  vitals: 400,
+  medications: 280,
+  events: 100,
+  staff: 120,
+  positions: 80,
+  ventilation: 180,
+  bis: 100,
+  tof: 100,
 };
 
-const CHART_WIDTH = 2000;
-const VENT_ROW_HEIGHT = 28;
+const CHART_WIDTH = 2800;
+const VENT_ROW_HEIGHT = 40;
 
 // Helper function to normalize data points that can be either [timestamp, value] arrays or {timestamp, value} objects
 function normalizeDataPoints(
@@ -573,7 +573,7 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
 
       yAxisIndex = 2;
       gridIndex = 1;
-      currentTop += SWIMLANE_HEIGHTS.vitals + 30;
+      currentTop += SWIMLANE_HEIGHTS.vitals + 50;
 
       if (hasMedications) {
         grids.push({
@@ -728,7 +728,7 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
 
         yAxisIndex++;
         gridIndex++;
-        currentTop += SWIMLANE_HEIGHTS.medications + 40;
+        currentTop += SWIMLANE_HEIGHTS.medications + 50;
       }
 
       if (hasEvents) {
@@ -801,7 +801,7 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
 
         yAxisIndex++;
         gridIndex++;
-        currentTop += SWIMLANE_HEIGHTS.events + 40;
+        currentTop += SWIMLANE_HEIGHTS.events + 50;
       }
 
       if (hasStaff) {
@@ -876,7 +876,7 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
 
         yAxisIndex++;
         gridIndex++;
-        currentTop += SWIMLANE_HEIGHTS.staff + 40;
+        currentTop += SWIMLANE_HEIGHTS.staff + 50;
       }
 
       if (hasPositions) {
@@ -970,7 +970,7 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
           });
         });
 
-        currentTop += SWIMLANE_HEIGHTS.positions + 40;
+        currentTop += SWIMLANE_HEIGHTS.positions + 50;
       }
 
       // Ventilation parameters swimlane - numeric text display (like in the app)
@@ -1044,7 +1044,7 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
 
         yAxisIndex += ventParams.length;
         gridIndex += ventParams.length;
-        currentTop += ventTotalHeight + 30;
+        currentTop += ventTotalHeight + 50;
       }
 
       // BIS swimlane (Bispectral Index - depth of anesthesia)
@@ -1096,7 +1096,7 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
 
         yAxisIndex++;
         gridIndex++;
-        currentTop += SWIMLANE_HEIGHTS.bis + 40;
+        currentTop += SWIMLANE_HEIGHTS.bis + 50;
       }
 
       // TOF swimlane (Train of Four - neuromuscular blockade)
@@ -1149,10 +1149,10 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
           z: 20,
         });
 
-        currentTop += SWIMLANE_HEIGHTS.tof + 40;
+        currentTop += SWIMLANE_HEIGHTS.tof + 50;
       }
 
-      const totalHeight = currentTop + 40;
+      const totalHeight = currentTop + 60;
 
       return {
         animation: false,
@@ -1198,14 +1198,14 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
     const hasBIS = bis && bis.length > 0;
     const hasTOF = tof && tof.length > 0;
 
-    let totalHeight = SWIMLANE_HEIGHTS.vitals + 120;
-    if (hasMedications) totalHeight += SWIMLANE_HEIGHTS.medications + 50;
-    if (hasEvents) totalHeight += SWIMLANE_HEIGHTS.events + 50;
-    if (hasStaff) totalHeight += SWIMLANE_HEIGHTS.staff + 50;
-    if (hasPositions) totalHeight += SWIMLANE_HEIGHTS.positions + 50;
-    if (hasVentilation) totalHeight += (ventParamsWithData * VENT_ROW_HEIGHT) + 50;
-    if (hasBIS) totalHeight += SWIMLANE_HEIGHTS.bis + 50;
-    if (hasTOF) totalHeight += SWIMLANE_HEIGHTS.tof + 60;
+    let totalHeight = SWIMLANE_HEIGHTS.vitals + 150;
+    if (hasMedications) totalHeight += SWIMLANE_HEIGHTS.medications + 60;
+    if (hasEvents) totalHeight += SWIMLANE_HEIGHTS.events + 60;
+    if (hasStaff) totalHeight += SWIMLANE_HEIGHTS.staff + 60;
+    if (hasPositions) totalHeight += SWIMLANE_HEIGHTS.positions + 60;
+    if (hasVentilation) totalHeight += (ventParamsWithData * VENT_ROW_HEIGHT) + 60;
+    if (hasBIS) totalHeight += SWIMLANE_HEIGHTS.bis + 60;
+    if (hasTOF) totalHeight += SWIMLANE_HEIGHTS.tof + 80;
 
     const option = buildChartOption();
 
