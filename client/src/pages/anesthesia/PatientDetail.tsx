@@ -74,6 +74,7 @@ export default function PatientDetail() {
   const activeHospital = useActiveHospital();
   const { user } = useAuth();
   const canWrite = useCanWrite();
+  const isPreOpReadOnly = !canWrite;
   const { activeModule } = useModule();
   const isSurgeryModule = activeModule === "surgery";
   const moduleBasePath = isSurgeryModule ? "/surgery" : "/anesthesia";
@@ -1868,6 +1869,16 @@ export default function PatientDetail() {
             </div>
             
             <TabsContent value="assessment" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0">
+              {/* Read-only banner for guests */}
+              {isPreOpReadOnly && (
+                <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-4 flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                  <div>
+                    <p className="font-medium text-amber-800 dark:text-amber-200">{t('common.viewOnlyMode')}</p>
+                    <p className="text-sm text-amber-600 dark:text-amber-400">{t('common.viewOnlyModeDescription')}</p>
+                  </div>
+                </div>
+              )}
               <div className="flex justify-end mb-2">
                 <Button
                   variant="outline"
@@ -1964,6 +1975,7 @@ export default function PatientDetail() {
                               value={assessmentData.height}
                               onChange={(e) => setAssessmentData({...assessmentData, height: e.target.value})}
                               placeholder={t('anesthesia.patientDetail.enterHeight')}
+                              disabled={isPreOpReadOnly}
                               data-testid="input-height"
                             />
                           </div>
@@ -1974,6 +1986,7 @@ export default function PatientDetail() {
                               value={assessmentData.weight}
                               onChange={(e) => setAssessmentData({...assessmentData, weight: e.target.value})}
                               placeholder={t('anesthesia.patientDetail.enterWeight')}
+                              disabled={isPreOpReadOnly}
                               data-testid="input-weight"
                             />
                           </div>
@@ -2008,6 +2021,7 @@ export default function PatientDetail() {
                                         setAssessmentData({...assessmentData, allergies: assessmentData.allergies.filter(a => a !== allergy.id)});
                                       }
                                     }}
+                                    disabled={isPreOpReadOnly}
                                     data-testid={`checkbox-allergy-${allergy.id}`}
                                   />
                                   <Label htmlFor={`allergy-${allergy.id}`} className="cursor-pointer font-normal text-sm">{allergy.label}</Label>
@@ -2018,6 +2032,7 @@ export default function PatientDetail() {
                               value={assessmentData.allergiesOther}
                               onChange={(e) => setAssessmentData({...assessmentData, allergiesOther: e.target.value})}
                               placeholder={t('anesthesia.patientDetail.otherAllergiesPlaceholder')}
+                              disabled={isPreOpReadOnly}
                               data-testid="input-allergies-other"
                             />
                           </div>
@@ -2028,6 +2043,7 @@ export default function PatientDetail() {
                             value={assessmentData.cave}
                             onChange={(e) => setAssessmentData({...assessmentData, cave: e.target.value})}
                             placeholder={t('anesthesia.patientDetail.cavePlaceholder')}
+                            disabled={isPreOpReadOnly}
                             data-testid="input-cave"
                           />
                         </div>
@@ -2036,6 +2052,7 @@ export default function PatientDetail() {
                           <Select
                             value={assessmentData.asa}
                             onValueChange={(value) => setAssessmentData({...assessmentData, asa: value})}
+                            disabled={isPreOpReadOnly}
                           >
                             <SelectTrigger data-testid="select-asa">
                               <SelectValue placeholder={t('anesthesia.patientDetail.selectASAClass')} />
@@ -2056,6 +2073,7 @@ export default function PatientDetail() {
                             onChange={(e) => setAssessmentData({...assessmentData, specialNotes: e.target.value})}
                             placeholder={t('anesthesia.patientDetail.specialNotesPlaceholder')}
                             rows={3}
+                            disabled={isPreOpReadOnly}
                             data-testid="textarea-special-notes"
                           />
                         </div>
@@ -2092,6 +2110,7 @@ export default function PatientDetail() {
                                             setAssessmentData({...assessmentData, anticoagulationMeds: assessmentData.anticoagulationMeds.filter(m => m !== medication.id)});
                                           }
                                         }}
+                                        disabled={isPreOpReadOnly}
                                         data-testid={`checkbox-anticoag-${medication.id}`}
                                       />
                                       <Label htmlFor={`anticoag-${medication.id}`} className="cursor-pointer font-normal text-sm">{medication.label}</Label>
@@ -2102,6 +2121,7 @@ export default function PatientDetail() {
                                   value={assessmentData.anticoagulationMedsOther}
                                   onChange={(e) => setAssessmentData({...assessmentData, anticoagulationMedsOther: e.target.value})}
                                   placeholder={t('anesthesia.patientDetail.otherAnticoagulationPlaceholder')}
+                                  disabled={isPreOpReadOnly}
                                   data-testid="input-anticoag-other"
                                 />
                               </div>
@@ -2122,6 +2142,7 @@ export default function PatientDetail() {
                                             setAssessmentData({...assessmentData, generalMeds: assessmentData.generalMeds.filter(m => m !== medication.id)});
                                           }
                                         }}
+                                        disabled={isPreOpReadOnly}
                                         data-testid={`checkbox-general-med-${medication.id}`}
                                       />
                                       <Label htmlFor={`general-med-${medication.id}`} className="cursor-pointer font-normal text-sm">{medication.label}</Label>
@@ -2132,6 +2153,7 @@ export default function PatientDetail() {
                                   value={assessmentData.generalMedsOther}
                                   onChange={(e) => setAssessmentData({...assessmentData, generalMedsOther: e.target.value})}
                                   placeholder={t('anesthesia.patientDetail.otherMedicationsPlaceholder')}
+                                  disabled={isPreOpReadOnly}
                                   data-testid="input-general-med-other"
                                 />
                               </div>
@@ -2144,6 +2166,7 @@ export default function PatientDetail() {
                               onChange={(e) => setAssessmentData({...assessmentData, medicationsNotes: e.target.value})}
                               placeholder={t('anesthesia.patientDetail.medicationsNotesPlaceholder')}
                               rows={14}
+                              disabled={isPreOpReadOnly}
                               data-testid="textarea-medications-notes"
                             />
                           </div>
@@ -2176,6 +2199,7 @@ export default function PatientDetail() {
                                       ...assessmentData,
                                       heartIllnesses: {...assessmentData.heartIllnesses, [id]: checked as boolean}
                                     })}
+                                    disabled={isPreOpReadOnly}
                                     data-testid={`checkbox-${id}`}
                                   />
                                   <Label htmlFor={id} className="cursor-pointer">{label}</Label>
@@ -2190,6 +2214,7 @@ export default function PatientDetail() {
                               onChange={(e) => setAssessmentData({...assessmentData, heartNotes: e.target.value})}
                               placeholder={t('anesthesia.patientDetail.heartNotesPlaceholder')}
                               rows={8}
+                              disabled={isPreOpReadOnly}
                               data-testid="textarea-heart-notes"
                             />
                           </div>
@@ -2222,6 +2247,7 @@ export default function PatientDetail() {
                                       ...assessmentData,
                                       lungIllnesses: {...assessmentData.lungIllnesses, [id]: checked as boolean}
                                     })}
+                                    disabled={isPreOpReadOnly}
                                     data-testid={`checkbox-${id}`}
                                   />
                                   <Label htmlFor={id} className="cursor-pointer">{label}</Label>
@@ -2236,6 +2262,7 @@ export default function PatientDetail() {
                               onChange={(e) => setAssessmentData({...assessmentData, lungNotes: e.target.value})}
                               placeholder={t('anesthesia.patientDetail.lungNotesPlaceholder')}
                               rows={6}
+                              disabled={isPreOpReadOnly}
                               data-testid="textarea-lung-notes"
                             />
                           </div>
@@ -2269,6 +2296,7 @@ export default function PatientDetail() {
                                         ...assessmentData,
                                         giIllnesses: {...assessmentData.giIllnesses, [id]: checked as boolean}
                                       })}
+                                      disabled={isPreOpReadOnly}
                                       data-testid={`checkbox-${id}`}
                                     />
                                     <Label htmlFor={id} className="cursor-pointer font-normal text-sm">{label}</Label>
@@ -2288,6 +2316,7 @@ export default function PatientDetail() {
                                         ...assessmentData,
                                         kidneyIllnesses: {...assessmentData.kidneyIllnesses, [id]: checked as boolean}
                                       })}
+                                      disabled={isPreOpReadOnly}
                                       data-testid={`checkbox-${id}`}
                                     />
                                     <Label htmlFor={id} className="cursor-pointer font-normal text-sm">{label}</Label>
@@ -2307,6 +2336,7 @@ export default function PatientDetail() {
                                         ...assessmentData,
                                         metabolicIllnesses: {...assessmentData.metabolicIllnesses, [id]: checked as boolean}
                                       })}
+                                      disabled={isPreOpReadOnly}
                                       data-testid={`checkbox-${id}`}
                                     />
                                     <Label htmlFor={id} className="cursor-pointer font-normal text-sm">{label}</Label>
@@ -2322,6 +2352,7 @@ export default function PatientDetail() {
                               onChange={(e) => setAssessmentData({...assessmentData, giKidneyMetabolicNotes: e.target.value})}
                               placeholder={t('anesthesia.patientDetail.giKidneyMetabolicNotesPlaceholder')}
                               rows={18}
+                              disabled={isPreOpReadOnly}
                               data-testid="textarea-gi-kidney-metabolic-notes"
                             />
                           </div>
@@ -2355,6 +2386,7 @@ export default function PatientDetail() {
                                         ...assessmentData,
                                         neuroIllnesses: {...assessmentData.neuroIllnesses, [id]: checked as boolean}
                                       })}
+                                      disabled={isPreOpReadOnly}
                                       data-testid={`checkbox-${id}`}
                                     />
                                     <Label htmlFor={id} className="cursor-pointer font-normal text-sm">{label}</Label>
@@ -2374,6 +2406,7 @@ export default function PatientDetail() {
                                         ...assessmentData,
                                         psychIllnesses: {...assessmentData.psychIllnesses, [id]: checked as boolean}
                                       })}
+                                      disabled={isPreOpReadOnly}
                                       data-testid={`checkbox-${id}`}
                                     />
                                     <Label htmlFor={id} className="cursor-pointer font-normal text-sm">{label}</Label>
@@ -2393,6 +2426,7 @@ export default function PatientDetail() {
                                         ...assessmentData,
                                         skeletalIllnesses: {...assessmentData.skeletalIllnesses, [id]: checked as boolean}
                                       })}
+                                      disabled={isPreOpReadOnly}
                                       data-testid={`checkbox-${id}`}
                                     />
                                     <Label htmlFor={id} className="cursor-pointer font-normal text-sm">{label}</Label>
@@ -2408,6 +2442,7 @@ export default function PatientDetail() {
                               onChange={(e) => setAssessmentData({...assessmentData, neuroPsychSkeletalNotes: e.target.value})}
                               placeholder="Enter additional notes about neurological, psychiatric or skeletal conditions..."
                               rows={23}
+                              disabled={isPreOpReadOnly}
                               data-testid="textarea-neuro-psych-skeletal-notes"
                             />
                           </div>
@@ -2441,6 +2476,7 @@ export default function PatientDetail() {
                                         ...assessmentData,
                                         coagulationIllnesses: {...assessmentData.coagulationIllnesses, [id]: checked as boolean}
                                       })}
+                                      disabled={isPreOpReadOnly}
                                       data-testid={`checkbox-${id}`}
                                     />
                                     <Label htmlFor={id} className="cursor-pointer font-normal text-sm">{label}</Label>
@@ -2460,6 +2496,7 @@ export default function PatientDetail() {
                                         ...assessmentData,
                                         infectiousIllnesses: {...assessmentData.infectiousIllnesses, [id]: checked as boolean}
                                       })}
+                                      disabled={isPreOpReadOnly}
                                       data-testid={`checkbox-${id}`}
                                     />
                                     <Label htmlFor={id} className="cursor-pointer font-normal text-sm">{label}</Label>
@@ -2475,6 +2512,7 @@ export default function PatientDetail() {
                               onChange={(e) => setAssessmentData({...assessmentData, coagulationInfectiousNotes: e.target.value})}
                               placeholder={t('anesthesia.patientDetail.coagulationInfectiousNotesPlaceholder')}
                               rows={16}
+                              disabled={isPreOpReadOnly}
                               data-testid="textarea-coagulation-infectious-notes"
                             />
                           </div>
@@ -2507,6 +2545,7 @@ export default function PatientDetail() {
                                       ...assessmentData,
                                       womanIssues: {...assessmentData.womanIssues, [id]: checked as boolean}
                                     })}
+                                    disabled={isPreOpReadOnly}
                                     data-testid={`checkbox-${id}`}
                                   />
                                   <Label htmlFor={id} className="cursor-pointer">{label}</Label>
@@ -2521,6 +2560,7 @@ export default function PatientDetail() {
                               onChange={(e) => setAssessmentData({...assessmentData, womanNotes: e.target.value})}
                               placeholder="Enter additional notes about gynecological conditions..."
                               rows={6}
+                              disabled={isPreOpReadOnly}
                               data-testid="textarea-woman-notes"
                             />
                           </div>
@@ -2553,6 +2593,7 @@ export default function PatientDetail() {
                                       ...assessmentData,
                                       childrenIssues: {...assessmentData.childrenIssues, [id]: checked as boolean}
                                     })}
+                                    disabled={isPreOpReadOnly}
                                     data-testid={`checkbox-${id}`}
                                   />
                                   <Label htmlFor={id} className="cursor-pointer">{label}</Label>
@@ -2567,6 +2608,7 @@ export default function PatientDetail() {
                               onChange={(e) => setAssessmentData({...assessmentData, childrenNotes: e.target.value})}
                               placeholder="Enter additional notes about pediatric conditions..."
                               rows={6}
+                              disabled={isPreOpReadOnly}
                               data-testid="textarea-children-notes"
                             />
                           </div>
@@ -2599,6 +2641,7 @@ export default function PatientDetail() {
                                       ...assessmentData,
                                       noxen: {...assessmentData.noxen, [id]: checked as boolean}
                                     })}
+                                    disabled={isPreOpReadOnly}
                                     data-testid={`checkbox-${id}`}
                                   />
                                   <Label htmlFor={id} className="cursor-pointer">{label}</Label>
@@ -2613,6 +2656,7 @@ export default function PatientDetail() {
                               onChange={(e) => setAssessmentData({...assessmentData, noxenNotes: e.target.value})}
                               placeholder="Enter additional notes about substance use..."
                               rows={6}
+                              disabled={isPreOpReadOnly}
                               data-testid="textarea-noxen-notes"
                             />
                           </div>
@@ -2645,6 +2689,7 @@ export default function PatientDetail() {
                                         ...assessmentData,
                                         anesthesiaTechniques: {...assessmentData.anesthesiaTechniques, general: checked as boolean}
                                       })}
+                                      disabled={isPreOpReadOnly}
                                       data-testid="checkbox-general"
                                     />
                                     <Label htmlFor="general" className="cursor-pointer font-normal text-sm font-semibold">{t('anesthesia.patientDetail.generalAnesthesia')}</Label>
@@ -2678,6 +2723,7 @@ export default function PatientDetail() {
                                                 }
                                               }
                                             })}
+                                            disabled={isPreOpReadOnly}
                                             data-testid={`checkbox-${id}`}
                                           />
                                           <Label htmlFor={id} className="cursor-pointer font-normal text-xs">{label}</Label>
@@ -2696,6 +2742,7 @@ export default function PatientDetail() {
                                       ...assessmentData,
                                       anesthesiaTechniques: {...assessmentData.anesthesiaTechniques, spinal: checked as boolean}
                                     })}
+                                    disabled={isPreOpReadOnly}
                                     data-testid="checkbox-spinal"
                                   />
                                   <Label htmlFor="spinal" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.spinalAnesthesia')}</Label>
@@ -2711,6 +2758,7 @@ export default function PatientDetail() {
                                         ...assessmentData,
                                         anesthesiaTechniques: {...assessmentData.anesthesiaTechniques, epidural: checked as boolean}
                                       })}
+                                      disabled={isPreOpReadOnly}
                                       data-testid="checkbox-epidural"
                                     />
                                     <Label htmlFor="epidural" className="cursor-pointer font-normal text-sm font-semibold">{t('anesthesia.patientDetail.epiduralAnesthesia')}</Label>
@@ -2735,6 +2783,7 @@ export default function PatientDetail() {
                                                 }
                                               }
                                             })}
+                                            disabled={isPreOpReadOnly}
                                             data-testid={`checkbox-epidural-${id}`}
                                           />
                                           <Label htmlFor={`epidural-${id}`} className="cursor-pointer font-normal text-xs">{label}</Label>
@@ -2754,6 +2803,7 @@ export default function PatientDetail() {
                                         ...assessmentData,
                                         anesthesiaTechniques: {...assessmentData.anesthesiaTechniques, regional: checked as boolean}
                                       })}
+                                      disabled={isPreOpReadOnly}
                                       data-testid="checkbox-regional"
                                     />
                                     <Label htmlFor="regional" className="cursor-pointer font-normal text-sm font-semibold">{t('anesthesia.patientDetail.regionalAnesthesia')}</Label>
@@ -2787,6 +2837,7 @@ export default function PatientDetail() {
                                                 }
                                               }
                                             })}
+                                            disabled={isPreOpReadOnly}
                                             data-testid={`checkbox-regional-${id}`}
                                           />
                                           <Label htmlFor={`regional-${id}`} className="cursor-pointer font-normal text-xs">{label}</Label>
@@ -2805,6 +2856,7 @@ export default function PatientDetail() {
                                       ...assessmentData,
                                       anesthesiaTechniques: {...assessmentData.anesthesiaTechniques, sedation: checked as boolean}
                                     })}
+                                    disabled={isPreOpReadOnly}
                                     data-testid="checkbox-sedation"
                                   />
                                   <Label htmlFor="sedation" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.sedation')}</Label>
@@ -2819,6 +2871,7 @@ export default function PatientDetail() {
                                       ...assessmentData,
                                       anesthesiaTechniques: {...assessmentData.anesthesiaTechniques, combined: checked as boolean}
                                     })}
+                                    disabled={isPreOpReadOnly}
                                     data-testid="checkbox-combined"
                                   />
                                   <Label htmlFor="combined" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.combinedTechnique')}</Label>
@@ -2837,6 +2890,7 @@ export default function PatientDetail() {
                                       ...assessmentData,
                                       postOpICU: checked as boolean
                                     })}
+                                    disabled={isPreOpReadOnly}
                                     data-testid="checkbox-post-op-icu"
                                   />
                                   <Label htmlFor="postOpICU" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.postOpIcu')}</Label>
@@ -2851,6 +2905,7 @@ export default function PatientDetail() {
                                 onChange={(e) => setAssessmentData({...assessmentData, anesthesiaOther: e.target.value})}
                                 placeholder={t('anesthesia.patientDetail.otherAnesthesiaPlaceholder')}
                                 rows={3}
+                                disabled={isPreOpReadOnly}
                                 data-testid="textarea-anesthesia-other"
                               />
                             </div>
@@ -2868,6 +2923,7 @@ export default function PatientDetail() {
                                       ...assessmentData,
                                       installations: {...assessmentData.installations, arterialLine: checked as boolean}
                                     })}
+                                    disabled={isPreOpReadOnly}
                                     data-testid="checkbox-arterial-line"
                                   />
                                   <Label htmlFor="arterialLine" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.arterialLine')}</Label>
@@ -2880,6 +2936,7 @@ export default function PatientDetail() {
                                       ...assessmentData,
                                       installations: {...assessmentData.installations, centralLine: checked as boolean}
                                     })}
+                                    disabled={isPreOpReadOnly}
                                     data-testid="checkbox-central-line"
                                   />
                                   <Label htmlFor="centralLine" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.centralVenousLine')}</Label>
@@ -2892,6 +2949,7 @@ export default function PatientDetail() {
                                       ...assessmentData,
                                       installations: {...assessmentData.installations, epiduralCatheter: checked as boolean}
                                     })}
+                                    disabled={isPreOpReadOnly}
                                     data-testid="checkbox-epidural-catheter"
                                   />
                                   <Label htmlFor="epiduralCatheter" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.epiduralCatheter')}</Label>
@@ -2904,6 +2962,7 @@ export default function PatientDetail() {
                                       ...assessmentData,
                                       installations: {...assessmentData.installations, urinaryCatheter: checked as boolean}
                                     })}
+                                    disabled={isPreOpReadOnly}
                                     data-testid="checkbox-urinary-catheter"
                                   />
                                   <Label htmlFor="urinaryCatheter" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.urinaryCatheter')}</Label>
@@ -2916,6 +2975,7 @@ export default function PatientDetail() {
                                       ...assessmentData,
                                       installations: {...assessmentData.installations, nasogastricTube: checked as boolean}
                                     })}
+                                    disabled={isPreOpReadOnly}
                                     data-testid="checkbox-nasogastric-tube"
                                   />
                                   <Label htmlFor="nasogastricTube" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.nasogastricTube')}</Label>
@@ -2928,6 +2988,7 @@ export default function PatientDetail() {
                                       ...assessmentData,
                                       installations: {...assessmentData.installations, peripheralIV: checked as boolean}
                                     })}
+                                    disabled={isPreOpReadOnly}
                                     data-testid="checkbox-peripheral-iv"
                                   />
                                   <Label htmlFor="peripheralIV" className="cursor-pointer font-normal text-sm">{t('anesthesia.patientDetail.peripheralIV')}</Label>
@@ -2942,6 +3003,7 @@ export default function PatientDetail() {
                                 onChange={(e) => setAssessmentData({...assessmentData, installationsOther: e.target.value})}
                                 placeholder={t('anesthesia.patientDetail.otherInstallationsPlaceholder')}
                                 rows={3}
+                                disabled={isPreOpReadOnly}
                                 data-testid="textarea-installations-other"
                               />
                             </div>
@@ -2973,6 +3035,7 @@ export default function PatientDetail() {
                             standByReason: checked ? "" : assessmentData.standByReason,
                             standByReasonNote: checked ? "" : assessmentData.standByReasonNote
                           })}
+                          disabled={isPreOpReadOnly}
                           data-testid="checkbox-approved"
                           className={assessmentData.surgicalApprovalStatus === "approved" ? "border-green-600 data-[state=checked]:bg-green-600" : ""}
                         />
@@ -2991,6 +3054,7 @@ export default function PatientDetail() {
                             standByReason: checked ? "" : assessmentData.standByReason,
                             standByReasonNote: checked ? "" : assessmentData.standByReasonNote
                           })}
+                          disabled={isPreOpReadOnly}
                           data-testid="checkbox-not-approved"
                           className={assessmentData.surgicalApprovalStatus === "not-approved" ? "border-red-600 data-[state=checked]:bg-red-600" : ""}
                         />
@@ -3017,6 +3081,7 @@ export default function PatientDetail() {
                           standByReasonNote: checked ? assessmentData.standByReasonNote : "",
                           surgicalApprovalStatus: checked ? "" : assessmentData.surgicalApprovalStatus
                         })}
+                        disabled={isPreOpReadOnly}
                         data-testid="switch-standby"
                         className={assessmentData.standBy ? "data-[state=checked]:bg-amber-600" : ""}
                       />
@@ -3035,6 +3100,7 @@ export default function PatientDetail() {
                               standByReason: value,
                               standByReasonNote: value !== "other" ? "" : assessmentData.standByReasonNote
                             })}
+                            disabled={isPreOpReadOnly}
                           >
                             <SelectTrigger data-testid="select-standby-reason">
                               <SelectValue placeholder={t('anesthesia.patientDetail.selectReason')} />
@@ -3062,6 +3128,7 @@ export default function PatientDetail() {
                               })}
                               placeholder={t('anesthesia.patientDetail.standByReasonNotePlaceholder')}
                               rows={2}
+                              disabled={isPreOpReadOnly}
                               data-testid="textarea-standby-note"
                             />
                           </div>
@@ -3078,6 +3145,7 @@ export default function PatientDetail() {
                         type="date"
                         value={assessmentData.assessmentDate}
                         onChange={(e) => setAssessmentData({...assessmentData, assessmentDate: e.target.value})}
+                        disabled={isPreOpReadOnly}
                         data-testid="input-assessment-date"
                       />
                       {assessmentData.assessmentDate && (
@@ -3092,6 +3160,7 @@ export default function PatientDetail() {
                         value={assessmentData.doctorName}
                         onChange={(e) => setAssessmentData({...assessmentData, doctorName: e.target.value})}
                         placeholder={t('anesthesia.patientDetail.enterYourName')}
+                        disabled={isPreOpReadOnly}
                         data-testid="input-doctor-name"
                       />
                     </div>
@@ -3101,8 +3170,8 @@ export default function PatientDetail() {
                   <div className="space-y-2">
                     <Label>{t('anesthesia.patientDetail.doctorSignature')}</Label>
                     <div
-                      className="border-2 border-dashed rounded-lg p-6 cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => setShowAssessmentSignaturePad(true)}
+                      className={`border-2 border-dashed rounded-lg p-6 transition-colors ${isPreOpReadOnly ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-muted/50'}`}
+                      onClick={() => !isPreOpReadOnly && setShowAssessmentSignaturePad(true)}
                       data-testid="assessment-signature-trigger"
                     >
                       {assessmentData.doctorSignature ? (
@@ -3124,7 +3193,7 @@ export default function PatientDetail() {
                     size="lg" 
                     className="w-full"
                     onClick={() => handleSavePreOpAssessment(false)}
-                    disabled={createPreOpMutation.isPending || updatePreOpMutation.isPending}
+                    disabled={isPreOpReadOnly || createPreOpMutation.isPending || updatePreOpMutation.isPending}
                     data-testid="button-save-draft"
                   >
                     {(createPreOpMutation.isPending || updatePreOpMutation.isPending) ? (
@@ -3138,7 +3207,7 @@ export default function PatientDetail() {
                   </Button>
 
                   {/* Complete button for Not Approved cases - only requires Pre-Op Assessment signature */}
-                  {assessmentData.surgicalApprovalStatus === "not-approved" && existingAssessment?.status !== "completed" && (
+                  {assessmentData.surgicalApprovalStatus === "not-approved" && existingAssessment?.status !== "completed" && canWrite && (
                     <Button 
                       className="w-full mt-3 bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800" 
                       size="lg" 
@@ -3161,7 +3230,7 @@ export default function PatientDetail() {
                   )}
 
                   {/* Move to Draft button - only shown when assessment is completed */}
-                  {existingAssessment?.status === "completed" && (
+                  {existingAssessment?.status === "completed" && canWrite && (
                     <Button 
                       variant="destructive"
                       size="lg" 
@@ -3188,6 +3257,7 @@ export default function PatientDetail() {
                         id="general"
                         checked={consentData.general}
                         onCheckedChange={(checked) => setConsentData({...consentData, general: checked as boolean})}
+                        disabled={isPreOpReadOnly}
                         data-testid="checkbox-general"
                       />
                       <div className="flex-1">
@@ -3208,6 +3278,7 @@ export default function PatientDetail() {
                         id="regional"
                         checked={consentData.regional}
                         onCheckedChange={(checked) => setConsentData({...consentData, regional: checked as boolean})}
+                        disabled={isPreOpReadOnly}
                         data-testid="checkbox-regional"
                       />
                       <div className="flex-1">
@@ -3228,6 +3299,7 @@ export default function PatientDetail() {
                         id="installations"
                         checked={consentData.installations}
                         onCheckedChange={(checked) => setConsentData({...consentData, installations: checked as boolean})}
+                        disabled={isPreOpReadOnly}
                         data-testid="checkbox-installations"
                       />
                       <div className="flex-1">
@@ -3248,6 +3320,7 @@ export default function PatientDetail() {
                         id="icuAdmission"
                         checked={consentData.icuAdmission}
                         onCheckedChange={(checked) => setConsentData({...consentData, icuAdmission: checked as boolean})}
+                        disabled={isPreOpReadOnly}
                         data-testid="checkbox-icu"
                       />
                       <div className="flex-1">
@@ -3273,6 +3346,7 @@ export default function PatientDetail() {
                         onChange={(e) => setConsentData({...consentData, notes: e.target.value})}
                         placeholder={t('anesthesia.patientDetail.consentNotesPlaceholder')}
                         className="min-h-[80px] resize-none"
+                        disabled={isPreOpReadOnly}
                         data-testid="textarea-consent-notes"
                       />
                     </div>
@@ -3285,6 +3359,7 @@ export default function PatientDetail() {
                         type="date"
                         value={consentData.date}
                         onChange={(e) => setConsentData({...consentData, date: e.target.value})}
+                        disabled={isPreOpReadOnly}
                         data-testid="input-consent-date"
                       />
                       {consentData.date && (
@@ -3298,8 +3373,8 @@ export default function PatientDetail() {
                       <div className="space-y-2">
                         <Label>{t('anesthesia.patientDetail.doctorSignature')}</Label>
                         <div
-                          className="border-2 border-dashed rounded-lg p-6 cursor-pointer hover:bg-muted/50 transition-colors"
-                          onClick={() => setShowConsentDoctorSignaturePad(true)}
+                          className={`border-2 border-dashed rounded-lg p-6 transition-colors ${isPreOpReadOnly ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-muted/50'}`}
+                          onClick={() => !isPreOpReadOnly && setShowConsentDoctorSignaturePad(true)}
                           data-testid="consent-doctor-signature-trigger"
                         >
                           {consentData.doctorSignature ? (
@@ -3319,8 +3394,8 @@ export default function PatientDetail() {
                       <div className="space-y-2">
                         <Label>{t('anesthesia.patientDetail.patientSignature')}</Label>
                         <div
-                          className={`border-2 border-dashed rounded-lg p-6 cursor-pointer hover:bg-muted/50 transition-colors ${consentData.emergencyNoSignature ? 'opacity-50 pointer-events-none' : ''}`}
-                          onClick={() => !consentData.emergencyNoSignature && setShowConsentPatientSignaturePad(true)}
+                          className={`border-2 border-dashed rounded-lg p-6 transition-colors ${(isPreOpReadOnly || consentData.emergencyNoSignature) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-muted/50'}`}
+                          onClick={() => !isPreOpReadOnly && !consentData.emergencyNoSignature && setShowConsentPatientSignaturePad(true)}
                           data-testid="consent-patient-signature-trigger"
                         >
                           {consentData.patientSignature ? (
@@ -3346,6 +3421,7 @@ export default function PatientDetail() {
                               emergencyNoSignature: checked as boolean,
                               patientSignature: checked ? "" : consentData.patientSignature
                             })}
+                            disabled={isPreOpReadOnly}
                             data-testid="checkbox-emergency-no-signature"
                             className={consentData.emergencyNoSignature ? "border-orange-600 data-[state=checked]:bg-orange-600" : ""}
                           />
@@ -3367,6 +3443,7 @@ export default function PatientDetail() {
                             sendEmailCopy: checked as boolean,
                             emailForCopy: checked ? (patient?.email || consentData.emailForCopy) : consentData.emailForCopy
                           })}
+                          disabled={isPreOpReadOnly}
                           data-testid="checkbox-send-email-copy"
                         />
                         <Label htmlFor="sendEmailCopy" className="cursor-pointer font-normal text-sm">
@@ -3382,6 +3459,7 @@ export default function PatientDetail() {
                             value={consentData.emailForCopy}
                             onChange={(e) => setConsentData({...consentData, emailForCopy: e.target.value})}
                             placeholder={patient?.email || t('anesthesia.patientDetail.enterPatientEmail')}
+                            disabled={isPreOpReadOnly}
                             data-testid="input-email-for-copy"
                           />
                           {!consentData.emailForCopy && !patient?.email && (
@@ -3399,7 +3477,7 @@ export default function PatientDetail() {
                       variant="outline"
                       size="lg" 
                       onClick={() => handleSavePreOpAssessment(false)}
-                      disabled={createPreOpMutation.isPending || updatePreOpMutation.isPending}
+                      disabled={isPreOpReadOnly || createPreOpMutation.isPending || updatePreOpMutation.isPending}
                       data-testid="button-save-consent-draft"
                     >
                       {(createPreOpMutation.isPending || updatePreOpMutation.isPending) ? (
@@ -3415,7 +3493,7 @@ export default function PatientDetail() {
                       className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800" 
                       size="lg" 
                       onClick={handleCompleteAssessment}
-                      disabled={createPreOpMutation.isPending || updatePreOpMutation.isPending || existingAssessment?.status === "completed" || !consentData.doctorSignature || (!consentData.patientSignature && !consentData.emergencyNoSignature)}
+                      disabled={isPreOpReadOnly || createPreOpMutation.isPending || updatePreOpMutation.isPending || existingAssessment?.status === "completed" || !consentData.doctorSignature || (!consentData.patientSignature && !consentData.emergencyNoSignature)}
                       data-testid="button-complete-consent"
                     >
                       {existingAssessment?.status === "completed" ? (
