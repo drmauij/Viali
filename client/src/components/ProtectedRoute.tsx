@@ -30,13 +30,13 @@ export function ProtectedRoute({
   // Determine the default redirect path based on active unit's module
   const getDefaultRedirect = (): string => {
     if (hasBusinessAccess) {
-      return "/business/dashboard";
+      return "/business";
     }
     if (hasAnesthesiaAccess) {
-      return "/anesthesia/patients";
+      return "/anesthesia/op";
     }
     if (hasSurgeryAccess) {
-      return "/surgery/or-schedule";
+      return "/surgery/op";
     }
     // Default fallback for inventory/standard units
     return "/inventory/items";

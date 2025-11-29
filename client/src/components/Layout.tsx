@@ -11,6 +11,9 @@ interface Hospital {
   role: string;
   unitId: string;
   unitName: string;
+  isAnesthesiaModule?: boolean;
+  isSurgeryModule?: boolean;
+  isBusinessModule?: boolean;
 }
 
 interface LayoutProps {
@@ -47,13 +50,24 @@ export default function Layout({ children }: LayoutProps) {
   }, [user, activeHospital]);
 
   const handleHospitalChange = (hospital: Hospital) => {
-    // Save to localStorage before reload
+    // Save to localStorage before redirect
     localStorage.setItem('activeHospital', `${hospital.id}-${hospital.unitId}-${hospital.role}`);
     // Dispatch custom event to notify other components
     window.dispatchEvent(new CustomEvent("hospital-changed"));
     setActiveHospital(hospital);
-    // Reload the page to refetch all queries with the new hospital/role context
-    window.location.reload();
+    
+    // Determine the correct redirect path based on the new unit's modules
+    let redirectPath = "/inventory/items"; // Default fallback
+    if (hospital.isBusinessModule) {
+      redirectPath = "/business";
+    } else if (hospital.isAnesthesiaModule) {
+      redirectPath = "/anesthesia/op";
+    } else if (hospital.isSurgeryModule) {
+      redirectPath = "/surgery/op";
+    }
+    
+    // Navigate to the appropriate module page
+    window.location.href = redirectPath;
   };
 
   if (!isAuthenticated) {
