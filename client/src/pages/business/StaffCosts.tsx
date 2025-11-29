@@ -234,23 +234,17 @@ export default function StaffCosts() {
             {t('business.staff.subtitle')}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-[140px]" data-testid="select-period">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="week">{t('business.periods.week')}</SelectItem>
-              <SelectItem value="month">{t('business.periods.month')}</SelectItem>
-              <SelectItem value="quarter">{t('business.periods.quarter')}</SelectItem>
-              <SelectItem value="year">{t('business.periods.year')}</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button data-testid="button-add-staff">
-            <UserPlus className="h-4 w-4 mr-2" />
-            {t('business.staff.addStaff')}
-          </Button>
-        </div>
+        <Select value={period} onValueChange={setPeriod}>
+          <SelectTrigger className="w-[140px]" data-testid="select-period">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="week">{t('business.periods.week')}</SelectItem>
+            <SelectItem value="month">{t('business.periods.month')}</SelectItem>
+            <SelectItem value="quarter">{t('business.periods.quarter')}</SelectItem>
+            <SelectItem value="year">{t('business.periods.year')}</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -313,7 +307,7 @@ export default function StaffCosts() {
                   <CardTitle className="text-lg">{t('business.staff.manageStaff')}</CardTitle>
                   <HelpTooltip content={t('business.help.manageStaff')} />
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -335,6 +329,10 @@ export default function StaffCosts() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <Button data-testid="button-add-staff">
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    {t('business.staff.addStaff')}
+                  </Button>
                 </div>
               </div>
               <CardDescription>{t('business.staff.manageStaffDesc')}</CardDescription>
