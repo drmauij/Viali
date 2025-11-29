@@ -2297,10 +2297,10 @@
       "hoursWorked": "Hours Worked"
     },
     "surgeryTypes": {
-      "cardiac": "Cardiac",
-      "neuro": "Neuro",
       "orthopedic": "Orthopedic",
-      "general": "General"
+      "general": "General",
+      "plastic": "Plastic",
+      "other": "Other"
     },
     "time": {
       "title": "Time Analytics",

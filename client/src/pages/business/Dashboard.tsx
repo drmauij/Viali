@@ -62,9 +62,7 @@ const mockStaffCostTrend = [
 
 const mockSurgeryByType = [
   { name: "Orthopedic", value: 245, color: "#3b82f6" },
-  { name: "Cardiac", value: 128, color: "#ef4444" },
   { name: "General", value: 312, color: "#10b981" },
-  { name: "Neuro", value: 89, color: "#f59e0b" },
   { name: "Plastic", value: 156, color: "#8b5cf6" },
   { name: "Other", value: 123, color: "#6b7280" },
 ];

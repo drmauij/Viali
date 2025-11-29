@@ -2312,10 +2312,10 @@
       "hoursWorked": "Geleistete Stunden"
     },
     "surgeryTypes": {
-      "cardiac": "Kardiologie",
-      "neuro": "Neurologie",
       "orthopedic": "Orthopädie",
-      "general": "Allgemein"
+      "general": "Allgemein",
+      "plastic": "Plastische Chirurgie",
+      "other": "Sonstige"
     },
     "time": {
       "title": "Zeitanalyse",

@@ -64,11 +64,10 @@ const mockStaffCostBreakdown = [
 ];
 
 const mockCostBySurgeryType = [
-  { type: "Cardiac", avgMaterialCost: 1850, avgLaborCost: 2450, avgTotalCost: 4300, count: 42, totalCost: 180600, trend: 5.2 },
   { type: "Orthopedic", avgMaterialCost: 680, avgLaborCost: 890, avgTotalCost: 1570, count: 156, totalCost: 244920, trend: -2.1 },
-  { type: "Neuro", avgMaterialCost: 1420, avgLaborCost: 1980, avgTotalCost: 3400, count: 38, totalCost: 129200, trend: 8.5 },
   { type: "General", avgMaterialCost: 245, avgLaborCost: 420, avgTotalCost: 665, count: 218, totalCost: 144970, trend: -1.8 },
   { type: "Plastic", avgMaterialCost: 520, avgLaborCost: 680, avgTotalCost: 1200, count: 89, totalCost: 106800, trend: 0.5 },
+  { type: "Other", avgMaterialCost: 380, avgLaborCost: 520, avgTotalCost: 900, count: 65, totalCost: 58500, trend: 1.2 },
 ];
 
 const mockTopItems = [
@@ -83,12 +82,12 @@ const mockTopItems = [
 ];
 
 const mockCostPerSurgeryTrend = [
-  { month: "Jan", orthopedic: 650, cardiac: 1780, neuro: 1350, general: 235 },
-  { month: "Feb", orthopedic: 680, cardiac: 1820, neuro: 1380, general: 248 },
-  { month: "Mar", orthopedic: 665, cardiac: 1790, neuro: 1420, general: 242 },
-  { month: "Apr", orthopedic: 695, cardiac: 1850, neuro: 1450, general: 238 },
-  { month: "May", orthopedic: 670, cardiac: 1880, neuro: 1480, general: 250 },
-  { month: "Jun", orthopedic: 680, cardiac: 1850, neuro: 1420, general: 245 },
+  { month: "Jan", orthopedic: 650, general: 235, plastic: 485, other: 365 },
+  { month: "Feb", orthopedic: 680, general: 248, plastic: 510, other: 378 },
+  { month: "Mar", orthopedic: 665, general: 242, plastic: 498, other: 362 },
+  { month: "Apr", orthopedic: 695, general: 238, plastic: 525, other: 388 },
+  { month: "May", orthopedic: 670, general: 250, plastic: 515, other: 375 },
+  { month: "Jun", orthopedic: 680, general: 245, plastic: 520, other: 380 },
 ];
 
 interface HelpTooltipProps {
@@ -347,10 +346,10 @@ export default function CostAnalytics() {
                 }}
               />
               <Legend />
-              <Line type="monotone" dataKey="cardiac" stroke="#ef4444" strokeWidth={2} name={t('business.surgeryTypes.cardiac')} dot={{ r: 3 }} />
-              <Line type="monotone" dataKey="neuro" stroke="#f59e0b" strokeWidth={2} name={t('business.surgeryTypes.neuro')} dot={{ r: 3 }} />
               <Line type="monotone" dataKey="orthopedic" stroke="#3b82f6" strokeWidth={2} name={t('business.surgeryTypes.orthopedic')} dot={{ r: 3 }} />
               <Line type="monotone" dataKey="general" stroke="#10b981" strokeWidth={2} name={t('business.surgeryTypes.general')} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="plastic" stroke="#8b5cf6" strokeWidth={2} name={t('business.surgeryTypes.plastic')} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="other" stroke="#6b7280" strokeWidth={2} name={t('business.surgeryTypes.other')} dot={{ r: 3 }} />
             </LineChart>
           </ResponsiveContainer>
         </div>
