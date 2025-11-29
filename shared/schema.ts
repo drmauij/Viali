@@ -60,10 +60,11 @@ export const units = pgTable("units", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
   name: varchar("name").notNull(),
-  type: varchar("type"), // OR, ICU, Storage, etc.
+  type: varchar("type"), // OR, ICU, Storage, business, etc.
   parentId: varchar("parent_id"),
   isAnesthesiaModule: boolean("is_anesthesia_module").default(false),
   isSurgeryModule: boolean("is_surgery_module").default(false),
+  isBusinessModule: boolean("is_business_module").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_units_hospital").on(table.hospitalId),

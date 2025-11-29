@@ -149,10 +149,10 @@ function Router() {
             {/* Admin Module - requires admin role */}
             <Route path="/admin">{() => <ProtectedRoute requireAdmin><AdminHospital /></ProtectedRoute>}</Route>
             <Route path="/admin/users">{() => <ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>}</Route>
-            {/* Business Module - requires admin role */}
-            <Route path="/business">{() => <ProtectedRoute requireAdmin><BusinessDashboard /></ProtectedRoute>}</Route>
-            <Route path="/business/costs">{() => <ProtectedRoute requireAdmin><CostAnalytics /></ProtectedRoute>}</Route>
-            <Route path="/business/time">{() => <ProtectedRoute requireAdmin><TimeAnalytics /></ProtectedRoute>}</Route>
+            {/* Business Module - requires business unit access */}
+            <Route path="/business">{() => <ProtectedRoute requireBusiness><BusinessDashboard /></ProtectedRoute>}</Route>
+            <Route path="/business/costs">{() => <ProtectedRoute requireBusiness><CostAnalytics /></ProtectedRoute>}</Route>
+            <Route path="/business/time">{() => <ProtectedRoute requireBusiness><TimeAnalytics /></ProtectedRoute>}</Route>
             <Route path="/signup" component={Signup} />
             {/* Demo/Testing Routes */}
             <Route path="/demo/editable-values" component={EditableValuesDemo} />

@@ -12,6 +12,7 @@ interface ModuleCard {
   route: string;
   color: string;
   adminOnly?: boolean;
+  businessOnly?: boolean;
 }
 
 export default function ModuleDrawer() {
@@ -40,6 +41,7 @@ export default function ModuleDrawer() {
   // When user switches units, available modules change accordingly
   const hasAnesthesiaAccess = activeHospital?.isAnesthesiaModule === true;
   const hasSurgeryAccess = activeHospital?.isSurgeryModule === true;
+  const hasBusinessAccess = activeHospital?.isBusinessModule === true;
   const isAdmin = activeHospital?.role === "admin";
 
   const allModules: ModuleCard[] = [
@@ -74,7 +76,7 @@ export default function ModuleDrawer() {
       description: t('modules.business.description'),
       route: "/business",
       color: "bg-amber-500",
-      adminOnly: true,
+      businessOnly: true,
     },
     {
       id: "admin",
@@ -90,6 +92,8 @@ export default function ModuleDrawer() {
   const modules = allModules.filter(module => {
     // Admin modules only for admins
     if (module.adminOnly && !isAdmin) return false;
+    // Business module only for users assigned to business units
+    if (module.businessOnly && !hasBusinessAccess) return false;
     // Anesthesia module only for anesthesia staff (assigned to anesthesia unit)
     if (module.id === "anesthesia" && !hasAnesthesiaAccess) return false;
     // Surgery module only for OR staff (assigned to surgery unit)

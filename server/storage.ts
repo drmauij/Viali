@@ -133,7 +133,7 @@ export interface IStorage {
   
   // Hospital operations
   getHospital(id: string): Promise<Hospital | undefined>;
-  getUserHospitals(userId: string): Promise<(Hospital & { role: string; unitId: string; unitName: string; isAnesthesiaModule: boolean; isSurgeryModule: boolean })[]>;
+  getUserHospitals(userId: string): Promise<(Hospital & { role: string; unitId: string; unitName: string; isAnesthesiaModule: boolean; isSurgeryModule: boolean; isBusinessModule: boolean })[]>;
   createHospital(name: string): Promise<Hospital>;
   updateHospital(id: string, updates: Partial<Hospital>): Promise<Hospital>;
   
@@ -478,7 +478,7 @@ export class DatabaseStorage implements IStorage {
     return hospital;
   }
 
-  async getUserHospitals(userId: string): Promise<(Hospital & { role: string; unitId: string; unitName: string; isAnesthesiaModule: boolean; isSurgeryModule: boolean })[]> {
+  async getUserHospitals(userId: string): Promise<(Hospital & { role: string; unitId: string; unitName: string; isAnesthesiaModule: boolean; isSurgeryModule: boolean; isBusinessModule: boolean })[]> {
     const result = await db
       .select()
       .from(hospitals)
@@ -493,7 +493,8 @@ export class DatabaseStorage implements IStorage {
       unitName: row.units.name,
       isAnesthesiaModule: row.units.isAnesthesiaModule ?? false,
       isSurgeryModule: row.units.isSurgeryModule ?? false,
-    })) as (Hospital & { role: string; unitId: string; unitName: string; isAnesthesiaModule: boolean; isSurgeryModule: boolean })[];
+      isBusinessModule: row.units.isBusinessModule ?? false,
+    })) as (Hospital & { role: string; unitId: string; unitName: string; isAnesthesiaModule: boolean; isSurgeryModule: boolean; isBusinessModule: boolean })[];
   }
 
   async createHospital(name: string): Promise<Hospital> {

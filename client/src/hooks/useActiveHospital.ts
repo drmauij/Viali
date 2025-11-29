@@ -9,6 +9,7 @@ interface Hospital {
   unitName: string;
   isAnesthesiaModule?: boolean;
   isSurgeryModule?: boolean;
+  isBusinessModule?: boolean;
 }
 
 function subscribe(callback: () => void) {

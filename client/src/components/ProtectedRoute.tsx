@@ -7,13 +7,15 @@ interface ProtectedRouteProps {
   requireAnesthesia?: boolean;
   requireSurgery?: boolean;
   requireAdmin?: boolean;
+  requireBusiness?: boolean;
 }
 
 export function ProtectedRoute({ 
   children, 
   requireAnesthesia, 
   requireSurgery,
-  requireAdmin 
+  requireAdmin,
+  requireBusiness
 }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading, user } = useAuth();
   const activeHospital = useActiveHospital();
@@ -23,6 +25,7 @@ export function ProtectedRoute({
   const hasAnesthesiaAccess = activeHospital?.isAnesthesiaModule === true;
   const hasSurgeryAccess = activeHospital?.isSurgeryModule === true;
   const hasAdminAccess = activeHospital?.role === "admin";
+  const hasBusinessAccess = activeHospital?.isBusinessModule === true;
 
   // Show loading while auth is loading or user data isn't available yet
   if (isLoading || (isAuthenticated && !user)) {
@@ -59,6 +62,11 @@ export function ProtectedRoute({
 
   // Check admin access - active unit role must be admin
   if (requireAdmin && !hasAdminAccess) {
+    return <Redirect to="/inventory/items" />;
+  }
+
+  // Check business module access - active unit must be business module
+  if (requireBusiness && !hasBusinessAccess) {
     return <Redirect to="/inventory/items" />;
   }
 
