@@ -83,15 +83,18 @@ const COLORS = {
 };
 
 const SWIMLANE_HEIGHTS = {
-  vitals: 200,
-  medications: 120,
-  events: 40,
-  staff: 60,
-  positions: 30,
-  ventilation: 80,
-  bis: 40,
-  tof: 40,
+  vitals: 280,
+  medications: 180,
+  events: 60,
+  staff: 80,
+  positions: 50,
+  ventilation: 120,
+  bis: 60,
+  tof: 60,
 };
+
+const CHART_WIDTH = 2000;
+const VENT_ROW_HEIGHT = 28;
 
 // Helper function to normalize data points that can be either [timestamp, value] arrays or {timestamp, value} objects
 function normalizeDataPoints(
@@ -725,7 +728,7 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
 
         yAxisIndex++;
         gridIndex++;
-        currentTop += SWIMLANE_HEIGHTS.medications + 20;
+        currentTop += SWIMLANE_HEIGHTS.medications + 40;
       }
 
       if (hasEvents) {
@@ -798,7 +801,7 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
 
         yAxisIndex++;
         gridIndex++;
-        currentTop += SWIMLANE_HEIGHTS.events + 20;
+        currentTop += SWIMLANE_HEIGHTS.events + 40;
       }
 
       if (hasStaff) {
@@ -873,7 +876,7 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
 
         yAxisIndex++;
         gridIndex++;
-        currentTop += SWIMLANE_HEIGHTS.staff + 20;
+        currentTop += SWIMLANE_HEIGHTS.staff + 40;
       }
 
       if (hasPositions) {
@@ -967,7 +970,7 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
           });
         });
 
-        currentTop += SWIMLANE_HEIGHTS.positions + 20;
+        currentTop += SWIMLANE_HEIGHTS.positions + 40;
       }
 
       // Ventilation parameters swimlane - numeric text display (like in the app)
@@ -982,16 +985,15 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
           { key: 'fio2', label: 'FiO2', data: normalizeDataPoints(ventilation.fio2), color: '#f59e0b' },
         ].filter(p => p.data.length > 0);
         
-        const ventRowHeight = 20;
-        const ventTotalHeight = ventParams.length * ventRowHeight;
+        const ventTotalHeight = ventParams.length * VENT_ROW_HEIGHT;
         
         // Create a grid for each ventilation parameter row
         ventParams.forEach((param, idx) => {
           grids.push({
             left: gridLeft,
             right: gridRight,
-            top: currentTop + (idx * ventRowHeight),
-            height: ventRowHeight,
+            top: currentTop + (idx * VENT_ROW_HEIGHT),
+            height: VENT_ROW_HEIGHT,
           });
 
           xAxes.push({
@@ -999,7 +1001,7 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
             gridIndex: gridIndex + idx,
             min: paddedMin,
             max: paddedMax,
-            axisLabel: { show: idx === ventParams.length - 1, formatter: formatTimeLabel, fontSize: 9 },
+            axisLabel: { show: idx === ventParams.length - 1, formatter: formatTimeLabel, fontSize: 11 },
             axisTick: { show: idx === ventParams.length - 1 },
             axisLine: { show: idx === ventParams.length - 1 },
             splitLine: { show: true, lineStyle: { color: '#f3f4f6', type: 'dashed' } },
@@ -1009,7 +1011,7 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
             type: 'category',
             gridIndex: gridIndex + idx,
             data: [param.label],
-            axisLabel: { fontSize: 10, fontWeight: 'bold', color: param.color },
+            axisLabel: { fontSize: 12, fontWeight: 'bold', color: param.color },
             axisTick: { show: false },
             axisLine: { show: false },
           });
@@ -1031,7 +1033,7 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
                 const timestamp = params.value[0];
                 return valuesMap.get(timestamp)?.toString() || '';
               },
-              fontSize: 11,
+              fontSize: 13,
               fontWeight: '600',
               fontFamily: 'monospace',
               color: param.color,
@@ -1042,7 +1044,7 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
 
         yAxisIndex += ventParams.length;
         gridIndex += ventParams.length;
-        currentTop += ventTotalHeight + 20;
+        currentTop += ventTotalHeight + 30;
       }
 
       // BIS swimlane (Bispectral Index - depth of anesthesia)
@@ -1094,7 +1096,7 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
 
         yAxisIndex++;
         gridIndex++;
-        currentTop += SWIMLANE_HEIGHTS.bis + 20;
+        currentTop += SWIMLANE_HEIGHTS.bis + 40;
       }
 
       // TOF swimlane (Train of Four - neuromuscular blockade)
@@ -1147,7 +1149,7 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
           z: 20,
         });
 
-        currentTop += SWIMLANE_HEIGHTS.tof + 20;
+        currentTop += SWIMLANE_HEIGHTS.tof + 40;
       }
 
       const totalHeight = currentTop + 40;
@@ -1196,14 +1198,14 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
     const hasBIS = bis && bis.length > 0;
     const hasTOF = tof && tof.length > 0;
 
-    let totalHeight = SWIMLANE_HEIGHTS.vitals + 100;
-    if (hasMedications) totalHeight += SWIMLANE_HEIGHTS.medications + 20;
-    if (hasEvents) totalHeight += SWIMLANE_HEIGHTS.events + 20;
-    if (hasStaff) totalHeight += SWIMLANE_HEIGHTS.staff + 20;
-    if (hasPositions) totalHeight += SWIMLANE_HEIGHTS.positions + 20;
-    if (hasVentilation) totalHeight += (ventParamsWithData * 20) + 20;
-    if (hasBIS) totalHeight += SWIMLANE_HEIGHTS.bis + 20;
-    if (hasTOF) totalHeight += SWIMLANE_HEIGHTS.tof + 40;
+    let totalHeight = SWIMLANE_HEIGHTS.vitals + 120;
+    if (hasMedications) totalHeight += SWIMLANE_HEIGHTS.medications + 50;
+    if (hasEvents) totalHeight += SWIMLANE_HEIGHTS.events + 50;
+    if (hasStaff) totalHeight += SWIMLANE_HEIGHTS.staff + 50;
+    if (hasPositions) totalHeight += SWIMLANE_HEIGHTS.positions + 50;
+    if (hasVentilation) totalHeight += (ventParamsWithData * VENT_ROW_HEIGHT) + 50;
+    if (hasBIS) totalHeight += SWIMLANE_HEIGHTS.bis + 50;
+    if (hasTOF) totalHeight += SWIMLANE_HEIGHTS.tof + 60;
 
     const option = buildChartOption();
 
@@ -1213,7 +1215,7 @@ export const HiddenFullTimelineExporter = forwardRef<HiddenFullTimelineExporterR
           position: 'fixed',
           left: '-9999px',
           top: '-9999px',
-          width: '1400px',
+          width: `${CHART_WIDTH}px`,
           height: `${totalHeight}px`,
           backgroundColor: '#ffffff',
           zIndex: -1000,
