@@ -49,8 +49,8 @@ export interface SeedMedication {
  */
 export const DEFAULT_UNITS: SeedUnit[] = [
   {
-    name: "Anesthesy",
-    type: "anesthesy",
+    name: "Anesthesia",
+    type: "anesthesia",
     parentId: null,
   },
   {

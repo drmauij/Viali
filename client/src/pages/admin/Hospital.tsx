@@ -953,7 +953,7 @@ export default function Hospital() {
             <AlertDialogDescription className="space-y-2">
               <p>This will add the following default data to your hospital:</p>
               <ul className="list-disc pl-5 space-y-1 text-sm">
-                <li><strong>4 Units:</strong> Anesthesy, OR, ER, ICU</li>
+                <li><strong>4 Units:</strong> Anesthesia, OR, ER, ICU</li>
                 <li><strong>3 Surgery Rooms:</strong> OP1, OP2, OP3</li>
                 <li><strong>5 Administration Groups:</strong> Infusions, Pumps, Bolus, Short IVs, Antibiotics</li>
                 <li><strong>13 Medications:</strong> Common anesthesia medications with complete configuration</li>

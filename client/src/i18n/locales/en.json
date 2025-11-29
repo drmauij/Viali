@@ -502,7 +502,7 @@
     "addUnit": "Add Unit",
     "editUnit": "Edit Unit",
     "unitName": "Unit Name",
-    "unitPlaceholder": "e.g., Anesthesy, OR, ER, ICU",
+    "unitPlaceholder": "e.g., Anesthesia Unit, Main OR, ER Station",
     "noUnits": "No Units",
     "noUnitsMessage": "Get started by adding your first unit.",
     "unitCreatedSuccess": "Unit created successfully",

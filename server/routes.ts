@@ -475,10 +475,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hospital = await storage.createHospital(hospitalName);
 
       // Create 4 default units
-      const anesthesyUnit = await storage.createUnit({
+      const anesthesiaUnit = await storage.createUnit({
         hospitalId: hospital.id,
-        name: "Anesthesy",
-        type: "anesthesy",
+        name: "Anesthesia",
+        type: "anesthesia",
         parentId: null,
         isAnesthesiaModule: true,
         isSurgeryModule: false,
@@ -511,11 +511,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isSurgeryModule: false,
       });
 
-      // Assign user as admin to the first unit (Anesthesy)
+      // Assign user as admin to the first unit (Anesthesia)
       await storage.createUserHospitalRole({
         userId,
         hospitalId: hospital.id,
-        unitId: anesthesyUnit.id,
+        unitId: anesthesiaUnit.id,
         role: "admin",
       });
 

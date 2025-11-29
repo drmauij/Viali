@@ -502,7 +502,7 @@
     "addUnit": "Einheit hinzufügen",
     "editUnit": "Einheit bearbeiten",
     "unitName": "Einheitenname",
-    "unitPlaceholder": "z.B. Anästhesie, OP, Notaufnahme, Intensivstation",
+    "unitPlaceholder": "z.B. Anästhesie-Einheit, Haupt-OP, Notaufnahme",
     "noUnits": "Keine Einheiten",
     "noUnitsMessage": "Beginnen Sie mit dem Hinzufügen Ihrer ersten Einheit.",
     "unitCreatedSuccess": "Einheit erfolgreich erstellt",

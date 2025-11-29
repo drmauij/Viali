@@ -144,7 +144,7 @@ export async function seedHospitalData(
   const existingUnits = await storage.getUnits(hospitalId);
   const existingUnitNames = new Set(existingUnits.map(l => l.name));
 
-  let anesthesyUnit = existingUnits.find(l => l.name === "Anesthesy");
+  let anesthesiaUnit = existingUnits.find(l => l.name === "Anesthesia");
   let orUnit = existingUnits.find(l => l.name === "Operating Room (OR)");
 
   for (const unitData of DEFAULT_UNITS) {
@@ -154,14 +154,14 @@ export async function seedHospitalData(
         name: unitData.name,
         type: unitData.type,
         parentId: unitData.parentId,
-        isAnesthesiaModule: unitData.name === "Anesthesy",
+        isAnesthesiaModule: unitData.name === "Anesthesia",
         isSurgeryModule: unitData.name === "Operating Room (OR)",
       });
       result.unitsCreated++;
 
       // Keep references to key units
-      if (unitData.name === "Anesthesy") {
-        anesthesyUnit = newUnit;
+      if (unitData.name === "Anesthesia") {
+        anesthesiaUnit = newUnit;
       } else if (unitData.name === "Operating Room (OR)") {
         orUnit = newUnit;
       }
@@ -169,19 +169,19 @@ export async function seedHospitalData(
   }
 
   // Ensure we have required units
-  if (!anesthesyUnit) {
-    throw new Error("Anesthesy unit not found - cannot seed medications");
+  if (!anesthesiaUnit) {
+    throw new Error("Anesthesia unit not found - cannot seed medications");
   }
   if (!orUnit) {
     throw new Error("Operating Room unit not found - cannot configure surgery module");
   }
 
-  // If this is a new hospital with a user, assign user as admin to Anesthesy unit
+  // If this is a new hospital with a user, assign user as admin to Anesthesia unit
   if (userId && existingUnits.length === 0) {
     await storage.createUserHospitalRole({
       userId,
       hospitalId,
-      unitId: anesthesyUnit.id,
+      unitId: anesthesiaUnit.id,
       role: "admin",
     });
   }
@@ -217,7 +217,7 @@ export async function seedHospitalData(
   }
 
   // 4. CREATE MEDICATIONS (only if they don't exist)
-  const existingItems = await storage.getItems(hospitalId, anesthesyUnit.id);
+  const existingItems = await storage.getItems(hospitalId, anesthesiaUnit.id);
   const existingItemNames = new Set(existingItems.map(i => i.name));
 
   for (const medData of DEFAULT_MEDICATIONS) {
@@ -225,7 +225,7 @@ export async function seedHospitalData(
       // Create the item
       const newItem = await storage.createItem({
         hospitalId,
-        unitId: anesthesyUnit.id,
+        unitId: anesthesiaUnit.id,
         name: medData.name,
         unit: medData.unit,
         trackExactQuantity: medData.trackExactQuantity,
@@ -250,7 +250,7 @@ export async function seedHospitalData(
       });
 
       // Create initial stock level (0 quantity)
-      await storage.updateStockLevel(newItem.id, anesthesyUnit.id, 0);
+      await storage.updateStockLevel(newItem.id, anesthesiaUnit.id, 0);
 
       result.medicationsCreated++;
     }
