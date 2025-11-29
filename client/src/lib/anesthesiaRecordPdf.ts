@@ -1803,6 +1803,409 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     yPos += 5;
   }
 
+  // ==================== SURGERY NURSE DOCUMENTATION ====================
+  if (data.anesthesiaRecord && (data.anesthesiaRecord.surgeryStaff || data.anesthesiaRecord.intraOpData || data.anesthesiaRecord.countsSterileData)) {
+    doc.addPage();
+    yPos = 20;
+
+    // Main Title
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text(i18next.t("anesthesia.pdf.nurseDoc.title", "SURGERY NURSE DOCUMENTATION"), 105, yPos, { align: "center" });
+    yPos += 12;
+
+    // ===== OR TEAM STAFF =====
+    const surgeryStaff = data.anesthesiaRecord.surgeryStaff as any;
+    if (surgeryStaff && Object.values(surgeryStaff).some(v => v)) {
+      doc.setFontSize(13);
+      doc.setFont("helvetica", "bold");
+      doc.setFillColor(59, 130, 246);
+      doc.rect(20, yPos - 5, 170, 8, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.text(i18next.t("anesthesia.pdf.nurseDoc.orTeam", "OR TEAM"), 22, yPos);
+      doc.setTextColor(0, 0, 0);
+      yPos += 10;
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+
+      const staffRows = [
+        { label: i18next.t("anesthesia.pdf.nurseDoc.surgeon", "Surgeon"), value: surgeryStaff.surgeon },
+        { label: i18next.t("anesthesia.pdf.nurseDoc.surgicalAssistant", "Surgical Assistant"), value: surgeryStaff.surgicalAssistant },
+        { label: i18next.t("anesthesia.pdf.nurseDoc.instrumentNurse", "Instrument Nurse (Scrub)"), value: surgeryStaff.instrumentNurse },
+        { label: i18next.t("anesthesia.pdf.nurseDoc.circulatingNurse", "Circulating Nurse"), value: surgeryStaff.circulatingNurse },
+        { label: i18next.t("anesthesia.pdf.nurseDoc.anesthesiologist", "Anesthesiologist"), value: surgeryStaff.anesthesiologist },
+        { label: i18next.t("anesthesia.pdf.nurseDoc.anesthesiaNurse", "Anesthesia Nurse"), value: surgeryStaff.anesthesiaNurse },
+      ].filter(row => row.value);
+
+      staffRows.forEach(row => {
+        doc.setFont("helvetica", "bold");
+        doc.text(`${row.label}: `, 25, yPos);
+        doc.setFont("helvetica", "normal");
+        doc.text(row.value, 80, yPos);
+        yPos += 5;
+      });
+      yPos += 5;
+    }
+
+    // ===== INTRAOPERATIVE DOCUMENTATION =====
+    const intraOpData = data.anesthesiaRecord.intraOpData as any;
+    if (intraOpData) {
+      yPos = checkPageBreak(doc, yPos, 60);
+
+      doc.setFontSize(13);
+      doc.setFont("helvetica", "bold");
+      doc.setFillColor(16, 185, 129);
+      doc.rect(20, yPos - 5, 170, 8, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.text(i18next.t("anesthesia.pdf.nurseDoc.intraOpDoc", "INTRAOPERATIVE DOCUMENTATION"), 22, yPos);
+      doc.setTextColor(0, 0, 0);
+      yPos += 10;
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+
+      // Positioning
+      if (intraOpData.positioning) {
+        const pos = intraOpData.positioning;
+        const positions: string[] = [];
+        if (pos.RL) positions.push(i18next.t("anesthesia.pdf.nurseDoc.supine", "Supine (RL)"));
+        if (pos.SL) positions.push(i18next.t("anesthesia.pdf.nurseDoc.lateral", "Lateral (SL)"));
+        if (pos.BL) positions.push(i18next.t("anesthesia.pdf.nurseDoc.prone", "Prone (BL)"));
+        if (pos.SSL) positions.push(i18next.t("anesthesia.pdf.nurseDoc.lithotomy", "Lithotomy (SSL)"));
+        if (pos.EXT) positions.push(i18next.t("anesthesia.pdf.nurseDoc.extension", "Extension"));
+
+        if (positions.length > 0) {
+          doc.setFont("helvetica", "bold");
+          doc.text(`${i18next.t("anesthesia.pdf.nurseDoc.positioning", "Patient Positioning")}: `, 25, yPos);
+          doc.setFont("helvetica", "normal");
+          doc.text(positions.join(", "), 75, yPos);
+          yPos += 6;
+        }
+      }
+
+      // Disinfection
+      if (intraOpData.disinfection) {
+        const disinfect = intraOpData.disinfection;
+        const products: string[] = [];
+        if (disinfect.kodanColored) products.push("Kodan (colored)");
+        if (disinfect.kodanColorless) products.push("Kodan (colorless)");
+        if (disinfect.octanisept) products.push("Octenisept");
+
+        if (products.length > 0 || disinfect.performedBy) {
+          doc.setFont("helvetica", "bold");
+          doc.text(`${i18next.t("anesthesia.pdf.nurseDoc.disinfection", "Disinfection")}: `, 25, yPos);
+          doc.setFont("helvetica", "normal");
+          let disinfectText = products.join(", ");
+          if (disinfect.performedBy) {
+            disinfectText += disinfectText ? ` (${i18next.t("anesthesia.pdf.nurseDoc.performedBy", "by")}: ${disinfect.performedBy})` : disinfect.performedBy;
+          }
+          doc.text(disinfectText, 65, yPos);
+          yPos += 6;
+        }
+      }
+
+      // Equipment
+      if (intraOpData.equipment) {
+        const equip = intraOpData.equipment;
+        yPos = checkPageBreak(doc, yPos, 20);
+        doc.setFont("helvetica", "bold");
+        doc.text(`${i18next.t("anesthesia.pdf.nurseDoc.equipment", "Equipment")}:`, 25, yPos);
+        yPos += 5;
+        doc.setFont("helvetica", "normal");
+
+        const equipList: string[] = [];
+        if (equip.monopolar) equipList.push(i18next.t("anesthesia.pdf.nurseDoc.monopolar", "Monopolar"));
+        if (equip.bipolar) equipList.push(i18next.t("anesthesia.pdf.nurseDoc.bipolar", "Bipolar"));
+        if (equipList.length > 0) {
+          doc.text(`• ${i18next.t("anesthesia.pdf.nurseDoc.electrosurgery", "Electrosurgery")}: ${equipList.join(", ")}`, 30, yPos);
+          yPos += 4.5;
+        }
+        if (equip.neutralElectrodeLocation) {
+          doc.text(`• ${i18next.t("anesthesia.pdf.nurseDoc.neutralElectrode", "Neutral electrode")}: ${equip.neutralElectrodeLocation}`, 30, yPos);
+          yPos += 4.5;
+        }
+        if (equip.pathology?.histology || equip.pathology?.microbiology) {
+          const pathList: string[] = [];
+          if (equip.pathology.histology) pathList.push(i18next.t("anesthesia.pdf.nurseDoc.histology", "Histology"));
+          if (equip.pathology.microbiology) pathList.push(i18next.t("anesthesia.pdf.nurseDoc.microbiology", "Microbiology"));
+          doc.text(`• ${i18next.t("anesthesia.pdf.nurseDoc.pathology", "Pathology")}: ${pathList.join(", ")}`, 30, yPos);
+          yPos += 4.5;
+        }
+        if (equip.devices) {
+          doc.text(`• ${i18next.t("anesthesia.pdf.nurseDoc.devices", "Devices")}: ${equip.devices}`, 30, yPos);
+          yPos += 4.5;
+        }
+        if (equip.notes) {
+          doc.text(`• ${i18next.t("anesthesia.pdf.nurseDoc.notes", "Notes")}: ${equip.notes}`, 30, yPos);
+          yPos += 4.5;
+        }
+        yPos += 2;
+      }
+
+      // Irrigation
+      if (intraOpData.irrigation) {
+        const irr = intraOpData.irrigation;
+        const irrList: string[] = [];
+        if (irr.nacl) irrList.push("NaCl");
+        if (irr.betadine) irrList.push("Betadine");
+        if (irr.hydrogenPeroxide) irrList.push(i18next.t("anesthesia.pdf.nurseDoc.hydrogenPeroxide", "H2O2"));
+        if (irr.other) irrList.push(irr.other);
+
+        if (irrList.length > 0) {
+          doc.setFont("helvetica", "bold");
+          doc.text(`${i18next.t("anesthesia.pdf.nurseDoc.irrigation", "Irrigation")}: `, 25, yPos);
+          doc.setFont("helvetica", "normal");
+          doc.text(irrList.join(", "), 60, yPos);
+          yPos += 6;
+        }
+      }
+
+      // Infiltration
+      if (intraOpData.infiltration) {
+        const inf = intraOpData.infiltration;
+        const infList: string[] = [];
+        if (inf.tumorSolution) infList.push(i18next.t("anesthesia.pdf.nurseDoc.tumorSolution", "Tumor solution"));
+        if (inf.other) infList.push(inf.other);
+
+        if (infList.length > 0) {
+          doc.setFont("helvetica", "bold");
+          doc.text(`${i18next.t("anesthesia.pdf.nurseDoc.infiltration", "Infiltration")}: `, 25, yPos);
+          doc.setFont("helvetica", "normal");
+          doc.text(infList.join(", "), 60, yPos);
+          yPos += 6;
+        }
+      }
+
+      // Medications (intra-op)
+      if (intraOpData.medications) {
+        const meds = intraOpData.medications;
+        const medList: string[] = [];
+        if (meds.ropivacain) medList.push("Ropivacain");
+        if (meds.bupivacain) medList.push("Bupivacain");
+        if (meds.contrast) medList.push(i18next.t("anesthesia.pdf.nurseDoc.contrast", "Contrast"));
+        if (meds.ointments) medList.push(i18next.t("anesthesia.pdf.nurseDoc.ointments", "Ointments"));
+        if (meds.other) medList.push(meds.other);
+
+        if (medList.length > 0) {
+          doc.setFont("helvetica", "bold");
+          doc.text(`${i18next.t("anesthesia.pdf.nurseDoc.intraOpMeds", "Intra-Op Medications")}: `, 25, yPos);
+          doc.setFont("helvetica", "normal");
+          doc.text(medList.join(", "), 75, yPos);
+          yPos += 6;
+        }
+      }
+
+      // Dressing
+      if (intraOpData.dressing) {
+        const dress = intraOpData.dressing;
+        const dressList: string[] = [];
+        if (dress.elasticBandage) dressList.push(i18next.t("anesthesia.pdf.nurseDoc.elasticBandage", "Elastic bandage"));
+        if (dress.abdominalBelt) dressList.push(i18next.t("anesthesia.pdf.nurseDoc.abdominalBelt", "Abdominal belt"));
+        if (dress.bra) dressList.push(i18next.t("anesthesia.pdf.nurseDoc.bra", "Bra"));
+        if (dress.faceLiftMask) dressList.push(i18next.t("anesthesia.pdf.nurseDoc.faceLiftMask", "Face-lift mask"));
+        if (dress.steristrips) dressList.push("Steri-strips");
+        if (dress.comfeel) dressList.push("Comfeel");
+        if (dress.opsite) dressList.push("Opsite");
+        if (dress.compresses) dressList.push(i18next.t("anesthesia.pdf.nurseDoc.compresses", "Compresses"));
+        if (dress.mefix) dressList.push("Mefix");
+        if (dress.other) dressList.push(dress.other);
+
+        if (dressList.length > 0) {
+          yPos = checkPageBreak(doc, yPos, 15);
+          doc.setFont("helvetica", "bold");
+          doc.text(`${i18next.t("anesthesia.pdf.nurseDoc.dressing", "Dressing")}: `, 25, yPos);
+          doc.setFont("helvetica", "normal");
+          const dressText = dressList.join(", ");
+          const splitDress = doc.splitTextToSize(dressText, 125);
+          splitDress.forEach((line: string, idx: number) => {
+            doc.text(line, idx === 0 ? 55 : 25, yPos);
+            yPos += 4.5;
+          });
+          yPos += 2;
+        }
+      }
+
+      // Drainage
+      if (intraOpData.drainage) {
+        const drain = intraOpData.drainage;
+        const drainInfo: string[] = [];
+        if (drain.redonCH) drainInfo.push(`Redon CH${drain.redonCH}`);
+        if (drain.redonCount) drainInfo.push(`${i18next.t("anesthesia.pdf.nurseDoc.count", "Count")}: ${drain.redonCount}`);
+        if (drain.other) drainInfo.push(drain.other);
+
+        if (drainInfo.length > 0) {
+          doc.setFont("helvetica", "bold");
+          doc.text(`${i18next.t("anesthesia.pdf.nurseDoc.drainage", "Drainage")}: `, 25, yPos);
+          doc.setFont("helvetica", "normal");
+          doc.text(drainInfo.join(", "), 55, yPos);
+          yPos += 6;
+        }
+      }
+
+      // Nurse Signatures (intra-op)
+      if (intraOpData.signatures) {
+        yPos = checkPageBreak(doc, yPos, 40);
+        doc.setFont("helvetica", "bold");
+        doc.text(`${i18next.t("anesthesia.pdf.nurseDoc.intraOpSignatures", "Intra-Op Signatures")}:`, 25, yPos);
+        yPos += 7;
+
+        if (intraOpData.signatures.circulatingNurse) {
+          doc.setFont("helvetica", "normal");
+          doc.text(`${i18next.t("anesthesia.pdf.nurseDoc.circulatingNurse", "Circulating Nurse")}:`, 25, yPos);
+          if (intraOpData.signatures.circulatingNurse.startsWith('data:image')) {
+            renderSignatureImage(doc, intraOpData.signatures.circulatingNurse, 80, yPos - 3, 50, 15);
+          }
+          yPos += 18;
+        }
+
+        if (intraOpData.signatures.instrumentNurse) {
+          doc.setFont("helvetica", "normal");
+          doc.text(`${i18next.t("anesthesia.pdf.nurseDoc.instrumentNurse", "Instrument Nurse (Scrub)")}:`, 25, yPos);
+          if (intraOpData.signatures.instrumentNurse.startsWith('data:image')) {
+            renderSignatureImage(doc, intraOpData.signatures.instrumentNurse, 80, yPos - 3, 50, 15);
+          }
+          yPos += 18;
+        }
+      }
+
+      yPos += 5;
+    }
+
+    // ===== SURGICAL COUNTS & STERILE ITEMS =====
+    const countsSterileData = data.anesthesiaRecord.countsSterileData as any;
+    if (countsSterileData) {
+      yPos = checkPageBreak(doc, yPos, 60);
+
+      doc.setFontSize(13);
+      doc.setFont("helvetica", "bold");
+      doc.setFillColor(139, 92, 246);
+      doc.rect(20, yPos - 5, 170, 8, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.text(i18next.t("anesthesia.pdf.nurseDoc.countsSterile", "SURGICAL COUNTS & STERILE ITEMS"), 22, yPos);
+      doc.setTextColor(0, 0, 0);
+      yPos += 10;
+
+      // Surgical Counts Table
+      if (countsSterileData.surgicalCounts && countsSterileData.surgicalCounts.length > 0) {
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.text(i18next.t("anesthesia.pdf.nurseDoc.surgicalCounts", "Surgical Counts"), 25, yPos);
+        yPos += 5;
+
+        const countsData = countsSterileData.surgicalCounts.map((item: any) => [
+          item.name,
+          item.count1 ?? "-",
+          item.count2 ?? "-",
+          item.countFinal ?? "-"
+        ]);
+
+        autoTable(doc, {
+          startY: yPos,
+          head: [[
+            i18next.t("anesthesia.pdf.nurseDoc.item", "Item"),
+            i18next.t("anesthesia.pdf.nurseDoc.count1", "Count 1"),
+            i18next.t("anesthesia.pdf.nurseDoc.count2", "Count 2"),
+            i18next.t("anesthesia.pdf.nurseDoc.countFinal", "Final")
+          ]],
+          body: countsData,
+          theme: "grid",
+          styles: { fontSize: 8, cellPadding: 2 },
+          headStyles: { fillColor: [139, 92, 246], textColor: 255 },
+          columnStyles: {
+            0: { cellWidth: 80 },
+            1: { cellWidth: 25, halign: 'center' },
+            2: { cellWidth: 25, halign: 'center' },
+            3: { cellWidth: 25, halign: 'center' },
+          },
+        });
+        yPos = (doc as any).lastAutoTable.finalY + 8;
+      }
+
+      // Sterile Items Table
+      if (countsSterileData.sterileItems && countsSterileData.sterileItems.length > 0) {
+        yPos = checkPageBreak(doc, yPos, 40);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.text(i18next.t("anesthesia.pdf.nurseDoc.sterileItems", "Sterile Items Used"), 25, yPos);
+        yPos += 5;
+
+        const sterileData = countsSterileData.sterileItems.map((item: any) => [
+          item.name,
+          item.lotNumber || "-",
+          item.quantity
+        ]);
+
+        autoTable(doc, {
+          startY: yPos,
+          head: [[
+            i18next.t("anesthesia.pdf.nurseDoc.item", "Item"),
+            i18next.t("anesthesia.pdf.nurseDoc.lotNumber", "Lot Number"),
+            i18next.t("anesthesia.pdf.nurseDoc.quantity", "Qty")
+          ]],
+          body: sterileData,
+          theme: "grid",
+          styles: { fontSize: 8, cellPadding: 2 },
+          headStyles: { fillColor: [139, 92, 246], textColor: 255 },
+          columnStyles: {
+            0: { cellWidth: 90 },
+            1: { cellWidth: 50 },
+            2: { cellWidth: 20, halign: 'center' },
+          },
+        });
+        yPos = (doc as any).lastAutoTable.finalY + 8;
+      }
+
+      // Sutures
+      if (countsSterileData.sutures && Object.keys(countsSterileData.sutures).length > 0) {
+        yPos = checkPageBreak(doc, yPos, 20);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.text(i18next.t("anesthesia.pdf.nurseDoc.sutures", "Sutures"), 25, yPos);
+        yPos += 5;
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+
+        Object.entries(countsSterileData.sutures).forEach(([type, size]) => {
+          doc.text(`• ${type}: ${size}`, 30, yPos);
+          yPos += 4.5;
+        });
+        yPos += 3;
+      }
+
+      // Count Signatures
+      if (countsSterileData.signatures) {
+        yPos = checkPageBreak(doc, yPos, 40);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.text(`${i18next.t("anesthesia.pdf.nurseDoc.countSignatures", "Count Verification Signatures")}:`, 25, yPos);
+        yPos += 7;
+
+        if (countsSterileData.signatures.instrumenteur) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9);
+          doc.text(`${i18next.t("anesthesia.pdf.nurseDoc.instrumentNurse", "Instrument Nurse (Scrub)")}:`, 25, yPos);
+          if (countsSterileData.signatures.instrumenteur.startsWith('data:image')) {
+            renderSignatureImage(doc, countsSterileData.signatures.instrumenteur, 90, yPos - 3, 50, 15);
+          }
+          yPos += 18;
+        }
+
+        if (countsSterileData.signatures.circulating) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9);
+          doc.text(`${i18next.t("anesthesia.pdf.nurseDoc.circulatingNurse", "Circulating Nurse")}:`, 25, yPos);
+          if (countsSterileData.signatures.circulating.startsWith('data:image')) {
+            renderSignatureImage(doc, countsSterileData.signatures.circulating, 90, yPos - 3, 50, 15);
+          }
+          yPos += 18;
+        }
+      }
+
+      yPos += 5;
+    }
+  }
+
   // ==================== FOOTER ====================
   const pageCount = (doc as any).internal.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
