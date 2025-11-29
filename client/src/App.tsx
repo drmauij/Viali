@@ -40,6 +40,7 @@ import SurgerySettings from "@/pages/surgery/SurgerySettings";
 import BusinessDashboard from "@/pages/business/Dashboard";
 import CostAnalytics from "@/pages/business/CostAnalytics";
 import TimeAnalytics from "@/pages/business/TimeAnalytics";
+import StaffCosts from "@/pages/business/StaffCosts";
 import EditableValuesDemo from "@/pages/EditableValuesDemo";
 import "@/i18n/config";
 
@@ -168,6 +169,7 @@ function Router() {
             <Route path="/business">{() => <ProtectedRoute requireBusiness><BusinessDashboard /></ProtectedRoute>}</Route>
             <Route path="/business/costs">{() => <ProtectedRoute requireBusiness><CostAnalytics /></ProtectedRoute>}</Route>
             <Route path="/business/time">{() => <ProtectedRoute requireBusiness><TimeAnalytics /></ProtectedRoute>}</Route>
+            <Route path="/business/staff">{() => <ProtectedRoute requireBusiness><StaffCosts /></ProtectedRoute>}</Route>
             <Route path="/signup" component={Signup} />
             {/* Demo/Testing Routes */}
             <Route path="/demo/editable-values" component={EditableValuesDemo} />
