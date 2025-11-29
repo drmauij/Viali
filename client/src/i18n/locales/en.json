@@ -71,6 +71,11 @@
       "patients": "Patients",
       "op": "OP",
       "settings": "Settings"
+    },
+    "business": {
+      "dashboard": "Dashboard",
+      "costs": "Costs",
+      "time": "Time"
     }
   },
   "modules": {
@@ -91,6 +96,10 @@
     "admin": {
       "title": "Administration",
       "description": "User management, hospital settings, and system configuration"
+    },
+    "business": {
+      "title": "Business Control",
+      "description": "Executive dashboards, cost analysis, and operational efficiency metrics"
     }
   },
   "home": {
@@ -2141,6 +2150,157 @@
       "allowedFormats": "Please upload JPEG, PNG, GIF images or PDF files",
       "fileTooLarge": "File Too Large",
       "maxFileSize": "Maximum file size is 5MB"
+    }
+  },
+  "business": {
+    "dashboard": {
+      "title": "Business Dashboard",
+      "subtitle": "Executive overview of surgical operations and costs"
+    },
+    "periods": {
+      "week": "This Week",
+      "month": "This Month",
+      "quarter": "This Quarter",
+      "year": "This Year"
+    },
+    "kpi": {
+      "totalSurgeries": "Total Surgeries",
+      "thisMonth": "This month",
+      "vsLastMonth": "vs last month",
+      "totalCosts": "Total Costs",
+      "materialsAndSupplies": "Materials & supplies",
+      "avgDuration": "Average Duration",
+      "perSurgery": "Per surgery",
+      "orUtilization": "OR Utilization",
+      "acrossAllRooms": "Across all rooms",
+      "costPerSurgery": "Cost per Surgery",
+      "averageMaterialCost": "Average material cost",
+      "turnoverTime": "Turnover Time",
+      "betweenSurgeries": "Between surgeries",
+      "onTimeStart": "On-Time Start",
+      "startedWithin15min": "Started within 15 min",
+      "cancellationRate": "Cancellation Rate",
+      "ofPlannedSurgeries": "Of planned surgeries"
+    },
+    "charts": {
+      "surgeryTrend": "Surgery Volume Trend",
+      "surgeryTrendDesc": "Comparing actual vs planned surgeries over time",
+      "actual": "Actual",
+      "planned": "Planned",
+      "costTrend": "Cost Trend",
+      "costTrendDesc": "Monthly spending compared to budget",
+      "actualCosts": "Actual Costs",
+      "budget": "Budget",
+      "surgeryByType": "Surgeries by Type",
+      "surgeryByTypeDesc": "Distribution of surgical procedures",
+      "roomUtilization": "OR Room Utilization",
+      "roomUtilizationDesc": "Usage rate per operating room",
+      "utilization": "Utilization",
+      "target": "Target"
+    },
+    "alerts": {
+      "title": "Alerts & Insights",
+      "description": "Key observations requiring attention",
+      "highCancellation": "Cancellation Rate Above Target",
+      "highCancellationDesc": "Cancellation rate of 4.8% exceeds the 3% target. Consider reviewing scheduling processes.",
+      "or3Overload": "OR-3 Operating Above Capacity",
+      "or3OverloadDesc": "Room utilization at 91% may cause scheduling stress. Consider redistributing cases.",
+      "turnoverImproved": "Turnover Time Improved",
+      "turnoverImprovedDesc": "Average turnover reduced by 8.5% this month - good progress toward efficiency goals."
+    },
+    "help": {
+      "totalSurgeries": "The total number of completed surgical procedures. Use this to track surgical volume and capacity planning. Higher numbers indicate more activity, but check quality metrics alongside.",
+      "totalCosts": "Total spending on materials, supplies, and medications used during surgeries. This excludes staff costs. Track this to identify spending trends and potential savings opportunities.",
+      "avgDuration": "Average time from surgery start to end. Shorter durations often mean more efficiency, but too short may indicate incomplete procedures. Compare against similar surgery types for meaningful insights.",
+      "orUtilization": "Percentage of time operating rooms are actively used. Industry benchmark is 70-85%. Below 70% suggests capacity for more surgeries; above 85% may cause scheduling stress and delays.",
+      "costPerSurgery": "Average material and supply cost per surgical procedure. Use this to identify cost optimization opportunities. Compare across surgery types and time periods to spot anomalies.",
+      "turnoverTime": "Time between one surgery ending and the next beginning in the same room. Includes cleaning, preparation, and patient transfer. Shorter times mean more efficient room use.",
+      "onTimeStart": "Percentage of surgeries that started within 15 minutes of scheduled time. High rates indicate good scheduling and preparation. Low rates may signal process issues.",
+      "cancellationRate": "Percentage of planned surgeries that were cancelled. High rates waste resources and delay patient care. Target is typically below 5%.",
+      "surgeryTrend": "Shows how surgical volume changes over time compared to planned targets. Gaps between actual and planned indicate scheduling accuracy and capacity issues.",
+      "costTrend": "Tracks monthly spending against budget. Consistent overruns may indicate pricing issues or usage inefficiencies. Use this for financial planning and forecasting.",
+      "surgeryByType": "Distribution of surgical procedures by category. Use this to understand your case mix and plan resources accordingly. Changes in mix affect staffing and supply needs.",
+      "roomUtilization": "How efficiently each operating room is being used. Uneven distribution may indicate scheduling opportunities. Rooms consistently below target may need process review.",
+      "alerts": "Automated insights highlighting areas needing attention. Green alerts show positive trends, amber indicates caution, red requires immediate action."
+    },
+    "costs": {
+      "title": "Cost Analytics",
+      "subtitle": "Detailed analysis of surgical costs and spending patterns",
+      "totalSpending": "Total Spending",
+      "thisMonth": "This month",
+      "ofTotal": "of total",
+      "medicationCosts": "Medication Costs",
+      "suppliesCosts": "Supplies Costs",
+      "avgCostPerSurgery": "Avg. Cost per Surgery",
+      "allProcedures": "All procedures",
+      "costByCategory": "Cost by Category",
+      "costByCategoryDesc": "Breakdown of spending across major categories",
+      "monthlyBreakdown": "Monthly Cost Breakdown",
+      "monthlyBreakdownDesc": "Stacked view of spending categories over time",
+      "supplies": "Supplies",
+      "medications": "Medications",
+      "equipment": "Equipment",
+      "other": "Other",
+      "costPerSurgeryType": "Cost per Surgery Type",
+      "costPerSurgeryTypeDesc": "Average material cost trends by procedure category",
+      "costBySurgeryType": "Cost by Surgery Type",
+      "costBySurgeryTypeDesc": "Comparing costs across different surgical procedures",
+      "surgeryType": "Surgery Type",
+      "avgCost": "Avg. Cost",
+      "surgeryCount": "Surgeries",
+      "totalCost": "Total Cost",
+      "trend": "Trend",
+      "topItems": "Top Cost Items",
+      "topItemsDesc": "Items with highest total spending this period",
+      "itemName": "Item",
+      "category": "Category",
+      "unitCost": "Unit Cost",
+      "usage": "Usage",
+      "totalCost": "Total Cost"
+    },
+    "surgeryTypes": {
+      "cardiac": "Cardiac",
+      "neuro": "Neuro",
+      "orthopedic": "Orthopedic",
+      "general": "General"
+    },
+    "time": {
+      "title": "Time Analytics",
+      "subtitle": "Surgical efficiency and time management analysis",
+      "avgDuration": "Avg. Duration",
+      "perSurgery": "Per surgery",
+      "turnoverTime": "Turnover Time",
+      "betweenCases": "Between cases",
+      "onTimeStart": "On-Time Start",
+      "within15min": "Within 15 min of schedule",
+      "orUtilization": "OR Utilization",
+      "avgAcrossRooms": "Avg. across all rooms",
+      "durationTrend": "Duration Trend",
+      "durationTrendDesc": "Actual vs planned surgery durations over time",
+      "planned": "Planned",
+      "actual": "Actual",
+      "turnoverTrend": "Turnover Time Trend",
+      "turnoverTrendDesc": "Time between surgeries with target line",
+      "turnover": "Turnover",
+      "target": "Target",
+      "phaseBreakdown": "Surgical Phase Breakdown",
+      "phaseBreakdownDesc": "Average time spent in each phase of the surgical process",
+      "roomUtilization": "Room Utilization by Time of Day",
+      "roomUtilizationDesc": "Operating room usage patterns throughout the day",
+      "morning": "Morning (7-12)",
+      "afternoon": "Afternoon (12-17)",
+      "evening": "Evening (17-22)",
+      "surgeonEfficiency": "Surgeon Efficiency",
+      "surgeonEfficiencyDesc": "Performance metrics by surgeon",
+      "surgeon": "Surgeon",
+      "surgeries": "Surgeries",
+      "avgDurationShort": "Avg. Duration",
+      "plannedDuration": "Planned",
+      "efficiency": "Efficiency",
+      "onTimeRate": "On-Time Rate",
+      "weeklyPattern": "Weekly Surgery Pattern",
+      "weeklyPatternDesc": "Surgery volume and duration by day of week",
+      "surgeryCount": "Surgery Count"
     }
   }
 }

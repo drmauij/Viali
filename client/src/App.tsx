@@ -37,6 +37,9 @@ import Pacu from "@/pages/anesthesia/Pacu";
 import AnesthesiaReports from "@/pages/anesthesia/Reports";
 import AnesthesiaSettings from "@/pages/anesthesia/Settings";
 import SurgerySettings from "@/pages/surgery/SurgerySettings";
+import BusinessDashboard from "@/pages/business/Dashboard";
+import CostAnalytics from "@/pages/business/CostAnalytics";
+import TimeAnalytics from "@/pages/business/TimeAnalytics";
 import EditableValuesDemo from "@/pages/EditableValuesDemo";
 import "@/i18n/config";
 
@@ -146,6 +149,10 @@ function Router() {
             {/* Admin Module - requires admin role */}
             <Route path="/admin">{() => <ProtectedRoute requireAdmin><AdminHospital /></ProtectedRoute>}</Route>
             <Route path="/admin/users">{() => <ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>}</Route>
+            {/* Business Module - requires admin role */}
+            <Route path="/business">{() => <ProtectedRoute requireAdmin><BusinessDashboard /></ProtectedRoute>}</Route>
+            <Route path="/business/costs">{() => <ProtectedRoute requireAdmin><CostAnalytics /></ProtectedRoute>}</Route>
+            <Route path="/business/time">{() => <ProtectedRoute requireAdmin><TimeAnalytics /></ProtectedRoute>}</Route>
             <Route path="/signup" component={Signup} />
             {/* Demo/Testing Routes */}
             <Route path="/demo/editable-values" component={EditableValuesDemo} />

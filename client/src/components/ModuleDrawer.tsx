@@ -68,6 +68,15 @@ export default function ModuleDrawer() {
       color: "bg-blue-500",
     },
     {
+      id: "business",
+      icon: "fas fa-chart-line",
+      title: t('modules.business.title'),
+      description: t('modules.business.description'),
+      route: "/business",
+      color: "bg-amber-500",
+      adminOnly: true,
+    },
+    {
       id: "admin",
       icon: "fas fa-user-shield",
       title: t('modules.admin.title'),
