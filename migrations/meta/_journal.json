@@ -64,6 +64,13 @@
       "when": 1764432273953,
       "tag": "0008_petite_vengeance",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1764503674703,
+      "tag": "0009_pretty_shadow_king",
+      "breakpoints": true
     }
   ]
 }

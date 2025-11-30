@@ -11,6 +11,7 @@ interface EditingInfusionStart {
   swimlaneId: string;
   time: number;
   dose: string;
+  note?: string;
   medicationName: string;
   isFreeFlow: boolean;
 }
@@ -33,6 +34,7 @@ export function InfusionStartEditDialog({
   onInfusionDeleted,
 }: InfusionStartEditDialogProps) {
   const [doseInput, setDoseInput] = useState("");
+  const [noteInput, setNoteInput] = useState("");
   const [editTime, setEditTime] = useState<number>(Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -44,11 +46,13 @@ export function InfusionStartEditDialog({
   useEffect(() => {
     if (editingInfusionStart) {
       setDoseInput(editingInfusionStart.dose);
+      setNoteInput(editingInfusionStart.note || "");
       setEditTime(editingInfusionStart.time);
       // Autoselect text for immediate editing
       setTimeout(() => inputRef.current?.select(), 0);
     } else {
       setDoseInput("");
+      setNoteInput("");
       setEditTime(Date.now());
     }
   }, [editingInfusionStart]);
@@ -65,6 +69,7 @@ export function InfusionStartEditDialog({
         id,
         timestamp: new Date(editTime),
         dose: doseInput.trim(),
+        note: noteInput.trim() || undefined,
       },
       {
         onSuccess: () => {
@@ -93,6 +98,7 @@ export function InfusionStartEditDialog({
   const handleClose = () => {
     onOpenChange(false);
     setDoseInput("");
+    setNoteInput("");
   };
 
   return (
@@ -122,6 +128,23 @@ export function InfusionStartEditDialog({
               }}
               placeholder="e.g., 5, 100, 500"
               autoFocus
+            />
+          </div>
+          
+          {/* Note Input */}
+          <div className="grid gap-2">
+            <Label htmlFor="infusion-note-edit-value">Note (optional)</Label>
+            <Input
+              id="infusion-note-edit-value"
+              data-testid="input-infusion-note-edit-value"
+              value={noteInput}
+              onChange={(e) => setNoteInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSave();
+                }
+              }}
+              placeholder="e.g., Bolus 150mg"
             />
           </div>
         </div>

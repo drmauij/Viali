@@ -54,6 +54,7 @@ export function useUpdateMedication(anesthesiaRecordId: string | undefined) {
       route?: string;
       rate?: string;
       endTimestamp?: Date;
+      note?: string;
     }) => {
       const { id, ...updates } = data;
       return await apiRequest(

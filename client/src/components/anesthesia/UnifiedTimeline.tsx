@@ -5689,13 +5689,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onMedicationDoseCreated={() => {
           setPendingMedicationDose(null);
         }}
-        onLocalStateUpdate={(swimlaneId, time, doseValue) => {
+        onLocalStateUpdate={(swimlaneId, time, doseValue, note) => {
           // Manually update local state so the dose appears immediately
-          // MedicationDosePoint is [timestamp, dose, id] - use temp ID until React Query syncs
+          // MedicationDosePoint is [timestamp, dose, id, note] - use temp ID until React Query syncs
           setMedicationDoseData(prev => {
             const existing = prev[swimlaneId] || [];
             const tempId = `temp-${Date.now()}`;
-            const newEntry: [number, string, string] = [time, doseValue, tempId];
+            const newEntry: [number, string, string, string | null] = [time, doseValue, tempId, note || null];
             return {
               ...prev,
               [swimlaneId]: [...existing, newEntry].sort((a, b) => a[0] - b[0])

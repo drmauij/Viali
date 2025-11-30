@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 
-export type MedicationDosePoint = [number, string, string]; // [timestamp, dose, id]
+export type MedicationDosePoint = [number, string, string, string | null]; // [timestamp, dose, id, note]
 
 export interface RateInfusionSegment {
   startTime: number;
@@ -14,6 +14,7 @@ export interface RateInfusionSession {
   label: string;
   syringeQuantity: string;
   startDose: string; // Added for unified infusion rendering
+  startNote?: string | null; // Optional note for the start dose
   segments: RateInfusionSegment[];
   state: 'running' | 'paused' | 'stopped';
   startTime?: number;
@@ -25,6 +26,7 @@ export interface FreeFlowSession {
   swimlaneId: string;
   startTime: number;
   dose: string;
+  note?: string | null; // Optional note for the dose
   label: string;
   endTime?: number | null; // Added for stopped infusions
 }

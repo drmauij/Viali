@@ -19,6 +19,7 @@ type UnifiedInfusionProps = {
   startTime: number;
   endTime: number | null;
   startDose: string;
+  startNote?: string | null;
   isFreeFlow: boolean;
   medicationName: string;
   onClick: () => void; // Click on line - opens management sheet
@@ -40,6 +41,7 @@ const UnifiedInfusion = ({
   startTime,
   endTime,
   startDose,
+  startNote,
   isFreeFlow,
   medicationName,
   onClick,
@@ -62,6 +64,9 @@ const UnifiedInfusion = ({
   
   const lineYOffset = swimlaneHeight - 2;
   const visibleRange = visibleEnd - visibleStart;
+  
+  // Build display text with optional note in parentheses
+  const displayText = startNote ? `${startDose} (${startNote})` : startDose;
   
   // Calculate actual start position (before clipping)
   const actualStartPercent = ((startTime - visibleStart) / visibleRange) * 100;
@@ -103,14 +108,14 @@ const UnifiedInfusion = ({
         data-testid={`${testId}-start-tick`}
       >
         <span 
-          className="absolute text-base font-semibold leading-none"
+          className="absolute text-base font-semibold leading-none whitespace-nowrap"
           style={{ 
             color: isFreeFlow ? '#ef4444' : '#ef4444',
             top: '50%',
             transform: 'translateY(-50%)'
           }}
         >
-          {startDose}
+          {displayText}
         </span>
         <div
           className="mt-auto"
@@ -224,6 +229,11 @@ const UnifiedInfusion = ({
           <div className="text-xs text-muted-foreground">
             Start dose: {startDose}
           </div>
+          {startNote && (
+            <div className="text-xs text-muted-foreground">
+              Note: {startNote}
+            </div>
+          )}
           <div className="text-xs text-muted-foreground">
             Started: {formatTime(startTime)}
           </div>
@@ -247,6 +257,7 @@ const UnifiedInfusion = ({
 type BolusPillProps = {
   timestamp: number;
   dose: string;
+  note?: string | null;
   medicationName: string;
   isBeforeNow: boolean;
   onClick: () => void;
@@ -262,6 +273,7 @@ type BolusPillProps = {
 const BolusPill = ({
   timestamp,
   dose,
+  note,
   medicationName,
   isBeforeNow,
   onClick,
@@ -275,6 +287,9 @@ const BolusPill = ({
 }: BolusPillProps) => {
   const [showTooltip, setShowTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+
+  // Build display text with optional note in parentheses
+  const displayText = note ? `${dose} (${note})` : dose;
 
   return (
     <>
@@ -306,16 +321,16 @@ const BolusPill = ({
         }}
         data-testid={testId}
       >
-        {/* Dose number positioned absolutely in vertical center */}
+        {/* Dose number (with optional note) positioned absolutely in vertical center */}
         <span 
-          className="absolute text-base font-semibold leading-none"
+          className="absolute text-base font-semibold leading-none whitespace-nowrap"
           style={{ 
             color: isDark ? '#ffffff' : '#000000',
             top: '50%',
             transform: 'translateY(-50%)'
           }}
         >
-          {dose}
+          {displayText}
         </span>
         {/* Vertical tick line at the bottom */}
         <div
@@ -343,6 +358,11 @@ const BolusPill = ({
           <div className="text-xs text-muted-foreground">
             Dose: {dose}
           </div>
+          {note && (
+            <div className="text-xs text-muted-foreground">
+              Note: {note}
+            </div>
+          )}
           <div className="text-xs text-muted-foreground">
             {formatTime(new Date(timestamp))}
           </div>
@@ -369,7 +389,7 @@ export interface MedicationsSwimlaneProps {
   }>;
   isTouchDevice: boolean;
   onMedicationDoseDialogOpen: (pending: { swimlaneId: string; time: number; label: string; defaultDose?: string | null; itemId: string }) => void;
-  onMedicationEditDialogOpen: (editing: { swimlaneId: string; time: number; dose: string; index: number; id: string }) => void;
+  onMedicationEditDialogOpen: (editing: { swimlaneId: string; time: number; dose: string; note?: string; index: number; id: string }) => void;
   onInstantMedicationSave: (swimlaneId: string, time: number, dose: string, itemId: string) => Promise<void>;
   onInfusionDialogOpen: (pending: { swimlaneId: string; time: number; label: string }) => void;
   onFreeFlowDoseDialogOpen: (pending: { swimlaneId: string; time: number; label: string }) => void;
@@ -554,7 +574,7 @@ export function MedicationsSwimlane({
         const visibleEnd = currentZoomEnd ?? data.endTime;
         const visibleRange = visibleEnd - visibleStart;
         
-        return bolusData.map(([timestamp, dose, id], index) => {
+        return bolusData.map(([timestamp, dose, id, note], index) => {
           let leftPercent = ((timestamp - visibleStart) / visibleRange) * 100;
           
           if (leftPercent < 0 || leftPercent > 100) return null;
@@ -569,6 +589,7 @@ export function MedicationsSwimlane({
               key={`bolus-pill-${lane.id}-${timestamp}-${index}`}
               timestamp={timestamp}
               dose={dose.toString()}
+              note={note}
               medicationName={lane.label.trim()}
               isBeforeNow={isBeforeNow}
               leftPercent={leftPercent}
@@ -583,6 +604,7 @@ export function MedicationsSwimlane({
                   swimlaneId: lane.id,
                   time: timestamp,
                   dose: dose.toString(),
+                  note: note || undefined,
                   index,
                   id: id as string,
                 });
@@ -627,6 +649,7 @@ export function MedicationsSwimlane({
               startTime={startTime}
               endTime={endTime}
               startDose={session.startDose || session.syringeQuantity || '?'}
+              startNote={session.startNote}
               isFreeFlow={false}
               medicationName={lane.label.trim()}
               leftPercent={leftPercent}
@@ -678,6 +701,7 @@ export function MedicationsSwimlane({
                   swimlaneId: lane.id,
                   time: startTime,
                   dose: session.startDose || session.syringeQuantity || '?',
+                  note: session.startNote || undefined,
                   medicationName: lane.label.trim(),
                   isFreeFlow: false,
                 });
@@ -762,6 +786,7 @@ export function MedicationsSwimlane({
               startTime={startTime}
               endTime={endTime}
               startDose={session.dose || '?'}
+              startNote={session.note}
               isFreeFlow={true}
               medicationName={lane.label.trim()}
               leftPercent={leftPercent}
@@ -802,6 +827,7 @@ export function MedicationsSwimlane({
                   swimlaneId: lane.id,
                   time: startTime,
                   dose: session.dose || '?',
+                  note: session.note || undefined,
                   medicationName: lane.label.trim(),
                   isFreeFlow: true,
                 });

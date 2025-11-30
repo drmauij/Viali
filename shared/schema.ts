@@ -1183,6 +1183,9 @@ export const anesthesiaMedications = pgTable("anesthesia_medications", {
   // User tracking
   administeredBy: varchar("administered_by").references(() => users.id),
   
+  // Free-text note (displayed in parentheses after dose)
+  note: varchar("note"),
+  
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 }, (table) => [
   index("idx_anesthesia_medications_record").on(table.anesthesiaRecordId),

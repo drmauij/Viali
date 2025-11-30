@@ -10,6 +10,7 @@ interface EditingMedicationDose {
   swimlaneId: string;
   time: number;
   dose: string;
+  note?: string;
   index: number;
   id: string;
 }
@@ -42,6 +43,7 @@ export function MedicationEditDialog({
   readOnly = false,
 }: MedicationEditDialogProps) {
   const [medicationEditInput, setMedicationEditInput] = useState("");
+  const [noteInput, setNoteInput] = useState("");
   const [medicationEditTime, setMedicationEditTime] = useState<number>(Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -53,11 +55,13 @@ export function MedicationEditDialog({
   useEffect(() => {
     if (editingMedicationDose) {
       setMedicationEditInput(editingMedicationDose.dose);
+      setNoteInput(editingMedicationDose.note || "");
       setMedicationEditTime(editingMedicationDose.time);
       // Autoselect text for immediate editing
       setTimeout(() => inputRef.current?.select(), 0);
     } else {
       setMedicationEditInput("");
+      setNoteInput("");
       setMedicationEditTime(Date.now());
     }
   }, [editingMedicationDose]);
@@ -74,6 +78,7 @@ export function MedicationEditDialog({
         id,
         timestamp: new Date(medicationEditTime),
         dose: medicationEditInput.trim(),
+        note: noteInput.trim() || undefined,
       },
       {
         onSuccess: () => {
@@ -102,6 +107,7 @@ export function MedicationEditDialog({
   const handleClose = () => {
     onOpenChange(false);
     setMedicationEditInput("");
+    setNoteInput("");
   };
 
   // Get the swimlane to check for range defaults
@@ -174,6 +180,24 @@ export function MedicationEditDialog({
               }}
               placeholder="e.g., 5, 100, 2"
               autoFocus
+              disabled={readOnly}
+            />
+          </div>
+          
+          {/* Note Input */}
+          <div className="grid gap-2">
+            <Label htmlFor="dose-note-value">Note (optional)</Label>
+            <Input
+              id="dose-note-value"
+              data-testid="input-dose-note-value"
+              value={noteInput}
+              onChange={(e) => setNoteInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !readOnly) {
+                  handleSave();
+                }
+              }}
+              placeholder="e.g., Bolus 150mg"
               disabled={readOnly}
             />
           </div>

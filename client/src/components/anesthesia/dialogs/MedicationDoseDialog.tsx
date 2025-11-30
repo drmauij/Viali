@@ -30,7 +30,7 @@ interface MedicationDoseDialogProps {
   anesthesiaItems: AnesthesiaItem[];
   onTimeChange?: (newTime: number) => void;
   onMedicationDoseCreated?: () => void;
-  onLocalStateUpdate?: (swimlaneId: string, time: number, doseValue: string) => void;
+  onLocalStateUpdate?: (swimlaneId: string, time: number, doseValue: string, note?: string | null) => void;
   readOnly?: boolean;
 }
 
@@ -46,6 +46,7 @@ export function MedicationDoseDialog({
   readOnly = false,
 }: MedicationDoseDialogProps) {
   const [medicationDoseInput, setMedicationDoseInput] = useState("");
+  const [noteInput, setNoteInput] = useState("");
   const { toast } = useToast();
 
   // Mutation for saving medication doses
@@ -74,6 +75,7 @@ export function MedicationDoseDialog({
   useEffect(() => {
     if (!open) {
       setMedicationDoseInput("");
+      setNoteInput("");
     }
   }, [open]);
 
@@ -111,16 +113,17 @@ export function MedicationDoseDialog({
         timestamp: new Date(time),
         type: "bolus",
         dose: doseValue,
+        note: noteInput.trim() || undefined,
       });
       
       console.log('[MED] Mutation successful - updating local state');
       
       // Manually update local state so the dose appears immediately
-      onLocalStateUpdate?.(swimlaneId, time, doseValue);
+      onLocalStateUpdate?.(swimlaneId, time, doseValue, noteInput.trim() || null);
       
       toast({
         title: "Dose saved",
-        description: `${label}: ${doseValue}`,
+        description: `${label}: ${doseValue}${noteInput.trim() ? ` (${noteInput.trim()})` : ''}`,
       });
 
       onMedicationDoseCreated?.();
@@ -135,6 +138,7 @@ export function MedicationDoseDialog({
   const handleClose = () => {
     onOpenChange(false);
     setMedicationDoseInput("");
+    setNoteInput("");
   };
 
   const handleQuickSelect = async (value: string) => {
@@ -223,6 +227,24 @@ export function MedicationDoseDialog({
               }}
               placeholder="e.g., 5, 100, 2"
               autoFocus
+              disabled={readOnly}
+            />
+          </div>
+          
+          {/* Note Input */}
+          <div className="grid gap-2">
+            <Label htmlFor="dose-note-value">Note (optional)</Label>
+            <Input
+              id="dose-note-value"
+              data-testid="input-dose-note-value"
+              value={noteInput}
+              onChange={(e) => setNoteInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !readOnly) {
+                  handleSave();
+                }
+              }}
+              placeholder="e.g., Bolus 150mg"
               disabled={readOnly}
             />
           </div>

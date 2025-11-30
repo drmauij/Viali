@@ -1,0 +1,1 @@
+ALTER TABLE "anesthesia_medications" ADD COLUMN "note" varchar;

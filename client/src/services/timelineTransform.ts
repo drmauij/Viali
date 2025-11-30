@@ -55,8 +55,8 @@ export function buildItemToSwimlaneMap(
 export function transformMedicationDoses(
   medications: any[],
   itemToSwimlane: Map<string, string>
-): { [swimlaneId: string]: Array<[number, string, string]> } {
-  const doseData: { [swimlaneId: string]: Array<[number, string, string]> } = {};
+): { [swimlaneId: string]: Array<[number, string, string, string | null]> } {
+  const doseData: { [swimlaneId: string]: Array<[number, string, string, string | null]> } = {};
   
   // Only process true bolus medications - infusions are handled by separate transform functions
   medications
@@ -68,12 +68,13 @@ export function transformMedicationDoses(
       const timestamp = new Date(med.timestamp).getTime();
       const id = med.id;
       const displayValue = med.dose || '?';
+      const note = med.note || null;
       
       if (!doseData[swimlaneId]) {
         doseData[swimlaneId] = [];
       }
       
-      doseData[swimlaneId].push([timestamp, displayValue, id]);
+      doseData[swimlaneId].push([timestamp, displayValue, id, note]);
     });
   
   Object.keys(doseData).forEach(swimlaneId => {
@@ -173,6 +174,7 @@ export function transformRateInfusions(
         label: item.name,
         syringeQuantity: startRecord.dose || '50ml',
         startDose: startRecord.dose || '50ml', // Add start dose for rendering
+        startNote: startRecord.note || null, // Note for the start dose
         segments,
         state,
         startTime,
@@ -254,6 +256,7 @@ export function transformFreeFlowInfusions(
         swimlaneId,
         startTime,
         dose: startRec.dose || '?',
+        note: startRec.note || null, // Note for the start dose
         label: item.name,
         endTime, // null means still running, otherwise shows completed infusion
       };
