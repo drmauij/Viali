@@ -1148,6 +1148,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     if (clinicalSnapshot === undefined) return;
     
     const snapshotData = clinicalSnapshot?.data as any;
+    console.log('[VENT-PARAMS-SYNC] Snapshot data keys:', snapshotData ? Object.keys(snapshotData) : 'null');
+    console.log('[VENT-PARAMS-SYNC] Raw pip:', snapshotData?.pip);
+    console.log('[VENT-PARAMS-SYNC] Raw peep:', snapshotData?.peep);
+    console.log('[VENT-PARAMS-SYNC] Raw etco2:', snapshotData?.etco2);
     
     // Extract all ventilation parameters
     const ventParams = {
@@ -1161,27 +1165,43 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     };
     
     const totalPoints = Object.values(ventParams).reduce((sum, arr) => sum + arr.length, 0);
+    console.log('[VENT-PARAMS-SYNC] Total ventilation points:', totalPoints);
     
-    if (totalPoints > 0) {
-      console.log('[VENT-PARAMS-SYNC] Loading ventilation parameters from snapshot:', totalPoints, 'points');
-      const ventData: any = {};
-      
-      for (const [key, points] of Object.entries(ventParams)) {
-        if (points.length > 0) {
-          // Store as tuples [timestamp, value] for compatibility with rendering code
-          // IDs are tracked separately in clinicalSnapshot and looked up during edit operations
-          ventData[key] = points.map((point: any) => [
-            new Date(point.timestamp).getTime(),
-            point.value,
-          ]);
-        }
-      }
-      
-      setVentilationData(ventData);
-    } else {
-      // Clear stale state when switching to record with no data
-      setVentilationData({});
-    }
+    // Build complete ventData object with all keys (including empty arrays)
+    // to ensure proper state structure when calling setVentilationData
+    const ventData = {
+      etCO2: ventParams.etCO2.map((point: any) => [
+        new Date(point.timestamp).getTime(),
+        point.value,
+      ] as [number, number]),
+      pip: ventParams.pip.map((point: any) => [
+        new Date(point.timestamp).getTime(),
+        point.value,
+      ] as [number, number]),
+      peep: ventParams.peep.map((point: any) => [
+        new Date(point.timestamp).getTime(),
+        point.value,
+      ] as [number, number]),
+      tidalVolume: ventParams.tidalVolume.map((point: any) => [
+        new Date(point.timestamp).getTime(),
+        point.value,
+      ] as [number, number]),
+      respiratoryRate: ventParams.respiratoryRate.map((point: any) => [
+        new Date(point.timestamp).getTime(),
+        point.value,
+      ] as [number, number]),
+      minuteVolume: ventParams.minuteVolume.map((point: any) => [
+        new Date(point.timestamp).getTime(),
+        point.value,
+      ] as [number, number]),
+      fiO2: ventParams.fiO2.map((point: any) => [
+        new Date(point.timestamp).getTime(),
+        point.value,
+      ] as [number, number]),
+    };
+    
+    console.log('[VENT-PARAMS-SYNC] Total points:', totalPoints, 'Setting ventilationData:', ventData);
+    setVentilationData(ventData);
   }, [clinicalSnapshot, setVentilationData]);
 
   // NEW: Sync output data from clinical snapshot
@@ -2096,8 +2116,12 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     // Iterate over all ventilation parameters and collect unique timestamps
     if (ventilationData && typeof ventilationData === 'object') {
-      Object.values(ventilationData).forEach((points: any) => {
+      const keys = Object.keys(ventilationData);
+      console.log('[VENT-ENTRY] Computing timestamps from ventilationData, keys:', keys);
+      
+      Object.entries(ventilationData).forEach(([key, points]: [string, any]) => {
         if (Array.isArray(points)) {
+          console.log(`[VENT-ENTRY] Processing ${key}: ${points.length} points`);
           points.forEach((point) => {
             // Format: [timestamp, value]
             if (Array.isArray(point) && point.length >= 2) {
@@ -2106,10 +2130,15 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           });
         }
       });
+    } else {
+      console.log('[VENT-ENTRY] ventilationData is empty or not an object:', ventilationData);
     }
     
+    const sortedTimestamps = Array.from(timestampSet).sort((a, b) => a - b);
+    console.log('[VENT-ENTRY] Unique timestamps:', sortedTimestamps.length, sortedTimestamps.slice(0, 5));
+    
     // Sort timestamps in ascending order
-    return Array.from(timestampSet).sort((a, b) => a - b);
+    return sortedTimestamps;
   }, [ventilationData]);
 
   // Handle editing vital values
@@ -6061,6 +6090,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       {/* VentilationEntryLane - Interactive layer with vertical lines for parameter entry */}
       {(() => {
         const entryLane = swimlanePositions.find(l => l.id === "ventilation-entry");
+        console.log('[VENT-ENTRY-RENDER] Entry lane:', entryLane ? 'found' : 'not found', 'contentBounds:', contentBounds ? `${contentBounds.start}-${contentBounds.end}` : 'null', 'timestamps:', ventilationEntryTimestamps.length);
         if (!entryLane || !contentBounds) return null;
         
         return (
@@ -6155,8 +6185,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
               const chartWidth = contentBounds ? (contentBounds.end - contentBounds.start) : 1;
               const leftPercent = ((timestamp - (contentBounds?.start || 0)) / chartWidth) * 100;
               
-              // Skip if outside visible range (with small margin to avoid edge clipping)
-              if (leftPercent < 1 || leftPercent > 99) return null;
+              // Skip if outside visible range
+              if (leftPercent < 0 || leftPercent > 100) return null;
               
               return (
                 <div

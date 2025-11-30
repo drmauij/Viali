@@ -1938,6 +1938,10 @@ router.get('/api/anesthesia/vitals/snapshot/:recordId', isAuthenticated, async (
     }
 
     const snapshot = await storage.getClinicalSnapshot(recordId);
+    const snapshotData = snapshot?.data as any;
+    console.log('[SNAPSHOT-GET] Returning snapshot for', recordId, 'keys:', snapshotData ? Object.keys(snapshotData) : 'null');
+    if (snapshotData?.pip) console.log('[SNAPSHOT-GET] pip count:', snapshotData.pip.length);
+    if (snapshotData?.peep) console.log('[SNAPSHOT-GET] peep count:', snapshotData.peep.length);
     res.json(snapshot);
   } catch (error) {
     console.error("Error getting clinical snapshot:", error);
