@@ -6090,7 +6090,14 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       {/* VentilationEntryLane - Interactive layer with vertical lines for parameter entry */}
       {(() => {
         const entryLane = swimlanePositions.find(l => l.id === "ventilation-entry");
-        if (!entryLane || !contentBounds) return null;
+        if (!entryLane) return null;
+        
+        // Use actual chart viewport range (matches ECharts x-axis)
+        const visibleStart = currentZoomStart ?? data.startTime;
+        const visibleEnd = currentZoomEnd ?? data.endTime;
+        const timeRange = visibleEnd - visibleStart;
+        
+        if (timeRange <= 0) return null;
         
         return (
           <div
@@ -6106,27 +6113,15 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
               if (isTouchDevice) return;
               const rect = e.currentTarget.getBoundingClientRect();
               const clickX = e.clientX - rect.left;
-              const chartWidth = rect.width;
+              const chartPixelWidth = rect.width;
               
-              // Guard against division by zero or invalid calculations
-              if (chartWidth <= 0 || !contentBounds) {
+              // Guard against division by zero
+              if (chartPixelWidth <= 0) {
                 setVentilationBulkHoverInfo(null);
                 return;
               }
               
-              const timeRange = contentBounds.end - contentBounds.start;
-              if (timeRange <= 0 || !isFinite(timeRange)) {
-                setVentilationBulkHoverInfo(null);
-                return;
-              }
-              
-              const hoveredTime = contentBounds.start + (clickX / chartWidth) * timeRange;
-              
-              // Validate computed time is a valid finite number
-              if (!isFinite(hoveredTime) || isNaN(hoveredTime)) {
-                setVentilationBulkHoverInfo(null);
-                return;
-              }
+              const hoveredTime = visibleStart + (clickX / chartPixelWidth) * timeRange;
               
               setVentilationBulkHoverInfo({
                 x: e.clientX,
@@ -6145,12 +6140,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 return;
               }
               
-              // Calculate clicked time position
+              // Calculate clicked time position using actual chart viewport
               const rect = e.currentTarget.getBoundingClientRect();
               const clickX = e.clientX - rect.left;
-              const chartWidth = rect.width;
-              const timeRange = contentBounds.end - contentBounds.start;
-              const clickedTime = contentBounds.start + (clickX / chartWidth) * timeRange;
+              const chartPixelWidth = rect.width;
+              const clickedTime = visibleStart + (clickX / chartPixelWidth) * timeRange;
               
               // Check if clicked near an existing marker (within 2 minutes = 120000ms)
               const CLICK_THRESHOLD = 120000;
@@ -6189,9 +6183,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 setVentilationEntrySkipMode(true);
                 setShowVentilationBulkDialog(true);
               } else {
-                // Add new entry at current time (skip mode selection)
+                // Add new entry at the clicked time position (skip mode selection)
                 setEditingVentilationEntryTimestamp(null);
-                setPendingVentilationBulk({ time: currentTime });
+                setPendingVentilationBulk({ time: clickedTime });
                 setVentilationEntrySkipMode(true);
                 setShowVentilationBulkDialog(true);
               }
@@ -6200,8 +6194,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           >
             {/* Render vertical lines at each ventilation timestamp */}
             {ventilationEntryTimestamps.map((timestamp) => {
-              const chartWidth = contentBounds ? (contentBounds.end - contentBounds.start) : 1;
-              const leftPercent = ((timestamp - (contentBounds?.start || 0)) / chartWidth) * 100;
+              // Use the same viewport range as the chart (visibleStart/visibleEnd from IIFE scope)
+              const leftPercent = ((timestamp - visibleStart) / timeRange) * 100;
               
               // Skip if outside visible range
               if (leftPercent < 0 || leftPercent > 100) return null;
