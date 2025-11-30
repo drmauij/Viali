@@ -683,9 +683,17 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
 
   // Determine if this is a historical (completed/past) record
   // Historical records: caseStatus is closed/amended OR anesthesia presence end marker (A2) is set
+  // OR the record is locked OR the data is significantly older than current time
   const isHistoricalRecord = useMemo(() => {
     // Check caseStatus
     if (anesthesiaRecord?.caseStatus === 'closed' || anesthesiaRecord?.caseStatus === 'amended') {
+      console.log('[HISTORICAL-CHECK] Detected as historical: caseStatus =', anesthesiaRecord?.caseStatus);
+      return true;
+    }
+    
+    // Check if record is locked
+    if (anesthesiaRecord?.isLocked) {
+      console.log('[HISTORICAL-CHECK] Detected as historical: isLocked = true');
       return true;
     }
     
@@ -694,12 +702,25 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     if (Array.isArray(timeMarkersArray)) {
       const a2Marker = timeMarkersArray.find((m: any) => m.code === 'A2');
       if (a2Marker?.time) {
+        console.log('[HISTORICAL-CHECK] Detected as historical: A2 marker set at', new Date(a2Marker.time).toISOString());
         return true;
       }
     }
     
+    // Fallback: If the data.endTime is more than 1 hour in the past, treat as historical
+    // This helps with records that were ended but not properly marked
+    const oneHourAgo = Date.now() - (60 * 60 * 1000);
+    if (data.endTime < oneHourAgo) {
+      console.log('[HISTORICAL-CHECK] Detected as historical: data.endTime =', new Date(data.endTime).toISOString(), 'is more than 1 hour old');
+      return true;
+    }
+    
+    console.log('[HISTORICAL-CHECK] Not historical. caseStatus:', anesthesiaRecord?.caseStatus, 
+      'isLocked:', anesthesiaRecord?.isLocked,
+      'A2 marker:', timeMarkersArray?.find((m: any) => m.code === 'A2'),
+      'data.endTime:', new Date(data.endTime).toISOString());
     return false;
-  }, [anesthesiaRecord?.caseStatus, anesthesiaRecord?.timeMarkers]);
+  }, [anesthesiaRecord?.caseStatus, anesthesiaRecord?.timeMarkers, anesthesiaRecord?.isLocked, data.endTime]);
 
   // Compute content bounds from all data sources for smart viewport positioning
   // Uses synchronous data from props and derived infusion sessions
