@@ -73,8 +73,8 @@ export function useAddVitalPoint(anesthesiaRecordId: string | undefined) {
     }) => {
       return await apiRequest(
         'POST',
-        `/api/anesthesia/vitals/${anesthesiaRecordId}/point`,
-        data
+        `/api/anesthesia/vitals/points`,
+        { anesthesiaRecordId, ...data }
       );
     },
     onMutate: async (newPoint) => {
@@ -145,8 +145,8 @@ export function useAddBPPoint(anesthesiaRecordId: string | undefined) {
     }) => {
       return await apiRequest(
         'POST',
-        `/api/anesthesia/vitals/${anesthesiaRecordId}/bp`,
-        data
+        `/api/anesthesia/vitals/bp`,
+        { anesthesiaRecordId, ...data }
       );
     },
     onMutate: async (newPoint) => {

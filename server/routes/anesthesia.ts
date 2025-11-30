@@ -1970,7 +1970,7 @@ router.post('/api/anesthesia/vitals/points', isAuthenticated, requireWriteAccess
 
     const updatedSnapshot = await storage.addVitalPoint(
       validatedData.anesthesiaRecordId,
-      validatedData.paramKey,
+      validatedData.vitalType,
       validatedData.timestamp,
       validatedData.value
     );
