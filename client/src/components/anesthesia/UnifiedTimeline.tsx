@@ -6222,10 +6222,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           }}
         >
           <div className="text-sm font-semibold text-primary">
-            {t('anesthesia.ventilation.clickBulkEntry', 'Click for bulk entry/edit')}
+            {t('anesthesia.timeline.clickBulkEntry', 'Click for bulk entry/edit')}
           </div>
           <div className="text-xs text-muted-foreground">
-            {new Date(ventilationBulkHoverInfo.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+            {formatTime(new Date(ventilationBulkHoverInfo.time))}
           </div>
         </div>
       )}
