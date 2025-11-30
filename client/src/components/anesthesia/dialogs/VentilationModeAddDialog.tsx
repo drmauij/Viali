@@ -131,6 +131,30 @@ export function VentilationModeAddDialog({
         </DialogHeader>
         
         <div className="grid gap-4 py-4">
+          {!isSpontaneousBreathing && (
+            <div className="grid gap-2">
+              <Label htmlFor="ventilation-mode">
+                {t('anesthesia.timeline.mode', 'Ventilation Mode')}
+              </Label>
+              <Select 
+                value={ventilationMode} 
+                onValueChange={setVentilationMode} 
+                disabled={readOnly}
+              >
+                <SelectTrigger id="ventilation-mode" data-testid="select-ventilation-mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {VENTILATION_MODES.map((mode) => (
+                    <SelectItem key={mode.value} value={mode.value}>
+                      {mode.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          
           <div className="flex items-center space-x-2">
             <Checkbox
               id="spontaneous-breathing"
@@ -144,7 +168,7 @@ export function VentilationModeAddDialog({
             </Label>
           </div>
           
-          {isSpontaneousBreathing ? (
+          {isSpontaneousBreathing && (
             <div className="space-y-4 pl-6 border-l-2 border-muted">
               <div className="grid gap-2">
                 <Label htmlFor="oxygen-flow">
@@ -178,28 +202,6 @@ export function VentilationModeAddDialog({
                   data-testid="input-etco2-spontaneous"
                 />
               </div>
-            </div>
-          ) : (
-            <div className="grid gap-2">
-              <Label htmlFor="ventilation-mode">
-                {t('anesthesia.timeline.mode', 'Ventilation Mode')}
-              </Label>
-              <Select 
-                value={ventilationMode} 
-                onValueChange={setVentilationMode} 
-                disabled={readOnly}
-              >
-                <SelectTrigger id="ventilation-mode" data-testid="select-ventilation-mode">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {VENTILATION_MODES.map((mode) => (
-                    <SelectItem key={mode.value} value={mode.value}>
-                      {mode.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           )}
         </div>
