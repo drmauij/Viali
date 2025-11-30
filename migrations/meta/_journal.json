@@ -71,6 +71,13 @@
       "when": 1764503674703,
       "tag": "0009_pretty_shadow_king",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1764526811434,
+      "tag": "0010_shocking_yellowjacket",
+      "breakpoints": true
     }
   ]
 }
