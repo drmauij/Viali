@@ -2413,7 +2413,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     let usedRealContentBounds = false;
     
     // For historical records with data, center on the content
-    if (isHistoricalRecord && contentBounds) {
+    if (isHistoricalRecord && contentBounds && 
+        isFinite(contentBounds.start) && isFinite(contentBounds.end) &&
+        contentBounds.start > 0 && contentBounds.end > 0) {
       initialStartTime = contentBounds.start;
       initialEndTime = contentBounds.end;
       usedRealContentBounds = true;
@@ -2421,7 +2423,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         start: new Date(initialStartTime).toISOString(),
         end: new Date(initialEndTime).toISOString(),
       });
-    } else if (isHistoricalRecord && !contentBounds) {
+    } else if (isHistoricalRecord && (!contentBounds || !isFinite(contentBounds.start) || !isFinite(contentBounds.end))) {
       // Historical record but no content bounds yet - use temporary fallback
       // Don't set hasSetInitialZoomRef so re-centering effect can apply real bounds later
       const currentTime = now || data.endTime;
@@ -2476,8 +2478,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const lastAppliedBoundsRef = useRef<string | null>(null);
   
   useEffect(() => {
-    // Only apply for historical records with content
+    // Only apply for historical records with valid content bounds
     if (!isHistoricalRecord || !contentBounds) return;
+    if (!isFinite(contentBounds.start) || !isFinite(contentBounds.end) ||
+        contentBounds.start <= 0 || contentBounds.end <= 0) return;
     
     const chart = chartRef.current?.getEchartsInstance();
     if (!chart) return;
