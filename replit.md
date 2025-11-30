@@ -18,11 +18,14 @@ The backend is developed using Express.js and TypeScript, with a PostgreSQL data
 
 ### Code Organization (Modular Architecture)
 The backend follows a modular architecture for improved maintainability:
-- **server/routes/**: Domain-specific route modules (ongoing refactoring)
+- **server/routes/**: Domain-specific route modules
   - `index.ts`: Router composer that registers all domain routers
-  - `auth.ts`: Authentication routes (signup, login, password reset, user fetch)
+  - `auth.ts`: Authentication routes (signup, login, password reset, user fetch) - ~300 lines
+  - `inventory.ts`: Dashboard KPIs, folders CRUD, items CRUD, bulk operations - ~550 lines
+  - `admin.ts`: Hospital settings, anesthesia/surgery config, surgeons, units, users CRUD - ~460 lines
+  - `checklists.ts`: Checklist templates CRUD, pending checklists, completions, history - ~280 lines
   - `middleware.ts`: Shared middleware for auth/access checks
-  - Future modules: inventory.ts, anesthesia.ts, admin.ts, checklists.ts, orders.ts
+  - Future modules: anesthesia.ts, orders.ts
 - **server/utils/**: Shared utility modules
   - `encryption.ts`: Patient data encryption (AES-256-CBC) with key derivation
   - `accessControl.ts`: User role verification, hospital access control, unit management
@@ -41,7 +44,7 @@ The monolithic `server/routes.ts` (originally 9,000+ lines) is being incremental
 4. Remove duplicate handlers from `routes.ts`
 5. Test functionality before proceeding to next domain
 
-Current status: Auth routes migrated (~300 lines), ~8,700 lines remaining in routes.ts
+Current status: Auth, inventory, admin, and checklists routes migrated (~1,600 lines total). ~7,100 lines remaining in routes.ts (~21% reduction achieved).
 
 ### Authentication & Authorization
 Viali implements a hybrid authentication strategy (Google OAuth and local email/password) combined with robust role-based and multi-hospital authorization. A comprehensive user management system handles user creation, password changes, and hospital assignments. Data isolation between hospitals is enforced at the API layer through authorization, query parameter filtering, and resource-based authorization.
