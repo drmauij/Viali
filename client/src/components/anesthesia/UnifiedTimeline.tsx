@@ -6090,14 +6090,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       {/* VentilationEntryLane - Interactive layer with vertical lines for parameter entry */}
       {(() => {
         const entryLane = swimlanePositions.find(l => l.id === "ventilation-entry");
-        
-        // Validate contentBounds has proper numeric timestamps
-        const validContentBounds = contentBounds && 
-          isFinite(contentBounds.start) && 
-          isFinite(contentBounds.end) &&
-          contentBounds.end > contentBounds.start;
-          
-        if (!entryLane || !validContentBounds) return null;
+        if (!entryLane || !contentBounds) return null;
         
         return (
           <div
