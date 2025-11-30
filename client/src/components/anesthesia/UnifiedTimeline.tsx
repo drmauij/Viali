@@ -6152,8 +6152,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
               const chartWidth = contentBounds ? (contentBounds.end - contentBounds.start) : 1;
               const leftPercent = ((timestamp - (contentBounds?.start || 0)) / chartWidth) * 100;
               
-              // Skip if outside visible range
-              if (leftPercent < 0 || leftPercent > 100) return null;
+              // Skip if outside visible range (with small margin to avoid edge clipping)
+              if (leftPercent < 1 || leftPercent > 99) return null;
               
               return (
                 <div
