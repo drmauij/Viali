@@ -198,6 +198,7 @@ export type UnifiedTimelineData = {
   events: TimelineEvent[];
   medications?: any[]; // Raw medication records from API
   apiEvents?: any[]; // Raw event records from API (renamed to avoid conflict with timeline events)
+  isHistoricalData?: boolean; // True if vitals data is older than 1 hour - used for viewport centering
 };
 
 // Predefined anesthesia time markers in sequence (type imported from useEventState hook)
@@ -409,10 +410,15 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     mutationFn: saveTimeMarkers,
     onSuccess: (data) => {
       console.log('[TIME_MARKERS] Save successful', data);
-      // Invalidate the anesthesia record query to refetch with updated time markers
+      // Invalidate both query keys to refetch with updated time markers and lock status
       if (anesthesiaRecordId) {
+        // Invalidate record-specific query (for lock status) - use exact key format used by consumers
+        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/${anesthesiaRecordId}`] });
+        // Invalidate surgery-based query (for time markers)
         const surgeryId = data.surgeryId;
-        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+        if (surgeryId) {
+          queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+        }
       }
     },
     onError: (error) => {
@@ -434,7 +440,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     onSuccess: (data) => {
       console.log('[RECORD_LOCK] Record locked successfully', data);
       if (anesthesiaRecordId) {
-        queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/records', anesthesiaRecordId] });
+        // Use string template format to match consumer query keys
+        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/${anesthesiaRecordId}`] });
         // Also invalidate surgery-based query
         if (data.surgeryId) {
           queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${data.surgeryId}`] });
@@ -464,7 +471,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     onSuccess: (data) => {
       console.log('[RECORD_UNLOCK] Record unlocked successfully', data);
       if (anesthesiaRecordId) {
-        queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/records', anesthesiaRecordId] });
+        // Use string template format to match consumer query keys
+        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/${anesthesiaRecordId}`] });
         if (data.surgeryId) {
           queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${data.surgeryId}`] });
         }
@@ -684,7 +692,14 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   // Determine if this is a historical (completed/past) record
   // Historical records: caseStatus is closed/amended OR anesthesia presence end marker (A2) is set
   // OR the record is locked OR the data is significantly older than current time
+  // OR the vitals data itself is older than 1 hour (data-driven check from useTimelineData)
   const isHistoricalRecord = useMemo(() => {
+    // Check data-driven historical flag first (most reliable for viewport centering)
+    if (data.isHistoricalData) {
+      console.log('[HISTORICAL-CHECK] Detected as historical: data.isHistoricalData = true');
+      return true;
+    }
+    
     // Check caseStatus
     if (anesthesiaRecord?.caseStatus === 'closed' || anesthesiaRecord?.caseStatus === 'amended') {
       console.log('[HISTORICAL-CHECK] Detected as historical: caseStatus =', anesthesiaRecord?.caseStatus);
@@ -718,9 +733,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     console.log('[HISTORICAL-CHECK] Not historical. caseStatus:', anesthesiaRecord?.caseStatus, 
       'isLocked:', anesthesiaRecord?.isLocked,
       'A2 marker:', timeMarkersArray?.find((m: any) => m.code === 'A2'),
-      'data.endTime:', new Date(data.endTime).toISOString());
+      'data.endTime:', new Date(data.endTime).toISOString(),
+      'data.isHistoricalData:', data.isHistoricalData);
     return false;
-  }, [anesthesiaRecord?.caseStatus, anesthesiaRecord?.timeMarkers, anesthesiaRecord?.isLocked, data.endTime]);
+  }, [anesthesiaRecord?.caseStatus, anesthesiaRecord?.timeMarkers, anesthesiaRecord?.isLocked, data.endTime, data.isHistoricalData]);
 
   // Compute content bounds from all data sources for smart viewport positioning
   // Uses synchronous data from props and derived infusion sessions
@@ -2529,10 +2545,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   // Track initial zoom state
   const hasSetInitialZoomRef = useRef(false);
   
-  // Reset initial zoom flag when anesthesia record changes (opening a different surgery)
-  useEffect(() => {
-    hasSetInitialZoomRef.current = false;
-  }, [anesthesiaRecordId]);
+  // Note: hasSetInitialZoomRef is reset in the combined effect below that handles
+  // both anesthesiaRecordId and isHistoricalRecord changes
 
   // Handle chart ready - set initial zoom based on record type
   // Historical records: center on content range
@@ -2611,54 +2625,135 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   // This handles the case where data arrives after initial mount
   // Uses a stable hash of content bounds to detect meaningful changes
   const lastAppliedBoundsRef = useRef<string | null>(null);
+  const historicalRecenterAppliedRef = useRef<boolean>(false);
+  // Use null as sentinel value to detect first render - ensures reset runs on first historical pass
+  const prevIsHistoricalRecordRef = useRef<boolean | null>(null);
+  const prevAnesthesiaRecordIdRef = useRef<string | undefined>(undefined);
   
   useEffect(() => {
-    // Only apply for historical records with valid content bounds
-    if (!isHistoricalRecord || !contentBounds) return;
-    if (!isFinite(contentBounds.start) || !isFinite(contentBounds.end) ||
-        contentBounds.start <= 0 || contentBounds.end <= 0) return;
+    // Check if isHistoricalRecord changed (e.g., from data.isHistoricalData arriving)
+    // or if the record ID changed - if so, reset the zoom tracking refs
+    // IMPORTANT: We check change BEFORE guards, but only update prev refs AFTER successful application
+    // This ensures that if we return early (e.g., contentBounds not ready), the next render
+    // will still detect the change and reset again
+    // Using null as sentinel ensures first render with isHistoricalRecord=true also triggers reset
+    const historyStatusChanged = prevIsHistoricalRecordRef.current !== isHistoricalRecord;
+    const recordIdChanged = prevAnesthesiaRecordIdRef.current !== anesthesiaRecordId;
+    const isFirstRender = prevIsHistoricalRecordRef.current === null;
     
-    const chart = chartRef.current?.getEchartsInstance();
-    if (!chart) return;
+    // Reset refs if context changed OR this is first render with historical data
+    // The first render case ensures we don't miss immediate historical records
+    if (historyStatusChanged || recordIdChanged || (isFirstRender && isHistoricalRecord)) {
+      console.log('[TIMELINE-RECENTER] Status/record changed - resetting zoom refs', {
+        historyStatusChanged,
+        recordIdChanged,
+        isFirstRender,
+        prevIsHistorical: prevIsHistoricalRecordRef.current,
+        currentIsHistorical: isHistoricalRecord,
+        prevRecordId: prevAnesthesiaRecordIdRef.current,
+        currentRecordId: anesthesiaRecordId
+      });
+      lastAppliedBoundsRef.current = null;
+      historicalRecenterAppliedRef.current = false;
+      hasSetInitialZoomRef.current = false;
+      // NOTE: Don't update prevIsHistoricalRecordRef/prevAnesthesiaRecordIdRef here!
+      // We update them AFTER successfully applying bounds, so if we return early
+      // due to invalid contentBounds, the next render will still detect the change
+    }
+    
+    // Only apply for historical records with valid content bounds
+    if (!isHistoricalRecord || !contentBounds) {
+      return;
+    }
+    if (!isFinite(contentBounds.start) || !isFinite(contentBounds.end) ||
+        contentBounds.start <= 0 || contentBounds.end <= 0) {
+      return;
+    }
     
     // Create a hash of current bounds to detect changes
     const boundsHash = `${contentBounds.start}-${contentBounds.end}`;
     
-    // Skip if we already applied these exact bounds
-    if (lastAppliedBoundsRef.current === boundsHash) return;
-    
-    const startPercent = ((contentBounds.start - data.startTime) / (data.endTime - data.startTime)) * 100;
-    const endPercent = ((contentBounds.end - data.startTime) / (data.endTime - data.startTime)) * 100;
-    
-    // Clamp to valid range and ensure start <= end
-    let clampedStart = Math.max(0, Math.min(100, startPercent));
-    let clampedEnd = Math.max(0, Math.min(100, endPercent));
-    if (clampedStart > clampedEnd) {
-      [clampedStart, clampedEnd] = [clampedEnd, clampedStart];
+    // Skip if we already successfully applied these exact bounds for this record
+    if (lastAppliedBoundsRef.current === boundsHash && historicalRecenterAppliedRef.current) {
+      return;
     }
     
-    console.log('[TIMELINE-RECENTER] Applying content bounds for historical record:', {
-      start: new Date(contentBounds.start).toISOString(),
-      end: new Date(contentBounds.end).toISOString(),
-    });
+    // Track if this effect instance is still valid (not cleaned up)
+    let isCancelled = false;
+    let retryTimeoutId: NodeJS.Timeout | null = null;
     
-    setZoomPercent({ start: clampedStart, end: clampedEnd });
-    chart.setOption({
-      dataZoom: [{
-        start: clampedStart,
-        end: clampedEnd,
-      }]
-    });
+    const applyBounds = (): boolean => {
+      if (isCancelled) return false;
+      
+      const chart = chartRef.current?.getEchartsInstance();
+      if (!chart) {
+        return false;
+      }
+      
+      const startPercent = ((contentBounds.start - data.startTime) / (data.endTime - data.startTime)) * 100;
+      const endPercent = ((contentBounds.end - data.startTime) / (data.endTime - data.startTime)) * 100;
+      
+      // Clamp to valid range and ensure start <= end
+      let clampedStart = Math.max(0, Math.min(100, startPercent));
+      let clampedEnd = Math.max(0, Math.min(100, endPercent));
+      if (clampedStart > clampedEnd) {
+        [clampedStart, clampedEnd] = [clampedEnd, clampedStart];
+      }
+      
+      console.log('[TIMELINE-RECENTER] Applying content bounds for historical record:', {
+        start: new Date(contentBounds.start).toISOString(),
+        end: new Date(contentBounds.end).toISOString(),
+        startPercent: clampedStart,
+        endPercent: clampedEnd,
+      });
+      
+      setZoomPercent({ start: clampedStart, end: clampedEnd });
+      chart.setOption({
+        dataZoom: [{
+          start: clampedStart,
+          end: clampedEnd,
+        }]
+      });
+      
+      lastAppliedBoundsRef.current = boundsHash;
+      hasSetInitialZoomRef.current = true;
+      historicalRecenterAppliedRef.current = true;
+      // Update prev refs now that we've successfully applied bounds
+      // This prevents unnecessary resets on subsequent renders
+      prevIsHistoricalRecordRef.current = isHistoricalRecord;
+      prevAnesthesiaRecordIdRef.current = anesthesiaRecordId;
+      return true;
+    };
     
-    lastAppliedBoundsRef.current = boundsHash;
-    // Also update the initial zoom ref so handleChartReady doesn't override
-    hasSetInitialZoomRef.current = true;
-  }, [isHistoricalRecord, contentBounds, data.startTime, data.endTime]);
+    // Try to apply immediately
+    if (applyBounds()) {
+      return;
+    }
+    
+    // If chart not ready, retry once after a short delay (limited retries to avoid spin)
+    const scheduleRetry = (delay: number, attempt: number, maxAttempts: number) => {
+      if (isCancelled || attempt >= maxAttempts) return;
+      
+      retryTimeoutId = setTimeout(() => {
+        if (!isCancelled && !applyBounds() && attempt + 1 < maxAttempts) {
+          scheduleRetry(delay * 2, attempt + 1, maxAttempts);
+        }
+      }, delay);
+    };
+    
+    // Max 3 retries with exponential backoff: 200ms, 400ms, 800ms
+    scheduleRetry(200, 0, 3);
+    
+    return () => {
+      isCancelled = true;
+      if (retryTimeoutId) {
+        clearTimeout(retryTimeoutId);
+      }
+    };
+  }, [isHistoricalRecord, contentBounds, data.startTime, data.endTime, anesthesiaRecordId]);
   
-  // Reset the applied bounds when switching records
-  useEffect(() => {
-    lastAppliedBoundsRef.current = null;
-  }, [anesthesiaRecordId]);
+  // Note: Ref resets are now handled inline in the recenter effect above
+  // to ensure the reset happens BEFORE the short-circuit check
 
   // Update dataZoom xAxisIndex when swimlane structure changes
   useEffect(() => {

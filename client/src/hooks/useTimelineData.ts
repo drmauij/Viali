@@ -1,5 +1,16 @@
 import { useMemo } from "react";
-import type { UnifiedTimelineData, TimelineVitals, TimelineEvent } from "@/components/anesthesia/UnifiedTimeline";
+import type { TimelineVitals, TimelineEvent } from "@/components/anesthesia/UnifiedTimeline";
+
+// Extended interface that includes historical data flag
+export interface ExtendedTimelineData {
+  startTime: number;
+  endTime: number;
+  vitals: TimelineVitals;
+  events: TimelineEvent[];
+  medications: any[];
+  apiEvents: any[];
+  isHistoricalData: boolean; // True if data is older than 1 hour
+}
 
 interface UseTimelineDataProps {
   vitalsData: any[];
@@ -17,8 +28,8 @@ export function useTimelineData({
   isPacuMode,
   filteredVitalsData,
   filteredMedicationsData,
-}: UseTimelineDataProps): UnifiedTimelineData {
-  return useMemo((): UnifiedTimelineData => {
+}: UseTimelineDataProps): ExtendedTimelineData {
+  return useMemo((): ExtendedTimelineData => {
     const dataToUse = isPacuMode ? filteredVitalsData : vitalsData;
     const medsToUse = isPacuMode ? filteredMedicationsData : medicationsData;
     
@@ -39,6 +50,7 @@ export function useTimelineData({
         events: [],
         medications: medsToUse || [],
         apiEvents: eventsData || [],
+        isHistoricalData: false,
       };
     }
 
@@ -78,6 +90,27 @@ export function useTimelineData({
     const maxTime = timestamps.length > 0 ? Math.max(...timestamps) : new Date().getTime() + 6 * 60 * 60 * 1000;
 
     const now = new Date().getTime();
+    const oneHourAgo = now - 60 * 60 * 1000;
+    
+    // For historical records (data older than 1 hour), don't extend timeline to future
+    // This ensures the viewport can center on the actual data range
+    const isHistoricalData = maxTime < oneHourAgo;
+    
+    if (isHistoricalData) {
+      // Historical record: set endTime relative to data, not to now
+      // Add 1 hour padding after last data point
+      return {
+        startTime: minTime - 60 * 60 * 1000,
+        endTime: maxTime + 60 * 60 * 1000,
+        vitals,
+        events,
+        medications: medsToUse || [],
+        apiEvents: eventsData || [],
+        isHistoricalData: true,
+      };
+    }
+    
+    // Active record: extend to future for real-time monitoring
     const futureExtension = now + 6 * 60 * 60 * 1000;
     const calculatedEndTime = maxTime + 60 * 60 * 1000;
     
@@ -88,6 +121,7 @@ export function useTimelineData({
       events,
       medications: medsToUse || [],
       apiEvents: eventsData || [],
+      isHistoricalData: false,
     };
   }, [vitalsData, eventsData, medicationsData, isPacuMode, filteredVitalsData, filteredMedicationsData]);
 }
