@@ -565,6 +565,14 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
   closedAt: timestamp("closed_at"),
   closedBy: varchar("closed_by").references(() => users.id),
   
+  // Record locking - prevents edits after PACU End until explicitly unlocked
+  isLocked: boolean("is_locked").default(false).notNull(),
+  lockedAt: timestamp("locked_at"),
+  lockedBy: varchar("locked_by").references(() => users.id),
+  unlockedAt: timestamp("unlocked_at"),
+  unlockedBy: varchar("unlocked_by").references(() => users.id),
+  unlockReason: text("unlock_reason"),
+  
   // WHO Checklists (stored as JSONB for flexibility)
   signInData: jsonb("sign_in_data").$type<{
     checklist?: Record<string, boolean>;
@@ -1312,7 +1320,7 @@ export const auditTrail = pgTable("audit_trail", {
   recordType: varchar("record_type").notNull(), // anesthesia_record, vitals_snapshot, medication, etc.
   recordId: varchar("record_id").notNull(), // ID of the record being changed
   
-  action: varchar("action", { enum: ["create", "update", "delete", "amend"] }).notNull(),
+  action: varchar("action", { enum: ["create", "update", "delete", "amend", "lock", "unlock"] }).notNull(),
   userId: varchar("user_id").notNull().references(() => users.id),
   timestamp: timestamp("timestamp").defaultNow().notNull(),
   
