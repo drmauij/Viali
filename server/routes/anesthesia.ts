@@ -2631,6 +2631,8 @@ router.post('/api/anesthesia/ventilation/bulk', isAuthenticated, requireWriteAcc
     res.status(201).json(updatedSnapshot);
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.error("[VENTILATION-BULK] Zod validation error:", JSON.stringify(error.errors, null, 2));
+      console.error("[VENTILATION-BULK] Request body was:", JSON.stringify(req.body, null, 2));
       return res.status(400).json({ message: "Invalid data", errors: error.errors });
     }
     console.error("Error adding bulk ventilation parameters:", error);

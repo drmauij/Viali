@@ -90,16 +90,21 @@ export function VentilationBulkDialog({
         // If existing params are provided (editing), use those values
         if (pendingVentilationBulk.existingParams) {
           const params = pendingVentilationBulk.existingParams;
-          setBulkVentilationParams({
-            pip: params.pip !== undefined ? params.pip.toString() : "",
-            peep: params.peep !== undefined ? params.peep.toString() : "",
-            tidalVolume: params.tidalVolume !== undefined ? params.tidalVolume.toString() : "",
-            respiratoryRate: params.respiratoryRate !== undefined ? params.respiratoryRate.toString() : "",
-            fiO2: params.fio2 !== undefined ? params.fio2.toString() : "",
-            etCO2: params.etco2 !== undefined ? params.etco2.toString() : "",
-            minuteVolume: params.minuteVolume !== undefined ? params.minuteVolume.toString() : "",
-          });
-          return; // Skip default calculation when editing
+          // Check if at least one param has a value
+          const hasAnyValue = Object.values(params).some(v => v !== undefined);
+          if (hasAnyValue) {
+            setBulkVentilationParams({
+              pip: params.pip !== undefined ? params.pip.toString() : "",
+              peep: params.peep !== undefined ? params.peep.toString() : "",
+              tidalVolume: params.tidalVolume !== undefined ? params.tidalVolume.toString() : "",
+              respiratoryRate: params.respiratoryRate !== undefined ? params.respiratoryRate.toString() : "",
+              fiO2: params.fio2 !== undefined ? params.fio2.toString() : "",
+              etCO2: params.etco2 !== undefined ? params.etco2.toString() : "",
+              minuteVolume: params.minuteVolume !== undefined ? params.minuteVolume.toString() : "",
+            });
+            return; // Skip default calculation when editing with actual values
+          }
+          // If no values found at timestamp, fall through to defaults
         }
       }
       
@@ -156,12 +161,14 @@ export function VentilationBulkDialog({
       }
       
       // Single API call to save everything atomically
-      await apiRequest('POST', '/api/anesthesia/ventilation/bulk', {
+      const requestData = {
         anesthesiaRecordId,
         timestamp,
         ventilationMode: modeValue,
         parameters,
-      });
+      };
+      console.log('[VENTILATION-BULK] Sending request:', requestData);
+      await apiRequest('POST', '/api/anesthesia/ventilation/bulk', requestData);
       
       // Manually invalidate the cache once at the end to prevent flickering
       await queryClient.invalidateQueries({ 
