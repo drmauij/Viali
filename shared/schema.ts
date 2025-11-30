@@ -1880,7 +1880,7 @@ export const deleteTOFPointSchema = z.object({
 export const addBulkVentilationSchema = z.object({
   anesthesiaRecordId: z.string(),
   timestamp: z.string(),
-  ventilationMode: z.string().optional(),
+  ventilationMode: z.string().nullable().optional(),
   parameters: z.object({
     peep: z.number().optional(),
     fio2: z.number().optional(),

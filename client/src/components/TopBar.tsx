@@ -1,7 +1,7 @@
 import { useTheme } from "./ThemeProvider";
 import { useLanguage } from "./LanguageProvider";
 import { useAuth } from "@/hooks/useAuth";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import ChangePasswordDialog from "./ChangePasswordDialog";
 import { useModule } from "@/contexts/ModuleContext";
@@ -32,6 +32,30 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showNotesPanel, setShowNotesPanel] = useState(false);
+  
+  const hospitalDropdownRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      // Close hospital dropdown if clicking outside
+      if (showHospitalDropdown && hospitalDropdownRef.current && 
+          !hospitalDropdownRef.current.contains(event.target as Node)) {
+        setShowHospitalDropdown(false);
+      }
+      // Close user menu if clicking outside
+      if (showUserMenu && userMenuRef.current && 
+          !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showHospitalDropdown, showUserMenu]);
 
   const getInitials = (firstName?: string | null, lastName?: string | null) => {
     if (!firstName && !lastName) return "U";
@@ -58,7 +82,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
           <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
             <i className="fas fa-hospital text-lg text-primary-foreground"></i>
           </div>
-          <div className="relative">
+          <div className="relative" ref={hospitalDropdownRef}>
             <button
               className="flex items-center gap-2"
               onClick={() => setShowHospitalDropdown(!showHospitalDropdown)}
@@ -108,7 +132,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
             <StickyNote className="w-5 h-5 text-foreground" />
           </button>
 
-          <div className="relative">
+          <div className="relative" ref={userMenuRef}>
             {/* User Menu Button */}
             <button
               className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-semibold text-sm hover:opacity-90 transition-opacity"
