@@ -78,12 +78,12 @@ export function useAddVitalPoint(anesthesiaRecordId: string | undefined) {
       );
     },
     onMutate: async (newPoint) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({
-        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
-      });
+      // NOTE: Removed cancelQueries to prevent race conditions between 
+      // different vital type mutations (HR, BP, SpO2).
+      // Optimistic updates will still work, and any in-flight refetches
+      // will be merged with server state on completion.
 
-      // Snapshot previous value
+      // Snapshot previous value for rollback
       const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
         `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
       ]);
@@ -150,9 +150,8 @@ export function useAddBPPoint(anesthesiaRecordId: string | undefined) {
       );
     },
     onMutate: async (newPoint) => {
-      await queryClient.cancelQueries({
-        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
-      });
+      // NOTE: Removed cancelQueries to prevent race conditions between 
+      // different vital type mutations (HR, BP, SpO2).
 
       const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
         `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
@@ -218,9 +217,7 @@ export function useUpdateVitalPoint(anesthesiaRecordId: string | undefined) {
       );
     },
     onMutate: async (updates) => {
-      await queryClient.cancelQueries({
-        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
-      });
+      // NOTE: Removed cancelQueries to prevent race conditions
 
       const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
         `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
@@ -296,9 +293,7 @@ export function useUpdateBPPoint(anesthesiaRecordId: string | undefined) {
       );
     },
     onMutate: async (updates) => {
-      await queryClient.cancelQueries({
-        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
-      });
+      // NOTE: Removed cancelQueries to prevent race conditions
 
       const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
         `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
@@ -361,9 +356,7 @@ export function useDeleteVitalPoint(anesthesiaRecordId: string | undefined) {
       );
     },
     onMutate: async (pointId) => {
-      await queryClient.cancelQueries({
-        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
-      });
+      // NOTE: Removed cancelQueries to prevent race conditions
 
       const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
         `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
@@ -428,9 +421,7 @@ export function useAddTOFPoint(anesthesiaRecordId: string | undefined) {
       );
     },
     onMutate: async (newPoint) => {
-      await queryClient.cancelQueries({
-        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
-      });
+      // NOTE: Removed cancelQueries to prevent race conditions
 
       const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
         `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
@@ -496,9 +487,7 @@ export function useUpdateTOFPoint(anesthesiaRecordId: string | undefined) {
       );
     },
     onMutate: async (updates) => {
-      await queryClient.cancelQueries({
-        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
-      });
+      // NOTE: Removed cancelQueries to prevent race conditions
 
       const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
         `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
@@ -559,9 +548,7 @@ export function useDeleteTOFPoint(anesthesiaRecordId: string | undefined) {
       );
     },
     onMutate: async (pointId) => {
-      await queryClient.cancelQueries({
-        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
-      });
+      // NOTE: Removed cancelQueries to prevent race conditions
 
       const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
         `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
