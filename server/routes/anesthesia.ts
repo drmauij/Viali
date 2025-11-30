@@ -1580,6 +1580,83 @@ router.post('/api/anesthesia/records/:id/amend', isAuthenticated, requireWriteAc
   }
 });
 
+router.post('/api/anesthesia/records/:id/lock', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const record = await storage.getAnesthesiaRecordById(id);
+    
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const surgery = await storage.getSurgery(record.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    if (record.isLocked) {
+      return res.status(400).json({ message: "Record is already locked" });
+    }
+
+    const lockedRecord = await storage.lockAnesthesiaRecord(id, userId);
+    
+    res.json(lockedRecord);
+  } catch (error) {
+    console.error("Error locking anesthesia record:", error);
+    res.status(500).json({ message: "Failed to lock anesthesia record" });
+  }
+});
+
+router.post('/api/anesthesia/records/:id/unlock', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const userId = req.user.id;
+
+    if (!reason || typeof reason !== 'string' || reason.trim().length === 0) {
+      return res.status(400).json({ message: "Reason is required for unlocking a record" });
+    }
+
+    const record = await storage.getAnesthesiaRecordById(id);
+    
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const surgery = await storage.getSurgery(record.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    if (!record.isLocked) {
+      return res.status(400).json({ message: "Record is not locked" });
+    }
+
+    const unlockedRecord = await storage.unlockAnesthesiaRecord(id, userId, reason.trim());
+    
+    res.json(unlockedRecord);
+  } catch (error) {
+    console.error("Error unlocking anesthesia record:", error);
+    res.status(500).json({ message: "Failed to unlock anesthesia record" });
+  }
+});
+
 router.get('/api/anesthesia/pacu/:hospitalId', isAuthenticated, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;

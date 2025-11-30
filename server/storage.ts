@@ -308,6 +308,8 @@ export interface IStorage {
   updateAnesthesiaRecord(id: string, updates: Partial<AnesthesiaRecord>): Promise<AnesthesiaRecord>;
   closeAnesthesiaRecord(id: string, closedBy: string): Promise<AnesthesiaRecord>;
   amendAnesthesiaRecord(id: string, updates: Partial<AnesthesiaRecord>, reason: string, userId: string): Promise<AnesthesiaRecord>;
+  lockAnesthesiaRecord(id: string, userId: string): Promise<AnesthesiaRecord>;
+  unlockAnesthesiaRecord(id: string, userId: string, reason: string): Promise<AnesthesiaRecord>;
   getPacuPatients(hospitalId: string): Promise<Array<{
     anesthesiaRecordId: string;
     surgeryId: string;
@@ -1919,6 +1921,66 @@ export class DatabaseStorage implements IStorage {
       userId,
       oldValue: currentRecord,
       newValue: updated,
+      reason,
+    });
+
+    return updated;
+  }
+
+  async lockAnesthesiaRecord(id: string, userId: string): Promise<AnesthesiaRecord> {
+    const [currentRecord] = await db
+      .select()
+      .from(anesthesiaRecords)
+      .where(eq(anesthesiaRecords.id, id));
+
+    const [updated] = await db
+      .update(anesthesiaRecords)
+      .set({
+        isLocked: true,
+        lockedAt: new Date(),
+        lockedBy: userId,
+        updatedAt: new Date(),
+      })
+      .where(eq(anesthesiaRecords.id, id))
+      .returning();
+
+    await this.createAuditLog({
+      recordType: 'anesthesia_record',
+      recordId: id,
+      action: 'lock',
+      userId,
+      oldValue: { isLocked: currentRecord?.isLocked },
+      newValue: { isLocked: true },
+    });
+
+    return updated;
+  }
+
+  async unlockAnesthesiaRecord(id: string, userId: string, reason: string): Promise<AnesthesiaRecord> {
+    const [currentRecord] = await db
+      .select()
+      .from(anesthesiaRecords)
+      .where(eq(anesthesiaRecords.id, id));
+
+    const [updated] = await db
+      .update(anesthesiaRecords)
+      .set({
+        isLocked: false,
+        unlockedAt: new Date(),
+        unlockedBy: userId,
+        unlockReason: reason,
+        updatedAt: new Date(),
+      })
+      .where(eq(anesthesiaRecords.id, id))
+      .returning();
+
+    await this.createAuditLog({
+      recordType: 'anesthesia_record',
+      recordId: id,
+      action: 'unlock',
+      userId,
+      oldValue: { isLocked: currentRecord?.isLocked },
+      newValue: { isLocked: false },
       reason,
     });
 
