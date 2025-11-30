@@ -1860,7 +1860,7 @@ router.get('/api/anesthesia/vitals/snapshot/:recordId', isAuthenticated, async (
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const snapshot = await storage.getOrCreateClinicalSnapshot(recordId);
+    const snapshot = await storage.getClinicalSnapshot(recordId);
     res.json(snapshot);
   } catch (error) {
     console.error("Error getting clinical snapshot:", error);
