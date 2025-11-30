@@ -6090,8 +6090,14 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       {/* VentilationEntryLane - Interactive layer with vertical lines for parameter entry */}
       {(() => {
         const entryLane = swimlanePositions.find(l => l.id === "ventilation-entry");
-        console.log('[VENT-ENTRY-RENDER] Entry lane:', entryLane ? 'found' : 'not found', 'contentBounds:', contentBounds ? `${contentBounds.start}-${contentBounds.end}` : 'null', 'timestamps:', ventilationEntryTimestamps.length);
-        if (!entryLane || !contentBounds) return null;
+        
+        // Validate contentBounds has proper numeric timestamps
+        const validContentBounds = contentBounds && 
+          isFinite(contentBounds.start) && 
+          isFinite(contentBounds.end) &&
+          contentBounds.end > contentBounds.start;
+          
+        if (!entryLane || !validContentBounds) return null;
         
         return (
           <div
@@ -6108,8 +6114,27 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
               const rect = e.currentTarget.getBoundingClientRect();
               const clickX = e.clientX - rect.left;
               const chartWidth = rect.width;
+              
+              // Guard against division by zero or invalid calculations
+              if (chartWidth <= 0 || !contentBounds) {
+                setVentilationBulkHoverInfo(null);
+                return;
+              }
+              
               const timeRange = contentBounds.end - contentBounds.start;
+              if (timeRange <= 0 || !isFinite(timeRange)) {
+                setVentilationBulkHoverInfo(null);
+                return;
+              }
+              
               const hoveredTime = contentBounds.start + (clickX / chartWidth) * timeRange;
+              
+              // Validate computed time is a valid finite number
+              if (!isFinite(hoveredTime) || isNaN(hoveredTime)) {
+                setVentilationBulkHoverInfo(null);
+                return;
+              }
+              
               setVentilationBulkHoverInfo({
                 x: e.clientX,
                 y: e.clientY,
@@ -6246,7 +6271,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       })()}
 
       {/* Tooltip for ventilation parameter bulk entry */}
-      {ventilationBulkHoverInfo && !isTouchDevice && (
+      {ventilationBulkHoverInfo && !isTouchDevice && isFinite(ventilationBulkHoverInfo.time) && (
         <div
           className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
           style={{
@@ -6258,7 +6283,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             {t('anesthesia.timeline.clickBulkEntry', 'Click for bulk entry/edit')}
           </div>
           <div className="text-xs text-muted-foreground">
-            {formatTime(new Date(ventilationBulkHoverInfo.time))}
+            {new Date(ventilationBulkHoverInfo.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
           </div>
         </div>
       )}
