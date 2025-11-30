@@ -1342,8 +1342,23 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
 
   // State for ventilation bulk entry dialog
   const [showVentilationBulkDialog, setShowVentilationBulkDialog] = useState(false);
-  const [pendingVentilationBulk, setPendingVentilationBulk] = useState<{ time: number } | null>(null);
+  const [pendingVentilationBulk, setPendingVentilationBulk] = useState<{ 
+    time: number;
+    existingParams?: {
+      pip?: number;
+      peep?: number;
+      tidalVolume?: number;
+      respiratoryRate?: number;
+      fio2?: number;
+      etco2?: number;
+      minuteVolume?: number;
+    };
+  } | null>(null);
   const [ventilationBulkHoverInfo, setVentilationBulkHoverInfo] = useState<{ x: number; y: number; time: number } | null>(null);
+  
+  // State for ventilation entry lane (params-only mode, no mode selection)
+  const [ventilationEntrySkipMode, setVentilationEntrySkipMode] = useState(false);
+  const [editingVentilationEntryTimestamp, setEditingVentilationEntryTimestamp] = useState<number | null>(null);
   
   // State for output bulk entry dialog
   const [showOutputBulkDialog, setShowOutputBulkDialog] = useState(false);
@@ -2004,6 +2019,15 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
 
       // Insert ventilation children after Ventilation parent (if not collapsed)
       if (lane.id === "ventilation" && !collapsedSwimlanes.has("ventilation")) {
+        // Add the Parameter Entry Lane first (for quick bulk entry of ventilation values)
+        lanes.push({
+          id: "ventilation-entry",
+          label: t("anesthesia.timeline.ventParams", "Vent.-Parameter"),
+          height: 24,
+          ...ventColor,
+          hierarchyLevel: 'entry',
+        });
+        
         ventilationParams.forEach((paramName, index) => {
           lanes.push({
             id: `ventilation-${index}`,
@@ -2060,6 +2084,28 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   };
 
   const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [collapsedSwimlanes, swimlanes, administrationGroups, itemsByAdminGroup, swimlaneTrackCounts]);
+
+  // Compute unique timestamps from ventilation parameter data for the entry lane markers
+  const ventilationEntryTimestamps = useMemo(() => {
+    const timestampSet = new Set<number>();
+    
+    // Iterate over all ventilation parameters and collect unique timestamps
+    if (ventilationData && typeof ventilationData === 'object') {
+      Object.values(ventilationData).forEach((points: any) => {
+        if (Array.isArray(points)) {
+          points.forEach((point) => {
+            // Format: [timestamp, value]
+            if (Array.isArray(point) && point.length >= 2) {
+              timestampSet.add(point[0]);
+            }
+          });
+        }
+      });
+    }
+    
+    // Sort timestamps in ascending order
+    return Array.from(timestampSet).sort((a, b) => a - b);
+  }, [ventilationData]);
 
   // Handle editing vital values
   const handleSaveEdit = async (newValue: number) => {
@@ -6004,6 +6050,149 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         }}
       />
 
+      {/* VentilationEntryLane - Interactive layer with vertical lines for parameter entry */}
+      {(() => {
+        const entryLane = swimlanePositions.find(l => l.id === "ventilation-entry");
+        if (!entryLane || !xScale || !contentBounds) return null;
+        
+        return (
+          <div
+            className="absolute pointer-events-auto"
+            style={{
+              left: '200px',
+              right: '10px',
+              top: `${entryLane.top}px`,
+              height: `${entryLane.height}px`,
+              zIndex: 30,
+            }}
+            onClick={(e) => {
+              if (!canWrite) {
+                toast({
+                  title: t('common.recordLocked', 'Record locked'),
+                  description: t('common.cannotModifyLocked', 'Cannot modify a locked record'),
+                  variant: "destructive",
+                });
+                return;
+              }
+              
+              // Calculate clicked time position
+              const rect = e.currentTarget.getBoundingClientRect();
+              const clickX = e.clientX - rect.left;
+              const chartWidth = rect.width;
+              const timeRange = contentBounds.maxTime - contentBounds.minTime;
+              const clickedTime = contentBounds.minTime + (clickX / chartWidth) * timeRange;
+              
+              // Check if clicked near an existing marker (within 2 minutes = 120000ms)
+              const CLICK_THRESHOLD = 120000;
+              const nearbyTimestamp = ventilationEntryTimestamps.find(
+                ts => Math.abs(ts - clickedTime) < CLICK_THRESHOLD
+              );
+              
+              if (nearbyTimestamp) {
+                // Edit existing entry - gather existing parameter values
+                const existingParams: {
+                  pip?: number;
+                  peep?: number;
+                  tidalVolume?: number;
+                  respiratoryRate?: number;
+                  fio2?: number;
+                  etco2?: number;
+                  minuteVolume?: number;
+                } = {};
+                
+                // Find values at or near this timestamp (within 5 seconds tolerance)
+                const findValue = (data: Array<[number, number]> | undefined, ts: number): number | undefined => {
+                  if (!data) return undefined;
+                  const match = data.find(([t]) => Math.abs(t - ts) < 5000);
+                  return match ? match[1] : undefined;
+                };
+                
+                existingParams.pip = findValue(ventilationData.pip, nearbyTimestamp);
+                existingParams.peep = findValue(ventilationData.peep, nearbyTimestamp);
+                existingParams.tidalVolume = findValue(ventilationData.tidalVolume, nearbyTimestamp);
+                existingParams.respiratoryRate = findValue(ventilationData.respiratoryRate, nearbyTimestamp);
+                existingParams.fio2 = findValue(ventilationData.fio2, nearbyTimestamp);
+                existingParams.etco2 = findValue(ventilationData.etCO2, nearbyTimestamp);
+                
+                setEditingVentilationEntryTimestamp(nearbyTimestamp);
+                setPendingVentilationBulk({ time: nearbyTimestamp, existingParams });
+                setVentilationEntrySkipMode(true);
+                setShowVentilationBulkDialog(true);
+              } else {
+                // Add new entry at current time (skip mode selection)
+                setEditingVentilationEntryTimestamp(null);
+                setPendingVentilationBulk({ time: currentTime });
+                setVentilationEntrySkipMode(true);
+                setShowVentilationBulkDialog(true);
+              }
+            }}
+            data-testid="ventilation-entry-lane"
+          >
+            {/* Render vertical lines at each ventilation timestamp */}
+            {ventilationEntryTimestamps.map((timestamp) => {
+              const chartWidth = contentBounds ? (contentBounds.maxTime - contentBounds.minTime) : 1;
+              const leftPercent = ((timestamp - (contentBounds?.minTime || 0)) / chartWidth) * 100;
+              
+              // Skip if outside visible range
+              if (leftPercent < 0 || leftPercent > 100) return null;
+              
+              return (
+                <div
+                  key={`vent-entry-${timestamp}`}
+                  className="absolute top-0 bottom-0 w-[2px] bg-amber-600 dark:bg-amber-400 cursor-pointer hover:w-[4px] hover:bg-amber-500 transition-all"
+                  style={{
+                    left: `${leftPercent}%`,
+                    transform: 'translateX(-50%)',
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!canWrite) {
+                      toast({
+                        title: t('common.recordLocked', 'Record locked'),
+                        description: t('common.cannotModifyLocked', 'Cannot modify a locked record'),
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    // Edit this specific timestamp entry - gather existing parameter values
+                    const existingParams: {
+                      pip?: number;
+                      peep?: number;
+                      tidalVolume?: number;
+                      respiratoryRate?: number;
+                      fio2?: number;
+                      etco2?: number;
+                      minuteVolume?: number;
+                    } = {};
+                    
+                    // Find values at or near this timestamp (within 5 seconds tolerance)
+                    const findValue = (data: Array<[number, number]> | undefined, ts: number): number | undefined => {
+                      if (!data) return undefined;
+                      const match = data.find(([t]) => Math.abs(t - ts) < 5000);
+                      return match ? match[1] : undefined;
+                    };
+                    
+                    existingParams.pip = findValue(ventilationData.pip, timestamp);
+                    existingParams.peep = findValue(ventilationData.peep, timestamp);
+                    existingParams.tidalVolume = findValue(ventilationData.tidalVolume, timestamp);
+                    existingParams.respiratoryRate = findValue(ventilationData.respiratoryRate, timestamp);
+                    existingParams.fio2 = findValue(ventilationData.fio2, timestamp);
+                    existingParams.etco2 = findValue(ventilationData.etCO2, timestamp);
+                    
+                    setEditingVentilationEntryTimestamp(timestamp);
+                    setPendingVentilationBulk({ time: timestamp, existingParams });
+                    setVentilationEntrySkipMode(true);
+                    setShowVentilationBulkDialog(true);
+                  }}
+                  data-testid={`vent-entry-marker-${timestamp}`}
+                  title={new Date(timestamp).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                />
+              );
+            })}
+          </div>
+        );
+      })()}
+
       {/* Tooltip for administration group configuration */}
       {adminGroupHoverInfo && !isTouchDevice && (
         <div
@@ -7707,15 +7896,24 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       {/* Ventilation Bulk Entry Dialog */}
       <VentilationBulkDialog
         open={showVentilationBulkDialog}
-        onOpenChange={setShowVentilationBulkDialog}
+        onOpenChange={(open) => {
+          setShowVentilationBulkDialog(open);
+          if (!open) {
+            setVentilationEntrySkipMode(false);
+            setEditingVentilationEntryTimestamp(null);
+          }
+        }}
         anesthesiaRecordId={anesthesiaRecordId}
         pendingVentilationBulk={pendingVentilationBulk}
         ventilationModeData={ventilationModeData}
         patientWeight={patientWeight}
         onVentilationBulkCreated={() => {
           setPendingVentilationBulk(null);
+          setVentilationEntrySkipMode(false);
+          setEditingVentilationEntryTimestamp(null);
         }}
         readOnly={!canWrite}
+        skipModeSelection={ventilationEntrySkipMode}
       />
 
       {/* Output Bulk Entry Dialog */}
