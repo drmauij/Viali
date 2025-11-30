@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useEffect, useLayoutEffect, useCallback, forwardRef, useImperativeHandle } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil, StopCircle, PlayCircle, Droplet, Loader2, ArrowUpDown, GripVertical, Check, Copy } from "lucide-react";
+import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil, StopCircle, PlayCircle, Droplet, Loader2, ArrowUpDown, GripVertical, Check, Copy, Lock, LockOpen } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -549,6 +549,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       return next;
     });
   };
+  
+  // State for unlock dialog
+  const [showUnlockDialog, setShowUnlockDialog] = useState(false);
+  const [unlockReason, setUnlockReason] = useState('');
+  
+  // Extract lock status from anesthesia record
+  const isRecordLocked = anesthesiaRecord?.isLocked ?? false;
   
   // State for medication reorder mode
   const [isReorderMode, setIsReorderMode] = useState(false);
@@ -5111,6 +5118,45 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onVoiceCommand={handleVoiceCommand}
       />
       
+      {/* Record Lock Status Indicator - shown when record is locked */}
+      {isRecordLocked && (
+        <div className="sticky top-8 z-40 flex justify-end pr-4 -mt-1 -mb-1">
+          <button
+            onClick={() => setShowUnlockDialog(true)}
+            className="flex items-center gap-1.5 bg-amber-500/90 text-white px-3 py-1 rounded-full shadow-lg hover:bg-amber-600 transition-colors text-sm font-medium"
+            data-testid="button-record-locked-indicator"
+            title={t('anesthesia.record.clickToUnlock', 'Click to unlock this record for editing')}
+          >
+            <Lock className="w-4 h-4" />
+            <span>{t('anesthesia.record.locked', 'Locked')}</span>
+          </button>
+        </div>
+      )}
+      
+      {/* Re-Lock button when record is unlocked but was previously locked (has lockedAt) */}
+      {!isRecordLocked && anesthesiaRecord?.lockedAt && (
+        <div className="sticky top-8 z-40 flex justify-end pr-4 -mt-1 -mb-1">
+          <button
+            onClick={() => {
+              if (anesthesiaRecordId) {
+                lockRecordMutation.mutate(anesthesiaRecordId);
+              }
+            }}
+            disabled={lockRecordMutation.isPending}
+            className="flex items-center gap-1.5 bg-green-500/90 text-white px-3 py-1 rounded-full shadow-lg hover:bg-green-600 transition-colors text-sm font-medium disabled:opacity-50"
+            data-testid="button-record-unlocked-indicator"
+            title={t('anesthesia.record.clickToLock', 'Click to lock this record')}
+          >
+            {lockRecordMutation.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <LockOpen className="w-4 h-4" />
+            )}
+            <span>{t('anesthesia.record.unlocked', 'Unlocked')}</span>
+          </button>
+        </div>
+      )}
+      
       {/* Swimlane backgrounds - explicit height matching vertical lines extent */}
       <div className="absolute left-0 top-0 right-0 pointer-events-none z-0" style={{ height: `${backgroundsHeight}px` }}>
         {swimlanePositions.map((lane, index) => {
@@ -7684,6 +7730,64 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           setShowEventsTimesPanel(false);
         }}
       />
+
+      {/* Unlock Record Dialog */}
+      <Dialog open={showUnlockDialog} onOpenChange={(open) => {
+        setShowUnlockDialog(open);
+        if (!open) setUnlockReason('');
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('anesthesia.record.unlockTitle', 'Unlock Anesthesia Record')}</DialogTitle>
+            <DialogDescription>
+              {t('anesthesia.record.unlockDescription', 'This record is locked. Please provide a reason for unlocking it. This action will be logged for audit purposes.')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="unlock-reason">{t('anesthesia.record.unlockReason', 'Reason for Unlocking')}</Label>
+              <Textarea
+                id="unlock-reason"
+                value={unlockReason}
+                onChange={(e) => setUnlockReason(e.target.value)}
+                placeholder={t('anesthesia.record.unlockReasonPlaceholder', 'Enter the reason for unlocking this record...')}
+                className="min-h-[100px]"
+                data-testid="input-unlock-reason"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowUnlockDialog(false);
+                setUnlockReason('');
+              }}
+              data-testid="button-cancel-unlock"
+            >
+              {t('common.cancel', 'Cancel')}
+            </Button>
+            <Button
+              onClick={() => {
+                if (anesthesiaRecordId && unlockReason.trim()) {
+                  unlockRecordMutation.mutate({ recordId: anesthesiaRecordId, reason: unlockReason.trim() });
+                  setShowUnlockDialog(false);
+                  setUnlockReason('');
+                }
+              }}
+              disabled={!unlockReason.trim() || unlockRecordMutation.isPending}
+              data-testid="button-confirm-unlock"
+            >
+              {unlockRecordMutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <LockOpen className="w-4 h-4 mr-2" />
+              )}
+              {t('anesthesia.record.unlock', 'Unlock Record')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Friendly reminder dialog for inventory commit after X2 */}
       <AlertDialog open={showCommitReminder} onOpenChange={setShowCommitReminder}>
